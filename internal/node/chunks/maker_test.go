@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -75,7 +75,7 @@ func makerOver(t *testing.T, fake *fakeFFmpeg) (*Maker, *prepared.Shelf, string)
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	return NewMaker(fake, shelf, directory, prepare.EncoderX264), shelf, directory
+	return NewMaker(fake, shelf, directory, encode.EncoderX264), shelf, directory
 }
 
 // storedDecodeTime is the first decode time of chunk n in the store.
@@ -139,7 +139,7 @@ func TestMake_PutsEachChunkAtItsTimeAsFFmpegFinishesIt(t *testing.T) {
 // run's start less the encoder's priming (slow-links.md §10).
 func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 	t.Parallel()
-	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.PrepareAudio{ChannelCount: 2}})
+	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{ChannelCount: 2}})
 	command.SoundLeadInMs = 88_839
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{

@@ -55,7 +55,7 @@ func remainingRunDirs(t *testing.T, shelf *Shelf) []string {
 	}
 	dirs := make([]string, 0, len(runs))
 	for _, each := range runs {
-		dirs = append(dirs, each.renditionDir)
+		dirs = append(dirs, each.runDir)
 	}
 	slices.Sort(dirs)
 	return dirs
@@ -183,7 +183,7 @@ func TestEvict_NeverRemovesOneBeingWatched(t *testing.T) {
 	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"2/remux/bbbbbbbbbbbbbbbb"}) {
 		t.Errorf("left %v, want only the one being watched", got)
 	}
-	if !strings.Contains(logged.String(), "kept prepared renditions being watched") ||
+	if !strings.Contains(logged.String(), "kept prepared runs being watched") ||
 		!strings.Contains(logged.String(), "2/remux/bbbbbbbbbbbbbbbb") {
 		t.Errorf("the log does not name the rendition kept for being watched:\n%s", logged.String())
 	}

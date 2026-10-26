@@ -117,3 +117,12 @@ describe("a playback the server no longer has", () => {
     expect(text).not.toContain("removed");
   });
 });
+
+describe("a play of a file that cannot be converted (D344 §5)", () => {
+  it("says the file cannot be converted for this device, never the server's message", () => {
+    const refusal = new ApiProblem({ code: "cannot_convert", message: "a note for developers" });
+    const text = problemText(t, refusal);
+    expect(text).toContain("can't be converted for this device");
+    expect(text).not.toContain("a note for developers");
+  });
+});

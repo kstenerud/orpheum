@@ -62,7 +62,7 @@ type Status struct {
 	// SentAt is when the node sent it, by the node's clock, in Unix milliseconds.
 	SentAt int64 `json:"sentAt"`
 	// PreparedUsage is what the node's prepared directory holds against its budget, absent when the
-	// node prepares nothing (D217 §5).
+	// node has none (D217 §5).
 	PreparedUsage *PreparedUsage `json:"preparedUsage,omitempty"`
 	// Disks are the filesystems the node's roots and prepared directory are on (D225 §3).
 	Disks []Disk `json:"disks,omitempty"`

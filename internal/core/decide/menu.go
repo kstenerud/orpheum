@@ -43,7 +43,7 @@ const (
 )
 
 // Container is a container a client can play as it is (D217 §1). It is asked only of the
-// original: a prepared rendition is always fMP4 (D21).
+// original: a converted film's chunks are always fMP4 (D21).
 type Container string
 
 // The containers.

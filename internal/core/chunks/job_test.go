@@ -100,7 +100,7 @@ func TestHandleMakeChunks_SendsTheRunOfTheFilmsPictureAndTakesItsChunksAsTheyAre
 	if runs := queue.runs(t, service); len(runs) != 1 || runs[0].firstChunk != 6 {
 		t.Errorf("the runs asked for after progress = %+v; want one from chunk 6", runs)
 	}
-	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.PrepareDone, LastChunk: 5})
+	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.RunDone, LastChunk: 5})
 	if err := testutil.Receive(t, ended, "the run's job to end"); err != nil {
 		t.Errorf("the run ended %v; want done", err)
 	}
@@ -112,7 +112,7 @@ func TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix(t *t
 	gridID := mustGrid(t, fixture.service).ID()
 	ended := fixture.start(t, 8, testRun{"sound0-boost-96k", gridID, runArgs{FirstChunk: 2, LastChunk: 2}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	want := nodeproto.PrepareAudio{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: -3.5}
+	want := nodeproto.SoundTrack{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: -3.5}
 	if sent == nil || sent.Stream.Sound == nil || *sent.Stream.Sound != want || !sent.Stream.IsBoosted ||
 		sent.Stream.SoundKbps != 96 || sent.SoundLeadInMs != 10_000 ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
@@ -142,7 +142,7 @@ func TestHandleMakeChunks_ARunOnAGridTheFilmNoLongerHasEndsForGood(t *testing.T)
 	}
 }
 
-func TestHandleMakeChunks_EachEndIsTakenAsAPreparesIs(t *testing.T) {
+func TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays(t *testing.T) {
 	t.Parallel()
 	stall := &nodeproto.Stall{Cause: nodeproto.StallStoodStill, LastPositionMs: 4000, WithoutAdvanceMs: 180_000}
 	for what, check := range map[string]struct {
@@ -150,16 +150,16 @@ func TestHandleMakeChunks_EachEndIsTakenAsAPreparesIs(t *testing.T) {
 		isWant func(err error) bool
 	}{
 		"FFmpeg failing fails the job": {
-			nodeproto.MakeChunksReport{State: nodeproto.PrepareFailed, LastChunk: -1, Failure: "ffmpeg: bad"},
+			nodeproto.MakeChunksReport{State: nodeproto.RunFailed, LastChunk: -1, Failure: "ffmpeg: bad"},
 			func(err error) bool { return err != nil && strings.Contains(err.Error(), "ffmpeg: bad") },
 		},
 		"a stall is tried again": {
-			nodeproto.MakeChunksReport{State: nodeproto.PrepareStalled, LastChunk: 3, Stall: stall},
+			nodeproto.MakeChunksReport{State: nodeproto.RunStalled, LastChunk: 3, Stall: stall},
 			func(err error) bool { return err != nil && strings.HasPrefix(err.Error(), "stalled: ") },
 		},
 		"a full disk parks it on the node's prepared directory": {
 			nodeproto.MakeChunksReport{
-				State: nodeproto.PrepareRefused, LastChunk: -1, Refusal: "full", RefusalCode: nodeproto.RefusedNoRoom,
+				State: nodeproto.RunRefused, LastChunk: -1, Refusal: "full", RefusalCode: nodeproto.RefusedNoRoom,
 			},
 			func(err error) bool {
 				parking, isParked := jobqueue.ParkingOf(err)
@@ -167,7 +167,7 @@ func TestHandleMakeChunks_EachEndIsTakenAsAPreparesIs(t *testing.T) {
 			},
 		},
 		"another refusal is tried again": {
-			nodeproto.MakeChunksReport{State: nodeproto.PrepareRefused, LastChunk: -1, Refusal: "not the one named"},
+			nodeproto.MakeChunksReport{State: nodeproto.RunRefused, LastChunk: -1, Refusal: "not the one named"},
 			func(err error) bool {
 				_, isParked := jobqueue.ParkingOf(err)
 				return err != nil && !isParked && strings.Contains(err.Error(), "not the one named")
@@ -319,7 +319,7 @@ func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t 
 	if service.runs.hasRun(dir) {
 		t.Fatal("the evicted run's progress took it as running again")
 	}
-	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.PrepareDone, LastChunk: 3})
+	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.RunDone, LastChunk: 3})
 	service.runs.mutex.Lock()
 	defer service.runs.mutex.Unlock()
 	if len(service.runs.cancelledJobs) != 0 {

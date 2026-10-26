@@ -49,8 +49,8 @@ func readThroughOf(root string) nodeproto.Command {
 func TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindReadThrough, assignedPrepare(make(answers, 8), nil))
-	bench.exchanges.Handle(jobs.KindExamine, assignedPrepare(make(answers, 8), nil))
+	bench.exchanges.Handle(jobs.KindReadThrough, assignedRun(make(answers, 8), nil))
+	bench.exchanges.Handle(jobs.KindExamine, assignedRun(make(answers, 8), nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity: nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
 		Devices: nodeproto.Devices{
@@ -115,7 +115,7 @@ func TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk(t *testin
 func TestAssign_APersonsReadThroughGoesAheadOfAScansQuickPass(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindReadThrough, assignedPrepare(make(answers, 8), nil))
+	bench.exchanges.Handle(jobs.KindReadThrough, assignedRun(make(answers, 8), nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},

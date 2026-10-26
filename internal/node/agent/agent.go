@@ -56,19 +56,16 @@ type Artworker interface {
 type Workers struct {
 	Scanner   Scanner
 	Artworker Artworker
-	// Preparer is nil on a node that does not prepare.
-	Preparer Preparer
 	// Subtitler is nil on a node that does not extract subtitles.
 	Subtitler Subtitler
 	// ThroughReader is nil on a node that does not read videos through.
 	ThroughReader ThroughReader
 	// ChunkMaker is nil on a node that does not make chunks.
 	ChunkMaker ChunkMaker
-	// PreparedShelf keeps the prepared directory within its budget; nil on a node that does not
-	// prepare.
+	// PreparedShelf keeps the prepared directory within its budget; nil on a node that has none.
 	PreparedShelf PreparedShelf
-	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
-	// a node that does not prepare.
+	// PreparedDirectory is where chunks are made, whose disk the status reports; empty on a node
+	// that has none.
 	PreparedDirectory string
 	// EndedWorkKept is how long the node remembers an attempt whose result the core acknowledged,
 	// so the same command sent again is not run again: node.ended_work_kept_hours.
@@ -130,14 +127,12 @@ type Watcher interface {
 	States() []nodeproto.RootWatch
 }
 
-// PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
-// the renditions it holds by their manifests for the hello, and evicts those the core does not keep
-// (D238 §2).
+// PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It evicts
+// the makings that never finished (D238 §2).
 type PreparedShelf interface {
 	Evict(ctx context.Context) (prepared.Usage, error)
 	LastUsage() (prepared.Usage, bool)
-	Inventory() ([]nodeproto.RenditionManifest, error)
-	Reconcile(listed, kept []string) (evicted []string, err error)
+	EvictUnfinished() (evicted []string, err error)
 	// SetStoreTiers keeps how strongly the core's players want each chunk store kept (D309 §8).
 	SetStoreTiers(tiers map[string]nodeproto.KeepTier)
 }
@@ -176,7 +171,7 @@ type Agent struct {
 	// statusEvery is how often the core last said to post the status, which a change is set against;
 	// starts at nodeproto.StartingStatusEverySeconds.
 	statusEvery atomic.Int64
-	// progressEverySeconds is how often, at most, a running prepare tells the core how far it is, as
+	// progressEverySeconds is how often, at most, a running read-through tells the core how far it is, as
 	// the core last said (nodeproto.Tuning); starts at nodeproto.StartingProgressEverySeconds.
 	progressEverySeconds atomic.Int64
 
@@ -229,7 +224,7 @@ func (agent *Agent) takeTuning(ctx context.Context, tuning nodeproto.Tuning) {
 	}
 }
 
-// progressEvery is how often, at most, a running prepare tells the core how far it is.
+// progressEvery is how often, at most, a running read-through tells the core how far it is.
 func (agent *Agent) progressEvery() time.Duration {
 	return time.Duration(agent.progressEverySeconds.Load()) * time.Second
 }
@@ -265,7 +260,7 @@ func (agent *Agent) Run(ctx context.Context, tick <-chan time.Time) error {
 
 // session is one hello and everything until something fails. The work it is given runs on ctx,
 // the node's own lifetime, not the session's: a session that ends, the core gone or restarting,
-// stops no prepare, extraction, measurement or re-encode (D233 §2), and each posts its result when
+// stops no run of chunks, extraction, measurement or re-encode (D233 §2), and each posts its result when
 // a core takes it.
 func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	nodeCtx := ctx
@@ -275,7 +270,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 		return err
 	}
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID)
-	agent.evictUnkept(ctx, hello.Renditions, reply.KeptRenditionDirs)
+	agent.evictUnfinished(ctx)
 	agent.work.setReaderLimits(reply.DeviceReaderLimits)
 	agent.takeTuning(ctx, reply.Tuning)
 	agent.ended.saidHello()
@@ -313,8 +308,8 @@ func (agent *Agent) readStallWindow() time.Duration {
 	return defaultReadStallWindow
 }
 
-// helloNow is the node's hello with the devices its roots are on and the renditions its prepared
-// directory holds, now: a disk may have come or gone since the last.
+// helloNow is the node's hello with the devices its roots are on, now: a disk may have come or gone
+// since the last.
 func (agent *Agent) helloNow(ctx context.Context) nodeproto.Hello {
 	hello := agent.hello
 	if agent.workers.FindDevices != nil {
@@ -328,34 +323,21 @@ func (agent *Agent) helloNow(ctx context.Context) nodeproto.Hello {
 		agent.devices = devices
 		agent.mutex.Unlock()
 	}
-	if agent.workers.PreparedShelf == nil {
-		return hello
-	}
-	renditions, err := agent.workers.PreparedShelf.Inventory()
-	if err != nil {
-		// The core adopts none of them this time, and none is evicted for it.
-		agent.logger.WarnContext(ctx, "could not list the prepared renditions for the hello", "err", err)
-	}
-	hello.Renditions = renditions
 	return hello
 }
 
-// evictUnkept evicts the renditions the hello listed that the core's reply does not keep, and the
-// makings that never finished (D238 §2).
-func (agent *Agent) evictUnkept(ctx context.Context, listed []nodeproto.RenditionManifest, kept []string) {
+// evictUnfinished evicts the makings in the prepared directory that never finished, and anything
+// else in it that is not a store of chunks, as a whole-film prepare left (D238 §2, D344 §1).
+func (agent *Agent) evictUnfinished(ctx context.Context) {
 	if agent.workers.PreparedShelf == nil {
 		return
 	}
-	listedDirs := make([]string, 0, len(listed))
-	for _, manifest := range listed {
-		listedDirs = append(listedDirs, manifest.Prepare.RenditionDir)
-	}
-	evicted, err := agent.workers.PreparedShelf.Reconcile(listedDirs, kept)
+	evicted, err := agent.workers.PreparedShelf.EvictUnfinished()
 	if err != nil {
-		agent.logger.WarnContext(ctx, "could not evict the renditions the core does not keep", "err", err)
+		agent.logger.WarnContext(ctx, "could not evict the makings that never finished", "err", err)
 	}
 	if len(evicted) > 0 {
-		agent.logger.InfoContext(ctx, "evicted the renditions the core does not keep", "renditionDirs", evicted)
+		agent.logger.InfoContext(ctx, "evicted the makings that never finished", "runDirs", evicted)
 	}
 }
 
@@ -493,8 +475,6 @@ func (agent *Agent) workFor(
 	nodeCtx context.Context, nodeID int64, held attempt, command nodeproto.Command,
 ) (heldWork, bool) {
 	switch {
-	case command.Type == nodeproto.CommandPrepare && command.Prepare != nil:
-		return agent.prepareWork(nodeCtx, nodeID, held, *command.Prepare), true
 	case command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil:
 		return agent.subtitleWork(nodeCtx, nodeID, held, *command.ExtractSubtitle), true
 	case command.Type == nodeproto.CommandReadThrough && command.ReadThrough != nil:

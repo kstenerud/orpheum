@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -70,7 +69,7 @@ func (service *Service) StoreFileOf(
 	}
 	return StoreFile{
 		NodeID: film.file.NodeID, Target: nodeproto.PathBytesChunks + dir + "/" + name,
-		ContentType: renditions.ContentType(name),
+		ContentType: contentType(name),
 		fileID:      playback.FileID, kind: film.kind, stream: stream, storeDir: dir, isInit: isInit, chunk: chunk,
 		runFrom: runFrom, averageKbps: film.averageKbpsOf(stream), startMs: film.grid.StartsMs[chunk],
 	}, nil

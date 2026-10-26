@@ -338,7 +338,7 @@ func demotedKinds(t *testing.T, harness testHarness) []jobs.Kind {
 
 // A player asking for a text still being extracted is a person waiting for it, so its extraction
 // keeps play's priority while the player asks, and falls to the background only once it stops, as a
-// prepare does (D234 §3).
+// player's other play-driven work does (D234 §3).
 func TestSubtitles_APlayerAskingForTheTextKeepsItsExtractionWanted(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

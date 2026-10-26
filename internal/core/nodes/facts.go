@@ -90,7 +90,7 @@ func (service *Service) RootWatches(nodeID int64) map[string]nodeproto.RootWatch
 }
 
 // keepStatus keeps what a node's status says about it. A prepared directory whose disk is within
-// its limit, and keeps its floor of free space, again brings back the prepares parked on it for want
+// its limit, and keeps its floor of free space, again brings back the runs parked on it for want
 // of room (D231 §5).
 func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()

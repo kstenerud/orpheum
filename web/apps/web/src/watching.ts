@@ -129,7 +129,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
  * data").
  *
  * A film's page warms it up (D258 §1): it asks how the film plays at once, so the server starts its
- * prepared copy or its chunks, and the Play page takes that decision instead of asking again. A film
+ * chunks, and the Play page takes that decision instead of asking again. A film
  * on its ladder is preloaded too, and the Play page's player starts at the quality the preload
  * settled on, its chunks already in the browser (D260 §3).
  */

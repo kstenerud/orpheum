@@ -207,7 +207,7 @@ type LadderBody struct {
 	Height      int   `json:"height"`
 	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured (D247 §8).
 	IsBelowTheLowest bool `json:"isBelowTheLowest"`
-	// SoundCarriedGainDB is the levelling gain the sound's chunks carry, as a prepared copy's do,
+	// SoundCarriedGainDB is the levelling gain the sound's chunks carry,
 	// which the player does not add again (D226 §4).
 	SoundCarriedGainDB float64 `json:"soundCarriedGainDb"`
 	// IsReady is whether the quality is made from where the player is, ready to move to; until it

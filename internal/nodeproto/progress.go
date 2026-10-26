@@ -22,15 +22,12 @@ const (
 )
 
 // Progress is the node's word on where an attempt it holds is, said when it starts to wait or to
-// run, at each status tick while it does, and, for a prepare, as FFmpeg moves on, at most every
+// run, at each status tick while it does, and, for a read-through, as FFmpeg moves on, at most every
 // Tuning.ProgressEverySeconds. The core hears from it that the node still holds the work.
 type Progress struct {
 	JobID        int64         `json:"jobId"`
 	AttemptToken string        `json:"attemptToken"`
 	State        ProgressState `json:"state"`
-	// PreparedThroughMs is how much of a running prepare's source is prepared, in milliseconds of
-	// its time; zero for other work.
-	PreparedThroughMs int64 `json:"preparedThroughMs,omitempty"`
 	// ReadThroughMs is how far into its film a running read-through is, in milliseconds of its time;
 	// zero for other work (D324 §6).
 	ReadThroughMs int64 `json:"readThroughMs,omitempty"`

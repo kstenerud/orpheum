@@ -82,15 +82,15 @@ func newBench(t *testing.T) *bench {
 	}
 }
 
-// file shelves a file of sizeMiB, minutes long, on a node.
-func (bench *bench) file(t *testing.T, id, nodeID, sizeMiB, minutes int64) {
+// file shelves a file of sizeMiB, an hour and a half long, on a node.
+func (bench *bench) file(t *testing.T, id, nodeID, sizeMiB int64) {
 	t.Helper()
 	storetest.ExecRaw(t, bench.database.Path(),
 		fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing,
 		 first_seen_at, last_seen_at) VALUES (%d, 1, %d, '/m/%d.mkv', %d, X'%02x', 'unidentified', 1, 1)`,
 			id, nodeID, id, sizeMiB*mib, id),
 		fmt.Sprintf(`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '{}', %d)`,
-			id, minutes*60_000))
+			id, 90*60_000))
 }
 
 // readThrough queues a read-through job of a file, assigned or waiting, with args.
@@ -124,7 +124,7 @@ func TestEstimator_AReadThroughWaitsForTheBytesAheadOfItOnItsNode(t *testing.T) 
 	for _, file := range []struct{ id, node, mib int64 }{
 		{100, 1, 200}, {101, 1, 100}, {102, 1, 300}, {103, 1, 400}, {104, 2, 500}, {105, 1, 600},
 	} {
-		bench.file(t, file.id, file.node, file.mib, 90)
+		bench.file(t, file.id, file.node, file.mib)
 	}
 	bench.readThrough(t, 1, 100, jobs.PriorityBackground, "queued", "{}")
 	bench.readThrough(t, 2, 101, jobs.PriorityBackground, "assigned", "{}")
@@ -157,7 +157,7 @@ func TestEstimator_AReadThroughWaitsForTheBytesAheadOfItOnItsNode(t *testing.T) 
 func TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
-	bench.file(t, 100, 1, 600, 90)
+	bench.file(t, 100, 1, 600)
 	bench.readThrough(t, 1, 100, jobs.PriorityBackground, "queued", "{}")
 	if left, _ := bench.left(t); left != time.Minute {
 		t.Errorf("before any read, file 100's read-through takes %v; want 1m0s at the slowest read", left)
@@ -170,50 +170,6 @@ func TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured(t *testing.T
 	if left, _ := bench.left(t); left != 15*time.Second {
 		t.Errorf("after five reads, one held an hour, file 100's read-through takes %v; want 15s at their median",
 			left)
-	}
-}
-
-// renditionOf queues a prepare of a file's h264 rendition on node 1, assigned or waiting, done so far.
-func (bench *bench) renditionOf(t *testing.T, renditionID, fileID int64, state string, done float64) {
-	t.Helper()
-	storetest.ExecRaw(t, bench.cachePath,
-		fmt.Sprintf(`INSERT INTO prepared_rendition (id, source_file, source_payload_hash, profile, node_id,
-		 segment_length_seconds, run_id, created_at) VALUES (%d, %d, X'01', 'h264', 1, 6, 'r%d', 1)`,
-			renditionID, fileID, renditionID),
-		fmt.Sprintf(`INSERT INTO job (kind, rendition_id, priority, state, runnable_at, created_at,
-		 progress_fraction) VALUES ('prepare', %d, 1000, '%s', 1, 1, %g)`, renditionID, state, done))
-}
-
-// A prepare says what is left at its own rate once it says how far it is; before, the film's length
-// over its node's last realtime factor for the profile; with neither, that it cannot say (D324 §6).
-func TestEstimator_APrepareGoesAtItsOwnRateOrItsNodesLast(t *testing.T) {
-	t.Parallel()
-	bench := newBench(t)
-	bench.file(t, 100, 1, 1000, 40)
-	bench.renditionOf(t, 1, 100, "queued", 0)
-	prepare := func() Wait {
-		t.Helper()
-		waits, err := bench.estimator.Of(t.Context(), 100)
-		if err != nil || waits.Prepare == nil {
-			t.Fatalf("file 100's prepare wait is %+v (%v); want one", waits.Prepare, err)
-		}
-		return *waits.Prepare
-	}
-	if wait := prepare(); wait.IsKnown {
-		t.Errorf("with no prepare finished on its node, the wait is %+v; want it unknown", wait)
-	}
-	storetest.ExecRaw(t, bench.cachePath, `INSERT INTO prepared_rendition (id, source_file, source_payload_hash,
-	 profile, node_id, state, segment_length_seconds, run_id, realtime_factor, created_at, finished_at)
-	 VALUES (9, 999, X'09', 'h264', 1, 'complete', 6, 'r9', 4, 1, 2)`)
-	if wait := prepare(); !wait.IsKnown || wait.Left != 10*time.Minute || wait.IsRunning {
-		t.Errorf("before it starts, the wait is %+v; want 10m0s, 40 minutes at 4 times playback", wait)
-	}
-	storetest.ExecRaw(t, bench.cachePath, `UPDATE job SET state = 'assigned', progress_fraction = 0.25
-	 WHERE kind = 'prepare'`)
-	jobID := int64(1)
-	bench.running[jobID] = bench.clock.Now().Add(-time.Minute)
-	if wait := prepare(); !wait.IsKnown || wait.Left != 3*time.Minute || !wait.IsRunning {
-		t.Errorf("a quarter done in a minute, the wait is %+v; want 3m0s", wait)
 	}
 }
 
@@ -231,7 +187,7 @@ func TestNewEstimator_RefusesPartsThatLeaveOneOut(t *testing.T) {
 func TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
-	bench.file(t, 100, 1, 200, 90)
+	bench.file(t, 100, 1, 200)
 	bench.readThrough(t, 1, 100, jobs.PriorityPlayNow, "assigned", "{}")
 	bench.running[1] = bench.clock.Now().Add(-3 * time.Minute) // at 10 MiB a second, done long ago
 	storetest.ExecRaw(t, bench.cachePath, `UPDATE job SET progress_fraction = 0.75 WHERE id = 1`)
@@ -247,9 +203,9 @@ func TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace(t *testing.T) 
 func TestEstimator_AFileWithNoReadThroughReadsNoOtherFilesRead(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
-	bench.file(t, 100, 1, 200, 90)
+	bench.file(t, 100, 1, 200)
 	for id := int64(1); id <= 50; id++ {
-		bench.file(t, 100+id, 1, 100, 90)
+		bench.file(t, 100+id, 1, 100)
 		bench.readThrough(t, id, 100+id, jobs.PriorityBackground, "queued", "{}")
 	}
 	ctx, tally := querytally.New(t.Context())

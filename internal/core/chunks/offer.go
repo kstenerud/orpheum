@@ -12,7 +12,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/decide"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
@@ -71,14 +70,14 @@ func (playback Playback) gridKind() GridKind {
 }
 
 // qualityPeakPerAverage is how far over its average a quality's bit rate may rise: the node caps
-// its encode's peaks at one and a half times it (internal/node/prepare's QualityArguments).
+// its encode's peaks at one and a half times it (internal/node/encode's QualityArguments).
 const qualityPeakPerAverage = 1.5
 
 // offer is what a film cut into chunks offers a playback: its pictures, highest first, and its
-// sounds, each track's standard mix and then its boosted one, as a prepare carries them.
+// sounds, each track's standard mix and then its boosted one (SoundsOf).
 type offer struct {
 	pictures []Stream
-	sounds   []renditions.AudioRendition
+	sounds   []Sound
 	// soundKbps is chunk_sound_kbps: every sound's bit rate, which every picture plays with.
 	soundKbps int
 	// isUnlevelled is whether the film's loudness is not measured yet: its sounds are offered
@@ -96,7 +95,7 @@ func (offered offer) has(stream Stream) bool {
 }
 
 // soundStream is the stream of one of a film's sounds, at kbps, unlevelled or not.
-func soundStream(sound renditions.AudioRendition, kbps int, isUnlevelled bool) Stream {
+func soundStream(sound Sound, kbps int, isUnlevelled bool) Stream {
 	return Stream{
 		Kind: nodeproto.StreamSound, AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted,
 		SoundKbps: kbps, IsUnlevelled: isUnlevelled,
@@ -107,7 +106,7 @@ func soundStream(sound renditions.AudioRendition, kbps int, isUnlevelled bool) S
 // player cannot decode it, when its twin, H.264 at its own height, takes its place (D323 §1); then each
 // quality of the ladder below the film's own picture, in bit rate and in height, where each is known,
 // the ladder chunk_qualities_hardware where the film's node encodes on a GPU, else chunk_qualities
-// (D323 §3); and every sound a prepare would make, unlevelled while the film's loudness is not
+// (D323 §3); and every sound of its tracks (SoundsOf), unlevelled while the film's loudness is not
 // measured (D259 §2).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
@@ -123,7 +122,7 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 		return offer{}, err
 	}
 	offered := offer{
-		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
+		sounds: SoundsOf(SoundTracksOf(film.probe)), soundKbps: int(soundKbps),
 		isUnlevelled: isUnlevelled,
 	}
 	height := film.picture.Video.Height
@@ -134,7 +133,9 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
 		}
 	}
-	if len(offered.pictures) == 0 && film.kind == OnTime && len(all) > 0 {
+	// A picture too small for a twin, which the player cannot decode, has nothing above or below it:
+	// it is offered the one quality, as a film cut on time is, so its playback has a picture (D344 §4).
+	if len(offered.pictures) == 0 && len(all) > 0 {
 		only := onlyQuality(all, height)
 		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: only})
 	}
@@ -143,14 +144,15 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 
 // topOf is the top of the film's ladder for the playback, and the rate the qualities below it step
 // down from: its own picture copied, where the player decodes it and the film is cut on its keyframes,
-// which a copy needs (D269 §1); its twin where the player does not decode it, from whose rate the
-// qualities below step down, since they are H.264 as the twin is and the original packs more into a
-// bit (D323 §1, the owner, 2026-10-20); else none, below its own picture's rate.
+// which a copy needs (D269 §1); its twin where the player does not decode it, or where the film is
+// cut on time, so a playback on time is not held below the film's own height (D344 §3), from whose
+// rate the qualities below step down, since they are H.264 as the twin is and the original packs
+// more into a bit (D323 §1, the owner, 2026-10-20); else none, below its own picture's rate.
 func topOf(film cutFilm, playback Playback) ([]Stream, int64) {
 	switch {
 	case playback.IsSourcePictureDecodable && film.kind == OnKeyframes:
 		return []Stream{{Kind: nodeproto.StreamPicture}}, film.pictureAverageBps()
-	case !playback.IsSourcePictureDecodable && film.picture.Video.Height >= qualities.MinHeight:
+	case film.picture.Video.Height >= qualities.MinHeight:
 		twin := twinOf(film)
 		return []Stream{twin}, int64(twin.Quality.Kbps) * 1000
 	default:
@@ -250,7 +252,8 @@ func (film cutFilm) variantOf(stream Stream, soundKbps int) variant {
 // ahead of the sweep for its keyframes, which a later playback is cut at (D269). A read-through
 // that failed before its person pressed play is tried again for them, its failure forgotten: a
 // person's play makes every attempt, and only a failure on that attempt is theirs to see (the
-// owner, 2026-10-06, D248).
+// owner, 2026-10-06, D248). A picture its keyframes cannot cut, FFmpeg having failed to read it
+// through or found no keyframe before its end, is cut on time (D344 §2).
 func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutFilm, error) {
 	fileID := playback.FileID
 	film, isCut, err := service.cut(ctx, fileID, playback.gridKind())
@@ -262,6 +265,10 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 		}
 		if isRetried {
 			return film, fmt.Errorf("file %d: %w", fileID, ErrNoGrid)
+		}
+		if film.kind == OnKeyframes {
+			film, _, err = service.cut(ctx, fileID, OnTime)
+			return film, err
 		}
 	}
 	if err != nil || isCut {
@@ -294,7 +301,7 @@ func (service *Service) isSoundUnlevelled(ctx context.Context, film cutFilm, pla
 }
 
 // MasterPlaylist is the master playlist of the playback's film cut into chunks (chunks.md §3): every
-// sound a prepare would make, the playback's starting track's standard mix the default, and every
+// sound of its tracks (SoundsOf), the playback's starting track's standard mix the default, and every
 // picture it is offered, highest first; and what the playback keeps of it from then on: whether the
 // film is cut on time (D269 §3), and whether its sounds are named unlevelled. A film with no grid
 // yet is ErrNoGrid, and is being read through for one; one that cannot be cut is ErrCannotBeCut.

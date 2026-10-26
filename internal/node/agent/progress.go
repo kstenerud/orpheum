@@ -26,7 +26,7 @@ func (agent *Agent) sayProgress(ctx context.Context, nodeID int64, progress node
 }
 
 // sayHeld tells the core, at a status tick, where each attempt the node holds is: waiting for a slot
-// or a reader, running, or paused. A running prepare says how far it is as FFmpeg moves on instead, so
+// or a reader, running, or paused. A running run of chunks says how far it is as it makes each instead, so
 // the core's record of how far it is never goes back; a paused one says it is paused.
 func (agent *Agent) sayHeld(ctx context.Context, nodeID int64) {
 	for _, held := range agent.work.states() {

@@ -27,8 +27,8 @@ var cacheVersionLinePattern = regexp.MustCompile(`(?m)^-- cache schema version (
 // The cache is versioned by discard (migrations.md): the caller deletes the file and opens again.
 var ErrCacheOutdated = errors.New("cache.db was built by another schema version; discard it")
 
-// Cache is cache.db: the job queue, kept match candidates, artwork's last-served days, prepared
-// renditions and subtitle text, never backed up (schema.md).
+// Cache is cache.db: the job queue, kept match candidates, artwork's last-served days, chunk
+// stores and subtitle text, never backed up (schema.md).
 type Cache struct {
 	database *Database
 }

@@ -75,8 +75,8 @@ func (service *Service) keepSubtitleOffset(
 type AudioTrack struct {
 	// StreamID is the track's stream row.
 	StreamID int64
-	// AudioTrackIndex is the track's place among the file's audio tracks, as a prepared copy's audio
-	// renditions name it.
+	// AudioTrackIndex is the track's place among the file's audio tracks, as the sounds of its chunks
+	// name it.
 	AudioTrackIndex int
 	// StreamIndex is the track's index in its file, as FFmpeg numbers it.
 	StreamIndex int64

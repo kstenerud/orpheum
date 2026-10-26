@@ -7,7 +7,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -62,8 +61,8 @@ type FileSound struct {
 	ChannelCount    int
 }
 
-// Every converted sound is AAC in stereo, and every converted picture H.264, as both a prepare and a
-// chunk make them (internal/node).
+// Every converted sound is AAC in stereo, and every converted picture H.264, as a chunk makes them
+// (internal/node).
 const (
 	convertedSoundCodec    = "aac"
 	convertedSoundChannels = 2
@@ -76,7 +75,7 @@ type Offers interface {
 }
 
 // tracksOf are the playback's tracks: on its film's ladder, offered, when it starts on it; else
-// prepared, or played as the file is, as decision says.
+// played as the file is.
 func (service *Service) tracksOf(
 	ctx context.Context, playback tokenPlayback, probe nodeproto.Probe, started Started,
 ) (Tracks, error) {
@@ -88,11 +87,7 @@ func (service *Service) tracksOf(
 			return Tracks{}, err
 		}
 		tracks.Pictures = ladderPictures(offered, tracks.FilePicture)
-		tracks.Sounds = convertedSounds(renditions.AudioRenditionsOf(renditions.PreparedAudio(probe)),
-			int64(offered.SoundKbps))
-	case started.Decision.Delivery == decide.HLS:
-		tracks.Pictures = []PictureTrack{preparedPicture(started.Decision.Profile, tracks.FilePicture)}
-		tracks.Sounds = convertedSounds(started.AudioRenditions, nodeproto.PreparedSoundKbps)
+		tracks.Sounds = convertedSounds(chunks.SoundsOf(chunks.SoundTracksOf(probe)), int64(offered.SoundKbps))
 	default:
 		tracks.Pictures = []PictureTrack{originalPicture(tracks.FilePicture, probe.Format.BitRateBps/1000)}
 		for _, sound := range tracks.FileSounds {
@@ -122,15 +117,6 @@ func fileTracksOf(probe nodeproto.Probe) Tracks {
 // originalPicture is the file's own picture, played as it is, at kbps.
 func originalPicture(file FilePicture, kbps int64) PictureTrack {
 	return PictureTrack{Codec: file.Codec, Width: file.Width, Height: file.Height, Kbps: kbps, IsOriginal: true}
-}
-
-// preparedPicture is a prepared copy's picture: the file's own, copied, for profile remux; else H.264,
-// at the file's size, which a prepare keeps.
-func preparedPicture(profile decide.Profile, file FilePicture) PictureTrack {
-	if profile == decide.Remux {
-		return originalPicture(file, 0)
-	}
-	return PictureTrack{Codec: convertedPictureCodec, Width: file.Width, Height: file.Height}
 }
 
 // ladderPictures are the pictures a film's ladder offers: its own, copied, and each lower quality,
@@ -163,8 +149,8 @@ func widthAt(file FilePicture, height int) int {
 	return width - width%2
 }
 
-// convertedSounds are the sounds a conversion makes of each rendition, AAC in stereo at kbps.
-func convertedSounds(made []renditions.AudioRendition, kbps int64) []SoundTrack {
+// convertedSounds are the sounds a conversion makes of each sound, AAC in stereo at kbps.
+func convertedSounds(made []chunks.Sound, kbps int64) []SoundTrack {
 	sounds := make([]SoundTrack, 0, len(made))
 	for _, sound := range made {
 		sounds = append(sounds, SoundTrack{

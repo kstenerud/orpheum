@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,9 +22,7 @@ func (kept fakePreparedShelf) Evict(context.Context) (prepared.Usage, error) { r
 
 func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
 
-func (fakePreparedShelf) Inventory() ([]nodeproto.RenditionManifest, error) { return nil, nil }
-
-func (fakePreparedShelf) Reconcile([]string, []string) ([]string, error) { return nil, nil }
+func (fakePreparedShelf) EvictUnfinished() ([]string, error) { return nil, nil }
 
 func (fakePreparedShelf) SetStoreTiers(map[string]nodeproto.KeepTier) {}
 
@@ -92,9 +89,9 @@ func TestAgent_PostsItsStatusAsOftenAsTheCoreSays(t *testing.T) {
 	}
 }
 
-// A running prepare says how far it is as often as the core's tuning last said, and at the starting
+// A running read-through says how far it is as often as the core's tuning last said, and at the starting
 // cadence before it says (D234 §5; the constants sweep, 2026-10-21).
-func TestAgent_SaysAPreparesProgressAsOftenAsTheCoreSays(t *testing.T) {
+func TestAgent_SaysARunsProgressAsOftenAsTheCoreSays(t *testing.T) {
 	t.Parallel()
 	agent := New("", nodeproto.Hello{}, nil, Workers{}, nil, slog.New(slog.DiscardHandler))
 	if every := agent.progressEvery(); every != nodeproto.StartingProgressEverySeconds*time.Second {
@@ -108,51 +105,25 @@ func TestAgent_SaysAPreparesProgressAsOftenAsTheCoreSays(t *testing.T) {
 	}
 }
 
-// reconcilingShelf holds renditions, which it lists for the hello, and tells reconciled of each
-// reconciliation: the renditions listed and those kept.
-type reconcilingShelf struct {
+// unfinishedShelf tells evicted of each eviction of the makings that never finished.
+type unfinishedShelf struct {
 	fakePreparedShelf
-	renditions []nodeproto.RenditionManifest
-	reconciled chan [2][]string
+	evicted chan struct{}
 }
 
-func (shelf reconcilingShelf) Inventory() ([]nodeproto.RenditionManifest, error) {
-	return shelf.renditions, nil
+func (shelf unfinishedShelf) EvictUnfinished() ([]string, error) {
+	shelf.evicted <- struct{}{}
+	return []string{"2/remux/bbbbbbbbbbbbbbbb"}, nil
 }
 
-func (shelf reconcilingShelf) Reconcile(listed, kept []string) ([]string, error) {
-	shelf.reconciled <- [2][]string{listed, kept}
-	return nil, nil
-}
-
-// The hello lists the renditions the node holds, by their manifests, and the node evicts those of
-// them the core's reply does not keep (D238 §2).
-func TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted(t *testing.T) {
+// At each hello the node evicts the makings in its prepared directory that never finished, and what
+// a whole-film prepare left (D238 §2, D344 §1).
+func TestAgent_EachHelloEvictsTheMakingsThatNeverFinished(t *testing.T) {
 	t.Parallel()
-	core, socket := startFakeCore(t)
-	core.mutex.Lock()
-	core.keptRenditionDirs = []string{"1/remux/aaaaaaaaaaaaaaaa"}
-	core.mutex.Unlock()
-	shelf := reconcilingShelf{
-		renditions: []nodeproto.RenditionManifest{
-			{Prepare: nodeproto.Prepare{RenditionDir: "1/remux/aaaaaaaaaaaaaaaa"}},
-			{Prepare: nodeproto.Prepare{RenditionDir: "2/remux/bbbbbbbbbbbbbbbb"}},
-		},
-		reconciled: make(chan [2][]string, 4),
-	}
+	_, socket := startFakeCore(t)
+	shelf := unfinishedShelf{evicted: make(chan struct{}, 4)}
 	startAgentWithShelf(t, socket, shelf)
-	reconciled := testutil.Receive(t, shelf.reconciled, "the first hello's reconciliation")
-	core.mutex.Lock()
-	hello := core.hellos[0]
-	core.mutex.Unlock()
-	if len(hello.Renditions) != 2 || hello.Renditions[1].Prepare.RenditionDir != "2/remux/bbbbbbbbbbbbbbbb" {
-		t.Errorf("the hello listed %+v, want both renditions the node holds", hello.Renditions)
-	}
-	if !slices.Equal(reconciled[0], []string{"1/remux/aaaaaaaaaaaaaaaa", "2/remux/bbbbbbbbbbbbbbbb"}) ||
-		!slices.Equal(reconciled[1], []string{"1/remux/aaaaaaaaaaaaaaaa"}) {
-		t.Errorf("reconciled %v listed against %v kept, want both listed and the core's one kept",
-			reconciled[0], reconciled[1])
-	}
+	testutil.Receive(t, shelf.evicted, "the first hello's eviction")
 }
 
 // Each hello lists the devices the node finds then, since a disk may have come or gone since the

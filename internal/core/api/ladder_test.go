@@ -10,18 +10,22 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// A film cut into chunks starts on its ladder, even one this browser plays only from a prepared copy,
-// and no copy is prepared for it (D260 §1); not yet cut, it is prepared as before, and its keyframes
-// are read at play priority for its next start. Film 2, a Matroska file with TrueHD sound, is
-// prepared for Chrome.
-func TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy(t *testing.T) {
+// A film its device cannot play as it is starts on its ladder, the one way to convert it, and its
+// decision's address is its ladder's master playlist: not yet cut on its keyframes, it is cut on time,
+// and its keyframes are read at play priority for its next start; cut, it starts on them (D260 §1,
+// D344 §1, §2). Film 2, a Matroska file with TrueHD sound, cannot be played as it is by Chrome.
+func TestPlayback_AFilmItsDeviceCannotPlayStartsOnItsLadderAtItsMasterPlaylist(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	master := func(started decision) string {
+		return Prefix + "/bytes/media/chunks/" + started.MediaToken + "/master.m3u8"
+	}
 	before := harness.play(t, user, chrome(2))
-	if before.OnLadder != nil || !before.IsPreparing || len(harness.openJobs(t, jobs.KindPrepare)) != 1 {
-		t.Fatalf("film 2, not cut, started %+v; want it prepared as before", before)
+	if before.Delivery != "hls" || before.OnLadder == nil || before.OnLadder.URL != master(before) ||
+		before.URL != master(before) {
+		t.Fatalf("film 2, not cut, started %+v; want it on its ladder, cut on time, at its master playlist", before)
 	}
 	reads := harness.openJobs(t, jobs.KindReadThrough)
 	if len(reads) != 1 || reads[0].Priority != jobs.PriorityPlayNow {
@@ -37,15 +41,11 @@ func TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := harness.play(t, user, chrome(2))
-	if after.OnLadder == nil || after.IsPreparing ||
-		after.OnLadder.URL != Prefix+"/bytes/media/chunks/"+after.MediaToken+"/master.m3u8" {
-		t.Errorf("film 2, cut, started %+v; want it on its ladder, nothing prepared", after)
+	if after.OnLadder == nil || after.OnLadder.URL != master(after) || after.URL != master(after) {
+		t.Errorf("film 2, cut, started %+v; want it on its ladder at its master playlist", after)
 	}
 	// The start says the share of the link its player chooses within (the constants sweep, 2026-10-20).
 	if after.OnLadder != nil && after.OnLadder.LinkSharePercent != 70 {
 		t.Errorf("the start's share of the link is %d%%; want the setting's 70", after.OnLadder.LinkSharePercent)
-	}
-	if prepares := harness.openJobs(t, jobs.KindPrepare); len(prepares) != 1 {
-		t.Errorf("the prepares open = %d; want only the first start's", len(prepares))
 	}
 }

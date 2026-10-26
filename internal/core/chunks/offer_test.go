@@ -70,8 +70,8 @@ func TestMasterPlaylist_AFilmWithNoGridIsReadThroughForOne(t *testing.T) {
 }
 
 // A film whose read-through failed is tried again for a person's play, the read-through's to judge
-// whether the failure came before the play; while it is read again it has no grid yet, and a
-// failure that stands is ErrCannotBeCut (D248 §4).
+// whether the failure came before the play; while it is read again it has no grid yet, and on a
+// failure that stands it is cut on time, which needs no keyframes (D248 §4, D344 §2).
 func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing.T) {
 	t.Parallel()
 	service, reader := chunksFixture(t, newFakeQueue(), fakeNode{})
@@ -91,8 +91,10 @@ func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing
 		t.Errorf("a play after film 2's read-through failed = %v, retried %v; want it read through again",
 			err, reader.retried)
 	}
-	if _, _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrCannotBeCut) {
-		t.Errorf("film 2's read-through failing on the play's attempt = %v; want ErrCannotBeCut", err)
+	text, kept, err := service.MasterPlaylist(t.Context(), playback)
+	if err != nil || !kept.IsOnTime || strings.Contains(text, "picture/") || !strings.Contains(text, "q4000k1080p/") {
+		t.Errorf("film 2's read-through failing on the play's attempt =\n%s\n%+v, %v; want it cut on time, its "+
+			"twin at the top", text, kept, err)
 	}
 }
 

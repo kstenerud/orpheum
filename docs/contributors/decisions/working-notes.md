@@ -21887,7 +21887,8 @@ recording why it stays. The check is design/plans/retire-prepare.md §1: it can.
    not built) was designed as a prepared rendition plus a lease; what a download's rendition is
    becomes its own question when it is built.
 
-**Status:** Decided 2026-10-26.
+**Status:** Decided 2026-10-26; built the same day (design/plans/retire-prepare.md). Not yet watched on a
+device: a converted film whose keyframes come late now starts on time, its twin at the top.
 
 ## D345 — Reserved: Sweeps as job kinds
 

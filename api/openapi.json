@@ -206,37 +206,6 @@
         ],
         "type": "object"
       },
-      "AudioRenditionBody": {
-        "additionalProperties": false,
-        "properties": {
-          "audioTrackIndex": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "carriedGainDb": {
-            "description": "dB already in the sound, put in when it was prepared",
-            "format": "double",
-            "type": "number"
-          },
-          "isDialogueBoosted": {
-            "type": "boolean"
-          },
-          "language": {
-            "type": "string"
-          },
-          "levelling": {
-            "$ref": "#/components/schemas/LevellingBody"
-          }
-        },
-        "required": [
-          "audioTrackIndex",
-          "language",
-          "isDialogueBoosted",
-          "levelling",
-          "carriedGainDb"
-        ],
-        "type": "object"
-      },
       "AudioTrackBody": {
         "additionalProperties": false,
         "properties": {
@@ -1897,10 +1866,6 @@
       "FileWaitsOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "prepare": {
-            "$ref": "#/components/schemas/WaitBody",
-            "description": "Its prepared copy, for a device that plays one"
-          },
           "readThrough": {
             "$ref": "#/components/schemas/WaitBody",
             "description": "Its read-through, for its loudness"
@@ -2016,62 +1981,6 @@
           "check",
           "verdict",
           "detail"
-        ],
-        "type": "object"
-      },
-      "FinishedPrepareBody": {
-        "additionalProperties": false,
-        "properties": {
-          "failure": {
-            "type": "string"
-          },
-          "finishedAt": {
-            "description": "Unix milliseconds",
-            "format": "int64",
-            "type": "integer"
-          },
-          "path": {
-            "description": "Empty when the library no longer has the file",
-            "type": "string"
-          },
-          "profile": {
-            "enum": [
-              "remux",
-              "h264"
-            ],
-            "type": "string"
-          },
-          "realtimeFactor": {
-            "description": "Seconds of the source prepared per second of running",
-            "format": "double",
-            "type": "number"
-          },
-          "sizeBytes": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "sourceFileId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "state": {
-            "enum": [
-              "complete",
-              "failed"
-            ],
-            "type": "string"
-          },
-          "videoEncoder": {
-            "description": "the encoder that made the video, or copy for a remux",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sourceFileId",
-          "path",
-          "profile",
-          "state",
-          "finishedAt"
         ],
         "type": "object"
       },
@@ -2745,7 +2654,6 @@
             "enum": [
               "fetch_metadata",
               "make_artwork_sizes",
-              "prepare",
               "extract_subtitle",
               "convert_fetched_subtitle",
               "read_through",
@@ -2775,10 +2683,6 @@
           "reason": {
             "description": "Why it exists",
             "type": "string"
-          },
-          "renditionId": {
-            "format": "int64",
-            "type": "integer"
           },
           "scanBatchId": {
             "format": "int64",
@@ -4753,6 +4657,7 @@
                   "file_unavailable",
                   "preparing",
                   "prepare_failed",
+                  "cannot_convert",
                   "no_room_to_make",
                   "playback_gone",
                   "migrating",
@@ -6415,15 +6320,6 @@
       "StartPlaybackOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "audioRenditions": {
-            "items": {
-              "$ref": "#/components/schemas/AudioRenditionBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "audioTracks": {
             "items": {
               "$ref": "#/components/schemas/AudioTrackBody"
@@ -6443,9 +6339,6 @@
           "fileBitRateKbps": {
             "format": "int64",
             "type": "integer"
-          },
-          "isPreparing": {
-            "type": "boolean"
           },
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
@@ -6514,7 +6407,7 @@
             "$ref": "#/components/schemas/TracksBody"
           },
           "url": {
-            "description": "Where the bytes are: the file, or a rendition's master playlist",
+            "description": "Where the bytes are: the file, or its ladder's master playlist",
             "type": "string"
           }
         },
@@ -6522,7 +6415,6 @@
           "delivery",
           "url",
           "notDirectReasons",
-          "isPreparing",
           "subtitles",
           "audioTracks",
           "preferences",
@@ -6908,15 +6800,6 @@
           "preparedUsage": {
             "$ref": "#/components/schemas/PreparedBody"
           },
-          "recentPrepares": {
-            "items": {
-              "$ref": "#/components/schemas/FinishedPrepareBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "stuck": {
             "items": {
               "$ref": "#/components/schemas/StuckBody"
@@ -6944,7 +6827,6 @@
           "gid",
           "confinement",
           "disks",
-          "recentPrepares",
           "devices",
           "stuck"
         ],
@@ -8435,227 +8317,6 @@
         ]
       }
     },
-    "/bytes/media/hls/{token}/master.m3u8": {
-      "get": {
-        "operationId": "getMasterPlaylist",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
-            "in": "cookie",
-            "name": "orpheum_media",
-            "schema": {
-              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
-            "in": "cookie",
-            "name": "__Host-orpheum_media",
-            "schema": {
-              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
-            "in": "cookie",
-            "name": "orpheum_viewer",
-            "schema": {
-              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's over TLS, set as their playback starts",
-            "in": "cookie",
-            "name": "__Host-orpheum_viewer",
-            "schema": {
-              "description": "A Watch Together viewer's over TLS, set as their playback starts",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The browser's Sec-Fetch-Site",
-            "in": "header",
-            "name": "Sec-Fetch-Site",
-            "schema": {
-              "description": "The browser's Sec-Fetch-Site",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
-            "in": "header",
-            "name": "Orpheum-Viewer",
-            "schema": {
-              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The playback's media token",
-            "in": "path",
-            "name": "token",
-            "required": true,
-            "schema": {
-              "description": "The playback's media token",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/vnd.apple.mpegurl": {},
-              "video/iso.segment": {},
-              "video/mp4": {}
-            },
-            "description": "The file"
-          },
-          "425": {
-            "description": "Not written yet: the rendition is being prepared; ask again after Retry-After"
-          }
-        },
-        "summary": "A prepared playback's master playlist, relayed from its node",
-        "tags": [
-          "Playback"
-        ]
-      }
-    },
-    "/bytes/media/hls/{token}/{renditionName}/{fileName}": {
-      "get": {
-        "operationId": "getRenditionFile",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
-            "in": "cookie",
-            "name": "orpheum_media",
-            "schema": {
-              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
-            "in": "cookie",
-            "name": "__Host-orpheum_media",
-            "schema": {
-              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
-            "in": "cookie",
-            "name": "orpheum_viewer",
-            "schema": {
-              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's over TLS, set as their playback starts",
-            "in": "cookie",
-            "name": "__Host-orpheum_viewer",
-            "schema": {
-              "description": "A Watch Together viewer's over TLS, set as their playback starts",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The browser's Sec-Fetch-Site",
-            "in": "header",
-            "name": "Sec-Fetch-Site",
-            "schema": {
-              "description": "The browser's Sec-Fetch-Site",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
-            "in": "header",
-            "name": "Orpheum-Viewer",
-            "schema": {
-              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
-              "type": "string"
-            }
-          },
-          {
-            "description": "The playback's media token",
-            "in": "path",
-            "name": "token",
-            "required": true,
-            "schema": {
-              "description": "The playback's media token",
-              "type": "string"
-            }
-          },
-          {
-            "description": "video, audio0, audio0-boost, ...",
-            "in": "path",
-            "name": "renditionName",
-            "required": true,
-            "schema": {
-              "description": "video, audio0, audio0-boost, ...",
-              "type": "string"
-            }
-          },
-          {
-            "description": "stream.m3u8, init.mp4 or a segment",
-            "in": "path",
-            "name": "fileName",
-            "required": true,
-            "schema": {
-              "description": "stream.m3u8, init.mp4 or a segment",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Range",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/vnd.apple.mpegurl": {},
-              "video/iso.segment": {},
-              "video/mp4": {}
-            },
-            "description": "The file"
-          },
-          "425": {
-            "description": "Not written yet: the rendition is being prepared; ask again after Retry-After"
-          }
-        },
-        "summary": "One file of a prepared playback's rendition, relayed from its node",
-        "tags": [
-          "Playback"
-        ]
-      }
-    },
     "/bytes/media/sub/{token}/{fileName}": {
       "get": {
         "operationId": "getSubtitle",
@@ -9907,7 +9568,7 @@
             "description": "Error"
           }
         },
-        "summary": "The work a file's viewer waits on, its read-through for its loudness and its prepared copy, and about how long each will take (D324 §6)",
+        "summary": "The work a file's viewer waits on, its read-through for its loudness and its timeline, and about how long each will take (D324 §6)",
         "tags": [
           "Browse"
         ]

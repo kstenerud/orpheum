@@ -16,8 +16,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
-// cutAfterChunks is a chunks service whose film has no grid for its first noGridFor asks, then
-// starts on its ladder; it counts the asks, and offers what offered says.
+// cutAfterChunks is a chunks service whose film has no grid on its keyframes for its first noGridFor
+// asks, then starts on its ladder; a playback on time starts at once, as a film cut on time needs no
+// keyframes. It counts the asks on keyframes, and offers what offered says.
 type cutAfterChunks struct {
 	noGridFor, asked int
 	offered          chunks.Offered
@@ -27,7 +28,12 @@ func (*cutAfterChunks) Stalled(context.Context, chunks.Playback, int64, int64) (
 	return chunks.Offer{}, nil
 }
 
-func (cut *cutAfterChunks) StartOnLadder(context.Context, chunks.Playback, int64, int64) (chunks.Offer, error) {
+func (cut *cutAfterChunks) StartOnLadder(
+	_ context.Context, playback chunks.Playback, _, _ int64,
+) (chunks.Offer, error) {
+	if playback.IsOnTime {
+		return chunks.Offer{Quality: qualities.Quality{Kbps: 2400, Height: 1080}, IsOnTime: true}, nil
+	}
 	cut.asked++
 	if cut.asked <= cut.noGridFor {
 		return chunks.Offer{}, fmt.Errorf("file 1: %w", chunks.ErrNoGrid)
@@ -67,19 +73,24 @@ func (wait waitSettings) Int(_ context.Context, key settings.Key) (int64, error)
 func (waitSettings) Duration(context.Context, settings.Key) (time.Duration, error) { return 0, nil }
 
 // A playback of a film not cut yet waits for its keyframes, read from its file's index, and starts
-// on its ladder once they are kept within play_ladder_wait_ms; past it, it plays as its decision says
-// (D260 §1).
-func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
+// on its ladder on them once they are kept within play_ladder_wait_ms; past it, a film its device
+// cannot play as it is starts on its ladder cut on time, which needs none, and keeps that grid, and
+// one it can plays as it is (D260 §1, D344 §2).
+func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime(t *testing.T) {
 	t.Parallel()
+	pastTheWait := int(2000*time.Millisecond/ladderLookEvery) + 1
 	for _, wait := range []struct {
 		waitMs     int64
 		noGridFor  int
+		delivery   decide.Delivery
 		isOnLadder bool
+		isOnTime   bool
 	}{
-		{waitMs: 2000, noGridFor: 3, isOnLadder: true},
-		{waitMs: 2000, noGridFor: int(2000*time.Millisecond/ladderLookEvery) + 1, isOnLadder: false},
+		{waitMs: 2000, noGridFor: 3, delivery: decide.HLS, isOnLadder: true, isOnTime: false},
+		{waitMs: 2000, noGridFor: pastTheWait, delivery: decide.HLS, isOnLadder: true, isOnTime: true},
+		{waitMs: 2000, noGridFor: pastTheWait, delivery: decide.Direct, isOnLadder: false},
 		// Set to nothing, it does not wait at all.
-		{waitMs: 0, noGridFor: 1, isOnLadder: false},
+		{waitMs: 0, noGridFor: 1, delivery: decide.HLS, isOnLadder: true, isOnTime: true},
 	} {
 		clock := clocktest.NewFake(time.Date(2026, 10, 7, 20, 0, 0, 0, time.UTC))
 		cut := &cutAfterChunks{noGridFor: wait.noGridFor}
@@ -88,10 +99,19 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
 			tokens: newTokens(),
 		}
 		started := clock.Now()
-		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, tokenPlayback{fileID: 1}, 0)
-		if err != nil || (offer != nil) != wait.isOnLadder || (why == "noGridYet") == wait.isOnLadder {
-			t.Errorf("waiting %d ms, with no grid for %d looks: %+v, %v; want on its ladder %t", wait.waitMs,
-				wait.noGridFor, offer, err, wait.isOnLadder)
+		playback := tokenPlayback{fileID: 1, decision: decide.Decision{Delivery: wait.delivery}}
+		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, playback, 0)
+		isAsWanted := (offer != nil) == wait.isOnLadder && (why == "noGridYet") != wait.isOnLadder &&
+			(offer == nil || offer.IsOnTime == wait.isOnTime)
+		if err != nil || !isAsWanted {
+			t.Errorf("waiting %d ms for a %s film, with no grid for %d looks: %+v, %q, %v; want on its ladder %t, "+
+				"on time %t", wait.waitMs, wait.delivery, wait.noGridFor, offer, why, err, wait.isOnLadder,
+				wait.isOnTime)
+		}
+		service.keepStart(&playback, offer)
+		if offer != nil && chunksPlaybackOf(playback).IsOnTime != wait.isOnTime {
+			t.Errorf("waiting %d ms, the playback keeps on time %t; want %t", wait.waitMs, playback.isOnTime,
+				wait.isOnTime)
 		}
 		if waited := clock.Now().Sub(started); waited > time.Duration(wait.waitMs)*time.Millisecond {
 			t.Errorf("waiting %d ms, it waited %v", wait.waitMs, waited)

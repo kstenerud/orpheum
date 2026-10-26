@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 43
+const ProtocolVersion = 44
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -62,10 +62,6 @@ type Hello struct {
 	Capacity Capacity `json:"capacity"`
 	// Devices are what its roots and prepared directory are on, and of what kind (D240 §5).
 	Devices Devices `json:"devices,omitempty"`
-	// Renditions are the renditions in the node's prepared directory, by their manifests, read from
-	// its disk as it says hello: the core adopts those it does not know into its index, and its
-	// reply names the ones it keeps (D238 §2).
-	Renditions []RenditionManifest `json:"renditions,omitempty"`
 }
 
 // Capacity is what a node's machine can do, as its config says: facts about the deployment, not
@@ -73,8 +69,8 @@ type Hello struct {
 // plan-deviations P36 records).
 type Capacity struct {
 	// EncodeSlotCount is how many encodes the node runs at once, which its processor or GPU bounds;
-	// RemuxSlotCount is how many remuxes, which its disk bounds. The node holds a prepare beyond
-	// its slots and says so (ProgressWaiting), and the core runs as many prepares at once as the
+	// RemuxSlotCount is how many copies, which its disk bounds. The node holds a run beyond
+	// its slots and says so (ProgressWaiting), and the core runs as many at once as the
 	// nodes' slots add up to.
 	EncodeSlotCount int `json:"encodeSlotCount"`
 	RemuxSlotCount  int `json:"remuxSlotCount"`
@@ -88,7 +84,7 @@ type Capacity struct {
 // open them, each hardware encoder's trial and the encoder it chose (D225 §3).
 type Hardware struct {
 	GPUs []GPU `json:"gpus"`
-	// Trials are the hardware encoders tried at startup, confined as a prepare is, in order.
+	// Trials are the hardware encoders tried at startup, confined as a run of chunks is, in order.
 	Trials []EncoderTrial `json:"trials"`
 	// ChosenEncoder is the encoder its encodes use: one of the encoders below.
 	ChosenEncoder string `json:"chosenEncoder"`
@@ -137,14 +133,9 @@ type Confinement struct {
 	Remedy string `json:"remedy"`
 }
 
-// HelloReply is the core's answer: the node's id, the renditions of the hello it keeps and the readers
-// each of its devices may have.
+// HelloReply is the core's answer: the node's id and the readers each of its devices may have.
 type HelloReply struct {
 	NodeID int64 `json:"nodeId"`
-	// KeptRenditionDirs are the directories, as <file_id>/<profile>/<run_id>, of the hello's
-	// renditions the core's index keeps: the node evicts the others it listed, which the core knows
-	// nothing of or has made again since (D238 §2).
-	KeptRenditionDirs []string `json:"keptRenditionDirs"`
 	// DeviceReaderLimits are how many may read each of the hello's devices at once, by its key: the
 	// core's settings for its kind (D240 §5).
 	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
@@ -158,8 +149,8 @@ type HelloReply struct {
 type Tuning struct {
 	// StatusEverySeconds is how often the node posts its status: the core's nodes.StatusEveryFor.
 	StatusEverySeconds int `json:"statusEverySeconds"`
-	// ProgressEverySeconds is how often, at most, a running prepare tells the core how far it is
-	// (D234 §5): the core's prepare_progress_every_seconds.
+	// ProgressEverySeconds is how often, at most, a running read-through tells the core how far it is
+	// (D234 §5): the core's node_progress_every_seconds.
 	ProgressEverySeconds int `json:"progressEverySeconds"`
 }
 
@@ -167,8 +158,8 @@ type Tuning struct {
 // cadence node_silent_after_seconds' starting value gives, which a test of the core's nodes holds.
 const StartingStatusEverySeconds = 10
 
-// StartingProgressEverySeconds is how often, at most, a running prepare tells the core how far it is
-// before a core has said: prepare_progress_every_seconds' starting value, defined once here for the
+// StartingProgressEverySeconds is how often, at most, a running read-through tells the core how far it is
+// before a core has said: node_progress_every_seconds' starting value, defined once here for the
 // core's registry and the node.
 const StartingProgressEverySeconds = 2
 

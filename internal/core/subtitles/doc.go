@@ -25,7 +25,7 @@
 //   - An extraction or a conversion is given to its node, not waited for, and its text, or why
 //     the node could not make it, is recorded as it arrives, by its source's hash, whether or not
 //     its job still waits (D234 §7, D238 §2). A cancelled extraction tells its node to stop.
-//     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain
+//     TestJobs_TheViewListsAReadThroughAndACancelStopsItOnTheNodeSoTheNextPlayAsksAgain
 //     (internal/core/api).
 //
 //   - The text a node made of a track, or why it could not, is kept in persistent.db, not cache.db:

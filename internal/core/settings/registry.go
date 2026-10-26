@@ -98,7 +98,6 @@ const (
 	ArtworkServedAtFlushEverySeconds          Key = "artwork_served_at_flush_every_seconds"
 	ContinueWatchingMaxWorks                  Key = "continue_watching_max_works"
 	JobViewMaxJobs                            Key = "job_view_max_jobs"
-	SystemPageRecentPreparesPerNode           Key = "system_page_recent_prepares_per_node"
 	ScreenRefreshFirstWaitSeconds             Key = "screen_refresh_first_wait_seconds"
 	ScreenRefreshLongestWaitSeconds           Key = "screen_refresh_longest_wait_seconds"
 	ScreenRefreshFailedWaitSeconds            Key = "screen_refresh_failed_wait_seconds"
@@ -555,8 +554,8 @@ func artworkAndPlaybackDefinitions() []Definition {
 		sourced(durationSetting(HLSSegmentLengthSeconds, time.Second,
 			strconv.Itoa(nodeproto.StartingSegmentLengthSeconds), nodeproto.MinSegmentLengthSeconds,
 			nodeproto.MaxSegmentLengthSeconds,
-			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
-				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
+			"seconds per chunk of a film cut into chunks: shorter switches the dialogue boost sooner, longer "+
+				"makes fewer requests; a film is cut again at another length when next played (D217 §3, D259 §1)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
 		important(sourced(integerSetting(InProgressAfterPercent, "5", 0, 50,
 			"percent of a file's length after which it counts as in progress: it resumes there and shows in "+
@@ -618,7 +617,8 @@ func chunkDefinitions() []Definition {
 			"D250 §5: answered at once, where it was held 20 s (playback-in-practice.md §3)"),
 		sourced(integerSetting(PlayLadderWaitMs, "2000", 0, 30_000,
 			"ms a playback of a film not cut into chunks yet waits for its keyframes, read from its file's "+
-				"index, before it plays from a prepared copy or the original instead of its ladder (D260 §1)"),
+				"index, before it is cut on time where its device cannot play it as it is, and plays as it is "+
+				"where it can (D260 §1, D344 §2)"),
 			"the owner, 2026-10-07: start at 2 s, configurable; four times the slowest index read measured, "+
 				"an MP4's on the owner's NAS, half a second (D259 §2)"),
 		sourced(integerSetting(ChunkSoundKbps, "96", 32, 320,
@@ -712,9 +712,6 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(integerSetting(JobViewMaxJobs, "200", 1, 10000,
 			"how many of the newest jobs the job view lists"),
 			"best guess: enough to see a scan's work, few enough to load at once"),
-		sourced(integerSetting(SystemPageRecentPreparesPerNode, "10", 1, 1000,
-			"how many of a node's finished prepares the System page lists"),
-			"best guess: enough to compare recent encode speeds"),
 	}
 }
 

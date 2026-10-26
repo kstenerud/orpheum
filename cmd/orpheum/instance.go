@@ -46,7 +46,7 @@ type Instance struct {
 	// secret.key.
 	PersistentDir string `toml:"persistent_dir"`
 	// CacheDir holds what can be rebuilt: cache.db and the artwork for a core, the prepared
-	// renditions for a node.
+	// directory, its stores of chunks, for a node.
 	CacheDir string `toml:"cache_dir"`
 	// BackupsDir is where a core's backups go, outside PersistentDir so a backup holds no earlier
 	// ones; a node has none.
@@ -72,7 +72,7 @@ func (instance Instance) fullConfigPath() string {
 	return filepath.Join(instance.PersistentDir, fullConfigFileName)
 }
 
-// preparedDir is where a node instance keeps its prepared renditions (D242 §3).
+// preparedDir is where a node instance keeps its stores of chunks (D242 §3, D344).
 func (instance Instance) preparedDir() string {
 	return filepath.Join(instance.CacheDir, "prepared")
 }

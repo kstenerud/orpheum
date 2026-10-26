@@ -36,7 +36,7 @@ ORDER BY f.id;
 
 -- name: ListFileSizesAndNodes :many
 -- The node, the size and the length of each live file named, by its id: the bytes ahead of a
--- read-through on its node, and the film a prepare makes (D324 section 6). A length not probed is 0.
+-- read-through on its node (D324 section 6). A length not probed is 0.
 SELECT id, node_id, size_bytes,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms

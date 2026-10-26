@@ -6,14 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import {
-  audioRenditionIndex,
   ladderAudioRenditionIndex,
   ladderStartingAudio,
   playbackFailureText,
 } from "./film-player.tsx";
 import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
-import { directDecision, unlevelled } from "./test-fixtures.ts";
+import { directDecision } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
 import { testServices, withServices } from "./test-services.tsx";
 
@@ -99,7 +98,7 @@ describe("playing a file", () => {
     expect(unnamed).not.toContain("play__title");
   });
 
-  it("plays a prepared copy, names every reason, and offers the boost where there is one", () => {
+  it("says a film to convert that came with no ladder cannot be converted, rather than play it (D344)", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
@@ -107,39 +106,14 @@ describe("playing a file", () => {
           decision={directDecision({
             delivery: "hls",
             profile: "remux",
-            url: "/api/v1/bytes/media/hls/abc/master.m3u8",
-            notDirectReasons: ["container", "audio_codec"],
-            isPreparing: true,
-            audioRenditions: [
-              { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
-              { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
-            ],
+            notDirectReasons: ["container"],
           })}
           onDecideAgain={() => undefined}
         />,
       ),
     );
-    expect(markup).toContain(
-      "because the browser cannot open its container, the browser cannot decode its sound",
-    );
-    expect(markup).toContain("Preparing — ready in a few seconds.");
-    expect(markup).toContain("Dialogue boost");
-  });
-
-  it("plays a track's boosted mix when the boost is on and it has one, else its standard mix", () => {
-    const decision = directDecision({
-      delivery: "hls",
-      url: "/u",
-      audioRenditions: [
-        { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
-        { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
-        { audioTrackIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
-      ],
-    });
-    expect(audioRenditionIndex(decision, 0, true)).toBe(1);
-    expect(audioRenditionIndex(decision, 0, false)).toBe(0);
-    expect(audioRenditionIndex(decision, 1, true)).toBe(2); // German has no centre to raise
-    expect(audioRenditionIndex(decision, 2, false)).toBe(undefined);
+    expect(markup).toContain("This file can&#x27;t be converted for this device.");
+    expect(markup).not.toContain("<video");
   });
 
   it("plays a ladder's sound by its place among the ladder's sounds, each track's standard mix then its boosted one", () => {

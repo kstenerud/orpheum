@@ -50,7 +50,7 @@ it("shows who plays what, where and how, and stops one with a message (D243 §9)
   );
   const shown = mounted.container.textContent;
   expect(shown).toContain("partner on Firefox on Linux: Metropolis");
-  expect(shown).toContain("A prepared copy, because of: container.");
+  expect(shown).toContain("Converted, because of: container.");
   const form = mounted.container.querySelector("form");
   await enter(form?.querySelector("input"), "Back in five minutes");
   await submit(form);

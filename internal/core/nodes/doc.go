@@ -15,8 +15,8 @@
 //     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers,
 //     TestHello_ScansNothingWhenTheSettingSaysNot.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the
-//     prepare slots of every node that said one are added up for whoever runs prepares, and each
-//     node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
+//     encode and remux slots of every node that said one are added up for whoever runs work in them, and
+//     each node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
 //     TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads.
 //   - Each status a node posts is taken as it arrives: the node is heard, and its last status kept;
 //     one that is not a status is refused. TestStatus_TheLastIsKeptAndTheNodeHeard,
@@ -91,10 +91,9 @@
 //     target's own failure, its disk unreadable (D233 §10).
 //     TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswerAfter,
 //     TestStallOutcome_ASecondStallOnTheDiskIsTheTargetsUnreadableDisk.
-//   - A prepare whose run waited on a file outside its root, as its node said, waited on its
-//     prepared directory's disk: its root stays available and the node's prepares park on the
-//     prepared directory, probed on the back-off (D244 §6).
-//     TestExchange_AStallOnThePreparedDirectorysDiskParksOnItAndLeavesTheRoot.
+//   - Work whose run waited on a file outside its root, as its node said, as a run of chunks on its
+//     prepared directory's disk, leaves its root available; the stall is its kind's to answer (D344).
+//     TestExchange_AStallOutsideTheRootLeavesTheRootAndIsTheKindsToAnswer.
 //   - A node whose hello names another start than the one an attempt given to it keeps started again
 //     and lost the work it held in memory (D238 §3), whether or not the core started again too: at
 //     each hello every job given to another start of its node learns so at once (ErrNodeRestarted),
@@ -106,10 +105,6 @@
 //     TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly.
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot.
-//   - The reply to a hello names the renditions it listed that the index keeps (RenditionIndex),
-//     and the node evicts the others; with no index, or one that cannot be reconciled, every one is
-//     kept, so the node evicts nothing for the core's failure (D238 §2).
-//     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
 //   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
 //     device as may read it, each with node_jobs_beyond_free_slots more; work beyond waits, parked at no
 //     cost on the slot or device that is full, brought back when one of the node's jobs there ends
@@ -176,9 +171,9 @@
 //     the job's own failure when it did not. TestSend_ACommandToANodeNotConnectedParksItsJobAndSendsNothing,
 //     TestUnanswered_ParksOnANodeThatWentAwayAndIsTheJobsOwnFailureOtherwise.
 //   - A node's hello brings back the work parked on it and on any node; its status showing room
-//     brings back the prepares parked on its prepared directory (D231 §5, §6).
+//     brings back the runs parked on its prepared directory (D231 §5, §6).
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode,
-//     TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory. Room is the disk
+//     TestStatus_ShowingRoomBringsBackTheRunsParkedOnThePreparedDirectory. Room is the disk
 //     within its fullness limit and keeping its floor of free space.
 //   - A node an admin retired is removed and forgotten: it is told to say hello first, and its
 //     name, saying hello again, enrols a new node (D231 §7).

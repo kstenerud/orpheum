@@ -7,8 +7,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -81,15 +79,12 @@ type StartPlaybackOutput struct {
 // StartPlaybackOutputBody is the decision, and what the player starts with.
 type StartPlaybackOutputBody struct {
 	Delivery DeliveryKind `json:"delivery"`
-	URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
-	Profile  string       `enum:"remux,h264" json:"profile,omitempty"`
+	URL      string       `doc:"Where the bytes are: the file, or its ladder's master playlist" json:"url"`
+	// Profile is, for a film converted, whether its own picture plays where it can (remux) or the
+	// player cannot decode it (h264); absent for one played as it is.
+	Profile string `enum:"remux,h264" json:"profile,omitempty"`
 	// NotDirectReasons say why it is not played directly, to show on screen (D188).
 	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
-	// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
-	// the first segment exists.
-	IsPreparing bool `json:"isPreparing"`
-	// AudioRenditions are a rendition's audio renditions, in its master playlist's order.
-	AudioRenditions []AudioRenditionBody `json:"audioRenditions,omitempty"`
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
 	// URLs answer 425 until it is (D217 §6).
 	Subtitles []SubtitleTrackBody `json:"subtitles"`
@@ -109,8 +104,8 @@ type StartPlaybackOutputBody struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
 	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
-	// Levelling brings the main sound to the level: the file's own when played directly, the
-	// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
+	// Levelling brings the main sound to the level, as the file plays it directly; a film on its
+	// ladder carries its sound's own gain (LadderBody, D226).
 	Levelling LevellingBody `json:"levelling"`
 	// FileBitRateKbps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when it is not known.
@@ -130,27 +125,12 @@ type StartPlaybackOutputBody struct {
 // AudioTrackBody is one of a file's own audio tracks.
 type AudioTrackBody struct {
 	StreamID int64 `json:"streamId"`
-	// AudioTrackIndex is its place among the file's audio tracks, as a prepared copy's audio
-	// renditions name it.
+	// AudioTrackIndex is its place among the file's audio tracks, as the sounds of its chunks
+	// name it.
 	AudioTrackIndex int    `json:"audioTrackIndex"`
 	Language        string `doc:"BCP 47; empty when nothing names one" json:"language"`
 	ContainerTitle  string `json:"containerTitle,omitempty"`
 	Kind            string `enum:"plain,commentary,described" json:"kind"`
-}
-
-// MasterInput asks for a prepared playback's master playlist.
-type MasterInput struct {
-	MediaCredentials
-	Token string `doc:"The playback's media token" path:"token"`
-}
-
-// RenditionFileInput asks for one file of one of a prepared playback's renditions.
-type RenditionFileInput struct {
-	MediaCredentials
-	Token         string `doc:"The playback's media token" path:"token"`
-	RenditionName string `doc:"video, audio0, audio0-boost, ..." path:"renditionName"`
-	FileName      string `doc:"stream.m3u8, init.mp4 or a segment" path:"fileName"`
-	Range         string `header:"Range"`
 }
 
 // DirectInput asks for a direct playback's bytes.
@@ -181,17 +161,6 @@ func (server *Server) registerPlayback() {
 		Summary: "What a file's own bytes would be, without them", Tags: []string{tagPlayback},
 		Responses: directResponses,
 	}, server.headDirect)
-	responses := map[string]*huma.Response{
-		"200": {Description: "The file", Content: map[string]*huma.MediaType{
-			"application/vnd.apple.mpegurl": {}, "video/iso.segment": {}, "video/mp4": {},
-		}},
-		"425": {Description: "Not written yet: the rendition is being prepared; ask again after Retry-After"},
-	}
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getMasterPlaylist", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/master.m3u8",
-		Summary: "A prepared playback's master playlist, relayed from its node", Tags: []string{tagPlayback},
-		Responses: responses,
-	}, server.getMasterPlaylist)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFileAvailability", Method: http.MethodGet, Path: "/files/{id}/availability",
 		Summary: "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
@@ -201,18 +170,7 @@ func (server *Server) registerPlayback() {
 	server.registerSubtitleFetch()
 	server.registerChunks()
 	server.registerUpNext()
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getRenditionFile", Method: http.MethodGet,
-		Path:    "/bytes/media/hls/{token}/{renditionName}/{fileName}",
-		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},
-		Responses: responses,
-	}, server.getRenditionFile)
 }
-
-// hlsFilePattern is the only shape a rendition's file may be asked for by: the master playlist, or
-// one rendition's playlist, init segment or media segment. The node checks it again.
-var hlsFilePattern = regexp.MustCompile(
-	`^(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
 
 // FileAvailabilityOutput is whether a file can be read now.
 type FileAvailabilityOutput struct {
@@ -301,7 +259,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 	}
 	server.logger.InfoContext(ctx, "a playback started", append(who,
 		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
-		"notDirectReasons", reasons, "isPreparing", started.IsPreparing,
+		"notDirectReasons", reasons,
 		"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
 		"startsOnLadderKbps", startsOnLadderKbps(started), "notOnLadderBecause", started.NotOnLadderBecause)...)
 }
@@ -333,18 +291,12 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	if started.OnLadder != nil {
 		// Its player waits for the chunks it asks for itself: a start does not say whether they are made.
 		output.Body.OnLadder = ladderBody(started.Token, *started.OnLadder, false)
+		// A film converted plays from its ladder, the one way to convert it (D344 §1).
+		if started.Decision.Delivery == decide.HLS {
+			output.Body.URL = output.Body.OnLadder.URL
+		}
 	}
-	if started.Decision.Delivery == decide.HLS {
-		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
-	}
-	output.Body.IsPreparing = started.IsPreparing
 	output.Body.FileBitRateKbps = started.FileBitRateBps / 1000
-	for _, audio := range started.AudioRenditions {
-		output.Body.AudioRenditions = append(output.Body.AudioRenditions, AudioRenditionBody{
-			AudioTrackIndex: audio.AudioTrackIndex, Language: audio.Language, IsDialogueBoosted: audio.IsBoosted,
-			Levelling: levellingBody(audio.Levelling), CarriedGainDB: audio.CarriedGainDB,
-		})
-	}
 	output.Body.Subtitles = subtitleTracks(started)
 	output.Body.AudioTracks = make([]AudioTrackBody, 0, len(started.AudioTracks))
 	for _, track := range started.AudioTracks {
@@ -391,74 +343,17 @@ func (server *Server) relayDirect(
 		})
 }
 
-// relayHLSFile relays one file of a prepared playback's rendition. While the rendition is being
-// made, a file the node has not written yet is 425 with a Retry-After, and the player asks again.
-func (server *Server) relayHLSFile(
-	ctx context.Context, credentials MediaCredentials, token, renditionPath, byteRange string,
-) (*huma.StreamResponse, error) {
-	if !hlsFilePattern.MatchString(renditionPath) {
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such rendition file")
-	}
-	dependencies, holder, err := server.mediaHolder(ctx, credentials)
-	if err != nil {
-		return nil, err
-	}
-	source, err := dependencies.Playback.HLSSourceOf(
-		ctx, token, renditionPath, holder)
-	if err != nil {
-		return nil, server.playbackError(ctx, "find a rendition's file", err)
-	}
-	header := http.Header{}
-	if byteRange != "" {
-		header.Set("Range", byteRange)
-	}
-	// A playlist grows while the rendition is made; a segment never changes once written.
-	cacheControl := cacheForADay
-	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != jobs.ReadinessComplete {
-		cacheControl = cacheRevalidate
-	}
-	request := relayRequest{http.MethodGet, source.Source, header, cacheControl}
-	return server.relay(ctx, dependencies, request, func() error {
-		switch source.Readiness {
-		case jobs.ReadinessPreparing:
-			return tooEarly()
-		case jobs.ReadinessFailed:
-			return newError(http.StatusBadGateway, CodePrepareFailed, "this file could not be prepared")
-		case jobs.ReadinessComplete:
-			// A complete rendition whose playlist its node no longer has was evicted or lost: it is
-			// prepared again, and the player waits as for a new one (D217 §5).
-			if renditionPath == "master.m3u8" {
-				if err := dependencies.Playback.PrepareAgain(ctx, source); err != nil {
-					return server.playbackError(ctx, "prepare a lost rendition again", err)
-				}
-				return tooEarly()
-			}
-		}
-		return newError(http.StatusNotFound, CodeFileUnavailable, "the rendition is no longer there")
-	})
-}
-
 // playbackError maps the playback package's refusals, and a subtitle provider's that reach the API
 // through it, to API errors. Every handler that calls playback answers through it, so a refusal
 // always leaves with one code and one message. A subtitle provider's refusal says why in
 // detail.reason, in OpenSubtitles' terms, with the provider as the failing leg (D224).
 func (server *Server) playbackError(ctx context.Context, action string, err error) error {
+	if refusal := playbackRefusal(err); refusal != nil {
+		return refusal
+	}
 	spent, isSpent := errors.AsType[*providers.QuotaSpentError](err)
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
-	case errors.Is(err, decide.ErrBadPlayableFormats):
-		return invalidRequestAt(http.StatusBadRequest, "body.playableFormats", err.Error())
-	case errors.Is(err, playback.ErrBadReport):
-		return invalidRequestAt(http.StatusBadRequest, "body", err.Error())
-	case errors.Is(err, library.ErrNoFile):
-		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
-	case errors.Is(err, playback.ErrNoToken):
-		return newError(http.StatusNotFound, CodePlaybackGone,
-			"no such playback: the server restarted since it began, or it ended; start it again")
-	case errors.Is(err, subtitles.ErrNoSubtitle):
-		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
-	case errors.Is(err, playback.ErrNoItem), errors.Is(err, library.ErrNoItem): // one not reached too
-		return newError(http.StatusNotFound, CodeNotFound, "no such item")
 	case errors.Is(err, subtitles.ErrNothingToSearchBy):
 		return newError(http.StatusConflict, CodeConflict,
 			"this file is not identified yet, and has not been scanned since it could be hashed for OpenSubtitles")
@@ -487,6 +382,30 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return refusal
 	}
 	return server.logInternalError(ctx, action, err)
+}
+
+// playbackRefusal is the playback package's own refusal of a request, or nil for any other error.
+func playbackRefusal(err error) error {
+	switch {
+	case errors.Is(err, decide.ErrBadPlayableFormats):
+		return invalidRequestAt(http.StatusBadRequest, "body.playableFormats", err.Error())
+	case errors.Is(err, playback.ErrBadReport):
+		return invalidRequestAt(http.StatusBadRequest, "body", err.Error())
+	case errors.Is(err, library.ErrNoFile):
+		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
+	case errors.Is(err, playback.ErrCannotConvert):
+		return newError(http.StatusUnprocessableEntity, CodeCannotConvert,
+			"this device cannot play this file as it is, and it cannot be converted: it has no picture, or "+
+				"neither a known length nor keyframes to cut it by")
+	case errors.Is(err, playback.ErrNoToken):
+		return newError(http.StatusNotFound, CodePlaybackGone,
+			"no such playback: the server restarted since it began, or it ended; start it again")
+	case errors.Is(err, subtitles.ErrNoSubtitle):
+		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
+	case errors.Is(err, playback.ErrNoItem), errors.Is(err, library.ErrNoItem): // one not reached too
+		return newError(http.StatusNotFound, CodeNotFound, "no such item")
+	}
+	return nil
 }
 
 // fetchRefusal is a subtitle fetch's own refusal, from the conversion its node makes before the
@@ -598,16 +517,4 @@ func (server *Server) getDirect(ctx context.Context, input *DirectInput) (*huma.
 // headDirect answers HEAD /bytes/media/direct/{token}: the headers a GET would send.
 func (server *Server) headDirect(ctx context.Context, input *DirectInput) (*huma.StreamResponse, error) {
 	return server.relayDirect(ctx, http.MethodHead, input)
-}
-
-// getMasterPlaylist answers GET /bytes/media/hls/{token}/master.m3u8, relayed from its node.
-func (server *Server) getMasterPlaylist(ctx context.Context, input *MasterInput) (*huma.StreamResponse, error) {
-	return server.relayHLSFile(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
-}
-
-// getRenditionFile answers GET /bytes/media/hls/{token}/{renditionName}/{fileName}: one file of a
-// prepared playback's rendition, relayed from its node.
-func (server *Server) getRenditionFile(ctx context.Context, input *RenditionFileInput) (*huma.StreamResponse, error) {
-	return server.relayHLSFile(ctx, input.MediaCredentials, input.Token,
-		input.RenditionName+"/"+input.FileName, input.Range)
 }

@@ -51,7 +51,7 @@ type heldWork struct {
 	// isPlayDriven is work a person waits for, to play: it pauses background work on its device to
 	// have a reader there (D240 §6).
 	isPlayDriven bool
-	// saysHowFar is a prepare, which says how far it is while it runs, as FFmpeg moves on.
+	// saysHowFar is a run of chunks, which says how far it is while it runs, as it makes each.
 	saysHowFar bool
 	// run does the work to its end and says how it ended to the core, on a context a cancel ends.
 	run func(ctx context.Context)
@@ -157,7 +157,7 @@ func byPriority(first, second *heldWork) int {
 // work pauses background work on its device for a reader, and starts even when another's
 // play-driven work still reads there or fills its slot: one person's watching never waits for
 // another's (the owner's choice, 2026-10-05 and 06, D240 §6), as a lower quality made for one
-// viewer did for the whole of another's prepare. The caller holds the mutex.
+// viewer did for the whole of another's run. The caller holds the mutex.
 func (list *workList) startDue() {
 	ordered := slices.Clone(list.held)
 	slices.SortFunc(ordered, byPriority)

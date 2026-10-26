@@ -65,7 +65,7 @@ func TestAgent_AFileThatDoesNotOpenIsAnsweredStalledOnItsDiskAndListedAsStuck(t 
 			clockSource.AdvanceToNext() // the open's window, once it is armed
 		}
 	}
-	if report.State != nodeproto.PrepareStalled || report.Stall == nil ||
+	if report.State != nodeproto.RunStalled || report.Stall == nil ||
 		report.Stall.Condition != nodeproto.ConditionWaitingOnDisk || !report.Stall.IsLeftRunning ||
 		report.Stall.WaitingOnPath != film {
 		t.Fatalf("the run ended %+v (stall %+v); want stalled waiting on its disk at %s, left running", report,
@@ -170,7 +170,7 @@ func TestAgent_AFileItsDiskFailsIsAnsweredStalledOnItsDisk(t *testing.T) {
 		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 	})
 	report := receiveChunksReport(t, core)
-	if report.State != nodeproto.PrepareStalled || report.Stall == nil ||
+	if report.State != nodeproto.RunStalled || report.Stall == nil ||
 		report.Stall.Cause != nodeproto.StallDiskFailed || report.Stall.Condition != nodeproto.ConditionWaitingOnDisk {
 		t.Errorf("the run ended %+v (stall %+v); want stalled, its disk failing the read", report, report.Stall)
 	}

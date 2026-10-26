@@ -22,9 +22,6 @@ type OpenJob struct {
 	ArgsJSON string
 	// DoneFraction is how far it is, 0 to 1, where its node said; 0 before.
 	DoneFraction float64
-	// NodeID and Profile are a prepare's rendition's node and profile.
-	NodeID  int64
-	Profile string
 }
 
 // OpenReadThroughs are every open read-through of a file: what is ahead of a file's own on its node.
@@ -56,23 +53,6 @@ func (jobStorage *JobStorage) OpenJobsOfFile(ctx context.Context, kind jobqueue.
 		open = append(open, OpenJob{
 			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == string(jobqueue.StateAssigned), FileID: fileID,
 			ArgsJSON: row.ArgsJSON, DoneFraction: ptr.ValueOrZero(row.ProgressFraction),
-		})
-	}
-	return open, nil
-}
-
-// OpenPreparesOfFile are the open prepares of a file's renditions, the highest first: what a player
-// waiting for a prepared copy waits on.
-func (jobStorage *JobStorage) OpenPreparesOfFile(ctx context.Context, fileID int64) ([]OpenJob, error) {
-	rows, err := jobStorage.cache.Read().ListOpenPreparesOfFile(ctx, fileID)
-	if err != nil {
-		return nil, fmt.Errorf("list file %d's open prepares: %w", fileID, err)
-	}
-	open := make([]OpenJob, 0, len(rows))
-	for _, row := range rows {
-		open = append(open, OpenJob{
-			ID: row.ID, IsAssigned: row.State == "assigned", DoneFraction: ptr.ValueOrZero(row.ProgressFraction),
-			NodeID: row.NodeID, Profile: row.Profile,
 		})
 	}
 	return open, nil

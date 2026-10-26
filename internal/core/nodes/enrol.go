@@ -19,8 +19,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// maxHelloBytes bounds a hello: a few hundred bytes, and as many again for each rendition the node
-// holds, so thousands fit.
+// maxHelloBytes bounds a hello: a few hundred bytes, and as many again for each device the node
+// reads, so thousands fit.
 const maxHelloBytes = 8 << 20
 
 // hello enrols a node it has not seen, by name (D207), and queues a scan of every root it names
@@ -88,7 +88,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 	writeJSON(writer, nodeproto.HelloReply{
-		NodeID: node.ID, KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
+		NodeID:             node.ID,
 		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
 	})
 }
@@ -170,28 +170,6 @@ func (service *Service) coveredRoots(ctx context.Context, nodeID int64, roots []
 		}
 	}
 	return covered, nil
-}
-
-// keptRenditions reconciles the index with the renditions a hello lists and returns those it keeps
-// (D238 §2). Without an index, or when it cannot be reconciled, every one is kept: the node evicts
-// nothing for the core's failure.
-func (service *Service) keptRenditions(
-	ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest,
-) []string {
-	listed := make([]string, 0, len(renditions))
-	for _, manifest := range renditions {
-		listed = append(listed, manifest.Prepare.RenditionDir)
-	}
-	if service.renditionIndex == nil {
-		return listed
-	}
-	kept, err := service.renditionIndex.AdoptRenditions(ctx, nodeID, renditions)
-	if err != nil {
-		service.logger.ErrorContext(ctx, "could not reconcile the index with a node's renditions; keeping them all",
-			"nodeId", nodeID, "err", err)
-		return listed
-	}
-	return kept
 }
 
 // Enrol returns the id of the live node called name, creating its row if there is none (D207):

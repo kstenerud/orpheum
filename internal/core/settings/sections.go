@@ -16,7 +16,7 @@ const (
 	SectionLibraries Section = "libraries"
 	// SectionMetadata is TMDB, OpenSubtitles and artwork.
 	SectionMetadata Section = "metadata"
-	// SectionPlayback is how a film plays: resuming, loudness, prepared copies.
+	// SectionPlayback is how a film plays: resuming, loudness, its chunks.
 	SectionPlayback Section = "playback"
 	// SectionSlowLinks is the lower qualities cut in chunks for a slow link.
 	SectionSlowLinks Section = "slow_links"
@@ -162,7 +162,7 @@ var sectionByKey = map[Key]Section{
 	InterestLapsesAfterSeconds:                     SectionJobs,
 	UnavailableRootRescanSeconds:                   SectionLibraries,
 	SeriesEpisodesAhead:                            SectionJobs,
-	PrepareProgressEverySeconds:                    SectionNodes,
+	NodeProgressEverySeconds:                       SectionNodes,
 	ReaderLimitSpinningDisk:                        SectionNodes,
 	ReaderLimitSSD:                                 SectionNodes,
 	ReaderLimitUnknownDisk:                         SectionNodes,
@@ -199,5 +199,4 @@ var sectionByKey = map[Key]Section{
 	ShouldServeDebugPProf:                          SectionDiagnostics,
 	ShouldShowDeveloperPages:                       SectionDiagnostics,
 	ShouldOfferDeviceTests:                         SectionDiagnostics,
-	SystemPageRecentPreparesPerNode:                SectionDiagnostics,
 }

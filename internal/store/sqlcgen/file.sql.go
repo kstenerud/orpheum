@@ -115,18 +115,6 @@ func (q *Queries) GetFileForSubtitleSearch(ctx context.Context, id int64) (GetFi
 	return i, err
 }
 
-const getFilePath = `-- name: GetFilePath :one
-SELECT path FROM file WHERE id = ?
-`
-
-// A file's path, removed or not, to name it where it was worked on (the System page, D225).
-func (q *Queries) GetFilePath(ctx context.Context, id int64) (string, error) {
-	row := q.db.QueryRowContext(ctx, getFilePath, id)
-	var path string
-	err := row.Scan(&path)
-	return path, err
-}
-
 const getLatestTombstoneByPayloadHash = `-- name: GetLatestTombstoneByPayloadHash :one
 SELECT id
 FROM file
@@ -467,7 +455,7 @@ type ListAudioTracksOfVideoRow struct {
 }
 
 // A video's own audio tracks in the order of their stream indexes, which is their place among
-// them, as a prepare numbers them: what a person chooses a language from (D230).
+// them, as a run of chunks numbers them: what a person chooses a language from (D230).
 func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) ([]ListAudioTracksOfVideoRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAudioTracksOfVideo, videoFile)
 	if err != nil {

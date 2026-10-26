@@ -50,23 +50,23 @@ func TestStatus_ListsTheProcessesLeftRunning(t *testing.T) {
 	}
 }
 
-func TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot(t *testing.T) {
+func TestAgent_AStalledRunIsAnsweredStalledNotFailedAndFreesItsSlot(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	root, _ := startAgent(t, socket)
-	source := preparableFilm(t, root)
-	// More stalls than a remux has slots: each frees its slot, or the last prepare never runs.
+	source := chunkableFilm(t, root)
+	// More stalls than a remux has slots: each frees its slot, or the last run never runs.
 	for job := range int64(testCapacity.RemuxSlotCount + 1) {
-		core.sendPrepare(job+1, source, "3/remux/stalled")
-		stalled := finalPrepareReport(t, core)
-		if stalled.State != nodeproto.PrepareStalled || stalled.Failure != "" || stalled.Refusal != "" {
-			t.Fatalf("a stalled prepare ended %+v; want stalled, neither failed nor refused", stalled)
+		core.sendRun(job+1, source, "3/chunks-stalled/0123456789abcdef")
+		stalled := finalRunReport(t, core)
+		if stalled.State != nodeproto.RunStalled || stalled.Failure != "" || stalled.Refusal != "" {
+			t.Fatalf("a stalled run ended %+v; want stalled, neither failed nor refused", stalled)
 		}
-		wantStall(t, "a stalled prepare", stalled.Stall)
+		wantStall(t, "a stalled run", stalled.Stall)
 	}
-	core.sendPrepare(10, source, "3/remux/0123456789abcdef")
-	if done := finalPrepareReport(t, core); done.State != nodeproto.PrepareDone {
-		t.Errorf("a prepare after the stalls ended %+v; want done, in a slot the stalls freed", done)
+	core.sendRun(10, source, "3/chunks-picture/0123456789abcdef")
+	if done := finalRunReport(t, core); done.State != nodeproto.RunDone {
+		t.Errorf("a run after the stalls ended %+v; want done, in a slot the stalls freed", done)
 	}
 }
 

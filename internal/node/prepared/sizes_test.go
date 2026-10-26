@@ -19,14 +19,14 @@ func usedBytes(t *testing.T, shelf *Shelf) int64 {
 	return usage.UsedBytes
 }
 
-// testRendition is the rendition the size tests write.
-const testRendition = "1/remux/aaaaaaaaaaaaaaaa"
+// testRun is the run the size tests write.
+const testRun = "1/remux/aaaaaaaaaaaaaaaa"
 
-// writeBehind writes a file into testRendition behind the shelf's back, the run last used two
+// writeBehind writes a file into testRun behind the shelf's back, the run last used two
 // hours before the shelf's now.
 func writeBehind(t *testing.T, shelf *Shelf, name string, size int) {
 	t.Helper()
-	path := filepath.Join(shelf.directory, filepath.FromSlash(testRendition))
+	path := filepath.Join(shelf.directory, filepath.FromSlash(testRun))
 	if err := os.WriteFile(filepath.Join(path, name), make([]byte, size), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestEvict_WalksARunOnceAndForgetsItWhenEvicted(t *testing.T) {
 		map[string]struct {
 			bytes int
 			ago   time.Duration
-		}{testRendition: {100, 2 * time.Hour}})
+		}{testRun: {100, 2 * time.Hour}})
 	if used := usedBytes(t, shelf); used != 100 {
 		t.Fatalf("the shelf holds %d bytes; want the run's 100", used)
 	}
@@ -59,7 +59,7 @@ func TestEvict_WalksARunOnceAndForgetsItWhenEvicted(t *testing.T) {
 		t.Fatalf("over its budget, the shelf kept %d bytes; want the run evicted", used)
 	}
 	shelf.budget.MaxBytes = 1 << 30
-	if err := os.MkdirAll(filepath.Join(shelf.directory, filepath.FromSlash(testRendition)), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(shelf.directory, filepath.FromSlash(testRun)), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	writeBehind(t, shelf, "again.m4s", 30)
@@ -94,30 +94,5 @@ func TestStore_ItsSizeFollowsWhatIsPutInItAndItsOpenRunsRawFiles(t *testing.T) {
 	}
 	if used := usedBytes(t, shelf); used != before+400 {
 		t.Errorf("once its run closed, the store holds %d bytes; want %d, the raw file gone", used, before+400)
-	}
-}
-
-// A rendition being written, which FFmpeg writes whole, is measured as it is at every eviction, and
-// walked once more when it is written.
-func TestEvict_MeasuresARenditionBeingWrittenAsItIsAndOnceMoreWhenWritten(t *testing.T) {
-	t.Parallel()
-	disk := 50
-	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, KeptAfterLastPlay: time.Hour, DiskUsedLimitPercent: 95}, &disk,
-		map[string]struct {
-			bytes int
-			ago   time.Duration
-		}{testRendition: {100, time.Minute}})
-	finishWriting := shelf.MarkWriting(testRendition)
-	if used := usedBytes(t, shelf); used != 100 {
-		t.Fatalf("the shelf holds %d bytes; want the rendition's 100 so far", used)
-	}
-	writeBehind(t, shelf, "seg00002.m4s", 50)
-	if used := usedBytes(t, shelf); used != 150 {
-		t.Errorf("a rendition being written holds %d bytes; want the 150 FFmpeg has written", used)
-	}
-	writeBehind(t, shelf, "seg00003.m4s", 25)
-	finishWriting()
-	if used := usedBytes(t, shelf); used != 175 {
-		t.Errorf("a written rendition holds %d bytes; want all 175, walked once more", used)
 	}
 }

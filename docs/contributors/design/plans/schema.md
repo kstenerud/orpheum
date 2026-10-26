@@ -1103,18 +1103,19 @@ loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks 
 §10); version 32 gave it a target of its own, the job's `chunk_store_id`, a row of `chunk_store`
 (one stream of a film on one grid), so the runs of a film's streams queue side by side; version 33
 gave a `node_attempt` its `node_start_id`, the start of the node it was given to, so a node that
-started again is known by its hello even when the core started again too (D238 §3).
+started again is known by its hello even when the core started again too (D238 §3). Version 41
+dropped `prepared_rendition`, the `prepare` kind and `job.rendition_id`: the whole-film prepare is
+retired, and a film its device cannot play as it is plays from its ladder of chunks (D344).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
-  -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
+  -- an item, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
   -- read_through and make_chunks a file, scan a scan (its listing), examine a scan's batch. At most one is set;
   -- backup, not yet a job, sets none.
   item_id             INTEGER,
-  rendition_id        INTEGER,
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
@@ -1149,13 +1150,13 @@ CREATE TABLE job (                                         -- the one work queue
   -- Until when a person waits for play-driven work (D234 section 3, D240 section 6): each play that
   -- asks for it moves it on; past it, the job falls to background priority. NULL for other work.
   wanted_until INTEGER,
-  CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
+  CHECK ((item_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
          (scan_batch_id IS NOT NULL) <= 1)
 );
 -- The paths the queue's statements take (D303; the independent audit's S4), cache schema 37.
 CREATE INDEX job_claim ON job(kind, priority DESC, runnable_at, id) WHERE state = 'queued';
-CREATE INDEX job_open_target ON job(kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id,
+CREATE INDEX job_open_target ON job(kind, item_id, stream_id, fetched_subtitle_id, file_id,
   scan_id, scan_batch_id, chunk_store_id) WHERE state IN ('queued', 'running', 'assigned');
 CREATE INDEX job_state ON job(state, kind, assigned_until);
 CREATE INDEX job_wanted ON job(wanted_until) WHERE wanted_until IS NOT NULL;
@@ -1200,28 +1201,6 @@ CREATE TABLE art_served (                                  -- D212 section 6: re
   source_sha256_hex TEXT PRIMARY KEY,     -- an image's directory under cache/art/
   last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
-CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_file  INTEGER NOT NULL,         -- persistent.db's file; play state records against it
-  source_payload_hash BLOB NOT NULL,     -- the source as it was when prepared (D179)
-  profile      TEXT NOT NULL CHECK (profile IN ('remux','h264')),
-  node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
-  state        TEXT NOT NULL DEFAULT 'queued'
-                 CHECK (state IN ('queued','running','complete','failed')),
-  segment_length_seconds INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
-  run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
-  prepared_through_ms INTEGER NOT NULL DEFAULT 0,  -- how far into the source it is prepared
-  size_bytes   INTEGER,                  -- its size once complete
-  failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
-  video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
-  realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
-  carried_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
-  audio_languages_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the language each audio track is tagged with, by its place; another remakes it
-  created_at   INTEGER NOT NULL,
-  finished_at  INTEGER,
-  UNIQUE (source_file, profile)
-);
-
 CREATE TABLE node_attempt (                                -- D234 section 7: work given to a node
   attempt_token TEXT PRIMARY KEY,        -- made for this sending; every result names it (D238 section 2)
   job_id      INTEGER NOT NULL,          -- the assigned job it is an attempt at; resolving it forgets this
@@ -1236,9 +1215,9 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
 CREATE INDEX node_attempt_job ON node_attempt(job_id);
 ```
 
-A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under the node's prepared
-directory, which the node alone deletes from (D217 §5); this row is the core's note of what it
-asked for and what the node said. Its prepare job's target is the row's id, `rendition_id` (D217 §3).
+A store's chunks live on its node, in `<file_id>/chunks-<stream>/<grid_id>/` under the node's
+prepared directory, which the node alone deletes from (D217 §5); its `chunk_store` row is what its
+make_chunks jobs target (D247 §10).
 
 The text made from a subtitle track is kept in `persistent.db` since version 22 (below, *Subtitle
 text*): making it again reads a whole video, which is not "only timing" (the architecture map's
@@ -1365,7 +1344,6 @@ second writer, or on a writer this table does not name. A table no package write
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
-| `prepared_rendition` | cache.db | `internal/core/renditions` | |
 | `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
 
 ## What grows, and what bounds it

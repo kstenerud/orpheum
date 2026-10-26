@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
@@ -18,8 +17,7 @@ import (
 // makes room, and walking every file of a full directory took seconds there. A run is walked once,
 // when the shelf first finds it; then a chunk store's size moves only as the shelf itself puts files
 // in it, and its runs' raw directories, which FFmpeg writes, are measured as they are, being small
-// and few. A rendition being written, which FFmpeg writes whole, is measured as it is until it is
-// written, and walked once more after.
+// and few.
 
 // runSizes is what the shelf knows of its runs' sizes.
 type runSizes struct {
@@ -28,7 +26,7 @@ type runSizes struct {
 	walking sync.Mutex
 
 	mutex sync.Mutex
-	// byRun is each run's size, in bytes, apart from its stores' open raw directories; a rendition
+	// byRun is each run's size, in bytes, apart from its stores' open raw directories; a run
 	// being written is not in it. Guarded by mutex.
 	byRun map[string]int64
 	// openRaws are the raw directories of the runs of chunks open in each store, by its directory;
@@ -40,17 +38,8 @@ func newRunSizes() *runSizes {
 	return &runSizes{byRun: map[string]int64{}, openRaws: map[string]map[string]bool{}}
 }
 
-// isStoreDir is whether a run directory, <file_id>/<profile>/<run_id>, is a store of chunks.
-func isStoreDir(runDir string) bool {
-	_, profile, _ := strings.Cut(runDir, "/")
-	return strings.HasPrefix(profile, "chunks-")
-}
-
 // sizeOf is the run's size now, its path absolute: what it holds of the shelf's budget.
 func (shelf *Shelf) sizeOf(runDir, path string) (int64, error) {
-	if !isStoreDir(runDir) && shelf.isWriting(runDir) {
-		return diskspace.TreeBytes(path)
-	}
 	known, err := shelf.knownSize(runDir, path)
 	if err != nil {
 		return 0, err

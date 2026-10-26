@@ -7,11 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
-	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
@@ -57,7 +55,9 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	}
 }
 
-func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(t *testing.T) {
+// A film converted is levelled as its track's stereo mix, the gain capped by the mix's peak, and its
+// sound's chunks carry the gain, which the player does not add again (D226 §4, D344 §1).
+func TestLoudness_AConvertedFilmIsLevelledAsItsStereoMixAndItsChunksCarryTheGain(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -75,27 +75,9 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		t.Fatal(err)
 	}
 	decided := harness.play(t, user, chrome(2))
-	want := LevellingBody{IsMeasured: true, GainDB: 5.0}
-	if decided.Delivery != "hls" || len(decided.Audio) != 2 || decided.Audio[0].Levelling != want ||
-		decided.Audio[1].Levelling != want || decided.Audio[0].CarriedGainDB != 0 || decided.Levelling != want {
-		t.Fatalf("prepared: %+v; want both mixes at the stereo mix's gain, capped by its peak, and none carried yet",
-			decided)
-	}
-	prepared := harness.handle(t, harness.renditions.HandlePrepare,
-		jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
-	command := harness.nextCommand(t)
-	if command.Prepare == nil || len(command.Prepare.AudioTracks) != 1 ||
-		command.Prepare.AudioTracks[0].CarriedGainDB != 5.0 {
-		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
-	}
-	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 1}
-	harness.answerPrepare(t, 92, done)
-	if err := testutil.Receive(t, prepared, "the prepare job to end"); err != nil {
-		t.Fatal(err)
-	}
-	again := harness.play(t, user, chrome(2))
-	if again.Audio[0].CarriedGainDB != 5.0 || again.Audio[1].CarriedGainDB != 5.0 {
-		t.Errorf("once prepared: %+v; want each mix to say it carries the gain, so the player adds none", again.Audio)
+	if decided.Delivery != "hls" || decided.OnLadder == nil || decided.OnLadder.SoundCarriedGainDB != 5.0 {
+		t.Fatalf("converted: %+v; want it on its ladder, its sound's chunks carrying the stereo mix's gain, "+
+			"capped by its peak", decided)
 	}
 }
 

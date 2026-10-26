@@ -13,7 +13,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -101,15 +100,20 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 }
 
 // cutForRun is the run's film as it is cut on the grid the run was asked on: on its keyframes, or,
-// when that is not the run's grid, on time (D269 §3); reporting false when the film has neither.
+// when that is not the run's grid or its keyframes cannot cut it, on time (D269 §3, D344 §2);
+// reporting false when the film has neither.
 func (service *Service) cutForRun(ctx context.Context, run storedRun) (cutFilm, bool, error) {
 	film, isCut, err := service.cut(ctx, run.fileID, OnKeyframes)
-	if err != nil || (isCut && film.grid.ID() == run.gridID) {
+	hasUncutPicture := errors.Is(err, ErrCannotBeCut) && film.picture.Codec != ""
+	if (err != nil && !hasUncutPicture) || (isCut && film.grid.ID() == run.gridID) {
 		return film, isCut, err
 	}
 	timed, isTimed, timeErr := service.cut(ctx, run.fileID, OnTime)
 	if timeErr == nil && isTimed && timed.grid.ID() == run.gridID {
 		return timed, true, nil
+	}
+	if hasUncutPicture {
+		return film, false, err
 	}
 	return film, isCut, nil
 }
@@ -170,28 +174,28 @@ func PictureSeekMs(keyframesMs []int64, startMs, durationMs int64) int64 {
 	return min(seekMs, nextMs-1)
 }
 
-// levelledTrack is a sound stream's audio track as a prepare carries it, with the levelling gain
-// a prepare puts in it (D226 §4): its chunks are the same mix a prepared copy's are. A track the
+// levelledTrack is a sound stream's audio track as its chunks are made of it, with the levelling gain
+// they carry (D226 §4). A track the
 // film does not have, or a boosted mix of a track with no centre to raise, ends the job for good.
 func (service *Service) levelledTrack(
 	ctx context.Context, film cutFilm, stream Stream,
-) (nodeproto.PrepareAudio, error) {
-	levelled := nodeproto.Prepare{AudioTracks: renditions.PreparedAudio(film.probe)}
+) (nodeproto.SoundTrack, error) {
+	tracks := SoundTracksOf(film.probe)
 	if !stream.IsUnlevelled {
 		levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
 		if err != nil {
-			return nodeproto.PrepareAudio{}, err
+			return nodeproto.SoundTrack{}, err
 		}
-		decide.LevelPrepare(&levelled, levels, film.probe)
+		decide.LevelSounds(tracks, levels, film.probe)
 	}
-	if hasSound(renditions.AudioRenditionsOf(levelled.AudioTracks), stream) {
-		for _, track := range levelled.AudioTracks {
+	if hasSound(SoundsOf(tracks), stream) {
+		for _, track := range tracks {
 			if track.AudioTrackIndex == stream.AudioTrackIndex {
 				return track, nil
 			}
 		}
 	}
-	return nodeproto.PrepareAudio{}, jobs.MarkPermanent(fmt.Errorf("file %d has no sound %s", film.file.ID,
+	return nodeproto.SoundTrack{}, jobs.MarkPermanent(fmt.Errorf("file %d has no sound %s", film.file.ID,
 		stream.Name()))
 }
 
@@ -285,22 +289,22 @@ func (service *Service) takeEnd(
 	}
 	what := "the run of " + command.StoreDir
 	switch report.State {
-	case nodeproto.PrepareDone:
+	case nodeproto.RunDone:
 		service.runs.forget(command.StoreDir, command.FirstChunk)
 		return nil
-	case nodeproto.PrepareFailed:
+	case nodeproto.RunFailed:
 		return jobs.MarkPermanent(errors.New(report.Failure))
-	case nodeproto.PrepareStalled:
+	case nodeproto.RunStalled:
 		return nodes.FFmpegStallOutcome(job, nodeID, what, ptr.ValueOrZero(report.Stall),
 			func(string) error {
 				service.runs.forget(command.StoreDir, command.FirstChunk)
 				return nil
 			})
-	case nodeproto.PrepareRefused:
+	case nodeproto.RunRefused:
 		refused := nodes.RefusalError(nodeID, what, report.Refusal, report.RefusalCode)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
 			// Its prepared directory's disk is full: the node's runs wait until its status shows
-			// room (D231 §5), as its prepares do.
+			// room (D231 §5).
 			return jobs.Park(jobs.Parking{
 				Destination: jobs.PreparedDirectoryDestination(nodeID), Reason: "its disk has no room",
 				AwaitsSignal: true,
@@ -311,11 +315,11 @@ func (service *Service) takeEnd(
 	return fmt.Errorf("node %d ended %s in a state this core does not know: %q", nodeID, what, report.State)
 }
 
-// hasSound is whether a film whose sounds are those a prepare makes of its audio tracks has the sound
-// stream, at whatever bit rate: a track it has, and a boosted mix only of a track a prepare makes one
-// of.
-func hasSound(sounds []renditions.AudioRendition, stream Stream) bool {
-	return slices.ContainsFunc(sounds, func(sound renditions.AudioRendition) bool {
+// hasSound is whether a film whose sounds are those of its audio tracks (SoundsOf) has the sound
+// stream, at whatever bit rate: a track it has, and a boosted mix only of a track with a centre to
+// raise.
+func hasSound(sounds []Sound, stream Stream) bool {
+	return slices.ContainsFunc(sounds, func(sound Sound) bool {
 		return soundStream(sound, stream.SoundKbps, stream.IsUnlevelled) == stream
 	})
 }

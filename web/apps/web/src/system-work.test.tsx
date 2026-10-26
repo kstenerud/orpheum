@@ -35,7 +35,7 @@ it("shows how many of each kind of job wait, since when, and what failed in the 
             oldestQueuedAt: 1_790_000_000_000,
             failedLastDayCount: 0,
           },
-          { kind: "prepare", queuedCount: 0, failedLastDayCount: 2 },
+          { kind: "make_chunks", queuedCount: 0, failedLastDayCount: 2 },
         ]}
       />,
       servedBy({}),

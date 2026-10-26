@@ -39,8 +39,8 @@ type Offer struct {
 	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured: a player
 	// that stalls on it has no quality left to go to (D247 §8).
 	IsBelowTheLowest bool
-	// SoundCarriedGainDB is the levelling gain the starting sound's chunks carry, as a prepared
-	// copy's do (D226 §4), so the player, which levels after its volume, does not level it again.
+	// SoundCarriedGainDB is the levelling gain the starting sound's chunks carry (D226 §4), so the
+	// player, which levels after its volume, does not level it again.
 	SoundCarriedGainDB float64
 	// FilmPictureKbps is the film's own picture's average rate, as the quality was chosen by: what a
 	// player weighs its link against once the quality is ready (D253 §2); 0 when not known.
@@ -59,6 +59,9 @@ type Offer struct {
 	// LinkSharePercent is the share of a measured link the quality was chosen within,
 	// link_share_for_quality_percent, which the player chooses its own qualities by (D247 §6).
 	LinkSharePercent int64
+	// IsOnTime is whether the film was cut on time for it, which its playback keeps to its end (D269
+	// §3): its file has no index, or its keyframes could not be had in time or at all (D344 §2).
+	IsOnTime bool
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -164,6 +167,7 @@ func (service *Service) startAt(
 		IsHeldByUpload:   chosen.isHeldByUpload,
 		FromMs:           film.grid.StartsMs[chunk],
 		LinkSharePercent: chosen.sharePercent,
+		IsOnTime:         film.kind == OnTime,
 	}
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)

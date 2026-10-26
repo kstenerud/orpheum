@@ -9,7 +9,7 @@
 //
 //   - A sound plays at the level its measurement gives, and one not measured, or that FFmpeg could
 //     not measure, plays as it is. Enforced by TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel
-//     and TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain
+//     and TestLoudness_AConvertedFilmIsLevelledAsItsStereoMixAndItsChunksCarryTheGain
 //     (internal/core/api), and end to end by TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled
 //     (cmd/orpheum).
 //

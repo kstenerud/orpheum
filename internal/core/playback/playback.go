@@ -15,7 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -28,6 +27,9 @@ import (
 var (
 	// ErrNoToken is a media token that refers to no playback of this person's session.
 	ErrNoToken = errors.New("no such playback")
+	// ErrCannotConvert is a file its device cannot play as it is that cannot start on its ladder
+	// either: it has no picture, or neither a known length nor keyframes to cut it by (D344 §5).
+	ErrCannotConvert = errors.New("this file cannot be converted for this device")
 )
 
 // Settings are the settings playback reads.
@@ -49,8 +51,6 @@ type Parts struct {
 	Clock    clock.Clock
 	// Random makes media tokens.
 	Random io.Reader
-	// Renditions are a prepared playback's copies, made by its node.
-	Renditions *renditions.Service
 	// Subtitles are a played video's subtitles, made by its node, and those fetched on request.
 	Subtitles *subtitles.Service
 	// Preferences keeps a person's choices, which a playback starts with (D230).
@@ -86,7 +86,7 @@ type Loudness interface {
 	Levels(ctx context.Context, payloadHash []byte) (decide.Levels, error)
 }
 
-// Service starts playbacks, says where their bytes are, and has renditions prepared.
+// Service starts playbacks and says where their bytes are.
 type Service struct {
 	database    *store.Database
 	nodes       Nodes
@@ -94,7 +94,6 @@ type Service struct {
 	clock       clock.Clock
 	random      io.Reader
 	tokens      *tokens
-	renditions  *renditions.Service
 	subtitles   *subtitles.Service
 	preferences *preferences.Service
 	loudness    Loudness
@@ -124,7 +123,7 @@ func NewService(parts Parts) *Service {
 	service := &Service{
 		database: parts.Database, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random,
-		tokens: newTokens(), renditions: parts.Renditions,
+		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, speeds: newLinkSpeeds(),
 		unplayablePictures: newUnplayablePictures(),
@@ -156,10 +155,6 @@ type Request struct {
 type Started struct {
 	Token    string
 	Decision decide.Decision
-	// IsPreparing is whether a prepared playback's rendition is still being made.
-	IsPreparing bool
-	// AudioRenditions are a prepared playback's audio renditions, in the master playlist's order.
-	AudioRenditions []renditions.AudioRendition
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
 	Subtitles []subtitles.Track
 	// AudioTracks are the file's own audio tracks, by their place among them.
@@ -174,8 +169,8 @@ type Started struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative; 0 for none, and for a viewer with no device.
 	SoundOffsetMs int64
-	// Levelling is what brings the main sound to the level: the one played as it is, or, when
-	// prepared, its stereo mix (D226). Each audio rendition carries its own.
+	// Levelling is what brings the main sound, played as it is, to the level (D226); a sound on the
+	// ladder carries its own gain (chunks.Offer.SoundCarriedGainDB).
 	Levelling decide.Levelling
 	// FileBitRateBps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when the probe has none.
@@ -185,7 +180,8 @@ type Started struct {
 	// Decision says.
 	OnLadder *chunks.Offer
 	// NotOnLadderBecause is why a playback does not start on its film's ladder, for the log:
-	// "noGridYet" (its keyframes not read within play_ladder_wait_ms), "cannotBeCut",
+	// "noGridYet" (its keyframes not read within play_ladder_wait_ms, of a film its device plays as it
+	// is; one it cannot is cut on time, D344 §2), "cannotBeCut",
 	// "noQualityOffered" or "noLadder"; empty when it does. A film played as its decision says, with
 	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
 	NotOnLadderBecause string
@@ -232,7 +228,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	levels, err := service.startingPoint(ctx, userID, file, probe, &started)
+	err = service.startingPoint(ctx, userID, file, probe, &started)
 	if err != nil {
 		return Started{}, err
 	}
@@ -252,12 +248,9 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	service.keepStart(&playback, started.OnLadder)
-	// A film on its ladder needs no prepared copy (D260 §1).
+	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
-		playback.profile = nodeproto.PrepareProfile(decision.Profile)
-		if prepareErr := service.wantPrepared(ctx, file, probe, levels, playback.profile, &started); prepareErr != nil {
-			return Started{}, prepareErr
-		}
+		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)
 	}
 	return service.issued(ctx, playback, probe, started, idle)
 }
@@ -304,21 +297,21 @@ func (service *Service) issueToken(playback tokenPlayback, idle time.Duration) (
 }
 
 // startingPoint is where a playback of file starts, in started, its resume position and the
-// levelling of the sound played as it is, and returns the file's loudness levels.
+// levelling of the sound played as it is.
 func (service *Service) startingPoint(
 	ctx context.Context, userID int64, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, started *Started,
-) (decide.Levels, error) {
+) error {
 	var err error
 	started.ResumePositionMs, err = service.resumePositionMs(ctx, userID, file.ID, probe.Format.DurationMs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	started.Levelling = decide.DirectLevelling(levels, probe)
-	return levels, nil
+	return nil
 }
 
 // ladderLookEvery is how often a playback of a film not cut yet looks again for its keyframes,
@@ -327,8 +320,9 @@ const ladderLookEvery = 100 * time.Millisecond
 
 // startOnLadder starts a playback on its film's ladder from positionMs (D260): at the top, or, with
 // its player's link on the request's network remembered, where that link calls for (D257 §1). A
-// film with no grid yet is waited for, up to play_ladder_wait_ms, while its timeline is read, then nil,
-// playing as its decision says; one that cannot be cut, or offers no picture, is nil at once. A nil
+// film with no grid yet is waited for, up to play_ladder_wait_ms, while its timeline is read, then cut
+// on time where its device cannot play it as it is (D344 §2), else nil, playing as it is; one that
+// cannot be cut, or offers no picture, is nil at once. A nil
 // offer comes with why, for the log. A person who chose the original file plays it, never the ladder
 // (web-client.md: playback is never a black box). Its player's playbacks of other films are gone to
 // this one (goneToAnother).
@@ -356,23 +350,41 @@ func (service *Service) startOnLadder(
 	if chunked.StartAtMostKbps, err = service.startAtMostKbps(ctx, holder, playback.fileID); err != nil {
 		return nil, "", err
 	}
+	isConverted := playback.decision.Delivery == decide.HLS
+	offer, startErr := service.startWaiting(ctx, chunked, positionMs, kbps, waitUntil, isConverted)
+	switch {
+	case errors.Is(startErr, chunks.ErrNoGrid):
+		return nil, "noGridYet", nil
+	case errors.Is(startErr, chunks.ErrCannotBeCut):
+		return nil, "cannotBeCut", nil
+	case errors.Is(startErr, chunks.ErrNoQualityOffered):
+		return nil, "noQualityOffered", nil
+	case startErr != nil:
+		return nil, "", startErr
+	}
+	return &offer, "", nil
+}
+
+// startWaiting starts chunked on its film's ladder from positionMs, looking again while the film has
+// no grid until waitUntil. Its keyframes not read by then, a film its device cannot play as it is,
+// isConverted, is cut on time, which needs none (D344 §2); one it can is ErrNoGrid, and plays as it
+// is while they are read (D260 §1).
+func (service *Service) startWaiting(
+	ctx context.Context, chunked chunks.Playback, positionMs, kbps int64, waitUntil time.Time, isConverted bool,
+) (chunks.Offer, error) {
 	for {
-		offer, startErr := service.chunks.StartOnLadder(ctx, chunked, positionMs, kbps)
-		isWaiting := errors.Is(startErr, chunks.ErrNoGrid) && service.clock.Now().Before(waitUntil)
+		offer, err := service.chunks.StartOnLadder(ctx, chunked, positionMs, kbps)
+		if !errors.Is(err, chunks.ErrNoGrid) {
+			return offer, err
+		}
+		isWaiting := service.clock.Now().Before(waitUntil)
 		if isWaiting && service.clock.Sleep(ctx, ladderLookEvery) == nil {
 			continue
 		}
-		switch {
-		case errors.Is(startErr, chunks.ErrNoGrid):
-			return nil, "noGridYet", nil
-		case errors.Is(startErr, chunks.ErrCannotBeCut):
-			return nil, "cannotBeCut", nil
-		case errors.Is(startErr, chunks.ErrNoQualityOffered):
-			return nil, "noQualityOffered", nil
-		case startErr != nil:
-			return nil, "", startErr
+		if !isConverted || chunked.IsOnTime {
+			return offer, err
 		}
-		return &offer, "", nil
+		chunked.IsOnTime = true
 	}
 }
 
@@ -419,23 +431,6 @@ func decisionFor(request Request, probe nodeproto.Probe, started Started) decide
 		input.AudioStreamIndex = new(int(started.StartingAudio.StreamIndex))
 	}
 	return decide.Decide(input)
-}
-
-// wantPrepared has a prepared playback's rendition made unless it is, and says in started how far
-// it is, its audio renditions and the gain that levels the audio track the playback starts with.
-func (service *Service) wantPrepared(
-	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, levels decide.Levels,
-	profile nodeproto.PrepareProfile, started *Started,
-) error {
-	wanted, err := service.renditions.Want(ctx, file, probe, levels, profile)
-	if err != nil {
-		return err
-	}
-	started.IsPreparing, started.AudioRenditions = wanted.IsPreparing, wanted.Audio
-	if played := started.StartingAudio; played != nil {
-		started.Levelling = levels[decide.SoundKey{StreamIndex: played.StreamIndex, Mix: decide.MixStereo}]
-	}
-	return nil
 }
 
 // startingChoices works out what a playback of a file starts with, into started: the person's
@@ -507,7 +502,7 @@ func (service *Service) DirectSource(ctx context.Context, token string, holder H
 		return Source{}, err
 	}
 	playback, found := service.tokens.use(token, holder, service.clock.Now(), idle)
-	if !found || playback.profile != "" {
+	if !found {
 		return Source{}, ErrNoToken
 	}
 	file, err := library.PlayableFile(ctx, service.database.Read(), playback.fileID)

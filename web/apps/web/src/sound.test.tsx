@@ -114,9 +114,11 @@ describe("the dialogue boost over the original (D336 §3)", () => {
 
   it("asks the server again with the boost's cause once it is kept, and plays what it answers", async () => {
     const heard: Heard[] = [];
+    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const plain = directDecision();
     const boosted = directDecision({
       delivery: "hls",
-      url: "/api/v1/bytes/media/hls/u/master.m3u8",
+      url: "/api/v1/bytes/media/chunks/u/master.m3u8",
       notDirectReasons: ["dialogue_boost"],
       mediaToken: "u",
       preferences: {
@@ -124,6 +126,26 @@ describe("the dialogue boost over the original (D336 §3)", () => {
         isDialogueBoostOn: true,
         isLevellingOn: true,
         isAutoplayOn: true,
+      },
+      onLadder: {
+        url: "/api/v1/bytes/media/chunks/u/master.m3u8",
+        startAtBps: 1_896_000,
+        qualityKbps: 1200,
+        height: 480,
+        isBelowTheLowest: false,
+        soundCarriedGainDb: 0,
+        isReady: false,
+        filmPictureKbps: 4000,
+        linkSharePercent: 70,
+      },
+      tracks: {
+        ...plain.tracks,
+        pictures: [{ codec: "h264", width: 854, height: 480, kbps: 1200, isOriginal: false }],
+        sounds: [
+          { audioTrackIndex: 0, isBoosted: false, ...converted },
+          { audioTrackIndex: 0, isBoosted: true, ...converted },
+        ],
+        fileSounds: [{ audioTrackIndex: 0, codec: "eac3", channelCount: 6 }],
       },
     });
     const services = servedBy(
@@ -144,7 +166,8 @@ describe("the dialogue boost over the original (D336 §3)", () => {
       .filter((each) => each === "POST /playback" || each === "PUT /me/preferences");
     expect(order).toEqual(["POST /playback", "PUT /me/preferences", "POST /playback"]);
     expect(playbackCauses(heard)).toEqual(["playPage", "boostChosen"]);
-    expect(mounted.container.textContent).toContain("dialogue boost is on");
+    // The film plays from its ladder with the boosted mix (D344 §1).
+    expect(mounted.container.textContent).toContain("transcoded from E-AC-3 5.1, dialogue boost");
   });
 
   it("is not offered over a stereo original, which has no centre to raise", async () => {
@@ -215,7 +238,7 @@ describe("the dialogue boost on a film's ladder", () => {
     });
   }
 
-  it("is switched under the film as under a prepared copy, playing the other mix and kept for every file (the owner, 2026-10-24)", async () => {
+  it("is switched under the film on its ladder, playing the other mix and kept for every file (the owner, 2026-10-24)", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     mounted = await mount(

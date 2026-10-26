@@ -4,7 +4,7 @@ import type { Device } from "./accounts.ts";
 import type { PlaybackDecision } from "./watching.ts";
 
 /** A sound not measured yet: played as it is (D226). */
-export const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
 
 /** A decision to play the original as it is, with what a test changes of it. */
 export function directDecision(changes: Partial<PlaybackDecision> = {}): PlaybackDecision {
@@ -12,7 +12,6 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     delivery: "direct",
     url: "/api/v1/bytes/media/direct/abc",
     notDirectReasons: [],
-    isPreparing: false,
     subtitles: [],
     audioTracks: [],
     preferences: {

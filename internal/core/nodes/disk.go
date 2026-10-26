@@ -69,7 +69,7 @@ func (all *Exchanges) parkOnStalledDisk(
 		return false, nil
 	}
 	if stall.WaitingOnPath != "" && !pathtree.IsAtOrUnder(stall.WaitingOnPath, file.RootPath) {
-		return parkOnStalledPreparedDisk(attempt, *stall)
+		return false, nil // a stall outside its root, as on the prepared directory's disk, is its kind's to answer
 	}
 	place, since, err := disks.MarkStalled(ctx, attempt.NodeID, file.RootPath, stall.WaitingOnPath)
 	if err != nil {
@@ -80,21 +80,6 @@ func (all *Exchanges) parkOnStalledDisk(
 	}
 	stalled := StallError(attempt.NodeID, fmt.Sprintf("%s job %d", attempt.Kind, attempt.JobID), *stall)
 	return true, jobs.ParkOnMissingRoot(attempt.NodeID, place, since, jobs.MarkStalled(stalled))
-}
-
-// parkOnStalledPreparedDisk answers a prepare whose run waited on a disk that is not its source's,
-// as its node said: the disk it writes, the prepared directory's. Its root stays available, and the
-// node's prepares park on the prepared directory, a probe on the back-off finding when it answers
-// again, at no cost of an attempt. A stall of other work outside its root is its kind's to answer.
-func parkOnStalledPreparedDisk(attempt Attempt, stall nodeproto.Stall) (bool, error) {
-	if attempt.Work.Prepare == nil {
-		return false, nil
-	}
-	stalled := StallError(attempt.NodeID, fmt.Sprintf("%s job %d", attempt.Kind, attempt.JobID), stall)
-	return true, jobs.Park(jobs.Parking{
-		Destination: jobs.PreparedDirectoryDestination(attempt.NodeID),
-		Reason:      "its prepared directory's disk did not answer",
-	}, jobs.MarkStalled(stalled))
 }
 
 // FFmpegStalledTwice begins the failure kept for a target whose FFmpeg stalled on two attempts in a row.

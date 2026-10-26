@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,9 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -201,11 +197,10 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	}
 }
 
-// TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted rebuilds the index from
-// the node's disk (D238 §2): a rendition whose manifest names the film as it is, which cache.db does
-// not know, is adopted complete at the node's hello, and a run directory without a manifest, a
-// making that never finished, is evicted.
-func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *testing.T) {
+// TestPlayback_WhatAWholeFilmPrepareLeftOnTheNodesDiskIsEvictedAtItsHello: the whole-film prepare is
+// retired (D344 §1), so a rendition one left in the prepared directory, made or not, is evicted at the
+// node's hello, as a making that never finished is (D238 §2).
+func TestPlayback_WhatAWholeFilmPrepareLeftOnTheNodesDiskIsEvictedAtItsHello(t *testing.T) {
 	t.Parallel()
 	shelved := filmOnNode(t, "nfo")
 	server, _, filmFileID := playableFilm(t, shelved)
@@ -213,47 +208,24 @@ func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *
 		t.Fatal(err)
 	}
 	config := shelved.config
-	film, err := openDatabase(t, config).Read().GetPlayableFile(t.Context(), filmFileID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The disk's limits evict nothing at the node's start, whatever the test machine's disk holds: the
+	// hello's eviction is the one under test.
+	config.Node.PreparedDiskUsedLimitPercent, config.Node.PreparedDiskMinFreeMiB = 100, 0
 	made := strconv.FormatInt(filmFileID, 10) + "/remux/0123456789abcdef"
 	unfinished := strconv.FormatInt(filmFileID, 10) + "/h264/fedcba9876543210"
 	for _, dir := range []string{made, unfinished} {
 		writeFile(t, filepath.Join(config.Instance.preparedDir(), dir, "master.m3u8"), "#EXTM3U")
 	}
-	manifest, err := json.Marshal(nodeproto.RenditionManifest{
-		Prepare: nodeproto.Prepare{
-			Video:   nodeproto.BytesFile{PayloadHash: hex.EncodeToString(film.PayloadHash)},
-			Profile: nodeproto.ProfileRemux, RenditionDir: made, SegmentLengthSeconds: 2,
-		},
-		MadeAtMs: 1000, SizeBytes: 7, VideoEncoder: "copy",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(config.Instance.preparedDir(), made, nodeproto.ManifestName), string(manifest))
-	const evicted = "evicted the renditions the core does not keep"
+	writeFile(t, filepath.Join(config.Instance.preparedDir(), made, "manifest.json"), `{"madeAtMs":1000}`)
+	const evicted = "evicted the makings that never finished"
 	again := serveWithNode(t, config, newCapturedLog("ready", evicted), evicted)
-	if err = again.stop(); err != nil {
+	if err := again.stop(); err != nil {
 		t.Fatal(err)
 	}
-	cachePath := filepath.Join(config.Instance.CacheDir, "cache.db")
-	cache, err := store.OpenCache(t.Context(), cachePath, config.openOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
-	adopted, err := cache.Read().GetRenditionOfFileAndProfile(t.Context(),
-		cachegen.GetRenditionOfFileAndProfileParams{SourceFile: filmFileID, Profile: "remux"})
-	if err != nil || adopted.State != "complete" || adopted.RunID != "0123456789abcdef" {
-		t.Errorf("the film's remux in the index is %+v (%v), want the node's adopted complete", adopted, err)
-	}
-	if _, err := os.Stat(filepath.Join(config.Instance.preparedDir(), unfinished)); !os.IsNotExist(err) {
-		t.Errorf("the unfinished making is still on the node's disk: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(config.Instance.preparedDir(), made, "master.m3u8")); err != nil {
-		t.Errorf("the adopted rendition is gone from the node's disk: %v", err)
+	for _, dir := range []string{made, unfinished} {
+		if _, err := os.Stat(filepath.Join(config.Instance.preparedDir(), dir)); !os.IsNotExist(err) {
+			t.Errorf("%s, a prepare's, is still on the node's disk: %v", dir, err)
+		}
 	}
 }
 

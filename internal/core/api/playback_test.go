@@ -70,7 +70,9 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"],"bitRateBps":2400000},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":2}}]}`
-	mkv := `{"format":{"formatNames":["matroska","webm"]},"streams":[` +
+	// Film 2 has a length, so a player that cannot play it as it is plays it from its ladder cut on time
+	// while its keyframes are not known (D344 §2).
+	mkv := `{"format":{"formatNames":["matroska","webm"],"durationMs":1200000},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
@@ -84,7 +86,8 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', 1, 1),
 		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1),
 		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '`+mp4+`'), (2, '`+mkv+`')`)
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '`+mp4+`', 0), `+
+			`(2, '`+mkv+`', 1200000)`)
 	harness.nodeBytes.mutex.Lock()
 	defer harness.nodeBytes.mutex.Unlock()
 	film := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
@@ -111,21 +114,13 @@ func chrome(fileID int64) map[string]any {
 }
 
 type decision struct {
-	Delivery         string   `json:"delivery"`
-	URL              string   `json:"url"`
-	Profile          string   `json:"profile"`
-	NotDirectReasons []string `json:"notDirectReasons"`
-	IsPreparing      bool     `json:"isPreparing"`
-	FileBitRateKbps  int64    `json:"fileBitRateKbps"`
-	Audio            []struct {
-		AudioTrackIndex   int           `json:"audioTrackIndex"`
-		Language          string        `json:"language"`
-		IsDialogueBoosted bool          `json:"isDialogueBoosted"`
-		Levelling         LevellingBody `json:"levelling"`
-		CarriedGainDB     float64       `json:"carriedGainDb"`
-	} `json:"audioRenditions"`
-	Subtitles   []subtitleTrack `json:"subtitles"`
-	Preferences struct {
+	Delivery         string          `json:"delivery"`
+	URL              string          `json:"url"`
+	Profile          string          `json:"profile"`
+	NotDirectReasons []string        `json:"notDirectReasons"`
+	FileBitRateKbps  int64           `json:"fileBitRateKbps"`
+	Subtitles        []subtitleTrack `json:"subtitles"`
+	Preferences      struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`
@@ -236,7 +231,7 @@ func TestPlayback_NamesTheTitleItPlaysAndNeverAPath(t *testing.T) {
 	}
 }
 
-// A playback names its tracks beside the file's own: played as it is, every one original; prepared,
+// A playback names its tracks beside the file's own: played as it is, every one original; converted,
 // its sound converted to AAC in stereo from the file's track (the owner, 2026-10-20).
 func TestPlayback_NamesEachTrackOriginalOrConvertedBesideTheFilesOwn(t *testing.T) {
 	t.Parallel()
@@ -249,15 +244,15 @@ func TestPlayback_NamesEachTrackOriginalOrConvertedBesideTheFilesOwn(t *testing.
 		!direct.Sounds[0].IsOriginal {
 		t.Errorf("a file played as it is names %+v; want every track original, as the file's own", direct)
 	}
-	prepared := harness.play(t, user, chrome(2)).Tracks
-	if len(prepared.Sounds) == 0 || prepared.Sounds[0].IsOriginal || prepared.Sounds[0].Codec != "aac" ||
-		prepared.Sounds[0].ChannelCount != 2 || len(prepared.FileSounds) == 0 ||
-		prepared.FileSounds[0].Codec == "aac" {
-		t.Errorf("a prepared copy names %+v; want its sound converted to AAC stereo from another codec", prepared)
+	converted := harness.play(t, user, chrome(2)).Tracks
+	if len(converted.Sounds) == 0 || converted.Sounds[0].IsOriginal || converted.Sounds[0].Codec != "aac" ||
+		converted.Sounds[0].ChannelCount != 2 || len(converted.FileSounds) == 0 ||
+		converted.FileSounds[0].Codec == "aac" {
+		t.Errorf("a film converted names %+v; want its sound converted to AAC stereo from another codec", converted)
 	}
 }
 
-func TestPlayback_TheAcceptanceFileIsPreparedForItsContainerAndItsAudio(t *testing.T) {
+func TestPlayback_TheAcceptanceFileIsConvertedForItsContainerAndItsAudio(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -289,7 +284,7 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 		`"userAgent":"Go-http-client/1.1"`,
 		// which way, by which name and from where the request reached the server
 		`"over":"http"`, `"host":"127.0.0.1:`, `"clientAddress":"127.0.0.1"`,
-		`"notOnLadderBecause":"noGridYet"`) // why it plays as its decision says
+		`"notOnLadderBecause":""`) // on its ladder, cut on time: its keyframes are not read yet
 	token := decided.URL[strings.LastIndex(strings.TrimSuffix(decided.URL, "/master.m3u8"), "/")+1:]
 	if token == "" || strings.Contains(harness.logs.String(), token) {
 		t.Errorf("the log holds the playback's token %q, or none was found in %q", token, decided.URL)

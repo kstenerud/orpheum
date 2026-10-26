@@ -25,25 +25,25 @@ import (
 type answers chan error
 
 func (resolved answers) ResolveBy(_ context.Context, id int64, decide func(jobs.Job) error) (bool, error) {
-	resolved <- decide(jobs.Job{ID: id, Kind: jobs.KindPrepare})
+	resolved <- decide(jobs.Job{ID: id, Kind: jobs.KindMakeChunks})
 	return true, nil
 }
 
-// assignedPrepare is an assignee of prepares whose answers name what decided them, and whose
-// progress refuses a prepare said to go back.
-func assignedPrepare(resolved answers, cancelled chan<- nodes.Attempt) nodes.Assignee {
+// assignedRun is an assignee of runs of chunks whose answers name what decided them, and whose
+// progress refuses a run said to go back.
+func assignedRun(resolved answers, cancelled chan<- nodes.Attempt) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: resolved,
 		Answer: func(_ context.Context, _ jobs.Job, _ nodes.Attempt, result nodeproto.Result) error {
-			if result.Prepare.State == nodeproto.PrepareDone {
+			if result.MakeChunks.State == nodeproto.RunDone {
 				return nil
 			}
-			return errors.New("the node said " + string(result.Prepare.State))
+			return errors.New("the node said " + string(result.MakeChunks.State))
 		},
 		Unanswered: func(_ context.Context, _ jobs.Job, _ nodes.Attempt, err error) error { return err },
 		Progress: func(_ context.Context, _ nodes.Attempt, progress nodeproto.Progress) error {
-			if progress.PreparedThroughMs < 0 {
-				return errors.New("a prepare cannot go back")
+			if progress.ChunksMadeThrough != nil && *progress.ChunksMadeThrough < 0 {
+				return errors.New("a run cannot go back")
 			}
 			return nil
 		},
@@ -54,10 +54,10 @@ func assignedPrepare(resolved answers, cancelled chan<- nodes.Attempt) nodes.Ass
 	}
 }
 
-// assign gives job 7's prepare to node 1, and returns the command the node was sent.
+// assign gives job 7's run of chunks to node 1, and returns the command the node was sent.
 func (bench exchangeBench) assign(t *testing.T) nodeproto.Command {
 	t.Helper()
-	err := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, prepareCommand)
+	err := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindMakeChunks}, runCommand)
 	if !jobqueue.IsAssigned(err) {
 		t.Fatalf("Assign answered %v, want the job assigned", err)
 	}
@@ -65,7 +65,7 @@ func (bench exchangeBench) assign(t *testing.T) nodeproto.Command {
 		t.Fatal("the node was sent the work before its job was recorded assigned")
 	}
 	jobqueue.HandOver(t.Context(), err) // as the runner does, once it recorded the job assigned
-	return testutil.Receive(t, bench.sender.sent, "the prepare command")
+	return testutil.Receive(t, bench.sender.sent, "the run's command")
 }
 
 // A job given to a node is assigned, its attempt kept in cache.db before the command is sent; the
@@ -75,14 +75,14 @@ func TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
 	if kept, err := bench.cache.Read().ListNodeAttempts(t.Context()); err != nil || len(kept) != 1 ||
 		kept[0].AttemptToken != sent.AttemptToken || kept[0].JobID != 7 || kept[0].NodeID != 1 {
 		t.Fatalf("cache.db keeps %+v, %v; want job 7's attempt on node 1", kept, err)
 	}
-	failed := nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, Prepare: &nodeproto.PrepareReport{
-		State: nodeproto.PrepareFailed,
+	failed := nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, MakeChunks: &nodeproto.MakeChunksReport{
+		State: nodeproto.RunFailed,
 	}}
 	deliver(t, bench.exchanges, 1, failed)
 	answer := testutil.Receive(t, resolved, "job 7's answer")
@@ -100,7 +100,7 @@ func TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten(t *testing.T) {
 func TestAssign_SaysAnAttemptIsOnItsWayBeforeItsCommandIsQueued(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), nil))
 	sent := bench.assign(t)
 	if !slices.Equal(bench.sender.willSend, []string{sent.AttemptToken}) {
 		t.Errorf("the attempts said to be on their way are %v, want the one sent, %s", bench.sender.willSend,
@@ -113,7 +113,7 @@ func TestAssign_ANodesCrashOnAJobIsAnAttemptsFailureAndNotItsKinds(t *testing.T)
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
 	deliver(t, bench.exchanges, 1, nodeproto.Result{
 		JobID: 7, AttemptToken: sent.AttemptToken, Crashed: "runtime error: index out of range [3] with length 2",
@@ -143,10 +143,10 @@ func TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord(t *testing.T)
 		t.Fatal(err)
 	}
 	resolved := make(answers, 1)
-	restarted.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	restarted.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	deliver(t, restarted, 1, nodeproto.Result{
 		JobID: 7, AttemptToken: sent.AttemptToken,
-		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone},
+		MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone},
 	})
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); answer != nil {
 		t.Errorf("job 7, after a restart, was resolved with %v, want done", answer)
@@ -175,7 +175,7 @@ func TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	resolved := make(answers, 2)
-	restarted.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	restarted.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	restarted.Interrupt(t.Context(), 1, "first start")
 	select {
 	case answer := <-resolved:
@@ -208,7 +208,7 @@ func TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken(t *testing.T) {
 	sent := bench.assign(t)
 	err := bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
 		JobID: 7, AttemptToken: sent.AttemptToken,
-		Work: &prepareCommand.Work, Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone},
+		Work: &runCommand.Work, MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone},
 	})
 	if !errors.Is(err, nodes.ErrNotResolvedYet) {
 		t.Errorf("a result before its kind resolves: %v, want ErrNotResolvedYet", err)
@@ -221,18 +221,18 @@ func TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
 	tick := make(chan time.Time)
 	go bench.exchanges.Watch(t.Context(), tick)
-	running := func(throughMs int64) {
+	running := func(through int) {
 		bench.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
-			JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.ProgressRunning, PreparedThroughMs: throughMs,
+			JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.ProgressRunning, ChunksMadeThrough: &through,
 		})
 	}
 	for range 3 {
 		bench.now.Advance(40 * time.Second)
-		running(1000)
+		running(10)
 		tick <- time.Time{}
 	}
 	select {
@@ -256,7 +256,7 @@ func TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard(t *testing.T) {
 		t.Errorf("the node was sent %+v, want told to stop the attempt its progress ended", stop)
 	}
 	refused := testutil.Receive(t, resolved, "the answer")
-	if refused == nil || refused.Error() != "a prepare cannot go back" {
+	if refused == nil || refused.Error() != "a run cannot go back" {
 		t.Errorf("progress its kind refused resolved the job with %v, want the refusal", refused)
 	}
 }
@@ -267,7 +267,7 @@ func TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved, cancelled := make(answers, 1), make(chan nodes.Attempt, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, cancelled))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, cancelled))
 	sent := bench.assign(t)
 	bench.exchanges.Cancelled(t.Context(), 7)
 	if stop := testutil.Receive(t, bench.sender.sent, "the cancel"); stop.Type != nodeproto.CommandCancel ||
@@ -298,7 +298,7 @@ func TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
 	running := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldRunning}}
 	tick := make(chan time.Time)
@@ -346,7 +346,7 @@ func TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 func TestReportedProgressOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 2), nil))
 	sent := bench.assign(t)
 	if word, isSaid := bench.exchanges.ReportedProgressOf(7); isSaid {
 		t.Errorf("before the node spoke of job 7 its word is %q, want none", word)
@@ -369,7 +369,7 @@ func TestReportedProgressOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 func TestRunningSinceOf_IsWhenTheNodeFirstSaidTheWorkRuns(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 2), nil))
 	sent := bench.assign(t)
 	say := func(state nodeproto.ProgressState) {
 		bench.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
@@ -392,7 +392,7 @@ func TestRunningSinceOf_IsWhenTheNodeFirstSaidTheWorkRuns(t *testing.T) {
 		t.Errorf("job 7 runs since %v (%t); want %v, when its node first said so", since, isRunning, began)
 	}
 	other := newExchanges(t)
-	other.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	other.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 2), nil))
 	held := other.assign(t)
 	other.now.Advance(time.Minute)
 	other.exchanges.Reconcile(t.Context(), 1,
@@ -409,7 +409,7 @@ func TestReconcile_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped(t *testing.T)
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
 	held := func(sinceMoved time.Duration) []nodeproto.HeldAttempt {
 		return []nodeproto.HeldAttempt{{

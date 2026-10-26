@@ -37,7 +37,7 @@ export async function cancelJob(api: Api, jobId: number, idempotencyKey: string)
 }
 
 /**
- * A job as the list names it: its kind and what it works on, "Preparing a copy #12", or its kind
+ * A job as the list names it: its kind and what it works on, "Making a film's chunks #12", or its kind
  * alone for a backup, which works on the whole server (D243 §11).
  */
 function jobName(t: TFunction, job: Job): string {
@@ -50,7 +50,6 @@ function jobName(t: TFunction, job: Job): string {
 export function targetId(job: Job): number | undefined {
   return (
     job.itemId ??
-    job.renditionId ??
     job.streamId ??
     job.fetchedSubtitleId ??
     job.fileId ??

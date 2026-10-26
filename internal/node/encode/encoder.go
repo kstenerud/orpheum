@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package prepare
+package encode
 
 import (
 	"context"
@@ -43,39 +43,6 @@ const vaapiUpload = "format=nv12,hwupload"
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
-// encodeKbpsMost is an encode's rate when its command names none: the h264 profile's 8 Mb/s.
-const encodeKbpsMost = 8000
-
-// encodeArguments are the encoder's video arguments: 8-bit H.264 at kbps on average, 8 Mb/s when it
-// is zero (D256), its peak at most 1.25 times that, the high profile, and a keyframe every segment
-// length, however it is made (cut-a §6): an HLS segment can be cut only at a keyframe, so keyframes
-// further apart, or out of step, make segments of another length.
-func (encoder Encoder) encodeArguments(segmentLengthSeconds, kbps int) []string {
-	if kbps <= 0 {
-		kbps = encodeKbpsMost
-	}
-	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
-	rates := []string{
-		"-profile:v", "high", "-b:v", rate(kbps), "-maxrate", rate(kbps * 5 / 4), "-bufsize", rate(2 * kbps),
-		"-force_key_frames", "expr:gte(t,n_forced*" + strconv.Itoa(segmentLengthSeconds) + ")",
-	}
-	if encoder == EncoderVAAPI {
-		// It has no preset, and the picture reaches it uploaded rather than in a pixel format.
-		return slices.Concat(vaapiDevice(), []string{"-filter:v", vaapiUpload, codecFlag, "h264_vaapi"}, rates)
-	}
-	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
-	switch encoder {
-	case EncoderQuickSync:
-		// Without it, Quick Sync makes a forced keyframe an I picture but not an IDR, which no segment
-		// can start on (measured on an i3-N305, 2026-10-23).
-		codec, pixelFormat, extra = "h264_qsv", "nv12", []string{"-forced_idr", "1"}
-	case EncoderNVENC:
-		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
-	case EncoderVAAPI, EncoderX264:
-	}
-	return slices.Concat([]string{codecFlag, codec, "-preset", preset, "-pix_fmt", pixelFormat}, rates, extra)
-}
-
 // QualityArguments are the encoder's video arguments for a chunk's quality (D247 §6): 8-bit H.264
 // at kbps, its peak at most 1.5 times that, scaled to height with the source's shape, and keyframes
 // at keyframesAt, a list of seconds, and nowhere else, so its chunks cut where the copied
@@ -94,6 +61,8 @@ func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string{"-sc_threshold", "0"}
 	switch encoder {
 	case EncoderQuickSync:
+		// Without it, Quick Sync makes a forced keyframe an I picture but not an IDR, which no chunk can
+		// start on (measured on an i3-N305, 2026-10-23).
 		codec, pixelFormat, extra = "h264_qsv", "nv12", []string{"-forced_idr", "1"}
 	case EncoderNVENC:
 		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
@@ -104,7 +73,16 @@ func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []
 	)
 }
 
+// codecFlag names a stream's codec on FFmpeg's command line.
+const codecFlag = "-c:v"
+
 // trialTimeout bounds one encoder's trial: a GPU that hangs is not one to encode with.
+
+// A trial encodes its test picture as a chunk of a low quality is encoded.
+const (
+	trialKbps   = 1000
+	trialHeight = 360
+)
 const trialTimeout = 30 * time.Second
 
 // Trial is one hardware encoder's trial on this machine: it worked, or Failure says why, in
@@ -114,7 +92,7 @@ type Trial struct {
 	Failure string
 }
 
-// Choice is the encoder a node prepares with, and the trials that chose it.
+// Choice is the encoder a node encodes chunks with, and the trials that chose it.
 type Choice struct {
 	Chosen Encoder
 	Trials []Trial
@@ -139,7 +117,7 @@ type TrialRunner interface {
 }
 
 // ChooseEncoder tries each hardware encoder, encoding a second of test picture on this machine,
-// confined as a prepare is, and chooses the first that works, or x264 when none does.
+// confined as a run of chunks is, and chooses the first that works, or x264 when none does.
 func ChooseEncoder(ctx context.Context, runner TrialRunner) Choice {
 	choice := Choice{Chosen: EncoderX264}
 	for _, encoder := range hardwareEncoders() {
@@ -160,7 +138,7 @@ func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error 
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.encodeArguments(nodeproto.StartingSegmentLengthSeconds, 0)...)
+	}, encoder.QualityArguments(trialKbps, trialHeight, "0")...)
 	arguments = append(arguments, "-f", "null", "-")
 	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {

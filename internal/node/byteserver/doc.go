@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package byteserver serves the node's read-only socket (/run/orpheum/node.sock): GET only, file ranges
-// by path and payload hash, and prepared-output files. It carries no commands. A request whose
+// by path and payload hash, and the chunks in the prepared directory. It carries no commands. A request whose
 // hash no longer matches the path is refused.
 //
 // # Invariants
@@ -22,8 +22,6 @@
 //     (SharingHashes). TestServeFile_RemembersHashesInTheOnesItShares.
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
-//   - A rendition's file is served only by a name of a rendition's shape, from the prepared
-//     directory, read-only. Enforced by TestServeRenditionFile_ServesARenditionsFilesAndNothingElse.
 //   - A store's init and chunks are served only by a name of a store's shape, never its manifest or
 //     a run's raw files (D247 §10). Enforced by TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse.
 //   - A result the node holds, too large to post, is served whole by its attempt's token, and
@@ -50,6 +48,6 @@
 //
 // # Where to change
 //
-//   - byteserver.go: the file route, the prepared route (D217 §5), and the held results' route.
+//   - byteserver.go: the file route, the chunks' route (D217 §5, D247 §10), and the held results' route.
 //   - probe.go: the probe of a root (D327).
 package byteserver

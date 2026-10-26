@@ -37,6 +37,9 @@ const (
 	CodeMediaUnreachable Code = "media_unreachable"
 	CodePreparing        Code = "preparing"
 	CodePrepareFailed    Code = "prepare_failed"
+	// CodeCannotConvert is a play of a file its device cannot play as it is that cannot be cut into
+	// chunks either: it has no picture, or neither a known length nor keyframes (D344 §5).
+	CodeCannotConvert Code = "cannot_convert"
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.
 	CodeNoRoomToMake Code = "no_room_to_make"
@@ -53,8 +56,8 @@ func codes() []Code {
 	return []Code{
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
-		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeNoRoomToMake, CodePlaybackGone, CodeMigrating,
-		CodeInternal,
+		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeNoRoomToMake, CodePlaybackGone,
+		CodeMigrating, CodeInternal,
 	}
 }
 

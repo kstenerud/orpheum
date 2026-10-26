@@ -2,7 +2,7 @@
 
 import "./play.css";
 
-import { seekTo, type HlsPlayback } from "@orpheum/player";
+import { seekTo } from "@orpheum/player";
 import type { CannotKeepUp } from "@orpheum/sdk";
 import {
   createContext,
@@ -18,9 +18,8 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
+import { AudioMenu, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import {
-  audioRenditionIndex,
   FilmPlayer,
   ladderAudioRenditionIndex,
   type FilmComposition,
@@ -41,7 +40,6 @@ import { BoostSwitch } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
-import { camelKey } from "./catalogue-key.ts";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
@@ -95,9 +93,9 @@ interface PlayViewProps {
 }
 
 /**
- * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
- * screen (D188). Another audio track chosen in the original asks for the decision again, which
- * prepares a copy, since a browser plays the original's first (D230 §5).
+ * A decision, shown: the original playing, or its ladder. The reason is always on screen (D188).
+ * Another audio track chosen in the original asks for the decision again, which plays it from the
+ * ladder, since a browser plays the original's first (D230 §5).
  */
 export function PlayView(props: PlayViewProps): JSX.Element {
   // Whether the film's own file plays in the bare player, nothing drawn over it (bare-player.tsx),
@@ -399,13 +397,9 @@ function PlayUnderOfPage(props: FilmParts): JSX.Element | null {
 
 /**
  * What the Play page draws under the film, by the way it plays: what sits under every video, and
- * the original's reason, a prepared copy's reasons, audio tracks and dialogue boost, or a ladder's
- * word that it cannot keep up, which a host's session tells everyone (D247 §8).
+ * the original's reason, or a ladder's audio tracks, dialogue boost and word that it cannot keep up, which a host's session tells everyone (D247 §8).
  */
 function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
-  if (props.preparedRef !== undefined) {
-    return <PreparedUnder {...props} preparedRef={props.preparedRef} />;
-  }
   if (props.ladder !== undefined) {
     return <LadderUnder {...props} ladder={props.ladder} />;
   }
@@ -416,8 +410,8 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
  * Under the original: what sits under every video; its tracks say it plays as it is. Its sound is the
  * film's own, which the device mixes down itself, so the dialogue boost, where the track has a
  * centre to raise, starts off here: turned on, it is kept, then the film is asked for again from
- * where the video stands, and the server answers with its ladder or a prepared copy carrying the
- * boosted mix (D336 §1, §3).
+ * where the video stands, and the server answers with its ladder carrying the boosted mix (D336 §1,
+ * §3).
  */
 function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
   const { onDecideAgain, videoRef } = props;
@@ -426,7 +420,7 @@ function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
     <>
       <UnderTheVideo
         {...props}
-        level={soundLevelOf(props.decision, undefined)}
+        level={soundLevelOf(props.decision)}
         onAudioChosen={decideAgainFor(props, "audioChosen")}
       />
       {hasACentre(props.decision) ? (
@@ -459,61 +453,9 @@ export function hasACentre(decision: PlaybackDecision): boolean {
 }
 
 /**
- * Under a prepared copy: what sits under every video, why a copy plays, and a switch for the
- * dialogue boost where the track playing has a centre to raise (D217 §3). Another track chosen plays
- * at once (D23).
- */
-function PreparedUnder(
-  props: PlayProps &
-    FilmParts & {
-      readonly preparedRef: RefObject<HlsPlayback | undefined>;
-    },
-): JSX.Element {
-  const { t } = useTranslation();
-  const { decision } = props;
-  const [audioTrackIndex, setAudioTrackIndex] = useState(
-    () => startingAudioTrack(decision)?.audioTrackIndex ?? 0,
-  );
-  const [isBoostOn, setIsBoostOn] = useState(decision.preferences.isDialogueBoostOn);
-  const boostMixes = mixIndices(decision, audioTrackIndex);
-  const play = (trackIndex: number, isBoosted: boolean): void => {
-    const index = audioRenditionIndex(decision, trackIndex, isBoosted);
-    if (index !== undefined) {
-      props.preparedRef.current?.setAudioRendition(index);
-    }
-  };
-  const reasons = (decision.notDirectReasons ?? [])
-    .map((reason) => t(`play.reason.${camelKey(reason)}`))
-    .join(", ");
-  return (
-    <>
-      <UnderTheVideo
-        {...props}
-        level={soundLevelOf(decision, audioTrackIndex)}
-        onAudioChosen={(track) => {
-          setAudioTrackIndex(track.audioTrackIndex);
-          play(track.audioTrackIndex, isBoostOn);
-        }}
-      />
-      <p className="play__reason">{t("play.prepared", { reasons })}</p>
-      {boostMixes?.boosted === undefined ? null : (
-        <BoostSwitch
-          isInitiallyOn={isBoostOn}
-          onSwitched={(isOn) => {
-            setIsBoostOn(isOn);
-            play(audioTrackIndex, isOn);
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-/**
  * Under the film on its ladder: what sits under every video, its play state kept from where it
- * started, not where the person last left the file; its sound carries its levelling, as a prepared
- * copy's does; and, as a prepared copy's, a switch for the dialogue boost where the track playing has
- * a boosted mix (D217 §3, D222), which changes the ladder's sound at once. The boosted mix carries
+ * started, not where the person last left the file; its sound carries its levelling; and a switch
+ * for the dialogue boost where the track playing has a boosted mix (D217 §3, D222), which changes the ladder's sound at once. The boosted mix carries
  * its track's gain, as the standard one does (D226 §3), so the level stays. Its lowest quality's word
  * that it cannot keep up goes to a host's session (D247 §8).
  */

@@ -3,7 +3,7 @@
 // Package randbytes reads random bytes from the source a service is given, and writes the one
 // form a bearer secret takes: the one way to do each, where auth and playback had each grown
 // their own (AGENTS.md rule 11). What a caller makes of the bytes otherwise is its own: a device
-// or setup code is safe32, a rendition's run id is hex.
+// or setup code is safe32, a store's grid id is hex.
 //
 // # Invariants
 //

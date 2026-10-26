@@ -34,11 +34,10 @@ type JobBody struct {
 	ID   int64   `json:"id"`
 	Kind JobKind `json:"kind"`
 	// What it works on, one field by kind (D227 §2): an item for fetch_metadata and
-	// make_artwork_sizes, a rendition for prepare, a stream for extract_subtitle, a fetched subtitle
+	// make_artwork_sizes, a stream for extract_subtitle, a fetched subtitle
 	// for convert_fetched_subtitle, a file for read_through, a scan for scan, a scan's batch for
 	// examine, a chunk store, one stream of a film on one grid, for make_chunks.
 	ItemID            int64 `json:"itemId,omitempty"`
-	RenditionID       int64 `json:"renditionId,omitempty"`
 	StreamID          int64 `json:"streamId,omitempty"`
 	FetchedSubtitleID int64 `json:"fetchedSubtitleId,omitempty"`
 	FileID            int64 `json:"fileId,omitempty"`
@@ -109,7 +108,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, view := range views {
 		body := JobBody{
-			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
+			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			ScanID: view.ScanID, ScanBatchID: view.ScanBatchID, ChunkStoreID: view.ChunkStoreID,
 			State: view.State, OnNode: view.OnNode, ProgressFraction: view.ProgressFraction,

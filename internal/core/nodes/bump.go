@@ -26,7 +26,7 @@ func tierOf(work nodeproto.Work, priority int64) tier {
 	switch {
 	case priority >= jobs.PriorityPersonsRequest:
 		return tierPersons
-	case readsWholeFiles(work) || work.Prepare != nil || work.MakeChunks != nil:
+	case readsWholeFiles(work) || work.MakeChunks != nil:
 		return tierSlow
 	}
 	return tierFast

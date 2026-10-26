@@ -2,7 +2,7 @@
 
 // Package namedfile opens the file a command names, by the root it is under, its path there and
 // its payload hash, once it is checked to still be that file (D100): the one way the node does
-// it, for a prepare, a loudness measurement, a subtitle extraction or conversion, and the byte
+// it, for a run of chunks, a loudness measurement, a subtitle extraction or conversion, and the byte
 // socket, where three copies had grown, one without the regular-file check (AGENTS.md rule 11).
 // OpenNamed also finds the root by its path and reads the payload hash's hex, which the agent and
 // the byte socket had each written.

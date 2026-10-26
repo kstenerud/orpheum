@@ -20,7 +20,6 @@ type Job struct {
 	ID                    int64
 	Kind                  string
 	ItemID                *int64
-	RenditionID           *int64
 	StreamID              *int64
 	FetchedSubtitleID     *int64
 	FileID                *int64
@@ -64,26 +63,6 @@ type NodeAttempt struct {
 	NodeStartID  string
 	WorkJSON     string
 	SentAt       int64
-}
-
-type PreparedRendition struct {
-	ID                   int64
-	SourceFile           int64
-	SourcePayloadHash    []byte
-	Profile              string
-	NodeID               int64
-	State                string
-	SegmentLengthSeconds int64
-	RunID                string
-	PreparedThroughMs    int64
-	SizeBytes            *int64
-	Failure              *string
-	VideoEncoder         *string
-	RealtimeFactor       *float64
-	CarriedGainsDBJSON   string
-	AudioLanguagesJSON   string
-	CreatedAt            int64
-	FinishedAt           *int64
 }
 
 type Scan struct {

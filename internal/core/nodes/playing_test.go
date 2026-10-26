@@ -22,12 +22,12 @@ func qualityRunOf() nodeproto.Command {
 }
 
 // newPlayingBench is the bump bench whose tank has room for every job a test gives, its node
-// encoding in software or on a GPU, with prepares and runs of chunks handled.
+// encoding in software or on a GPU, with runs of chunks handled.
 func newPlayingBench(t *testing.T, encodesInSoftware bool) *bumpBench {
 	t.Helper()
 	bench := newBumpBench(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(bench.resolved, nil))
-	bench.exchanges.Handle(jobs.KindMakeChunks, assignedPrepare(bench.resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(bench.resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(bench.resolved, nil))
 	bench.sender.resources.ReaderLimits = map[string]int{"zfs:tank": 8}
 	bench.sender.resources.EncodesInSoftware = encodesInSoftware
 	return bench
@@ -51,11 +51,11 @@ func TestAssign_NoOtherEncodeIsGivenBesideAPlayedEncodeInSoftware(t *testing.T) 
 		answer) {
 		t.Fatalf("a played quality run was answered %v; want it given", answer)
 	}
-	parking, isParked := jobqueue.ParkingOf(software.assign(2, jobs.KindPrepare, jobs.PriorityLookedAt,
-		prepareOf(nodeproto.ProfileH264)))
+	parking, isParked := jobqueue.ParkingOf(software.assign(2, jobs.KindMakeChunks, jobs.PriorityLookedAt,
+		runOf(nodeproto.StreamQuality)))
 	if !isParked || parking.Destination != jobs.SlotDestination(1, string(nodeproto.SlotEncode)) ||
 		!parking.AwaitsSignal || !parking.IsBackPressure {
-		t.Errorf("a looked-at film's prepare beside it was parked %v on %q; want it waiting on the encode slot",
+		t.Errorf("a looked-at film's run beside it was parked %v on %q; want it waiting on the encode slot",
 			isParked, parking.Destination)
 	}
 	if answer := software.assign(3, jobs.KindReadThrough, jobs.PriorityBackground, readThroughOf("/media")); !jobqueue.
@@ -64,9 +64,9 @@ func TestAssign_NoOtherEncodeIsGivenBesideAPlayedEncodeInSoftware(t *testing.T) 
 	}
 	gpu := newPlayingBench(t, false)
 	gpu.mustAssign(1, jobs.KindMakeChunks, jobs.PriorityPlayNow, qualityRunOf())
-	if answer := gpu.assign(2, jobs.KindPrepare, jobs.PriorityLookedAt, prepareOf(nodeproto.ProfileH264)); !jobqueue.
+	if answer := gpu.assign(2, jobs.KindMakeChunks, jobs.PriorityLookedAt, runOf(nodeproto.StreamQuality)); !jobqueue.
 		IsAssigned(answer) {
-		t.Errorf("a prepare beside a played encode on a GPU was answered %v; want it given", answer)
+		t.Errorf("a run beside a played encode on a GPU was answered %v; want it given", answer)
 	}
 }
 

@@ -155,6 +155,7 @@ func (playback *tokenPlayback) wantFetched(isSound bool, stream, dir string, sta
 func (service *Service) keepStart(playback *tokenPlayback, onLadder *chunks.Offer) {
 	playback.isOnLadder = onLadder != nil
 	if onLadder != nil {
+		playback.isOnTime = onLadder.IsOnTime
 		playback.interest = playerInterest{
 			picture: onLadder.StreamName, sound: onLadder.SoundStreamName, positionMs: onLadder.FromMs,
 		}

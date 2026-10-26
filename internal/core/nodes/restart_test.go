@@ -25,7 +25,7 @@ import (
 type resolvedBy chan error
 
 func (resolved resolvedBy) ResolveBy(_ context.Context, id int64, decide func(jobs.Job) error) (bool, error) {
-	resolved <- decide(jobs.Job{ID: id, Kind: jobs.KindPrepare})
+	resolved <- decide(jobs.Job{ID: id, Kind: jobs.KindMakeChunks})
 	return true, nil
 }
 
@@ -38,7 +38,7 @@ type core struct {
 }
 
 // startCore starts a core over database and cache, as the server does: its exchanges load the
-// attempts cache.db kept, and resolve prepares into resolved.
+// attempts cache.db kept, and resolve runs of chunks into resolved.
 func startCore(t *testing.T, harness *fixture, cache *store.Cache) core {
 	t.Helper()
 	started := core{fixture: harness, resolved: make(resolvedBy, 2), logged: &bytes.Buffer{}}
@@ -47,7 +47,7 @@ func startCore(t *testing.T, harness *fixture, cache *store.Cache) core {
 		Logger: slog.New(slog.NewJSONHandler(started.logged, nil)), Cache: cache, Settings: harness.settings,
 		MaxSilence: time.Minute,
 	})
-	started.exchanges.Handle(jobs.KindPrepare, Assignee{
+	started.exchanges.Handle(jobs.KindMakeChunks, Assignee{
 		Runner: started.resolved,
 		Answer: func(context.Context, jobs.Job, Attempt, nodeproto.Result) error { return nil },
 		Unanswered: func(_ context.Context, job jobs.Job, _ Attempt, err error) error {
@@ -88,8 +88,10 @@ func TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasG
 	cache := storetest.OpenCache(t)
 	before := startCore(t, newFixture(t, time.Second), cache)
 	reply := before.hello(t, nodeproto.Hello{Name: "local", StartID: "first"})
-	prepare := nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{}}}
-	assigned := before.exchanges.Assign(t.Context(), reply.NodeID, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, prepare)
+	run := nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{}},
+	}
+	assigned := before.exchanges.Assign(t.Context(), reply.NodeID, jobs.Job{ID: 7, Kind: jobs.KindMakeChunks}, run)
 	if !jobqueue.IsAssigned(assigned) {
 		t.Fatalf("Assign answered %v, want job 7 assigned", assigned)
 	}

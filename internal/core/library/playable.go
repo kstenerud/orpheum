@@ -16,7 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// PlayableFile is a live video a person may play, probed and hashed: what a play, a prepare, an
+// PlayableFile is a live video a person may play, probed and hashed: what a play, a run of chunks, an
 // extraction and a measurement read. A file that is not one is ErrNoFile.
 func PlayableFile(ctx context.Context, queries *sqlcgen.Queries, fileID int64) (sqlcgen.GetPlayableFileRow, error) {
 	file, err := store.OrNotFound(queries.GetPlayableFile(ctx, fileID))

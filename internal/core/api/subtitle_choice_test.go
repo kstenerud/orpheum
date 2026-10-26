@@ -12,8 +12,8 @@ import (
 )
 
 // episodeProbe is an episode's stored probe: a picture, and English and French sound, the English
-// marked default.
-const episodeProbe = `'{"format":{"formatNames":["matroska"]},"streams":[` +
+// marked default; it has a length, so a player that cannot play it as it is plays it cut on time.
+const episodeProbe = `'{"format":{"formatNames":["matroska"],"durationMs":1200000},"streams":[` +
 	`{"streamIndex":0,"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 	`{"streamIndex":1,"kind":"audio","codec":"aac","language":"en","disposition":["default"],` +
 	`"audio":{"channelCount":2}},` +

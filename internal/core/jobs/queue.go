@@ -27,7 +27,6 @@ const (
 	// KindMakeArtworkSizes makes the sizes of one of an item's images, fetching its source when
 	// no stored size can be cut down; its target is the item (D212).
 	KindMakeArtworkSizes Kind = "make_artwork_sizes"
-	KindPrepare          Kind = "prepare"
 	// KindExtractSubtitle extracts one text subtitle track; its target is the stream (D217 §3).
 	KindExtractSubtitle Kind = "extract_subtitle"
 	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its target is the
@@ -56,13 +55,13 @@ const (
 // description of a job is made from.
 func Kinds() []Kind {
 	return []Kind{
-		KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle,
+		KindFetchMetadata, KindMakeArtworkSizes, KindExtractSubtitle, KindConvertFetchedSubtitle,
 		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate,
 	}
 }
 
-// Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
-// rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
+// Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a stream
+// for extract_subtitle, a fetched subtitle for
 // convert_fetched_subtitle, a file for read_through, a chunk store for make_chunks, a scan for scan
 // and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
@@ -83,7 +82,7 @@ func isWholeServer(kind Kind) bool {
 func requireOneTarget(kind Kind, target Target) error {
 	setCount := 0
 	for _, id := range []int64{
-		target.ItemID, target.RenditionID, target.StreamID, target.FetchedSubtitleID, target.FileID,
+		target.ItemID, target.StreamID, target.FetchedSubtitleID, target.FileID,
 		target.ScanID, target.ScanBatchID, target.ChunkStoreID,
 	} {
 		if id != 0 {

@@ -137,7 +137,7 @@ type Unsent interface {
 }
 
 // Recorder records what a node's result on one kind of work establishes, by the content its echoed
-// work names (Result.Work), and only if that is still current: a rendition by its run, a
+// work names (Result.Work), and only if that is still current: a store's chunks by its run, a
 // text by its source's hash. It is the result's one recording, whether or not a job still waits
 // for it (D238 §2): a job that waits only learns how the work ended. A result whose content is no
 // longer current is not recorded, and is no error.

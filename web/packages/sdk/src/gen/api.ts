@@ -125,40 +125,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/bytes/media/hls/{token}/{renditionName}/{fileName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One file of a prepared playback's rendition, relayed from its node */
-        get: operations["getRenditionFile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/bytes/media/hls/{token}/master.m3u8": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A prepared playback's master playlist, relayed from its node */
-        get: operations["getMasterPlaylist"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/bytes/media/sub/{token}/{fileName}": {
         parameters: {
             query?: never;
@@ -507,7 +473,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The work a file's viewer waits on, its read-through for its loudness and its prepared copy, and about how long each will take (D324 §6) */
+        /** The work a file's viewer waits on, its read-through for its loudness and its timeline, and about how long each will take (D324 §6) */
         get: operations["getFileWaits"];
         put?: never;
         post?: never;
@@ -2176,18 +2142,6 @@ export interface components {
              */
             streamId: number;
         };
-        AudioRenditionBody: {
-            /** Format: int64 */
-            audioTrackIndex: number;
-            /**
-             * Format: double
-             * @description dB already in the sound, put in when it was prepared
-             */
-            carriedGainDb: number;
-            isDialogueBoosted: boolean;
-            language: string;
-            levelling: components["schemas"]["LevellingBody"];
-        };
         AudioTrackBody: {
             /** Format: int64 */
             audioTrackIndex: number;
@@ -2772,8 +2726,6 @@ export interface components {
             nextCursor?: string;
         };
         FileWaitsOutputBody: {
-            /** @description Its prepared copy, for a device that plays one */
-            prepare?: components["schemas"]["WaitBody"];
             /** @description Its read-through, for its loudness */
             readThrough?: components["schemas"]["WaitBody"];
         };
@@ -2802,31 +2754,6 @@ export interface components {
             detail: string;
             /** @enum {string} */
             verdict: "ok" | "warn" | "fail";
-        };
-        FinishedPrepareBody: {
-            failure?: string;
-            /**
-             * Format: int64
-             * @description Unix milliseconds
-             */
-            finishedAt: number;
-            /** @description Empty when the library no longer has the file */
-            path: string;
-            /** @enum {string} */
-            profile: "remux" | "h264";
-            /**
-             * Format: double
-             * @description Seconds of the source prepared per second of running
-             */
-            realtimeFactor?: number;
-            /** Format: int64 */
-            sizeBytes?: number;
-            /** Format: int64 */
-            sourceFileId: number;
-            /** @enum {string} */
-            state: "complete" | "failed";
-            /** @description the encoder that made the video, or copy for a remux */
-            videoEncoder?: string;
         };
         GPUBody: {
             devicePath: string;
@@ -3050,7 +2977,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -3058,8 +2985,6 @@ export interface components {
             progressFraction?: number;
             /** @description Why it exists */
             reason: string;
-            /** Format: int64 */
-            renditionId?: number;
             /** Format: int64 */
             scanBatchId?: number;
             /** Format: int64 */
@@ -3773,7 +3698,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "no_room_to_make" | "playback_gone" | "migrating" | "internal";
+            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "cannot_convert" | "no_room_to_make" | "playback_gone" | "migrating" | "internal";
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}
@@ -4284,13 +4209,11 @@ export interface components {
             preferredDelivery?: "direct" | "hls";
         };
         StartPlaybackOutputBody: {
-            audioRenditions?: components["schemas"]["AudioRenditionBody"][] | null;
             audioTracks: components["schemas"]["AudioTrackBody"][] | null;
             /** @enum {string} */
             delivery: "direct" | "hls";
             /** Format: int64 */
             fileBitRateKbps: number;
-            isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
@@ -4307,7 +4230,7 @@ export interface components {
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             titleName?: string;
             tracks: components["schemas"]["TracksBody"];
-            /** @description Where the bytes are: the file, or a rendition's master playlist */
+            /** @description Where the bytes are: the file, or its ladder's master playlist */
             url: string;
         };
         StartupBody: {
@@ -4442,7 +4365,6 @@ export interface components {
             lastHeardAt?: number;
             name: string;
             preparedUsage?: components["schemas"]["PreparedBody"];
-            recentPrepares: components["schemas"]["FinishedPrepareBody"][] | null;
             stuck: components["schemas"]["StuckBody"][] | null;
             /**
              * Format: int64
@@ -5058,107 +4980,6 @@ export interface operations {
             };
             /** @description The range asked for */
             206: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getRenditionFile: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
-                "Orpheum-Viewer"?: string;
-                Range?: string;
-                /** @description The browser's Sec-Fetch-Site */
-                "Sec-Fetch-Site"?: string;
-            };
-            path: {
-                /** @description stream.m3u8, init.mp4 or a segment */
-                fileName: string;
-                /** @description video, audio0, audio0-boost, ... */
-                renditionName: string;
-                /** @description The playback's media token */
-                token: string;
-            };
-            cookie?: {
-                /** @description The media cookie sign-in sets over TLS, for an <img> */
-                "__Host-orpheum_media"?: string;
-                /** @description A Watch Together viewer's over TLS, set as their playback starts */
-                "__Host-orpheum_viewer"?: string;
-                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
-                orpheum_media?: string;
-                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
-                orpheum_viewer?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/vnd.apple.mpegurl": unknown;
-                    "video/iso.segment": unknown;
-                    "video/mp4": unknown;
-                };
-            };
-            /** @description Not written yet: the rendition is being prepared; ask again after Retry-After */
-            425: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getMasterPlaylist: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
-                "Orpheum-Viewer"?: string;
-                /** @description The browser's Sec-Fetch-Site */
-                "Sec-Fetch-Site"?: string;
-            };
-            path: {
-                /** @description The playback's media token */
-                token: string;
-            };
-            cookie?: {
-                /** @description The media cookie sign-in sets over TLS, for an <img> */
-                "__Host-orpheum_media"?: string;
-                /** @description A Watch Together viewer's over TLS, set as their playback starts */
-                "__Host-orpheum_viewer"?: string;
-                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
-                orpheum_media?: string;
-                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
-                orpheum_viewer?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/vnd.apple.mpegurl": unknown;
-                    "video/iso.segment": unknown;
-                    "video/mp4": unknown;
-                };
-            };
-            /** @description Not written yet: the rendition is being prepared; ask again after Retry-After */
-            425: {
                 headers: {
                     [name: string]: unknown;
                 };

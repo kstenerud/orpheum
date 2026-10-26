@@ -155,7 +155,7 @@
 //     can be read now, its node away or its root or disk missing, has one answer: UnreadableFile.
 //
 //   - A playable file, its probe, where its bytes are on its node's byte socket, and whether a job
-//     reading it waits, ends or goes ahead have one answer each, which the play, the prepares, the
+//     reading it waits, ends or goes ahead have one answer each, which the play, the runs of chunks, the
 //     extractions and the measurements share (playable.go): PlayableFile, ProbeOf, BytesFileOf,
 //     RefuseUnreadable, ParkIfUnavailable. A file under a root of "/" is named by its root:
 //     TestBytesFileOf_NamesAFileUnderARootOfSlash.

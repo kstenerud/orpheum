@@ -25,11 +25,11 @@ import (
 type Server struct {
 	roots map[string]*confine.MediaRoot
 	// prepared is the node's prepared directory, read as a media root is: read-only, and nothing
-	// outside it. Nil on a node that does not prepare.
+	// outside it. Nil on a node that has none.
 	prepared *confine.MediaRoot
-	// renditionServedHook is told each rendition served, by its run directory, as its last use
+	// storeServedHook is told each store a file was served from, by its directory, as its last use
 	// (D217 §5).
-	renditionServedHook func(renditionDir string)
+	storeServedHook func(storeDir string)
 	// payloadHashes remembers each file's payload hash, so a player's range requests hash it once.
 	payloadHashes *namedfile.Hashes
 	// results are the results the node holds, too large to post; nil serves none.
@@ -88,11 +88,11 @@ func (server *Server) ServingResults(results Results) *Server {
 	return server
 }
 
-// OnRenditionServed has the server tell served each time it serves one of a rendition's files,
-// naming the rendition by its run directory, <file_id>/<profile>/<run_id>: the node's record of
-// its last use, by which it evicts (D217 §5).
-func (server *Server) OnRenditionServed(served func(renditionDir string)) *Server {
-	server.renditionServedHook = served
+// OnStoreServed has the server tell served each time it serves one of a store's files, naming the
+// store by its directory, <file_id>/chunks-<stream>/<grid_id>: the node's record of its last use, by
+// which it evicts (D217 §5).
+func (server *Server) OnStoreServed(served func(storeDir string)) *Server {
+	server.storeServedHook = served
 	return server
 }
 
@@ -100,7 +100,6 @@ func (server *Server) OnRenditionServed(served func(renditionDir string)) *Serve
 func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+nodeproto.PathBytesFile, server.serveFile)
-	mux.HandleFunc("GET "+nodeproto.PathBytesPrepared+"{name...}", server.serveRenditionFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesChunks+"{name...}", server.serveStoreFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
@@ -189,38 +188,19 @@ func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) 
 	return got.file, got.info, nil
 }
 
-// renditionNamePattern is the only shape a rendition's file may be named by: "<file_id>/<profile>/<run_id>/" and
-// then the master playlist, or one rendition's playlist, init segment or media segment.
-var renditionNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264)/[0-9a-f]{16}/` +
-	`(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
-
-// serveRenditionFile serves one file of a prepared rendition. A name that is not a rendition's is
-// refused before anything is opened; one not written yet is a 404, which the core turns into
-// "too early" while the job runs.
-func (server *Server) serveRenditionFile(writer http.ResponseWriter, request *http.Request) {
-	server.servePreparedFile(writer, request, renditionNamePattern, "no such rendition file")
-}
-
 // storeNamePattern is the only shape a store's file may be named by: "<file_id>/chunks-<stream>/<grid_id>/"
 // and then its init or a chunk (D247 §10).
 var storeNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/chunks-[a-z0-9-]{1,40}/[0-9a-f]{16,64}/` +
 	`(init\.mp4|\d{5,9}\.m4s)$`)
 
-// serveStoreFile serves a store's init or one of its chunks. A name that is not a store's is
-// refused before anything is opened; a chunk not made yet is a 404, which the core waits on while
-// a run makes it.
+// serveStoreFile serves a store's init or one of its chunks, from the prepared directory, counting it
+// a use of its store, <file_id>/chunks-<stream>/<grid_id>, which eviction reads (D217 §5). A name
+// that is not a store's is refused before anything is opened; a chunk not made yet is a 404, which
+// the core waits on while a run makes it.
 func (server *Server) serveStoreFile(writer http.ResponseWriter, request *http.Request) {
-	server.servePreparedFile(writer, request, storeNamePattern, "no such chunk")
-}
-
-// servePreparedFile serves a file of the prepared directory whose name has the pattern's shape,
-// counting it a use of its directory, <file_id>/<profile or store>/<run or grid>, which eviction
-// reads (D217 §5).
-func (server *Server) servePreparedFile(
-	writer http.ResponseWriter, request *http.Request, pattern *regexp.Regexp, notFound string,
-) {
+	const notFound = "no such chunk"
 	name := request.PathValue("name")
-	if server.prepared == nil || !pattern.MatchString(name) {
+	if server.prepared == nil || !storeNamePattern.MatchString(name) {
 		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
@@ -235,21 +215,14 @@ func (server *Server) servePreparedFile(
 		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
-	if server.renditionServedHook != nil {
+	if server.storeServedHook != nil {
 		parts := strings.SplitN(name, "/", 4)
-		server.renditionServedHook(strings.Join(parts[:3], "/"))
+		server.storeServedHook(strings.Join(parts[:3], "/"))
 	}
-	writer.Header().Set("Content-Type", renditionContentType(name))
+	contentType := "video/mp4"
+	if path.Ext(name) == ".m4s" {
+		contentType = "video/iso.segment"
+	}
+	writer.Header().Set("Content-Type", contentType)
 	http.ServeContent(writer, request, "", info.ModTime(), file)
-}
-
-// renditionContentType is a rendition file's media type, by its name.
-func renditionContentType(name string) string {
-	switch path.Ext(name) {
-	case ".m3u8":
-		return "application/vnd.apple.mpegurl"
-	case ".m4s":
-		return "video/iso.segment"
-	}
-	return "video/mp4"
 }

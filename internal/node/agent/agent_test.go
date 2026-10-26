@@ -23,7 +23,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -37,8 +36,7 @@ type fakeCore struct {
 	commands chan nodeproto.Command
 	statuses chan nodeproto.Status
 	// The node's results, each on its kind's channel: a Result carrying its job id and one payload.
-	artwork        chan nodeproto.Result
-	prepareReports chan nodeproto.Result
+	artwork chan nodeproto.Result
 	// progress is the node's words on where its attempts are, dropped when the test reads none.
 	progress     chan nodeproto.Progress
 	subtitles    chan nodeproto.Result
@@ -59,8 +57,6 @@ type fakeCore struct {
 	endSession chan struct{}
 	// helloHeard is sent on at each hello, while it has room: a test waits on it for a session to begin.
 	helloHeard chan struct{}
-	// keptRenditionDirs are the renditions the reply to a hello keeps. Guarded by mutex.
-	keptRenditionDirs []string
 	// statusEverySeconds is the status cadence the reply to a hello says. Guarded by mutex.
 	statusEverySeconds int
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
@@ -99,10 +95,10 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), statuses: make(chan nodeproto.Status, 64),
-		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
+		artwork:  make(chan nodeproto.Result, 4),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
-		chunkRuns: make(chan nodeproto.Result, 4), crashes: make(chan nodeproto.Result, 4),
+		chunkRuns: make(chan nodeproto.Result, 16), crashes: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
@@ -115,14 +111,14 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
-		kept, statusEvery := core.keptRenditionDirs, core.statusEverySeconds
+		statusEvery := core.statusEverySeconds
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
 		default:
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
-			NodeID: 7, KeptRenditionDirs: kept, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery},
+			NodeID: 7, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery},
 		}); err != nil {
 			t.Error(err)
 		}
@@ -232,7 +228,6 @@ type resultKind string
 // The kinds of result.
 const (
 	artworkResult     resultKind = "artwork"
-	prepareResult     resultKind = "prepare"
 	subtitleResult    resultKind = "subtitle"
 	readThroughResult resultKind = "read-through"
 	chunksResult      resultKind = "chunks"
@@ -251,7 +246,7 @@ const (
 func kindOf(result nodeproto.Result) (resultKind, bool) {
 	var kinds []resultKind
 	for kind, isSet := range map[resultKind]bool{
-		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
+		artworkResult:  result.Artwork != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
 		chunksResult:  result.MakeChunks != nil,
 		refusalResult: result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
@@ -294,7 +289,7 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 			return
 		}
 		into := map[resultKind]chan nodeproto.Result{
-			artworkResult: core.artwork, prepareResult: core.prepareReports,
+			artworkResult:  core.artwork,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
 			chunksResult: core.chunkRuns, crashedResult: core.crashes,
 			heldResult: core.held, scanResult: core.scans,
@@ -361,7 +356,7 @@ func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time
 func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
 	return startAgentWithWorkers(t, socket, Workers{
-		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Subtitler: fakeSubtitler{},
 		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{}, PreparedShelf: shelf,
 	})
 }
@@ -466,30 +461,31 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	}
 }
 
-// stopWatchingPreparer runs every prepare until it is stopped, and closes stopped when it is.
-type stopWatchingPreparer struct{ stopped chan struct{} }
+// stopWatchingChunkMaker makes every run's first chunk and runs on until it is stopped, and closes
+// stopped when it is.
+type stopWatchingChunkMaker struct{ stopped chan struct{} }
 
-func (preparer stopWatchingPreparer) Prepare(
-	ctx context.Context, _ execx.Film, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
-) (prepare.Made, error) {
-	progress(500)
+func (maker stopWatchingChunkMaker) Make(
+	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+) (int, error) {
+	onChunk(command.FirstChunk)
 	<-ctx.Done()
-	close(preparer.stopped)
-	return prepare.Made{}, ctx.Err()
+	close(maker.stopped)
+	return command.FirstChunk, ctx.Err()
 }
 
 // One answer the core did not take is tried again, and costs nothing else: the session goes on
-// and a prepare running beside it is not stopped.
+// and a run of chunks beside it is not stopped.
 func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	preparer := stopWatchingPreparer{stopped: make(chan struct{})}
+	maker := stopWatchingChunkMaker{stopped: make(chan struct{})}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
-		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer,
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, ChunkMaker: maker,
 	})
-	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
+	core.sendRun(1, chunkableFilm(t, root), "3/chunks-picture/0123456789abcdef")
 	if running := nextProgress(t, core); running.State != nodeproto.ProgressRunning {
-		t.Fatalf("the prepare's first report = %+v, want running", running)
+		t.Fatalf("the run's first report = %+v, want running", running)
 	}
 	core.refuseFirstPosts(artworkResult, 1)
 	artwork := &nodeproto.Artwork{
@@ -510,8 +506,8 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 		t.Fatal("the artwork answer the core refused once never reached it")
 	}
 	select {
-	case <-preparer.stopped:
-		t.Error("the running prepare was stopped by one answer the core did not take")
+	case <-maker.stopped:
+		t.Error("the running run was stopped by one answer the core did not take")
 	default:
 	}
 	if count := core.helloCount(); count != 1 {
@@ -611,66 +607,53 @@ func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
 	}
 }
 
-// releasedPreparer runs every prepare until the test releases it, saying when it started, and
-// says whether one was stopped instead.
-type releasedPreparer struct {
+// releasedChunkMaker makes every run's first chunk and runs on until the test releases it, saying
+// when it started, and says whether one was stopped instead.
+type releasedChunkMaker struct {
 	started, release chan struct{}
 	stopped          *atomic.Bool
 }
 
-func (preparer releasedPreparer) Prepare(
-	ctx context.Context, _ execx.Film, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
-) (prepare.Made, error) {
-	progress(500)
-	close(preparer.started)
+func (maker releasedChunkMaker) Make(
+	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+) (int, error) {
+	onChunk(command.FirstChunk)
+	close(maker.started)
 	select {
-	case <-preparer.release:
-		return prepare.Made{SizeBytes: 9, VideoEncoder: "copy"}, nil
+	case <-maker.release:
+		return command.FirstChunk, nil
 	case <-ctx.Done():
-		preparer.stopped.Store(true)
-		return prepare.Made{}, ctx.Err()
+		maker.stopped.Store(true)
+		return command.FirstChunk, ctx.Err()
 	}
 }
 
-// A session that ends, the core gone or restarting, stops none of the node's work: the prepare
-// runs on to its end, and its result reaches the core of the next session (D233 §2).
+// A session that ends, the core gone or restarting, stops none of the node's work: the run of chunks
+// goes on to its end, and its result reaches the core of the next session (D233 §2).
 func TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	preparer := releasedPreparer{
+	maker := releasedChunkMaker{
 		started: make(chan struct{}), release: make(chan struct{}), stopped: &atomic.Bool{},
 	}
-	root, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Preparer: preparer})
-	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
-	}
-	payload := &nodeproto.Prepare{
-		Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
-	}
-	core.commands <- nodeproto.Command{
-		CommandSeq: 1,
-		JobID:      9,
-		Work:       nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: payload},
-	}
-	testutil.Receive(t, preparer.started, "the prepare to start")
+	root, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, ChunkMaker: maker})
+	core.sendRun(9, chunkableFilm(t, root), "3/chunks-picture/0123456789abcdef")
+	testutil.Receive(t, maker.started, "the run to start")
 	select {
 	case core.endSession <- struct{}{}: // the open long-poll answers 503, which ends the session
 	case <-time.After(testutil.ReceiveLimit):
 		t.Fatal("the session's long-poll never reached the core to be ended")
 	}
-	// The next tick starts the next session; the prepare ends only once it has.
+	// The next tick starts the next session; the run ends only once it has.
 	testutil.Receive(t, core.helloHeard, "the first session's hello")
 	keepTicking(t, tick)
 	testutil.Receive(t, core.helloHeard, "the next session's hello")
-	close(preparer.release)
-	if done := finalPrepareReport(t, core); done.JobID != 9 || done.State != nodeproto.PrepareDone {
-		t.Errorf("the prepare's end = %+v, want job 9 done", done)
+	close(maker.release)
+	if done := finalRunReport(t, core); done.JobID != 9 || done.State != nodeproto.RunDone {
+		t.Errorf("the run's end = %+v, want job 9 done", done)
 	}
-	if preparer.stopped.Load() {
-		t.Error("the session's end stopped the prepare")
+	if maker.stopped.Load() {
+		t.Error("the session's end stopped the run")
 	}
 }
 

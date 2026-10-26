@@ -17,7 +17,7 @@ func (harness testHarness) chooseAudio(t *testing.T, sessionToken string, fileID
 }
 
 // Audio follows by the same rule (D230 §5): the language chosen in one episode is the one an
-// unwatched episode starts with, which a browser plays only prepared, and a started one plays again
+// unwatched episode starts with, which a browser plays only converted, and a started one plays again
 // with what it used.
 func TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *testing.T) {
 	t.Parallel()
@@ -35,7 +35,7 @@ func TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *t
 	}
 	unwatched := harness.startIn(t, user, 5)
 	if unwatched.audio != 83 || !slices.Contains(unwatched.reasons, "audio_track") {
-		t.Errorf("after French in the pilot, episode 2 starts with audio %d (%v), want French, 83, prepared "+
+		t.Errorf("after French in the pilot, episode 2 starts with audio %d (%v), want French, 83, converted "+
 			"because it is not the track the original starts with", unwatched.audio, unwatched.reasons)
 	}
 	harness.addEpisode(t, 24, 7, "(90, 7, 7, 1, 'audio', 'aac', 'en', 1), (91, 7, 7, 4, 'audio', 'aac', 'fr', 0)")

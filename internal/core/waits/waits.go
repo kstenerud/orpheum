@@ -18,7 +18,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // Wait is how long one piece of work a person waits on will take.
@@ -35,8 +34,6 @@ type Wait struct {
 type Waits struct {
 	// ReadThrough is its read-through's, for its loudness and its picture's timeline.
 	ReadThrough *Wait
-	// Prepare is its prepared copy's, for a device that plays one.
-	Prepare *Wait
 }
 
 // Attempts say since when the node holding a job's attempt has run it: nodes.Exchanges.
@@ -141,11 +138,7 @@ func (estimator *Estimator) Of(ctx context.Context, fileID int64) (Waits, error)
 	if err != nil {
 		return Waits{}, err
 	}
-	prepare, err := estimator.prepareOf(ctx, fileID)
-	if err != nil {
-		return Waits{}, err
-	}
-	return Waits{ReadThrough: read, Prepare: prepare}, nil
+	return Waits{ReadThrough: read}, nil
 }
 
 // sizedFile is a file's node, size and length.
@@ -295,45 +288,6 @@ func (estimator *Estimator) readsAtOnce(ctx context.Context, nodeID int64) (int,
 		return 1, nil
 	}
 	return max(1, resources.Capacity.SlotCount(nodeproto.SlotReadThrough)), nil
-}
-
-// prepareOf is how long the file's prepared copy will take: nil when no prepare of it is open.
-func (estimator *Estimator) prepareOf(ctx context.Context, fileID int64) (*Wait, error) {
-	open, err := estimator.parts.Cache.Jobs().OpenPreparesOfFile(ctx, fileID)
-	if err != nil {
-		return nil, err
-	}
-	if len(open) == 0 {
-		return nil, nil //nolint:nilnil // no prepare is open: nothing to wait for
-	}
-	prepare := open[0]
-	wait := &Wait{IsRunning: prepare.IsAssigned}
-	since, isRunning := estimator.parts.Attempts.RunningSinceOf(prepare.ID)
-	ran := time.Duration(0)
-	if wait.IsRunning && isRunning {
-		ran = estimator.parts.Clock.Now().Sub(since)
-	}
-	if done := prepare.DoneFraction; done > 0 && ran > 0 {
-		wait.Left, wait.IsKnown = time.Duration(float64(ran)*(1-done)/done), true
-		return wait, nil
-	}
-	factor, err := store.OrNotFound(estimator.parts.Cache.Read().GetLatestRealtimeFactor(ctx,
-		cachegen.GetLatestRealtimeFactorParams{NodeID: prepare.NodeID, Profile: prepare.Profile}))
-	if errors.Is(err, store.ErrNotFound) {
-		return wait, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read node %d's last realtime factor: %w", prepare.NodeID, err)
-	}
-	files, err := estimator.filesOf(ctx, []int64{fileID})
-	if err != nil {
-		return nil, err
-	}
-	if file := files[fileID]; file.durationMs > 0 && factor > 0 {
-		whole := time.Duration(float64(file.durationMs)/factor) * time.Millisecond
-		wait.Left, wait.IsKnown = max(0, whole-ran), true
-	}
-	return wait, nil
 }
 
 // durationOf is how long bytes take at speed bytes a second.

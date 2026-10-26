@@ -296,7 +296,7 @@ func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
 	defer stop()
 	ran := make(chan Kind, 4)
 	never := make(chan time.Time) // no tick: only a wake-up can start a run
-	kinds := []Kind{KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle}
+	kinds := []Kind{KindFetchMetadata, KindMakeArtworkSizes, KindReadThrough, KindExtractSubtitle}
 	for _, kind := range kinds {
 		runner := jobs.queue.NewRunner(kind, func(_ context.Context, job Job) error {
 			ran <- job.Kind
@@ -332,8 +332,8 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 	release := make(chan struct{})
 	never := make(chan time.Time)
 	for range runners {
-		runner := jobs.queue.NewRunner(KindPrepare, func(ctx context.Context, job Job) error {
-			started <- job.RenditionID
+		runner := jobs.queue.NewRunner(KindReadThrough, func(ctx context.Context, job Job) error {
+			started <- job.FileID
 			select {
 			case <-release:
 				return nil
@@ -345,8 +345,8 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 	}
 	for subject := range int64(runners) {
 		if _, err := jobs.queue.Enqueue(t.Context(), Request{
-			Kind:   KindPrepare,
-			Target: Target{RenditionID: subject + 1},
+			Kind:   KindReadThrough,
+			Target: Target{FileID: subject + 1},
 		}); err != nil {
 			t.Fatal(err)
 		}

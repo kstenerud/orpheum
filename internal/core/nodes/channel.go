@@ -106,7 +106,7 @@ func (service *Service) takeStatus(writer http.ResponseWriter, request *http.Req
 
 // maxResultBytes bounds a result. The largest is an artwork re-encode's: seven sizes of our own
 // WebP, the largest 3840×2160, in base64; real ones are a few megabytes. A subtitle's is its text
-// twice, each at most the node's own bound of 16 MiB, in base64; a prepare report and a loudness
+// twice, each at most the node's own bound of 16 MiB, in base64; a run of chunks' report and a loudness
 // measurement are a few numbers.
 const maxResultBytes = 64 << 20
 

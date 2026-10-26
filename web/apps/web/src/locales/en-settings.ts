@@ -79,7 +79,7 @@ export const enSettingsCatalogue = {
     finishedAfterPercent:
       "Credits often take the last part of a film. Past this share of its length, the video counts as watched: it leaves Continue Watching and plays from the start next time.",
     hlsSegmentLengthSeconds:
-      "A prepared copy is sent in short pieces. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it remakes each prepared copy the next time it's played.",
+      "A converted film is sent in short pieces. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
     inProgressAfterPercent:
       "A video watched only a little, a few minutes of trying it, isn't worth coming back to. Until playback passes this share of its length, it plays from the start next time and stays out of Continue Watching. Past it, it resumes where it stopped.",
     invariantsCheckEveryHours:
@@ -105,7 +105,7 @@ export const enSettingsCatalogue = {
     pairingCodesPerNetworkMost:
       "A television or other device signs in by showing a code you enter on a device already signed in. This limits how many codes one network can have waiting, so nobody can fill the server with them.",
     playLadderWaitMs:
-      "A film is cut for slow links only once it's first played on one. Until its cut points are read, playback waits up to this long, then plays a prepared copy or the original instead.",
+      "A film is cut into pieces where its own keyframes fall once they are read. Until then, playback waits up to this long, then plays the original where the device can, or cuts the film at even times instead.",
     playPriorityKeptSeconds:
       "Work for something being watched goes ahead of background work, such as scanning, and pauses it if needed. Once nobody has asked for that playback's work for this long, it counts as background work again.",
     portMappingLeaseSeconds:
@@ -256,7 +256,7 @@ export const enSettingsCatalogue = {
     finishedAfterPercent: "How far into a video it counts as watched and leaves Continue Watching.",
     finishedJobsKeptDays: "How long finished jobs stay in the job list.",
     hlsSegmentLengthSeconds:
-      "The length of each segment of a prepared copy. Changing it remakes copies when they are next played.",
+      "The length of each piece a converted film is cut into. Changing it cuts films again when they are next played.",
     invariantsCheckEveryHours:
       "How often the database is checked for consistency, besides at each start.",
     jobAttemptLimit: "How many times a failing background job is tried before it is marked failed.",
@@ -282,6 +282,8 @@ export const enSettingsCatalogue = {
       "How often a new library checked on a schedule looks for changes. Each library keeps its own once made.",
     nodeJobsBeyondFreeSlots:
       "How many jobs a media node is given beyond what it can run at once, so the next starts without waiting.",
+    nodeProgressEverySeconds:
+      "How often, at most, a media node reports how far a read-through in progress is.",
     nodeSilentAfterSeconds:
       "How long a media node may go unheard before it is shown as silent. Each node reports every third of it.",
     opensubtitlesDownloadsReservedForPeoplePercent:
@@ -299,7 +301,6 @@ export const enSettingsCatalogue = {
     portMappingPermanentRenewSeconds:
       "How often a permanent opening is asked for again, in case the router forgot it.",
     portMappingRetrySeconds: "How long before asking the router again when it refused.",
-    prepareProgressEverySeconds: "How often, at most, a prepare in progress reports how far it is.",
     providerTimeoutSeconds:
       "How long a call to a metadata provider such as TMDB may take. Read when the server starts.",
     readThroughSweepEveryHours:
@@ -371,8 +372,6 @@ export const enSettingsCatalogue = {
       "The language whose alphabetical order the libraries are sorted in, such as en, sv or de.",
     readerLimitSpinningDisk: "How many may read a spinning disk at once.",
     readerLimitSsd: "How many may read a solid-state disk at once.",
-    systemPageRecentPreparesPerNode:
-      "How many of a media node's finished prepares the System page lists.",
     timeZone:
       "The server's time zone, such as Europe/Berlin, for scheduled work like backups. Empty uses the machine's own.",
     tmdbBackgroundRateSharePercent:

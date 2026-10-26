@@ -20,35 +20,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
-
-// finishPrepare records a prepare node 1 finished of file, made with encoder at speed.
-func finishPrepare(t *testing.T, harness testHarness, fileID int64, encoder string, realtimeFactor float64) {
-	t.Helper()
-	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
-		_, err := queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: fileID, SourcePayloadHash: []byte{1}, Profile: "h264", NodeID: 1, SegmentLengthSeconds: 6,
-			RunID: "0123456789abcdef", CreatedAt: 1,
-		})
-		if err != nil {
-			return fmt.Errorf("insert the rendition: %w", err)
-		}
-		size, finished := int64(2048), int64(1_790_000_000_000)
-		_, err = queries.SetRenditionComplete(t.Context(), cachegen.SetRenditionCompleteParams{
-			SizeBytes: &size, FinishedAt: &finished, VideoEncoder: &encoder, RealtimeFactor: &realtimeFactor,
-			SourceFile: fileID, Profile: "h264", RunID: "0123456789abcdef",
-		})
-		if err != nil {
-			return fmt.Errorf("complete the rendition: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	t.Parallel()
@@ -70,7 +43,6 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
 		UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 75, DiskUsedLimitPercent: 95,
 	}
-	finishPrepare(t, harness, 42, "h264_qsv", 6.5)
 
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
 	if got.status != http.StatusOK {
@@ -125,11 +97,6 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 	}
 	checkHardware(t, local.Hardware)
 	checkStuck(t, local.Stuck)
-	if len(local.RecentPrepares) != 1 || local.RecentPrepares[0].SourceFileID != 42 ||
-		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].RealtimeFactor != 6.5 {
-		t.Errorf("local's recent prepares are %+v; want the one it finished, with Quick Sync at 6.5x (D225 §3)",
-			local.RecentPrepares)
-	}
 }
 
 // checkStuck checks the connected node's work waiting on a disk, as the System page shows it.

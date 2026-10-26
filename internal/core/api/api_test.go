@@ -44,7 +44,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -73,7 +72,7 @@ type testHarness struct {
 	tmdbProvider *identifytest.Provider
 	cache        *store.Cache
 	nodes        *fakeNodes
-	// exchanges are the jobs waiting on the node; answerPrepare and the like hand them its results.
+	// exchanges are the jobs waiting on the node; answerReadThrough and the like hand them its results.
 	exchanges  *corenodes.Exchanges
 	httpServer *httptest.Server
 	// logs is everything the server, the chunks and the hub log, at debug, safe to read while they
@@ -94,10 +93,9 @@ type testHarness struct {
 	// resolver takes the outcome of each job given to the node, and hands a test its answer.
 	resolver *nodestest.Resolver
 	// readThrough reads each file through, for its sounds' loudness and its picture's timeline;
-	// subtitles makes and fetches their subtitles, and renditions makes their prepared copies.
+	// subtitles makes and fetches their subtitles.
 	readThrough *readthrough.Service
 	subtitles   *subtitles.Service
-	renditions  *renditions.Service
 	// chunks cuts each film into chunks made on request (D247 §10).
 	chunks *chunks.Service
 	// backups makes the backups a job asks for (D243 §11).
@@ -187,10 +185,6 @@ func newHarness(t *testing.T) testHarness {
 		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Subtitler: subtitler, Clock: now,
 		MaxSilence: time.Minute,
 	})
-	renditionsService := renditions.NewService(renditions.Parts{
-		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges, Settings: seeded,
-		Loudness: loudnessService, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-	})
 	chunksService := chunks.NewService(chunks.Parts{
 		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
 		Loudness: loudnessService, ReadThrough: readThroughService,
@@ -199,15 +193,15 @@ func newHarness(t *testing.T) testHarness {
 	reads := &fakeFileReads{}
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,
-		Renditions: renditionsService, Subtitles: subtitlesService, Preferences: preferencesService,
-		Loudness: loudnessService, Chunks: chunksService, Reads: reads,
+		Subtitles: subtitlesService, Preferences: preferencesService,
+		Loudness: loudnessService, Chunks: chunksService, Offers: chunksService, Reads: reads,
 	})
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
 	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, subtitlesService.HandleConvertFetchedSubtitle)
 	go func() { _ = converter.Run(t.Context(), nil) }() //nolint:errcheck // it ends with the test
 	resolver := nodestest.NewResolver()
 	for kind, assignee := range map[jobs.Kind]func(corenodes.Resolver) corenodes.Assignee{
-		jobs.KindPrepare: renditionsService.Assignee, jobs.KindExtractSubtitle: subtitlesService.Assignee,
+		jobs.KindExtractSubtitle:        subtitlesService.Assignee,
 		jobs.KindConvertFetchedSubtitle: subtitlesService.Assignee,
 		jobs.KindReadThrough:            readThroughService.Assignee,
 		jobs.KindMakeChunks:             chunksService.Assignee,
@@ -278,7 +272,6 @@ func newHarness(t *testing.T) testHarness {
 		}),
 		Playback:     playbackService,
 		Subtitles:    subtitlesService,
-		Renditions:   renditionsService,
 		Chunks:       chunksService,
 		Backups:      backups,
 		Together:     hub,
@@ -312,7 +305,7 @@ func newHarness(t *testing.T) testHarness {
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
-		renditions: renditionsService, chunks: chunksService, reads: reads, settings: seeded,
+		chunks: chunksService, reads: reads, settings: seeded,
 	}
 }
 
@@ -325,12 +318,6 @@ func (harness testHarness) deliver(t *testing.T, jobID int64, result nodeproto.R
 	if err := harness.exchanges.Deliver(t.Context(), 1, result); err != nil {
 		t.Errorf("job %d's result was not taken: %v", jobID, err)
 	}
-}
-
-// answerPrepare hands node 1's report on prepare job jobID to the job, as the node channel does.
-func (harness testHarness) answerPrepare(t *testing.T, jobID int64, report nodeproto.PrepareReport) {
-	t.Helper()
-	harness.deliver(t, jobID, nodeproto.Result{Prepare: &report})
 }
 
 // answerReadThrough hands node 1's read-through for job jobID to the job.

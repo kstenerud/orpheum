@@ -31,9 +31,8 @@
 //     TestAgent_AReprioritizeCommandGivesTheAttemptItsNewPriority.
 //   - Each hello lists the devices the roots are on as found then (D240 §5).
 //     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
-//   - Each hello lists the renditions the prepared directory holds, by their manifests, and the
-//     node evicts those the reply does not keep (D238 §2).
-//     TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted.
+//   - Each hello evicts the makings in the prepared directory that never finished, and what a
+//     whole-film prepare left (D238 §2, D344 §1). TestAgent_EachHelloEvictsTheMakingsThatNeverFinished.
 //   - A root is listed or examined only if the node was configured with it, whatever the
 //     core asks (D107). TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
 //     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor.
@@ -57,14 +56,14 @@
 //     the command poll, end it. A job's result is posted beside the node's other work,
 //     holding no slot, until the core acknowledges it, with a doubling wait and at once at the next
 //     hello, and never given up while the node runs (D234 §5); it never stops the session or the
-//     work running beside it. A session that ends stops none of the node's work: a prepare,
+//     work running beside it. A session that ends stops none of the node's work: a run of chunks,
 //     extraction, read-through or re-encode runs on the node's lifetime and posts its result to the
 //     next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession,
 //     TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt,
 //     TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello,
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
-//     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
+//     TestAgent_ARunsEndTheCoreRefusedArrivesOnRetry.
 //   - A result whose JSON is larger than nodeproto.MaxPostedResultBytes is held in memory for the
 //     core to fetch from the byte socket, and posted as its job, attempt, work, size and hash; it is
 //     forgotten once acknowledged (D234 §5). TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged.
@@ -79,10 +78,12 @@
 //     answered once for all, each naming its image's key — is the artwork store's one way in
 //     (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer,
 //     TestAgent_ReEncodesAJobsImagesAndAnswersOnceForAll.
-//   - A prepare runs only on the file the core named, a regular file under one of the node's roots
-//     whose payload hash is still the one named (D100), opened and checked by
-//     internal/node/namedfile; how far it is and how it ended are posted to the core. One
-//     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
+//   - A run of chunks runs only on the file the core named, a regular file under one of the node's
+//     roots whose payload hash is still the one named (D100), opened and checked by
+//     internal/node/namedfile; how far it is and how it ended are posted to the core. One encode
+//     and two remuxes run at once (cut-a §5.3).
+//     TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade,
+//     TestAgent_ARunOfAFileUnderNoRootOrOfADirectoryIsRefused.
 //   - A subtitle is extracted only from the video or sidecar the core named, a regular file under
 //     one of the node's roots whose payload hash is still the one named (D100, D217 §6). One extraction runs
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
@@ -106,38 +107,37 @@
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
 //     waits for a slot never starts (cut-a §5.3).
-//     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt,
+//     TestAgent_ACancelStopsARunningRunAtOnceAndNothingMoreIsReportedForIt,
 //     TestAgent_AnArtworkJobTheCoreCancelledIsStopped,
 //     TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops.
 //   - Every attempt the node holds says where it is on the progress path, best effort and never
 //     sent again (D234 §5): running when it starts, waiting at once when its slot is taken, and
-//     each again at every status tick; a running prepare says how far it is as FFmpeg moves on, at
-//     most every prepare_progress_every_seconds the core's tuning says, instead of at the tick.
+//     each again at every status tick; a running run of chunks says how far it is as it makes each,
+//     and a read-through as FFmpeg moves on, at most every node_progress_every_seconds the core's
+//     tuning says, instead of at the tick.
 //     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
-//     TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick.
+//     TestAgent_ARunWaitingForASlotSaysSoAtOnceAndAtEachTick.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
-//     which a cancel and every result name, and a command without one is refused; and a prepare is
+//     which a cancel and every result name, and a command without one is refused; and a run is
 //     held beside a scan's examining, never queued behind one. What waits for a slot of its kind
 //     starts the highest priority first, the command's, and at one priority the first to come (D234 §3); an
 //     attempt the core sends again while it is held is held once.
 //     TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
-//     TestAgent_APrepareRunsWhileAnExaminingIsStillGoing,
+//     TestAgent_ARunRunsWhileAnExaminingIsStillGoing,
 //     TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt.
-//   - A finished prepare's report says what made its video and how fast (D225 §3).
-//     TestAgent_PreparesOnlyTheFileTheCoreNamed.
-//   - A prepare, subtitle or read-through the node did not try (no worker for it, a file outside
+//   - A run of chunks, subtitle or read-through the node did not try (no worker for it, a file outside
 //     its roots or changed since the scan, a disk with no room) is answered as a refusal, apart
 //     from FFmpeg failing on the bytes, so the core can try a refusal again; a file changed since the
 //     scan is named so (nodeproto.RefusedChanged, S74).
-//     TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
+//     TestAgent_ARunTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
 //     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
-//   - A prepare, subtitle or read-through whose FFmpeg the watchdog stopped is answered as a stall,
+//   - A run of chunks, subtitle or read-through whose FFmpeg the watchdog stopped is answered as a stall,
 //     with what was seen, apart from a failure and a refusal, and its slot is freed.
-//     TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot,
+//     TestAgent_AStalledRunIsAnsweredStalledNotFailedAndFreesItsSlot,
 //     TestAgent_AStalledReadThroughOrExtractionIsAnsweredStalledNotFailed.
-//   - A prepare that ends brings the prepared directory back within its budget then, not only
-//     when the next prepare makes room (D217 §5).
-//     TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget.
+//   - A run of chunks that ends brings the prepared directory back within its budget then, not only
+//     when the next run makes room (D217 §5).
+//     TestAgent_AFinishedRunKeepsThePreparedDirectoryWithinItsBudget.
 //   - The status lists every attempt the node holds, waiting or running, and every one whose result
 //     the core has not acknowledged, with the last command the node took, for the core to reconcile
 //     (D234 §6). TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook,
@@ -164,8 +164,8 @@
 //   - agent.go: the session, its poll and its status, and the commands; listing.go: listing and
 //     examining;
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
-//     prepare.go: prepares, and opening the file a command names; film.go: a run's film, from the
-//     file the node opened; hello_test.go: the hello's renditions;
+//     open.go: opening the file a command names; film.go: a run's film, from the file the node
+//     opened; chunks.go: runs of chunks;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
 //     readthrough.go: reading a video through; working.go: the work held, its slots and priority order,
 //     and cancel.

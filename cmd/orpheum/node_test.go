@@ -22,8 +22,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/hash"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
@@ -328,7 +328,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	}
 }
 
-func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
+func TestRunNode_StillServesFilesWhenItCannotMakeChunks(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	blocker := filepath.Join(t.TempDir(), "a file, not a directory")
@@ -338,7 +338,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 	config.Instance.CacheDir = blocker // its prepared directory cannot be made under a file
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
 	config.Node.FFmpegDir = fake.Directory
-	const listening, cannot = "serving the byte socket", "this node cannot prepare; it serves files as they are"
+	const listening, cannot = "serving the byte socket", "this node cannot make chunks; it serves files as they are"
 	captured := newCapturedLog(listening, cannot)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -359,7 +359,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 
 func TestCapabilityNames_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 	t.Parallel()
-	got := capabilityNames([]prepare.Encoder{prepare.EncoderQuickSync, prepare.EncoderX264})
+	got := capabilityNames([]encode.Encoder{encode.EncoderQuickSync, encode.EncoderX264})
 	if want := []string{"remux", "aac", "h264_qsv", "x264"}; !slices.Equal(got, want) {
 		t.Errorf("capabilities = %v, want %v (cut-a §4)", got, want)
 	}
@@ -368,8 +368,8 @@ func TestCapabilityNames_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
 	t.Parallel()
 	found := nodeCapabilities{
-		encoderChoice: prepare.Choice{Chosen: prepare.EncoderNVENC, Trials: []prepare.Trial{
-			{Encoder: prepare.EncoderQuickSync, Failure: "no render node"}, {Encoder: prepare.EncoderNVENC},
+		encoderChoice: encode.Choice{Chosen: encode.EncoderNVENC, Trials: []encode.Trial{
+			{Encoder: encode.EncoderQuickSync, Failure: "no render node"}, {Encoder: encode.EncoderNVENC},
 		}},
 		gpus: []nodeproto.GPU{{DevicePath: "/dev/nvidia0", Driver: "nvidia"}},
 	}
