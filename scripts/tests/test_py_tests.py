@@ -31,16 +31,31 @@ class Runner(unittest.TestCase):
         self.assertIn("py_tests: 2 modules, 1 failed", done.stdout)
 
     def test_a_module_sees_only_the_environment_the_runner_names(self):
-        """Only PATH passes through: not a hook's GIT_DIR, an owner's flag or the caller's home."""
+        """Only PATH and Go's caches pass through: not a hook's GIT_DIR, an owner's flag or the caller's
+        home."""
         sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_env(self):\n"
                 "        self.assertEqual(sorted(os.environ), ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', "
-                "'HOME', 'LC_ALL', 'PATH', 'TZ'])\n"
+                "'GOCACHE', 'GOMODCACHE', 'GOPROXY', 'HOME', 'LC_ALL', 'PATH', 'TZ'])\n"
                 "        self.assertNotEqual(os.environ['HOME'], '/home/caller')\n")
         root = Path(tempfile.mkdtemp(prefix="py-tests-"))
         (root / "scripts" / "tests").mkdir(parents=True)
         (root / "scripts" / "tests" / "test_env.py").write_text(sees)
         caller = {"PATH": os.environ["PATH"], "GIT_DIR": "/nowhere/.git", "HOME": "/home/caller",
                   "ORPHEUM_ALLOW_GATE_EDIT": "1", "SOMETHING_ELSE": "x"}
+        done = subprocess.run([sys.executable, str(RUNNER)], cwd=root, capture_output=True, text=True,
+                              check=False, env=caller)
+        self.assertEqual(done.returncode, 0, done.stdout)
+
+    def test_a_module_builds_go_from_the_machines_caches_and_never_fetches(self):
+        """A home of its own once got a fresh Go module cache each run, ~500 MB (2026-10-25)."""
+        sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_go(self):\n"
+                "        self.assertEqual(os.environ['GOPROXY'], 'off')\n"
+                "        self.assertEqual(os.environ['GOMODCACHE'], '/caches/mod')\n"
+                "        self.assertEqual(os.environ['GOCACHE'], '/caches/build')\n")
+        root = Path(tempfile.mkdtemp(prefix="py-tests-"))
+        (root / "scripts" / "tests").mkdir(parents=True)
+        (root / "scripts" / "tests" / "test_go.py").write_text(sees)
+        caller = {"PATH": os.environ["PATH"], "GOMODCACHE": "/caches/mod", "GOCACHE": "/caches/build"}
         done = subprocess.run([sys.executable, str(RUNNER)], cwd=root, capture_output=True, text=True,
                               check=False, env=caller)
         self.assertEqual(done.returncode, 0, done.stdout)
