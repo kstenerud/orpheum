@@ -4,10 +4,6 @@ package store
 
 import (
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -69,38 +65,6 @@ func TestStatistics_AReaderOpenedBeforeThemPlansByThem(t *testing.T) {
 		return
 	}
 	t.Fatal("no query ListSeriesByName")
-}
-
-// Nothing in the program runs ANALYZE or PRAGMA optimize, which would replace the committed
-// statistics with what one household's library holds, and hold the writer while it measured; the
-// loader's ANALYZE sqlite_schema only reloads them (D303 §3, DL15).
-func TestStatistics_NothingElseAnalyzes(t *testing.T) {
-	t.Parallel()
-	analyzes := regexp.MustCompile(`(?i)"[^"]*\bANALYZE\b[^"]*"|\bPRAGMA\s+optimize\b`)
-	root := filepath.Join("..", "..")
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() && (entry.Name() == "node_modules" || strings.HasPrefix(entry.Name(), ".")) {
-			return filepath.SkipDir
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") ||
-			strings.HasSuffix(path, filepath.Join("store", "statistics.go")) {
-			return nil
-		}
-		text, readErr := os.ReadFile(path) //nolint:gosec // the module's own files
-		if readErr != nil {
-			return fmt.Errorf("read %s: %w", path, readErr)
-		}
-		if analyzes.Match(text) {
-			t.Errorf("%s runs ANALYZE or PRAGMA optimize; the statistics are committed (D303 §3)", path)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 // schemaIndexes are the schema's own indexes, by table.

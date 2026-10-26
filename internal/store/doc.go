@@ -82,7 +82,7 @@
 //   - Every Migrate loads the committed planner statistics, which every connection then plans by,
 //     and nothing else runs ANALYZE or PRAGMA optimize (D303 §3, DL15). Enforced by
 //     TestStatistics_NameTheSchemasIndexesAndNoOthers, TestStatistics_AReaderOpenedBeforeThemPlansByThem
-//     and TestStatistics_NothingElseAnalyzes.
+//     and storesources' TestStatistics_NothingElseAnalyzes.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
@@ -161,6 +161,8 @@
 //
 // # Where to change
 //
+//   - storesources/: the store's tests that read the whole module's sources (every generated query
+//     has a caller, nothing else runs ANALYZE), apart so the store's own tests stay cached.
 //   - open.go is a twin of orpheum-connect's (look-alike-watch-list.md, Twins): a change to it is
 //     copied there in the same batch, and checked to work there; ours.go is Orpheum's own.
 //   - migrations/: numbered SQL files, each with its line in migrations/SHA256SUMS (sha256sum's

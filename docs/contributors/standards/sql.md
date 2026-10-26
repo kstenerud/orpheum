@@ -326,7 +326,7 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   -update-statistics`; every `Migrate` loads them and closes the idle readers, which SQLite gives
   statistics only when they open. **Enforced by:** `TestStatistics_NameTheSchemasIndexesAndNoOthers`
   (stale statistics fail), `TestStatistics_AReaderOpenedBeforeThemPlansByThem`,
-  `TestStatistics_NothingElseAnalyzes`; plans over several shapes *(D303 C)*.
+  `TestStatistics_NothingElseAnalyzes` (in `internal/store/storesources`); plans over several shapes *(D303 C)*.
 
 ### Requests and writes
 
