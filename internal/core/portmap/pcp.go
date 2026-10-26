@@ -94,7 +94,7 @@ func (router gateway) exchange(ctx context.Context, request []byte, accept func(
 			return nil, ctx.Err()
 		}
 		err = answerErr
-		wait *= 2
+		wait *= 2 // RFC 6886 §3.1's own schedule, three tries: none of backoff's cap or jitter
 	}
 	return nil, fmt.Errorf("the router at %s did not answer: %w", router.address, err)
 }

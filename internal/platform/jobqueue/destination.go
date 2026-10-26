@@ -8,6 +8,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/backoff"
 )
 
 // Destination names what a job needs that can be down: a host, a machine, a disk (D231 §5). The
@@ -166,14 +168,7 @@ func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration
 			first, longest = readFirst, max(readLongest, readFirst)
 		}
 	}
-	wait := first
-	for range step {
-		if wait >= longest/2 {
-			return longest
-		}
-		wait *= 2
-	}
-	return wait
+	return backoff.Doubled(first, longest, step)
 }
 
 // Unpark marks a destination up and wakes every runner, so its work resumes, highest priority

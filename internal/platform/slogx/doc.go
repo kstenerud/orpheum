@@ -17,6 +17,9 @@
 //     (static-msg, key-naming-case: camel).
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
+//   - A loop's lasting failure is said as it begins, then once each FailingSaidEvery with how often
+//     it failed, then as it ends; each loop logs it with its own constant message. Enforced by
+//     TestFailing_SaysAFailureOnceAMinuteAndItsEnd.
 //
 // # Read before changing
 //
@@ -28,5 +31,6 @@
 // # Where to change
 //
 //   - slogx.go: formats and handler options. A new Format needs a case in every switch over
-//     Format; exhaustive fails the build until it has one.
+//     Format; exhaustive fails the build until it has one. failing.go: Failing, when a loop's
+//     lasting failure is said.
 package slogx
