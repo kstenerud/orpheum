@@ -13,6 +13,10 @@
 //   - A file whose name carries its content hash (Vite's assets/) is cached for a year and marked
 //     immutable; index.html is revalidated on every load, so a new release is picked up at once.
 //     Enforced by TestHandler_HashedAssetsAreImmutableAndIndexIsRevalidated.
+//   - A text file of a kilobyte or more (scripts, styles, WebAssembly, SVG) is sent gzipped to a
+//     browser whose Accept-Encoding takes gzip, varying by it, and as it is to one that does not;
+//     images and fonts, compressed already, as they are (D129). Enforced by
+//     TestHandler_SendsTextGzippedToABrowserThatAcceptsIt.
 //   - The client counts as built only when dist/ has an index.html; the placeholder alone does
 //     not. Enforced by TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex.
 //   - Every answer carries `X-Content-Type-Options: nosniff`, a content-security policy that loads
@@ -33,10 +37,12 @@
 // # Read before changing
 //
 //   - D216 §2: the binary serves the built client from M3.
+//   - D129: gzip on the client channel, negotiated by Accept-Encoding.
 //   - docs/contributors/design/plans/cut-a.md §2.
 //
 // # Where to change
 //
-//   - webclient.go: the handler. files.go: the embedded files, and whether they are a client.
+//   - webclient.go: the handler. gzip.go: what is sent gzipped, and when. files.go: the embedded
+//     files, and whether they are a client.
 //     manifest.go: the manifest of its files.
 package webclient

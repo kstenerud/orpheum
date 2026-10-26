@@ -76,6 +76,7 @@ const notBuiltInMessage = "This Orpheum binary was built without the web client.
 // nil when the binary has no web client. apiPrefix is the API's path prefix, which is never
 // answered with the client.
 func Handler(files fs.FS, apiPrefix string) http.Handler {
+	compressed := &gzipped{}
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		name := strings.TrimPrefix(path.Clean(request.URL.Path), "/")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
@@ -112,7 +113,7 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 		} else {
 			writer.Header().Set("Cache-Control", "no-cache")
 		}
-		http.ServeFileFS(writer, request, files, name)
+		compressed.serveFile(writer, request, files, name)
 	})
 }
 
