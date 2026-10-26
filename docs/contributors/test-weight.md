@@ -463,8 +463,9 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   whole-tree make check at a load average of about 90; it passed alone and in three package runs.
 - **Why it was invisible:** the deadline is generous on an idle machine, and the failure looks like
   a lock wait, the thing the test exists to rule out.
-- **Fix:** none yet; the deadline bounds a regression to a waiting backup, which a longer one would
-  still catch. If it recurs, raise it to testutil.ReceiveLimit's scale or measure the copy's CPU.
+- **Fix** (test architecture review, 2026-10-26, finding 3): raised to `testutil.ReceiveLimit`'s
+  scale (a minute); a longer bound still catches a regression to a waiting backup, the thing the
+  test exists to rule out.
 - **Warning sign:** a backup or copy test red only in a loaded whole-tree run.
 
 ### 26. A browser walk's fixed waits, under other gates' load
@@ -499,6 +500,21 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   step's own time (mechanism 7). Splitting the walks per page is left until one fails again.
 - **Warning sign:** a browser-mode test red only when another gate runs; `expect.poll` or a fixed
   `setTimeout` in a walk; a walk's next test red after its own timed out.
+
+### 27. A fixed real-time bound on a log wait, under a loaded machine
+
+- **Mechanism:** `testutil.Log.AwaitLine` bounded its wait for a line by `LogLimit`, 5 s, while a
+  passing test never waits for it at all (it returns the moment a matching line is written); only
+  a run slow enough to miss that window pays the bound, and under contention a server's own slower
+  start can miss it though nothing is wrong.
+- **Instance** (test architecture review, 2026-10-26, finding 3): 28 `AwaitLine` call sites, the
+  probable cause of probes failing with nothing reverted, each costing a rerun.
+- **Why it was invisible:** 5 s reads as generous, and the bound never shows in a passing run's
+  time: only a failing one pays it, and a failure under load looks like the code's fault.
+- **Fix:** `LogLimit` is now `testutil.ReceiveLimit` (a minute), the same scale as every other
+  channel wait a test makes; a hang still fails, just not from ordinary contention.
+- **Warning sign:** a captured-log test red only in a loaded whole-tree run, with "no log line
+  holds" rather than an assertion about the log's content.
 
 ## What makes these hard to see
 

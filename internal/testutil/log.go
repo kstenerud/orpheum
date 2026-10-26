@@ -9,11 +9,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
-// LogLimit is how long AwaitLine waits for a line before it fails the test.
-const LogLimit = 5 * time.Second
+// LogLimit is how long AwaitLine waits for a line before it fails the test: a failure bound only,
+// since AwaitLine returns as soon as a matching line is written, so a passing test never waits for
+// it. At ReceiveLimit's scale (test-architecture-2026-10-26.md finding 3): 5 s failed passing code
+// under load.
+const LogLimit = ReceiveLimit
 
 // Log is a logger's output a test reads while the code under test still writes to it, from its own
 // goroutines: a Watch Together device's disconnection, a node's run of chunks. Hand it to
