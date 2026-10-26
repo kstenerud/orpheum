@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { globSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import react from "@vitejs/plugin-react";
 import { configDefaults, defineConfig } from "vitest/config";
@@ -27,7 +28,10 @@ const plainTsTestFiles = globSync(PLAIN_TS_TESTS, { cwd: import.meta.dirname }).
   (path) => !path.endsWith(".browser.test.ts"),
 );
 const domTestFiles = plainTsTestFiles.filter((path) =>
-  HAPPY_DOM_PRAGMA.test(readFileSync(path, "utf8")),
+  // Node's own readFileSync, unlike globSync above, never takes a cwd: revert-red and check-pr run
+  // vitest from the repository's root, with --root web telling only Vite that, so a plain relative
+  // read here resolved against the wrong directory and failed every probe (2026-10-26).
+  HAPPY_DOM_PRAGMA.test(readFileSync(join(import.meta.dirname, path), "utf8")),
 );
 const fastTestFiles = plainTsTestFiles.filter((path) => !domTestFiles.includes(path));
 
