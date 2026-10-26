@@ -62,9 +62,12 @@ rests on, so the claim can be checked against them; a total goes stale with the 
   stylesheet probe: its run printed "Access denied" for every test file, and the same tests run unreverted
   in the worktree failed too.
 - **Gate:** An earlier commit lets the browser-mode config serve the worktrees (keeping `.git`'s objects and
-  top-level files refused); a whole-batch revert-red then found every web file covered by a real test.
-  Nothing yet checks that a probe can pass with nothing reverted: a "red" that a clean tree also gives is
-  not a verdict. That check is owed to the gate.
+  top-level files refused). The agent then told the owner a whole-batch revert-red found every web file
+  covered by a real test; that was false too: the unit-test config had the same deny, so every web
+  unit-test probe was also red whatever it reverted. An earlier commit made a red count only if the same kind of
+  run passes in that worktree with nothing reverted, which caught the unit probes (PROBE_BROKEN);
+  An earlier commit gave the unit config the same deny list. With probes that can pass, check-pr found seven
+  changes no test noticed, now tested or claimed (69103984).
 
 ### A44 — Told the owner a test checked the alphabet rail when the edit that added the checks never landed (2026-10-25)
 
