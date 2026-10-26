@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -67,6 +68,41 @@ describe("TitleView", () => {
     expect(markup).toContain("Trailer");
     expect(markup).toContain("Behind the scenes");
     expect(markup).toContain("/m/Metropolis (1995).mkv");
+  });
+
+  it("shows no broken banner or still art not made yet, through the posters' own way (the owner, 2026-10-26)", async () => {
+    // The title page drew its backdrop and an episode's still as plain images, so art not made
+    // yet, or never made, showed as a broken image across the top of the page (staging answered
+    // 404 for 12 Marrow Larks's landscape-l).
+    const page = await mount(withServices(<TitleView title={heat} />));
+    const backdrop = (): Element | null => page.container.querySelector("img.title__backdrop");
+    expect(backdrop()?.getAttribute("src")).toBe("/api/v1/bytes/art/b1/landscape-l.webp");
+    act(() => {
+      backdrop()?.dispatchEvent(new Event("error"));
+    });
+    expect(backdrop()).toBeNull();
+    // The rest of the page still draws: it is the backdrop alone that goes, not the whole page.
+    expect(page.container.textContent).toContain("Metropolis");
+    page.unmount();
+
+    const episode: TitleDetail = {
+      ...heat,
+      kind: "episode",
+      name: "Pilot",
+      art: { stillSha256: "s1" },
+      episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
+      versions: [],
+      extras: null,
+    };
+    const episodePage = await mount(withServices(<TitleView title={episode} />));
+    const still = (): Element | null => episodePage.container.querySelector("img.title__still");
+    expect(still()?.getAttribute("src")).toBe("/api/v1/bytes/art/s1/landscape-m.webp");
+    act(() => {
+      still()?.dispatchEvent(new Event("error"));
+    });
+    expect(still()).toBeNull();
+    expect(episodePage.container.textContent).toContain("Pilot");
+    episodePage.unmount();
   });
 
   it("offers to cast a file it can play to another device, before anything plays (D337; §9 Q1)", () => {
