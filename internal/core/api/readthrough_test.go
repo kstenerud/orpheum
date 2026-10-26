@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -24,9 +25,10 @@ import (
 // track and the MKV's eight-channel one.
 func (harness testHarness) shelveAudioStreams(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
-		 VALUES (1, 1, 0, 'audio', 'aac', 2), (2, 2, 1, 'audio', 'truehd', 8)`)
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 1, StreamIndex: 0, Kind: "audio", Codec: "aac", ChannelCount: 2})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 2, StreamIndex: 1, Kind: "audio", Codec: "truehd", ChannelCount: 8})
 }
 
 // readThroughWith runs a read-through job for fileID, answers the node's command with answer, and
@@ -268,9 +270,13 @@ func TestReadThrough_AFileUnderARootWhoseDiskStalledIsNotSwept(t *testing.T) {
 // row has taken, so its picture's row is numbered apart: the sweep asks only whether it has one.
 func (harness testHarness) shelvePictures(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
-		 VALUES (1, 1, 10, 'video', 'h264', 0), (2, 2, 0, 'video', 'h264', 0), (2, 2, 9, 'video', 'mjpeg', 1024)`)
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 1, StreamIndex: 10, Kind: "video", Codec: "h264"})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 2, StreamIndex: 0, Kind: "video", Codec: "h264"})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		BytesFile: 2, StreamIndex: 9, Kind: "video", Codec: "mjpeg", DispositionFlags: 1024,
+	})
 }
 
 // timelineOf is the timeline kept for the bytes with payloadHash, of stream 0.

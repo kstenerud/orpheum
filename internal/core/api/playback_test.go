@@ -78,17 +78,22 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
-	librarytest.NodeWithLibrary(t, harness.database,
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 first_seen_at,
-		 last_seen_at) VALUES
-		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', 1, 1),
-		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1),
-		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '`+mp4+`', 0), `+
-			`(2, '`+mkv+`', 1200000)`)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film (2001).mp4", SizeBytes: 10,
+		PayloadHash: []byte{0x0a, 0x0b}, Filing: "listed",
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 2, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film (2002).mkv", SizeBytes: 10,
+		PayloadHash: []byte{0x0c, 0x0d}, Filing: "listed",
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 3, LibraryID: libraryID, NodeID: nodeID, Path: "/media/notes.txt", SizeBytes: 5,
+		PayloadHash: []byte{0x0e, 0x0f}, Filing: "skipped",
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 1, ProbeJSON: mp4})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 2, ProbeJSON: mkv, DurationMs: 1200000})
 	harness.nodeBytes.mutex.Lock()
 	defer harness.nodeBytes.mutex.Unlock()
 	film := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
@@ -98,10 +103,9 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 // fileFilmAsTitle files shelveFilms' first film as title 10, named name.
 func (harness testHarness) fileFilmAsTitle(t *testing.T, name string) {
 	t.Helper()
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 1, TitleID: 10})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)",
 		"UPDATE file SET version_id = 1 WHERE id = 1",
 		fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, '%s')", name))
 }
