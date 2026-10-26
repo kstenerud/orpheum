@@ -420,7 +420,7 @@ type StreamSpec struct {
 	ID                int64  // 0: let the database choose
 	BytesFile         int64  // required: the file whose bytes carry it
 	VideoFile         int64  // 0: the same file (its own track)
-	StreamIndex       int64  // required: its index in the container
+	StreamIndex       int64  // its index in the container; ignored (NULL) for a sidecar's own track
 	Kind              string // required: video/audio/subtitle/attachment
 	Codec             string // "": NULL
 	ContainerLanguage string // "": NULL
@@ -446,11 +446,18 @@ func Stream(t *testing.T, database *store.Database, spec StreamSpec) int64 {
 			}
 			id = generated
 		}
+		// A sidecar's track (bytes_file apart from video_file) carries no stream index of its own:
+		// the whole file is the track, as InsertSidecarStream also always writes NULL (schema.md,
+		// Files: "NULL for a whole-file sidecar").
+		streamIndex := strconv.FormatInt(spec.StreamIndex, 10)
+		if videoFile != spec.BytesFile {
+			streamIndex = sqlNull
+		}
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
 			`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language,
 			 language, container_title, disposition_flags, channel_count)
-			 VALUES (%d, %d, %d, %d, %s, %s, %s, %s, %s, %d, %s)`,
-			id, spec.BytesFile, videoFile, spec.StreamIndex, sqlString(spec.Kind), sqlNullableString(spec.Codec),
+			 VALUES (%d, %d, %d, %s, %s, %s, %s, %s, %s, %d, %s)`,
+			id, spec.BytesFile, videoFile, streamIndex, sqlString(spec.Kind), sqlNullableString(spec.Codec),
 			sqlNullableString(spec.ContainerLanguage), sqlNullableString(spec.Language),
 			sqlNullableString(spec.ContainerTitle), spec.DispositionFlags, sqlNullableInt(spec.ChannelCount)))
 		return id

@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -119,11 +120,12 @@ func TestUpNext_IsTheNextEpisodeInThePersonsOrdering(t *testing.T) {
 			t.Errorf("DVD order, after file %d: %s; want %s", fileID, got, want)
 		}
 	}
-	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO version (id, title_id, created_at) VALUES (6, 21, 3)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (6, 1, 1, '/m/BB/S01E01 again.mkv', 10, X'06', 'listed', 6, 1, 1)`,
-		"INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (6, '{}', 1000)")
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 6, TitleID: 21, CreatedAt: 3})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 6, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E01 again.mkv", SizeBytes: 10, PayloadHash: []byte{0x06},
+		Filing: "listed", VersionID: 6,
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 6, DurationMs: 1000})
 	harness.setPositionReadAt(t, 6, 500, 9)
 	if got, want := harness.upNextSeen(t, user, 4), "21:1:2 file 6 still dddd tmdb:dvd"; got != want {
 		t.Errorf("partway through the next one's second file: %s; want %s, which its Play resumes", got, want)

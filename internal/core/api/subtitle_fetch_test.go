@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -96,10 +97,9 @@ func (fake *fakeSubtitler) Allowance(context.Context) (opensubtitles.Allowance, 
 // identifyFilm makes film 2 a version of a film TMDB and IMDb name, with its OpenSubtitles hash.
 func (harness testHarness) identifyFilm(t *testing.T) {
 	t.Helper()
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Year: 2002})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 3, TitleID: 30})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, year, identification_state) VALUES (30, 'movie', 2002, 'identified')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (3, 30, 1)",
 		"UPDATE file SET version_id = 3, opensubtitles_hash = '8e245d9679d31e12' WHERE id = 2",
 		`INSERT INTO item_provider_id (item_id, provider, provider_id)
 		 VALUES (30, 'tmdb', '4801'), (30, 'imdb', 'tt0123456')`)

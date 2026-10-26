@@ -195,13 +195,26 @@ func TestStream_CoversItsOwnTrackAndASidecars(t *testing.T) {
 	}
 
 	sidecarStream := librarytest.Stream(t, database, librarytest.StreamSpec{
-		BytesFile: subtitleFile, VideoFile: video, StreamIndex: 0, Kind: "subtitle", Codec: "subrip", Language: "en",
+		BytesFile: subtitleFile, VideoFile: video, Kind: "subtitle", Codec: "subrip", Language: "en",
 	})
 	got = storetest.QueryRaw(t, database.Path(),
 		"SELECT bytes_file, video_file, stream_index, kind, codec, language FROM stream WHERE id = "+
 			itoa(sidecarStream))
-	if want := []string{itoa(subtitleFile) + "|" + itoa(video) + "|0|subtitle|subrip|en"}; !slices.Equal(got, want) {
+	want := itoa(subtitleFile) + "|" + itoa(video) + "|<nil>|subtitle|subrip|en"
+	if !slices.Equal(got, []string{want}) {
 		t.Errorf("sidecar stream %d = %v, want %v", sidecarStream, got, want)
+	}
+
+	chosenSidecar := librarytest.Stream(t, database, librarytest.StreamSpec{
+		ID: 50, BytesFile: subtitleFile, VideoFile: video, Kind: "subtitle", Codec: "ass", Language: "fr",
+	})
+	if chosenSidecar != 50 {
+		t.Fatalf("sidecar Stream with ID 50 returned %d", chosenSidecar)
+	}
+	got = storetest.QueryRaw(t, database.Path(),
+		"SELECT bytes_file, video_file, stream_index, kind, codec, language FROM stream WHERE id = 50")
+	if want := []string{itoa(subtitleFile) + "|" + itoa(video) + "|<nil>|subtitle|ass|fr"}; !slices.Equal(got, want) {
+		t.Errorf("chosen sidecar stream 50 = %v, want %v", got, want)
 	}
 }
 

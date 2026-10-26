@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -29,10 +29,15 @@ const (
 // default, and its PGS; and film 1's own track, which no playback of film 2 may reach.
 func (harness testHarness) shelveSubtitles(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) VALUES
-		 (5, 2, 2, 2, 'subtitle', 'ass', 'en', 1), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle', NULL, 0),
-		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 5, BytesFile: 2, StreamIndex: 2, Kind: "subtitle", Codec: "ass", Language: "en", DispositionFlags: 1,
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 6, BytesFile: 2, StreamIndex: 3, Kind: "subtitle", Codec: "hdmv_pgs_subtitle",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 8, BytesFile: 1, StreamIndex: 2, Kind: "subtitle", Codec: "mov_text", Language: "en",
+	})
 }
 
 // sidecarStreamID is the stream row of film 2's Spanish subtitle file, as shelveSidecar records it,
@@ -46,14 +51,13 @@ const (
 // with its payload hash, and its one track.
 func (harness testHarness) shelveSidecar(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 filing_reason,
-		 attached_to_file, first_seen_at, last_seen_at) VALUES
-		 (10, 1, 1, '/media/Film (2002).es.srt', CAST('/media/Film (2002).es.srt' AS BLOB), 5, X'1e1f', 'attached',
-		 'subtitle', 2, 1, 1)`,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language, language) VALUES
-		 (7, 10, 2, NULL, 'subtitle', 'subrip', 'es', 'es')`)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 10, LibraryID: 1, NodeID: 1, Path: "/media/Film (2002).es.srt", SizeBytes: 5,
+		PayloadHash: []byte{0x1e, 0x1f}, Filing: "attached", FilingReason: "subtitle", AttachedToFile: 2,
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 7, BytesFile: 10, VideoFile: 2, Kind: "subtitle", Codec: "subrip", ContainerLanguage: "es", Language: "es",
+	})
 }
 
 // extract runs the extraction job of film 2's text tracks, answering the node's command with
