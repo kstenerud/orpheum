@@ -544,6 +544,22 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
                          "to halve")
         self.assertEqual(repo.git("status", "--porcelain"), "")
 
+    def test_the_browser_mode_tests_importing_the_sheets_run_before_the_tier_and_their_red_counts(self):
+        # The tier alone passed app-shell.css and tokens.css, each red by the browser-mode tests that
+        # import it (check-pr, 2026-10-26).
+        repo, base = self.repo()
+        named = Path(tempfile.mkdtemp()) / "named"
+        # Red only while the unclaimed sheet is reverted, and records the sheets it was handed.
+        importing = ["sh", "-c", f'echo "$@" >> {named}; ! grep -q old {self.UNCLAIMED}', "browser-mode"]
+        with repo.cwd():
+            settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, ["true"],
+                                              importing)
+        self.assertEqual(settled[self.UNCLAIMED].verdict, "RED_TEST")
+        self.assertEqual({settled[self.OLD].verdict, settled[self.CLAIMED].verdict}, {"CLAIMED"})
+        self.assertIn("apps/web/src/c.css", named.read_text().splitlines()[0].split(),
+                      "handed the reverted sheets as vitest related's paths, web/ left off")
+        self.assertEqual(repo.git("status", "--porcelain"), "")
+
     def test_a_run_that_times_out_leaves_its_sheets_to_their_own_runs(self):
         repo, base = self.repo()
         with repo.cwd():

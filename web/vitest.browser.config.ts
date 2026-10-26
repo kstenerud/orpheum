@@ -15,6 +15,11 @@ import { VitestTimings } from "./e2e/vitest-timings.ts";
  */
 export default defineConfig({
   plugins: [react()],
+  // Vite's own deny list but for its "**/.git/**": revert-red's worktrees and check-pr's tree live
+  // under .git/, where it refused every test file, so each browser-mode probe there failed before a
+  // test ran and passed as red (2026-10-26). The repository's own .git keeps its objects and its
+  // top-level files (config, index, HEAD) refused.
+  server: { fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/objects/**", "**/.git/*"] } },
   test: {
     include: ["{packages,apps}/*/src/**/*.browser.test.{ts,tsx}"],
     allowOnly: false,

@@ -523,9 +523,16 @@ def is_stylesheet(change: Change) -> bool:
 
 
 def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,
-                         command: list[str] | None = None) -> dict[str, Outcome]:
+                         command: list[str] | None = None,
+                         browser_mode: list[str] | None = None) -> dict[str, Outcome]:
     """The stylesheets' verdicts, settled by halves (revert_red_stylesheets): every one reverted at
     once, run once, and each half of a failing group again, down to the sheets a test noticed.
+
+    A run is first the browser-mode tests that import the reverted sheets, as a sheet's own probe
+    runs them, and only when they stay green the browser tier: the tier alone missed app-shell.css
+    and tokens.css, each red by the browser-mode tests alone (check-pr, 2026-10-26). The gate's own
+    run uses BROWSER_MODE_RELATED; a test that hands its own tier command hands its own browser-mode
+    one, or runs none.
 
     A sheet alone costs a whole browser tier, and a skin changes dozens: one run per sheet took a
     skin's branch three quarters of an hour (2026-10-06). A passing run settles every sheet it
@@ -537,18 +544,24 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
         return {}
 
     unreached: set[str] = set()
+    related = browser_mode if command is not None else (browser_mode or BROWSER_MODE_RELATED)
 
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
-        reaching = browser_map.tests_reaching(tree, base, head, group)
-        if reaching == []:
-            unreached.update(group)
-            return subprocess.CompletedProcess(group, 0, "", "")
-        only = {} if reaching is None else {browser_map.ONLY_THESE_TESTS: json.dumps(reaching)}
         try:
             for path in group:
                 if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
                     return None
+            if related:
+                importing = run_whole_group([*related, *(path.removeprefix("web/") for path in group)], tree,
+                                            timeout)
+                if importing.returncode != 0:
+                    return importing
+            reaching = browser_map.tests_reaching(tree, base, head, group)
+            if reaching == []:
+                unreached.update(group)
+                return subprocess.CompletedProcess(group, 0, "", "")
+            only = {} if reaching is None else {browser_map.ONLY_THESE_TESTS: json.dumps(reaching)}
             asked = time.monotonic()
             done = timed(TIMINGS, label, "browser tier", BROWSER_TIER_LOCK,
                          functools.partial(run_whole_group, command or browser_tier_command(), tree, timeout,
