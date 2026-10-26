@@ -21774,3 +21774,55 @@ accounts are D246's and D311's (§6). On the amd box, 2026-10-23: installed at a
 tester would, administered from `localhost:8441` and from another machine at home, refused at
 `localhost:8440` with the hint, paired by a staging key, and signed in to from away through its
 realm in 3.5 s.
+
+## D338 — Reserved: casting to one's own devices, revised: back to the page before, the visible tab, one member with a device per role, controls on both, Back or a double select ends control
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D339 — Reserved: Up next, revised: the 30 s lead, Still watching after three autoplays, a group follows its host into the next episode
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D340 — Reserved: One subtitle extraction per video
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D341 — Reserved: A hidden tab's interest
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D342 — Reserved: Compressing the API's answers that carry no secret
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D343 — Reserved: The discovery proof as a public package both repositories use
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D344 — Reserved: Retiring whole-film prepare
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D345 — Reserved: Sweeps as job kinds
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D346 — Reserved: Watch Together's invitations and sessions are short-lived
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D347 — Reserved: Runtime log levels and request IDs
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D348 — Reserved: WebRTC's connection limit is configuration
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D349 — Reserved: Browsing by library, and a kind for other videos
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+
+## D350 — Reserved: Disc images (ISO)
+
+**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.

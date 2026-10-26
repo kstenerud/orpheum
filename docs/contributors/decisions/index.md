@@ -343,6 +343,19 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D335](working-notes.md#d335--what-should-have-been-fetched-and-was-not-is-filled-in-by-the-sweeps-a-refetch-that-replaces-is-the-persons-deliberate-act) What should have been fetched and was not is filled in by the sweeps; a refetch that replaces is the person's deliberate act
 - [D336](working-notes.md#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound) A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
 - [D337](working-notes.md#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back) Casting starts with a person's own signed-in devices: one chosen from those connected now plays the film, the one that cast becomes its remote, and either may take control back
+- [D338](working-notes.md#d338--reserved-casting-to-ones-own-devices-revised-back-to-the-page-before-the-visible-tab-one-member-with-a-device-per-role-controls-on-both-back-or-a-double-select-ends-control) Reserved: casting to one's own devices, revised: back to the page before, the visible tab, one member with a device per role, controls on both, Back or a double select ends control
+- [D339](working-notes.md#d339--reserved-up-next-revised-the-30-s-lead-still-watching-after-three-autoplays-a-group-follows-its-host-into-the-next-episode) Reserved: Up next, revised: the 30 s lead, Still watching after three autoplays, a group follows its host into the next episode
+- [D340](working-notes.md#d340--reserved-one-subtitle-extraction-per-video) Reserved: One subtitle extraction per video
+- [D341](working-notes.md#d341--reserved-a-hidden-tabs-interest) Reserved: A hidden tab's interest
+- [D342](working-notes.md#d342--reserved-compressing-the-apis-answers-that-carry-no-secret) Reserved: Compressing the API's answers that carry no secret
+- [D343](working-notes.md#d343--reserved-the-discovery-proof-as-a-public-package-both-repositories-use) Reserved: The discovery proof as a public package both repositories use
+- [D344](working-notes.md#d344--reserved-retiring-whole-film-prepare) Reserved: Retiring whole-film prepare
+- [D345](working-notes.md#d345--reserved-sweeps-as-job-kinds) Reserved: Sweeps as job kinds
+- [D346](working-notes.md#d346--reserved-watch-togethers-invitations-and-sessions-are-short-lived) Reserved: Watch Together's invitations and sessions are short-lived
+- [D347](working-notes.md#d347--reserved-runtime-log-levels-and-request-ids) Reserved: Runtime log levels and request IDs
+- [D348](working-notes.md#d348--reserved-webrtcs-connection-limit-is-configuration) Reserved: WebRTC's connection limit is configuration
+- [D349](working-notes.md#d349--reserved-browsing-by-library-and-a-kind-for-other-videos) Reserved: Browsing by library, and a kind for other videos
+- [D350](working-notes.md#d350--reserved-disc-images-iso) Reserved: Disc images (ISO)
 
 ## Archived
 
