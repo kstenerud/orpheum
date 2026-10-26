@@ -49,6 +49,23 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A45 — Took revert-red's browser-mode "red" as coverage when the probe could not pass (2026-10-26)
+
+- **What happened:** the night's check-pr flagged `tokens.css` and `app-shell.css` as untested, and the
+  agent ran each alone through `make check-revert-red ONLY=…`, which said "a test fails when it is
+  reverted, found by the browser-mode tests". It told the owner the files were covered and the gate's
+  grouped probe was wrong. In fact every browser-mode test failed to import in revert-red's worktrees:
+  Vite refuses anything under a `.git` directory by default, and the worktrees live in `.git/revert-red/`.
+  So that probe came back red for any revert, or none. The false belief came from a probe that could
+  not pass, read as a test that noticed.
+- **Caught by:** the agent itself, the next morning, wiring the browser-mode tests into the grouped
+  stylesheet probe: its run printed "Access denied" for every test file, and the same tests run unreverted
+  in the worktree failed too.
+- **Gate:** An earlier commit lets the browser-mode config serve the worktrees (keeping `.git`'s objects and
+  top-level files refused); a whole-batch revert-red then found every web file covered by a real test.
+  Nothing yet checks that a probe can pass with nothing reverted: a "red" that a clean tree also gives is
+  not a verdict. That check is owed to the gate.
+
 ### A44 — Told the owner a test checked the alphabet rail when the edit that added the checks never landed (2026-10-25)
 
 - **What happened:** with an earlier commit the agent told the owner the browser test now checked that the
