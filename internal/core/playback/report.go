@@ -77,11 +77,19 @@ type Chunks interface {
 	Stalled(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	StartOnLadder(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
+	// InterestsBy is where the runs learn who wants them: this service's playbacks (D309).
+	InterestsBy(interests chunks.Interests)
+	ChunksLetGo
+}
+
+// ChunksLetGo is the part of Chunks that lets a film's chunks go as its players do.
+type ChunksLetGo interface {
 	ReleaseWanted(ctx context.Context, fileID int64) error
 	// StopUnwanted stops the film's runs no player wants (D309 §2).
 	StopUnwanted(ctx context.Context, fileID int64) error
-	// InterestsBy is where the runs learn who wants them: this service's playbacks (D309).
-	InterestsBy(interests chunks.Interests)
+	// ForgetFile forgets what is kept in memory of the film's chunks, once no playback of it is left
+	// (the audit of 2026-10-25, C5).
+	ForgetFile(fileID int64)
 }
 
 // Event is one change of play state, at a position in the file.

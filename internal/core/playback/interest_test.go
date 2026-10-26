@@ -20,7 +20,11 @@ import (
 // and each it was told no player waits for (Chunks.ReleaseWanted).
 type stoppingChunks struct {
 	cutAfterChunks
-	stopped, released []int64
+	stopped, released, forgotten []int64
+}
+
+func (fake *stoppingChunks) ForgetFile(fileID int64) {
+	fake.forgotten = append(fake.forgotten, fileID)
 }
 
 func (fake *stoppingChunks) ReleaseWanted(_ context.Context, fileID int64) error {

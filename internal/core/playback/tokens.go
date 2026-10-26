@@ -146,24 +146,31 @@ func newTokens() *tokens {
 	return &tokens{playbackByToken: map[string]*tokenPlayback{}}
 }
 
-// issue makes a token for one playback, forgetting those idle for longer than idle first.
-func (all *tokens) issue(random io.Reader, playback tokenPlayback, now time.Time, idle time.Duration) (string, error) {
-	token, err := randbytes.Base64URLSecret(random, tokenBytes)
+// issue makes a token for one playback, forgetting those idle for longer than idle first, and
+// returns the files that then have no playback left: what is kept in memory of their chunks can go.
+func (all *tokens) issue(
+	random io.Reader, playback tokenPlayback, now time.Time, idle time.Duration,
+) (token string, unplayed []int64, err error) {
+	token, err = randbytes.Base64URLSecret(random, tokenBytes)
 	if err != nil {
-		return "", fmt.Errorf("make a media token: %w", err)
+		return "", nil, fmt.Errorf("make a media token: %w", err)
 	}
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	for key, known := range all.playbackByToken {
 		if now.Sub(known.lastUsedAt) > idle {
 			delete(all.playbackByToken, key)
+			unplayed = append(unplayed, known.fileID)
 		}
 	}
 	playback.lastUsedAt, playback.startedAt = now, now
 	all.lastPlaybackID++
 	playback.playbackID = all.lastPlaybackID
 	all.playbackByToken[token] = &playback
-	return token, nil
+	for _, known := range all.playbackByToken {
+		unplayed = slices.DeleteFunc(unplayed, func(fileID int64) bool { return fileID == known.fileID })
+	}
+	return token, slices.Compact(slices.Sorted(slices.Values(unplayed))), nil
 }
 
 // use is the playback a token refers to, when holder holds it and it has not been idle for longer

@@ -99,6 +99,13 @@
 //     restart nothing past a served chunk is known, and nothing is queued over it. Enforced by
 //     TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReachesIt.
 //
+//   - What is kept in memory of a film's stores is forgotten once no playback of it is left
+//     (ForgetFile, which the playbacks call as the film's last token idles out), but for a store
+//     with a run on its way: the tracker grows with the films being played, not with every film
+//     ever played; one played again starts as after a restart. Enforced by
+//     TestForgetFile_ForgetsAFilmsStoresButOnesMaking and playback's
+//     TestIssueToken_HasTheChunksForgetAFilmNoPlaybackIsLeftOf.
+//
 //   - A run goes on while a player wants it, and stops at once when none does (D309 §2): each
 //     player wants one picture and its sound from a position (InterestsBy, which
 //     internal/core/playback keeps from its word, its requests and its stall's offer), and a run is
