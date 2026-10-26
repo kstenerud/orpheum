@@ -563,6 +563,40 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   another limit already named elsewhere in the codebase; a test of a timeout that pays the real
   timeout in wall time rather than a faked one.
 
+### 30. A Go file's probe running its whole package to find the one test that calls what changed
+
+- **Mechanism:** revert-red's Go probe ran the file's whole package first, then its dependents', with
+  no `-run`, though the test that goes red is nearly always one that calls what the change touched;
+  and a red then pays a clean run of the same command (`revert_red_clean.py`), the whole package again.
+- **Instance** (test architecture review, 2026-10-26, finding 1): `internal/core/api` 310 tests,
+  32 to 81 s a probe; Go's probes 1319 s of one check-pr's 3044 s of probing. Measured the same
+  day: api's `together.go`, a 19 s red and 118 s of clean run; identify's `sortkeys.go` 45 s for its
+  package where the red test is one of three calling the changed method.
+- **Why it was invisible:** a red is the probe's success, and a package's run was the smallest unit
+  a Go probe had.
+- **Fix:** `scripts/revert_red_naming.py` reads the file's changed declarations from its two
+  versions (comments and layout aside), widens them by the package's own code that calls them, level
+  by level, and takes the nearest level whose names some test's code names: the test function or the
+  test files' helpers it uses, bare in an internal test, `pkg.Name` through an import elsewhere, a
+  method by `.Name`. The probe runs its own package's such tests first, `-run` them alone, and its
+  dependents' after its own package's whole run, before every dependent's; a package where they are
+  more than half its tests is left to its whole run. Only a red is taken from them: a green goes on
+  to every run the probe made before, so no verdict rests on the naming (the browser map's
+  `tests_loading` orders the browser tier the same way). Warm cache, the same files probed by the
+  old and new scripts back to back (2026-10-26): five files of an earlier commit's range 132 s of probing
+  to 75 s (`together.go` 42 to 4 s, `sortkeys.go` 20 to 4 s); five of an earlier commit's 113 to 85 s.
+- **Not taken:** a map of what each test reaches, transitively (a type reaching its methods): it
+  reached 295 of api's 311 tests for any change in it, since every test builds the server through
+  one harness and the server registers every handler. Recorded coverage: Go 1.26 keeps it per
+  process (`-coverprofile` per package, GOCOVERDIR per process), so a per-test map takes a process
+  per test, about 2000 runs each paying its package's set-up, apart from any run the gate makes and
+  stale by the time a batch is probed; at a function's grain it narrows no better where the change
+  is wiring (`server.go`'s `NewServer`, run by every api test, either way).
+- **Warning sign:** revert-red's summary showing "go test, package" reds of a large package with no
+  "the tests that name it" run before them, where the file's changed functions are called by name in
+  a test; or a "the tests that name it" run that is mostly green before a red in the whole package
+  (the naming misses how the tests reach the code: a route by its path, a value through an interface).
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

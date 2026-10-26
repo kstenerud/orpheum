@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 import subprocess
 
+from revert_red_naming import changed_names
+
 QUERY_START = re.compile(r"^const \w+ = `-- name: (\w+) ", re.MULTILINE)
 GENERATED_DIRS = ("internal/store/sqlcgen", "internal/store/cachegen")
 
@@ -73,32 +75,12 @@ def versions_of(root: str, base: str, head: str, path: str) -> tuple[str | None,
     return at(base), at(head)
 
 
-# A top-level declaration's first line: a function or method, a type, or a var or const, alone or
-# opening a group.
-DECLARATION = re.compile(r"^(?:func (?:\([^)]*\) )?(\w+)|type (\w+)|(?:var|const) (\w+|\())", re.MULTILINE)
-GROUPED_NAME = re.compile(r"^\t(\w+)", re.MULTILINE)
-
-
-def declarations_of(source: str) -> dict[str, str]:
-    """Each top-level declaration of a Go file, by its name: the stretch from its first line to the
-    next declaration's; a grouped var or const block gives each name it declares the whole block."""
-    starts = list(DECLARATION.finditer(source))
-    found: dict[str, str] = {}
-    for index, match in enumerate(starts):
-        code = source[match.start(): starts[index + 1].start() if index + 1 < len(starts) else None]
-        name = match.group(1) or match.group(2) or match.group(3)
-        names = GROUPED_NAME.findall(code.split(")\n", 1)[0]) if name == "(" else [name]
-        for each in names:
-            found[each] = found.get(each, "") + code
-    return found
-
-
-def changed_exported_names(before: str, after: str) -> list[str]:
-    """The exported names whose declarations differ between the two versions, or that only one has:
-    what another package can use, and so what a revert can break there."""
-    old, new = declarations_of(before), declarations_of(after)
-    names = {name for name in old.keys() | new.keys() if name[:1].isupper() and old.get(name) != new.get(name)}
-    return sorted(names)
+def changed_exported_names(before: str | None, after: str) -> list[str]:
+    """The exported names whose declarations differ between the two versions, or that only one has,
+    a method's by its own name: what another package can use, and so what a revert can break there.
+    None is a file before has not; a change the declarations cannot place (revert_red_naming) has none."""
+    changed = changed_names(before, after) or set()
+    return sorted({name.split(".")[-1] for name in changed if name.split(".")[-1][:1].isupper()})
 
 
 def packages_using(root: str, rev: str, path: str, names: list[str], among: list[str]) -> list[str]:
@@ -123,4 +105,4 @@ def users_of_change(root: str, base: str, head: str, path: str, dependents: list
     before, after = versions_of(root, base, head, path)
     if after is None:
         return []
-    return packages_using(root, head, path, changed_exported_names(before or "", after), dependents)
+    return packages_using(root, head, path, changed_exported_names(before, after), dependents)

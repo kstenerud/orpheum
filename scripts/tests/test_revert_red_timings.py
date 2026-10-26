@@ -30,6 +30,7 @@ class Kinds(unittest.TestCase):
             (["go", "test", "./internal/core/auth/..."], None, "go test, package"),
             (["go", "test", "./..."], None, "go test, whole suite"),
             (["go", "test", "./internal/core/api", "./internal/archtest"], None, "go test, its dependents"),
+            (rr.go_test("./internal/core/api", "./cmd/orpheum", tests=["TestA"]), None, "go test, the tests that name it"),
             (["go", "test", "-tags", "dev", "./..."], None, "go test, extra tags"),
             (rr.STORE_INTEGRATION, None, "go test, store integration"),
             (["go", "vet", "./..."], {"GOOS": "darwin"}, "go compile, another system"),

@@ -20,6 +20,12 @@ class Builders(unittest.TestCase):
         self.assertEqual(commands.go_test("./a", "./b", tags="integration"),
                          ["go", "test", "-failfast", "-tags", "integration", "./a", "./b"])
 
+    def test_a_go_run_of_named_tests_runs_those_alone_and_says_so(self) -> None:
+        narrowed = commands.go_test("./a", "./b", tests=["TestB", "TestA", "TestB"])
+        self.assertEqual(narrowed, ["go", "test", "-failfast", "-run", "^(TestA|TestB)$", "./a", "./b"])
+        self.assertTrue(commands.is_narrowed(narrowed))
+        self.assertFalse(commands.is_narrowed(commands.go_test("./a")))
+
     def test_vitest_runs_keep_their_form(self) -> None:
         self.assertEqual(commands.vitest("related", "a.ts"),
                          ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests",
