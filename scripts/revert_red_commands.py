@@ -25,9 +25,19 @@ VITEST = ["npx", "--prefix", "web", "vitest"]
 WEB_SCRIPT = ["npm", "--prefix", "web", "run"]
 
 
-def go_test(*packages: str, tags: str | None = None) -> list[str]:
-    """Go's tests of packages, stopped at the first failure, built with tags when given."""
-    return [*GO_TEST, FIRST_RED_GO, *(["-tags", tags] if tags else []), *packages]
+ONLY_TESTS = "-run"
+
+
+def go_test(*packages: str, tags: str | None = None, tests: list[str] | None = None) -> list[str]:
+    """Go's tests of packages, stopped at the first failure, built with tags when given; only the
+    top-level tests named when tests are given (with their subtests), every one otherwise."""
+    only = [ONLY_TESTS, "^(" + "|".join(sorted(set(tests))) + ")$"] if tests else []
+    return [*GO_TEST, FIRST_RED_GO, *(["-tags", tags] if tags else []), *only, *packages]
+
+
+def is_narrowed(command: list[str]) -> bool:
+    """Whether a Go test run runs only some tests (go_test's tests)."""
+    return is_go_test(command) and ONLY_TESTS in command
 
 
 def vitest(mode: str, *files: str, browser: bool = False, first_red: bool = True) -> list[str]:

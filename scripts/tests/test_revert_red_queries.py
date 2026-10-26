@@ -75,6 +75,11 @@ class ExportedNames(unittest.TestCase):
             "hidden = 3", "hidden = 4")
         self.assertEqual(queries.changed_exported_names(before, after), ["A", "Gone"])
 
+    def test_a_comment_is_no_change_and_a_method_is_named_by_its_own_name(self):
+        before = "package x\n\nfunc A() int { return 1 }\n\n// Method says one.\nfunc (s *S) Method() {}\n"
+        after = before.replace("says one", "says it").replace("Method() {}", "Method() { _ = 1 }")
+        self.assertEqual(queries.changed_exported_names(before, after), ["Method"])
+
     def test_a_grouped_name_is_found_by_its_group(self):
         before = "package x\n\nconst (\n\tKept = 1\n\tChanged = 2\n)\n"
         after = before.replace("Changed = 2", "Changed = 3")

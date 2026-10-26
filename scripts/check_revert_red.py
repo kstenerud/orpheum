@@ -93,6 +93,7 @@ from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import go_dependents, python_tests_naming, python_tests_reaching, toplevel, web_source_readers
+from revert_red_naming import naming_runs
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
@@ -373,15 +374,17 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
     if change.path.startswith(GO_GENERATED_QUERIES) and base and head:
         callers = callers_of_change(toplevel(), base, head, change.path)
         if callers:
-            attempts.insert(0, Attempt(go_test(*callers),
-                                       ", found by the tests of the code that calls its changed queries"))
+            attempts.insert(0, Attempt(go_test(*callers), ", found by the tests of the code that calls its changed queries"))
     elif GO_SOURCE.search(change.path) and base and head:
+        dependents = go_dependents(toplevel(), change.path)
+        # The tests naming what changed: its package's first, its dependents' after its run (revert_red_naming).
+        naming_first, naming_later = naming_runs(toplevel(), base, head, change.path, dependents)
+        attempts = [*naming_first, *attempts, *naming_later]
         # Before every dependent, those that use what the change touched: a red is nearly always there
         # (check-pr, 2026-10-21: a store file 37 s green in its own package, then 177 s of dependents).
-        users = users_of_change(toplevel(), base, head, change.path, go_dependents(toplevel(), change.path))
+        users = users_of_change(toplevel(), base, head, change.path, dependents)
         if users:
-            attempts.append(Attempt(go_test(*users),
-                                    ", found by the tests of the code that uses what it changed"))
+            attempts.append(Attempt(go_test(*users), ", found by the tests of the code that uses what it changed"))
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
