@@ -27,7 +27,8 @@ const (
 	// KindMakeArtworkSizes makes the sizes of one of an item's images, fetching its source when
 	// no stored size can be cut down; its target is the item (D212).
 	KindMakeArtworkSizes Kind = "make_artwork_sizes"
-	// KindExtractSubtitle extracts one text subtitle track; its target is the stream (D217 §3).
+	// KindExtractSubtitle extracts the text subtitle tracks of one file not yet extracted, a video's
+	// from one read of it, or a subtitle file's one; its target is the file (D217 §3, D340).
 	KindExtractSubtitle Kind = "extract_subtitle"
 	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its target is the
 	// fetched subtitle (D224 §5).
@@ -60,7 +61,7 @@ func Kinds() []Kind {
 	}
 }
 
-// Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a stream
+// Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a file
 // for extract_subtitle, a fetched subtitle for
 // convert_fetched_subtitle, a file for read_through, a chunk store for make_chunks, a scan for scan
 // and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the

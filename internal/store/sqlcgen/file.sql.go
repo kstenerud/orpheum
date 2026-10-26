@@ -276,24 +276,23 @@ func (q *Queries) GetSidecarStream(ctx context.Context, bytesFile int64) (GetSid
 }
 
 const getSubtitleStream = `-- name: GetSubtitleStream :one
-SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
+SELECT s.id, s.video_file, s.stream_index, s.codec, s.bytes_file, f.payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.id = ?1 AND s.kind = 'subtitle'
 `
 
 type GetSubtitleStreamRow struct {
-	ID              int64
-	VideoFile       int64
-	StreamIndex     *int64
-	Codec           *string
-	LibraryID       int64
-	NodeID          int64
-	ReportedPathRaw []byte
-	PayloadHash     []byte
+	ID          int64
+	VideoFile   int64
+	StreamIndex *int64
+	Codec       *string
+	BytesFile   int64
+	PayloadHash []byte
 }
 
-// A subtitle track, and the live file its bytes are in, for the job that extracts it.
+// A subtitle track, and the live file its bytes are in: where its text is kept, and the job that
+// extracts it.
 func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleStreamRow, error) {
 	row := q.db.QueryRowContext(ctx, getSubtitleStream, id)
 	var i GetSubtitleStreamRow
@@ -302,9 +301,7 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 		&i.VideoFile,
 		&i.StreamIndex,
 		&i.Codec,
-		&i.LibraryID,
-		&i.NodeID,
-		&i.ReportedPathRaw,
+		&i.BytesFile,
 		&i.PayloadHash,
 	)
 	return i, err
@@ -936,8 +933,60 @@ func (q *Queries) ListStreamsOfBytesFile(ctx context.Context, bytesFile int64) (
 	return items, nil
 }
 
+const listSubtitleStreamsInFile = `-- name: ListSubtitleStreamsInFile :many
+SELECT s.id, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
+FROM stream s
+JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+WHERE s.bytes_file = ?1 AND s.kind = 'subtitle'
+ORDER BY s.stream_index
+`
+
+type ListSubtitleStreamsInFileRow struct {
+	ID              int64
+	StreamIndex     *int64
+	Codec           *string
+	LibraryID       int64
+	NodeID          int64
+	ReportedPathRaw []byte
+	PayloadHash     []byte
+}
+
+// The subtitle tracks whose bytes are in a live file, a video's own or a sidecar's one, and where
+// the file is: the job that extracts them, all from one read of it (D340).
+func (q *Queries) ListSubtitleStreamsInFile(ctx context.Context, bytesFile int64) ([]ListSubtitleStreamsInFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSubtitleStreamsInFile, bytesFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSubtitleStreamsInFileRow{}
+	for rows.Next() {
+		var i ListSubtitleStreamsInFileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StreamIndex,
+			&i.Codec,
+			&i.LibraryID,
+			&i.NodeID,
+			&i.ReportedPathRaw,
+			&i.PayloadHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSubtitleTracksOfVideo = `-- name: ListSubtitleTracksOfVideo :many
-SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, f.payload_hash AS bytes_payload_hash
+SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, s.bytes_file,
+  f.payload_hash AS bytes_payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = ?1 AND s.kind = 'subtitle'
@@ -951,11 +1000,12 @@ type ListSubtitleTracksOfVideoRow struct {
 	Language         *string
 	ContainerTitle   *string
 	DispositionFlags int64
+	BytesFile        int64
 	BytesPayloadHash []byte
 }
 
 // A video's subtitle tracks, its own and those of the live sidecar files attached to it, with the
-// payload hash of the file each track's bytes are in: what a playback offers.
+// file each track's bytes are in and its payload hash: what a playback offers.
 func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, videoFile int64) ([]ListSubtitleTracksOfVideoRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSubtitleTracksOfVideo, videoFile)
 	if err != nil {
@@ -972,6 +1022,7 @@ func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, videoFile int64
 			&i.Language,
 			&i.ContainerTitle,
 			&i.DispositionFlags,
+			&i.BytesFile,
 			&i.BytesPayloadHash,
 		); err != nil {
 			return nil, err

@@ -7,6 +7,7 @@ package subtitle_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -47,17 +48,24 @@ func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
 	film := filepath.Join(directory, "film.mkv")
 	_, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=5", "-i", "file:" + sidecar,
-		"-map", "0", "-map", "1", "-c:v", "libx264", "-preset", "ultrafast", "-c:s", "ass", "file:" + film,
+		"-map", "0", "-map", "1", "-map", "1", "-c:v", "libx264", "-preset", "ultrafast", "-c:s:0", "ass",
+		"-c:s:1", "subrip", "file:" + film,
 	}, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	extractor := subtitle.NewExtractor(runner, 20<<20)
-	track, err := extractor.ExtractTrack(t.Context(), execx.Film{Path: film}, 1)
-	if err != nil {
-		t.Fatal(err)
+	// Its two tracks, an ASS and a SubRip, from one read of it (D340).
+	tracks, err := extractor.ExtractTracks(t.Context(), execx.Film{Path: film}, []int{1, 2})
+	if err != nil || len(tracks) != 2 {
+		t.Fatalf("the embedded tracks: %+v, %v", tracks, err)
 	}
-	checkText(t, "the embedded track", track)
+	for _, track := range tracks {
+		if track.Err != nil {
+			t.Errorf("the embedded track %d: %v", track.StreamIndex, track.Err)
+		}
+		checkText(t, "embedded track "+strconv.Itoa(track.StreamIndex), track.Text)
+	}
 	converted, err := extractor.ConvertText(t.Context(), []byte(srt))
 	if err != nil {
 		t.Fatal(err)

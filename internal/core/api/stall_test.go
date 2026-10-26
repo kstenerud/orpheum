@@ -73,7 +73,7 @@ func TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure(t *testing.
 	decided := harness.play(t, user, chrome(2))
 	extract := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
-			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID},
+			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID},
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		return answerAfterStall(t, harness, job, harness.subtitles.HandleExtractSubtitle, func() {
@@ -117,7 +117,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndNeverTheTargetsFailure(t *t
 	}
 	extract := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
-			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID},
+			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID},
 			PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
 		return answerAfterStall(t, harness, job, harness.subtitles.HandleExtractSubtitle, interrupt)

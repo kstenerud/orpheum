@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,19 +22,32 @@ import (
 // fakeSubtitler answers with text that names what it was given.
 type fakeSubtitler struct{}
 
-// Track slowStreamIndex runs until it is stopped, and track unconvertibleStreamIndex fails as FFmpeg would.
-func (fakeSubtitler) ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (subtitle.Text, error) {
-	if streamIndex == slowStreamIndex {
+// An extraction asking for track slowStreamIndex runs until it is stopped, and one asking for
+// stallingStreamIndex stalls; track unconvertibleStreamIndex fails alone, as FFmpeg would.
+func (fakeSubtitler) ExtractTracks(
+	ctx context.Context, film execx.Film, streamIndexes []int,
+) ([]subtitle.TrackText, error) {
+	if slices.Contains(streamIndexes, slowStreamIndex) {
 		<-ctx.Done()
-		return subtitle.Text{}, ctx.Err()
+		return nil, ctx.Err()
 	}
-	if streamIndex == stallingStreamIndex {
-		return subtitle.Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, errStalled)
+	if slices.Contains(streamIndexes, stallingStreamIndex) {
+		return nil, fmt.Errorf("extract streams %v as ASS: %w", streamIndexes, errStalled)
 	}
-	if streamIndex == unconvertibleStreamIndex {
-		return subtitle.Text{}, errors.New("ffmpeg exited 1: Subtitle codec 94213 is not supported")
+	tracks := make([]subtitle.TrackText, 0, len(streamIndexes))
+	for _, streamIndex := range streamIndexes {
+		track := subtitle.TrackText{
+			StreamIndex: streamIndex,
+			Text:        subtitle.Text{ASS: []byte(film.Path), VTT: []byte(strconv.Itoa(streamIndex))},
+		}
+		if streamIndex == unconvertibleStreamIndex {
+			track = subtitle.TrackText{
+				StreamIndex: streamIndex, Err: errors.New("ffmpeg exited 1: Subtitle codec 94213 is not supported"),
+			}
+		}
+		tracks = append(tracks, track)
 	}
-	return subtitle.Text{ASS: []byte(film.Path), VTT: []byte(strconv.Itoa(streamIndex))}, nil
+	return tracks, nil
 }
 
 // slowStreamIndex is the stream index whose extraction runs until it is stopped, and
@@ -100,9 +114,9 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		core.queueExtraction(job, extract)
 		return receiveSubtitle(t, core)
 	}
-	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
-	if track.JobID != 1 || track.Refusal != "" || string(track.ASS) != video.RootPath+"/film.mkv" ||
-		string(track.VTT) != "2" {
+	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndexes: []int{2}})
+	if track.JobID != 1 || track.Refusal != "" || len(track.Tracks) != 1 || track.Tracks[0].StreamIndex != 2 ||
+		string(track.Tracks[0].ASS) != video.RootPath+"/film.mkv" || string(track.Tracks[0].VTT) != "2" {
 		t.Errorf("a track of the named video: %+v", track)
 	}
 	converted := send(2, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
@@ -125,7 +139,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 	}{
 		{
 			"a track of a changed video",
-			nodeproto.ExtractSubtitle{Video: &changedVideo, StreamIndex: 2},
+			nodeproto.ExtractSubtitle{Video: &changedVideo, StreamIndexes: []int{2}},
 			"not the one named",
 		},
 		{"a changed sidecar", nodeproto.ExtractSubtitle{Sidecar: &changedSidecar}, "not the one named"},
@@ -137,6 +151,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		{"a sidecar path leaving its root", nodeproto.ExtractSubtitle{Sidecar: &escaping}, ""},
 		{"a sidecar that is a directory", nodeproto.ExtractSubtitle{Sidecar: &directory}, "not a regular file"},
 		{"a track and a sidecar at once", nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}, "only one"},
+		{"a video and no track", nodeproto.ExtractSubtitle{Video: &video}, "names no track"},
 	} {
 		answer := send(int64(index+3), refusal.command)
 		if answer.Refusal == "" || !strings.Contains(answer.Refusal, refusal.why) || answer.Failure != "" {
@@ -148,9 +163,18 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 				refusal.what, answer.RefusalCode)
 		}
 	}
-	failed := send(9, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: unconvertibleStreamIndex})
-	if !strings.Contains(failed.Failure, "not supported") || failed.Refusal != "" {
-		t.Errorf("a track FFmpeg cannot convert: %+v, want a failure in FFmpeg's words, not a refusal", failed)
+}
+
+func TestAgent_AnswersEachTrackOfAVideoWithItsTextOrItsOwnFailure(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	core.queueExtraction(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndexes: []int{2, unconvertibleStreamIndex}})
+	failed := receiveSubtitle(t, core)
+	if failed.Failure != "" || failed.Refusal != "" || len(failed.Tracks) != 2 ||
+		!strings.Contains(failed.Tracks[1].Failure, "not supported") || failed.Tracks[1].ASS != nil ||
+		failed.Tracks[0].Failure != "" || string(failed.Tracks[0].VTT) != "2" {
+		t.Errorf("a track FFmpeg cannot convert beside one it can: %+v, want that track's failure in FFmpeg's "+
+			"words and the other's text, not a refusal (D340)", failed)
 	}
 }
 
@@ -158,9 +182,9 @@ func TestAgent_ACancelStopsARunningExtractionAndNothingIsReportedForIt(t *testin
 	t.Parallel()
 	video, _, core := startExtractionAgent(t)
 	// One extraction runs at a time, so the next runs only once the cancel frees the slot.
-	core.queueExtraction(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: slowStreamIndex})
+	core.queueExtraction(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndexes: []int{slowStreamIndex}})
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 1, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
-	core.queueExtraction(3, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
+	core.queueExtraction(3, nodeproto.ExtractSubtitle{Video: &video, StreamIndexes: []int{2}})
 	if next := receiveSubtitle(t, core); next.JobID != 3 || next.Refusal != "" {
 		t.Errorf("the first answer = %+v, want job 3's text and nothing for the cancelled job 1", next)
 	}

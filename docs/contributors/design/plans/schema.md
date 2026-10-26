@@ -1112,7 +1112,7 @@ CREATE TABLE job (                                         -- the one work queue
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
-  -- an item, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
+  -- an item, extract_subtitle the file its tracks are in (D340), convert_fetched_subtitle a fetched subtitle,
   -- read_through and make_chunks a file, scan a scan (its listing), examine a scan's batch. At most one is set;
   -- backup, not yet a job, sets none.
   item_id             INTEGER,

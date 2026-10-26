@@ -86,7 +86,9 @@
 //     TestAgent_ARunOfAFileUnderNoRootOrOfADirectoryIsRefused.
 //   - A subtitle is extracted only from the video or sidecar the core named, a regular file under
 //     one of the node's roots whose payload hash is still the one named (D100, D217 §6). One extraction runs
-//     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
+//     at once; a video's answers each track it named, with its text or its own failure (D340).
+//     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot,
+//     TestAgent_AnswersEachTrackOfAVideoWithItsTextOrItsOwnFailure.
 //     A fetched subtitle's text, which the command carries, is converted as a sidecar is (D224 §5).
 //     TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile.
 //   - A read-through reads only the video the core named, whose payload hash is still the one

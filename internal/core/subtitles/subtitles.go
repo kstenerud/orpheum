@@ -6,13 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -60,20 +59,29 @@ func textKey(payloadHash []byte, streamIndex *int64) sqlcgen.GetSubtitleTextPara
 	return sqlcgen.GetSubtitleTextParams{SourceHash: payloadHash, StreamIndex: ptr.ValueOrZero(streamIndex)}
 }
 
-// Want lists a video's text subtitle tracks, its own and its subtitle files', and has
-// each extracted that is not already, whatever the decision: an embedded track means reading the
-// whole file, so it is done when the file is first played (D217 §6). A track that failed is tried
-// again. Bitmap tracks are not offered (cut-a §1).
+// Want lists a video's text subtitle tracks, its own and its subtitle files', and has each
+// extracted that is not already, whatever the decision: an embedded track means reading the whole
+// file, so it is done when the file is first played (D217 §6), every track not yet made from one
+// read of it, one job per file the tracks are in (D340). A track that failed is tried again. Bitmap
+// tracks are not offered (cut-a §1).
 func (service *Service) Want(ctx context.Context, videoID int64) ([]Track, error) {
 	rows, err := service.textTrackRows(ctx, service.database.Read(), videoID)
 	if err != nil {
 		return nil, err
 	}
+	var filesToExtract []int64
 	for _, row := range rows {
-		want := wantedText{key: textKey(row.BytesPayloadHash, row.StreamIndex), kind: jobs.KindExtractSubtitle}
-		want.target = jobs.Target{StreamID: row.ID}
-		if wantErr := service.wantText(ctx, want); wantErr != nil {
-			return nil, wantErr
+		isNeeded, needErr := service.needsText(ctx, textKey(row.BytesPayloadHash, row.StreamIndex))
+		if needErr != nil {
+			return nil, needErr
+		}
+		if isNeeded && !slices.Contains(filesToExtract, row.BytesFile) {
+			filesToExtract = append(filesToExtract, row.BytesFile)
+		}
+	}
+	for _, fileID := range filesToExtract {
+		if queueErr := service.queueText(ctx, jobs.KindExtractSubtitle, jobs.Target{FileID: fileID}); queueErr != nil {
+			return nil, queueErr
 		}
 	}
 	fetched, err := service.database.Read().ListFetchedSubtitlesOfVideo(ctx, videoID)
@@ -81,12 +89,16 @@ func (service *Service) Want(ctx context.Context, videoID int64) ([]Track, error
 		return nil, fmt.Errorf("read the fetched subtitles of file %d: %w", videoID, err)
 	}
 	for _, row := range fetched {
-		want := wantedText{
-			key: fetchedKey(row.BodyGzip), kind: jobs.KindConvertFetchedSubtitle,
-			target: jobs.Target{FetchedSubtitleID: row.ID},
+		isNeeded, needErr := service.needsText(ctx, fetchedKey(row.BodyGzip))
+		if needErr != nil {
+			return nil, needErr
 		}
-		if wantErr := service.wantText(ctx, want); wantErr != nil {
-			return nil, wantErr
+		if !isNeeded {
+			continue
+		}
+		target := jobs.Target{FetchedSubtitleID: row.ID}
+		if queueErr := service.queueText(ctx, jobs.KindConvertFetchedSubtitle, target); queueErr != nil {
+			return nil, queueErr
 		}
 	}
 	return append(streamTracksOf(rows), fetchedTracksOf(fetched)...), nil
@@ -155,18 +167,17 @@ func streamTracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []Track {
 type wantedText struct {
 	key  sqlcgen.GetSubtitleTextParams
 	kind jobs.Kind
-	// target is what the job works on: the stream, or the fetched subtitle.
+	// target is what the job works on: the file the track is in, or the fetched subtitle.
 	target jobs.Target
 }
 
-// wantText has one track's text made unless it already is. One that could not be made is made
-// again: a play is the request, and there is no other (D231 section 4).
-func (service *Service) wantText(ctx context.Context, want wantedText) error {
-	key := want.key
+// needsText is whether a track's text is still to be made. One that could not be made is made
+// again, its failure forgotten: a play is the request, and there is no other (D231 section 4).
+func (service *Service) needsText(ctx context.Context, key sqlcgen.GetSubtitleTextParams) (bool, error) {
 	row, err := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, key))
 	switch {
 	case err == nil && row.Failure == nil:
-		return nil
+		return false, nil
 	case err == nil:
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.ForgetSubtitleTextFailure(ctx, sqlcgen.ForgetSubtitleTextFailureParams(key))
@@ -175,10 +186,15 @@ func (service *Service) wantText(ctx context.Context, want wantedText) error {
 		err = nil
 	}
 	if err != nil {
-		return fmt.Errorf("want %s %+v: %w", want.kind, want.target, err)
+		return false, fmt.Errorf("want the text of stream index %d of %x: %w", key.StreamIndex, key.SourceHash, err)
 	}
-	_, err = service.queue.Enqueue(ctx, jobs.Request{
-		Kind: want.kind, Target: want.target, Priority: jobs.PriorityPlayNow,
+	return true, nil
+}
+
+// queueText queues the job that makes texts, at play's priority.
+func (service *Service) queueText(ctx context.Context, kind jobs.Kind, target jobs.Target) error {
+	_, err := service.queue.Enqueue(ctx, jobs.Request{
+		Kind: kind, Target: target, Priority: jobs.PriorityPlayNow,
 		Reason: "someone is watching it, and its subtitles are offered",
 	})
 	return err
@@ -189,20 +205,16 @@ func (service *Service) wantText(ctx context.Context, want wantedText) error {
 func (service *Service) TextOf(
 	ctx context.Context, track preferences.TrackRef, videoFileID int64, format Format,
 ) (Text, error) {
-	key, err := service.textKeyOfTrack(ctx, track, videoFileID)
+	want, err := service.wantedOfTrack(ctx, track, videoFileID)
 	if err != nil {
 		return Text{}, err
 	}
-	row, err := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, key))
+	row, err := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, want.key))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// Asked for when the playback began, and not made yet. The player asking for it is a person
 		// still waiting for it, so its job keeps the priority of play (D234 §3).
-		kind, target := jobs.KindExtractSubtitle, jobs.Target{StreamID: track.StreamID}
-		if track.IsFetched() {
-			kind, target = jobs.KindConvertFetchedSubtitle, jobs.Target{FetchedSubtitleID: track.FetchedSubtitleID}
-		}
-		if keepErr := service.queue.KeepWanted(ctx, kind, target); keepErr != nil {
+		if keepErr := service.queue.KeepWanted(ctx, want.kind, want.target); keepErr != nil {
 			return Text{}, keepErr
 		}
 		return Text{Readiness: jobs.ReadinessPreparing}, nil
@@ -218,178 +230,38 @@ func (service *Service) TextOf(
 	return Text{Readiness: jobs.ReadinessComplete, Text: text}, nil
 }
 
-// textKeyOfTrack is where a track of video's text is kept, or ErrNoSubtitle for a track the
-// playback does not offer: another video's, or one that is not text.
-func (service *Service) textKeyOfTrack(
+// wantedOfTrack is where a track of video's text is kept and the job that makes it, or
+// ErrNoSubtitle for a track the playback does not offer: another video's, or one that is not text.
+func (service *Service) wantedOfTrack(
 	ctx context.Context, track preferences.TrackRef, videoFileID int64,
-) (sqlcgen.GetSubtitleTextParams, error) {
+) (wantedText, error) {
 	if track.IsFetched() {
 		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedSubtitleID))
 		if errors.Is(err, store.ErrNotFound) || (err == nil && fetched.VideoFile != videoFileID) {
-			return sqlcgen.GetSubtitleTextParams{}, ErrNoSubtitle
+			return wantedText{}, ErrNoSubtitle
 		}
 		if err != nil {
-			return sqlcgen.GetSubtitleTextParams{}, fmt.Errorf("read fetched subtitle %d: %w", track.FetchedSubtitleID,
-				err)
+			return wantedText{}, fmt.Errorf("read fetched subtitle %d: %w", track.FetchedSubtitleID, err)
 		}
-		return fetchedKey(fetched.BodyGzip), nil
+		return wantedText{
+			key: fetchedKey(fetched.BodyGzip), kind: jobs.KindConvertFetchedSubtitle,
+			target: jobs.Target{FetchedSubtitleID: track.FetchedSubtitleID},
+		}, nil
 	}
 	stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, track.StreamID))
 	isOffered := err == nil && stream.VideoFile == videoFileID && stream.PayloadHash != nil &&
 		stream.Codec != nil && decide.IsTextSubtitle(*stream.Codec)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && !isOffered) {
-		return sqlcgen.GetSubtitleTextParams{}, ErrNoSubtitle
+		return wantedText{}, ErrNoSubtitle
 	}
 	if err != nil {
-		return sqlcgen.GetSubtitleTextParams{}, fmt.Errorf("read stream %d: %w", track.StreamID, err)
+		return wantedText{}, fmt.Errorf("read stream %d: %w", track.StreamID, err)
 	}
-	return textKey(stream.PayloadHash, stream.StreamIndex), nil
+	return wantedText{
+		key: textKey(stream.PayloadHash, stream.StreamIndex), kind: jobs.KindExtractSubtitle,
+		target: jobs.Target{FileID: stream.BytesFile},
+	}, nil
 }
 
 // ErrNoSubtitle is a subtitle a playback does not offer.
 var ErrNoSubtitle = errors.New("no such subtitle")
-
-// HandleExtractSubtitle runs one extraction job (jobs.KindExtractSubtitle): the node that holds the
-// track's file extracts it, a track from its video or a subtitle file whole, and this waits for its
-// answer and keeps the text by that file's payload hash. FFmpeg's failure is not retried.
-func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job) error {
-	stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
-	if errors.Is(err, store.ErrNotFound) {
-		return jobs.MarkPermanent(
-			fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.StreamID))
-	}
-	if err != nil {
-		return fmt.Errorf("read stream %d: %w", job.StreamID, err)
-	}
-	if stream.PayloadHash == nil {
-		return jobs.MarkPermanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
-	}
-	file := library.Located{
-		Subject: fmt.Sprintf("stream %d", job.StreamID), LibraryID: stream.LibraryID, NodeID: stream.NodeID,
-		ReportedPathRaw: stream.ReportedPathRaw, PayloadHash: stream.PayloadHash,
-	}
-	if parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, file); parked != nil {
-		return parked
-	}
-	bytesFile, err := library.BytesFileOf(ctx, service.database.Read(), file)
-	if err != nil {
-		return jobs.MarkPermanent(err)
-	}
-	command := &nodeproto.ExtractSubtitle{Sidecar: &bytesFile}
-	if stream.StreamIndex != nil {
-		command = &nodeproto.ExtractSubtitle{Video: &bytesFile, StreamIndex: int(*stream.StreamIndex)}
-	}
-	return service.makeSubtitleText(ctx, job, stream.NodeID, command)
-}
-
-// makeSubtitleText gives a node the making of one subtitle's text, which says later how it ended:
-// its recorder keeps the text where the command's source says (record), and the job is
-// resolved by Assignee.
-func (service *Service) makeSubtitleText(
-	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
-) error {
-	if _, _, err := subtitleTextKey(*command); err != nil {
-		return jobs.MarkPermanent(err)
-	}
-	return service.exchanges.Assign(ctx, nodeID, job, nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command},
-	})
-}
-
-// Assignee is how a subtitle's making given to a node, an extraction or a fetched subtitle's
-// conversion, is resolved. FFmpeg's failure is kept and not retried; a node's refusal, which says
-// nothing of the source's bytes, is not kept, and the job is tried again.
-func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
-	keepFailure := func(ctx context.Context, attempt nodes.Attempt) func(failure string) error {
-		return func(failure string) error {
-			key, isKept, err := subtitleTextKey(ptr.ValueOrZero(attempt.Work.ExtractSubtitle))
-			if err != nil || !isKept {
-				return err
-			}
-			return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: failure})
-		}
-	}
-	return nodes.Assignee{
-		Runner: runner,
-		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
-			about := fmt.Sprintf("%s job %d", job.Kind, job.ID)
-			if result.Subtitle == nil {
-				return fmt.Errorf("node %d answered %s with something other than a subtitle", attempt.NodeID, about)
-			}
-			answer := *result.Subtitle
-			switch {
-			case answer.Refusal != "":
-				return nodes.RefusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
-			case answer.Stall != nil:
-				return nodes.FFmpegStallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
-			case answer.Failure != "":
-				return jobs.MarkPermanent(errors.New(answer.Failure))
-			}
-			return nil
-		},
-		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
-			return nodes.UnansweredOutcome(job, err, keepFailure(ctx, attempt))
-		},
-	}
-}
-
-// finishSubtitle keeps a node's answer in persistent.db: the text, or why there is none.
-func (service *Service) finishSubtitle(
-	ctx context.Context, key sqlcgen.GetSubtitleTextParams, answer nodeproto.SubtitleText,
-) error {
-	kept := sqlcgen.KeepSubtitleTextParams{
-		SourceHash: key.SourceHash, StreamIndex: key.StreamIndex, MadeAt: service.clock.Now().UnixMilli(),
-	}
-	if answer.Failure != "" {
-		kept.Failure = &answer.Failure
-	} else {
-		kept.ASS, kept.VTT = nonNil(answer.ASS), nonNil(answer.VTT)
-	}
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.KeepSubtitleText(ctx, kept)
-	})
-	if err != nil {
-		return fmt.Errorf("keep the text of stream index %d of %x: %w", key.StreamIndex, key.SourceHash, err)
-	}
-	service.keptTexts.wasKept(key)
-	return nil
-}
-
-// nonNil is text as kept: made and empty, rather than not made.
-func nonNil(text []byte) []byte {
-	if text == nil {
-		return []byte{}
-	}
-	return text
-}
-
-// RecordFailure records an extract_subtitle or convert_fetched_subtitle job that failed as
-// its track's own failure (D231 §4, §10): the playback shows it failed, and the next play of its
-// video asks again, a play being the request.
-func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
-	var key sqlcgen.GetSubtitleTextParams
-	switch job.Kind {
-	case jobs.KindExtractSubtitle:
-		stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
-		if errors.Is(err, store.ErrNotFound) || (err == nil && stream.PayloadHash == nil) {
-			return nil // its file was scanned again or is gone
-		}
-		if err != nil {
-			return fmt.Errorf("read stream %d: %w", job.StreamID, err)
-		}
-		key = textKey(stream.PayloadHash, stream.StreamIndex)
-	case jobs.KindConvertFetchedSubtitle:
-		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
-		}
-		key = fetchedKey(fetched.BodyGzip)
-	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindReadThrough,
-		jobs.KindMakeChunks, jobs.KindScan, jobs.KindBackup:
-		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
-	}
-	return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: "given up: " + failure})
-}

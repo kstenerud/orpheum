@@ -22,7 +22,7 @@ func TestExtract_EveryRunIsWatchedATracksLongEnoughForItsQuietStretches(t *testi
 	t.Parallel()
 	var watches []execx.Watch
 	extractor := NewExtractor(watchingRunner{&watches}, 20<<20)
-	if _, err := extractor.ExtractTrack(t.Context(), execx.Film{Path: "/media/film.mkv"}, 3); err != nil {
+	if _, err := extractor.ExtractTracks(t.Context(), execx.Film{Path: "/media/film.mkv"}, []int{3}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := extractor.ConvertText(t.Context(), []byte("the sidecar")); err != nil {

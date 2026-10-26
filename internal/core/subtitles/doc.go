@@ -8,10 +8,14 @@
 // # Invariants
 //
 //   - Every text subtitle track of a played video, its own and its subtitle files', is extracted,
-//     whatever the decision, once per payload hash of the file it is in; a track not yet extracted
-//     is 425 with Retry-After, a failed one is prepare_failed and tried again when next played, a
-//     node's refusal is not kept and its job is tried again, and a playback reaches only its own
-//     file's tracks (D217 §6). Enforced by
+//     whatever the decision, once per payload hash of the file it is in, by one job per file that
+//     makes every track in it not yet made, a video's from one read of it (D340); a track not yet
+//     extracted is 425 with Retry-After, a failed one is prepare_failed on its own, the others kept,
+//     and it alone is extracted again when next played, a node's refusal or a stall is the whole
+//     job's, not kept, and its job is tried again, and a playback reaches only its own file's
+//     tracks (D217 §6). Enforced by
+//     TestSubtitles_AVideosTextTracksAreExtractedByOneJobFromOneRead,
+//     TestSubtitles_ATrackThatFailedFailsAloneAndTheNextPlayExtractsOnlyIt,
 //     TestSubtitles_ARefusedExtractionIsNotKeptAndTheTrackKeepsWaiting,
 //     TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole,
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
@@ -62,6 +66,7 @@
 // # Read before changing
 //
 //   - D217 §6: subtitles in M3: which tracks are extracted, and when.
+//   - D340: one extraction job per file, a video's tracks from one read of it; a track fails alone.
 //   - D224: fetching a subtitle on request; the provider client is
 //     internal/core/providers/opensubtitles.
 //   - D231 §3, §4, §10: derived work, and failures as facts.
@@ -69,7 +74,8 @@
 //
 // # Where to change
 //
-//   - subtitles.go: the text tracks a video offers, their extraction jobs and their text.
+//   - subtitles.go: the text tracks a video offers, what wants their text, and their text.
+//     extract.go: the extraction job of a file's tracks, and how its node's answer ends it.
 //     textwait.go: a fetch waiting for its conversion's text to be kept. record.go: how a node's text
 //     is kept. fetch.go: subtitles fetched on request, and the job that converts one.
 //     service.go: what the service is built from.
