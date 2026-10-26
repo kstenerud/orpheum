@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for in_dev_image.py: a target runs at once in the development image, and otherwise
 # ABOUTME: through the main checkout's ./dev in the same directory, a worktree inside it included.
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import in_dev_image  # noqa: E402
+from gitrepo import Repo  # noqa: E402
 
 MAIN = Path("/home/karl/orpheum")
 
@@ -29,9 +33,16 @@ class Command(unittest.TestCase):
         with self.assertRaises(SystemExit):
             in_dev_image.command(["test-acceptance-here"], Path("/tmp/elsewhere"), {}, MAIN)
 
-    def test_the_main_checkout_of_this_directory_is_found(self):
-        self.assertEqual(in_dev_image.main_checkout(Path(__file__).resolve().parent),
-                         Path(__file__).resolve().parents[2])
+    def test_the_main_checkout_is_found_from_it_and_from_a_worktree_of_it(self):
+        # It once compared against this file's own checkout, which failed in every agent's worktree
+        # under .claude/worktrees/ (2026-10-26): a worktree's main checkout is the repository's.
+        repo = Repo({"a.txt": "a\n"})
+        repo.commit("chore: base")
+        worktree = Path(tempfile.mkdtemp()) / "tree"
+        subprocess.run(["git", "worktree", "add", "-q", "--detach", str(worktree)], cwd=repo.root, check=True)
+        (repo.root / "sub").mkdir()
+        self.assertEqual(in_dev_image.main_checkout(repo.root / "sub").resolve(), repo.root.resolve())
+        self.assertEqual(in_dev_image.main_checkout(worktree).resolve(), repo.root.resolve())
 
 
 if __name__ == "__main__":
