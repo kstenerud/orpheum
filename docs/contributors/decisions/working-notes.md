@@ -21791,13 +21791,55 @@ realm in 3.5 s.
 
 **Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
 
-## D342 — Reserved: Compressing the API's answers that carry no secret
+## D342 — API answers that carry no credential are gzipped; an answer that carries one never is
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, answering the 2026-10-25 audit's R1, whose API half
+was left for BREACH ([audit-2026-10-25.md](../design/research/audit-2026-10-25.md)): compress the
+API's JSON answers that carry no secret beside text a request chose (lists, titles, search results,
+browse pages), with the standard library's gzip, and never the session, sign-in, device, pairing,
+link or token answers. The owner asked whether zstd is better; it is not taken.
 
-## D343 — Reserved: The discovery proof as a public package both repositories use
+1. **An allowlist of operations.** `compressedOperations` (internal/core/api) names the operations
+   whose answers are gzipped: browsing, identification, the scanner's view and the admin's views.
+   A new operation is not compressed until it is added there.
+2. **No compressed answer carries a credential, and a test says so.**
+   `TestArch_NoCompressedOperationAnswersWithACredential` walks each listed operation's success
+   answer through the API document and fails on any field named as a token, secret, password,
+   session, link, code, key, nonce, signature or locator, unless the test's table names it as
+   holding none (a setting's key, a scan's error code). BREACH needs a secret and request-chosen text
+   in one compressed answer; with no secret in any, there is nothing to recover.
+3. **When.** A success whose JSON is at least 1 KiB, to a client whose Accept-Encoding takes gzip,
+   at gzip's fastest level; every listed answer varies by Accept-Encoding. A byte path (films,
+   images, subtitles) is never one of them.
+4. **No zstd.** Browsers decode zstd (Chrome and Edge since 123, Firefox since 126; Safari only recently,
+   and older iPhones and televisions not at all),
+   but Go's standard library has no zstd encoder, so it would be a new dependency for a few percent
+   on answers of a few kilobytes; gzip is in every browser and television's.
+5. **Over WebRTC, not yet.** A request over a data channel carries only the headers the page's SDK
+   sends, which name no Accept-Encoding, so its answers stay as they are until the SDK asks for gzip
+   and unzips (DecompressionStream) — a later change.
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Status:** Decided.
+
+## D343 — The replay nonce is one public building block, discovery/proof's Nonces, which both discoveries use
+
+**Decided** (2026-10-26), by the project owner, choosing option (a) of the 2026-10-25 audit's R4
+([audit-2026-10-25.md](../design/research/audit-2026-10-25.md)): the MAC'd stateless nonce that
+guards every signed core call against replay (the security audit's S13) was written twice, in
+`discovery/single` and in orpheum-connect's `internal/cores`, and a fix to one would not have
+reached the other.
+
+1. **One public type.** `discovery/proof` holds `Nonces`: `NewNonces` makes its key, `Issue` makes
+   a nonce (8 bytes of expiry, 16 random, a 16-byte HMAC-SHA256, keeping nothing) and `Spend` takes
+   a `SignedNonce`, checks the MAC, the expiry and the signature for its purpose, discovery and core
+   (`Verify`), and spends it once, kept until it expires.
+2. **Both use it.** `discovery/single`'s discovery and orpheum-connect's cores service hold one
+   each; their own copies are deleted. Connect takes it through its pin of Orpheum's `discovery/`
+   (D275 §1: the paid service assembles the public building blocks).
+3. **Revises the copy-don't-publish habit for this one piece:** a security check that both
+   discoveries must apply alike is published, not twinned.
+
+**Status:** Decided.
 
 ## D344 — Reserved: Retiring whole-film prepare
 
@@ -21811,13 +21853,50 @@ realm in 3.5 s.
 
 **Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
 
-## D347 — Reserved: Runtime log levels and request IDs
+## D347 — The core's log level is a setting an admin changes while it runs, and every API request carries an ID into its log lines and its answer
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, answering the 2026-10-25 audit's G11
+([audit-2026-10-25.md](../design/research/audit-2026-10-25.md)), which the owner asked for on
+2026-10-15 (runtime-changeable log depth): an admin changes the log's level with no restart, and
+every API request gets an ID carried in its context, on every line it causes, and returned to the
+client.
 
-## D348 — Reserved: WebRTC's connection limit is configuration
+1. **A setting, log_level.** `debug`, `info`, `warn` or `error`, or `file`, its starting value,
+   which is the config file's `log.level`, so a deployment's own level holds until an admin chooses
+   another. A change takes effect at once (the settings service's OnChange sets the logger's
+   `slog.LevelVar`), and the change itself is logged. It is the core's alone; a node's level stays
+   its config file's.
+2. **A request ID, the core's own.** Every request the API answers, over TCP or a WebRTC data
+   channel, is given 16 random base32 characters, never an ID the client sent (a client cannot write
+   into the log's correlation). The answer names it in `X-Request-ID`, which a page on the
+   discovery's origin may read, so a person reporting a failure can quote it.
+3. **On every line it causes.** The ID rides in the request's context, and the process's logger
+   (`internal/platform/slogx`) adds it as `requestId` to every line logged with that context, the
+   form nearly every log call in the core takes.
+4. **Not in this:** per-component levels and the `component` attribute on every service (G11's
+   mechanical part) are later work.
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Status:** Decided.
+
+## D348 — The most WebRTC connections a core holds is a config key, webrtc.max_connections
+
+**Decided** (2026-10-26), by the project owner, answering the 2026-10-25 audit's R10
+([audit-2026-10-25.md](../design/research/audit-2026-10-25.md)): *"make webrtc max connections a
+config value."*
+
+1. **A config key, not a setting.** `[webrtc] max_connections` in the core's config file bounds the
+   peer connections the core holds at once, of every network. It is the machine owner's, beside the
+   UDP port and the STUN servers, not an admin's in the database: it sizes what the machine carries.
+   Each network's share under it stays the `webrtc_connections_per_network` setting.
+2. **Its starting value is 64,** the constant it replaces (`rtcapi.DefaultMaxConnections`): a client
+   opens up to four connections, so 64 holds 16 remote devices. A file without the key runs on 64
+   and says so (D202); a value under 1 is refused at start.
+3. **Read at start.** A change takes effect when the core restarts; connections held are kept.
+
+The audit's other half of R10, a verdict code for an offer refused at the limit, is not part of
+this.
+
+**Status:** Decided.
 
 ## D349 — Reserved: Browsing by library, and a kind for other videos
 
