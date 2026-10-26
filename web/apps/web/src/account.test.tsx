@@ -38,6 +38,10 @@ async function accountOf(
         "GET /me/devices": [200, { devices: [television()] }],
         "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false, canManageAccount }],
         "GET /me/own-link": ownLink,
+        "GET /me/preferences": [
+          200,
+          { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+        ],
       }),
     ),
   );
@@ -59,6 +63,15 @@ describe("your account", () => {
       expect(full.textContent).toContain(offered);
     }
     expect(full.textContent).not.toContain("not change your password");
+  });
+
+  it("offers the person's own autoplay to any session of theirs (plans/up-next.md)", async () => {
+    for (const canManage of [false, true]) {
+      const page = await accountOf(canManage);
+      expect(page.textContent).toContain("Play the next episode automatically");
+      mounted?.unmount();
+    }
+    mounted = undefined;
   });
 
   it("shows the link the person registered by, to open or scan on another device, and nothing without one (D292 §4)", async () => {
@@ -97,6 +110,7 @@ describe("your account", () => {
             },
           ],
           "GET /me/own-link": refusal(404, "not_found"),
+          "GET /me/preferences": refusal(404, "not_found"),
         }),
       ),
     );
@@ -147,6 +161,7 @@ describe("an admin's administering from away (D302)", () => {
               ],
             ],
             "GET /me/own-link": refusal(404, "not_found"),
+            "GET /me/preferences": refusal(404, "not_found"),
             "PUT /me/admin-away": [204, {}],
           },
           heard,
