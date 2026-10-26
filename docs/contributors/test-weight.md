@@ -483,7 +483,7 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   such runs of four files passed 160 of 160.
 - **Why it was invisible:** a deadline is generous on the idle machine it was set on, and the
   failure reads as the page's: a focus that never moved, a seek that went twice.
-- **Fix:** a walk's polls wait up to `walkPoll` (10 s, inside the 15 s test); a controller's press
+- **Fix:** a walk's polls wait up to 10 s (`expect.poll.timeout` in the browser-mode config); a controller's press
   is held until the page has read it held, and let go until it has read it go; the player's walks
   start once the video's load has failed (`theFailedVideo`); and a walk whose page is gone presses
   nothing more (`test-walk.test.tsx`).
@@ -493,9 +493,10 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   twenty passes (5.5 s in Chromium); every press of a walk is a round trip to the browser. Later
   the same night it failed four of five whole-tree gate runs (23:49 to 23:56, both browsers), its
   Firefox median over twenty passes risen to 13.5 s, while alone it took 3 to 4 s for its 72
-  presses. The remedies are the owner's: a longer `testTimeout` for the browser-mode config, walks
-  split per page into tests of their own, or a machine-wide lock (mechanism 7's) so two gates'
-  browser-mode runs never overlap.
+  presses. The owner agreed (2026-10-26) to two of the remedies: the browser-mode config's
+  `testTimeout` is 30 s, and `make web-test-browser` takes a machine-wide `flock`
+  (`BROWSER_MODE_LOCK`), so two gates' browser-mode runs never overlap; the wait for it shows as the
+  step's own time (mechanism 7). Splitting the walks per page is left until one fails again.
 - **Warning sign:** a browser-mode test red only when another gate runs; `expect.poll` or a fixed
   `setTimeout` in a walk; a walk's next test red after its own timed out.
 

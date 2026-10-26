@@ -123,14 +123,6 @@ export async function mountApp(services: Services): Promise<Walking> {
   };
 }
 
-/**
- * The deadline of a walk's expect.poll, for what a screen draws once its answers come, or where a
- * press leaves focus: expect.poll's own second passed under the gate's load, with nothing wrong
- * but a slow machine (four browser-mode runs at once, 2026-10-25; test-weight.md). Inside the test's
- * own 15 s, so a walk that never gets there still fails as itself.
- */
-export const walkPoll = { timeout: 10_000 } as const;
-
 /** What has focus, by its text or name, for a walk's checks. */
 export function focusedName(): string {
   const focused = document.activeElement;

@@ -22,7 +22,6 @@ import {
   isFocusIn,
   mountApp,
   viewer,
-  walkPoll,
   walkServices,
   type Walking,
   type WalkAnswers,
@@ -143,8 +142,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("goes back to the film it left in Continue Watching, and to the one it left in the newest films", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(withContinueWatching, "/"));
-    await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`), walkPoll).toBe(true);
-    await expect.poll(() => isDrawn(".continue-watching .poster-card__link"), walkPoll).toBe(true);
+    await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
@@ -164,19 +163,19 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("opens an episode from its season's list and goes back to it there", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(aSeason, "/series/20?season=1"));
-    await expect.poll(() => isDrawn(".series__episode"), walkPoll).toBe(true);
+    await expect.poll(() => isDrawn(".series__episode")).toBe(true);
     expect(await pressUntil("{ArrowDown}", () => focusedEpisode() === "Episode 3")).toBe(true);
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn(".title"), walkPoll).toBe(true);
+    await expect.poll(() => isDrawn(".title")).toBe(true);
     await userEvent.keyboard("{Escape}");
-    await expect.poll(() => isDrawn(".series__episode"), walkPoll).toBe(true);
-    await expect.poll(focusedEpisode, walkPoll).toBe("Episode 3");
+    await expect.poll(() => isDrawn(".series__episode")).toBe(true);
+    await expect.poll(focusedEpisode).toBe("Episode 3");
   });
 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(withContinueWatching, "/"));
-    await expect.poll(() => isDrawn(".continue-watching .poster-card__link"), walkPoll).toBe(true);
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
     expect(ringOutside(".continue-watching .poster-row")).toEqual([]);

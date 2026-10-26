@@ -24,7 +24,6 @@ import {
   mountApp,
   reachedFrom,
   viewer,
-  walkPoll,
   walkServices,
   type Walking,
   type WalkAnswers,
@@ -69,7 +68,7 @@ async function press(keys: string): Promise<void> {
 
 /** The page's video, once drawn. */
 async function theVideo(): Promise<HTMLVideoElement> {
-  await expect.poll(() => isDrawn("video"), walkPoll).toBe(true);
+  await expect.poll(() => isDrawn("video")).toBe(true);
   const video = document.querySelector("video");
   if (video === null) {
     throw new Error("the player draws no video");
@@ -84,7 +83,7 @@ async function theVideo(): Promise<HTMLVideoElement> {
  */
 async function theFailedVideo(): Promise<HTMLVideoElement> {
   const video = await theVideo();
-  await expect.poll(() => video.error?.code, walkPoll).toBeDefined();
+  await expect.poll(() => video.error?.code).toBeDefined();
   return video;
 }
 
@@ -149,14 +148,12 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
   it("goes back to the film's page by Back, to its Play", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/titles/103"));
-    await expect.poll(() => isDrawn(".title__play"), walkPoll).toBe(true);
+    await expect.poll(() => isDrawn(".title__play")).toBe(true);
     const playLink = document.querySelector<HTMLElement>(".title__play");
     playLink?.focus();
     await press("{Enter}");
     await theVideo();
     await press("{Escape}");
-    await expect
-      .poll(() => document.activeElement?.classList.contains("title__play"), walkPoll)
-      .toBe(true);
+    await expect.poll(() => document.activeElement?.classList.contains("title__play")).toBe(true);
   });
 });

@@ -19,7 +19,6 @@ import { Lab } from "./lab.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { walkPoll } from "./test-walk.tsx";
 
 /** The button test in the shell, as a signed-in tester with Device tests offered sees it. */
 const inTheShell = (
@@ -72,9 +71,7 @@ describe("the button test, laid out by a real browser", () => {
       await page.viewport(960, 480);
       mounted = await mount(withServices(inTheShell));
       globalThis.dispatchEvent(new Event("gamepadconnected"));
-      await expect
-        .poll(() => mounted?.container.textContent ?? "", walkPoll)
-        .toContain("the right button");
+      await expect.poll(() => mounted?.container.textContent ?? "").toContain("the right button");
       expect(extent().height).toBeLessThanOrEqual(window.innerHeight);
     } finally {
       Reflect.deleteProperty(navigator, "getGamepads");

@@ -27,7 +27,6 @@ import {
   mountApp,
   reachedFrom,
   viewer,
-  walkPoll,
   walkServices,
   type Walking,
   type WalkAnswers,
@@ -80,7 +79,7 @@ async function pressUntil(key: string, isThere: () => boolean, times = 12): Prom
 
 /** Waits until the page draws selector. */
 async function drawn(selector: string): Promise<void> {
-  await expect.poll(() => isDrawn(selector), walkPoll).toBe(true);
+  await expect.poll(() => isDrawn(selector)).toBe(true);
 }
 
 /**
@@ -126,7 +125,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await drawn("#this-device-heading");
     await press("{Escape}");
     await drawn(".poster-grid .poster-card__link");
-    await expect.poll(focusedName, walkPoll).toBe("Menu");
+    await expect.poll(focusedName).toBe("Menu");
     expect(document.querySelector("details")?.open).toBe(false);
   });
 
@@ -201,7 +200,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         season: 1,
       });
     await press("{Escape}");
-    await expect.poll(() => isFocusOnLinkTo("/series/20?season=1"), walkPoll).toBe(true);
+    await expect.poll(() => isFocusOnLinkTo("/series/20?season=1")).toBe(true);
   });
 
   it("types a search, arrows down into its results, opens one and goes back to it", async () => {
@@ -230,7 +229,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await press("{Enter}");
     await drawn(".title__play");
     await press("{Escape}");
-    await expect.poll(() => isFocusOnLinkTo("/titles/102"), walkPoll).toBe(true);
+    await expect.poll(() => isFocusOnLinkTo("/titles/102")).toBe(true);
   });
 
   it("chooses a controller's OK on This device by arrows and OK, every control reached", async () => {
@@ -296,7 +295,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       await press("{ArrowDown}");
       expect(await pressUntil("{ArrowDown}", () => focusedName() === "Start a session")).toBe(true);
       await press("{Enter}");
-      await expect.poll(() => document.body.textContent, walkPoll).toContain("Grandma");
+      await expect.poll(() => document.body.textContent).toContain("Grandma");
       expect(await unreachedInMain()).toEqual([]);
       const invite = [...document.querySelectorAll<HTMLElement>("main button")].find(
         (button) => button.textContent === "Invite someone",
@@ -307,7 +306,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       await press("{ArrowDown}{ArrowDown}");
       expect(isFocusIn("dialog[open]")).toBe(true);
       await press("{Escape}");
-      await expect.poll(() => isDrawn("dialog[open]"), walkPoll).toBe(false);
+      await expect.poll(() => isDrawn("dialog[open]")).toBe(false);
       expect(walking.services.navigation.route()).toEqual({ screen: "watch-together" });
     } finally {
       window.sessionStorage.clear();
