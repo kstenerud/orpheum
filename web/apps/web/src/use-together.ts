@@ -33,8 +33,11 @@ export interface TogetherDevice {
   readonly credential: string | undefined;
   /** A signed-in host's session token, which goes in the hello too (D243 §2). */
   readonly sessionToken?: string | undefined;
-  /** The command it sends as the component goes: the host's stop, as they leave the player. */
-  readonly commandOnLeaving?: GroupCommand | undefined;
+  /**
+   * The command it sends as the component goes, asked then: the host's stop as they leave the
+   * player, or none as it moves on to another film's player. Stable, or the connection opens again.
+   */
+  readonly commandOnLeaving?: (() => GroupCommand | undefined) | undefined;
   /** What the device does for its member (D120): "playback" when not given; a cast's remote plays nothing. */
   readonly role?: DeviceRole | undefined;
 }
@@ -67,8 +70,9 @@ export function useTogether(device: TogetherDevice): {
   useEffect(() => {
     connection?.open();
     return () => {
-      if (commandOnLeaving !== undefined) {
-        connection?.command(commandOnLeaving);
+      const leaving = commandOnLeaving?.();
+      if (leaving !== undefined) {
+        connection?.command(leaving);
       }
       connection?.close();
     };

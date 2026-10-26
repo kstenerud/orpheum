@@ -129,6 +129,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   takes focus as the film ends, and a television's overlay leaves OK on it to it. A film, the last
   episode and one that cannot be read now offer nothing. `src/up-next.test.tsx`,
   `src/autoplay-setting.test.tsx`, `src/tv-controls.test.tsx`; on devices, VQ67.
+- **A run of autoplays asks before it goes on, and a host's moves their group** (D339): after
+  `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no press on the page, the next
+  film's end shows *Still watching?*, Continue (focused) or Stop (leaves the film), and counts
+  nothing; any press starts the run again. A host's player moving on to another film's player, by Up
+  next or its autoplay, does not stop their Watch Together session: the next player puts its film on
+  for everyone. `src/up-next.test.tsx`, `src/watch-together.test.tsx`; on devices, VQ69 and VQ70.
+- **A Watch Together invitation is short-term** (D346): the host's list says until when each
+  waiting link admits; a guest whose link no longer works is told invitations are short-lived and
+  to ask for another, and one whose session the server closed as idle is told so.
+  `src/watch-together.test.tsx`, `src/together-join.test.tsx`, `src/together-viewer.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names

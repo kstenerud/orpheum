@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
+	"time"
 
 	discoverylink "github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
@@ -32,6 +33,8 @@ type link struct {
 	rights Rights
 	// usedBy is the member who joined by it, or 0 while it waits.
 	usedBy int64
+	// expiresAt is when it stops admitting anyone, unused: its lifetime after it was made (D346).
+	expiresAt time.Time
 }
 
 // AddLink makes a link for one person to join by, once, with the host's note of who it is for,
@@ -51,10 +54,13 @@ func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string, rights Rig
 		return LinkMade{}, err
 	}
 	hub.lastID++
+	now := hub.clock.Now()
 	hosted.links[hub.lastID] = &link{
 		id: hub.lastID, placeID: hub.lastID, secretHash: sha256.Sum256([]byte(secret)),
 		locateHash: discoverylink.LocateHash(secret), secret: secret, hostNote: hostNote, rights: rights,
+		expiresAt: now.Add(hub.lifetimes.Link),
 	}
+	hosted.touch(now)
 	hosted.lastRights = rights
 	hub.linksChanged()
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
@@ -80,10 +86,13 @@ func (hub *Hub) AnotherLinkFor(sessionID, hostUserID, memberID int64) (LinkMade,
 		return LinkMade{}, ErrNoMember
 	}
 	hub.lastID++
+	now := hub.clock.Now()
 	hosted.links[hub.lastID] = &link{
 		id: hub.lastID, placeID: guest.placeID, forMember: guest.id, secretHash: sha256.Sum256([]byte(secret)),
 		locateHash: discoverylink.LocateHash(secret), secret: secret, hostNote: guest.hostNote, rights: guest.rights,
+		expiresAt: now.Add(hub.lifetimes.Link),
 	}
+	hosted.touch(now)
 	hub.linksChanged()
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
 }
@@ -100,6 +109,7 @@ func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
 		return ErrNoLink
 	}
 	delete(hosted.links, linkID)
+	hosted.touch(hub.clock.Now())
 	return nil
 }
 
@@ -113,10 +123,12 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
+	now := hub.clock.Now()
 	joined, used := hub.sessionByLink(secret)
-	if used == nil || used.usedBy != 0 {
-		return Joined{}, ErrNoSession
+	if used == nil || !used.waits(now) {
+		return Joined{}, ErrNoSession // used, withdrawn, past its lifetime (D346), or its session over
 	}
+	joined.touch(now)
 	var taking *member
 	if used.forMember != 0 {
 		// A new link for a guest's place: whoever joins by it takes the place over, and the devices
@@ -126,7 +138,7 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 			return Joined{}, ErrNoSession
 		}
 		taking.moveTo(name, person)
-		joined.settle(hub.clock.Now())
+		joined.settle(now)
 	} else {
 		hub.lastID++
 		taking = &member{

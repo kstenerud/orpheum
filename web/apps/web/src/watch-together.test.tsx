@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import "./i18n.ts";
+import { i18n } from "./i18n.ts";
 
 import { act, useState, type JSX } from "react";
 import { stallAfterMs } from "@orpheum/player";
 import { playedMutedEvent } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { timeText } from "./date-time-text.ts";
 import { PlayView } from "./play.tsx";
 import {
   buttonWithText,
@@ -189,6 +190,27 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     await click(buttonWithText(mounted.container, "Remove them"));
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/eject/2");
     expect(mounted.container.textContent).not.toContain("Gran (Grandma)");
+    mounted.unmount();
+  });
+
+  it("says until when each waiting link lets its person in (D346)", async () => {
+    hostSession();
+    const expiresAt = Date.UTC(2026, 9, 26, 21, 40);
+    const waiting = { id: 4, rights: pauseOnly, hostNote: "Grandma", expiresAt };
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [waiting], members: [karl] },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    expect(rowStarting(mounted.container, "A link for Grandma")?.textContent).toBe(
+      `A link for Grandma, not used yet, may play and pause, good until ${timeText(expiresAt, i18n.language)}`,
+    );
     mounted.unmount();
   });
 

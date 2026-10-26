@@ -307,7 +307,7 @@ func newTogether(dependencies *api.Dependencies, logger *slog.Logger) *together.
 func wireJobsInto(
 	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
 ) (openedServices, error) {
-	opened.jobServices.nodes = opened.nodes
+	opened.jobServices.nodes, opened.jobServices.together = opened.nodes, opened.together
 	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// Which of each person's devices are open now, and the casts between them (D337).

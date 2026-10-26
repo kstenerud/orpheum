@@ -5,6 +5,7 @@ import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
+import { timeText } from "./date-time-text.ts";
 import { FormRow } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -321,7 +322,7 @@ function PeopleList(props: {
   readonly allLinks: readonly SessionLink[];
   readonly onOpen: (opened: Opened) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <ul className="watch-together__people">
       {props.members.map((member) => {
@@ -349,6 +350,9 @@ function PeopleList(props: {
             }}
           >
             {t("watchTogether.waitingLink", { note: link.hostNote })}, {rightsText(t, link.rights)}
+            {link.expiresAt === undefined
+              ? null
+              : `, ${t("watchTogether.linkUntil", { time: timeText(link.expiresAt, i18n.language) })}`}
           </button>
         </li>
       ))}

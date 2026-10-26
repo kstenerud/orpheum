@@ -54,6 +54,12 @@
 //     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
 //     TestHub_OpeningAgainGivesTheHostTheirSession and, through the API,
 //     TestTogether_OnlyAHostOpensMakesLinksAndEnds.
+//   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
+//     from when it was made, then no one, and leaves the host's list and the discovery's links; a
+//     session idle for its idle end, neither played to a player nor acted in by a member, is ended
+//     as the host's end would, each device told "idle". Enforced by
+//     TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed, TestHub_ASessionIdleForItsIdleEndIsEnded and
+//     TestHub_AGroupPlayingToNoPlayerIsIdle.
 //   - A cast is a session of one (D88, D337): its host is the person who cast, its receiver leads
 //     and its remote, a device with no player, commands it; it has no links and is never among the
 //     person's sessions nor their party, which is opened and kept beside it; ending it tells each
@@ -105,6 +111,7 @@
 //     several devices at once.
 //   - D268: drift corrected as the device measures it, the group's named start, and the notes that
 //     say how a follower follows.
+//   - D346: a link admits for an hour, and a session idle for six hours is ended.
 //   - D243 §1, §3 and §9: a guest's cookie, secrets after #, and the numbers it is held to, as
 //     D261 §1, §7 revised them; a signed-in member's viewing is deferred (D261 §3).
 //   - docs/contributors/design/plans/watch-together.md, and cut-a §5.1: the messages.
@@ -116,5 +123,6 @@
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the host's commands, waiting for players, and stalls.
+//   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
 //   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).
 package together

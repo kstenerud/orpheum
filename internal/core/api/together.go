@@ -46,6 +46,8 @@ type TogetherLinkBody struct {
 	// UsedByMemberID is the member who joined by it; absent while it waits.
 	UsedByMemberID int64              `json:"usedByMemberId,omitempty"`
 	Rights         TogetherRightsBody `doc:"What the person who joins by it may do to playback" json:"rights"`
+	// ExpiresAt is when it stops admitting anyone, while it waits (D346).
+	ExpiresAt int64 `doc:"Unix milliseconds after which it admits no one; absent once used (D346)" json:"expiresAt,omitempty"` //nolint:lll // one struct tag
 }
 
 // TogetherRightsBody is what a guest may do to playback, each given or withheld in their link
@@ -273,6 +275,7 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
 			ID: each.ID, HostNote: each.HostNote, Secret: each.Secret, UsedByMemberID: each.UsedBy,
 			Rights: TogetherRightsBody(each.Rights), Link: togetherLink(dependencies, each.Secret),
+			ExpiresAt: waitingUntil(each),
 		})
 	}
 	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
@@ -282,6 +285,14 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 		})
 	}
 	return output, nil
+}
+
+// waitingUntil is when a link stops admitting anyone, in Unix milliseconds, while it waits; 0 once used.
+func waitingUntil(link together.LinkView) int64 {
+	if link.UsedBy != 0 {
+		return 0
+	}
+	return link.ExpiresAt.UnixMilli()
 }
 
 func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkInput) (*TogetherLinkOutput, error) {

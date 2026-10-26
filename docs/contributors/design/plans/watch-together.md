@@ -52,7 +52,11 @@ is a player's position, buffering, play, pause, seek and rate
   joining still works
   ([D252](../../decisions/working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end)
   §5). The host may withdraw a link: it admits no one from then on, and a person who already
-  joined by it stays.
+  joined by it stays. **An invitation is short-term**
+  ([D346](../../decisions/working-notes.md#d346--a-watch-together-invitation-is-short-term-a-link-admits-for-an-hour-ending-the-session-ends-every-link-and-membership-and-a-session-idle-for-six-hours-is-ended)): a link admits for `together_link_lifetime_seconds`
+  (an hour) from when it was made, then no one, and the host's list says until when; whoever joined
+  in time stays. A guest whose link no longer works is told invitations are short-lived and to ask
+  for another.
 - **A membership follows its person** ([D267](../../decisions/working-notes.md#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)). A guest's is kept by the browser that
   joined, with the link it came by, so closing the page loses nothing and the same link opened
   again in that browser comes back as the same member; no other browser can use it. Someone
@@ -82,7 +86,13 @@ is a player's position, buffering, play, pause, seek and rate
   token makes the membership theirs (D243 §2, D267 §2), but recording their viewing as their own is
   deferred (D246 §4, D261 §3). An anonymous viewer accrues nothing.
 - **A session lives in the server's memory.** A host has one; reopening the host's page gives it
-  back. A restart ends every session.
+  back. A restart ends every session. Ending it ends every link and membership at once. **A session
+  idle for `together_idle_session_end_hours` (6) is ended** as the host's end would, each device told
+  `idle` (D346): idle is no group playing to an attached player and nothing a member does (a
+  command, a join, a leave, a link made or withdrawn, a member removed, the host opening it); a
+  page's own reports, pings, reconnects and voice signalling are not a member's doing.
+- **A film ending moves the group on with the host.** The host's player moving on to the next
+  episode, by Up next or its autoplay, puts it on for everyone without stopping first (D339).
 
 ## Sync
 

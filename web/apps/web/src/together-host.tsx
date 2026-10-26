@@ -9,11 +9,11 @@ import {
   type GroupCommand,
   type TogetherConnection,
 } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { useToken } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { forgetMembership, startLagMemory, type Membership } from "./together-storage.ts";
@@ -115,16 +115,31 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
 /** The host's stop, sent as they leave the player: every screen goes black (D246 §5). */
 const stopForEveryone: GroupCommand = { command: "stop" };
 
+/**
+ * The host's command as they leave the player of fileId: stop, so every screen goes black (D246 §5),
+ * unless they leave it for another film's player, as Up next and its autoplay move them on, when
+ * nothing is sent and that player puts its film on for everyone: the group follows the host's player
+ * into the next episode, its screens never going black between (D339).
+ */
+function useCommandOnLeaving(fileId: number): () => GroupCommand | undefined {
+  const { navigation } = useServices();
+  return useCallback(() => {
+    const goingTo = navigation.route();
+    return goingTo.screen === "play" && goingTo.fileId !== fileId ? undefined : stopForEveryone;
+  }, [navigation, fileId]);
+}
+
 /** The host's player, leading the session it is connected to. */
 function HostLeading(
   props: HostPlayer & { readonly membership: Membership; readonly onOver: () => void },
 ): JSX.Element {
   const { t } = useTranslation();
   const token = useToken();
+  const commandOnLeaving = useCommandOnLeaving(props.fileId);
   const { connection, snapshot } = useTogether({
     credential: props.membership.credential,
     sessionToken: token,
-    commandOnLeaving: stopForEveryone,
+    commandOnLeaving,
   });
   const { fileId, video, startPositionMs, onOver } = props;
   // The tab's one voice for the session, shared with the status tray's pop-up (D281 §5).

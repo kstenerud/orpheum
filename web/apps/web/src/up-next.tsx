@@ -20,6 +20,12 @@ import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { Still } from "./poster.tsx";
+import {
+  noteAutoplayed,
+  StillWatching,
+  useAnyPressForgetsAutoplays,
+  useIsAskingStillWatching,
+} from "./still-watching.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { TvControls } from "./tv-controls.tsx";
@@ -178,9 +184,71 @@ export function UpNextOffer(props: {
   readonly onPlay: () => void;
 }): JSX.Element | null {
   const ending = useEnding(props.videoRef);
+  const { isShown, isCounting, setChoice } = useOfferChoice(ending, props.isAutoplayOn);
+  const playRef = useRef<HTMLButtonElement>(null);
+  const isPressable = props.isPressable !== false;
+  const { isAsking, secondsLeft } = useAutoplay(isCounting, isPressable, props.onPlay);
+  const isAnswered = isPressable && !isAsking;
+  useChoiceOfPresses({
+    isShown: isShown && isAnswered,
+    isCounting: isCounting && isAnswered,
+    playRef,
+    onChoice: setChoice,
+  });
+  useFocusAsItShows(isShown && isAnswered, ending.hasEnded, playRef);
+  const { navigation } = useServices();
+  if (!isShown) {
+    return null;
+  }
+  const dismiss = (): void => {
+    setChoice({ isDismissed: true, isCancelled: true });
+  };
+  if (isAsking) {
+    return (
+      <StillWatching
+        onContinue={props.onPlay}
+        onStop={() => {
+          dismiss();
+          navigation.back();
+        }}
+      />
+    );
+  }
+  const words = (
+    <OfferWords upNext={props.upNext} secondsLeft={isCounting ? secondsLeft : undefined} />
+  );
+  if (!isPressable) {
+    return (
+      <div className="up-next">
+        <div className="up-next__play">{words}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="up-next" data-focus-container="">
+      <button ref={playRef} type="button" className="up-next__play" onClick={props.onPlay}>
+        {words}
+      </button>
+      <DismissButton onDismiss={dismiss} />
+    </div>
+  );
+}
+
+/**
+ * What the person did to the offer, and so whether it shows and counts; moved back from the end, the
+ * offer comes again as it nears it.
+ */
+function useOfferChoice(
+  ending: Ending,
+  isAutoplayOn: boolean,
+): {
+  readonly isShown: boolean;
+  readonly isCounting: boolean;
+  readonly setChoice: (change: OfferChoice | ((choice: OfferChoice) => OfferChoice)) => void;
+} {
   const [choice, setChoice] = useState<OfferChoice>(noChoice);
-  const { isNearTheEnd, isShown, isCounting } = offerState(ending, choice, props.isAutoplayOn);
-  // Moved back from the end, the offer comes again as it nears it: adjusted as it renders.
+  const { isNearTheEnd, isShown, isCounting } = offerState(ending, choice, isAutoplayOn);
+  // Adjusted as it renders.
   const [wasNear, setWasNear] = useState(isNearTheEnd);
   if (wasNear !== isNearTheEnd) {
     setWasNear(isNearTheEnd);
@@ -188,40 +256,27 @@ export function UpNextOffer(props: {
       setChoice(noChoice);
     }
   }
-  const playRef = useRef<HTMLButtonElement>(null);
-  const secondsLeft = useCountdown(isCounting, props.onPlay);
-  const isPressable = props.isPressable !== false;
-  useChoiceOfPresses({
-    isShown: isShown && isPressable,
-    isCounting: isCounting && isPressable,
-    playRef,
-    onChoice: setChoice,
+  return { isShown, isCounting, setChoice };
+}
+
+/**
+ * Autoplay's count while isCounting, and onPlay once it runs out; where presses answer it, a run of
+ * autoplays with none between asks "Still watching?" instead of counting (D339).
+ */
+function useAutoplay(
+  isCounting: boolean,
+  isPressable: boolean,
+  onPlay: () => void,
+): { readonly isAsking: boolean; readonly secondsLeft: number } {
+  useAnyPressForgetsAutoplays();
+  const isAsking = useIsAskingStillWatching(isCounting && isPressable);
+  const secondsLeft = useCountdown(isCounting && !isAsking, () => {
+    if (isPressable) {
+      noteAutoplayed();
+    }
+    onPlay();
   });
-  useFocusAsItShows(isShown && isPressable, ending.hasEnded, playRef);
-  if (!isShown) {
-    return null;
-  }
-  if (!isPressable) {
-    return (
-      <div className="up-next">
-        <div className="up-next__play">
-          <OfferWords upNext={props.upNext} secondsLeft={isCounting ? secondsLeft : undefined} />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="up-next" data-focus-container="">
-      <button ref={playRef} type="button" className="up-next__play" onClick={props.onPlay}>
-        <OfferWords upNext={props.upNext} secondsLeft={isCounting ? secondsLeft : undefined} />
-      </button>
-      <DismissButton
-        onDismiss={() => {
-          setChoice({ isDismissed: true, isCancelled: true });
-        }}
-      />
-    </div>
-  );
+  return { isAsking, secondsLeft };
 }
 
 /** What the offer says: the next episode's still, its place and name, and the count while it runs. */

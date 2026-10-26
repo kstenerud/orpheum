@@ -151,6 +151,8 @@ var sectionByKey = map[Key]Section{
 	TogetherSettleAfterChangeMs:                    SectionTogether,
 	TogetherSnapSeeksBeyondSeconds:                 SectionTogether,
 	TogetherStartLeadMs:                            SectionTogether,
+	TogetherLinkLifetimeSeconds:                    SectionTogether,
+	TogetherIdleSessionEndHours:                    SectionTogether,
 	TogetherSyncWaitSeconds:                        SectionTogether,
 	VoiceRelayCredentialHours:                      SectionTogether,
 	AssignedJobLimitHours:                          SectionNodes,
