@@ -401,6 +401,12 @@ lint-commits: ## Commit subjects, bodies and attribution trailers
 # stamps are cleared, every tier runs whole, uncached, and revert-red probes the last SINCE's commits
 # with every browser run in turn. Every step runs to its end, a failed one too. CI runs it nightly
 # (.github/workflows/ci.yml); the 2.5-hour M4 acceptance stays a milestone's.
+#
+# check-verbose's own web-test step runs vitest.config.ts's "fast" project (plain, DOM-free
+# .test.ts files) with isolation off, for speed (test-architecture-2026-10-26.md, finding 4); the
+# `test:isolated` run below is the backstop that guarantee asks for: the same suite, every file
+# isolated, trusting nothing the "fast" project's own empirical check (vitest.config.ts's comment)
+# found, so a module-state leak between two such files that check missed is still caught nightly.
 SINCE ?= 24 hours ago
 
 .PHONY: check-everything
@@ -408,6 +414,7 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	@rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" "$$(git rev-parse --git-path orpheum-check-passed)"; \
 	  failed=0; \
 	  $(MAKE) --no-print-directory check-verbose || failed=1; \
+	  npm --prefix web run --silent test:isolated || failed=1; \
 	  $(UNCONTROLLED); $(HERMETIC) go test -race -count=1 -p "$$(( ($$(nproc) + 1) / 2 ))" -timeout 30m ./... || failed=1; \
 	  $(MAKE) --no-print-directory test-integration-run || failed=1; \
 	  npm --prefix web run --silent lint:full || failed=1; \
