@@ -36,7 +36,7 @@ func TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone(t *testing.T) {
 func TestHub_TheOnlyPlayerStallingHoldsTheGroupUntilItIsReady(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.clock.Advance(time.Minute)
@@ -75,7 +75,7 @@ func TestHub_EveryPlayerStalledOrGoneHoldsTheGroupUntilOneIsReady(t *testing.T) 
 		} else {
 			stage.ready(t, stage.host, true)
 		}
-		_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+		_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 		held := watchBox.last(MessageWelcome).Group
 		if held.State != GroupWaiting || held.PositionMs != 70_000 {
 			t.Fatalf("host dropped %t, every player stalled or gone: %+v; want Waiting at 70 s", lastDrops, held)
@@ -103,8 +103,8 @@ func TestHub_TheLastPlayerDroppingHoldsTheGroupUntilOneIsBack(t *testing.T) {
 	t.Parallel()
 	for _, stallsFirst := range []bool{false, true} {
 		stage := newStage(t)
-		host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-		_, voiceBox := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+		host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+		_, voiceBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 		stage.ready(t, host, false)
 		stage.command(t, host, CommandChangeItem, 7)
 		stage.clock.Advance(time.Minute)
@@ -116,7 +116,7 @@ func TestHub_TheLastPlayerDroppingHoldsTheGroupUntilOneIsBack(t *testing.T) {
 		if held.State != GroupWaiting || held.Event != EventWaitingFor {
 			t.Fatalf("stalled first %t, the only player dropped: %+v; want Waiting", stallsFirst, held)
 		}
-		back, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+		back, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 		stage.ready(t, back, true)
 		stage.clock.Advance(10 * time.Second)
 		if group := voiceBox.last(MessageGroup).Group; group.State != GroupWaiting {
@@ -167,7 +167,7 @@ func TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady(t
 		t.Errorf("at the sync wait's time, the host still loading: %+v; want Playing on without the host", group)
 	}
 	short := Tuning{SyncWaitMs: 5000}
-	_, err := stage.hub.Attach(guest.MembershipCredential, RoleVoice, true, nil, short, (&inbox{}).send)
+	_, err := stage.hub.Attach(guest.MembershipCredential, RolePanel, true, nil, short, (&inbox{}).send)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,9 +210,9 @@ func TestHub_AfterASeekEachPlayerLoadsTheNewPlaceWithoutStalling(t *testing.T) {
 func TestHub_TheHostsPlayerIsWaitedForAsItLoadsWhatTheHostPutOn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {

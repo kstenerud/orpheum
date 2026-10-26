@@ -13,8 +13,8 @@ import (
 func TestHub_AStateThatChangesNothingSendsNoRoster(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-	guestDevice, _ := stage.attach(t, stage.join(t).MembershipCredential, RolePlayback)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	guestDevice, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
 	stage.ready(t, guestDevice, true)
 	before := hostBox.count(MessageRoster)
 	for range 5 {
@@ -34,8 +34,8 @@ func TestHub_AStateThatChangesNothingSendsNoRoster(t *testing.T) {
 func TestBroadcast_IsEncodedOnceForEveryDevice(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-	_, guestBox := stage.attach(t, stage.join(t).MembershipCredential, RolePlayback)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	_, guestBox := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
 	toHost, toGuest := hostBox.last(MessageRoster), guestBox.last(MessageRoster)
 	hostBytes, hostErr := toHost.MarshalJSON()
 	guestBytes, guestErr := toGuest.MarshalJSON()

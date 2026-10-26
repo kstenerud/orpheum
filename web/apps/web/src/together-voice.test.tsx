@@ -127,16 +127,16 @@ const welcome = {
       name: "Karl",
       isHost: true,
       devices: [
-        { id: 3, role: "playback" },
-        { id: 4, role: "voice" },
+        { id: 3, role: "video" },
+        { id: 4, role: "panel" },
       ],
     },
     {
       id: 2,
       name: "Gran",
       devices: [
-        { id: 7, role: "playback" },
-        { id: 8, role: "voice" },
+        { id: 7, role: "video" },
+        { id: 8, role: "panel" },
       ],
     },
   ],
@@ -185,7 +185,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
       v: 2,
       type: "hello",
       credential: "viewer-credential",
-      role: "voice",
+      role: "panel",
     });
     expect(devices.processedAsked).toEqual([]); // no microphone until Talk
     expect(mounted.container.textContent).toContain("Voice: connecting…");
@@ -258,7 +258,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
       ...welcome,
       roster: welcome.roster.map((member) => ({
         ...member,
-        devices: member.devices.filter((device) => device.role !== "voice"),
+        devices: member.devices.filter((device) => device.role !== "panel"),
       })),
     });
     expect(devices.calls).toHaveLength(0);

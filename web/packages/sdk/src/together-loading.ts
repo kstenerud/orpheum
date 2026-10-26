@@ -22,7 +22,7 @@ export const cooperativeRunwayS = 10;
 function isAnotherLoading(snapshot: TogetherSnapshot): boolean {
   return snapshot.roster.some((member) =>
     member.devices.some(
-      (device) => device.id !== snapshot.deviceId && device.role !== "voice" && device.isBuffering,
+      (device) => device.id !== snapshot.deviceId && device.role !== "panel" && device.isBuffering,
     ),
   );
 }

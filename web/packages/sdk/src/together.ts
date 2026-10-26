@@ -65,7 +65,7 @@ export interface CannotKeepUp {
  * What a device does for its member (D120): plays the film, carries their voice, or both. A
  * voice device takes no part in the group's sync.
  */
-export type DeviceRole = "playback" | "voice" | "both";
+export type DeviceRole = "video" | "panel" | "both";
 
 /** What a page waits on before its film can play, as it tells the session; "" for nothing. */
 export type Standing = "" | "needsTap";

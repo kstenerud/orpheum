@@ -264,7 +264,7 @@ export const callRetryWaitsMs: readonly number[] = [1000, 2000, 4000, 8000, 10_0
 export const callConnectsWithinMs = 15_000;
 
 /** The roles of devices that carry a person's voice (D120). */
-const voiceRoles: ReadonlySet<string> = new Set(["voice", "both"]);
+const voiceRoles: ReadonlySet<string> = new Set(["panel", "both"]);
 
 /** A person's voice device: its id, and its member's id and name. */
 interface PartnerDevice {
@@ -534,7 +534,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       credential: this.#options.credential,
       client: this.#options.client,
       sessionToken: this.#options.sessionToken,
-      role: "voice",
+      role: "panel",
       openSocket: this.#options.openSocket,
       monotonicMs: this.#options.monotonicMs,
     });
@@ -785,7 +785,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
 
 /**
  * A person's voice in their session (watch-together.md, Voice; D68, D193 §4, D281): hearing, it
- * attaches a second device of the membership with the voice role, with no microphone, then keeps
+ * attaches a second device of the membership as its panel (D338 §4), no microphone, then keeps
  * one audio call with every other person's voice device in the roster, the lower device id making
  * the offer, through the relay's ICE servers. Talk opens the microphone and sends it on those calls,
  * and stopping closes it, neither making a call again. A device leaving the roster ends its call; a

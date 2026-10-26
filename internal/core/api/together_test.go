@@ -43,7 +43,7 @@ func (harness testHarness) dialTogether(t *testing.T, credential string) socket 
 	opened := socket{t: t, connection: connection}
 	opened.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello, Credential: credential,
-		Role: together.RolePlayback, Client: "index-T3st.js",
+		Role: together.RoleVideo, Client: "index-T3st.js",
 	})
 	return opened
 }

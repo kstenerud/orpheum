@@ -21787,9 +21787,45 @@ tester would, administered from `localhost:8441` and from another machine at hom
 `localhost:8440` with the hint, paired by a staging key, and signed in to from away through its
 realm in 3.5 s.
 
-## D338 — Reserved: casting to one's own devices, revised: back to the page before, the visible tab, one member with a device per role, controls on both, Back or a double select ends control
+## D338 — A cast goes to the device's tab in front, its receiver keeps a television's controls and leaves by Back or a double OK, and Stop casting returns it to the page it was on
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, after trying the first build of
+[D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back) ([cast-to-device.md](../design/plans/cast-to-device.md) §11). **Amends** D337 §3,
+§4 and the §11 assumptions it was built on; keeps D337 §1, §2, §5–§8, and
+[D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
+as it names its roles.
+
+1. **Stop casting returns the receiver to where it was.** *"Ideally, I want stop casting to return
+   the TV to its previous state, so whatever page it happened to be on before being taken over."*
+   And: *"Leaving cast mode should return the controlled device back to whatever page it was
+   showing before being taken over."* The first build paused the receiver and left it a player
+   (§11's assumption 5). Leaving by the receiver's own exit (§6) is not this: there the film plays
+   on, there, as D337 §4 has it.
+2. **The tab in front receives.** *"The currently visible tab. If no tab is visible, it should give
+   the user an error that they need to bring an orpheum tab to the front."* The first build handed
+   the cast to the device's newest connection (§11's assumption 3). Each page's live connection
+   says whether its tab is in front, and the "Cast to" list says of a device that it has no
+   Orpheum tab in front.
+3. **Casting stays hidden while hosting Watch Together**, *"fine for now"* (§11's assumption 11).
+4. **A member is the person; their devices fill roles.** *"A remote session member is the human.
+   They can have multiple devices connected to that session (one per role it fulfills) but that's
+   still one 'member'. For now we will have two device roles: control panel + voice, and video
+   viewer."* Watch Together's hub already counts a member as a person with devices attached in
+   roles (D120); its roles are named for these two: `video`, the video viewer, and `panel`, the
+   control panel with voice, with `both` for one device that is both (they were `playback`,
+   `voice` and `both`). A cast is one member: the remote attaches as the panel, the receiver as
+   the video viewer.
+5. **Both devices have controls.** *"Both devices should have controls (the controlled device would
+   have only the fullscreen controls)."* The receiver shows a television's player controls, the
+   overlay over the film, rather than nothing (D337 §3 had it show the film and nothing else).
+6. **Back, or OK pressed twice, leaves controlled mode.** *"pressing back or double-pressing select
+   inside the controlled device's view exits controlled mode. I believe this should cover all
+   cases so that you can exit from the controlled device regardless of the local tools
+   available."* This replaces D337 §4's two presses, any key raising Take back control and one
+   more confirming it. Every other press works the receiver's own controls. Leaving gives the
+   receiver back its own playback, which plays on there, and the remote is told.
+
+**Status:** Decided; being built (cast-to-device.md §11).
 
 ## D339 — Up next keeps its 30 s lead until credits are detected, a run of three autoplays with no press asks Still watching, and a host's autoplay moves their group on
 

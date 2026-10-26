@@ -42,7 +42,7 @@ const welcome = {
   memberId: 7,
   deviceId: 9,
   group: { state: "Paused", positionMs: 1000, rate: 1, fileId: 3 },
-  roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "playback" }] }],
+  roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video" }] }],
 };
 
 describe("a device's hello and welcome (cut-a §5.1)", () => {
@@ -102,9 +102,7 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
     sockets.opened[1]!.onMessage(
       JSON.stringify({
         ...welcome,
-        roster: [
-          { id: 7, name: "Gran", devices: [{ id: 9, role: "playback", status: "needsTap" }] },
-        ],
+        roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video", status: "needsTap" }] }],
       }),
     );
     expect(standings()).toEqual(["needsTap", "", "needsTap", "needsTap"]);
@@ -115,9 +113,7 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
       JSON.stringify({
         v: 2,
         type: "roster",
-        roster: [
-          { id: 7, name: "Gran", devices: [{ id: 9, role: "playback", status: "dancing" }] },
-        ],
+        roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video", status: "dancing" }] }],
       }),
     );
     expect(connection.snapshot().roster[0]?.devices[0]?.status).toBeUndefined(); // one this client does not know

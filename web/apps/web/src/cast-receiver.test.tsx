@@ -174,7 +174,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(server.heard[0]).toMatchObject({
       type: "hello",
       credential: "receiver",
-      role: "playback",
+      role: "video",
     });
     await server.say(welcome);
     expect(server.heard).toContainEqual(

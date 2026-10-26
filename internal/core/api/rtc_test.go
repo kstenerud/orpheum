@@ -88,7 +88,7 @@ func TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel(t *testing.T) {
 	//nolint:gosec // G117: a test's hello, with no session token in it
 	hello, err := json.Marshal(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello,
-		Credential: opened.Body.MembershipCredential, Role: together.RolePlayback,
+		Credential: opened.Body.MembershipCredential, Role: together.RoleVideo,
 	})
 	if err != nil {
 		t.Fatal(err)

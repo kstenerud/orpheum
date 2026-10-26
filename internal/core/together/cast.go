@@ -9,10 +9,11 @@ import (
 )
 
 // A cast is a session of one (D88, D337; plans/cast-to-device.md §3, A): the person who casts is its
-// host and only member, the device that receives is their player and leads it, and the device that
-// cast is their remote, a device with no player (RoleVoice: it plays nothing, D120). It has no links,
-// no locators and no place among the person's Watch Together sessions: Open, Mine and a host's
-// endpoints never find it, so a host keeps their party beside it.
+// host and only member, one member on two devices (D338 §4). The device that receives is attached
+// as their video viewer (RoleVideo) and leads; the device that cast is their control panel with
+// voice (RolePanel), their remote, which plays nothing (D120). It has no links, no locators and no
+// place among the person's Watch Together sessions: Open, Mine and a host's endpoints never find
+// it, so a host keeps their party beside it.
 
 // The reasons a cast ends, which each of its devices is told as it ends (MessageEnded).
 const (

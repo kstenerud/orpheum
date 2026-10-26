@@ -40,18 +40,26 @@ const (
 // ProtocolVersion is the version of the messages, every message's v (cut-a §5.1).
 const ProtocolVersion = 2
 
-// DeviceRole is what a device does for its member (D120): plays the film, carries voice, or both.
+// DeviceRole is the part of a member a device fulfils (D120, D338 §4): a member is the person, one
+// member however many of their devices are connected, and each device is attached in a role. There
+// are two: the video viewer, which plays the film and takes part in the group's sync, and the control
+// panel with voice, which plays nothing, carries the person's voice and sends their commands, as a
+// cast's remote does. A device that is both, the one device most people watch on, is RoleBoth.
 type DeviceRole string
 
 // The device roles.
 const (
-	RolePlayback DeviceRole = "playback"
-	RoleVoice    DeviceRole = "voice"
-	RoleBoth     DeviceRole = "both"
+	// RoleVideo is the video viewer: the device plays the film, as a cast's receiver does.
+	RoleVideo DeviceRole = "video"
+	// RolePanel is the control panel with voice: the device plays nothing, carries voice and
+	// commands, as a cast's remote does.
+	RolePanel DeviceRole = "panel"
+	// RoleBoth is one device in both roles.
+	RoleBoth DeviceRole = "both"
 )
 
 // plays is whether a device of the role plays the film, and so takes part in the group's sync.
-func (role DeviceRole) plays() bool { return role == RolePlayback || role == RoleBoth }
+func (role DeviceRole) plays() bool { return role == RoleVideo || role == RoleBoth }
 
 // CommandKind is one thing a command asks of the group.
 type CommandKind string

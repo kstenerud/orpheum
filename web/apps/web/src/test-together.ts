@@ -37,7 +37,7 @@ export function fakeTogetherServer(): FakeTogetherServer {
     return listeners;
   };
   const device = (): Parameters<OpenTogetherSocket>[0] => {
-    const index = roles.findLastIndex((role) => role !== undefined && role !== "voice");
+    const index = roles.findLastIndex((role) => role !== undefined && role !== "panel");
     return index === -1 ? last() : (opened[index] ?? last());
   };
   return {
@@ -54,7 +54,7 @@ export function fakeTogetherServer(): FakeTogetherServer {
             const message = Object.fromEntries(Object.entries(parsed));
             heard.push(message);
             if (message["type"] === "hello") {
-              roles[index] = typeof message["role"] === "string" ? message["role"] : "playback";
+              roles[index] = typeof message["role"] === "string" ? message["role"] : "video";
             }
           }
         },

@@ -13,11 +13,11 @@ func TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership(t *testin
 	t.Parallel()
 	stage := newStage(t)
 	older := stage.join(t)
-	_, olderTV := stage.attach(t, older.MembershipCredential, RolePlayback)
+	_, olderTV := stage.attach(t, older.MembershipCredential, RoleVideo)
 	newer := stage.join(t)
-	_, newerPhone := stage.attach(t, newer.MembershipCredential, RolePlayback)
+	_, newerPhone := stage.attach(t, newer.MembershipCredential, RoleVideo)
 	voiceOnly := stage.join(t)
-	_, voicePhone := stage.attach(t, voiceOnly.MembershipCredential, RoleVoice)
+	_, voicePhone := stage.attach(t, voiceOnly.MembershipCredential, RolePanel)
 	sessionID, memberID, isSent := stage.hub.SendAwayNewest("uploadFull")
 	if !isSent || sessionID != stage.opened.SessionID || memberID != newer.MemberID {
 		t.Fatalf("sent away %d of %d (%t); want the newer player, %d", memberID, sessionID, isSent, newer.MemberID)
@@ -31,7 +31,7 @@ func TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership(t *testin
 	if ended := voicePhone.last(MessageEnded); ended.Type != "" {
 		t.Errorf("the member with voice alone was told %+v; want nothing", ended)
 	}
-	if _, err := stage.hub.Attach(newer.MembershipCredential, RolePlayback, true, nil, testTuning,
+	if _, err := stage.hub.Attach(newer.MembershipCredential, RoleVideo, true, nil, testTuning,
 		(&inbox{}).send); err != nil {
 		t.Errorf("the member sent away, coming back: %v; want admitted", err)
 	}
@@ -41,7 +41,7 @@ func TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership(t *testin
 func TestHub_SendAwayNewestSendsNoHost(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostTV := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	_, hostTV := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	if _, _, isSent := stage.hub.SendAwayNewest("uploadFull"); isSent {
 		t.Error("someone was sent away; want no one, the host alone playing")
 	}
@@ -56,14 +56,14 @@ func TestHub_SendAwayNewestSendsNoHost(t *testing.T) {
 func TestHub_PlayersHostedByCountsTheSessionsPlayingDevices(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	stage.attach(t, stage.opened.MembershipCredential, RoleVoice) // the host's player not yet joined
+	stage.attach(t, stage.opened.MembershipCredential, RolePanel) // the host's player not yet joined
 	guest := stage.join(t)
-	stage.attach(t, guest.MembershipCredential, RolePlayback)
-	stage.attach(t, guest.MembershipCredential, RoleVoice)
+	stage.attach(t, guest.MembershipCredential, RoleVideo)
+	stage.attach(t, guest.MembershipCredential, RolePanel)
 	if got := stage.hub.PlayersHostedBy(stage.owner.UserID); got != 2 {
 		t.Errorf("before the host's player joins, the session has %d players; want 2", got)
 	}
-	stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	if got := stage.hub.PlayersHostedBy(stage.owner.UserID); got != 2 {
 		t.Errorf("the host's session has %d players; want 2, the host's and the guest's", got)
 	}

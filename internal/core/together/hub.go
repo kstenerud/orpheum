@@ -435,8 +435,8 @@ type Attachment struct {
 func (hub *Hub) Attach(
 	credential string, role DeviceRole, canSetRate bool, signedIn *Person, tuning Tuning, send Sender,
 ) (Attachment, error) {
-	if !role.plays() && role != RoleVoice {
-		return Attachment{}, fmt.Errorf("role %q: want playback, voice or both", role)
+	if !role.plays() && role != RolePanel {
+		return Attachment{}, fmt.Errorf("role %q: want video, panel or both", role)
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()

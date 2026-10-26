@@ -18,7 +18,7 @@ func TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds(t *testing.T) 
 	tuning := testTuning
 	tuning.StartLeadMs = 500
 	box := &inbox{}
-	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
+	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestHub_AGroupGivesARunUpWhileAPlayerHasNotLearnedHowLateItStarts(t *testin
 		tuning := testTuning
 		tuning.StartLeadMs, tuning.RunUpMs = 500, 2000
 		box := &inbox{}
-		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
+		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func TestHub_APlayerLoadingBeforeTheGroupStartsIsNoStall(t *testing.T) {
 	tuning := testTuning
 	tuning.StartLeadMs, tuning.RunUpMs = 500, 2000
 	box := &inbox{}
-	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
+	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		tuning := testTuning
 		tuning.RunUpMs, tuning.SnapSeeksBeyondMs = 2000, jump.snapMs
 		box := &inbox{}
-		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
+		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
 		if err != nil {
 			t.Fatal(err)
 		}
