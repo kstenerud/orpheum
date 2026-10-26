@@ -536,6 +536,33 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** a serving test's log full of `migrating` lines, or `argon2` high in a package's
   profile.
 
+### 29. A web test helper's wait gave up within 2 s, or after a fixed count of empty ticks
+
+- **Mechanism:** `test-dom.tsx`'s `settleUntil` bounded its wait to about 2 s, and `settleAnswers`
+  (used by every `mount`, `click`, `submit`, `fire`, `choose` and `enter`) waited a fixed 5 empty
+  timer-turns regardless of whether a request was still in flight or the DOM was still changing.
+  A passing test never reaches either bound, so the only thing either number actually did was set
+  how much slack a busy machine got before a real hang or a slow promise chain turned into a false
+  red (`settleAnswers`) or a wait that gave up silently (`settleUntil`, before the audit of
+  2026-10-25, W11, made it fail instead).
+- **Instance** (test architecture review, 2026-10-26, finding 3): 102 `settleUntil` call sites and
+  every DOM test via `settleAnswers`; proving the fix meant raising `settleUntil`'s own bound,
+  which made its revert-red test (`test-dom.test.tsx`) pay the full 2 s, then the full 60 s, in
+  real wall time until it was driven with vitest's fake timers instead.
+- **Why it was invisible:** 5 empty ticks is enough on an idle machine for the microtask chains an
+  ordinary click or mount produces, so `settleAnswers` "worked" without anyone measuring whether it
+  was sufficient; 2 s is short enough that nobody minded paying it in a single test.
+- **Fix:** `settleAnswers` now waits for `servedBy`'s in-flight request count to reach zero and the
+  DOM to stop mutating, for a few consecutive ticks, rather than a fixed guess at how many ticks
+  that takes; both it and `settleUntil` fail only at the scale of Go's `testutil.ReceiveLimit` (a
+  minute), naming what was still in flight. Testing a minute-scale bound without waiting a minute
+  needed vitest's fake timers advanced in small chunks in a loop, not one large
+  `advanceTimersByTimeAsync` call, which otherwise left a loop awaiting React's `act()` never
+  resolving on the path where the awaited condition resolves partway through (idiosyncrasies.md).
+- **Warning sign:** a wait helper whose bound is a guess at "long enough" rather than derived from
+  another limit already named elsewhere in the codebase; a test of a timeout that pays the real
+  timeout in wall time rather than a faked one.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
