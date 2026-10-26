@@ -552,6 +552,11 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	if !strings.Contains(captured.String(), "discarding cache.db") {
 		t.Errorf("no word of discarding the old cache:\n%s", captured)
 	}
+	// ExecRaw's connection to cache.db, cached from the insert above, must not survive the discard
+	// and rebuild: a write through it now must land in the file the server just reopened, not an
+	// orphaned connection to the one it discarded (finding 5, 2026-10-26).
+	storetest.ExecRaw(t, cachePath,
+		"INSERT INTO job (kind, runnable_at, created_at) VALUES ('backup', 0, 2)")
 	cache, err := store.OpenCache(t.Context(), cachePath, storetest.OpenOptions())
 	if err != nil {
 		t.Fatalf("the rebuilt cache does not open: %v", err)
@@ -567,10 +572,17 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sawProbe := false
 	for _, job := range jobs {
 		if job.CreatedAt == 0 {
 			t.Errorf("the rebuilt cache holds the old file's %s job; it should be gone", job.Kind)
 		}
+		if job.CreatedAt == 2 {
+			sawProbe = true
+		}
+	}
+	if !sawProbe {
+		t.Error("ExecRaw's insert after the discard did not reach the rebuilt cache.db; its connection was stale")
 	}
 }
 
