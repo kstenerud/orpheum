@@ -25,3 +25,13 @@ func TestLog_AwaitLineWaitsForALineHoldingEveryPart(t *testing.T) {
 		t.Errorf("AwaitLine = %q; want the finished line of job 1", line)
 	}
 }
+
+// LogLimit is a failure bound only: AwaitLine returns the moment a matching line is written, so a
+// passing test never waits for it. At 5 s it failed passing code under load (test architecture
+// review, 2026-10-26, finding 3), so it is at ReceiveLimit's scale, not a tighter one.
+func TestLogLimit_IsAtReceiveLimitsScale(t *testing.T) {
+	t.Parallel()
+	if LogLimit != ReceiveLimit {
+		t.Errorf("LogLimit = %v, want ReceiveLimit (%v)", LogLimit, ReceiveLimit)
+	}
+}

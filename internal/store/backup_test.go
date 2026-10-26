@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -147,7 +146,10 @@ func TestBackupInto_CopiesWhileAWriteHoldsTheWriter(t *testing.T) {
 		})
 	}()
 	testutil.Receive(t, holding, "the write to hold the writer")
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	// A failure bound only (test-weight.md §25): the copy is CPU-bound, so a passing test never
+	// waits for it; raised to testutil.ReceiveLimit's scale after a 5 s bound failed once under a
+	// loaded whole-tree run (2026-10-25).
+	ctx, cancel := context.WithTimeout(t.Context(), testutil.ReceiveLimit)
 	defer cancel()
 	err := database.BackupInto(ctx, filepath.Join(t.TempDir(), "backup.db"))
 	close(release)
