@@ -22073,9 +22073,85 @@ this.
 
 **Status:** Built.
 
-## D349 — Reserved: Browsing by library, and a kind for other videos
+## D349 — Libraries are browsed on a page of their own, which replaces Search; a kind, other, holds the videos that are never identified; Films and Series gather every library of theirs but those a person leaves out
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, answering the ten questions of
+[library-browsing.md](../design/plans/library-browsing.md) §8, which the owner asked for on
+2026-10-25 (*"I want to have the ability to browse individual libraries … This will be important
+when we add support for other kinds of videos, like home movies, which won't fit under series or
+films"*). The answers depart from the plan's recommendations in two places: a library is a place,
+on a page of its own, not a filter on the Films page (Q1, Q9), and Films and Series gather their
+libraries with a per-person way to leave one out (Q8). **Extends** D243 §4 (the libraries a role
+reaches are still the only way in), D163 (the folder view is the file tree as the scanner saw it)
+and D149 §7 (folder browsing); **keeps** D160 (a folder is not a collection) and D170 (a correction
+is a person's override).
+
+1. **A page of libraries replaces Search** (Q1, Q9). *"Replace the search page with a 'Libraries'
+   page. On that page you can select libraries (or 'all'). The dropdown shows the libraries in
+   alphabetical order and auto-selects the first one when visiting the page. Eventually all
+   listing view pages will include a search field, and other things like the sorting, genre
+   selection and such along the top row next to the library name."* and *"Libraries goes to a
+   separate page."* The top bar is Films, Series, Libraries, Watch Together. The page's top row holds
+   the library chooser, its views and sorts, and a search field, so search stays one press away
+   until every list carries its own; a search there searches the library chosen, or every one.
+2. **The page starts afresh on every visit, and Back restores it** (Q2): *"the other page resets on
+   every visit, except when using the back button to return to it."* What it shows (the library,
+   the view, the folder, the sort, the search) is in its address, so the top bar's link opens it at
+   its start and Back, a reload and a bookmark return to where it was; focus comes back as on every
+   page (the focus memory of each history entry).
+3. **One kind, `other`, for every video that is neither a film nor a series** (Q3): home movies,
+   concerts, lectures, clips. The library's name, which its admin gives it, says what it holds. A
+   library of the kind files every video it lists as a title of the kind `other`, one title a file,
+   never an extra, an episode or a version of another, with the file's name as its name unless an
+   NFO file beside it names it.
+4. **Dated, and sorted more ways than by date** (Q4, Q5): *"For dates, yes (recorded-time tag, else
+   a date in the name/folder, else the file's time; show where it came from; admin can correct it).
+   However we should be able to sort by things other than date (such as extracted name, file name,
+   etc)."* An other video's recorded date is the container's recorded-time tag as the node's probe
+   reads it, else a date in its file's or folders' names, else the file's modified time, kept with
+   where it came from, which its page shows; an admin's correction is an override (D170) and shows
+   as theirs. Its list sorts by recorded date (newest first, the default), by name, by file name and
+   by date added.
+5. **An other library's page has no genres; it has a View, All or Folders** (Q5): *"'other'
+   libraries won't show things like genre (which wouldn't make sense), but will have a View ['All',
+   'Folders']. For now it will only show video files (all kinds, even really old ones like
+   realmedia), with drill-down into folders."* Folders is the library's folders as the scanner saw
+   them, each opening into its own folders and videos; every video the scanner reads is listed,
+   whatever its container. A disc image is the ISO work's to list; nothing here excludes one.
+6. **A folder is only a view** (Q6): *"Viewing a folder should prioritize its contents. We can save
+   that for later if it's a lot of work."* The videos of a folder in view are the page's interest
+   (D324), as a list's posters are.
+7. **Other videos are videos like any other** (Q7): *"'Other' videos get treated the same as any
+   video. It's just that we can't classify them like movies and series (e.g. no genre). So I may
+   want to view wedding videos with the family using watch together."* They play, resume, appear in
+   Continue Watching and in search, and are watched together, as a film is.
+8. **Films and Series gather every library of their kind, and a person may leave one out** (Q8):
+   *"The 'Film' and 'Series' links from the top menu are aggregated from all libraries of those
+   types. The user can exclude a library from that aggregated view."* The choice is the person's,
+   kept on their account and made on their own settings; a library left out is still on the
+   Libraries page.
+9. **The alphabet rail shows only where it means something, and only letters that lead somewhere.**
+   The owner, the same day: *"When sorting by anything other than alphabetical, the alphabet rail
+   doesn't make sense so it shouldn't be shown. The rail should also follow the alphabetical sort
+   order selected (when sorting alphabetically)."* and *"The alphabet rail shouldn't show letters
+   that won't map to a starting movie. This also means that it will have to update itself if a
+   movie is found that has a letter not present currently."* The server says which letters the list
+   in its order begins its titles with, by name or by file name, in a handful of index seeks, and the
+   rail asks again with the list's own background poll (D237).
+10. **Nothing about an other video leaves the server unless its owner chooses** (Q10): *"Owners can
+    opt-in on a per-report basis (default no) whether to include 'other' library information. The
+    bug report will be in markdown so they can verify."* An other library is never identified
+    online: it takes NFO files only, which the schema holds it to, so no name of it reaches TMDB. A
+    filing report of an other video withholds its name and paths unless the admin asks for them in
+    that report, and says which it did, in the Markdown they read before posting it.
+
+**Rejected:** a chooser on the Films and Series pages (the plan's §5.2), for a page of libraries
+(the owner, Q1); remembering a chosen library per person or device (Q2); `home_videos` and further
+kinds as they come (Q3); an other video filed as a film in a library that says so, which would have
+spared the title table its new kind and made every list of films ask the library's kind.
+
+**Status:** Building (library-browsing.md). The picture of an other video is an image beside it
+where there is one; a frame the node takes from the video waits for its own step.
 
 ## D350 — Reserved: Disc images (ISO)
 
