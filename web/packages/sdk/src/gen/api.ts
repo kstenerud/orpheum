@@ -4402,6 +4402,11 @@ export interface components {
             sessionId: number;
         };
         TogetherLinkBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds after which it admits no one; absent once used (D346)
+             */
+            expiresAt?: number;
             /** @description Who it is for; only the host sees it */
             hostNote: string;
             /** Format: int64 */

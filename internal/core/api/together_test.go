@@ -573,6 +573,8 @@ func TestTogether_TheStartingWaitsAreTheSettingsStarts(t *testing.T) {
 	}{
 		{settings.TogetherSyncWaitSeconds, together.StartingSyncWait},
 		{settings.TogetherSnapSeeksBeyondSeconds, together.StartingSnapSeeksBeyond},
+		{settings.TogetherLinkLifetimeSeconds, together.StartingLinkLifetime},
+		{settings.TogetherIdleSessionEndHours, together.StartingIdleEnd},
 	} {
 		if start := settings.StartingDuration(held.key); start != held.copied {
 			t.Errorf("%s starts at %s; together's copy is %s", held.key, start, held.copied)
@@ -590,4 +592,35 @@ func TestTogetherTuning_CarriesTheSnapSetting(t *testing.T) {
 	if err != nil || tuning.SnapSeeksBeyondMs != 12_000 {
 		t.Errorf("the tuning's snap = %d ms (%v); want the 12 s set", tuning.SnapSeeksBeyondMs, err)
 	}
+}
+
+// The host sees when each waiting link stops admitting anyone, an hour after it was made, and once
+// that has passed it is gone from their links and its join is refused (D346).
+func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
+	var made TogetherLinkOutput
+	if err := json.Unmarshal([]byte(link.body), &made.Body); err != nil {
+		t.Fatal(err)
+	}
+	var details TogetherDetailsOutput
+	if err := json.Unmarshal([]byte(harness.do(t, http.MethodGet, path, admin, nil).body), &details.Body); err != nil {
+		t.Fatal(err)
+	}
+	want := harness.clock.Now().Add(time.Hour).UnixMilli()
+	if len(details.Body.Links) != 1 || details.Body.Links[0].ExpiresAt != want {
+		t.Errorf("the host's links = %+v; want one, expiring at %d", details.Body.Links, want)
+	}
+	harness.clock.Advance(time.Hour)
+	details.Body.Links = nil
+	if err := json.Unmarshal([]byte(harness.do(t, http.MethodGet, path, admin, nil).body), &details.Body); err != nil ||
+		len(details.Body.Links) != 0 {
+		t.Errorf("an hour on, the host's links = %+v (%v); want none", details.Body.Links, err)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/together/join", "",
+		map[string]any{"secret": made.Body.Secret, "name": "Kim"}), http.StatusNotFound, CodeNotFound)
 }

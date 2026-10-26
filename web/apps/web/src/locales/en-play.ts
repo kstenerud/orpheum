@@ -9,6 +9,9 @@ export const enPlay = {
     offer: "Up next: {{place}} · {{name}}",
     countdown: "Plays in {{seconds}} s",
     dismiss: "Dismiss Up next",
+    stillWatching: "Still watching?",
+    continue: "Continue",
+    stop: "Stop",
     settingHeading: "Playing",
     autoplay: "Play the next episode automatically",
     autoplayText:

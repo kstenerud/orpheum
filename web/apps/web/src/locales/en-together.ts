@@ -15,7 +15,7 @@ export const enTogether = {
     name: "Your name",
     join: "Join",
     badLink:
-      "This link does not work: it was used already, withdrawn, or the session is over. Ask the person who sent it for a new one.",
+      "This link does not work: invitations are short-lived, and this one has expired, was used already or was withdrawn, or the session is over. Ask the person who sent it for a new one.",
     viewerHeading: "Watching together",
     stage: "The film",
     soundOn: "Tap for sound",
@@ -74,6 +74,7 @@ export const enTogether = {
     },
     over: {
       hostEnded: "The host ended the session. You can close this page.",
+      idle: "The session was closed because nothing had happened in it for hours. You can close this page.",
       ejected: "The host removed you from the session. You can close this page.",
       movedAway:
         "You joined this session on another device, by a new link from the host, so it ended here. You can close this page.",
@@ -135,6 +136,7 @@ export const enTogether = {
       "{{name}} stays in until the new link is used. Whoever joins by it takes their place, and the devices they came in on are cut off.",
     showLink: "Show link",
     waitingLink: "A link for {{note}}, not used yet",
+    linkUntil: "good until {{time}}",
     withdraw: "Withdraw",
     withdrawConsequence: "No one can join by this link.",
     withdrawConfirm: "Withdraw it",

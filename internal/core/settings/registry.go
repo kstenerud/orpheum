@@ -264,6 +264,7 @@ func buildRegistry() []Definition {
 		togetherSweepDefinitions(), portMappingDefinitions(), certificateDefinitions(),
 		artworkCacheDefinitions(), libraryAdminDefinitions(), linkShareDefinitions(),
 		nodeTuningDefinitions(), interestDefinitions(), offeredPagesDefinitions(), loggingDefinitions(),
+		togetherLifetimeDefinitions(),
 	)...)
 }
 

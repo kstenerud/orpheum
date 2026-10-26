@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
+import { testServices, withServices } from "./test-services.tsx";
 import {
   offerState,
   upNextCountdownMs,
@@ -105,6 +106,7 @@ describe("the Up next offer over the film", () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     played = 0;
     video = fakeVideo();
+    forgetAutoplays();
   });
 
   afterEach(() => {
@@ -113,7 +115,11 @@ describe("the Up next offer over the film", () => {
     vi.useRealTimers();
   });
 
-  async function offer(isAutoplayOn: boolean, isPressable = true): Promise<HTMLElement> {
+  async function offer(
+    isAutoplayOn: boolean,
+    isPressable = true,
+    services = testServices(),
+  ): Promise<HTMLElement> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     mounted = await mount(
@@ -127,9 +133,24 @@ describe("the Up next offer over the film", () => {
             played += 1;
           }}
         />,
+        services,
       ),
     );
     return mounted.container;
+  }
+
+  /** Plays an episode to its end and lets autoplay play the next, as count runs. */
+  async function autoplayThrough(count: number): Promise<void> {
+    for (let each = 0; each < count; each += 1) {
+      mounted?.unmount();
+      video = fakeVideo();
+      await offer(true);
+      video.stand(1200, true);
+      waitMs(upNextCountdownMs);
+    }
+    mounted?.unmount();
+    mounted = undefined;
+    video = fakeVideo();
   }
 
   function waitMs(ms: number): void {
@@ -207,6 +228,52 @@ describe("the Up next offer over the film", () => {
     video.stand(600);
     video.stand(1190);
     expect(page.textContent).toContain("Up next: S1E3 · Bag");
+  });
+
+  it("after three episodes autoplayed with no press, asks Still watching? instead of counting (D339)", async () => {
+    await autoplayThrough(stillWatchingAfterAutoplays);
+    expect(played).toBe(3);
+    const page = await offer(true);
+    video.stand(1200, true);
+    expect(page.textContent).toContain("Still watching?");
+    expect(page.textContent).not.toContain("Plays in");
+    waitMs(upNextCountdownMs * 2);
+    expect(played).toBe(3);
+    expect(document.activeElement?.textContent).toBe("Continue");
+    act(() => {
+      (document.activeElement as HTMLButtonElement).click();
+    });
+    expect(played).toBe(4);
+  });
+
+  it("starts the run of autoplays again at any press while an episode plays (D339)", async () => {
+    await autoplayThrough(2);
+    await offer(true);
+    video.stand(600);
+    press("down");
+    video.stand(1200, true);
+    waitMs(upNextCountdownMs);
+    expect(played).toBe(3);
+    mounted?.unmount();
+    // Two autoplays since the press, one short of the run that asks.
+    await autoplayThrough(1);
+    const page = await offer(true);
+    video.stand(1200, true);
+    expect(page.textContent).toContain("Plays in 10 s");
+  });
+
+  it("leaves the film at Still watching?'s Stop, playing nothing (D339)", async () => {
+    await autoplayThrough(stillWatchingAfterAutoplays);
+    const services = testServices();
+    const back = vi.spyOn(services.navigation, "back");
+    const page = await offer(true, true, services);
+    video.stand(1200, true);
+    act(() => {
+      [...page.querySelectorAll("button")].find((button) => button.textContent === "Stop")?.click();
+    });
+    expect(back).toHaveBeenCalledOnce();
+    expect(played).toBe(3);
+    expect(page.textContent).toBe("");
   });
 
   it("on a cast's receiver, shows and counts with nothing to press, its presses left to take-back", async () => {

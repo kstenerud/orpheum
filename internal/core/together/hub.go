@@ -72,9 +72,12 @@ type Hub struct {
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
 	onLinksChanged func()
 
-	mutex    sync.Mutex
-	sessions map[int64]*session // guarded by mutex
-	lastID   int64              // the last id given a session, link, member or device; guarded by mutex
+	mutex sync.Mutex
+	// lifetimes are what links made now live for, and when an idle session ends (EndStale); guarded
+	// by mutex.
+	lifetimes Lifetimes
+	sessions  map[int64]*session // guarded by mutex
+	lastID    int64              // the last id given a session, link, member or device; guarded by mutex
 }
 
 // NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on, and
@@ -82,6 +85,7 @@ type Hub struct {
 func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay, logger *slog.Logger) *Hub {
 	return &Hub{
 		clock: clockSource, random: random, mayPlay: mayPlay, logger: logger, sessions: map[int64]*session{},
+		lifetimes: startingLifetimes(),
 	}
 }
 
@@ -114,6 +118,8 @@ type session struct {
 	lastRoster []MemberView
 	// logger is the hub's: each change of the group is logged with the session's id.
 	logger *slog.Logger
+	// lastActiveAt is when a member last did something in it, or it last played (EndStale, D346).
+	lastActiveAt time.Time
 }
 
 // group is the group's state: Position is where it was at At, moving at Rate while it plays.
@@ -235,6 +241,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 				hostMember.addCredential(madeCredential{credential: credential})
 			}
 		}
+		each.touch(hub.clock.Now())
 		return Opened{SessionID: each.id, MembershipCredential: credential}, nil
 	}
 	hub.lastID++
@@ -242,6 +249,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
 		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
 		syncWait: StartingSyncWait, snapSeeksBeyond: StartingSnapSeeksBeyond, lastRights: everyRight(),
+		lastActiveAt: hub.clock.Now(),
 	}
 	hub.lastID++
 	hostPerson := host
@@ -268,6 +276,8 @@ type LinkView struct {
 	// UsedBy is the member who joined by it, or 0 while it waits.
 	UsedBy int64
 	Rights Rights
+	// ExpiresAt is when it stops admitting anyone, while it waits (D346).
+	ExpiresAt time.Time
 }
 
 // MemberDetail is a member as their host sees them: with the note of the link they joined by.
@@ -298,12 +308,15 @@ func (hub *Hub) DetailsOf(sessionID, hostUserID int64) (Details, error) {
 	if err != nil {
 		return Details{}, err
 	}
-	details := Details{
-		SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now()), NextRights: hosted.lastRights,
-	}
+	now := hub.clock.Now()
+	details := Details{SessionID: hosted.id, Group: *hosted.groupView(now), NextRights: hosted.lastRights}
 	for _, each := range hosted.links {
+		if each.usedBy == 0 && !each.waits(now) {
+			continue // expired: EndStale has not yet removed it
+		}
 		details.Links = append(details.Links, LinkView{
 			ID: each.id, HostNote: each.hostNote, Secret: each.secret, UsedBy: each.usedBy, Rights: each.rights,
+			ExpiresAt: each.expiresAt,
 		})
 	}
 	for _, each := range hosted.members {
@@ -342,6 +355,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	}
 	hosted.endLinksOf(ejected)
 	delete(hosted.members, memberID)
+	hosted.touch(hub.clock.Now())
 	hosted.settle(hub.clock.Now())
 	hosted.sendRoster()
 	return nil
@@ -363,6 +377,7 @@ func (hub *Hub) Leave(credential string) error {
 	}
 	left.endLinksOf(leaving)
 	delete(left.members, leaving.id)
+	left.touch(hub.clock.Now())
 	left.settle(hub.clock.Now())
 	left.sendRoster()
 	return nil
@@ -520,6 +535,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessageState, MessageSuspend, MessageResume:
 		handled.takeState(ctx, now, sender, from, message)
 	case MessageCommand:
+		handled.touch(now)
 		handled.command(now, sender, from, message)
 	case MessageRTC:
 		handled.relay(from, message)

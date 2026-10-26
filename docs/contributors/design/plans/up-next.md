@@ -5,7 +5,8 @@
 # Up next and autoplay
 
 - **Status:** IN-PROGRESS — 2026-10-25, at the owner's request: *"Add 'up next' button and
-  user-configurable autoplay."* Built: §1–§8 below; on devices, VQ67 and VQ68; left, §9. It is closed-beta B1's *"The next-episode countdown, which a
+  user-configurable autoplay."* Built: §1–§8 below, and D339's
+  *Still watching?* and group following (§10); on devices, VQ67–VQ70; left, §9. It is closed-beta B1's *"The next-episode countdown, which a
   person can turn off"* ([D313](../../decisions/working-notes.md) §2), built before the
   intro and credits detection it would sit on ([D82](../../decisions/working-notes.md)).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering, D160),
@@ -24,6 +25,9 @@
   is one.
 - **At a film's end the cast's receiver plays the next episode as the sender would, else goes to
   its home page and the remote is told** (D337's §9 answers, Q4).
+- **The fixed lead stays until credits are detected; a run of three autoplays asks "Still
+  watching?"; a host's autoplay moves their Watch Together group on**
+  ([D339](../../decisions/working-notes.md#d339--up-next-keeps-its-30-s-lead-until-credits-are-detected-a-run-of-three-autoplays-with-no-press-asks-still-watching-and-a-hosts-autoplay-moves-their-group-on)).
 - **A person's own choices that hold in every file live in the preference table at the person's
   scope**, the dialogue boost and levelling among them (D83, D226 §5; `internal/core/preferences`).
 
@@ -55,5 +59,12 @@ Where nothing above decides, the build chose the conventional behaviour:
    again and the remote following. With autoplay off the receiver waits at the end with the offer.
    The remote offers *Up next* while its film has a next one. With none, the receiver goes home and
    the remote is told, as before.
-9. **Not built:** the unattended-viewing pause (play-state.md, *"still watching?"*), a Watch
-   Together group carried to the next episode for its viewers (B1's own item), and the credits cue.
+9. **Not built:** the credits cue; and *Still watching?* on a cast's receiver, which keeps
+   counting, since its presses are Take back control's and its remote has no card yet.
+10. **Built by D339:** after `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no
+   press on the page (a remote's command, a key, a tap or a click), the next film's end shows *Still
+   watching?* in the offer's place, Continue focused (plays the next) and Stop (leaves the film), and
+   counts nothing; the run is the tab's (`still-watching.tsx`). A host's player moving on to another
+   film's player, by Up next or its autoplay, does not send the stop that leaving the player sends
+   (D246 §5); the next player puts its film on for everyone, so the group follows the host into the
+   next episode without its screens going black (`together-host.tsx`).

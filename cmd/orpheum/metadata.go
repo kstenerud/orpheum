@@ -93,6 +93,8 @@ type jobServices struct {
 	removedFiles removedFilePurger
 	// interest orders the work by what people play and look at (D324).
 	interest *interest.Raiser
+	// together ends Watch Together's links and sessions past their lifetimes (D346).
+	together staleEnder
 }
 
 // raiseInterestEvery is how often the work of interest is raised and released: a bound on how late
@@ -608,8 +610,8 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 }
 
 // startUpkeep starts, on loops, the loops that keep things tidy until ctx ends: the artwork
-// cache's ceiling, the sessions' remembered uses written in batches (D303 §4), and the players'
-// share of the server's upload (D286 §5).
+// cache's ceiling, the sessions' remembered uses written in batches (D303 §4), the players' share of
+// the server's upload (D286 §5), and Watch Together's links and sessions past their lifetimes (D346).
 func (services jobServices) startUpkeep(ctx context.Context, loops *sync.WaitGroup, logger *slog.Logger) {
 	loops.Go(func() { maintainArtworkCache(ctx, services.artwork, services.settings, logger) })
 	loops.Go(func() { writeSessionUses(ctx, services.sessions, services.settings, logger) })
@@ -622,6 +624,11 @@ func (services jobServices) startUpkeep(ctx context.Context, loops *sync.WaitGro
 		ticker := time.NewTicker(uploadKeptEvery)
 		defer ticker.Stop()
 		services.playback.KeepUnderShare(ctx, ticker.C, logger)
+	})
+	loops.Go(func() {
+		ticker := time.NewTicker(togetherStaleEvery)
+		defer ticker.Stop()
+		endStaleTogether(ctx, services.together, services.settings, ticker.C, logger)
 	})
 }
 

@@ -586,6 +586,23 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("tells a viewer the server closed a session idle for hours (D346)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {});
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "idle" });
+    expect(mounted.container.textContent).toContain(
+      "The session was closed because nothing had happened in it for hours.",
+    );
+    mounted.unmount();
+  });
+
   it("tells a viewer sent away for the host's connection why, keeps them a member, and lets them back in", async () => {
     window.localStorage.setItem(
       "orpheum.together.viewer",

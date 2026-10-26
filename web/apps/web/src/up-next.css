@@ -50,3 +50,17 @@
   background: rgb(0 0 0 / 80%);
   color: #fff;
 }
+
+/* "Still watching?" in the offer's place (still-watching.tsx, D339): the question and its two
+   answers on one card. */
+.still-watching__card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.still-watching__card p {
+  flex-basis: 100%;
+  margin: 0;
+}

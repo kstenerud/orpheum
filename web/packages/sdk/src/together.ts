@@ -113,10 +113,12 @@ export interface RosterMember {
 
 /**
  * Why a session ended for this device: the host ended it, the host removed this member, the
- * member left, or the server no longer knows the membership at all ("gone").
+ * member left, the server ended it after a long time with nothing playing and no one doing
+ * anything in it ("idle", D346), or the server no longer knows the membership at all ("gone").
  */
 export type TogetherEndReason =
   | "hostEnded"
+  | "idle"
   | "ejected"
   | "movedAway"
   | "left"
@@ -333,6 +335,7 @@ function cannotKeepUpIn(value: unknown): CannotKeepUp | undefined {
 
 const endReasons: readonly TogetherEndReason[] = [
   "hostEnded",
+  "idle",
   "ejected",
   "movedAway",
   "left",

@@ -6991,6 +6991,11 @@
       "TogetherLinkBody": {
         "additionalProperties": false,
         "properties": {
+          "expiresAt": {
+            "description": "Unix milliseconds after which it admits no one; absent once used (D346)",
+            "format": "int64",
+            "type": "integer"
+          },
           "hostNote": {
             "description": "Who it is for; only the host sees it",
             "type": "string"

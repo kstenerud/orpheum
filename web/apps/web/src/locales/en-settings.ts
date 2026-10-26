@@ -152,6 +152,10 @@ export const enSettingsCatalogue = {
       "Players in a Watch Together group drift apart a little as they play. Drift under this is left alone, since correcting it would be noticed more than the drift.",
     togetherSeekDriftBeyondMs:
       "A small drift is closed by playing a little faster or slower for a moment. Past this, the player jumps to the group's position instead.",
+    togetherIdleSessionEndHours:
+      "A host may forget to end their session. Once nothing has played in it and no one has done anything in it for this long, it ends as if the host had ended it, and its links stop working.",
+    togetherLinkLifetimeSeconds:
+      "A Watch Together invitation is short-lived: a link not used within this long of being made lets no one in. Whoever already joined by it stays.",
     togetherSyncWaitSeconds:
       "When a film starts, or the host plays or jumps, every player waits until all are ready. After this long, those that are ready play without the rest, who catch up.",
     uploadCrowdedKeepsPercent:
@@ -397,6 +401,9 @@ export const enSettingsCatalogue = {
       "How far a Watch Together jump must go to be moved to a keyframe.",
     togetherStartLeadMs:
       "How far ahead a Watch Together start is set, so every player starts at the same moment.",
+    togetherIdleSessionEndHours:
+      "How long a Watch Together session with nothing playing and no one doing anything lasts before it ends.",
+    togetherLinkLifetimeSeconds: "How long a Watch Together link lets its person in.",
     togetherSyncWaitSeconds:
       "How long a Watch Together group waits for everyone to be ready before playing without those who are not.",
     readerLimitUnknownDisk: "How many may read a disk of an unknown kind at once.",

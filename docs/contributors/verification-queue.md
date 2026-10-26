@@ -657,3 +657,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   next** plays it. Cast the season's last episode and let it end: the TV goes home and the phone says
   the film ended. (`web/apps/web/src/up-next.tsx`, `cast-receiver.tsx`, `cast-remote.tsx`,
   `live.tsx`)
+- [ ] **VQ69** — On the Fire TV stick (Silk, spatial mode) and a laptop's Chrome, signed in with
+  autoplay on, play an episode with at least four after it in its season, seeking each to a minute
+  before its end and pressing nothing else, and let three play on by themselves (D339). Passes when
+  the fourth's end shows *Still watching?* with Continue focused and no count; OK plays the next
+  episode; done again, Stop (Right, then OK) leaves the film for the page before. Then, with two
+  autoplayed, press any key or tap mid-episode: the next end counts *Plays in 10 s* as usual.
+  (`web/apps/web/src/still-watching.tsx`, `up-next.tsx`)
+- [ ] **VQ70** — Host Watch Together on a laptop's Chrome with a guest on another browser (a phone's
+  or Firefox), both with sound, and play an episode that is not its season's last; seek to a minute
+  before its end (D339). Passes when the host's *Plays in 10 s* runs out and both screens go to the
+  next episode together, the guest's never showing the black stopped screen nor "Karl stopped the
+  film" between, the group starting in step; done again with the host pressing Up next before the
+  end, the same. (`web/apps/web/src/together-host.tsx`, `up-next.tsx`)

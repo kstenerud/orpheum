@@ -31,13 +31,14 @@ type LiveLink struct {
 // LiveLinks are every unused link's locate hash, in the hashes' order so that an unchanged set
 // compares equal.
 func (hub *Hub) LiveLinks() []LiveLink {
-	expiresAt := hub.clock.Now().Truncate(locateDay).Add(2 * locateDay)
+	now := hub.clock.Now()
+	expiresAt := now.Truncate(locateDay).Add(2 * locateDay)
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	live := []LiveLink{}
 	for _, each := range hub.sessions {
 		for _, candidate := range each.links {
-			if candidate.usedBy == 0 {
+			if candidate.waits(now) {
 				live = append(live, LiveLink{LocateHash: candidate.locateHash, ExpiresAt: expiresAt})
 			}
 		}
@@ -69,11 +70,12 @@ func (hub *Hub) LiveLocators() []string {
 // credential; for an unused link's locate hash, link.OfferKey of its secret. False when neither has
 // it.
 func (hub *Hub) OfferKey(hash string) ([]byte, bool) {
+	now := hub.clock.Now()
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	for _, each := range hub.sessions {
 		for _, candidate := range each.links {
-			if candidate.usedBy == 0 && candidate.locateHash == hash {
+			if candidate.waits(now) && candidate.locateHash == hash {
 				return discoverylink.OfferKey(candidate.secret), true
 			}
 		}
