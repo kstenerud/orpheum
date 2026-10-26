@@ -652,6 +652,27 @@ func (q *Queries) MergeQueuedJob(ctx context.Context, arg MergeQueuedJobParams) 
 	return result.RowsAffected()
 }
 
+const nextOverdueAssignedJob = `-- name: NextOverdueAssignedJob :one
+SELECT id FROM job
+WHERE state = 'assigned' AND kind = ?1 AND assigned_until <= ?2
+ORDER BY assigned_until, id
+LIMIT 1
+`
+
+type NextOverdueAssignedJobParams struct {
+	Kind string
+	Now  *int64
+}
+
+// The assigned job of a kind whose time ran out first, read before the writer is taken to fail it:
+// an idle runner's every tick asks, and almost always none is (the audit of 2026-10-25, C6).
+func (q *Queries) NextOverdueAssignedJob(ctx context.Context, arg NextOverdueAssignedJobParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextOverdueAssignedJob, arg.Kind, arg.Now)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const nextQueuedJob = `-- name: NextQueuedJob :one
 SELECT id
 FROM job

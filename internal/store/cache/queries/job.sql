@@ -89,6 +89,14 @@ RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until;
 
+-- name: NextOverdueAssignedJob :one
+-- The assigned job of a kind whose time ran out first, read before the writer is taken to fail it:
+-- an idle runner's every tick asks, and almost always none is (the audit of 2026-10-25, C6).
+SELECT id FROM job
+WHERE state = 'assigned' AND kind = sqlc.arg(kind) AND assigned_until <= sqlc.arg(now)
+ORDER BY assigned_until, id
+LIMIT 1;
+
 -- name: TakeOverdueAssignedJob :one
 -- The assigned job of a kind whose time ran out first, back to running so its failure can be written.
 UPDATE job SET state = 'running'
