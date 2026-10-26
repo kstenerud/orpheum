@@ -6,7 +6,15 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Casting } from "./cast-remote.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
 
@@ -109,5 +117,54 @@ describe("the remote of a cast (D337 §5)", () => {
     const services = servedBy({ "GET /me/casts": [200, { casts: [] }] }, [], "token");
     mounted = await mount(withServices(<Casting />, services));
     expect(mounted.container.textContent).toContain("This device is not casting anything.");
+  });
+
+  it("offers the film's Up next, which moves the cast on, and follows the receiver to it (plans/up-next.md)", async () => {
+    const heard: Heard[] = [];
+    const cat = { ...sent, fileId: 5, titleId: 3, titleName: "Cat", durationMs: 1_200_000 };
+    const bag = { ...sent, fileId: 6, titleId: 4, titleName: "Bag", durationMs: 1_300_000 };
+    const services = servedBy(
+      {
+        "GET /me/casts": [
+          [200, { casts: [sent] }],
+          [200, { casts: [bag] }],
+        ],
+        "GET /files/4/up-next": [
+          200,
+          {
+            upNext: {
+              episode: {
+                titleId: 3,
+                name: "Cat",
+                groupNumber: 1,
+                numberInGroup: 2,
+                fileId: 5,
+                isPartway: false,
+              },
+              ordering: "aired",
+            },
+          },
+        ],
+        "GET /files/5/up-next": [200, {}],
+        "GET /files/6/up-next": [200, {}],
+        "POST /me/casts/9/next": [200, cat],
+      },
+      heard,
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Up next: S1E2 · Cat"));
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
+    expect(mounted.container.querySelector("h1")?.textContent).toBe("Cat");
+    expect(buttonWithText(mounted.container, "Up next: S1E2 · Cat")).toBeUndefined();
+    // The receiver's own Up next played the one after: its session says another file plays.
+    await server.say({ type: "group", seq: 4, group: { ...welcome.group, fileId: 6 } });
+    await settleUntil(() => mounted?.container.querySelector("h1")?.textContent === "Bag");
+    expect(mounted.container.textContent).toContain("Bag");
   });
 });

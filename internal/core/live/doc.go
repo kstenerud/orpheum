@@ -23,13 +23,17 @@
 //   - The hand-off reaches one connection of the receiver, its newest; a connection that comes once
 //     the one holding it is gone is handed it again, with a credential of its own (§4: a reload
 //     comes back receiving). Enforced by TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain.
+//   - A cast moves on to another film, the next episode, only at its sender's or its receiver's
+//     asking, in the same cast, and its receiver is handed it again (plans/up-next.md). Enforced by
+//     TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt.
 //   - Starts no goroutine, and a Sender never blocks (the api's outbox). Review-only.
 //   - Imports nothing from internal/node, never os/exec, and no database/sql. Enforced by the
 //     depguard rules core-boundary and sql-only-in-store.
 //
 // # Read before changing
 //
-//   - D337: casting to one's own signed-in devices, and its §9 answers (plans/cast-to-device.md).
+//   - D337: casting to one's own signed-in devices, and its §9 answers (plans/cast-to-device.md);
+//     at a film's end, the next episode as the sender would play it (plans/up-next.md).
 //   - D88: a cast is Watch Together with a group of one, so control is the hub's.
 //   - D154: no credential in a URL; the hello carries the session token.
 //   - D165: an offline device must not rewind a person, so the sender leaves its playback.

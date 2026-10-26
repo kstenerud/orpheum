@@ -5,7 +5,7 @@
 # Up next and autoplay
 
 - **Status:** IN-PROGRESS — 2026-10-25, at the owner's request: *"Add 'up next' button and
-  user-configurable autoplay."* It is closed-beta B1's *"The next-episode countdown, which a
+  user-configurable autoplay."* Built: §1–§8 below; on devices, VQ67 and VQ68; left, §9. It is closed-beta B1's *"The next-episode countdown, which a
   person can turn off"* ([D313](../../decisions/working-notes.md) §2), built before the
   intro and credits detection it would sit on ([D82](../../decisions/working-notes.md)).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering, D160),

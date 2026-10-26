@@ -11912,6 +11912,58 @@
         ]
       }
     },
+    "/me/casts/{id}/next": {
+      "post": {
+        "operationId": "moveCastOn",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Move a cast this device sends or receives on to what plays after its film, the next episode, which its receiver is handed (plans/up-next.md)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
     "/me/devices": {
       "get": {
         "operationId": "listMyDevices",

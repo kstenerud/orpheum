@@ -323,7 +323,10 @@ Where this plan was silent, the build assumed, each the plan's lean or the small
 6. **The receiver plays at once** even when the sender was paused.
 7. **At the film's end the receiver ends the cast and goes home** (§9 Q4's second half): the player
    plays no next episode by itself yet, so "as the sender would" is nothing; once it does, the
-   receiver should follow it.
+   receiver should follow it. **It now does** (2026-10-26, [up-next.md](up-next.md) §8): the
+   receiver shows its Up next and, by the person's autoplay, moves the cast on to the next episode
+   (`POST /me/casts/{id}/next`), handed to it again in the same cast; the remote offers *Up next*
+   and follows; with none it goes home as before.
 8. **Play here from ‹position›** opens the film's Play page, which starts where the server kept the
    person's position: the receiver's last report, at most a report interval behind what it says.
 9. **A replaced remote is told another device controls the receiver**, without naming it.

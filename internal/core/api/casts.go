@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -88,6 +89,62 @@ func (server *Server) registerCasts() {
 		OperationID: "endCast", Method: http.MethodPost, Path: "/me/casts/{id}/end",
 		Summary: "End a cast this device sends or receives, and say where it stood", Tags: tags,
 	}, server.endCast)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "moveCastOn", Method: http.MethodPost, Path: "/me/casts/{id}/next",
+		Summary: "Move a cast this device sends or receives on to what plays after its film, the next " +
+			"episode, which its receiver is handed (plans/up-next.md)",
+		Tags: tags,
+	}, server.moveCastOn)
+}
+
+// MoveCastOnInput moves a cast the asking device sends or receives on to its film's next episode.
+type MoveCastOnInput struct {
+	AuthorizationHeader
+	CastID int64 `minimum:"1" path:"id"`
+}
+
+// moveCastOn moves a cast on to what plays after its film for its person (GET /files/{id}/up-next):
+// the receiver is handed the cast again with it, and the remote reads it from the answer or, told by
+// the cast's session that another film plays, from GET /me/casts. A film with nothing after it, or
+// whose next episode cannot be read now, is a conflict; the cast goes on as it was.
+func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*StartCastOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	casts := dependencies.Live.CastsOf(principal.UserID, principal.DeviceID)
+	index := slices.IndexFunc(casts, func(each live.Cast) bool { return each.ID == input.CastID })
+	if index < 0 {
+		return nil, castError(live.ErrNoCast)
+	}
+	cast := casts[index]
+	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.UserID, cast.FileID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read what plays after a cast's film", err)
+	}
+	if !hasNext || next.Unreadable != nil {
+		return nil, newError(http.StatusConflict, CodeConflict, "nothing that can be read now plays after this film")
+	}
+	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, next.FileID); err != nil {
+		return nil, server.playbackError(ctx, "reach a file", err)
+	}
+	work, err := dependencies.Browser.WorkOfFile(ctx, next.FileID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read what a cast plays", err)
+	}
+	moved, err := dependencies.Live.MoveOn(principal.UserID, principal.DeviceID, cast.ID, live.Film{
+		FileID: next.FileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs,
+	})
+	if err != nil {
+		return nil, castError(err)
+	}
+	credential, err := dependencies.Together.CastCredential(moved.ID, principal.UserID)
+	if err != nil {
+		return nil, castError(live.ErrNoCast) // ended as it moved on
+	}
+	server.logger.InfoContext(ctx, "cast: a cast moved on to the next episode", "castId", moved.ID,
+		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", moved.FileID)
+	return &StartCastOutput{Body: castBodyOf(moved, principal.DeviceID, credential)}, nil
 }
 
 // startCast casts a film from the asking device to another of the person's, connected now, which is

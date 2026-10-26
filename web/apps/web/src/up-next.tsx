@@ -3,9 +3,19 @@
 import "./up-next.css";
 
 import type { components } from "@orpheum/sdk";
-import { createContext, use, useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
+import { moveOnOrGoHome, type Receiving } from "./cast-receiver.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { useCommands } from "./input-layer.tsx";
@@ -44,14 +54,28 @@ export function useUpNext(fileId: number): UpNext | undefined {
   return upNext.state === "loaded" ? upNext.value : undefined;
 }
 
-/** What the Play page gives its Up next offer: what plays next, and the person's autoplay. */
+/**
+ * What the Play page gives its Up next offer: what plays next, the person's autoplay, and the cast
+ * this device receives, while it does.
+ */
 export interface UpNextOffered {
   readonly upNext: UpNext | undefined;
   readonly isAutoplayOn: boolean;
+  readonly receiving?: Receiving | undefined;
 }
 
 /** The Play page's Up next, which the offer drawn over its film reads. */
 export const UpNextContext = createContext<UpNextOffered | undefined>(undefined);
+
+/** What the Play page of fileId gives its Up next offer, the same object while nothing changes. */
+export function useUpNextOffered(
+  fileId: number,
+  isAutoplayOn: boolean,
+  receiving: Receiving | undefined,
+): UpNextOffered {
+  const upNext = useUpNext(fileId);
+  return useMemo(() => ({ upNext, isAutoplayOn, receiving }), [upNext, isAutoplayOn, receiving]);
+}
 
 /** Where the film stands for the offer: where it is, its length, and whether it has ended. */
 export interface Ending {
@@ -89,22 +113,32 @@ export function offerState(
   };
 }
 
-/** The Up next offer over the film, from the page's UpNextContext; nothing where nothing plays next. */
+/**
+ * The Up next offer over the film, from the page's UpNextContext; nothing where nothing plays next.
+ * On a cast's receiver it is shown and counts, but presses there are Take back control's: its film
+ * is the cast's next episode, which the remote follows (D337's §9 answers, Q4).
+ */
 export function UpNextOver(props: FilmParts): JSX.Element | null {
   const offered = use(UpNextContext);
-  const { navigation } = useServices();
+  const { api, navigation } = useServices();
   const upNext = offered?.upNext;
   if (upNext === undefined || upNext.episode.unavailable !== undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
+  const receiving = offered?.receiving;
   return (
     <UpNextOffer
       key={upNext.episode.fileId}
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
+      isPressable={receiving === undefined}
       videoRef={props.videoRef}
       onPlay={() => {
-        navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
+        if (receiving === undefined) {
+          navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
+        } else {
+          moveOnOrGoHome(api, navigation, receiving);
+        }
       }}
     />
   );
@@ -112,16 +146,10 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
 
 /**
  * What the Play page draws over its film: on a television its own bar (tv-controls.tsx), and the Up
- * next offer; on a cast's receiver nothing, which shows the film alone (D337 §3).
+ * next offer, a cast's receiver's too, which shows nothing else (D337 §3).
  */
-export function overTheFilm(
-  isOnTelevision: boolean,
-  isReceiving: boolean,
-): { readonly over?: FilmPiece } {
-  if (isReceiving) {
-    return {};
-  }
-  return { over: isOnTelevision ? TvControlsAndUpNext : UpNextOver };
+export function overTheFilm(isOnTelevision: boolean, isReceiving: boolean): FilmPiece {
+  return isOnTelevision && !isReceiving ? TvControlsAndUpNext : UpNextOver;
 }
 
 /** A television's player overlay (tv-controls.tsx), and the Up next offer over the film. */
@@ -144,6 +172,8 @@ export function TvControlsAndUpNext(props: FilmParts): JSX.Element {
 export function UpNextOffer(props: {
   readonly upNext: UpNext;
   readonly isAutoplayOn: boolean;
+  /** Whether it is pressed here: not on a cast's receiver, whose presses take control back. */
+  readonly isPressable?: boolean;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly onPlay: () => void;
 }): JSX.Element | null {
@@ -160,10 +190,25 @@ export function UpNextOffer(props: {
   }
   const playRef = useRef<HTMLButtonElement>(null);
   const secondsLeft = useCountdown(isCounting, props.onPlay);
-  useChoiceOfPresses({ isShown, isCounting, playRef, onChoice: setChoice });
-  useFocusAsItShows(isShown, ending.hasEnded, playRef);
+  const isPressable = props.isPressable !== false;
+  useChoiceOfPresses({
+    isShown: isShown && isPressable,
+    isCounting: isCounting && isPressable,
+    playRef,
+    onChoice: setChoice,
+  });
+  useFocusAsItShows(isShown && isPressable, ending.hasEnded, playRef);
   if (!isShown) {
     return null;
+  }
+  if (!isPressable) {
+    return (
+      <div className="up-next">
+        <div className="up-next__play">
+          <OfferWords upNext={props.upNext} secondsLeft={isCounting ? secondsLeft : undefined} />
+        </div>
+      </div>
+    );
   }
   return (
     <div className="up-next" data-focus-container="">
