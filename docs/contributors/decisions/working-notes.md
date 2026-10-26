@@ -22188,3 +22188,39 @@ there is one; a frame the node takes from the video waits for its own step.
    in and out points inside a clip not cut.
 
 **Status:** Decided 2026-10-26; not built.
+
+## D351 — The core's services are assembled in one package, internal/core/assembly, which serve and the tests share; cmd/orpheum reads the outside world and runs the lifecycle
+
+**Decided** (2026-10-26), by the project owner, choosing option A for the test-architecture
+review's finding 9 ([test-architecture-2026-10-26.md](../design/research/test-architecture-2026-10-26.md)):
+the server was wired by hand in three places, production's `serve`, the API tests' harness and the
+metadata scenarios' `jobsWorld`, so a constructor's change edited all three and the harnesses
+drifted from production. A test inside package `api` cannot import anything that imports `api`,
+and the wiring builds `api.Dependencies`, which is what kept the wiring in `cmd/orpheum`.
+
+1. **One package assembles the core's services: `internal/core/assembly`.** `assembly.Build` makes
+   every service the core runs over its stores and wires them to each other, and returns them with
+   the API's dependencies and the jobs table (each kind's runner, each sweep). `serve` calls it, and
+   so do the API's test harness and the metadata scenarios: tests run production's wiring.
+2. **`cmd/orpheum` stays the composition root.** It reads argv, the environment, the config and the
+   instance's files, opens and migrates the databases, seeds the settings, makes what the config
+   alone configures (the HTTPS certificates, the discovery, port mapping, the reachability check,
+   the voice relay, WebRTC, diagnostics) and runs the lifecycle: the listeners, the node channel,
+   the runners and loops on their tickers, the shutdown.
+3. **The assembly is given what it cannot make itself, and a test's fakes in its place.** Its parts
+   are the stores, the settings, the secret key, where the setup code is kept, the clock, the
+   randomness, the log, the outbound client and the outside hosts' addresses; and, where a test
+   fakes what reaches a node or another host, the fake, nil being production's own. The node
+   connection is an interface, the union of what each service already asks of `nodes.Service` and
+   the setters through which they are wired to it, which the API harness's fake node implements;
+   faking the node at the wire would change how three hundred tests observe its commands.
+4. **The API's tests are an external test package, `api_test`,** which may import the assembly;
+   `export_test.go` exposes what they read of the package's internals. The metadata scenarios
+   (S25, S70, S73, S78) are the assembly's tests.
+5. **The assembly is core code under every core rule:** no file but through `instancedir`, no root
+   context, no environment, no logger of its own.
+
+**Rejected:** faking the node at the wire level (above); a dependency-injection framework (the
+one-way rules); keeping the harnesses' own wiring beside production's.
+
+**Status:** Decided 2026-10-26; not built.
