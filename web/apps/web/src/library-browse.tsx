@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   AlphabetRail,
+  useAlphabetRailLetters,
   useLetterJump,
   useLetterJumpState,
   type LetterJump,
@@ -483,7 +484,7 @@ function RouteChooser(props: {
 
 /**
  * The alphabet rail's letters for a library's list, only those some title in it begins with (D349
- * §9.1), asked for again with the list's own background poll.
+ * §9.1), through alphabet-rail.tsx's one mechanism, shared with Films and Series.
  */
 function LibraryLetters(props: {
   readonly kind: TitlesKind;
@@ -491,26 +492,8 @@ function LibraryLetters(props: {
   readonly sort: "name" | "file_name";
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
-  const { api } = useServices();
-  const { kind, library, sort } = props;
-  const [letters] = useResource(
-    `browse-letters/${kind}/${String(library)}/${sort}`,
-    async () => {
-      const body = dataOrThrow(
-        await api.GET("/titles/letters", {
-          params: { query: { kind, sort, ...(library === undefined ? {} : { library }) } },
-        }),
-      );
-      return body.letters ?? [];
-    },
-    useBackgroundChangesPoller(),
-  );
-  return (
-    <AlphabetRail
-      onLetter={props.onLetter}
-      letters={letters.state === "loaded" ? letters.value : undefined}
-    />
-  );
+  const letters = useAlphabetRailLetters(props.kind, props.library, props.sort);
+  return <AlphabetRail onLetter={props.onLetter} letters={letters} />;
 }
 
 /** An entry's id, by which a list shows an entry read twice once. */

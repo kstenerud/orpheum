@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } fr
 import { useTranslation } from "react-i18next";
 
 import { focusAndShow } from "./focus-navigation.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import type { Pages } from "./use-pages.ts";
+import { useResource } from "./use-resource.ts";
 
 /** A letter of the alphabet rail pressed, counted, so the same letter pressed again jumps again. */
 export interface LetterJump {
@@ -54,6 +56,33 @@ export function AlphabetRail(props: {
       ))}
     </ol>
   );
+}
+
+/**
+ * The alphabet rail's letters for a list, by its kind, library and sort: only those some title in
+ * it begins with (D349 §9), as the server names them (`GET /titles/letters`), asked for again
+ * with the list's own background poll (D237); undefined while that first answer is loading, for
+ * AlphabetRail's own letters prop. Films, Series and the Libraries page all ask this one way.
+ */
+export function useAlphabetRailLetters(
+  kind: "movie" | "series" | "other" | "any",
+  library: number | undefined,
+  sort: "name" | "file_name",
+): readonly string[] | undefined {
+  const { api } = useServices();
+  const [letters] = useResource(
+    `alphabet-rail-letters/${kind}/${String(library)}/${sort}`,
+    async () => {
+      const body = dataOrThrow(
+        await api.GET("/titles/letters", {
+          params: { query: { kind, sort, ...(library === undefined ? {} : { library }) } },
+        }),
+      );
+      return body.letters ?? [];
+    },
+    useBackgroundChangesPoller(),
+  );
+  return letters.state === "loaded" ? letters.value : undefined;
 }
 
 /** Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner. */

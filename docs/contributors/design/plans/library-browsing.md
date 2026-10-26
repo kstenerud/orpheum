@@ -11,9 +11,11 @@
   individual libraries (so for example if I have two movie libraries, and want to look in only
   one). This will be important when we add support for other kinds of videos, like home movies,
   which won't fit under series or films. Come up with an early design for this and where it might
-  fit into the UI."* The schema, the API (§9.2), the identification pass and the Libraries page
-  itself (§9.1: the top bar, the chooser, the grid, the alphabet rail, folders, the TV-remote
-  handling) are built (2026-10-26, §7); a frame as an other video's own picture is not (§9.3).
+  fit into the UI."* The schema, the API (§9.2), the identification pass, the Libraries page itself
+  (§9.1: the top bar, the chooser, the grid, the alphabet rail, folders, the TV-remote handling),
+  the same alphabet-rail filtering now on Films and Series too, and the person's own setting of
+  which libraries Films and Series gather (D349 §8) are built (2026-10-26, §7); a frame as an
+  other video's own picture is not (§9.3).
 - **Depends on:** [library-model.md](library-model.md) (titles, collections, kinds),
   [web-client.md](web-client.md) (curated home rows, folder browsing),
   [closed-beta.md](closed-beta.md) (B2's "Browse filters and more sorts").
@@ -202,10 +204,18 @@ order (D138), within the set the owner allows (D149 §5).
    `app-shell.tsx`), the `/browse` route holding the library, the view, the folder, the sort and the
    query (`router.ts`), the chooser, the sort and (an other library's) the view, each a focusable
    drop-down (`RouteChooser`, reusing `modal-dialog.tsx`'s drop-down, library-browsing.md §5.5), and
-   the alphabet rail filtered to the letters `GET /titles/letters` names (`alphabet-rail.tsx`,
-   shared with Films and Series, whose own rail still shows every letter: filtering theirs too is
-   left for later). Not built: the held-kind counts `GET /libraries` was to gain are no longer
-   needed, since no page offers a chooser per kind; a home-page row for an other library.
+   the alphabet rail filtered to the letters `GET /titles/letters` names
+   (`useAlphabetRailLetters`, `alphabet-rail.tsx`), one mechanism shared with Films and Series,
+   whose own rail is filtered the same way, asked for again with the list's background poll, and
+   shown only sorted by name (2026-10-26, `BrowseAlphabetRail`, `browse.tsx`). The person's own
+   choice of which libraries Films and Series gather (D349 §8) is a setting on their account
+   (`left-out-libraries.tsx`'s `LeftOutLibrariesSetting`, offered on `account.tsx` beside
+   `AutoplaySetting`): every `movies`, `shows` or `mixed` library they reach, checked until they
+   leave it out; Films and Series already honoured `leftOutLibraryIds` server-side
+   (`listReach`, `internal/core/api/library_browsing.go`), confirmed by
+   `TestBrowse_ALibraryLeftOutOfFilmsAndSeries`, so only the setting itself was missing. Not built:
+   the held-kind counts `GET /libraries` was to gain are no longer needed, since no page offers a
+   chooser per kind; a home-page row for an other library.
 2. **The other kind: built** (2026-10-26). The library and title kinds, the migration
    (`0059_other_videos.sql`), filing every video of such a library as `other` with no
    identification, its name and `recorded_at` (the container's tag, a date in its name, or its
@@ -221,7 +231,7 @@ order (D138), within the set the owner allows (D149 §5).
    `shows` or `mixed` one, which still has none.
 5. **Later**: a folder promoted to a named collection; per-library home rows as a person's
    setting; a library's own page for a mixed library; a frame taken from the video as an other
-   video's picture (§9.3); the alphabet rail's letter-filtering on Films and Series too.
+   video's picture (§9.3).
 
 ## 8. Open questions for the owner
 

@@ -92,7 +92,13 @@ describe("activating a device by the code it shows (D288)", () => {
     expect(container.querySelector(".device-activation__long-ago")).toBeNull();
     await click(buttonWithText(container, "Yes, they match"));
     expect(container.textContent).toContain("Living room TV is activated and signed in.");
-    expect(heard.filter((request) => !request.methodAndPath.startsWith("GET /me"))).toEqual([
+    expect(
+      heard.filter(
+        (request) =>
+          !request.methodAndPath.startsWith("GET /me") &&
+          request.methodAndPath !== "GET /libraries",
+      ),
+    ).toEqual([
       {
         methodAndPath: "POST /activations",
         body: { code: "ABCD EFGH", deviceName: "Living room TV" },

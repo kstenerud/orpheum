@@ -15,6 +15,7 @@ import { AutoplaySetting } from "./autoplay-setting.tsx";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { HomeAddress } from "./home-address.tsx";
+import { LeftOutLibrariesSetting } from "./left-out-libraries.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { QrCode } from "./qr-code.tsx";
@@ -50,6 +51,7 @@ export function Account(): JSX.Element {
       ) : null}
       <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
       <AutoplaySetting />
+      <LeftOutLibrariesSetting />
     </section>
   );
 }

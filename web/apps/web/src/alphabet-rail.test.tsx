@@ -5,10 +5,12 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { railLetters } from "./alphabet-rail.tsx";
 import { Browse, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
   buttonWithText,
+  choose,
   click,
   mount,
   servedBy,
@@ -38,7 +40,10 @@ const lastPage = page([film(5, "Keepsake Hollow"), film(6, "Zelkaro")], "");
 
 /** The films' list, by name, with the rail beside it, answered by answers in turn. */
 async function mountFilms(answers: readonly Answer[], heard: Heard[]): Promise<Mounted> {
-  const services = servedBy({ "GET /titles": answers }, heard);
+  const services = servedBy(
+    { "GET /titles": answers, "GET /titles/letters": [200, { letters: railLetters }] },
+    heard,
+  );
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(<Browse kind="movie" />, services)}
@@ -49,6 +54,12 @@ async function mountFilms(answers: readonly Answer[], heard: Heard[]): Promise<M
 /** The name of the poster that has focus, or undefined when none has. */
 function focusedName(): string | undefined {
   return document.activeElement?.querySelector(".poster-card__name")?.textContent ?? undefined;
+}
+
+/** The requests heard against GET /titles alone, in order: the rail's own letters are a sibling
+ * request (alphabet-rail.tsx's useAlphabetRailLetters) these tests do not count by position. */
+function titlesHeard(heard: readonly Heard[]): Heard[] {
+  return heard.filter((each) => each.methodAndPath === "GET /titles");
 }
 
 describe("the alphabet rail (the owner, 2026-10-25)", () => {
@@ -69,7 +80,7 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
     await click(buttonWithText(mounted.container, "M"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("Keepsake Hollow");
-    const queries = heard.map((each) => new URLSearchParams(each.query));
+    const queries = titlesHeard(heard).map((each) => new URLSearchParams(each.query));
     expect(queries[1]?.get("from")).toBe("M");
     expect(queries[1]?.get("sort")).toBe("name");
     expect(queries[1]?.get("limit")).toBe("1");
@@ -84,8 +95,9 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
     await click(buttonWithText(mounted.container, "#"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("12 Marrow Larks");
-    expect(new URLSearchParams(heard[1]?.query).has("from")).toBe(false);
-    expect(heard).toHaveLength(2);
+    const onlyTitles = titlesHeard(heard);
+    expect(new URLSearchParams(onlyTitles[1]?.query).has("from")).toBe(false);
+    expect(onlyTitles).toHaveLength(2);
   });
 
   it("moves to the last title for a letter no title comes at or after", async () => {
@@ -95,5 +107,65 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
     await click(buttonWithText(mounted.container, "Z"));
     await settleUntil(() => focusedName() !== undefined);
     expect(focusedName()).toBe("Zelkaro");
+  });
+});
+
+describe("Films' and Series' rail shows only letters that lead somewhere (D349 §9)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("shows only the letters the server says the list has titles under, sorted by name", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /titles": [firstPage],
+        "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+      },
+      heard,
+    );
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<Browse kind="movie" />, services)}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
+    const shown = [...mounted.container.querySelectorAll(".alphabet-rail__letter")].map(
+      (letter) => letter.textContent,
+    );
+    expect(shown).toEqual(["#", "B", "M"]);
+    const letters = heard.find((each) => each.methodAndPath === "GET /titles/letters");
+    expect(new URLSearchParams(letters?.query).get("kind")).toBe("movie");
+    expect(new URLSearchParams(letters?.query).get("sort")).toBe("name");
+  });
+
+  it("shows no rail, and asks the server for no letters, sorted newest first", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      { "GET /titles": [firstPage, firstPage], "GET /titles/letters": [200, { letters: [] }] },
+      heard,
+    );
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<Browse kind="series" />, services)}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    expect(mounted.container.querySelector(".alphabet-rail")).not.toBeNull();
+    const lettersAsksByName = heard.filter(
+      (each) => each.methodAndPath === "GET /titles/letters",
+    ).length;
+    expect(lettersAsksByName).toBe(1);
+    await choose(mounted.container.querySelector("select"), "added");
+    await settleUntil(
+      () => heard.filter((each) => each.methodAndPath === "GET /titles").length >= 2,
+    );
+    expect(mounted.container.querySelector(".alphabet-rail")).toBeNull();
+    // The rail unmounts sorted by added: its letters are not asked for again.
+    expect(heard.filter((each) => each.methodAndPath === "GET /titles/letters")).toHaveLength(
+      lettersAsksByName,
+    );
   });
 });
