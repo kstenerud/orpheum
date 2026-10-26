@@ -24,6 +24,7 @@ import subprocess
 from typing import Any
 
 import last_run
+import revert_red_commands as commands
 
 GATE = "revert-red"
 NAME = "known-red"
@@ -55,7 +56,7 @@ def dirs_read(command: list[str]) -> list[str]:
     the web client for a vitest or npm run; the scripts for the Python tests. Another run's are
     unknown, and its red is not kept."""
     go = [match.group(1) for argument in command if (match := GO_PACKAGE.match(argument))]
-    if command[:2] == ["go", "test"] and go:
+    if commands.is_go_test(command) and go:
         return go
     if command and command[0] in ("npx", "npm"):
         return ["web"]

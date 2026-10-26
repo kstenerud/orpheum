@@ -86,6 +86,8 @@ from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CS
 from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_VITEST, TS_SOURCE, Attempt,  # noqa: F401 (tests reach them here)
                                  browser_mode_tests, browser_tier, browser_tier_command, is_browser_run,
                                  compiled_only_elsewhere, other_platforms)
+import revert_red_commands
+from revert_red_commands import go_test, vitest, web_suite
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
@@ -133,7 +135,7 @@ GO_GENERATED_QUERIES = ("internal/store/sqlcgen/", "internal/store/cachegen/")
 # The schemas: a migration step (reverted with its checksum line and golden) and cache.db's,
 # which only internal/store's tests read.
 STORE_SCHEMA = "internal/store/cache/schema.sql"
-STORE_INTEGRATION = ["go", "test", FIRST_RED_GO, "-tags", "integration", "./internal/store/..."]
+STORE_INTEGRATION = go_test("./internal/store/...", tags="integration")
 # `*_test.go` is safe to match by name because in Go the compiler agrees; the same
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
@@ -296,7 +298,7 @@ def scope_for(path: str) -> list[str] | None:
     if CSS_SOURCE.search(path):
         return browser_tier_command()
     if GO_SOURCE.search(path):
-        return ["go", "test", FIRST_RED_GO, "./" + str(Path(path).parent) + "/..."]
+        return go_test("./" + str(Path(path).parent) + "/...")
     if is_python(path):
         # The test modules that import it or name it, all of them when none does (revert_red_dependents).
         return [*PY_TESTS_COMMAND, *(python_tests_reaching(toplevel(), path) or [])]
@@ -317,9 +319,8 @@ def scope_for(path: str) -> list[str] | None:
 
 GENERATED_API_TYPES = "web/packages/sdk/src/gen/api.ts"
 TYPECHECK = ["npm", "--prefix", "web", "run", "typecheck"]
-VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
-                  FIRST_RED_VITEST]
-WEB_SUITE = ["npm", "--prefix", "web", "run", "test", "--", FIRST_RED_VITEST]
+VITEST_RELATED = vitest("related")
+WEB_SUITE = web_suite()
 WEB_BUILD = ["npm", "--prefix", "web", "run", "build"]
 
 
@@ -332,14 +333,14 @@ def wide_scope(path: str) -> list[str] | None:
         return PY_TESTS_COMMAND
     if GO_SOURCE.search(path):
         dependents = go_dependents(root, path)
-        return ["go", "test", FIRST_RED_GO, *dependents] if dependents else None
+        return go_test(*dependents) if dependents else None
     if TS_SOURCE.search(path):
         readers = web_source_readers(root)
         return [*VITEST_RUN, *readers] if readers else None
     return None
 
 
-VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web", FIRST_RED_VITEST]
+VITEST_RUN = vitest("run")
 
 
 def other_builds(path: str) -> list[Attempt]:
@@ -353,7 +354,7 @@ def other_builds(path: str) -> list[Attempt]:
         return []
     # Its own package and those its revert can reach (wide_scope), built as the tagged suite builds them.
     reached = ["./" + str(Path(path).parent), *go_dependents(toplevel(), path)]
-    attempts = [Attempt(["go", "test", FIRST_RED_GO, "-tags", GO_EXTRA_TAGS, *reached],
+    attempts = [Attempt(go_test(*reached, tags=GO_EXTRA_TAGS),
                         f", found by the -tags {GO_EXTRA_TAGS} suite")]
     return [*attempts, *other_platforms(path)]
 
@@ -372,14 +373,14 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
     if change.path.startswith(GO_GENERATED_QUERIES) and base and head:
         callers = callers_of_change(toplevel(), base, head, change.path)
         if callers:
-            attempts.insert(0, Attempt(["go", "test", FIRST_RED_GO, *callers],
+            attempts.insert(0, Attempt(go_test(*callers),
                                        ", found by the tests of the code that calls its changed queries"))
     elif GO_SOURCE.search(change.path) and base and head:
         # Before every dependent, those that use what the change touched: a red is nearly always there
         # (check-pr, 2026-10-21: a store file 37 s green in its own package, then 177 s of dependents).
         users = users_of_change(toplevel(), base, head, change.path, go_dependents(toplevel(), change.path))
         if users:
-            attempts.append(Attempt(["go", "test", FIRST_RED_GO, *users],
+            attempts.append(Attempt(go_test(*users),
                                     ", found by the tests of the code that uses what it changed"))
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
@@ -714,6 +715,8 @@ def main() -> int:
         return 0
 
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
+    # Each probe's runs within its share of the CPUs, so the probes at once fit the machine.
+    revert_red_commands.CPU_SHARE = max(1, (os.cpu_count() or 2) // min(jobs, max(1, len(owed))))
     with hold_probe_trees():
         reruns.begin(base)
         status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,

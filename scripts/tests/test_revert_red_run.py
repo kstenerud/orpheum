@@ -12,6 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_revert_red as rr  # noqa: E402
 import revert_red_attempts as attempts  # noqa: E402
+import revert_red_commands  # noqa: E402
+from revert_red_commands import shared  # noqa: E402
 from revert_red_run import run_whole_group  # noqa: E402
 
 
@@ -81,3 +83,33 @@ class BrowserProbe(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CpuShare(unittest.TestCase):
+    """A probe's run keeps within its share of the CPUs, so the probes at once fit the machine."""
+
+    def test_a_go_test_runs_its_share_of_packages_with_its_share_of_threads(self) -> None:
+        command, env = shared(["go", "test", "-failfast", "./x/..."], {"PATH": "/bin"}, 2)
+        self.assertEqual(command, ["go", "test", "-p", "2", "-failfast", "./x/..."])
+        self.assertEqual(env, {"PATH": "/bin", "GOMAXPROCS": "2"})
+
+    def test_a_vitest_run_takes_its_share_of_workers(self) -> None:
+        related = ["npx", "--prefix", "web", "vitest", "related", "--run", "a.ts"]
+        self.assertEqual(shared(related, None, 3)[0], [*related, "--maxWorkers=3"])
+        suite = ["npm", "--prefix", "web", "run", "test", "--", "--bail=1"]
+        self.assertEqual(shared(suite, None, 3)[0], [*suite, "--maxWorkers=3"])
+
+    def test_another_command_and_a_run_without_a_share_are_unchanged(self) -> None:
+        typecheck = ["npm", "--prefix", "web", "run", "typecheck"]
+        self.assertEqual(shared(typecheck, None, 2), (typecheck, None))
+        go = ["go", "test", "./x/..."]
+        self.assertEqual(shared(go, None, None), (go, None))
+
+    def test_the_run_reports_the_command_as_given(self) -> None:
+        old = revert_red_commands.CPU_SHARE
+        revert_red_commands.CPU_SHARE = 1
+        try:
+            done = run_whole_group(["true"], tempfile.gettempdir(), 10)
+        finally:
+            revert_red_commands.CPU_SHARE = old
+        self.assertEqual(done.args, ["true"])

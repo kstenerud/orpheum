@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import browser_map
+from revert_red_commands import FIRST_RED_GO, FIRST_RED_VITEST, vitest  # noqa: F401 (re-exported)
 from revert_red_parts import CSS_SOURCE
 
 TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
@@ -31,18 +32,12 @@ class Attempt:
     compile_only: bool = False
 
 
-# A probe asks whether any test goes red, and the first red settles it: each run it makes stops at its
-# first failure. Run to its end, a red probe of a locale file took 34 s, stopped at its first 6 s
-# (check-pr's revert-red, 284 s, 2026-10-20). A green run still runs every test, so nothing it
-# passes is passed on less. The browser tier's is FIRST_FAILURE_ENDS_IT.
-FIRST_RED_VITEST = "--bail=1"
-FIRST_RED_GO = "-failfast"
+# Each run stops at its first failure (revert_red_commands); the browser tier's is FIRST_FAILURE_ENDS_IT.
 
 # The browser-mode tests that import a file, by vitest's import graph, in Chromium and Firefox with no
 # server (web/vitest.browser.config.ts): seconds, where the browser tier takes minutes, so a probe
 # makes this run among its cheap ones and a red here settles it (the owner, 2026-10-18).
-BROWSER_MODE_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
-                        "--config", "vitest.browser.config.ts", FIRST_RED_VITEST]
+BROWSER_MODE_RELATED = vitest("related", browser=True)
 
 
 def browser_mode_tests(path: str) -> list[Attempt]:

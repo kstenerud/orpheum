@@ -19,13 +19,19 @@ import threading
 from dataclasses import dataclass
 from typing import IO
 
+import revert_red_commands as commands
+
 
 def run_whole_group(command: list[str], cwd: str, timeout: int,
                     env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Runs command as subprocess.run with capture_output and text would, in a process group of its
     own, which is killed whole when the command ends; past timeout, it is killed and TimeoutExpired
     raised, as subprocess.run raises it. The command's end is its own exit, not its output's: a
-    process it left behind holds the pipes open, and reading them to their end waited for it."""
+    process it left behind holds the pipes open, and reading them to their end waited for it. The
+    run keeps within the probe's share of the CPUs (revert_red_commands); the result names the command
+    as given."""
+    given = command
+    command, env = commands.shared(command, env, commands.CPU_SHARE)
     with subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           text=True, start_new_session=True) as running:
         stdout, stderr = _read_aside(running.stdout), _read_aside(running.stderr)
@@ -35,7 +41,7 @@ def run_whole_group(command: list[str], cwd: str, timeout: int,
             end_group(running.pid)
             stdout.thread.join()
             stderr.thread.join()
-    return subprocess.CompletedProcess(command, running.returncode, stdout.text(), stderr.text())
+    return subprocess.CompletedProcess(given, running.returncode, stdout.text(), stderr.text())
 
 
 @dataclass
