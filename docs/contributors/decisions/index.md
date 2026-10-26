@@ -347,13 +347,13 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D339](working-notes.md#d339--reserved-up-next-revised-the-30-s-lead-still-watching-after-three-autoplays-a-group-follows-its-host-into-the-next-episode) Reserved: Up next, revised: the 30 s lead, Still watching after three autoplays, a group follows its host into the next episode
 - [D340](working-notes.md#d340--reserved-one-subtitle-extraction-per-video) Reserved: One subtitle extraction per video
 - [D341](working-notes.md#d341--reserved-a-hidden-tabs-interest) Reserved: A hidden tab's interest
-- [D342](working-notes.md#d342--reserved-compressing-the-apis-answers-that-carry-no-secret) Reserved: Compressing the API's answers that carry no secret
-- [D343](working-notes.md#d343--reserved-the-discovery-proof-as-a-public-package-both-repositories-use) Reserved: The discovery proof as a public package both repositories use
+- [D342](working-notes.md#d342--api-answers-that-carry-no-credential-are-gzipped-an-answer-that-carries-one-never-is) API answers that carry no credential are gzipped; an answer that carries one never is
+- [D343](working-notes.md#d343--the-replay-nonce-is-one-public-building-block-discoveryproofs-nonces-which-both-discoveries-use) The replay nonce is one public building block, discovery/proof's Nonces, which both discoveries use
 - [D344](working-notes.md#d344--reserved-retiring-whole-film-prepare) Reserved: Retiring whole-film prepare
 - [D345](working-notes.md#d345--reserved-sweeps-as-job-kinds) Reserved: Sweeps as job kinds
 - [D346](working-notes.md#d346--reserved-watch-togethers-invitations-and-sessions-are-short-lived) Reserved: Watch Together's invitations and sessions are short-lived
-- [D347](working-notes.md#d347--reserved-runtime-log-levels-and-request-ids) Reserved: Runtime log levels and request IDs
-- [D348](working-notes.md#d348--reserved-webrtcs-connection-limit-is-configuration) Reserved: WebRTC's connection limit is configuration
+- [D347](working-notes.md#d347--the-cores-log-level-is-a-setting-an-admin-changes-while-it-runs-and-every-api-request-carries-an-id-into-its-log-lines-and-its-answer) The core's log level is a setting an admin changes while it runs, and every API request carries an ID into its log lines and its answer
+- [D348](working-notes.md#d348--the-most-webrtc-connections-a-core-holds-is-a-config-key-webrtcmax_connections) The most WebRTC connections a core holds is a config key, webrtc.max_connections
 - [D349](working-notes.md#d349--reserved-browsing-by-library-and-a-kind-for-other-videos) Reserved: Browsing by library, and a kind for other videos
 - [D350](working-notes.md#d350--reserved-disc-images-iso) Reserved: Disc images (ISO)
 
