@@ -21819,7 +21819,7 @@ link or token answers. The owner asked whether zstd is better; it is not taken.
    sends, which name no Accept-Encoding, so its answers stay as they are until the SDK asks for gzip
    and unzips (DecompressionStream) — a later change.
 
-**Status:** Decided.
+**Status:** Built.
 
 ## D343 — The replay nonce is one public building block, discovery/proof's Nonces, which both discoveries use
 
@@ -21839,7 +21839,7 @@ reached the other.
 3. **Revises the copy-don't-publish habit for this one piece:** a security check that both
    discoveries must apply alike is published, not twinned.
 
-**Status:** Decided.
+**Status:** Built.
 
 ## D344 — Reserved: Retiring whole-film prepare
 
@@ -21876,7 +21876,7 @@ client.
 4. **Not in this:** per-component levels and the `component` attribute on every service (G11's
    mechanical part) are later work.
 
-**Status:** Decided.
+**Status:** Built.
 
 ## D348 — The most WebRTC connections a core holds is a config key, webrtc.max_connections
 
@@ -21896,7 +21896,7 @@ config value."*
 The audit's other half of R10, a verdict code for an offer refused at the limit, is not part of
 this.
 
-**Status:** Decided.
+**Status:** Built.
 
 ## D349 — Reserved: Browsing by library, and a kind for other videos
 
