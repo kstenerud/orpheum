@@ -165,12 +165,19 @@ ORDER BY kind;
 
 -- name: ListOpenJobsOfItemsAndFiles :many
 -- The queued, running and assigned jobs about any of some items or files: the work a person's
--- interest in them raises (D324 section 3).
-SELECT id, priority, state FROM job
-WHERE state IN ('queued', 'running', 'assigned')
-  AND (item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
-    OR file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))))
-ORDER BY id;
+-- interest in them raises (D324 section 3). Driven by the ids asked about, each looked up by
+-- job_open_item or job_open_file, so it reads as many rows as those have open jobs, not every
+-- open job (the audit of 2026-10-25, C4).
+SELECT job.id, job.priority, job.state, job.destination, job.wanted_until
+FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)) AS wanted
+CROSS JOIN job ON job.item_id = wanted.value
+WHERE job.state IN ('queued', 'running', 'assigned')
+UNION
+SELECT job.id, job.priority, job.state, job.destination, job.wanted_until
+FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)) AS wanted
+CROSS JOIN job ON job.file_id = wanted.value
+WHERE job.state IN ('queued', 'running', 'assigned')
+ORDER BY 1;
 
 -- name: RaiseJob :one
 -- An open job raised to the priority a person's interest gives it, never lowered: kept wanted until
@@ -187,9 +194,14 @@ RETURNING id, state, priority, destination;
 -- more: their wanted time ends now, and the next demotion gives them the shown-interest rung
 -- (D324 section 2).
 UPDATE job SET wanted_until = CAST(sqlc.arg(now) AS INTEGER)
-WHERE wanted_until IS NOT NULL AND priority < sqlc.arg(below) AND state IN ('queued', 'running', 'assigned')
-  AND (item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
-    OR file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));
+WHERE wanted_until IS NOT NULL AND priority < CAST(sqlc.arg(below) AS INTEGER) AND id IN (
+  SELECT open_job.id FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)) AS wanted
+  CROSS JOIN job AS open_job ON open_job.item_id = wanted.value
+  WHERE open_job.state IN ('queued', 'running', 'assigned')
+  UNION
+  SELECT open_job.id FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)) AS wanted
+  CROSS JOIN job AS open_job ON open_job.file_id = wanted.value
+  WHERE open_job.state IN ('queued', 'running', 'assigned'));
 
 -- name: ListOpenReadThroughs :many
 -- Every open read-through, by file, with its priority, state and arguments: what is ahead of a
