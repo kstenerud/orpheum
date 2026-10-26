@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 )
 
 // shelveSurroundFilm adds file 4 to shelveFilms' library: an MP4 whose sound is 5.1 AAC, which a
@@ -19,11 +19,11 @@ func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 	probe := `{"format":{"formatNames":["mov","mp4","m4a"],"durationMs":1200000},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 first_seen_at, last_seen_at) VALUES
-		 (4, 1, 1, '/media/Loud (2008).mp4', CAST('/media/Loud (2008).mp4' AS BLOB), 10, X'1a1b', 'listed', 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (4, '`+probe+`', 1200000)`)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/media/Loud (2008).mp4", SizeBytes: 10,
+		PayloadHash: []byte{0x1a, 0x1b}, Filing: "listed",
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 4, ProbeJSON: probe, DurationMs: 1200000})
 }
 
 // thisDeviceID is the device a session is on, from its list of devices.

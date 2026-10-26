@@ -458,14 +458,16 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/media/Locked", Filing: "errored", FilingReason: "permission_denied",
+		ErrorDetailJSON: `{"text":"permission denied","ownerUid":0,"groupGid":0,"modeText":"drwxr-x---",` +
+			`"occurrenceCount":1}`,
+		FirstSeenAt: 7000, LastSeenAt: 9000,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 5, LibraryID: 1, NodeID: 1, Path: "/media/Locked/Inside.mkv", Filing: "listed",
+	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, filing_reason, error_detail_json,
-		 first_seen_at, last_seen_at) VALUES
-		 (4, 1, 1, '/media/Locked', CAST('/media/Locked' AS BLOB), 'errored', 'permission_denied',
-		  '{"text":"permission denied","ownerUid":0,"groupGid":0,"modeText":"drwxr-x---","occurrenceCount":1}',
-		  7000, 9000)`,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
-		 VALUES (5, 1, 1, '/media/Locked/Inside.mkv', CAST('/media/Locked/Inside.mkv' AS BLOB), 'listed', 1, 1)`,
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
 		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 3 of 5 files')`)
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)

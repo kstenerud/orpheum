@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // germanStreamID is the stream row of film 2's second text track, German SubRip at stream index 4,
@@ -21,9 +21,9 @@ const germanStreamID = 9
 // shelveSecondTextTrack records a second text track in film 2, beside its ASS and its PGS.
 func (harness testHarness) shelveSecondTextTrack(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) VALUES
-		 (9, 2, 2, 4, 'subtitle', 'subrip', 'de', 0)`)
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 9, BytesFile: 2, StreamIndex: 4, Kind: "subtitle", Codec: "subrip", Language: "de",
+	})
 }
 
 // servedASS is the ASS a playback serves for each track it offers, by stream row, or the status it

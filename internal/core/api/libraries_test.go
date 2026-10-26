@@ -471,10 +471,17 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	harness.connectNode(t, "/m")
 	librarytest.LibraryOn(t, harness.database, 1,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (library_id, node_id, path, filing, filing_reason, first_seen_at, last_seen_at) VALUES
-		 (1, 1, '/m/a.mkv', 'listed', NULL, 1, 2), (1, 1, '/m/b.txt', 'skipped', 'extension', 1, 2),
-		 (1, 1, '/m/c.mkv', 'errored', 'permission_denied', 1, 2)`)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/a.mkv", Filing: "listed", FirstSeenAt: 1, LastSeenAt: 2,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 2, LibraryID: 1, NodeID: 1, Path: "/m/b.txt", Filing: "skipped", FilingReason: "extension",
+		FirstSeenAt: 1, LastSeenAt: 2,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/c.mkv", Filing: "errored", FilingReason: "permission_denied",
+		FirstSeenAt: 1, LastSeenAt: 2,
+	})
 	var page struct {
 		Files      []api.FileBody `json:"files"`
 		NextCursor string         `json:"nextCursor"`
