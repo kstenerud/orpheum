@@ -26,21 +26,22 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
 	const longAgo, lately = 1_000, 9_000
-	statements := []string{
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', " + fmt.Sprint(libraryID) + ", 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (20, 10, 1)",
-	}
+	titleID := librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
+	librarytest.Version(t, database, librarytest.VersionSpec{ID: 20, TitleID: titleID})
+	var statements []string
 	// Files 1 and 2 were removed long ago, 3 lately; 4 long ago, but its subtitle 5 is still there.
 	for fileID, removedAt := range map[int]int{1: longAgo, 2: longAgo, 3: lately, 4: longAgo} {
-		statements = append(statements, fmt.Sprintf(
-			`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-			 version_id, first_seen_at, last_seen_at, removed_at)
-			 VALUES (%[1]d, %[2]d, %[3]d, '/media/Metropolis %[1]d.mkv', CAST('/media/Metropolis %[1]d.mkv' AS BLOB), 10,
-			 X'0%[1]d', 'listed', 20, 1, 1, %[4]d)`, fileID, libraryID, nodeID, removedAt),
-			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json) VALUES (%d, '{}')", fileID),
-			fmt.Sprintf(`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
-			 VALUES (%[1]d, %[1]d, 0, 'video', 'h264', 0)`, fileID),
+		librarytest.File(t, database, librarytest.FileSpec{
+			ID: int64(fileID), LibraryID: libraryID, NodeID: nodeID, Path: fmt.Sprintf("/media/Metropolis %d.mkv", fileID),
+			SizeBytes: 10, PayloadHash: []byte{byte(fileID)}, //nolint:gosec // a test's small id, 1-4
+			Filing: "listed", VersionID: 20,
+			RemovedAt: int64(removedAt),
+		})
+		librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: int64(fileID)})
+		librarytest.Stream(t, database, librarytest.StreamSpec{
+			BytesFile: int64(fileID), StreamIndex: 0, Kind: "video", Codec: "h264",
+		})
+		statements = append(statements,
 			fmt.Sprintf(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at,
 			 ended_at) VALUES (%[1]d, %[2]d, 0, 600000, %[2]d000, %[2]d600)`, userID, fileID),
 			fmt.Sprintf(`INSERT INTO play_event (user_id, file_id, kind, position_ms, happened_at)
@@ -53,12 +54,11 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 			 body_gzip, fetched_by_user_id, fetched_at) VALUES (%d, 'opensubtitles', '%d', 'en', 'srt', X'00', %d, 1)`,
 				fileID, fileID, userID))
 	}
-	statements = append(statements, fmt.Sprintf(
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, filing, sidecar_kind,
-		 attached_to_file, first_seen_at, last_seen_at)
-		 VALUES (5, %d, %d, '/media/Metropolis 4.en.srt', CAST('/media/Metropolis 4.en.srt' AS BLOB), 10, 'attached',
-		 'subtitle', 4, 1, 1)`, libraryID, nodeID))
 	storetest.ExecRaw(t, database.Path(), statements...)
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 5, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Metropolis 4.en.srt", SizeBytes: 10,
+		Filing: "attached", SidecarKind: "subtitle", AttachedToFile: 4,
+	})
 	before, err := service.WatchStatsOf(t.Context(), userID)
 	if err != nil {
 		t.Fatal(err)

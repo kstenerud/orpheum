@@ -85,12 +85,11 @@ func newBench(t *testing.T) *bench {
 // file shelves a file of sizeMiB, an hour and a half long, on a node.
 func (bench *bench) file(t *testing.T, id, nodeID, sizeMiB int64) {
 	t.Helper()
-	storetest.ExecRaw(t, bench.database.Path(),
-		fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing,
-		 first_seen_at, last_seen_at) VALUES (%d, 1, %d, '/m/%d.mkv', %d, X'%02x', 'unidentified', 1, 1)`,
-			id, nodeID, id, sizeMiB*mib, id),
-		fmt.Sprintf(`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '{}', %d)`,
-			id, 90*60_000))
+	librarytest.File(t, bench.database, librarytest.FileSpec{
+		ID: id, LibraryID: 1, NodeID: nodeID, Path: fmt.Sprintf("/m/%d.mkv", id), SizeBytes: sizeMiB * mib,
+		PayloadHash: []byte{byte(id)}, Filing: "unidentified", //nolint:gosec // a test's small id, under 256
+	})
+	librarytest.Probe(t, bench.database, librarytest.ProbeSpec{FileID: id, DurationMs: 90 * 60_000})
 }
 
 // readThrough queues a read-through job of a file, assigned or waiting, with args.

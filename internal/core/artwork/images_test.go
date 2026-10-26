@@ -205,10 +205,10 @@ func TestTake_ARefusedImageBesideTheMediaIsOwedAgainOnceAScanHasSeenItsFile(t *t
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	nodeID, libraryID := bench.inLibrary(t, "nfo")
-	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
-		"INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) "+
-			"VALUES (40, %d, %d, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 'attached', 1, 1000)",
-		libraryID, nodeID))
+	librarytest.File(t, bench.database, librarytest.FileSpec{
+		ID: 40, LibraryID: libraryID, NodeID: nodeID, Path: "/m/Film/poster.jpg",
+		Filing: "attached", FirstSeenAt: 1, LastSeenAt: 1000,
+	})
 	poster := LocalImage{ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 1, ModifiedAtMs: 1}
 	ref := localRef(poster)
 	// The node could not read it at 2000: its disk was away, though no scan had found so yet.

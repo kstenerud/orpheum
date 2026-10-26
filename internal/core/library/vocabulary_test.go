@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -16,9 +17,9 @@ import (
 func TestArtKinds_AreTheOnesTheArtworkTableAccepts(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	storetest.ExecRaw(t, database.Path(), "INSERT INTO item (id, kind, added_at) VALUES (1, 'title', 1)")
+	itemID := librarytest.Item(t, database, librarytest.ItemSpec{ID: 1, Kind: "title"})
 	for _, kind := range []string{library.ArtPoster, library.ArtBackdrop, library.ArtLogo, library.ArtStill} {
 		storetest.ExecRaw(t, database.Path(),
-			fmt.Sprintf("INSERT INTO artwork (item_id, kind, source) VALUES (1, '%s', 'tmdb')", kind))
+			fmt.Sprintf("INSERT INTO artwork (item_id, kind, source) VALUES (%d, '%s', 'tmdb')", itemID, kind))
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -24,10 +25,10 @@ func TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange(t *te
 	config := settingstest.Seeded(t, database)
 	storetest.ExecRaw(t, database.Path(),
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
-		"INSERT INTO version (title_id, created_at) VALUES (10, 1)",
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`)
+	titleID := librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: 1})
+	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
+	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'Metropolis')")
 	pass := identify.NewPass(database, clock.System{}, slog.New(slog.DiscardHandler), nil, config)
 	if err := keepSortAndSearchKeysCurrent(t.Context(), pass, config, slog.New(slog.DiscardHandler)); err != nil {

@@ -243,12 +243,12 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 		`{"streamIndex":1,"kind":"audio","codec":"ac3","language":"en","audio":{"channelCount":6}},`+
 		`{"streamIndex":2,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`, durationMs)
 	for fileID := range 2 {
-		storetest.ExecRaw(t, database.Path(), fmt.Sprintf("INSERT INTO file (id, library_id, node_id, path, "+
-			"reported_path_raw, payload_hash, filing, first_seen_at, last_seen_at) "+
-			"VALUES (%d, %d, %d, '/m/f%d.mkv', CAST('/m/f%d.mkv' AS BLOB), X'0%d', 'unidentified', 1, 1)",
-			fileID+1, libraryID, nodeID, fileID+1, fileID+1, fileID+1),
-			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '%s', %d)",
-				fileID+1, probe, durationMs))
+		librarytest.File(t, database, librarytest.FileSpec{
+			ID: int64(fileID + 1), LibraryID: libraryID, NodeID: nodeID, Path: fmt.Sprintf("/m/f%d.mkv", fileID+1),
+			PayloadHash: []byte{byte(fileID + 1)}, Filing: "unidentified",
+		})
+		librarytest.Probe(t, database,
+			librarytest.ProbeSpec{FileID: int64(fileID + 1), ProbeJSON: probe, DurationMs: durationMs})
 	}
 	keyframes, seconds := []int64{}, []int64{}
 	for at := int64(0); at < durationMs; at += 10_000 {
