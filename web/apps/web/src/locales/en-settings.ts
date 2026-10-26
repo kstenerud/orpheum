@@ -268,6 +268,8 @@ export const enSettingsCatalogue = {
     linkShareForQualityPercent:
       "The share of a link's measured speed a quality may use when choosing one.",
     linkSpeedFreshHours: "How long a measured link speed is trusted for its device on its network.",
+    logLevel:
+      "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
     loudnessMaxRaiseDb:
       "The most a quiet sound is raised, in dB, so its noise is not raised with it.",
     loudnessTargetLufs: "The loudness, in LUFS, that sound is raised or lowered towards.",

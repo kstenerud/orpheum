@@ -24,9 +24,10 @@ import (
 // MaxMessageBytes is the most a message on a channel holds, which every browser carries.
 const MaxMessageBytes = 64 << 10
 
-// MaxConnections bounds the peer connections the core holds at once: a client opens a few
+// DefaultMaxConnections bounds the peer connections the core holds at once until its config names
+// another (SetMaxConnections, cmd/orpheum's webrtc.max_connections, D348): a client opens a few
 // (ClientConnections), and a household has a handful of people and devices.
-const MaxConnections = 64
+const DefaultMaxConnections = 64
 
 // ClientConnections is how many peer connections a client opens at most and spreads its requests
 // across, keeping one and opening the others only while its requests crowd it: one is bound by its
@@ -78,7 +79,7 @@ const (
 	sourceIPv6Prefix = 56
 )
 
-// ErrTooManyConnections is an offer refused because the core holds MaxConnections already.
+// ErrTooManyConnections is an offer refused because the core holds its most connections already.
 var ErrTooManyConnections = errors.New("the core holds as many WebRTC connections as it allows")
 
 // Description is a session description as the offer endpoint carries it: "offer" or "answer", and
@@ -129,6 +130,8 @@ type Server struct {
 
 // bounds are the bounds on each connection.
 type bounds struct {
+	// connections are the most the core holds at once, of every network.
+	connections     int
 	connectWithin   time.Duration
 	perSource       int
 	channels        int
@@ -187,6 +190,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		ctx: ctx, handler: handler, logger: logger, clock: clock.System{},
 		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
 		bounds: bounds{
+			connections:   DefaultMaxConnections,
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
 			requestDeadline: requestDeadline,
 		},
@@ -260,6 +264,21 @@ func (server *Server) SetConnectionsPerNetwork(limit int) {
 	server.bounds.perSource = limit
 }
 
+// SetMaxConnections sets the most connections the core holds at once, of every network (the config's
+// webrtc.max_connections, D348): an offer past it is refused. One already held is kept.
+func (server *Server) SetMaxConnections(limit int) {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	server.bounds.connections = limit
+}
+
+// MaxConnections is the most connections the core holds at once, of every network.
+func (server *Server) MaxConnections() int {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	return server.bounds.connections
+}
+
 // UseICEServers has each new connection gather its candidates through the servers source names
 // then: the discovery's STUN, so an answer carries the public address the core's NAT gives it.
 func (server *Server) UseICEServers(source func() []webrtc.ICEServer) {
@@ -289,12 +308,12 @@ func (server *Server) answerWith(ctx context.Context, api *webrtc.API, offerSDP 
 	return answer, nil
 }
 
-// open makes a peer connection with api, unless the core holds MaxConnections. One that has not
+// open makes a peer connection with api, unless the core holds its most connections. One that has not
 // connected within its bound is closed, and so is one past its network's share once it connects.
 func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
-	if len(server.connections) >= MaxConnections {
+	if len(server.connections) >= server.bounds.connections {
 		return nil, ErrTooManyConnections
 	}
 	configuration := webrtc.Configuration{}

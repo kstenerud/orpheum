@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -195,6 +196,7 @@ send_interface_addresses = true
 [webrtc]
 udp_port = 0
 stun_servers = []
+max_connections = 64
 
 [database]
 read_connections_minimum = 4
@@ -347,7 +349,10 @@ func TestServerConfig_HomeNetworksAreNetworks(t *testing.T) {
 // and the core takes from it, is refused (the Plex-chain review's L3).
 func TestWebRTCConfig_STUNServersAreSTUNURLs(t *testing.T) {
 	t.Parallel()
-	webrtc := WebRTCConfig{STUNServers: []string{"stun:stun.cloudflare.com:3478", "stuns:stun.example.org:5349"}}
+	webrtc := WebRTCConfig{
+		STUNServers:    []string{"stun:stun.cloudflare.com:3478", "stuns:stun.example.org:5349"},
+		MaxConnections: 64,
+	}
 	if err := webrtc.check(); err != nil {
 		t.Fatal(err)
 	}
@@ -356,6 +361,28 @@ func TestWebRTCConfig_STUNServersAreSTUNURLs(t *testing.T) {
 		if err := webrtc.check(); err == nil || !strings.Contains(err.Error(), "webrtc.stun_servers") {
 			t.Errorf("STUN server %q = %v; want refused by webrtc.stun_servers", wrong, err)
 		}
+	}
+}
+
+// The core holds at least one WebRTC connection: a limit of none or fewer is refused (D348).
+func TestWebRTCConfig_MaxConnectionsAllowsOne(t *testing.T) {
+	t.Parallel()
+	for limit, wantRefused := range map[int]bool{-1: true, 0: true, 1: false, 64: false} {
+		err := WebRTCConfig{MaxConnections: limit}.check()
+		if refused := err != nil && strings.Contains(err.Error(), "webrtc.max_connections"); refused != wantRefused {
+			t.Errorf("max_connections %d: check = %v; want refused %v", limit, err, wantRefused)
+		}
+	}
+}
+
+// The WebRTC server the core serves holds as many connections as its config's
+// webrtc.max_connections says, not the package's default (D348).
+func TestNewWebRTC_HoldsAsManyConnectionsAsTheConfigSays(t *testing.T) {
+	t.Parallel()
+	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), WebRTCConfig{MaxConnections: 5},
+		slog.New(slog.DiscardHandler))
+	if got := rtc.MaxConnections(); got != 5 {
+		t.Errorf("with max_connections = 5, the server holds %d", got)
 	}
 }
 

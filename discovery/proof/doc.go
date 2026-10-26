@@ -5,7 +5,8 @@
 // to enrol cannot open a session, nor serve another discovery or core (D273; the protocol's §2.1);
 // over a WebRTC answer's exact SDP, for its client (§2.5); and the identity key's fingerprint every
 // link carries (§3.1); and a realm sign-in's key, which a person's password makes and which proves
-// the page to the core and the core to the page (D297). The core signs through it, and a discovery,
+// the page to the core and the core to the page (D297); and the nonces a core signs, which a
+// discovery issues and spends once each (D343). The core signs through it, and a discovery,
 // Orpheum's own or the closed multi-core service, and the client check through it (D275 §1).
 //
 // # Invariants
@@ -30,6 +31,10 @@
 //     Enforced by TestSealDeviceOutcome_OpensOnlyWithTheDevicesKeyAndAsTheBrowserOpensIt,
 //     TestDeviceCheckCode_IsTheKeysAndBothNoncesAndTheBrowsersAlike and
 //     TestDeviceCommitmentAndKeyHash_AreTheBrowsersAlike.
+//   - A nonce carries its expiry and a MAC under its issuer's key, so issuing keeps nothing; it is
+//     spent once, by a valid signature for its purpose, discovery and core, before it expires (the
+//     security audit's S13, D343). Enforced by TestNonces_ANonceWorksOnceForItsPurposeUntilItExpires
+//     and TestNonces_IssuingKeepsNothing.
 //   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
 //     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
@@ -45,4 +50,5 @@
 //   - proof.go: what is signed, and the check.
 //   - realm.go: a realm sign-in's key, and what it proves.
 //   - devicecode.go: a device code through the paid service: its check code, and its sealed outcome.
+//   - nonces.go: the nonces a core signs, issued and spent once each.
 package proof

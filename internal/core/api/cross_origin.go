@@ -8,14 +8,15 @@ import "net/http"
 // discovery protocol's §3.4; discovery-core.md K10): its sign-in by header, never a cookie, so no
 // credentials mode; a Watch Together viewer's membership, by header beside it; the click's key; a byte
 // path's range and the player's pacing; and back, a wait,
-// the player's ceiling and a range's extent. X-Orpheum-Client is not exposed: it names the core's
+// the player's ceiling, a range's extent and the request's ID. X-Orpheum-Client is not exposed: it names the core's
 // own client, which a page the discovery serves is not, and would take for an update.
 const (
 	crossOriginAllowedHeaders = "Authorization, Content-Type, Idempotency-Key, Range, Orpheum-Pace-Kbps, " +
 		"Orpheum-Sought, " + ViewerHeaderName
-	crossOriginExposedHeaders = "Retry-After, Orpheum-Ceiling-Kbps, Content-Range, Accept-Ranges"
-	crossOriginMethods        = "GET, HEAD, POST, PUT, PATCH, DELETE"
-	crossOriginMaxAgeSeconds  = "600"
+	crossOriginExposedHeaders = "Retry-After, Orpheum-Ceiling-Kbps, Content-Range, Accept-Ranges, " +
+		RequestIDHeader
+	crossOriginMethods       = "GET, HEAD, POST, PUT, PATCH, DELETE"
+	crossOriginMaxAgeSeconds = "600"
 )
 
 // crossOrigin lets a page on the client origin the core's discovery names call the API from a

@@ -5,17 +5,14 @@ package single
 import (
 	"context"
 	"crypto/ed25519"
-	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -30,16 +27,6 @@ const (
 	nonceLasts   = 5 * time.Minute
 	sessionLasts = time.Hour
 	claimLasts   = 30 * time.Minute
-)
-
-// A nonce carries its own expiry and a MAC under a key only this discovery holds, so issuing one
-// keeps nothing: a stranger asking for challenges again and again fills no table. A cap of 256
-// outstanding nonces let one refuse the core's own sessions (the security audit's S13, 2026-10-13).
-// What is kept is the nonces a signature has spent, until they expire, so each works once.
-const (
-	nonceRandomBytes = 16
-	nonceMACBytes    = 16
-	nonceKeyBytes    = 32
 )
 
 // secretBytes is the random bytes behind a nonce, a session's token and a core's id.
@@ -113,9 +100,8 @@ type Parts struct {
 type Discovery struct {
 	parts Parts
 	mutex sync.Mutex
-	// nonceKey signs the nonces it issues; spent is each nonce a signature has used, until it expires.
-	nonceKey []byte
-	spent    map[string]time.Time
+	// nonces are the nonces it issues for a core to sign, and spends once each (D343).
+	nonces *proof.Nonces
 	// tokens are the sessions, by their tokens; instance is the core's live instance, empty when no
 	// session is open (D293 §1).
 	tokens   map[string]session
@@ -141,12 +127,12 @@ func New(parts Parts) (*Discovery, error) {
 	if parts.Logger == nil {
 		parts.Logger = slog.New(slog.DiscardHandler)
 	}
-	nonceKey := make([]byte, nonceKeyBytes)
-	if _, err := io.ReadFull(parts.Random, nonceKey); err != nil {
-		return nil, fmt.Errorf("make the nonces' key: %w", err)
+	nonces, err := proof.NewNonces(parts.Random)
+	if err != nil {
+		return nil, err
 	}
 	return &Discovery{
-		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]session{},
+		parts: parts, nonces: nonces, tokens: map[string]session{},
 		signal: NewSignal(parts.Logger, parts.Now), pingWait: instancePingWait,
 		locateHashes: map[string]locatable{}, locators: map[string]bool{}, bootstraps: map[string]bootstrap{},
 		openByHash: map[string]int{},
@@ -237,62 +223,24 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 	}
 }
 
-// challenge issues a nonce to sign, for enrolling or a session: its expiry, random bytes and their
-// MAC, keeping nothing.
+// challenge issues a nonce to sign, for enrolling or a session, keeping nothing.
 func (discovery *Discovery) challenge(writer http.ResponseWriter, request *http.Request) {
-	expires := uint64(discovery.parts.Now().Add(nonceLasts).UnixMilli())
-	body := binary.BigEndian.AppendUint64(make([]byte, 0, 8+nonceRandomBytes+nonceMACBytes), expires)
-	body = body[:8+nonceRandomBytes]
-	if _, err := io.ReadFull(discovery.parts.Random, body[8:]); err != nil {
-		discovery.fail(writer, request, fmt.Errorf("make a nonce: %w", err))
+	nonce, err := discovery.nonces.Issue(discovery.parts.Random, discovery.parts.Now().Add(nonceLasts))
+	if err != nil {
+		discovery.fail(writer, request, err)
 		return
 	}
-	nonce := slices.Concat(body, discovery.nonceMAC(body))
-	answer(writer, discoveryproto.ChallengeResponse{Nonce: base64.RawURLEncoding.EncodeToString(nonce)})
-}
-
-// nonceMAC is the MAC of a nonce's expiry and random bytes under the discovery's key.
-func (discovery *Discovery) nonceMAC(body []byte) []byte {
-	mac := hmac.New(sha256.New, discovery.nonceKey)
-	mac.Write(body)
-	return mac.Sum(nil)[:nonceMACBytes]
-}
-
-// nonceExpiry is when a nonce this discovery issued expires, and whether it is one.
-func (discovery *Discovery) nonceExpiry(nonce string) (time.Time, bool) {
-	raw, err := base64.RawURLEncoding.DecodeString(nonce)
-	if err != nil || len(raw) != 8+nonceRandomBytes+nonceMACBytes {
-		return time.Time{}, false
-	}
-	body := raw[:8+nonceRandomBytes]
-	if !hmac.Equal(raw[8+nonceRandomBytes:], discovery.nonceMAC(body)) {
-		return time.Time{}, false
-	}
-	return time.UnixMilli(int64(binary.BigEndian.Uint64(body))), true //nolint:gosec // written from a time above
+	answer(writer, discoveryproto.ChallengeResponse{Nonce: nonce})
 }
 
 // isSigned is whether signature is publicKey's over a nonce this discovery issued, not expired and
 // not yet spent, for purpose, bound to this discovery and core; one a valid signature used is spent,
 // and kept until it expires.
 func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, core, nonce string, signature []byte) bool {
-	expires, isIssued := discovery.nonceExpiry(nonce)
-	now := discovery.parts.Now()
-	if !isIssued || !now.Before(expires) ||
-		!proof.Verify(publicKey, purpose, discovery.parts.BaseURL, core, nonce, signature) {
-		return false
-	}
-	discovery.mutex.Lock()
-	defer discovery.mutex.Unlock()
-	for each, until := range discovery.spent {
-		if !now.Before(until) {
-			delete(discovery.spent, each)
-		}
-	}
-	if _, isSpent := discovery.spent[nonce]; isSpent {
-		return false
-	}
-	discovery.spent[nonce] = expires
-	return true
+	return discovery.nonces.Spend(discovery.parts.Now(), proof.SignedNonce{
+		PublicKey: publicKey, Purpose: purpose, BaseURL: discovery.parts.BaseURL, Core: core, Nonce: nonce,
+		Signature: signature,
+	})
 }
 
 // enrol takes the core whose key signed: a new one, the same one again, or a pending one whose code

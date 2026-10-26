@@ -64,17 +64,23 @@ func (discovery DiscoveryConfig) lanIPs() []netip.Addr {
 // device in the house reaches the core directly over WebRTC (D300 §1). Zero gives each connection
 // ports of its own, which nothing at home reaches in a container. STUNServers are the servers its
 // connections find its public addresses through: its own, not its discovery's (the Plex-chain
-// review's L3).
+// review's L3). MaxConnections is the most connections it holds at once, of every network (D348).
 type WebRTCConfig struct {
-	UDPPort     int      `toml:"udp_port"`
-	STUNServers []string `toml:"stun_servers"`
+	UDPPort        int      `toml:"udp_port"`
+	STUNServers    []string `toml:"stun_servers"`
+	MaxConnections int      `toml:"max_connections"`
 }
 
-// check refuses a port that is not one, and a STUN server that is not a stun: URL.
+// check refuses a port that is not one, a STUN server that is not a stun: URL, and a limit on
+// connections that allows none.
 func (webrtc WebRTCConfig) check() error {
 	var problems []error
 	if webrtc.UDPPort < 0 || webrtc.UDPPort > 65535 {
 		problems = append(problems, fmt.Errorf("webrtc.udp_port %d: want a UDP port, or 0 for none", webrtc.UDPPort))
+	}
+	if webrtc.MaxConnections < 1 {
+		problems = append(problems,
+			fmt.Errorf("webrtc.max_connections %d: want at least 1", webrtc.MaxConnections))
 	}
 	for _, server := range webrtc.STUNServers {
 		if !strings.HasPrefix(server, "stun:") && !strings.HasPrefix(server, "stuns:") {

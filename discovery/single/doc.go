@@ -35,8 +35,9 @@
 //     TestSession_ForACoreItDoesNotHoldSaysToEnrolAgain.
 //
 //   - A signature counts only over a nonce it issued, once, for the purpose it was made for; issuing
-//     one keeps nothing, so no count of strangers' challenges keeps the core from its session.
-//     Enforced by TestSession_ANonceWorksOnceAndOnlyForItsPurpose and
+//     one keeps nothing, so no count of strangers' challenges keeps the core from its session. The
+//     nonces are discovery/proof's Nonces, which the paid service holds too (D343). Enforced by
+//     TestSession_ANonceWorksOnceAndOnlyForItsPurpose and
 //     TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession.
 //
 //   - A pending core is claimed only by its own code, typed before the code expires; a status asked
@@ -82,7 +83,7 @@
 //
 // # Where to change
 //
-//   - single.go: the protocol's handler, its nonces, enrolment and claiming.
+//   - single.go: the protocol's handler, enrolment and claiming; its nonces are discovery/proof's.
 //   - session.go: the sessions, bound to the core and its live instance.
 //   - record.go: the one core it holds, kept in a file under a lock.
 //   - signal.go: the core's signalling connection and the offers passed over it, as Signal, the

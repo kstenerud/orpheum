@@ -194,6 +194,7 @@ var sectionByKey = map[Key]Section{
 	ScreenRefreshFailedWaitSeconds:                 SectionDiagnostics,
 	ScreenRefreshFirstWaitSeconds:                  SectionDiagnostics,
 	ScreenRefreshLongestWaitSeconds:                SectionDiagnostics,
+	LogLevel:                                       SectionDiagnostics,
 	ShouldServeDebugMetrics:                        SectionDiagnostics,
 	ShouldServeDebugPProf:                          SectionDiagnostics,
 	ShouldShowDeveloperPages:                       SectionDiagnostics,
