@@ -58,7 +58,7 @@ const welcome = {
   memberId: 7,
   deviceId: 9,
   group: { state: "Paused", positionMs: 1000, rate: 1, fileId: 3 },
-  roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "playback" }] }],
+  roster: [{ id: 7, name: "Gran", devices: [{ id: 9, role: "video" }] }],
 };
 
 let monotonicNowMs = 0;
@@ -89,7 +89,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       type: "hello",
       credential: "membership",
       sessionToken: "session",
-      role: "playback",
+      role: "video",
       canSetRate: true,
     });
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
@@ -364,7 +364,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
       credential: "c",
-      role: "voice",
+      role: "panel",
       openSocket: sockets.open,
       monotonicMs,
     });
@@ -503,14 +503,12 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
           {
             id: 7,
             name: "Gran",
-            devices: [
-              { id: 9, role: "playback", cannotKeepUp: { linkKbps: 600, lowestKbps: 750 } },
-            ],
+            devices: [{ id: 9, role: "video", cannotKeepUp: { linkKbps: 600, lowestKbps: 750 } }],
           },
           {
             id: 8,
             name: "Kim",
-            devices: [{ id: 10, role: "playback", cannotKeepUp: { lowestKbps: 750 } }],
+            devices: [{ id: 10, role: "video", cannotKeepUp: { lowestKbps: 750 } }],
           },
         ],
       }),
@@ -733,7 +731,7 @@ describe("reading the server's messages", () => {
 
 describe("voice signalling on the session socket (D193 §4)", () => {
   /** A connection in role, opened and welcomed as device 9 of member 7. */
-  function welcomed(role?: "voice" | "both"): {
+  function welcomed(role?: "panel" | "both"): {
     readonly sockets: FakeSockets;
     readonly connection: ReturnType<typeof createTogetherConnection>;
   } {
@@ -751,14 +749,14 @@ describe("voice signalling on the session socket (D193 §4)", () => {
   }
 
   it("says hello in the role it was given, a voice device claiming no player's rate", () => {
-    const { sockets, connection } = welcomed("voice");
-    expect(sockets.sent[0]).toEqual({ v: 2, type: "hello", credential: "c", role: "voice" });
+    const { sockets, connection } = welcomed("panel");
+    expect(sockets.sent[0]).toEqual({ v: 2, type: "hello", credential: "c", role: "panel" });
     expect(connection.snapshot().deviceId).toBe(9);
     expect(welcomed("both").sockets.sent[0]).toMatchObject({ role: "both", canSetRate: true });
   });
 
   it("sends signalling to the device it names, and hands what others send to its listeners", () => {
-    const { sockets, connection } = welcomed("voice");
+    const { sockets, connection } = welcomed("panel");
     const heard: unknown[] = [];
     const unsubscribe = connection.subscribeToVoiceSignals((fromDeviceId, signal) => {
       heard.push({ fromDeviceId, signal });

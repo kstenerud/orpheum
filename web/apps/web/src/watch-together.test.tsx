@@ -417,7 +417,7 @@ describe("the host's player in a session (D246 §5)", () => {
       memberId: 1,
       isHost: true,
       group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
-      roster: [{ ...karl, devices: [{ id: 9, role: "playback" }] }],
+      roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     expect(server.heard).toContainEqual({
       v: 2,
@@ -488,7 +488,7 @@ describe("the host's player in a session (D246 §5)", () => {
       memberId: 1,
       isHost: true,
       group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
-      roster: [{ ...karl, devices: [{ id: 9, role: "playback" }] }],
+      roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     await act(async () => {
       showVideo(document.createElement("video"));
@@ -536,7 +536,7 @@ describe("the host's player in a session (D246 §5)", () => {
       memberId: 1,
       isHost: true,
       group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
-      roster: [{ ...karl, devices: [{ id: 9, role: "playback" }] }],
+      roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     const video = mounted.container.querySelector("video");
     if (video === null) {

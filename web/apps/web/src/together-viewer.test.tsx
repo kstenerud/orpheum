@@ -42,8 +42,8 @@ const welcome = {
   deviceId: 8,
   group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [
-    { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "playback" }] },
-    { id: 2, name: "Gran", devices: [{ id: 8, role: "playback" }] },
+    { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video" }] },
+    { id: 2, name: "Gran", devices: [{ id: 8, role: "video" }] },
   ],
 };
 
@@ -107,7 +107,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(server.heard[0]).toMatchObject({
       type: "hello",
       credential: "viewer-credential",
-      role: "playback",
+      role: "video",
     });
     await server.say(welcome);
     const stage = mounted.container.querySelector('section[aria-label="The film"]');

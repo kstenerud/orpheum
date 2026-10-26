@@ -200,11 +200,11 @@ func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
 		t.Fatalf("the TV was handed %+v; want cast %d of file 1 from 61 s, from %q",
 			received, started.CastID, testDevice.Name)
 	}
-	receiver := harness.dialCast(t, received.Credential, together.RolePlayback)
+	receiver := harness.dialCast(t, received.Credential, together.RoleVideo)
 	if welcome := receiver.awaitWelcome(); !welcome.IsHost || welcome.SessionID != started.CastID {
 		t.Fatalf("the receiver's welcome = %+v; want the cast's host", welcome)
 	}
-	remote := harness.dialCast(t, started.MembershipCredential, together.RoleVoice)
+	remote := harness.dialCast(t, started.MembershipCredential, together.RolePanel)
 	remote.awaitWelcome()
 	putOn(receiver, remote, 1)
 	remote.send(together.Inbound{
@@ -232,13 +232,13 @@ func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
 	tv := harness.thisDevice(t, tvToken)
 	harness.dialLive(t, tvToken).awaitDevices(tv)
 	first := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
-	phoneRemote := harness.dialCast(t, first.MembershipCredential, together.RoleVoice)
+	phoneRemote := harness.dialCast(t, first.MembershipCredential, together.RolePanel)
 	phoneRemote.awaitWelcome()
 	second := startedCast(t, harness.startCast(t, laptopToken, tv, 5_000))
 	if reason := phoneRemote.awaitEnded(); reason != together.CastReplaced {
 		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastReplaced)
 	}
-	laptopRemote := harness.dialCast(t, second.MembershipCredential, together.RoleVoice)
+	laptopRemote := harness.dialCast(t, second.MembershipCredential, together.RolePanel)
 	laptopRemote.awaitWelcome()
 	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", second.CastID), phoneToken,
 		map[string]string{"reason": "stopped"}), http.StatusNotFound, CodeNotFound)

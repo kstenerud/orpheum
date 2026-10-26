@@ -153,7 +153,10 @@ export interface TogetherConnectionOptions {
   readonly client?: string | undefined;
   /** A signed-in person's session token, which makes the membership theirs (D243 §2). */
   readonly sessionToken?: string | undefined;
-  /** What the device does for its member (D120), said in the hello: "playback" when not given. */
+  /**
+   * The part of its member the device fulfils (D120, D338 §4), said in the hello: "video", the
+   * video viewer, when not given.
+   */
   readonly role?: DeviceRole | undefined;
   readonly openSocket: OpenTogetherSocket;
   /** A monotonic clock in ms (performance.now): no clock is shared with the server (D66). */
@@ -339,7 +342,7 @@ function seqOf(message: TogetherServerMessage): number | undefined {
  * player's rate; a voice device has no player.
  */
 function helloText(options: TogetherConnectionOptions): string {
-  const role = options.role ?? "playback";
+  const role = options.role ?? "video";
   return JSON.stringify({
     v: togetherProtocolVersion,
     type: "hello",
@@ -347,7 +350,7 @@ function helloText(options: TogetherConnectionOptions): string {
     ...(options.sessionToken === undefined ? {} : { sessionToken: options.sessionToken }),
     role,
     ...(options.client === undefined ? {} : { client: options.client }),
-    ...(role === "voice" ? {} : { canSetRate: true }),
+    ...(role === "panel" ? {} : { canSetRate: true }),
   });
 }
 
@@ -556,7 +559,7 @@ class SessionConnection
     const after = this.#snapshot;
     // A voice device plays nothing, so places nothing: its placings filled the log beside its
     // player's (the acceptance's log, 2026-10-07).
-    if (after.group?.state !== "Playing" || this.#options.role === "voice") {
+    if (after.group?.state !== "Playing" || this.#options.role === "panel") {
       return;
     }
     if (message.type !== "pong") {

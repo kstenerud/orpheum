@@ -136,7 +136,7 @@ func (stage sessionStage) tick(t *testing.T, attachment Attachment) {
 func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.clock.Advance(12 * time.Second)
@@ -155,9 +155,9 @@ func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
 func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	if welcome := guestBox.last(MessageWelcome); welcome.SessionID != stage.opened.SessionID ||
 		welcome.Group == nil || welcome.Group.State != GroupIdle || welcome.Group.FileID != 0 ||
 		len(welcome.Roster) != 2 || welcome.IsHost {
@@ -195,9 +195,9 @@ func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers(t *test
 func TestHub_LogsEachChangeOfTheGroupAndWhoItWaitsFor(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
 	stage.ready(t, guestDevice, true)
@@ -218,14 +218,14 @@ func TestHub_LogsEachChangeOfTheGroupAndWhoItWaitsFor(t *testing.T) {
 func TestHub_AJoiningViewerHoldsNoOneUpUntilReady(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
 		t.Fatalf("film 7 put on with only the host, ready: %s, want Playing", state)
 	}
 	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, guestDevice, true)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
 		t.Errorf("a viewer joining and loading: %s, want Playing on without them", state)
@@ -245,9 +245,9 @@ func TestHub_AJoiningViewerHoldsNoOneUpUntilReady(t *testing.T) {
 func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
@@ -256,7 +256,7 @@ func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 	if hostBox.last(MessageGroup).Seq != seq || hostBox.last(MessageGroup).Group.State != GroupPlaying {
 		t.Errorf("the guest's device dropped: %+v; want the group playing on, unchanged", hostBox.last(MessageGroup))
 	}
-	back, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	back, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, back, false)
 	stage.ready(t, back, true)
 	stage.command(t, host, CommandPause, 0)
@@ -275,13 +275,13 @@ func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 func TestHub_TheRosterListsTheMembersInTheOrderTheyJoined(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	var credentials []string
 	for range 3 {
 		credentials = append(credentials, stage.join(t).MembershipCredential)
 	}
 	for range 20 {
-		attached, _ := stage.attach(t, credentials[2], RolePlayback)
+		attached, _ := stage.attach(t, credentials[2], RoleVideo)
 		roster := hostBox.last(MessageRoster).Roster
 		if len(roster) != 4 || !roster[0].IsHost ||
 			!slices.IsSortedFunc(roster, func(one, other MemberView) int { return cmp.Compare(one.ID, other.ID) }) {
@@ -296,10 +296,10 @@ func TestHub_TheRosterListsTheMembersInTheOrderTheyJoined(t *testing.T) {
 func TestHub_OnlyTheHostControlsPlayback(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.command(t, host, CommandChangeItem, 7)
 	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	for _, command := range []CommandKind{CommandPlay, CommandPause, CommandSeek, CommandChangeItem, CommandStop} {
 		stage.command(t, guestDevice, command, 9)
 		if refused := guestBox.last(MessageRejected); refused.Code != codeForbidden {
@@ -316,7 +316,7 @@ func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 	t.Parallel()
 	for _, rights := range []Rights{{CanPlayPause: true}, {CanSeek: true}} {
 		stage := newStage(t)
-		host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+		host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 		stage.command(t, host, CommandChangeItem, 7)
 		made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma", rights)
 		if err != nil {
@@ -326,7 +326,7 @@ func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		guest, guestBox := stage.attach(t, joined.MembershipCredential, RolePlayback)
+		guest, guestBox := stage.attach(t, joined.MembershipCredential, RoleVideo)
 		if told := guestBox.last(MessageWelcome).Rights; told == nil || *told != rights {
 			t.Errorf("the guest given %+v was welcomed with %+v", rights, told)
 		}
@@ -379,9 +379,9 @@ func TestHub_ANewLinkStartsWithTheLastOnesRights(t *testing.T) {
 func TestHub_TheHostStoppingLeavesNothingPlaying(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	_, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	_, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.command(t, host, CommandStop, 0)
 	if group := guestBox.last(MessageGroup).Group; group.State != GroupIdle || group.FileID != 0 {
@@ -397,8 +397,8 @@ func TestHub_TheHostStoppingLeavesNothingPlaying(t *testing.T) {
 func TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-	hostPhone, phoneBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	hostPhone, phoneBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.command(t, host, CommandChangeItem, 7)
 	seq := hostBox.last(MessageGroup).Seq
 	stage.hub.Handle(t.Context(), host, Inbound{
@@ -420,7 +420,7 @@ func TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale(t *testing.T) {
 func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	_, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "", Rights{})
 	if !errors.Is(err, ErrNoNote) {
 		t.Errorf("a link with no note = %v; want ErrNoNote", err)
@@ -463,7 +463,7 @@ func TestHub_AnEjectedMemberIsGone(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	guest := stage.join(t)
-	_, guestPhone := stage.attach(t, guest.MembershipCredential, RoleVoice)
+	_, guestPhone := stage.attach(t, guest.MembershipCredential, RolePanel)
 	err := stage.hub.Eject(stage.opened.SessionID, guest.MemberID+100, guest.MemberID)
 	if !errors.Is(err, ErrNotHost) {
 		t.Errorf("an ejection by someone not the host = %v; want ErrNotHost", err)
@@ -474,7 +474,7 @@ func TestHub_AnEjectedMemberIsGone(t *testing.T) {
 	if ended := guestPhone.last(MessageEnded); ended.Reason != "ejected" {
 		t.Errorf("the ejected member's phone was told %+v; want ended, ejected", ended)
 	}
-	_, err = stage.hub.Attach(guest.MembershipCredential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
+	_, err = stage.hub.Attach(guest.MembershipCredential, RoleVideo, true, nil, testTuning, (&inbox{}).send)
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("the ejected member's credential = %v; want it to admit nothing", err)
 	}
@@ -496,13 +496,13 @@ func TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, brave := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	_, brave := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	moved, err := stage.hub.AnotherLinkFor(session, host, guest.MemberID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Until the new link is used, the guest is still in on the browser they came in on.
-	_, err = stage.hub.Attach(guest.MembershipCredential, RoleVoice, true, nil, testTuning, (&inbox{}).send)
+	_, err = stage.hub.Attach(guest.MembershipCredential, RolePanel, true, nil, testTuning, (&inbox{}).send)
 	if err != nil {
 		t.Errorf("the guest's credential before the new link is used = %v; want it still to admit them", err)
 	}
@@ -534,7 +534,7 @@ func (stage sessionStage) wantMovedAway(t *testing.T, credential string, old *in
 	if ended := old.last(MessageEnded); ended.Reason != "movedAway" {
 		t.Errorf("the old browser was told %+v; want ended, movedAway", ended)
 	}
-	_, err := stage.hub.Attach(credential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
+	_, err := stage.hub.Attach(credential, RoleVideo, true, nil, testTuning, (&inbox{}).send)
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("the old browser's credential = %v; want it to admit nothing", err)
 	}
@@ -563,7 +563,7 @@ func TestHub_OpeningAgainGivesTheHostTheirSession(t *testing.T) {
 		again.MembershipCredential == stage.opened.MembershipCredential {
 		t.Errorf("opening again = %+v; want the same session, not new, with a new credential", again)
 	}
-	_, err = stage.hub.Attach(again.MembershipCredential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
+	_, err = stage.hub.Attach(again.MembershipCredential, RoleVideo, true, nil, testTuning, (&inbox{}).send)
 	if err != nil {
 		t.Errorf("the new credential = %v; want it to admit the host", err)
 	}
@@ -577,7 +577,7 @@ func TestHub_OpeningAgainGivesTheHostTheirSession(t *testing.T) {
 func TestHub_AViewerPlaysWhatTheSessionPlaysWhileTheyAreIn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
 	stage.command(t, host, CommandChangeItem, 7)
 	viewer, isViewer := stage.hub.ViewerOf(guest.MembershipCredential)
@@ -598,7 +598,7 @@ func TestHub_RelaysVoiceSignallingToTheDeviceItNames(t *testing.T) {
 	stage := newStage(t)
 	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
 	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVoice)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePanel)
 	stage.hub.Handle(t.Context(), host, Inbound{Type: MessageRTC, ToDeviceID: guestDevice.DeviceID, SDP: "offer"})
 	if relayed := guestBox.last(MessageRTC); relayed.SDP != "offer" || relayed.FromDeviceID != host.DeviceID {
 		t.Errorf("relayed %+v; want the host's offer", relayed)
@@ -610,7 +610,7 @@ func TestHub_RelaysVoiceSignallingToTheDeviceItNames(t *testing.T) {
 func TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.command(t, host, CommandChangeItem, 13)
 	if refused := hostBox.last(MessageRejected); refused.Code != codeNotFound {
 		t.Errorf("a change to a film the host may not play = %+v; want it refused as not found", refused)
@@ -628,9 +628,9 @@ func TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay(t *testing.T) {
 func TestHub_TheRosterShowsEachDevicesRoundTripItReported(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageState, RTTMs: 42})
 	stage.ready(t, guestDevice, true)
 	for _, each := range hostBox.last(MessageRoster).Roster {
@@ -650,9 +650,9 @@ func TestHub_TheRosterShowsEachDevicesRoundTripItReported(t *testing.T) {
 func TestHub_TheRosterTellsEveryoneADeviceCannotKeepUp(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	guestInHostsRoster := func() DeviceView {
 		for _, each := range hostBox.last(MessageRoster).Roster {
 			if each.ID == guest.MemberID && len(each.Devices) == 1 {
@@ -679,7 +679,7 @@ func TestHub_TheRosterTellsEveryoneADeviceCannotKeepUp(t *testing.T) {
 func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.clock.Advance(30 * time.Second)
@@ -713,9 +713,9 @@ type playingStage struct {
 func playing(t *testing.T) playingStage {
 	t.Helper()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
@@ -732,9 +732,9 @@ func playing(t *testing.T) playingStage {
 func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	guestStatus := func() DeviceStatus {
 		for _, each := range hostBox.last(MessageRoster).Roster {
 			if each.ID == guest.MemberID && len(each.Devices) == 1 {

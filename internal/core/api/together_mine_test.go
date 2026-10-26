@@ -145,7 +145,7 @@ func TestTogether_ADeviceWhoseSignInCannotBeCheckedIsClosed(t *testing.T) {
 	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // closing what may be closed
 	if err = wsjson.Write(ctx, connection, together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello, Credential: opened.Body.MembershipCredential,
-		Role: together.RolePlayback, SessionToken: admin,
+		Role: together.RoleVideo, SessionToken: admin,
 	}); err != nil {
 		t.Fatal(err)
 	}

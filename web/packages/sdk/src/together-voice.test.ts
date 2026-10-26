@@ -238,16 +238,16 @@ const roster = [
     id: 7,
     name: "Gran",
     devices: [
-      { id: 9, role: "playback" },
-      { id: 20, role: "voice" },
+      { id: 9, role: "video" },
+      { id: 20, role: "panel" },
     ],
   },
   {
     id: 8,
     name: "Karl",
     devices: [
-      { id: 11, role: "playback" },
-      { id: 30, role: "voice" },
+      { id: 11, role: "video" },
+      { id: 30, role: "panel" },
     ],
   },
   { id: 5, name: "Ann", devices: [{ id: 15, role: "both" }] },
@@ -310,7 +310,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
       v: 2,
       type: "hello",
       credential: "membership",
-      role: "voice",
+      role: "panel",
     });
     expect(voice.snapshot()).toMatchObject({ status: "on", isConnected: false });
   });
@@ -548,7 +548,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     // Karl on another device is heard at his gain.
     server.tell({
       type: "roster",
-      roster: [...roster.slice(0, 1), { ...roster[1], devices: [{ id: 50, role: "voice" }] }],
+      roster: [...roster.slice(0, 1), { ...roster[1], devices: [{ id: 50, role: "panel" }] }],
     });
     await settle();
     expect(calls.at(-1)!.gain).toBe(0.4);
@@ -623,7 +623,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     rigNowMs += iceServersFreshForMs + 1;
     server.tell({
       type: "roster",
-      roster: [...roster, { id: 6, name: "Bo", devices: [{ id: 50, role: "voice" }] }],
+      roster: [...roster, { id: 6, name: "Bo", devices: [{ id: 50, role: "panel" }] }],
     });
     await settle();
     expect(iceAsked).toHaveLength(2);

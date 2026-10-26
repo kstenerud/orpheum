@@ -13,7 +13,7 @@ import (
 func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 1000})
 	stage.clock.Advance(3 * time.Second)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 4000})
@@ -40,7 +40,7 @@ func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.
 func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteSought, PositionMs: 50_000, ToMs: 124_000, Why: "catchUp",
 	}})
@@ -84,7 +84,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteVoiceStats, Voice: &VoiceStats{
 			PartnerDeviceID: 4, RoundTripMs: 340, JitterBufferMs: 905, JitterBufferTargetMs: 880,
@@ -119,7 +119,7 @@ func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing
 func TestHub_LogsAVoiceCallsStepsAndRefusesAnUnknownOne(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteVoiceCall, PartnerDeviceID: 4, Why: "signalDropped",
 	}})
@@ -145,7 +145,7 @@ func TestHub_LogsAVoiceCallsStepsAndRefusesAnUnknownOne(t *testing.T) {
 func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	for _, note := range []PlayerNote{
 		{Kind: NotePonged, RoundTripMs: 84, AheadOfExpectedMs: 173, Why: "placed"},
 		{Kind: NotePonged, RoundTripMs: 97, AheadOfExpectedMs: -12, Why: "kept"},
@@ -168,7 +168,7 @@ func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteOwnMarkExpired, Why: "pause",
 	}})
@@ -183,7 +183,7 @@ func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
 func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteCorrectsBySeeks, ReturnCostMs: 220,
 	}})
@@ -203,7 +203,7 @@ func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 func TestHub_LogsAPlayersLoadingHeldAndTheRuleItWasReadyBy(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	for _, why := range []string{"held", "goesOn"} {
 		note := &PlayerNote{Kind: NoteLoadHeld, Why: why}
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: note})
@@ -233,7 +233,7 @@ func TestHub_LogsAPlayersLoadingHeldAndTheRuleItWasReadyBy(t *testing.T) {
 func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	for _, note := range []PlayerNote{
 		{Kind: NotePlayedMuted, PositionMs: 4919}, {Kind: NoteUnmuted, PositionMs: 31585},
 	} {
@@ -258,7 +258,7 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	page := "loadedMsAgo=1400 joinedHere=false"
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteContinueAsked, Why: "reload", Page: page,
@@ -286,7 +286,7 @@ func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
 func TestHub_LogsATapsSoundStateAtItAndAfter(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	after := "muted=false volume=1.00 paused=false session=playback"
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteUnmuted, PositionMs: 2843705, Why: "after", SoundState: after,
@@ -310,7 +310,7 @@ func TestHub_LogsATapsSoundStateAtItAndAfter(t *testing.T) {
 func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	off := func(why string) Inbound {
 		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceOff, Why: why}}
 	}
@@ -330,7 +330,7 @@ func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 func TestHub_LogsAPersonsMicrophoneChanging(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	talk := func(why string) Inbound {
 		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceTalk, Why: why}}
 	}
@@ -354,7 +354,7 @@ func TestHub_LogsAPersonsMicrophoneChanging(t *testing.T) {
 func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteDiagnosis, Why: "movedItself", PositionMs: 10_319, ReadyState: 1,
 		VideoBuffered: "10.14-30.20", AudioBuffered: "0.00-30.10", LastError: "bufferSeekOverHole: hole",
@@ -386,7 +386,7 @@ func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
 func TestHub_LogsHowAPlayerPlacedItsFirstChunks(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteDiagnosis, Why: "bufferedFirst", PositionMs: 300_000, ReadyState: 1,
 		Mapping: "initPTS main 10.000; main sn 30 at 300.00 pts 300.00", MediaSourceState: "streaming",
@@ -409,7 +409,7 @@ func TestHub_LogsHowAPlayerPlacedItsFirstChunks(t *testing.T) {
 func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteLeaderCommand, Why: "pause", RecentEvents: "play@100 pause(own)@120 play@125 pause@510",
 	}})

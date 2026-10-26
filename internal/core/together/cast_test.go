@@ -54,8 +54,8 @@ func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RolePlayback)
-	remote, remoteBox := stage.attach(t, cast.SenderCredential, RoleVoice)
+	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	remote, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.ready(t, receiver, false)
 	if state := receiverBox.last(MessageGroup).Group.State; state != GroupPlaying {
@@ -76,7 +76,7 @@ func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 			t.Errorf("the %s was told the cast ended for %q, want %q", name, reason, CastTakenBack)
 		}
 	}
-	_, err = stage.hub.Attach(cast.SenderCredential, RoleVoice, false, nil, testTuning, (&inbox{}).send)
+	_, err = stage.hub.Attach(cast.SenderCredential, RolePanel, false, nil, testTuning, (&inbox{}).send)
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("the ended cast's credential attached: %v", err)
 	}

@@ -24,7 +24,7 @@ const snapshot: TogetherSnapshot = {
       devices: [
         {
           id: 3,
-          role: "playback",
+          role: "video",
           isBuffering: false,
           cannotKeepUp: undefined,
           status: "watching",
@@ -38,7 +38,7 @@ const snapshot: TogetherSnapshot = {
       devices: [
         {
           id: 4,
-          role: "playback",
+          role: "video",
           isBuffering: true,
           cannotKeepUp: { linkKbps: 600, lowestKbps: 750 },
           status: "buffering",

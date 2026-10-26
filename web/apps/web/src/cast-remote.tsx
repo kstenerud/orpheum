@@ -62,7 +62,7 @@ export function Remote(props: { readonly cast: Cast }): JSX.Element {
   const { connection, snapshot } = useTogether({
     credential: props.cast.membershipCredential,
     sessionToken: token,
-    role: "voice",
+    role: "panel",
   });
   const [cast, setCast] = useState(props.cast);
   useFollowsTheFilm(cast, snapshot, setCast);

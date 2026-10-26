@@ -60,7 +60,7 @@ describe("the remote of a cast (D337 §5)", () => {
       withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
     );
     await server.accept();
-    expect(server.heard[0]).toMatchObject({ type: "hello", credential: "remote", role: "voice" });
+    expect(server.heard[0]).toMatchObject({ type: "hello", credential: "remote", role: "panel" });
     await server.say(welcome);
     expect(mounted.container.querySelector("video")).toBeNull();
     expect(mounted.container.textContent).toContain("Metropolis");

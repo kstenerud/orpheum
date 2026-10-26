@@ -38,7 +38,7 @@ export interface TogetherDevice {
    * player, or none as it moves on to another film's player. Stable, or the connection opens again.
    */
   readonly commandOnLeaving?: (() => GroupCommand | undefined) | undefined;
-  /** What the device does for its member (D120): "playback" when not given; a cast's remote plays nothing. */
+  /** What the device does for its member (D120): "video" when not given; a cast's remote plays nothing. */
   readonly role?: DeviceRole | undefined;
 }
 
