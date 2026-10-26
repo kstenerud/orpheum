@@ -397,7 +397,8 @@ class RevertRed(unittest.TestCase):
         # Its own package and what its revert can reach: the source-reading arch tests, as nothing
         # imports a main package; never the whole suite.
         self.assertEqual([a.command for a in dev],
-                         [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum", "./internal/archtest"]])
+                         [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum", "./internal/archtest",
+                           "./internal/store/storesources"]])
         darwin = rr.other_builds("internal/store/space_darwin.go")
         self.assertEqual(darwin[-1].command, ["go", "vet", "./..."])
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})

@@ -21,9 +21,11 @@ import subprocess
 from pathlib import Path
 
 # The packages whose tests read every package's sources rather than import what they check
-# (go/parser over the module), so any Go file's revert can turn them red. Others that parse source
-# (internal/core/api's errors_test, internal/store's sqlcgen_test) read only their own directory's.
-GO_SOURCE_READERS = ("./internal/archtest",)
+# (go/parser over the module), so any Go file's revert can turn them red: internal/archtest, and
+# internal/store/storesources, which holds the store's two tests that read the whole module (moved
+# there in e3b120a0 so the store's own tests cache). Others that parse source (internal/core/api's
+# errors_test, internal/store's sqlcgen_test) read only their own directory's.
+GO_SOURCE_READERS = ("./internal/archtest", "./internal/store/storesources")
 # A Go test that builds the binary, and so compiles every package: none today.
 GO_BINARY_BUILDER = re.compile(r'exec\.Command\("go"|"go", "build"')
 # A web test that reads source files by path rather than importing them.
