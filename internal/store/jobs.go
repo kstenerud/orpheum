@@ -242,10 +242,20 @@ func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (
 	if err != nil {
 		return claimed, false, fmt.Errorf("claim: encode the parked destinations: %w", err)
 	}
+	next := cachegen.NextQueuedJobParams{
+		Kind: string(claim.Kind), Now: claim.Now.UnixMilli(), UnclaimableJSON: string(unclaimable),
+	}
+	// Read first: an idle runner asks every second, and takes the writer only when a job is due
+	// (the audit of 2026-10-25, C6). The write looks again, since another may have claimed it.
+	_, err = OrNotFound(jobStorage.cache.Read().NextQueuedJob(ctx, next))
+	if errors.Is(err, ErrNotFound) {
+		return claimed, false, nil
+	}
+	if err != nil {
+		return claimed, false, fmt.Errorf("claim: find the next %s job: %w", claim.Kind, err)
+	}
 	err = jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		id, nextErr := OrNotFound(queries.NextQueuedJob(ctx, cachegen.NextQueuedJobParams{
-			Kind: string(claim.Kind), Now: claim.Now.UnixMilli(), UnclaimableJSON: string(unclaimable),
-		}))
+		id, nextErr := OrNotFound(queries.NextQueuedJob(ctx, next))
 		if errors.Is(nextErr, ErrNotFound) {
 			return nil
 		}
@@ -317,6 +327,16 @@ func (jobStorage *JobStorage) TakeAssigned(ctx context.Context, id int64) (jobqu
 func (jobStorage *JobStorage) TakeOverdueAssigned(
 	ctx context.Context, kind jobqueue.Kind, now time.Time,
 ) (jobqueue.Row[JobTarget], bool, error) {
+	// Read first, as Claim does: a job's time running out is rare, and every idle tick asks.
+	_, err := OrNotFound(jobStorage.cache.Read().NextOverdueAssignedJob(ctx, cachegen.NextOverdueAssignedJobParams{
+		Kind: string(kind), Now: new(now.UnixMilli()),
+	}))
+	if errors.Is(err, ErrNotFound) {
+		return jobqueue.Row[JobTarget]{}, false, nil
+	}
+	if err != nil {
+		return jobqueue.Row[JobTarget]{}, false, fmt.Errorf("find an overdue assigned job: %w", err)
+	}
 	return jobStorage.take(ctx, "take an overdue assigned job", func(queries *cachegen.Queries) (cachegen.Job, error) {
 		return queries.TakeOverdueAssignedJob(ctx, cachegen.TakeOverdueAssignedJobParams{
 			Kind: string(kind), Now: new(now.UnixMilli()),
