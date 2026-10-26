@@ -14,6 +14,9 @@
 //     and it alone is extracted again when next played, a node's refusal or a stall is the whole
 //     job's, not kept, and its job is tried again, and a playback reaches only its own file's
 //     tracks (D217 §6). Enforced by
+//     TestSubtitles_ATextTrackIsQueuedOnceAndServedAsASSAndWebVTTOnceExtracted,
+//     TestSubtitles_AFailedExtractionSaysSoAndTheNextWantTriesItAgain and
+//     TestSubtitles_ARefusalIsNotKeptAndTheJobIsTriedAgain, and, end to end,
 //     TestSubtitles_AVideosTextTracksAreExtractedByOneJobFromOneRead,
 //     TestSubtitles_ATrackThatFailedFailsAloneAndTheNextPlayExtractsOnlyIt,
 //     TestSubtitles_ARefusedExtractionIsNotKeptAndTheTrackKeepsWaiting,
@@ -23,23 +26,26 @@
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed (internal/core/api).
 //
 //   - A player asking for a text still being made keeps its job wanted, at play's priority, as a
-//     player asking for a rendition does (D234 §3).
-//     TestSubtitles_APlayerAskingForTheTextKeepsItsExtractionWanted (internal/core/api).
+//     player asking for a rendition does (D234 §3). TestSubtitles_APlayerStillWaitingKeepsItsExtractionWanted,
+//     and, end to end, TestSubtitles_APlayerAskingForTheTextKeepsItsExtractionWanted (internal/core/api).
 //
 //   - An extraction or a conversion is given to its node, not waited for, and its text, or why
 //     the node could not make it, is recorded as it arrives, by its source's hash, whether or not
 //     its job still waits (D234 §7, D238 §2). A cancelled extraction tells its node to stop.
+//     TestSubtitles_ATextTrackIsQueuedOnceAndServedAsASSAndWebVTTOnceExtracted, and, end to end,
 //     TestJobs_TheViewListsAReadThroughAndACancelStopsItOnTheNodeSoTheNextPlayAsksAgain
 //     (internal/core/api).
 //
 //   - The text a node made of a track, or why it could not, is kept in persistent.db, not cache.db:
 //     making it again reads a whole video (the architecture map's F1, D231 §3).
+//     TestSubtitles_ExtractedTextIsKeptInPersistentDB, and, end to end,
 //     TestSubtitles_ExtractedTextIsKeptInPersistentDBWhichOutlivesCacheDB (internal/core/api).
 //
 //   - A node's word that FFmpeg stalled on an extraction costs its job no attempt, and two in a
 //     row are the track's failure; an extraction or a conversion whose job fails is kept as its
 //     track's own failure, by payload hash as FFmpeg's is (D231 §4, §10), and shows it failed
 //     until the next play asks again.
+//     TestSubtitles_RecordFailureKeepsAGivenUpExtractionAsItsTracksFailure, and, end to end,
 //     TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure,
 //     TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain (internal/core/api).
 //
