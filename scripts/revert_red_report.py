@@ -17,6 +17,8 @@ def report(outcomes: list[Outcome]) -> str:
     for verdict, heading in (
         ("GREEN", "Changed with nothing to notice — no test goes red when these are reverted"),
         ("NO_RUNNER", "Not checked: the tests could not start — fix the environment, not the code"),
+        ("PROBE_BROKEN", "Not checked: the probe fails with nothing reverted too, so its red said nothing — "
+                         "fix the environment, not the code"),
         ("TIMED_OUT", "Not settled: the tests ran past the timeout with these reverted — find what is "
                       "slow (a hang fails by its test's own timeout first), or raise --timeout"),
         ("RED_BUILD", "Load-bearing, but only at compile time"),
@@ -48,7 +50,12 @@ def failure_advice(failures: list[Outcome]) -> str:
             "\nThe tests could not start in the worktree, so nothing was checked. That is the\n"
             "environment (are the web packages installed? run `npm ci` in web/), not the code."
         )
-    if all(o.verdict in ("NO_RUNNER", "TIMED_OUT") for o in failures):
+    if any(o.verdict == "PROBE_BROKEN" for o in failures):
+        lines.append(
+            "\nA probe failed in its worktree with nothing reverted, so its red said nothing of the\n"
+            "revert. Run that command in .git/revert-red/wt-0 and fix what keeps it from passing there."
+        )
+    if all(o.verdict in ("NO_RUNNER", "TIMED_OUT", "PROBE_BROKEN") for o in failures):
         return "\n".join(lines)
     lines.append(
         "\nEach file above changed, and reverting it broke nothing. One of four things\n"

@@ -49,16 +49,20 @@ class AddedFileProbe(unittest.TestCase):
         ran: list[list[str]] = []
 
         # A probe's test runs go through run_whole_group (revert_red_run.py); its git through subprocess.
+        # They fail only while the added file is gone, as tests that notice it do (A45).
         def fake_run(command, _cwd, _timeout, _env=None):
             ran.append(list(command))
-            return subprocess.CompletedProcess(command, 1, "FAIL apps/web/src/row.test.tsx", "")
+            failed = 0 if (repo.root / SRC / "sign.tsx").exists() else 1
+            return subprocess.CompletedProcess(command, failed, "FAIL apps/web/src/row.test.tsx", "")
 
         with repo.cwd(), mock.patch.object(rr, "run_whole_group", side_effect=fake_run), \
                 mock.patch.object(rr, "browser_tier_command", return_value=["make", "browser-tier"]):
             outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(f"{SRC}/sign.tsx", "A"), 60)
         self.assertEqual(ran[0], [*web.PROBE_RUN, "apps/web/src/list.test.tsx", "apps/web/src/row.test.tsx",
                                   "packages/sdk/src/api.test.ts"])
-        self.assertEqual((outcome.verdict, len(ran)), ("RED_TEST", 1), "red from the importing tests, no whole suite")
+        # The same run once more with the file back, which passes, so the red stands; never the whole suite.
+        self.assertEqual((outcome.verdict, ran[1:]), ("RED_TEST", ran[:1]),
+                         "red from the importing tests, no whole suite")
         self.assertTrue((repo.root / SRC / "sign.tsx").exists(), "the file is put back")
 
 

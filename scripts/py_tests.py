@@ -32,7 +32,10 @@ TESTS = Path("scripts/tests")
 # GIT_DIR (which once had a test's `git init` reinitialise this repository, 2026-10-01) reaches it.
 # The rest is the test's own to set.
 PASSED_THROUGH = ("PATH",)
-HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+# No bytecode cache: Python reuses one by its source's size and mtime, so a revert-red probe that
+# restored a file of the same size within a second ran the reverted code (2026-10-26).
+HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+            "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 # A test that runs Go builds with the machine's module and build caches, and never fetches: each home

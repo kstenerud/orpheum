@@ -13,9 +13,12 @@ import revert_red_reruns as reruns  # noqa: E402
 from gitrepo import Repo  # noqa: E402
 
 CODE = "web/apps/web/src/a.ts"
-# A run the probe takes for the browser tier's, by the word in its command, and one it does not.
+# A run the probe takes for the browser tier's, by the word in its command, and one it does not. A run
+# that notices fails only while the file is reverted: one that fails on HEAD too says nothing (A45).
 CHEAP_PASSES = rr.Attempt(["true"], "")
-BROWSER_FAILS = rr.Attempt(["sh", "-c", "exit 1", "browser-tier"], ", found by the browser tier")
+NOTICES = f"! grep -q 'a = 1' {CODE}"
+BROWSER_FAILS = rr.Attempt(["sh", "-c", NOTICES, "browser-tier"], ", found by the browser tier")
+CHEAP_FAILS = rr.Attempt(["sh", "-c", NOTICES], "")
 
 
 class BrowserPart(unittest.TestCase):
@@ -35,12 +38,10 @@ class BrowserPart(unittest.TestCase):
         self.assertIn("Left to the browser tier", rr.report([outcome]))
 
     def test_a_cheap_red_settles_it_in_the_code_part(self):
-        cheap_fails = rr.Attempt(["false"], "")
-        self.assertEqual(self.outcome(rr.BROWSER_DEFERRED, [cheap_fails, BROWSER_FAILS]).verdict, "RED_TEST")
+        self.assertEqual(self.outcome(rr.BROWSER_DEFERRED, [CHEAP_FAILS, BROWSER_FAILS]).verdict, "RED_TEST")
 
     def test_the_browser_part_takes_the_browser_run_alone(self):
-        cheap_fails = rr.Attempt(["false"], "")
-        outcome = self.outcome(rr.BROWSER_ONLY, [cheap_fails, BROWSER_FAILS])
+        outcome = self.outcome(rr.BROWSER_ONLY, [CHEAP_FAILS, BROWSER_FAILS])
         self.assertEqual((outcome.verdict, outcome.detail),
                          ("RED_TEST", "a test fails when it is reverted, found by the browser tier"))
 
