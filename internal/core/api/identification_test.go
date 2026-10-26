@@ -25,14 +25,17 @@ func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
-	// With a live file: a title whose files are gone waits for no one.
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{
+		ID: 10, Library: 1, Year: 2003, IdentificationState: "ambiguous",
+	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, year, identification_state) VALUES (10, 'movie', 2003, 'ambiguous')`,
-		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'The General')`,
-		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (1, 1, 1, '/m/The General.mkv', 1000, X'01', 'listed', 1, 1, 1)`)
+		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'The General')`)
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 1, TitleID: 10})
+	// With a live file: a title whose files are gone waits for no one.
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/The General.mkv", SizeBytes: 1000, PayloadHash: []byte{0x01},
+		Filing: "listed", VersionID: 1,
+	})
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		for rank, year := range []int64{1972, 2002} {
 			err := queries.InsertMatchCandidate(t.Context(), cachegen.InsertMatchCandidateParams{
@@ -56,13 +59,15 @@ func (harness testHarness) otherVideoTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Home movies", Kind: "other", MetadataSource: "nfo"})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 20, Library: 1, Kind: "other"})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (20, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (20, 'other', 'identified')`,
-		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (20, 'und', 1, 'Beach day')`,
-		"INSERT INTO version (id, title_id, created_at) VALUES (2, 20, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (2, 1, 1, '/m/Beach day.mp4', 1000, X'02', 'listed', 2, 1, 1)`,
+		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (20, 'und', 1, 'Beach day')`)
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 2, TitleID: 20})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 2, LibraryID: 1, NodeID: 1, Path: "/m/Beach day.mp4", SizeBytes: 1000, PayloadHash: []byte{0x02},
+		Filing: "listed", VersionID: 2,
+	})
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
 		 VALUES (20, 1500000000000, 'name', 'Beach day.mp4', X'00')`)
 }

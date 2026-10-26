@@ -31,11 +31,27 @@ func (harness testHarness) shelve(t *testing.T) {
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
 	librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo"})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1, Year: 1995, AddedAt: 1})
+	librarytest.Item(t, harness.database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: 1, AddedAt: 2})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{
+		ID: 21, Library: 1, Kind: "episode", Year: 2008, AddedAt: 2,
+	})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 1, TitleID: 10})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 2, TitleID: 21, CreatedAt: 2})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995).mkv", SizeBytes: 1000, PayloadHash: []byte{0x01},
+		Filing: "listed", VersionID: 1,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 2, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E01.mkv", SizeBytes: 10, PayloadHash: []byte{0x02},
+		Filing: "listed", VersionID: 2,
+	})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 1, StreamIndex: 0, Kind: "video", Codec: "h264"})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		BytesFile: 1, StreamIndex: 1, Kind: "audio", Codec: "truehd", Language: "en", ChannelCount: 8,
+	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO item (id, kind, library_id, added_at)
-		 VALUES (10, 'title', 1, 1), (20, 'collection', 1, 2), (21, 'title', 1, 2)`,
-		`INSERT INTO title (id, kind, year, identification_state)
-		 VALUES (10, 'movie', 1995, 'identified'), (21, 'episode', 2008, 'identified')`,
 		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
 		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates) VALUES
@@ -44,13 +60,6 @@ func (harness testHarness) shelve(t *testing.T) {
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key)
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
 			key("Metropolis"), key("Brass Arena")),
-		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1), (2, 21, 2)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES
-		 (1, 1, 1, '/m/Metropolis (1995).mkv', 1000, X'01', 'listed', 1, 1, 1),
-		 (2, 1, 1, '/m/BB/S01E01.mkv', 10, X'02', 'listed', 2, 1, 1)`,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, language, channel_count) VALUES
-		 (1, 1, 0, 'video', 'h264', NULL, NULL), (1, 1, 1, 'audio', 'truehd', 'en', 8)`,
 		"INSERT INTO ordering (id, collection_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 21, 1, 1, 10001)",
@@ -245,11 +254,10 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 	harness.shelve(t)
 	statements := []string{}
 	for index, episode := range []struct{ season, number int }{{1, 2}, {1, 3}, {0, 1}, {2, 1}, {0, 0}} {
-		id := 30 + index
+		id := int64(30 + index)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Kind: "episode", AddedAt: 2})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{TitleID: id, CreatedAt: 2})
 		statements = append(statements,
-			fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 2)", id),
-			fmt.Sprintf("INSERT INTO title (id, kind, identification_state) VALUES (%d, 'episode', 'identified')", id),
-			fmt.Sprintf("INSERT INTO version (title_id, created_at) VALUES (%d, 2)", id),
 			fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (%d, 'und', 1, 'E%d')", id,
 				id),
 			fmt.Sprintf(`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
@@ -296,19 +304,24 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 22, Library: 1, Kind: "episode", AddedAt: 2})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 23, Library: 1, Kind: "episode", AddedAt: 2})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 3, TitleID: 22, CreatedAt: 2})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 4, TitleID: 23, CreatedAt: 2})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E02.mkv", SizeBytes: 10, PayloadHash: []byte{0x03},
+		Filing: "listed", VersionID: 3,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E03.mkv", SizeBytes: 10, PayloadHash: []byte{0x04},
+		Filing: "listed", VersionID: 4,
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 2, DurationMs: 1000})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 3, DurationMs: 1000})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 4, DurationMs: 1000})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 2), (23, 'title', 1, 2)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (22, 'episode', 'identified'), "+
-			"(23, 'episode', 'identified')",
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (3, 22, 2), (4, 23, 2)",
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 version_id, first_seen_at, last_seen_at) VALUES
-		 (3, 1, 1, '/m/BB/S01E02.mkv', CAST('/m/BB/S01E02.mkv' AS BLOB), 10, X'03', 'listed', 3, 1, 1),
-		 (4, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, X'04', 'listed', 4, 1, 1)`,
-		"INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (2, '{}', 1000), (3, '{}', 1000), "+
-			"(4, '{}', 1000)",
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)")
 	type nextUp struct {
@@ -443,9 +456,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveDVDOrder(t)
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{}', 1000000)
-		 ON CONFLICT (file_id) DO UPDATE SET duration_ms = excluded.duration_ms`)
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 1, DurationMs: 1000000})
 	harness.setPositionReadAt(t, 1, 300_000, 5) // Metropolis, 30% in
 	harness.setPositionReadAt(t, 3, 1000, 6)    // 22, aired S1E2 and in no DVD disc, finished
 	harness.setPositionReadAt(t, 4, 1000, 7)    // 23, finished
