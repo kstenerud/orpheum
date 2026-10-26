@@ -192,6 +192,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A cast's film is reach-checked as its sender casts it
 		// (TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow).
 		"startCast",
+		// What a cast moves on to is reach-checked as a playback is
+		// (TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt).
+		"moveCastOn",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.

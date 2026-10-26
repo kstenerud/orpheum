@@ -6,8 +6,8 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CastReceiver, castNoteShownMs, TakeBackPrompt } from "./cast-receiver.tsx";
-import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { CastReceiver, castNoteShownMs, moveOnOrGoHome, TakeBackPrompt } from "./cast-receiver.tsx";
+import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 
@@ -137,7 +137,10 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
   });
 
   /** A receiver of cast leading video, served by answers, and what it was told of its end. */
-  async function receiver(answers: Parameters<typeof servedBy>[0] = {}): Promise<{
+  async function receiver(
+    answers: Parameters<typeof servedBy>[0] = {},
+    hasNext = false,
+  ): Promise<{
     readonly server: FakeTogetherServer;
     readonly video: HTMLVideoElement;
     readonly heard: Heard[];
@@ -152,7 +155,13 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     const onOver = vi.fn();
     mounted = await mount(
       withServices(
-        <CastReceiver receiving={{ cast, onOver }} fileId={4} video={video} startPositionMs={0} />,
+        <CastReceiver
+          receiving={{ cast, onOver }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+          hasNext={hasNext}
+        />,
         { ...services, openTogetherSocket: server.openSocket },
       ),
     );
@@ -202,6 +211,54 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     await act(async () => {
       video.dispatchEvent(new Event("ended"));
       await Promise.resolve();
+    });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "filmEnded",
+    });
+    expect(onOver).toHaveBeenCalledOnce();
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("leaves its film's end to Up next where an episode plays next (plans/up-next.md)", async () => {
+    const { server, video, heard, onOver } = await receiver({}, true);
+    await server.say(welcome);
+    await act(async () => {
+      video.dispatchEvent(new Event("ended"));
+      await Promise.resolve();
+    });
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
+    expect(onOver).not.toHaveBeenCalled();
+  });
+});
+
+describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () => {
+  it("moves the cast on to the next episode, which the server hands it again", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /me/casts/9/next": [200, { castId: 9, fileId: 5 }] }, heard);
+    const onOver = vi.fn();
+    await act(async () => {
+      moveOnOrGoHome(services.api, services.navigation, { cast, onOver });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /me/casts/9/next"]);
+    expect(onOver).not.toHaveBeenCalled();
+  });
+
+  it("ends the cast and goes home, the remote told, where it cannot move on", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /me/casts/9/next": refusal(409, "conflict"),
+        "POST /me/casts/9/end": [200, { positionMs: 600_000, isPlaying: false }],
+      },
+      heard,
+    );
+    const onOver = vi.fn();
+    await act(async () => {
+      moveOnOrGoHome(services.api, services.navigation, { cast, onOver });
+      for (let turn = 0; turn < 5; turn += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
     });
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "filmEnded",

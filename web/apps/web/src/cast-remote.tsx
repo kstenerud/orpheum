@@ -15,11 +15,13 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
-import { endCast, listMyCasts, noteSending, type Cast } from "./cast.ts";
+import { endCast, listMyCasts, moveCastOn, noteSending, type Cast } from "./cast.ts";
+import { placeCode } from "./episode-place.ts";
 import { seekStepMs } from "./player-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { clockText } from "./tv-controls.tsx";
+import { useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { monotonicMs, useTogether } from "./use-together.ts";
 
@@ -57,12 +59,13 @@ export function Remote(props: { readonly cast: Cast }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const token = useToken();
-  const { cast } = props;
   const { connection, snapshot } = useTogether({
-    credential: cast.membershipCredential,
+    credential: props.cast.membershipCredential,
     sessionToken: token,
     role: "voice",
   });
+  const [cast, setCast] = useState(props.cast);
+  useFollowsTheFilm(cast, snapshot, setCast);
   const positionMs = usePositionNow(snapshot);
   const [stoppedAtMs, setStoppedAtMs] = useState<number | undefined>(undefined);
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
@@ -102,10 +105,95 @@ export function Remote(props: { readonly cast: Cast }): JSX.Element {
         positionMs={positionMs}
         durationMs={cast.durationMs}
       />
+      <RemoteUpNext cast={cast} onMovedOn={setCast} />
       <button type="button" onClick={stop}>
         {t("cast.stop")}
       </button>
     </section>
+  );
+}
+
+/**
+ * Follows the receiver to another film, the next episode its Up next played (plans/up-next.md): as
+ * the file the cast's session says plays changes to another, the cast is read again for its title
+ * and length.
+ */
+function useFollowsTheFilm(
+  cast: Cast,
+  snapshot: TogetherSnapshot | undefined,
+  onCast: (cast: Cast) => void,
+): void {
+  const { api } = useServices();
+  const playingFileId = snapshot?.group?.fileId;
+  // The file the session said last, so only a change of it is followed: the remote's own Up next
+  // moves the cast on before the receiver puts the next file on.
+  const saidRef = useRef(playingFileId);
+  useEffect(() => {
+    const said = saidRef.current;
+    saidRef.current = playingFileId;
+    if (
+      said === undefined ||
+      playingFileId === said ||
+      playingFileId === undefined ||
+      playingFileId === 0 ||
+      playingFileId === cast.fileId
+    ) {
+      return;
+    }
+    listMyCasts(api).then(
+      (casts) => {
+        const now = casts.find((each) => each.castId === cast.castId);
+        if (now !== undefined && now.fileId !== cast.fileId) {
+          onCast({
+            ...cast,
+            fileId: now.fileId,
+            titleName: now.titleName,
+            durationMs: now.durationMs,
+          });
+        }
+      },
+      () => undefined, // read again at the next change
+    );
+  }, [api, cast, playingFileId, onCast]);
+}
+
+/**
+ * The remote's Up next: the cast's film's next episode, "Up next: S1E3 · ‹name›", which moves the
+ * cast on to it, the receiver handed it (plans/up-next.md); nothing where none can play next.
+ */
+function RemoteUpNext(props: {
+  readonly cast: Cast;
+  readonly onMovedOn: (cast: Cast) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { cast, onMovedOn } = props;
+  const upNext = useUpNext(cast.fileId);
+  if (upNext === undefined || upNext.episode.unavailable !== undefined) {
+    return null;
+  }
+  const { episode } = upNext;
+  const place = placeCode(t, upNext.ordering, { ...episode, isOnlyGroup: upNext.isOnlyGroup });
+  return (
+    <button
+      type="button"
+      className="cast-remote__up-next"
+      onClick={() => {
+        moveCastOn(api, cast.castId).then(
+          (moved) => {
+            onMovedOn({
+              ...cast,
+              fileId: moved.fileId,
+              titleName: moved.titleName,
+              durationMs: moved.durationMs,
+            });
+          },
+          () => undefined, // the cast goes on as it was
+        );
+      }}
+    >
+      {t("upNext.offer", { place, name: episode.name ?? "" })}
+    </button>
   );
 }
 

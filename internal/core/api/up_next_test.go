@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -126,4 +127,48 @@ func TestUpNext_IsTheNextEpisodeInThePersonsOrdering(t *testing.T) {
 	if got, want := harness.upNextSeen(t, user, 4), "21:1:2 file 6 still dddd tmdb:dvd"; got != want {
 		t.Errorf("partway through the next one's second file: %s; want %s, which its Play resumes", got, want)
 	}
+}
+
+// A cast moves on to its film's next episode in its person's ordering, at its receiver's or its
+// remote's asking (plans/up-next.md; D337's §9 answers, Q4): the receiver is handed the same cast
+// again with it, and the remote's list says it; a film with nothing after it is a conflict, and a
+// device of neither end is answered as no such cast.
+func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // aired: 21 (file 2), 22 "Cat" (3), 23 (4), 24 (5)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	laptopToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	started := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken,
+		map[string]any{"toDeviceId": tv, "fileId": 2, "positionMs": 5000}))
+	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 2 })
+	next := fmt.Sprintf("/me/casts/%d/next", started.CastID)
+	wantError(t, harness.do(t, http.MethodPost, next, laptopToken, nil), http.StatusNotFound, CodeNotFound)
+	answer := harness.do(t, http.MethodPost, next, tvToken, nil)
+	var moved CastBody
+	if err := json.Unmarshal([]byte(answer.body), &moved); err != nil || answer.status != http.StatusOK ||
+		moved.CastID != started.CastID || moved.FileID != 3 || moved.TitleName != "Cat" || moved.IsSender {
+		t.Fatalf("POST %s by the TV = %d %s; want the same cast, of file 3, Cat", next, answer.status, answer.body)
+	}
+	handed := tvSocket.await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.FileID == 3
+	}).Receive
+	if handed.CastID != started.CastID || handed.PositionMs != nil || handed.Credential == "" {
+		t.Errorf("the TV was handed %+v; want the same cast, from where the person left file 3", handed)
+	}
+	var phones MyCastsOutput
+	harness.readJSON(t, "/me/casts", phoneToken, &phones.Body)
+	if len(phones.Body.Casts) != 1 || phones.Body.Casts[0].FileID != 3 || phones.Body.Casts[0].TitleName != "Cat" {
+		t.Errorf("the phone's casts = %+v; want the one, now of Cat", phones.Body.Casts)
+	}
+	for range 2 { // to 23, then 24, the last
+		if answer := harness.do(t, http.MethodPost, next, phoneToken, nil); answer.status != http.StatusOK {
+			t.Fatalf("POST %s by the phone = %d %s", next, answer.status, answer.body)
+		}
+	}
+	wantError(t, harness.do(t, http.MethodPost, next, phoneToken, nil), http.StatusConflict, CodeConflict)
 }

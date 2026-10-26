@@ -42,6 +42,12 @@ function Receiving(): JSX.Element {
   return <p>{receiving === undefined ? "" : `receiving cast ${String(receiving.castId)}`}</p>;
 }
 
+/** The file the page's live connection says the receiver plays, as a child of the provider. */
+function ReceivingFile(): JSX.Element {
+  const { receiving } = useLive();
+  return <p>{receiving === undefined ? "" : `receiving file ${String(receiving.fileId)}`}</p>;
+}
+
 describe("Cast to another device (D337 §1, §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
@@ -146,6 +152,34 @@ describe("the page's live connection (D337 §2, §4)", () => {
     });
     expect(mounted.container.textContent).toContain("receiving cast 5");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+  });
+
+  it("plays the next episode when the same cast is handed again with it (plans/up-next.md)", async () => {
+    const services = servedBy({}, [], "token");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <ReceivingFile />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    const handed = {
+      castId: 5,
+      membershipCredential: "cast",
+      fileId: 7,
+      fromDeviceId: 2,
+      fromDeviceName: "Pixel",
+    };
+    await server.say({ type: "receive", receive: handed });
+    await server.say({
+      type: "receive",
+      receive: { ...handed, fileId: 8, membershipCredential: "again" },
+    });
+    expect(mounted.container.textContent).toContain("receiving file 8");
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 8 });
   });
 });
 

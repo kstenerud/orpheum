@@ -2,7 +2,7 @@
 
 /**
  * The server's casts between a person's own devices (D337): starting one, the ones this device
- * sends or receives, and ending one.
+ * sends or receives, moving one on to the next episode, and ending one.
  */
 
 import type { Api, components } from "@orpheum/sdk";
@@ -46,6 +46,14 @@ export async function endCast(api: Api, castId: number, reason: CastEnd): Promis
   return dataOrThrow(
     await api.POST("/me/casts/{id}/end", { params: { path: { id: castId } }, body: { reason } }),
   );
+}
+
+/**
+ * Moves the cast castId on to what plays after its film, the next episode, which its receiver is
+ * handed (plans/up-next.md), and says the cast as it is now.
+ */
+export async function moveCastOn(api: Api, castId: number): Promise<Cast> {
+  return dataOrThrow(await api.POST("/me/casts/{id}/next", { params: { path: { id: castId } } }));
 }
 
 /**

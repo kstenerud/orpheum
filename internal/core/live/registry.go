@@ -213,6 +213,40 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	return Cast{}, ErrNoCast
 }
 
+// Film is what a cast plays: the file, the title it is and its name, and how long it plays.
+type Film struct {
+	FileID     int64
+	TitleID    int64
+	TitleName  string
+	DurationMs int64
+}
+
+// MoveOn has the cast castID play film from where its person left it, at the asking of userID's
+// device deviceID, its sender or its receiver: the next episode as the film ends (plans/up-next.md).
+// The cast and its session of one go on; its receiver is handed it again, by a credential of its
+// own, on the connection that holds it, or the next one it opens. It returns the cast as it is now.
+func (registry *Registry) MoveOn(userID, deviceID, castID int64, film Film) (Cast, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		return Cast{}, ErrNoCast
+	}
+	for _, held := range owner.casts {
+		if held.ID != castID || (held.SenderDeviceID != deviceID && held.ReceiverDeviceID != deviceID) {
+			continue
+		}
+		held.FileID, held.TitleID, held.TitleName, held.DurationMs = film.FileID, film.TitleID, film.TitleName,
+			film.DurationMs
+		held.PositionMs = nil
+		if holder := owner.connections[held.heldBy]; holder != nil {
+			registry.handOff(held, holder)
+		}
+		return held.Cast, nil
+	}
+	return Cast{}, ErrNoCast
+}
+
 // handOff hands held to the connection to, by a credential minted for it: a receiver loaded again.
 // A credential that cannot be made leaves it for the next connection.
 func (registry *Registry) handOff(held *heldCast, to *connection) {

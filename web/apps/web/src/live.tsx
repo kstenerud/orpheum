@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { ownScriptOf } from "./app-update.ts";
+import type { Navigation } from "./navigation.ts";
 import { useServices, useToken } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
 
@@ -72,29 +73,7 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     connection?.snapshot ?? noSnapshot,
     noSnapshot, // rendered on a server, as a test renders a page to markup, nothing is live
   );
-  const [receiving, setReceiving] = useState<CastToReceive | undefined>(undefined);
-  useEffect(() => {
-    if (connection === undefined) {
-      return undefined;
-    }
-    let receivingId: number | undefined;
-    return connection.subscribe(() => {
-      const handed = connection.snapshot().receive;
-      if (handed === undefined) {
-        return;
-      }
-      connection.takeReceive();
-      // Handed again as its connection came back: received already, unless the page left it.
-      if (receivingId !== handed.castId || navigation.route().screen !== "play") {
-        navigation.go({ screen: "play", fileId: handed.fileId });
-      }
-      receivingId = handed.castId;
-      setReceiving((current) => (current?.castId === handed.castId ? current : handed));
-    });
-  }, [connection, navigation]);
-  const endReceiving = useCallback(() => {
-    setReceiving(undefined);
-  }, []);
+  const { receiving, endReceiving } = useReceiving(connection, navigation);
   const live = useMemo(
     (): Live => ({
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
@@ -104,6 +83,44 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     [snapshot?.deviceIds, receiving, endReceiving],
   );
   return <LiveContext value={live}>{props.children}</LiveContext>;
+}
+
+/**
+ * The cast connection hands this device, while it receives one, and what ends receiving here: a
+ * cast handed opens its film's Play page; handed again as the connection came back, it is received
+ * already, unless the page left it; handed again with another film, the cast moved on to the next
+ * episode (plans/up-next.md), which plays.
+ */
+function useReceiving(
+  connection: LiveConnection | undefined,
+  navigation: Navigation,
+): { readonly receiving: CastToReceive | undefined; readonly endReceiving: () => void } {
+  const [receiving, setReceiving] = useState<CastToReceive | undefined>(undefined);
+  useEffect(() => {
+    if (connection === undefined) {
+      return undefined;
+    }
+    let received: CastToReceive | undefined;
+    return connection.subscribe(() => {
+      const handed = connection.snapshot().receive;
+      if (handed === undefined) {
+        return;
+      }
+      connection.takeReceive();
+      const isSame = received?.castId === handed.castId && received.fileId === handed.fileId;
+      if (!isSame || navigation.route().screen !== "play") {
+        navigation.go({ screen: "play", fileId: handed.fileId });
+      }
+      received = handed;
+      setReceiving((current) =>
+        current?.castId === handed.castId && current.fileId === handed.fileId ? current : handed,
+      );
+    });
+  }, [connection, navigation]);
+  const endReceiving = useCallback(() => {
+    setReceiving(undefined);
+  }, []);
+  return { receiving, endReceiving };
 }
 
 const subscribeToNothing = (): (() => void) => () => undefined;

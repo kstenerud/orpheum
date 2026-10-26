@@ -648,3 +648,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   Up from play reaches the offer and OK presses it. Then turn autoplay off and play to the end: the
   offer stays with no count, focused, and OK plays it. On the laptop the mouse does the same, and
   its × dismisses it. (`web/apps/web/src/up-next.tsx`, `tv-controls.tsx`)
+- [ ] **VQ68** — With the phone casting an episode that is not its season's last to the Fire TV as in
+  VQ64, autoplay on, seek the TV from the phone to a minute before the end (plans/up-next.md §8).
+  Passes when the TV shows *Up next: ‹place› · ‹name›* 30 s before the end and, at the end, *Plays in
+  10 s* counting down, then plays the next episode filling the screen, the phone's remote showing its
+  title and length within a few seconds; then on the phone press **Up next**: the TV plays the one
+  after. Turn autoplay off and let an episode end: the TV waits with the offer, and the phone's **Up
+  next** plays it. Cast the season's last episode and let it end: the TV goes home and the phone says
+  the film ended. (`web/apps/web/src/up-next.tsx`, `cast-receiver.tsx`, `cast-remote.tsx`,
+  `live.tsx`)

@@ -47,7 +47,7 @@ import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
-import { overTheFilm, UpNextContext, useUpNext } from "./up-next.tsx";
+import { overTheFilm, UpNextContext, useUpNextOffered } from "./up-next.tsx";
 import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
 
 /** Why a playing page asks how the file plays again. */
@@ -162,9 +162,7 @@ function PlayerView(
   const { receiving } = props;
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
-  const upNext = useUpNext(fileId);
-  const { isAutoplayOn } = decision.preferences;
-  const offered = useMemo(() => ({ upNext, isAutoplayOn }), [upNext, isAutoplayOn]);
+  const offered = useUpNextOffered(fileId, decision.preferences.isAutoplayOn, receiving);
   return (
     <UpNextContext value={offered}>
       {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
@@ -185,6 +183,7 @@ function PlayerView(
       <PlaysAlong
         {...{ receiving, fileId, video, cannotKeepUp }}
         startPositionMs={resumePositionMs}
+        hasNext={offered.upNext !== undefined && offered.upNext.episode.unavailable === undefined}
       />
     </UpNextContext>
   );
@@ -238,7 +237,7 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
   const isOnTelevision = isTelevision(navigator.userAgent) && props.receiving === undefined;
   return {
     hasControls: !isOnTelevision && props.receiving === undefined,
-    ...overTheFilm(isOnTelevision, props.receiving !== undefined),
+    over: overTheFilm(isOnTelevision, props.receiving !== undefined),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,

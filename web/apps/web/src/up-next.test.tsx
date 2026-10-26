@@ -113,7 +113,7 @@ describe("the Up next offer over the film", () => {
     vi.useRealTimers();
   });
 
-  async function offer(isAutoplayOn: boolean): Promise<HTMLElement> {
+  async function offer(isAutoplayOn: boolean, isPressable = true): Promise<HTMLElement> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     mounted = await mount(
@@ -121,6 +121,7 @@ describe("the Up next offer over the film", () => {
         <UpNextOffer
           upNext={bag}
           isAutoplayOn={isAutoplayOn}
+          isPressable={isPressable}
           videoRef={videoRef}
           onPlay={() => {
             played += 1;
@@ -206,5 +207,17 @@ describe("the Up next offer over the film", () => {
     video.stand(600);
     video.stand(1190);
     expect(page.textContent).toContain("Up next: S1E3 · Bag");
+  });
+
+  it("on a cast's receiver, shows and counts with nothing to press, its presses left to take-back", async () => {
+    const page = await offer(true, false);
+    video.stand(1200, true);
+    expect(page.textContent).toContain("Up next: S1E3 · Bag");
+    expect(page.querySelector("button")).toBeNull();
+    press("down");
+    press("back");
+    expect(page.textContent).toContain("Plays in 10 s");
+    waitMs(upNextCountdownMs);
+    expect(played).toBe(1);
   });
 });

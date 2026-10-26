@@ -2,16 +2,17 @@
 
 import "./cast.css";
 
-import type { CannotKeepUp, CastToReceive } from "@orpheum/sdk";
+import type { Api, CannotKeepUp, CastToReceive } from "@orpheum/sdk";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { endCast } from "./cast.ts";
+import { endCast, moveCastOn } from "./cast.ts";
 import { fillsWindowClass } from "./film-fullscreen.ts";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
+import type { Navigation } from "./navigation.ts";
 import { HostPlaysTogether, SoundOn, useLeadingPlayer } from "./together-host.tsx";
 import { useTogether } from "./use-together.ts";
 
@@ -50,13 +51,28 @@ export function PlaysAlong(props: {
   readonly video: HTMLVideoElement | null;
   readonly startPositionMs: number;
   readonly cannotKeepUp: CannotKeepUp | undefined;
+  /** Whether an episode plays after the film, which its Up next plays (plans/up-next.md). */
+  readonly hasNext: boolean;
 }): JSX.Element {
-  const { receiving, ...player } = props;
+  const { receiving, hasNext, ...player } = props;
   return receiving === undefined ? (
     <HostPlaysTogether {...player} />
   ) : (
-    <CastReceiver key={receiving.cast.castId} receiving={receiving} {...player} />
+    <CastReceiver key={receiving.cast.castId} receiving={receiving} hasNext={hasNext} {...player} />
   );
+}
+
+/**
+ * Moves the cast this device receives on to the next episode, which the server hands it again
+ * (live.tsx plays it), its remote following; where it cannot, the cast ends at its film's end and
+ * the receiver goes home, the remote told (D337's §9 answers, Q4; plans/up-next.md).
+ */
+export function moveOnOrGoHome(api: Api, navigation: Navigation, receiving: Receiving): void {
+  moveCastOn(api, receiving.cast.castId).catch(() => {
+    endCast(api, receiving.cast.castId, "filmEnded").catch(() => undefined);
+    receiving.onOver();
+    navigation.go({ screen: "home" });
+  });
 }
 
 /** What the Play page is given while this device receives a cast. */
@@ -71,13 +87,17 @@ export interface Receiving {
  * session of one, from where the sender stood, filling the window with nothing on it but a
  * "Controlled from" line that fades; its own media keys go on working, and every change of theirs
  * reaches the remote as the session's; any other key, a tap, or Back raises Take back control, and a
- * second press takes it. The cast stopped by the remote pauses it; at the film's end it goes home.
+ * second press takes it. The cast stopped by the remote pauses it; at the film's end it plays the
+ * next episode as the sender would (Up next, plans/up-next.md), and where none plays next it goes
+ * home.
  */
 export function CastReceiver(props: {
   readonly receiving: Receiving;
   readonly fileId: number;
   readonly video: HTMLVideoElement | null;
   readonly startPositionMs: number;
+  /** Whether an episode plays after the film, whose Up next moves the cast on to it at its end. */
+  readonly hasNext?: boolean;
 }): JSX.Element {
   const { api, navigation } = useServices();
   const token = useToken();
@@ -107,7 +127,11 @@ export function CastReceiver(props: {
     }
     onOver();
   }, [endReason, onOver, video]);
+  const hasNext = props.hasNext === true;
   useEffect(() => {
+    if (hasNext) {
+      return undefined; // its Up next moves the cast on, or ends it, as the person's autoplay says
+    }
     const atTheEnd = (): void => {
       endCast(api, cast.castId, "filmEnded").catch(() => undefined);
       onOver();
@@ -117,7 +141,7 @@ export function CastReceiver(props: {
     return () => {
       video?.removeEventListener("ended", atTheEnd);
     };
-  }, [api, cast.castId, navigation, onOver, video]);
+  }, [api, cast.castId, navigation, onOver, video, hasNext]);
   const takeBack = useCallback(() => {
     endCast(api, cast.castId, "takenBack").catch(() => undefined);
     onOver();
