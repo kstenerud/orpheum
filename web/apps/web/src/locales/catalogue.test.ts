@@ -7,11 +7,17 @@ import { sectionOrder } from "../server-settings.tsx";
 import { en } from "./en.ts";
 
 /** Every source file of the app, as text, tests left out. */
-const sources = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+// Untyped at the call: vitest keeps no cached transform of a file holding "import.meta.glob(", whose
+// matches change as files come and go; one given its type at the call escaped that, and a test read
+// a stale list of sources (2026-10-26; glob-cache.test.ts).
+const sources: Record<string, string> = import.meta.glob(
+  ["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"],
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+);
 
 /** The keys a source file asks the translation layer for by name, as t("a.b"). */
 function keysAskedFor(source: string): string[] {
@@ -34,7 +40,7 @@ function hasText(catalogue: unknown, key: string): boolean {
 
 /** The API document, as text: the one list of the codes the server refuses with (cut-a §5.2). */
 const apiDocuments = Object.values(
-  import.meta.glob<string>("../../../../../api/openapi.json", {
+  import.meta.glob("../../../../../api/openapi.json", {
     query: "?raw",
     import: "default",
     eager: true,

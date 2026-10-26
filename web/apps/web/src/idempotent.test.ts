@@ -5,11 +5,17 @@ import { describe, expect, it } from "vitest";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 
 /** Every source file of the app, as text, tests left out, by its path. */
-const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"], {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+// Untyped at the call: vitest keeps no cached transform of a file holding "import.meta.glob(", whose
+// matches change as files come and go; one given its type at the call escaped that, and a test read
+// a stale list of sources (2026-10-26; glob-cache.test.ts).
+const sources: Record<string, string> = import.meta.glob(
+  ["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"],
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+);
 
 /**
  * The POSTs no click sends, which carry no key: a film's page and the play page ask how a file
@@ -19,8 +25,9 @@ const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,t
  * each offer a new connection, so a repeat makes another rather than doing one twice (D273 §8); and
  * a device showing its code asks for it, and how its pairing stands, on its own, asking again giving
  * the same code (D288 §1); a page tells the core of a failure it met on its own, each a report of
- * its own (failure-reports.ts); and the client origin redeems a hand-off's code as it loads, a code
- * the core takes once (D308 §4).
+ * its own (failure-reports.ts); the client origin redeems a hand-off's code as it loads, a code
+ * the core takes once (D308 §4); and the device lab sends each input event as it happens, a record of
+ * its own (lab-events.ts).
  */
 const notSentByAClick = new Set([
   "./watching.ts",
@@ -30,6 +37,7 @@ const notSentByAClick = new Set([
   "./pairing.ts",
   "./failure-reports.ts",
   "./loader-at-client-origin.tsx",
+  "./lab-events.ts",
 ]);
 
 /** The text of each call that begins at an index in source: from it to its closing parenthesis. */
