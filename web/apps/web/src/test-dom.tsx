@@ -4,8 +4,43 @@ import { apiPrefix } from "@orpheum/sdk";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { resetLazyScreensForTests } from "./later-screens.tsx";
 import type { Services } from "./services.tsx";
 import { testServices } from "./test-services.tsx";
+
+/**
+ * Requests a stand-in server made by `servedBy` had no answer for, or that reached outside the
+ * API's prefix, across every stand-in server a test makes: recorded as they happen, read and
+ * cleared by `failOnUnexpectedRequests`, so a screen cannot quietly ask for something the test did
+ * not expect (test-architecture-2026-10-26.md, finding 2). `unreachable` stays the way a test
+ * declares a request meant to fail; this is only for a request `servedBy` was never told about.
+ */
+let unexpectedRequests: string[] = [];
+
+/**
+ * Requests a `servedBy` is still working out an answer for right now, across every stand-in server
+ * a test made, each keyed by a marker unique to that one request: `settleAnswers` waits for this to
+ * empty. A request answered by `unanswered` is removed from this the moment it is known to be one
+ * — it is deliberately left pending until its signal aborts, so waiting on it here would hang
+ * `settleAnswers` forever.
+ */
+const inFlightRequests = new Map<symbol, string>();
+
+/**
+ * Fails with every request recorded in unexpectedRequests since the last call, naming them, and
+ * clears the record either way. `unmount()` below calls this as every mounted test's own cleanup
+ * already does; a test that never mounts (a few call `servedBy` for its `api` alone) calls this
+ * itself in its own `afterEach`, since this file is production-shaped (dependency-cruiser's
+ * `not-to-dev-dep`) and may not import vitest to register a global one. test-dom.test.tsx calls it
+ * directly to prove the mechanism itself goes red when it should.
+ */
+export function failOnUnexpectedRequests(): void {
+  const found = unexpectedRequests;
+  unexpectedRequests = [];
+  if (found.length > 0) {
+    throw new Error(`a stand-in server (servedBy) had no answer for: ${found.join(", ")}`);
+  }
+}
 
 /** One answer of a stand-in server: a status and a body. */
 export type Answer = readonly [number, unknown];
@@ -56,42 +91,53 @@ export function playbackCauses(heard: readonly Heard[]): unknown[] {
 
 /**
  * Services whose API is answered by a stand-in server: each request from answers, and one it has
- * no answer for, or one outside the API's prefix, fails the test, so a screen cannot quietly ask
- * for something the test did not expect. Every request is added to heard. The session is signed
- * in with token when one is given. Tests never touch the network.
+ * no answer for, or one outside the API's prefix, fails the test (`failOnUnexpectedRequests`,
+ * called by `unmount()`, or by the test's own `afterEach` where it never mounts), so a screen
+ * cannot quietly ask for something the test did not expect. Every request is added to heard. The
+ * session is signed in with token when one is given. Tests never touch the network.
  */
 export function servedBy(answers: Answers, heard: Heard[] = [], token?: string): Services {
   const counts = new Map<string, number>();
   return testServices(token, "/films", async (request) => {
     const url = new URL(request.url);
     if (!url.pathname.startsWith(apiPrefix)) {
+      unexpectedRequests.push(`${request.method} ${url.pathname} (outside ${apiPrefix})`);
       throw new Error(`the test's server answers only under ${apiPrefix}: ${url.pathname}`);
     }
     const path = url.pathname.slice(apiPrefix.length);
     const methodAndPath = `${request.method} ${path}`;
-    const text = await request.text();
-    const given = answers[methodAndPath];
-    const answer =
-      given === unreachable ? undefined : inTurn(given, counts.get(methodAndPath) ?? 0);
-    heard.push(heardOf(request, text, answer === unanswered));
-    if (given === unreachable) {
-      throw new TypeError("Failed to fetch");
+    const marker = Symbol(methodAndPath);
+    inFlightRequests.set(marker, methodAndPath);
+    try {
+      const text = await request.text();
+      const given = answers[methodAndPath];
+      const answer =
+        given === unreachable ? undefined : inTurn(given, counts.get(methodAndPath) ?? 0);
+      heard.push(heardOf(request, text, answer === unanswered));
+      if (given === unreachable) {
+        throw new TypeError("Failed to fetch");
+      }
+      counts.set(methodAndPath, (counts.get(methodAndPath) ?? 0) + 1);
+      if (answer === unanswered) {
+        // Deliberately left pending until its signal aborts: not a wait settleAnswers should join.
+        inFlightRequests.delete(marker);
+        return await untilAborted(request.signal);
+      }
+      if (answer === undefined) {
+        unexpectedRequests.push(methodAndPath);
+        throw new Error(`the test has no answer for ${methodAndPath}`);
+      }
+      const [status, body] = answer;
+      if (status === 204) {
+        return new Response(null, { status });
+      }
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      });
+    } finally {
+      inFlightRequests.delete(marker);
     }
-    counts.set(methodAndPath, (counts.get(methodAndPath) ?? 0) + 1);
-    if (answer === unanswered) {
-      return await untilAborted(request.signal);
-    }
-    if (answer === undefined) {
-      throw new Error(`the test has no answer for ${methodAndPath}`);
-    }
-    const [status, body] = answer;
-    if (status === 204) {
-      return new Response(null, { status });
-    }
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
   });
 }
 
@@ -139,14 +185,24 @@ export function refusal(status: number, code: string): Answer {
   return [status, { error: { code, message: "a note for developers" } }];
 }
 
-/** A tree rendered into a document, and taking it down. */
+/**
+ * A tree rendered into a document, and taking it down. Taking it down also fails the test if any
+ * request servedBy heard had no answer (`failOnUnexpectedRequests`): the one checkpoint every
+ * mounted test already reaches at cleanup, since this file may not import vitest to register a
+ * global `afterEach` (dependency-cruiser's `not-to-dev-dep`).
+ */
 export interface Mounted {
   readonly container: HTMLElement;
   readonly unmount: () => void;
 }
 
-/** Renders a tree into the document, and lets its first requests answer. */
+/**
+ * Renders a tree into the document, and lets its first requests answer. Each mount meets the
+ * screens of later-screens.tsx cold (resetLazyScreensForTests), so a test never passes only
+ * because an earlier one in its file already warmed the same lazy-loaded screen.
+ */
 export async function mount(tree: ReactNode): Promise<Mounted> {
+  resetLazyScreensForTests();
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -162,6 +218,7 @@ export async function mount(tree: ReactNode): Promise<Mounted> {
         root.unmount();
       });
       container.remove();
+      failOnUnexpectedRequests();
     },
   };
 }
@@ -240,26 +297,81 @@ export function buttonWithText(
 }
 
 /**
+ * How long settleUntil and settleAnswers wait for real time before failing: a passing test never
+ * reaches this, so it is set to the scale of Go's `testutil.ReceiveLimit` (a minute), not to a
+ * guess at how long the work under test takes. A shorter bound that looked generous alone failed
+ * under the gate's own load (test-architecture-2026-10-26.md, finding 3; the load reproduction of
+ * 7655c7d0 at ~10x oversubscription).
+ */
+const SETTLE_FAILURE_LIMIT_MS = 60_000;
+
+/**
  * Lets work outside the page's requests settle until condition holds, for what waits on more than
  * answers (WebCrypto, which runs off the main thread and may take longer than a few turns on a busy
- * machine). It fails the test after about two seconds, naming the condition that never held: a wait
+ * machine). It fails the test after about a minute, naming the condition that never held: a wait
  * that gave up silently let a test pass that never saw what it waited for (account.test.tsx held a
  * checkbox the page had replaced, the audit of 2026-10-25, W11).
  */
 export async function settleUntil(condition: () => boolean): Promise<void> {
-  for (let turn = 0; turn < 200 && !condition(); turn += 1) {
+  const start = Date.now();
+  while (!condition() && Date.now() - start < SETTLE_FAILURE_LIMIT_MS) {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
   }
   if (!condition()) {
-    throw new Error(`settleUntil: this never held within about 2 s: ${condition.toString()}`);
+    throw new Error(
+      `settleUntil: this never held within about ${String(SETTLE_FAILURE_LIMIT_MS / 1000)} s: ${condition.toString()}`,
+    );
   }
 }
 
-/** Lets pending answers and the renders they cause finish. */
-async function settleAnswers(): Promise<void> {
-  for (let turn = 0; turn < 5; turn += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+/**
+ * How many consecutive quiet ticks (no request in flight, no DOM mutation) settleAnswers needs
+ * before it calls the page settled. More than one: a response's handler can itself start another
+ * request or render in the same tick its predecessor cleared.
+ */
+const QUIET_TICKS_NEEDED = 3;
+
+/**
+ * Lets pending answers and the renders they cause finish: waits until no request servedBy is
+ * holding is in flight and the DOM has stopped changing, for QUIET_TICKS_NEEDED ticks running, so
+ * it settles as soon as the page does rather than after a fixed guess at how many ticks that takes
+ * (test-architecture-2026-10-26.md, finding 3). A page that never quiets fails after about a
+ * minute, naming what was still in flight.
+ */
+export async function settleAnswers(): Promise<void> {
+  const start = Date.now();
+  let hasMutated: boolean;
+  const observer = new MutationObserver(() => {
+    hasMutated = true;
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    characterData: true,
+  });
+  try {
+    let quietTicks = 0;
+    while (quietTicks < QUIET_TICKS_NEEDED) {
+      if (Date.now() - start >= SETTLE_FAILURE_LIMIT_MS) {
+        const inFlight = [...inFlightRequests.values()];
+        throw new Error(
+          `settleAnswers: still waiting after about ${String(SETTLE_FAILURE_LIMIT_MS / 1000)} s: ` +
+            (inFlight.length > 0 ? `in flight: ${inFlight.join(", ")}` : "the DOM kept changing"),
+        );
+      }
+      hasMutated = false;
+      // A positive delay, not 0: a chain of same-instant timers never advances a faked clock, so a
+      // test driving this with vi.advanceTimersByTimeAsync would spin forever rather than time out.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      if (observer.takeRecords().length > 0) {
+        hasMutated = true;
+      }
+      quietTicks = inFlightRequests.size === 0 && !hasMutated ? quietTicks + 1 : 0;
+    }
+  } finally {
+    observer.disconnect();
   }
 }

@@ -174,6 +174,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Go's standard library reads the process's TZ | [Go's standard library reads the process's TZ](#gos-standard-library-reads-the-processs-tz) |
 | Vitest strips types without type-checking, so a types-only change can never fail a test | [Vitest strips types without type-checking, so a types-only change can never fail a test](#vitest-strips-types-without-type-checking-so-a-types-only-change-can-never-fail-a-test) |
 | Happy-dom does not carry a disabled `<fieldset>` to its controls | [happy-dom does not carry a disabled `<fieldset>` to its controls](#happy-dom-does-not-carry-a-disabled--to-its-controls) |
+| A test driving fake timers past a real-time bound with one big `advanceTimersByTimeAsync` call hung to vitest's own test timeout, only on the path where the awaited condition resolved partway through. | [One large `advanceTimersByTimeAsync` call can leave a loop awaiting React's `act()` never resolving](#one-large-advancetimersbytimeasync-call-can-leave-a-loop-awaiting-reacts-act-never-resolving) |
 | An iPhone pauses a video as its own full-screen player closes | [An iPhone pauses a video as its own full-screen player closes](#an-iphone-pauses-a-video-as-its-own-full-screen-player-closes) |
 | An iPhone in a group paused everyone as its screen locked | [iOS pauses a playing video as its screen locks, before the page is told it is hidden](#ios-pauses-a-playing-video-as-its-screen-locks-before-the-page-is-told-it-is-hidden) |
 | Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
@@ -2664,6 +2665,29 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   needs its own browser builds, installed by `npx playwright install` (`--with-deps` in CI);
   `PLAYWRIGHT_BROWSERS_PATH` shares them between runs (read 2026-10-08). Working as designed; no tracker
   issue.
+
+
+### One large `advanceTimersByTimeAsync` call can leave a loop awaiting React's `act()` never resolving
+
+- **Symptom:** a test driving `settleUntil`/`settleAnswers` (`test-dom.tsx`) past their real-time
+  bound with `vi.useFakeTimers()` plus one `vi.advanceTimersByTimeAsync(60_000)` call hung to
+  vitest's own 15 s `testTimeout`, on the path where the awaited condition becomes true partway
+  through the loop — a 3-turn `settleUntil` hung exactly as a 6000-turn one did — though the
+  otherwise-identical path that runs the loop to its full bound and then throws resolved in under
+  50 ms. Removing the `act()` wrapper around each tick's `setTimeout` made the hanging case pass
+  instantly.
+- **Cause:** unverified. A search found only the general advice to drive chained or recursive fake
+  timers in chunks, nothing about this asymmetry between React's `act()` resolving and rejecting
+  under one large advance.
+- **What we do:** advance in many small chunks (5 ms here) in a loop of awaited
+  `vi.advanceTimersByTimeAsync` calls, instead of one call for the whole duration.
+  `web/apps/web/src/test-dom.test.tsx` (`advanceByChunks`).
+- **Evidence:** measured here, 2026-10-26 (isolated with `vitest run -t`, both the small and the
+  full-bound case reproduced and the fix confirmed on each). [measured]
+  **[web]** the general chunked-advance workaround for chained or recursive fake timers is described
+  in [vitest-dev/vitest discussion #5675](https://github.com/vitest-dev/vitest/discussions/5675)
+  ("Unsure how to utilize vi.advanceTimers with recursion"), read 2026-10-26; no report found of the
+  `act()`-specific asymmetry.
 
 ---
 
