@@ -20497,6 +20497,8 @@ retention. It revises D172 for episodes and D304 §6 for plays.
 5. **Disc folders, ISOs and `cd1`/`cd2` films are out of the beta.** *"We'll keep them out of beta
    for now, unless people start asking for it."* One is listed as skipped, "disc image, not
    supported yet", rather than ignored in silence.
+   *Revisited by [D350](#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy)
+   (2026-10-26): an `.iso` image is read, its main title played; disc folders stay skipped.*
 6. **Absurd data is a health signal.** To "should a series with far more specials than its files
    or listing could explain appear in Needs attention?": *"Yes"*.
 7. **Off-screen rows may go stale while a library is filed.** To "may rows off screen go stale
@@ -22156,6 +22158,33 @@ server-side since the page that called for it was built), and §9's alphabet-rai
 on Films and Series too (2026-10-26). The picture of an other video is an image beside it where
 there is one; a frame the node takes from the video waits for its own step.
 
-## D350 — Reserved: Disc images (ISO)
+## D350 — A disc image plays its main title, read by the node from the image's own structure and served to FFmpeg through fdproxy
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26): the owner, *"I also want iso support now."*, which revisits
+[D306](#d306--the-scanner-is-tested-on-names-of-our-own-places-an-unnumbered-episode-by-a-guessed-title-match-and-keeps-watching-by-title-and-edition)
+§5 for `.iso` images; how, by the agent's recommendation in
+[iso-support.md](../design/research/iso-support.md) (option A), for the owner to confirm.
+
+1. **A DVD or Blu-ray image (`.iso`) in any library is read as a video**, its film being its
+   **main title**: the longest title of a DVD (by its program chains' playing time) or the longest
+   playlist of a Blu-ray. Menus are never played. Disc folders (`VIDEO_TS`, `BDMV`) stay skipped as
+   D306 §5 has them.
+2. **The node reads the image's structure itself**, in Go with no new dependency (UDF with its
+   metadata partition, the DVD's IFOs, the Blu-ray's playlists), bounded as every hostile input is
+   ([D126](#d126--hostile-bytes-never-reach-the-core-hostile-strings-reach-it-constantly-and-that-is-the-design)),
+   and turns the main title into byte ranges of the image.
+3. **FFmpeg is served those ranges, joined, through fdproxy**
+   ([D330](#d330--ffmpeg-reads-its-input-through-the-node-over-a-protocol-of-our-own-patched-into-jellyfin-ffmpeg)):
+   to FFmpeg the title is a program stream (DVD) or an M2TS transport stream (Blu-ray), demuxed as
+   such a file is. No FFmpeg change: FFmpeg's own disc readers (`dvdvideo`, absent from the pinned
+   build, and `bluray:`, present) open their input by path, which would give up D330 for discs. A
+   node whose FFmpeg cannot be streamed a film refuses a disc, saying so.
+4. **The probe record says it is a disc** (its kind and title), with the title's duration, chapters
+   and its streams' languages from the disc, which neither stream carries. **A disc never plays
+   direct**, even when a person prefers it: its bytes are the image's.
+5. **What is refused, with its reason, until a later step lifts it:** an encrypted image (CSS,
+   AACS; decrypting is not proposed); a DVD title with interleaved cells (angles, seamless
+   branching). A Blu-ray playlist of several play items is served as its whole clips in order,
+   in and out points inside a clip not cut.
+
+**Status:** Decided 2026-10-26; not built.
