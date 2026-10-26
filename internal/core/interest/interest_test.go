@@ -5,6 +5,7 @@ package interest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"testing"
@@ -144,15 +145,21 @@ func describe(interested jobs.Interested, priority int64, isForGood bool) string
 func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+	librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
+	librarytest.Title(t, database, librarytest.TitleSpec{ID: 20, Library: libraryID})
+	librarytest.Version(t, database, librarytest.VersionSpec{ID: 1, TitleID: 10})
+	librarytest.Version(t, database, librarytest.VersionSpec{ID: 2, TitleID: 20})
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 100, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", SizeBytes: 1, PayloadHash: []byte{0x01},
+		Filing: "listed", VersionID: 1,
+	})
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 200, LibraryID: libraryID, NodeID: nodeID, Path: "/m/b.mkv", SizeBytes: 1, PayloadHash: []byte{0x02},
+		Filing: "listed", VersionID: 2,
+	})
 	storetest.ExecRaw(t, database.Path(),
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1), (20, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified'),
-		 (20, 'movie', 'identified')`,
-		`INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1), (2, 20, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (100, 1, 1, '/m/a.mkv', 1, X'01', 'listed', 1, 1, 1),
-		 (200, 1, 1, '/m/b.mkv', 1, X'02', 'listed', 2, 1, 1)`,
 		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`,
 		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at) VALUES (1, 200, 1000, 1, 1)`)
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
@@ -202,14 +209,18 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
-	storetest.ExecRaw(t, database.Path(),
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')`,
-		`INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (100, 1, 1, '/m/a.mkv', 1, X'01', 'listed', 1, 1, 1),
-		 (101, 1, 1, '/m/a2.mkv', 1, X'02', 'listed', 1, 1, 1)`)
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+	librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
+	librarytest.Version(t, database, librarytest.VersionSpec{ID: 1, TitleID: 10})
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 100, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", SizeBytes: 1, PayloadHash: []byte{0x01},
+		Filing: "listed", VersionID: 1,
+	})
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 101, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a2.mkv", SizeBytes: 1, PayloadHash: []byte{0x02},
+		Filing: "listed", VersionID: 1,
+	})
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}
@@ -242,28 +253,27 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 func seriesOfSix(t *testing.T) *store.Database {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
-	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb"})
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb"})
+	librarytest.Item(t, database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: libraryID})
+	for i, episodeID := range []int64{21, 22, 23, 24, 25, 26} {
+		librarytest.Title(t, database, librarytest.TitleSpec{ID: episodeID, Kind: "episode", Library: libraryID})
+		versionID := int64(i + 1)
+		librarytest.Version(t, database, librarytest.VersionSpec{ID: versionID, TitleID: episodeID})
+		fileID := int64(210 + i*10)
+		librarytest.File(t, database, librarytest.FileSpec{
+			ID: fileID, LibraryID: libraryID, NodeID: nodeID, Path: fmt.Sprintf("/s/%d.mkv", i+1),
+			SizeBytes: 1, PayloadHash: []byte{byte(i + 1)}, Filing: "listed", VersionID: versionID,
+		})
+		librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: fileID, DurationMs: 1000})
+	}
 	storetest.ExecRaw(t, database.Path(),
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (20, 'collection', 1, 1), (21, 'title', 1, 1),
-		 (22, 'title', 1, 1), (23, 'title', 1, 1), (24, 'title', 1, 1), (25, 'title', 1, 1), (26, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (21, 'episode', 'identified'),
-		 (22, 'episode', 'identified'), (23, 'episode', 'identified'), (24, 'episode', 'identified'),
-		 (25, 'episode', 'identified'), (26, 'episode', 'identified')`,
 		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
 		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
 		`INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')`,
 		`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES
 		 (1, 21, 1, 1, 10001), (1, 22, 1, 2, 10002), (1, 23, 2, 1, 20001), (1, 24, 2, 2, 20002),
 		 (1, 25, 2, 3, 20003), (1, 26, 2, 4, 20004)`,
-		`INSERT INTO version (id, title_id, created_at) VALUES (1, 21, 1), (2, 22, 1), (3, 23, 1), (4, 24, 1),
-		 (5, 25, 1), (6, 26, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (210, 1, 1, '/s/1.mkv', 1, X'01', 'listed', 1, 1, 1),
-		 (220, 1, 1, '/s/2.mkv', 1, X'02', 'listed', 2, 1, 1), (230, 1, 1, '/s/3.mkv', 1, X'03', 'listed', 3, 1, 1),
-		 (240, 1, 1, '/s/4.mkv', 1, X'04', 'listed', 4, 1, 1), (250, 1, 1, '/s/5.mkv', 1, X'05', 'listed', 5, 1, 1),
-		 (260, 1, 1, '/s/6.mkv', 1, X'06', 'listed', 6, 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (210, '{}', 1000), (220, '{}', 1000),
-		 (230, '{}', 1000), (240, '{}', 1000), (250, '{}', 1000), (260, '{}', 1000)`,
 		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`)
 	return database
 }
