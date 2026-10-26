@@ -46,25 +46,61 @@ func (jobStorage *JobStorage) Enqueue(
 	plan func(open jobqueue.Open[JobTarget]) (jobqueue.Change, error),
 ) error {
 	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		rows, err := queries.ListOpenJobsOfTarget(ctx, openOfTargetParams(kind, target))
-		if err != nil {
-			return fmt.Errorf("list the open %s jobs for %+v: %w", kind, target, err)
-		}
-		var open jobqueue.Open[JobTarget]
-		for _, row := range rows {
-			converted := jobRow(row)
-			if converted.State == jobqueue.StateQueued {
-				open.Queued = &converted
-			} else {
-				open.Running = append(open.Running, converted) // running, or assigned, which counts as running
+		return enqueueIn(ctx, queries, kind, target, plan)
+	})
+}
+
+// EnqueueBatch is Enqueue for each of several requests, all in one write.
+func (jobStorage *JobStorage) EnqueueBatch(
+	ctx context.Context, requested []jobqueue.Requested[JobTarget],
+	plan func(index int, open jobqueue.Open[JobTarget]) (jobqueue.Change, error),
+) error {
+	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		for index, each := range requested {
+			planOne := func(open jobqueue.Open[JobTarget]) (jobqueue.Change, error) { return plan(index, open) }
+			err := enqueueIn(ctx, queries, each.Kind, each.Target, planOne)
+			if err != nil {
+				return err
 			}
 		}
-		change, err := plan(open)
-		if err != nil {
-			return err
-		}
-		return applyChange(ctx, queries, kind, target, change)
+		return nil
 	})
+}
+
+// enqueueIn reads kind's open jobs for target, asks plan what to do with them, and applies its
+// change, inside the caller's write.
+func enqueueIn(
+	ctx context.Context, queries *cachegen.Queries, kind jobqueue.Kind, target JobTarget,
+	plan func(open jobqueue.Open[JobTarget]) (jobqueue.Change, error),
+) error {
+	rows, err := queries.ListOpenJobsOfTarget(ctx, openOfTargetParams(kind, target))
+	if err != nil {
+		return fmt.Errorf("list the open %s jobs for %+v: %w", kind, target, err)
+	}
+	var open jobqueue.Open[JobTarget]
+	for _, row := range rows {
+		converted := jobRow(row)
+		if converted.State == jobqueue.StateQueued {
+			open.Queued = &converted
+		} else {
+			open.Running = append(open.Running, converted) // running, or assigned, which counts as running
+		}
+	}
+	change, err := plan(open)
+	if err != nil {
+		return err
+	}
+	if change.Action == jobqueue.ActionMerge && open.Queued != nil && isMergedAlready(*open.Queued, change) {
+		return nil // a sweep asking again for what it queued: nothing to write (the audit of 2026-10-25, S4)
+	}
+	return applyChange(ctx, queries, kind, target, change)
+}
+
+// isMergedAlready is whether a merge into the queued job changes nothing it holds.
+func isMergedAlready(queued jobqueue.Row[JobTarget], change jobqueue.Change) bool {
+	return queued.ArgsJSON == change.ArgsJSON && queued.Priority == change.Priority &&
+		queued.Reason == change.Reason && queued.RunnableAt.Equal(change.RunnableAt) &&
+		queued.Destination == change.Destination
 }
 
 // openOfTargetParams are ListOpenJobsOfTarget's for kind's jobs on target.

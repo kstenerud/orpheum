@@ -239,6 +239,38 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	return action == jobqueue.ActionInsert, nil
 }
 
+// EnqueueBatch is Enqueue for each job, a batch of them in each write: a sweep queues one per file
+// of a library, each of which took the writer apart (the audit of 2026-10-25, S4). It says how many
+// it queued anew.
+func (queue *Queue) EnqueueBatch(ctx context.Context, batch []Request) (int, error) {
+	requests := make([]jobqueue.Request[Target], 0, len(batch))
+	for _, job := range batch {
+		if err := requireOneTarget(job.Kind, job.Target); err != nil {
+			return 0, err
+		}
+		requests = append(requests, jobqueue.Request[Target]{
+			Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority, Reason: job.Reason,
+			RunnableAt: job.RunnableAt, Destination: job.Destination, IsDerived: job.IsDerived,
+		})
+	}
+	actions, err := queue.queue.EnqueueBatch(ctx, requests)
+	inserted := 0
+	for index, action := range actions {
+		if action == jobqueue.ActionInsert {
+			inserted++
+		}
+		if job := batch[index]; job.Priority >= PriorityPlayNow {
+			if keepErr := queue.KeepWanted(ctx, job.Kind, job.Target); keepErr != nil {
+				return inserted, keepErr
+			}
+		}
+	}
+	if err != nil {
+		return inserted, fmt.Errorf("enqueue: %w", err)
+	}
+	return inserted, nil
+}
+
 // KeepWanted says a person still waits for kind's open job on target: it keeps its play priority
 // for play_priority_kept_seconds more (D234 §3). A play asks again each time it looks for the work.
 //

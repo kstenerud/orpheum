@@ -37,6 +37,7 @@ type Nodes interface {
 // Queue is the job queue: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
+	EnqueueBatch(ctx context.Context, batch []jobs.Request) (int, error)
 	ReleaseWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 	SetProgress(ctx context.Context, id int64, fraction float64) error
 }
@@ -262,15 +263,13 @@ func (service *Service) QueueReadThroughs(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	queued := 0
+	reads := make([]jobs.Request, 0, len(files))
 	for _, file := range files {
-		added, enqueueErr := service.queue.Enqueue(ctx, sweptRead(file))
-		if enqueueErr != nil {
-			return queued, enqueueErr
-		}
-		if added {
-			queued++
-		}
+		reads = append(reads, sweptRead(file))
+	}
+	queued, err := service.queue.EnqueueBatch(ctx, reads) // a batch to each write, not a write each (S4)
+	if err != nil {
+		return queued, fmt.Errorf("queue the swept read-throughs: %w", err)
 	}
 	return queued, nil
 }
