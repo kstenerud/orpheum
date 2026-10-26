@@ -12,7 +12,9 @@ A module's output is printed only when it fails, so a pass stays one line.
 
 from __future__ import annotations
 
+import functools
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,10 +35,28 @@ PASSED_THROUGH = ("PATH",)
 HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
 
+# A test that runs Go builds with the machine's module and build caches, and never fetches: each home
+# of its own once got a fresh ~500 MB module cache, and a run the gate stopped part-way (fail-fast)
+# left its homes behind: 26 of them filled the sandbox's disk in a night (2026-10-25). GOPROXY=off
+# makes a module the cache lacks fail the test rather than reach the network (AGENTS.md rule 16).
+GO_CACHES = ("GOMODCACHE", "GOCACHE")
+
+
+@functools.cache
+def go_caches() -> dict[str, str]:
+    """The machine's Go module and build caches, from the environment or `go env`; none without Go."""
+    found = {name: os.environ[name] for name in GO_CACHES if os.environ.get(name)}
+    missing = [name for name in GO_CACHES if name not in found]
+    if missing and shutil.which("go"):
+        asked = subprocess.run(["go", "env", *missing], capture_output=True, text=True, check=False)
+        found |= {name: value for name, value in zip(missing, asked.stdout.splitlines(), strict=False) if value}
+    return found | {"GOPROXY": "off"} if found else {}
+
+
 def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
     with tempfile.TemporaryDirectory(prefix="py-tests-home-") as home:
         env = {name: os.environ[name] for name in PASSED_THROUGH if name in os.environ}
-        env |= HERMETIC | {"HOME": home}
+        env |= HERMETIC | go_caches() | {"HOME": home}
         done = subprocess.run([sys.executable, "-m", "unittest", "-q", str(module)], capture_output=True,
                               text=True, check=False, env=env)
     return module, done
