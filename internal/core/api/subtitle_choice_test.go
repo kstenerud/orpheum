@@ -9,63 +9,91 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // episodeProbe is an episode's stored probe: a picture, and English and French sound, the English
 // marked default; it has a length, so a player that cannot play it as it is plays it cut on time.
-const episodeProbe = `'{"format":{"formatNames":["matroska"],"durationMs":1200000},"streams":[` +
+const episodeProbe = `{"format":{"formatNames":["matroska"],"durationMs":1200000},"streams":[` +
 	`{"streamIndex":0,"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 	`{"streamIndex":1,"kind":"audio","codec":"aac","language":"en","disposition":["default"],` +
 	`"audio":{"channelCount":2}},` +
-	`{"streamIndex":4,"kind":"audio","codec":"aac","language":"fr","audio":{"channelCount":2}}]}'`
+	`{"streamIndex":4,"kind":"audio","codec":"aac","language":"fr","audio":{"channelCount":2}}]}`
 
 // shelveEpisodes adds two more episodes to shelve's series: the pilot (file 2) has English and
 // Spanish subtitles, episode 2 (file 5) English and French, episode 3 (file 6) French only. Each
 // has English sound, its default, and French.
 func (harness testHarness) shelveEpisodes(t *testing.T) {
 	t.Helper()
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 22, Library: 1, Kind: "episode", AddedAt: 3})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 23, Library: 1, Kind: "episode", AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 5, TitleID: 22, CreatedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 6, TitleID: 23, CreatedAt: 3})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 5, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E02.mkv", SizeBytes: 10, Filing: "listed", VersionID: 5,
+		PayloadHash: []byte{0x01, 0x02},
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 6, LibraryID: 1, NodeID: 1, Path: "/m/BB/S01E03.mkv", SizeBytes: 10, Filing: "listed", VersionID: 6,
+		PayloadHash: []byte{0x01, 0x02},
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 2, ProbeJSON: episodeProbe})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 5, ProbeJSON: episodeProbe})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 6, ProbeJSON: episodeProbe})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 3), (23, 'title', 1, 3)",
-		`INSERT INTO title (id, kind, identification_state)
-		 VALUES (22, 'episode', 'identified'), (23, 'episode', 'identified')`,
-		"INSERT INTO version (id, title_id, created_at) VALUES (5, 22, 3), (6, 23, 3)",
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, filing, version_id,
-		 first_seen_at,
-		 last_seen_at) VALUES
-		 (5, 1, 1, '/m/BB/S01E02.mkv', CAST('/m/BB/S01E02.mkv' AS BLOB), 10, 'listed', 5, 1, 1),
-		 (6, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, 'listed', 6, 1, 1)`,
-		"UPDATE file SET payload_hash = X'0102' WHERE id IN (2, 5, 6)",
-		"INSERT INTO file_probe (file_id, probe_json) VALUES (2, "+episodeProbe+"), (5, "+episodeProbe+"), (6, "+
-			episodeProbe+") ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json",
+		"UPDATE file SET payload_hash = X'0102' WHERE id = 2",
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
-		 (50, 2, 2, 2, 'subtitle', 'subrip', 'en'), (51, 2, 2, 3, 'subtitle', 'subrip', 'es'),
-		 (52, 5, 5, 2, 'subtitle', 'ass', 'en'), (53, 5, 5, 3, 'subtitle', 'ass', 'fr'),
-		 (54, 6, 6, 2, 'subtitle', 'subrip', 'fr')`,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags)
-		 VALUES (80, 2, 2, 1, 'audio', 'aac', 'en', 1), (81, 2, 2, 4, 'audio', 'aac', 'fr', 0),
-		 (82, 5, 5, 1, 'audio', 'aac', 'en', 1), (83, 5, 5, 4, 'audio', 'aac', 'fr', 0),
-		 (84, 6, 6, 1, 'audio', 'aac', 'en', 1), (85, 6, 6, 4, 'audio', 'aac', 'fr', 0)`)
+		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)")
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 50, BytesFile: 2, StreamIndex: 2, Kind: "subtitle", Codec: "subrip", Language: "en",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 51, BytesFile: 2, StreamIndex: 3, Kind: "subtitle", Codec: "subrip", Language: "es",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 52, BytesFile: 5, StreamIndex: 2, Kind: "subtitle", Codec: "ass", Language: "en",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 53, BytesFile: 5, StreamIndex: 3, Kind: "subtitle", Codec: "ass", Language: "fr",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 54, BytesFile: 6, StreamIndex: 2, Kind: "subtitle", Codec: "subrip", Language: "fr",
+	})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 80, BytesFile: 2, StreamIndex: 1, Kind: "audio", Codec: "aac", Language: "en", DispositionFlags: 1,
+	})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 81, BytesFile: 2, StreamIndex: 4, Kind: "audio", Codec: "aac", Language: "fr"})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 82, BytesFile: 5, StreamIndex: 1, Kind: "audio", Codec: "aac", Language: "en", DispositionFlags: 1,
+	})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 83, BytesFile: 5, StreamIndex: 4, Kind: "audio", Codec: "aac", Language: "fr"})
+	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
+		ID: 84, BytesFile: 6, StreamIndex: 1, Kind: "audio", Codec: "aac", Language: "en", DispositionFlags: 1,
+	})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 85, BytesFile: 6, StreamIndex: 4, Kind: "audio", Codec: "aac", Language: "fr"})
 }
 
 // addEpisode adds an episode to shelve's series after the others, as a scan that finds it later
 // does: its title, its file, and the file's tracks.
 func (harness testHarness) addEpisode(t *testing.T, titleID, fileID int64, tracks string) {
 	t.Helper()
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: titleID, Library: 1, Kind: "episode", AddedAt: 4})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: fileID, TitleID: titleID, CreatedAt: 4})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: fileID, LibraryID: 1, NodeID: 1, Path: fmt.Sprintf("/m/BB/E%d.mkv", fileID), SizeBytes: 10,
+		Filing: "listed", VersionID: fileID, FirstSeenAt: 4, LastSeenAt: 4, PayloadHash: []byte{0x01, 0x02},
+	})
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: fileID, ProbeJSON: episodeProbe})
 	storetest.ExecRaw(t, harness.databasePath,
-		fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 4)", titleID),
-		fmt.Sprintf("INSERT INTO title (id, kind, identification_state) VALUES (%d, 'episode', 'identified')", titleID),
-		fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 4)", fileID, titleID),
-		fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, filing, version_id,
-		 first_seen_at, last_seen_at, payload_hash)
-		 VALUES (%d, 1, 1, '/m/BB/E%d.mkv', CAST('/m/BB/E%d.mkv' AS BLOB), 10, 'listed', %d, 4, 4, X'0102')`,
-			fileID, fileID, fileID, fileID),
-		fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json) VALUES (%d, %s)", fileID, episodeProbe),
 		fmt.Sprintf("INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, %d, %d)",
 			titleID, 10000+titleID),
+		// tracks is each caller's own VALUES fragment, of however many tracks it wants, under
+		// chosen ids: left as raw SQL rather than Stream, one call per row.
 		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) "+
 			"VALUES "+tracks)
 }
@@ -168,9 +196,8 @@ func TestSubtitleChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t
 	// Episode 4 arrives after the choice, and episode 3's file gains an English track.
 	harness.addEpisode(t, 24, 7,
 		"(55, 7, 7, 2, 'subtitle', 'subrip', 'en', 0), (56, 7, 7, 3, 'subtitle', 'subrip', 'fr', 0)")
-	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) "+
-			"VALUES (57, 6, 6, 3, 'subtitle', 'subrip', 'en')")
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 57, BytesFile: 6, StreamIndex: 3, Kind: "subtitle", Codec: "subrip", Language: "en"})
 	check("after episode 4 came and episode 3 gained English", map[int64]string{7: "55", 6: "57"})
 	if answer := harness.choose(t, user, 6, 54); answer.status != http.StatusNoContent {
 		t.Fatalf("choosing French in episode 3: %d %s", answer.status, answer.body)
@@ -220,18 +247,18 @@ func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing
 		t.Fatalf("choosing French in episode 2: %d", status)
 	}
 	// A rescan writes the file's streams again under new ids; the French track is still there.
-	storetest.ExecRaw(t, harness.databasePath,
-		"DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
-		 (62, 5, 5, 2, 'subtitle', 'ass', 'en'), (63, 5, 5, 3, 'subtitle', 'ass', 'fr')`)
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'")
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 62, BytesFile: 5, StreamIndex: 2, Kind: "subtitle", Codec: "ass", Language: "en"})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 63, BytesFile: 5, StreamIndex: 3, Kind: "subtitle", Codec: "ass", Language: "fr"})
 	if got := harness.subtitlesIn(t, session, 5)[5]; got != "63" {
 		t.Errorf("after the rescan: %s, want the French track under its new id", got)
 	}
 	harness.choose(t, session, 2, 50) // English in the pilot is the work's language now
-	storetest.ExecRaw(t, harness.databasePath,
-		"DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language)
-		 VALUES (64, 5, 5, 2, 'subtitle', 'ass', 'en')`)
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'")
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{ID: 64, BytesFile: 5, StreamIndex: 2, Kind: "subtitle", Codec: "ass", Language: "en"})
 	if got := harness.subtitlesIn(t, session, 5)[5]; got != "64" {
 		t.Errorf("episode 2 without its French: %s, want the work's English rather than a track that is gone", got)
 	}
