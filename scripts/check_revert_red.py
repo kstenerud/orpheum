@@ -94,6 +94,7 @@ from revert_red_dependents import go_dependents, python_tests_naming, python_tes
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
+from revert_red_clean import probe_kind, runs_clean
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope
 from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
@@ -174,12 +175,12 @@ class Change:
 @dataclass(frozen=True)
 class Outcome:
     path: str
-    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | TIMED_OUT | BROWSER_OWED | CLAIMED | COSMETIC | UNREACHABLE | UNCHECKED
+    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | TIMED_OUT | PROBE_BROKEN | BROWSER_OWED | CLAIMED | COSMETIC | UNREACHABLE | UNCHECKED
     detail: str = ""
 
     @property
     def is_failure(self) -> bool:
-        return self.verdict in ("GREEN", "NO_RUNNER", "TIMED_OUT")
+        return self.verdict in ("GREEN", "NO_RUNNER", "TIMED_OUT", "PROBE_BROKEN")
 
 
 def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -497,6 +498,12 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             if done.returncode == RUNNER_MISSING:
                 return Outcome(change.path, "NO_RUNNER", f"the tests could not start: {attempt.command[0]} "
                                "found no runner, so nothing was checked")
+            for path in (change.path, *unit):
+                restore(tree, head, path)
+            if not runs_clean(tree, probe_kind(attempt.command, attempt.label, attempt.env),
+                              functools.partial(run_whole_group, attempt.command, tree, timeout, env)):
+                return Outcome(change.path, "PROBE_BROKEN", f"its probe{attempt.label} fails here with nothing "
+                               "reverted too, so its red says nothing")
             combined = done.stdout + done.stderr
             if attempt.compile_only or is_build_failure(combined):
                 red = Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")

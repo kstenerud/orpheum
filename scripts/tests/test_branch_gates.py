@@ -460,6 +460,19 @@ class RevertRedClaims(unittest.TestCase):
         self.assertEqual(self.probe(repo, base).verdict, "RED_TEST",
                          "an unticked VQ item failed a file its test covers")
 
+    def test_a_red_from_a_probe_that_fails_with_nothing_reverted_says_nothing(self):
+        # Every browser-mode test failed to import in revert-red's worktrees (Vite refused .git/), so
+        # each of its probes was red whatever was reverted, and web files passed as covered (A45).
+        repo, base = self.repo()
+        repo.commit("fix(tool): answer two\n\nIt answered one.", {
+            self.CODE: "def f():\n    return 2\n",
+            self.TEST: (repo.root / self.TEST).read_text() + "        assert False, 'broken here'\n"})
+        outcome = self.probe(repo, base)
+        self.assertEqual(outcome.verdict, "PROBE_BROKEN", outcome.detail)
+        self.assertTrue(outcome.is_failure)
+        self.assertIn("fix the environment", rr.report([outcome]))
+        self.assertEqual(repo.git("status", "--porcelain"), "", "the reverted file is put back")
+
     def test_a_ticked_verification_covers_a_file_no_test_notices(self):
         repo, base = self.repo()
         repo.commit("docs: queue", {rr.VQ_FILE: "- [x] **VQ7** — seen on the television\n"})

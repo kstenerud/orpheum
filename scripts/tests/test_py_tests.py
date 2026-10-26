@@ -35,7 +35,7 @@ class Runner(unittest.TestCase):
         home."""
         sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_env(self):\n"
                 "        self.assertEqual(sorted(os.environ), ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', "
-                "'GOCACHE', 'GOMODCACHE', 'GOPROXY', 'HOME', 'LC_ALL', 'PATH', 'TZ'])\n"
+                "'GOCACHE', 'GOMODCACHE', 'GOPROXY', 'HOME', 'LC_ALL', 'PATH', 'PYTHONDONTWRITEBYTECODE', 'TZ'])\n"
                 "        self.assertNotEqual(os.environ['HOME'], '/home/caller')\n")
         root = Path(tempfile.mkdtemp(prefix="py-tests-"))
         (root / "scripts" / "tests").mkdir(parents=True)
