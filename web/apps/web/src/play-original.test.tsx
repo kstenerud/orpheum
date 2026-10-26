@@ -39,7 +39,13 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
           decision={directDecision({ onLadder })}
           onDecideAgain={(cause) => asked.push(cause)}
         />,
-        servedBy({}),
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/availability": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "POST /playback/t/report": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
       ),
     );
     const button = [...mounted.container.querySelectorAll("button")].find(
@@ -54,7 +60,11 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
-        servedBy({}),
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
       ),
     );
     expect(mounted.container.textContent).not.toContain("Play the original file");

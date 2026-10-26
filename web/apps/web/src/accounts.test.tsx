@@ -3,7 +3,7 @@
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   activateDevice,
@@ -29,10 +29,14 @@ import { IssuedInvitationView, PeopleList } from "./people.tsx";
 import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
-import { servedBy, type Heard } from "./test-dom.tsx";
+import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 import { television } from "./test-fixtures.ts";
 import { testOrigin, withServices } from "./test-services.tsx";
 import { DeviceList, deviceState } from "./your-devices.tsx";
+
+// This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+// test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
+afterEach(failOnUnexpectedRequests);
 
 /** A Storage kept in memory, as a tab's sessionStorage is. */
 function memoryStorage(): Storage {

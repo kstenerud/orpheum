@@ -11,7 +11,13 @@ import { withServices } from "./test-services.tsx";
 
 describe("joining by a link", () => {
   it("tells a guest whose link no longer works that invitations are short-lived and to ask for another (D346)", async () => {
-    const services = servedBy({ "POST /together/join": refusal(404, "not_found") }, []);
+    const services = servedBy(
+      {
+        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join": refusal(404, "not_found"),
+      },
+      [],
+    );
     const mounted = await mount(
       withServices(
         <JoinForm secret="old-secret" onSubmitted={() => undefined} onJoined={() => undefined} />,

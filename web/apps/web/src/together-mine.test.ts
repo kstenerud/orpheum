@@ -1,15 +1,19 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { servedBy } from "./test-dom.tsx";
+import { failOnUnexpectedRequests, servedBy, unreachable } from "./test-dom.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
 });
+
+// This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+// test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
+afterEach(failOnUnexpectedRequests);
 
 describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("keeps the one they host in the tab and the one they joined in the browser", async () => {
@@ -74,7 +78,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("keeps a hosted session when the server cannot be asked", async () => {
     const kept = JSON.stringify({ sessionId: 3, credential: "this-device" });
     window.sessionStorage.setItem("orpheum.together.host", kept);
-    const { api } = servedBy({}, [], "token");
+    const { api } = servedBy({ "GET /together/mine": unreachable }, [], "token");
     await haveBackMySessions(api).catch(() => undefined);
     expect(window.sessionStorage.getItem("orpheum.together.host")).toBe(kept);
   });

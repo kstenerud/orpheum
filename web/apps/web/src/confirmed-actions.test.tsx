@@ -133,6 +133,7 @@ it("makes a person a new link only when asked again, their old one stopping", as
       <PersonPage userId={5} />,
       servedBy(
         {
+          "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
@@ -194,6 +195,7 @@ it("ends a person's own link only when asked again, saying until when it led the
       <PersonPage userId={5} />,
       servedBy(
         {
+          "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
@@ -224,6 +226,7 @@ it("shows no own link for a person who has none", async () => {
       <PersonPage userId={5} />,
       servedBy(
         {
+          "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {

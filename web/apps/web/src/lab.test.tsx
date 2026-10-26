@@ -70,6 +70,7 @@ async function mountedAt(
           shouldOfferDeviceTests: isOffered,
         },
       ],
+      "GET /together/mine": [200, { sessions: [] }],
     },
     [],
     "token",

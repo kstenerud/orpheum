@@ -164,6 +164,7 @@ it("gives a person another role from their page", async () => {
       <PersonPage userId={5} />,
       servedBy(
         {
+          "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {

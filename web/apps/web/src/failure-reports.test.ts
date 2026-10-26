@@ -4,11 +4,14 @@ import { reportFailure } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { sendFailuresToCore } from "./failure-reports.ts";
-import { servedBy, type Heard } from "./test-dom.tsx";
+import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 
 describe("the page's failures", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    // This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+    // test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
+    failOnUnexpectedRequests();
   });
 
   it("reach the core's log with the page's path while signed in, and not otherwise", async () => {
