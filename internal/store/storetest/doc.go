@@ -28,6 +28,6 @@
 //
 //   - storetest.go: OpenMigrated and the migrated template it copies, OpenCache, the options
 //     tests open and migrate with (OpenOptions, MigrateOptions), ExecRaw, QueryRaw and the
-//     connection a test's reads of one file share, and helpers that seed rows every caller needs
+//     connection a test's calls on one file share, and helpers that seed rows every caller needs
 //     (InsertUser).
 package storetest
