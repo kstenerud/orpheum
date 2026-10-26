@@ -33,6 +33,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
+// logEvent is the attribute key a few of serve's log lines carry alongside their message: a stable
+// name a test waits on, so rewording the message does not break the wait (test architecture review,
+// 2026-10-26, finding 12). Only the lines a test waits on by name carry it; most lines need none.
+const logEvent = "logEvent"
+
+// eventReady and eventCouldNotStart are logEvent's values for serve's two lines a test most
+// commonly waits for: that it finished starting, and that it could not.
+const (
+	eventReady         = "ready"
+	eventCouldNotStart = "couldNotStart"
+)
+
 // serve runs the core on listener until ctx ends. The API answers /health before the database is
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
@@ -104,7 +116,7 @@ func serve(
 		return degraded("the node channel could not start", err)
 	}
 	defer func() { err = errors.Join(err, stopNodes()) }()
-	logger.InfoContext(ctx, "ready")
+	logger.InfoContext(ctx, "ready", logEvent, eventReady)
 	<-ctx.Done()
 	logger.InfoContext(ctx, "stopping")
 	return stopFrontDoors()
@@ -127,7 +139,7 @@ func onlyOnce(stop func() error) func() error {
 func stayDegraded(ctx context.Context, server *api.Server, what string, err error, logger *slog.Logger) error {
 	server.SetStatus(api.StatusDegraded, what, err.Error())
 	logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
-		"what", what, "err", err)
+		logEvent, eventCouldNotStart, "what", what, "err", err)
 	<-ctx.Done()
 	return err
 }

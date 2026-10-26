@@ -98,7 +98,7 @@ func TestCore_ServesThisMachinesPortBesideItsOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ready := &signalsOn{want: `"msg":"ready"`, seen: make(chan struct{})}
+	ready := &signalsOn{want: `"logEvent":"ready"`, seen: make(chan struct{})}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan int, 1)
 	go func() {

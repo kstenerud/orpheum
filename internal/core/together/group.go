@@ -322,6 +322,7 @@ func (current *session) announce(
 // play says why (the owner's test, 2026-10-06, where it could only be guessed).
 func (current *session) logChange(now time.Time) {
 	attributes := []any{
+		logEvent, eventGroupChanged,
 		"sessionId", current.id, "state", string(current.group.state), "event", string(current.group.event),
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
 		positionMsAttribute, current.positionAt(now).Milliseconds(),
