@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -51,18 +52,20 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	// Metropolis has a second copy, and an extra; Metropolis's first copy is 1000 s long.
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) `+
-			`VALUES (1, '{"format":{"durationMs":1000000}}', 1000000) `+
-			`ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json, duration_ms = excluded.duration_ms`,
-		"INSERT INTO version (id, title_id, created_at) VALUES (3, 10, 3)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at)
-		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, X'03', 'listed', 3, 1, 1),
-		        (4, 1, 1, '/m/Metropolis (1995)-trailer.mkv', 5, X'04', 'extra', 4, 1, 1)`,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 3)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (30, 'extra', 'identified')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (4, 30, 3)")
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{
+		FileID: 1, ProbeJSON: `{"format":{"durationMs":1000000}}`, DurationMs: 1000000,
+	})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 3, TitleID: 10, CreatedAt: 3})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Kind: "extra", AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 4, TitleID: 30, CreatedAt: 3})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995) - 720p.mkv", SizeBytes: 500,
+		PayloadHash: []byte{0x03}, Filing: "listed", VersionID: 3,
+	})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/m/Metropolis (1995)-trailer.mkv", SizeBytes: 5,
+		PayloadHash: []byte{0x04}, Filing: "extra", VersionID: 4,
+	})
 	harness.setPositionReadAt(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
 	harness.setPositionReadAt(t, 2, 60_000, 150)  // the pilot, of unknown length
 	harness.setPositionReadAt(t, 1, 500_000, 200) // Metropolis, halfway, latest

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -452,10 +453,9 @@ func TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten(t *testing.T
 	admin := harness.createAdminAndSignIn(t)
 	harness.do(t, http.MethodPost, "/users", admin,
 		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{TitleID: 10})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, added_at) VALUES (10, 'title', 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
-		"INSERT INTO version (title_id, created_at) VALUES (10, 1)",
 		`INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 		 VALUES (10, 'name', '', 'Metropolis', 'typed', 2, 1)`,
 		"UPDATE setting SET set_by_user_id = 2 WHERE key = 'sort_locale'",
@@ -485,10 +485,9 @@ func TestPeople_ARemovedPersonsWatchingOfDeletedFilesGoesWithThem(t *testing.T) 
 	admin := harness.createAdminAndSignIn(t)
 	harness.do(t, http.MethodPost, "/users", admin,
 		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 20, TitleID: 10})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, added_at) VALUES (10, 'title', 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (20, 10, 1)",
 		`INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
 		 VALUES (1, 20, 1, 600000, 1), (2, 20, 3, 900000, 1)`)
 	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {

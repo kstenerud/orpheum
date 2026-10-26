@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -23,20 +24,28 @@ import (
 func (harness testHarness) shelveDVDOrder(t *testing.T) {
 	t.Helper()
 	harness.shelve(t)
+	for _, episode := range []struct {
+		titleID, fileID int64
+		path            string
+	}{
+		{22, 3, "/m/BB/S01E02.mkv"}, {23, 4, "/m/BB/S01E03.mkv"}, {24, 5, "/m/BB/S02E01.mkv"},
+	} {
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{
+			ID: episode.titleID, Library: 1, Kind: "episode", AddedAt: 2,
+		})
+		librarytest.Version(t, harness.database,
+			librarytest.VersionSpec{ID: episode.fileID, TitleID: episode.titleID, CreatedAt: 2})
+		librarytest.File(t, harness.database, librarytest.FileSpec{
+			ID: episode.fileID, LibraryID: 1, NodeID: 1, Path: episode.path, SizeBytes: 10,
+			PayloadHash: []byte{byte(episode.fileID)}, //nolint:gosec // a test's small id, 3-5
+			Filing:      "listed", VersionID: episode.fileID,
+		})
+		librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: episode.fileID, DurationMs: 1000})
+	}
+	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 2, DurationMs: 1000})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 2), (23, 'title', 1, 2), "+
-			"(24, 'title', 1, 2)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (22, 'episode', 'identified'), "+
-			"(23, 'episode', 'identified'), (24, 'episode', 'identified')",
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag'), (24, 'und', 1, 'Seven')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (3, 22, 2), (4, 23, 2), (5, 24, 2)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (3, 1, 1, '/m/BB/S01E02.mkv', 10, X'03', 'listed', 3, 1, 1),
-		 (4, 1, 1, '/m/BB/S01E03.mkv', 10, X'04', 'listed', 4, 1, 1),
-		 (5, 1, 1, '/m/BB/S02E01.mkv', 10, X'05', 'listed', 5, 1, 1)`,
-		"INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (2, '{}', 1000), (3, '{}', 1000), "+
-			"(4, '{}', 1000), (5, '{}', 1000)",
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), "+
