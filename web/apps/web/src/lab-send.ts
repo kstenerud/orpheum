@@ -3,6 +3,7 @@
 import type { Api, components } from "@orpheum/sdk";
 import { useCallback, useState } from "react";
 
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow } from "./problem.ts";
 
 /** Which lab page measured a result, as the lab endpoint names them. */
@@ -14,7 +15,11 @@ export async function sendLabResult(
   probe: LabProbe,
   result: Readonly<Record<string, unknown>>,
 ): Promise<string> {
-  return dataOrThrow(await api.POST("/lab-results", { body: { probe, result: { ...result } } })).id;
+  const sent = await api.POST("/lab-results", {
+    body: { probe, result: { ...result } },
+    ...idempotent(newIdempotencyKey()),
+  });
+  return dataOrThrow(sent).id;
 }
 
 /** Where a page's sending stands: not sent, on its way, sent under a name, or failed. */

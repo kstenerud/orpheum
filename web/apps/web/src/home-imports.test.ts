@@ -3,11 +3,17 @@
 import { describe, expect, it } from "vitest";
 
 /** Every source file of the app, as text, tests left out, by its path. */
-const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"], {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+// Untyped at the call: vitest keeps no cached transform of a file holding "import.meta.glob(", whose
+// matches change as files come and go; one given its type at the call escaped that, and a test read
+// a stale list of sources (2026-10-26; glob-cache.test.ts).
+const sources: Record<string, string> = import.meta.glob(
+  ["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"],
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+);
 
 /** What a source imports as it loads: its static imports, never `import type` or `import()`. */
 function staticImportsOf(source: string): string[] {

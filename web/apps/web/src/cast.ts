@@ -8,6 +8,7 @@
 import type { Api, components } from "@orpheum/sdk";
 
 import type { StringStorage } from "./browser-storage.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow } from "./problem.ts";
 
 /** A cast as one of its devices sees it, with this device's credential for its session of one. */
@@ -32,6 +33,7 @@ export async function startCast(
   return dataOrThrow(
     await api.POST("/me/casts", {
       body: { toDeviceId: cast.toDeviceId, fileId: cast.fileId, ...positionMs },
+      ...idempotent(newIdempotencyKey()),
     }),
   );
 }
@@ -44,7 +46,11 @@ export async function listMyCasts(api: Api): Promise<Cast[]> {
 /** Ends the cast castId, saying why, and says where it stood. */
 export async function endCast(api: Api, castId: number, reason: CastEnd): Promise<CastEnded> {
   return dataOrThrow(
-    await api.POST("/me/casts/{id}/end", { params: { path: { id: castId } }, body: { reason } }),
+    await api.POST("/me/casts/{id}/end", {
+      params: { path: { id: castId } },
+      body: { reason },
+      ...idempotent(newIdempotencyKey()),
+    }),
   );
 }
 
@@ -53,7 +59,12 @@ export async function endCast(api: Api, castId: number, reason: CastEnd): Promis
  * handed (plans/up-next.md), and says the cast as it is now.
  */
 export async function moveCastOn(api: Api, castId: number): Promise<Cast> {
-  return dataOrThrow(await api.POST("/me/casts/{id}/next", { params: { path: { id: castId } } }));
+  return dataOrThrow(
+    await api.POST("/me/casts/{id}/next", {
+      params: { path: { id: castId } },
+      ...idempotent(newIdempotencyKey()),
+    }),
+  );
 }
 
 /**
