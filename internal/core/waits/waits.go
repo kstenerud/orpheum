@@ -174,6 +174,14 @@ func (estimator *Estimator) filesOf(ctx context.Context, fileIDs []int64) (map[i
 
 // readThroughOf is how long the file's read-through will take: nil when none is open.
 func (estimator *Estimator) readThroughOf(ctx context.Context, fileID int64) (*Wait, error) {
+	ownJobs, err := estimator.parts.Cache.Jobs().OpenJobsOfFile(ctx, jobs.KindReadThrough, fileID)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, isOpen := fullReadsAndOwn(ownJobs, fileID); !isOpen {
+		return nil, nil //nolint:nilnil // no read-through of its own is open: nothing to wait for
+	}
+	// Only now every other's, for the bytes ahead of it: most files a viewer looks at have none.
 	open, err := estimator.parts.Cache.Jobs().OpenReadThroughs(ctx)
 	if err != nil {
 		return nil, err

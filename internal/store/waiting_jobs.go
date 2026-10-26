@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
@@ -38,6 +39,23 @@ func (jobStorage *JobStorage) OpenReadThroughs(ctx context.Context) ([]OpenJob, 
 			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == "assigned",
 			FileID: ptr.ValueOrZero(row.FileID), ArgsJSON: row.ArgsJSON,
 			DoneFraction: ptr.ValueOrZero(row.ProgressFraction),
+		})
+	}
+	return open, nil
+}
+
+// OpenJobsOfFile are kind's open jobs of one file, by job_open_target: whether a file has a
+// read-through open, asked before the waits estimate reads every other's (audit 2026-10-25, S5).
+func (jobStorage *JobStorage) OpenJobsOfFile(ctx context.Context, kind jobqueue.Kind, fileID int64) ([]OpenJob, error) {
+	rows, err := jobStorage.cache.Read().ListOpenJobsOfTarget(ctx, openOfTargetParams(kind, JobTarget{FileID: fileID}))
+	if err != nil {
+		return nil, fmt.Errorf("list the open %s jobs of file %d: %w", kind, fileID, err)
+	}
+	open := make([]OpenJob, 0, len(rows))
+	for _, row := range rows {
+		open = append(open, OpenJob{
+			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == string(jobqueue.StateAssigned), FileID: fileID,
+			ArgsJSON: row.ArgsJSON, DoneFraction: ptr.ValueOrZero(row.ProgressFraction),
 		})
 	}
 	return open, nil
