@@ -22223,4 +22223,30 @@ and the wiring builds `api.Dependencies`, which is what kept the wiring in `cmd/
 **Rejected:** faking the node at the wire level (above); a dependency-injection framework (the
 one-way rules); keeping the harnesses' own wiring beside production's.
 
-**Status:** Decided 2026-10-26; not built.
+**As built** (the agent's choices on the points the owner left open):
+
+- **The name says what it holds,** read at the use site: `assembly.Build(ctx, assembly.Parts{...})`
+  returns `*assembly.Services`, whose `API` is the API's dependencies.
+- **The node connection is one interface, `assembly.Nodes`,** made of the interfaces each service's
+  own package already declares of `nodes.Service` (the exchanges' Sender and Rooms, artwork's,
+  readthrough's, subtitles', chunks' Encoders, waits', the library admin's and the API's
+  NodeReports) and four setters (SetResultSink, SetScans, SetChanges, SetStoreTiers): 23 methods in
+  all, of which the API harness's fake node lacked six, which it now implements, four as no-ops.
+  The byte socket's setter is not in it: only the core's own node channel has a byte socket, so a
+  test that fakes the channel fakes its bytes too, and Build refuses one that does not.
+- **The seams are six,** each nil in production: the node channel, its bytes, the scan requests, the
+  file reads, OpenSubtitles and the metadata providers; and the job queue's jitter, which a test
+  makes exact. Everything else the harness has is production's: the logger, the job queue's
+  argument merges, the node work's silence limit, the scans, the artwork service and its hand-overs,
+  Watch Together's seeks snapped to keyframes, the interest raiser, every hook a pass and a secret
+  run. The API's 311 tests passed on it with no assertion changed.
+- **The jobs table moved with the services:** each kind's runner (`KindRunners`, the assembly giving
+  the exchanges each node kind's assignee) and each sweep (`AddSweeps`); the runners' tickers and
+  goroutines, the sweeping loop and the loops beside them stay `cmd/orpheum`'s.
+- **Eight of the API's test files stay internal** (package `api`): they test internals alone and
+  need no harness.
+- **No architecture test changed:** none says that only `cmd/orpheum` composes; the forbidigo rules
+  that exempt `cmd/` (`[ambient]`, `[context]`, `[print]`, `[panic]`) hold the assembly as
+  any core package, and it needs none of them.
+
+**Status:** Decided, and built (2026-10-26).

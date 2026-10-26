@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // scannedServiceCodes is the paid service with one television waiting with abcd-efgh, as a core claims
@@ -61,7 +62,7 @@ func TestActivation_AScannedCodeNeedsNoCheckCodeAndOnlyItsKeyIsActivated(t *test
 	}
 	entered := harness.do(t, http.MethodPost, "/activations", admin,
 		map[string]any{"code": "abcd-efgh", "keyHash": keyHash})
-	var claim ActivationOutput
+	var claim api.ActivationOutput
 	if err = json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK ||
 		claim.Body.CheckCode != "" || claim.Body.DeviceName != "Tizen" {
 		t.Fatalf("POST /activations with the key's hash = %d %s; want no check code, the TV named Tizen",
@@ -74,7 +75,7 @@ func TestActivation_AScannedCodeNeedsNoCheckCodeAndOnlyItsKeyIsActivated(t *test
 	}
 	other := harness.do(t, http.MethodPost, "/activations", admin,
 		map[string]any{"code": "abcd-efgh", "keyHash": "AAAAAAAAAAAAAAAAAAAAAA"})
-	wantError(t, other, http.StatusConflict, CodeConflict)
+	wantError(t, other, http.StatusConflict, api.CodeConflict)
 	if len(codes.refused) != 1 {
 		t.Errorf("refused %v; want the code whose key the hash does not name ended", codes.refused)
 	}

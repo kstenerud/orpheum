@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/link"
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 )
 
@@ -23,7 +24,7 @@ func TestDiscoveryLink_IsTheDiscoverysFormOnlyWhileItHasClaimedTheCore(t *testin
 		State: discoveryproto.StateClaimed, CoreID: "k7xq2", ClientOrigin: "https://app.orpheum-app.com",
 		Fingerprint: fingerprint,
 	}
-	got := discoveryLink(claimed, "/register", "a-secret")
+	got := api.DiscoveryLink(claimed, "/register", "a-secret")
 	if got != "https://app.orpheum-app.com/register#k7xq2.a-secret."+fingerprint {
 		t.Errorf("a claimed core's link is %q; want the discovery's form", got)
 	}
@@ -39,7 +40,7 @@ func TestDiscoveryLink_IsTheDiscoverysFormOnlyWhileItHasClaimedTheCore(t *testin
 		"no client origin":   {State: discoveryproto.StateClaimed, CoreID: "k7xq2", Fingerprint: fingerprint},
 		"enrolled with none": {},
 	} {
-		if got := discoveryLink(status, "/register", "a-secret"); got != "" {
+		if got := api.DiscoveryLink(status, "/register", "a-secret"); got != "" {
 			t.Errorf("a core %s makes the link %q; want none, the client making it on its own origin", name, got)
 		}
 	}
@@ -54,7 +55,7 @@ func TestTogether_AJoiningDeviceIsHandedTheLocatorTheCoreRegisters(t *testing.T)
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	joined := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Pat")
-	dependencies, err := harness.server.readyDependencies()
+	dependencies, err := harness.server.ReadyDependencies()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestTogether_AJoiningDeviceIsHandedTheLocatorTheCoreRegisters(t *testing.T)
 		t.Errorf("the joined device was handed locator %q, and the core registers %v; want the one handed",
 			joined.Body.Locator, dependencies.Together.LiveLocators())
 	}
-	if made := togetherLink(dependencies, "a-secret"); made != "" {
+	if made := api.TogetherLink(dependencies, "a-secret"); made != "" {
 		t.Errorf("a core no discovery has claimed names the link %q; want none", made)
 	}
 }
@@ -83,7 +84,8 @@ func TestPerson_TheAdminSeesAndEndsAPersonsOwnLink(t *testing.T) {
 	if page := harness.personPage(t, admin, path); page.Body.OwnLinkExpiresAt <= harness.clock.Now().UnixMilli() {
 		t.Errorf("the person's page says their own link ends at %d; want a time to come", page.Body.OwnLinkExpiresAt)
 	}
-	wantError(t, harness.do(t, http.MethodDelete, path+"/own-link", partner, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodDelete, path+"/own-link", partner, nil), http.StatusForbidden,
+		api.CodeForbidden)
 	if ended := harness.do(t, http.MethodDelete, path+"/own-link", admin, nil); ended.status != http.StatusNoContent {
 		t.Fatalf("DELETE %s/own-link = %d %s", path, ended.status, ended.body)
 	}
@@ -94,14 +96,15 @@ func TestPerson_TheAdminSeesAndEndsAPersonsOwnLink(t *testing.T) {
 	if me := harness.do(t, http.MethodGet, "/me", partner, nil); me.status != http.StatusOK {
 		t.Errorf("ending their own link signed the person out: GET /me = %d", me.status)
 	}
-	wantError(t, harness.do(t, http.MethodDelete, "/users/99/own-link", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodDelete, "/users/99/own-link", admin, nil), http.StatusNotFound,
+		api.CodeNotFound)
 }
 
 // personPage is GET path, a person's page, as the admin.
-func (harness testHarness) personPage(t *testing.T, admin, path string) PersonOutput {
+func (harness testHarness) personPage(t *testing.T, admin, path string) api.PersonOutput {
 	t.Helper()
 	read := harness.do(t, http.MethodGet, path, admin, nil)
-	var page PersonOutput
+	var page api.PersonOutput
 	if err := json.Unmarshal([]byte(read.body), &page.Body); err != nil || read.status != http.StatusOK {
 		t.Fatalf("GET %s = %d %s", path, read.status, read.body)
 	}
@@ -119,7 +122,7 @@ func TestOwnLink_IsTheLinkThePersonRegisteredBy(t *testing.T) {
 		"secret": invitation.Link.Secret, "name": "partner", "password": "partner-password", "device": testDevice,
 	}))
 	read := harness.do(t, http.MethodGet, "/me/own-link", partner, nil)
-	var own OwnLinkOutput
+	var own api.OwnLinkOutput
 	if err := json.Unmarshal([]byte(read.body), &own.Body); err != nil || read.status != http.StatusOK {
 		t.Fatalf("GET /me/own-link = %d %s", read.status, read.body)
 	}
@@ -129,6 +132,6 @@ func TestOwnLink_IsTheLinkThePersonRegisteredBy(t *testing.T) {
 	if own.Body.Link != "" {
 		t.Errorf("a server no discovery has claimed names the link %q; want none", own.Body.Link)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", admin, nil), http.StatusNotFound, CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", "", nil), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", admin, nil), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", "", nil), http.StatusUnauthorized, api.CodeAuthRequired)
 }

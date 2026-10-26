@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers"
@@ -125,7 +126,7 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 		t.Errorf("asked OpenSubtitles %+v; want the film's ids, the file's hash and the language (D224 §3)", asked)
 	}
 	nothing := harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?language=de", user, nil)
-	wantError(t, nothing, http.StatusConflict, CodeConflict)
+	wantError(t, nothing, http.StatusConflict, api.CodeConflict)
 
 	// A file not identified yet is asked for by its hash alone, and the answer says so.
 	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
@@ -139,10 +140,10 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 
 // candidatesAnswer is what GET subtitle-candidates answers.
 type candidatesAnswer struct {
-	Candidates                []SubtitleCandidateBody `json:"candidates"`
-	Allowance                 AllowanceBody           `json:"allowance"`
-	DidAskByIDs               bool                    `json:"didAskByIds"`
-	DidAskByOpensubtitlesHash bool                    `json:"didAskByOpensubtitlesHash"`
+	Candidates                []api.SubtitleCandidateBody `json:"candidates"`
+	Allowance                 api.AllowanceBody           `json:"allowance"`
+	DidAskByIDs               bool                        `json:"didAskByIds"`
+	DidAskByOpensubtitlesHash bool                        `json:"didAskByOpensubtitlesHash"`
 }
 
 // offeredCandidates reads a 200 answer of GET subtitle-candidates.
@@ -283,7 +284,7 @@ func TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen(t *testing.T
 	harness.subtitler.mutex.Lock()
 	harness.subtitler.body, harness.subtitler.downloadCount = "", 0
 	harness.subtitler.mutex.Unlock()
-	wantError(t, fetch(), http.StatusServiceUnavailable, CodeNodeSilent)
+	wantError(t, fetch(), http.StatusServiceUnavailable, api.CodeNodeSilent)
 	harness.subtitler.mutex.Lock()
 	spent := harness.subtitler.downloadCount
 	harness.subtitler.mutex.Unlock()
@@ -438,7 +439,7 @@ func checkKeptGzipped(t *testing.T, harness testHarness, fetchedID int64) {
 // so it cannot name langtag's; this holds it to langtag's, the one check of a tag's shape.
 func TestSubtitleCandidates_TheLanguagePatternIsLangtags(t *testing.T) {
 	t.Parallel()
-	field, found := reflect.TypeFor[SubtitleCandidatesInput]().FieldByName("Language")
+	field, found := reflect.TypeFor[api.SubtitleCandidatesInput]().FieldByName("Language")
 	if !found {
 		t.Fatal("SubtitleCandidatesInput has no Language")
 	}
@@ -471,7 +472,7 @@ func TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere(t *testing.T) 
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
-	wantError(t, answer, http.StatusServiceUnavailable, CodeNodeSilent)
+	wantError(t, answer, http.StatusServiceUnavailable, api.CodeNodeSilent)
 	if kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2); err != nil || len(kept) != 0 {
 		t.Errorf("kept %+v, %v after a conversion that never came; want nothing kept", kept, err)
 	}

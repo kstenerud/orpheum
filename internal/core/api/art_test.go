@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -25,7 +26,7 @@ type closedResponse struct {
 func (harness testHarness) getWithoutRedirect(t *testing.T, path, token string) (closedResponse, string) {
 	t.Helper()
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
-		harness.httpServer.URL+Prefix+path, http.NoBody)
+		harness.httpServer.URL+api.Prefix+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +67,7 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	}
 	moved, _ := harness.getWithoutRedirect(t, "/bytes/art/"+sourceSha256Hex+"/portrait-m.webp", token)
 	if moved.StatusCode != http.StatusTemporaryRedirect ||
-		moved.Header.Get("Location") != Prefix+"/bytes/art/"+sourceSha256Hex+"/portrait-s.webp" ||
+		moved.Header.Get("Location") != api.Prefix+"/bytes/art/"+sourceSha256Hex+"/portrait-s.webp" ||
 		moved.Header.Get("Cache-Control") != "no-store" {
 		t.Errorf("a size not made: %d %v", moved.StatusCode, moved.Header)
 	}
@@ -133,7 +134,7 @@ func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/doctor", harness.signIn(t, "partner", "partner-password"), nil),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 }
 
 func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *testing.T) {

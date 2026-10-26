@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/hex"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -95,7 +96,8 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 			return response{status: bytes.status, body: bytes.body}
 		}, served},
 		{"the playing film's chunks", func() response {
-			master := harness.getBytePath(t, Prefix+"/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8", partner,
+			master := harness.getBytePath(t, api.Prefix+"/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8",
+				partner,
 				true, "")
 			return response{status: master.status, body: master.body}
 		}, contains("picture/stream.m3u8")},
@@ -160,7 +162,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 		{http.MethodPost, "/items/30/refresh", nil},
 	} {
 		wantError(t, harness.do(t, request.method, request.path, editor, request.body), http.StatusNotFound,
-			CodeNotFound)
+			api.CodeNotFound)
 	}
 }
 
@@ -240,21 +242,21 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
-	for _, operation := range operationsIn(harness.server.OpenAPI()) {
+	for _, operation := range api.OperationsIn(harness.server.OpenAPI()) {
 		switch {
-		case slices.Contains(reachChecked, operation.id), slices.Contains(noLibraryContent, operation.id):
-		case !isAdminOnly(operation.id):
+		case slices.Contains(reachChecked, operation.ID()), slices.Contains(noLibraryContent, operation.ID()):
+		case !isAdminOnly(operation.ID()):
 			t.Errorf("%s (%s %s) neither checks the caller's reach nor is an admin's; check it, or list it as "+
-				"holding no library content", operation.id, operation.method, operation.path)
-		case operation.method == http.MethodGet || operation.method == http.MethodDelete:
+				"holding no library content", operation.ID(), operation.Method(), operation.Path())
+		case operation.Method() == http.MethodGet || operation.Method() == http.MethodDelete:
 			concrete := strings.NewReplacer("{id}", "1", "{deviceId}", "1", "{key}", "x", "{name}", "x").
-				Replace(operation.path)
+				Replace(operation.Path())
 			// A request huma refuses for a missing parameter never reaches the handler, whose
 			// requireAdmin the source check holds.
-			answer := harness.do(t, operation.method, concrete, partner, nil)
+			answer := harness.do(t, operation.Method(), concrete, partner, nil)
 			if answer.status != http.StatusForbidden && answer.status != http.StatusUnprocessableEntity {
-				t.Errorf("%s (%s %s) = %d for a user; want it refused, an admin's", operation.id,
-					operation.method, concrete, answer.status)
+				t.Errorf("%s (%s %s) = %d for a user; want it refused, an admin's", operation.ID(),
+					operation.Method(), concrete, answer.status)
 			}
 		}
 	}
@@ -271,7 +273,9 @@ func adminOnlyHandlers(t *testing.T) func(handler string) bool {
 	var code strings.Builder
 	for _, name := range sources {
 		if !strings.HasSuffix(name, "_test.go") {
-			code.Write(readSource(t, name))
+			if _, err := code.Write(readSource(t, name)); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	text := code.String()

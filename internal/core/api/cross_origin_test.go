@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/coder/websocket"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // A page on the discovery's client origin may call the API with its sign-in by header and read what
@@ -18,7 +20,7 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
 	client := "https://app.example"
-	harness.server.namedClientOrigin.Store(&client)
+	harness.server.NamedClientOrigin().Store(&client)
 	for origin, isAllowed := range map[string]bool{client: true, "https://evil.example": false, "null": false} {
 		preflight := harness.doWithHeader(t, http.MethodOptions, "/me", "", http.Header{
 			"Origin": {origin}, "Access-Control-Request-Method": {"GET"},
@@ -32,7 +34,7 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 		}
 		allowedHeaders := preflight.header.Get("Access-Control-Allow-Headers")
 		if isAllowed && (!strings.Contains(allowedHeaders, "Authorization") ||
-			!strings.Contains(allowedHeaders, ViewerHeaderName)) {
+			!strings.Contains(allowedHeaders, api.ViewerHeaderName)) {
 			t.Errorf("the preflight allows headers %q; want Authorization and the viewer's among them",
 				allowedHeaders)
 		}
@@ -40,14 +42,14 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 	fromClient := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil)
 	exposed := fromClient.header.Get("Access-Control-Expose-Headers")
 	if fromClient.status != http.StatusOK || fromClient.header.Get("Access-Control-Allow-Origin") != client ||
-		!strings.Contains(exposed, "Content-Range") || !strings.Contains(exposed, RequestIDHeader) ||
-		strings.Contains(exposed, ClientScriptHeader) {
+		!strings.Contains(exposed, "Content-Range") || !strings.Contains(exposed, api.RequestIDHeader) ||
+		strings.Contains(exposed, api.ClientScriptHeader) {
 		t.Errorf("GET /me from the client's origin = %d, allowing %q and exposing %q; want it allowed, the "+
 			"range and the request's ID exposed and the core's own client script not", fromClient.status,
 			fromClient.header.Get("Access-Control-Allow-Origin"), exposed)
 	}
 	nobody := ""
-	harness.server.namedClientOrigin.Store(&nobody)
+	harness.server.NamedClientOrigin().Store(&nobody)
 	other := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil)
 	if other.header.Get("Access-Control-Allow-Origin") != "" {
 		t.Error("with no discovery naming the client's origin, a page there may still read the API")
@@ -59,8 +61,8 @@ func TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone(t *testin
 	t.Parallel()
 	harness := newHarness(t)
 	client := "https://app.example"
-	harness.server.namedClientOrigin.Store(&client)
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	harness.server.NamedClientOrigin().Store(&client)
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
 	for origin, isAllowed := range map[string]bool{client: true, "https://evil.example": false} {
 		connection, answer, err := websocket.Dial(t.Context(), address, &websocket.DialOptions{
 			HTTPHeader: http.Header{"Origin": {origin}},
@@ -84,8 +86,8 @@ func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testi
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
 	client, loader := "https://core1.client.example", "https://app.example"
-	harness.server.namedClientOrigin.Store(&client)
-	harness.server.namedLoaderOrigin.Store(&loader)
+	harness.server.NamedClientOrigin().Store(&client)
+	harness.server.NamedLoaderOrigin().Store(&loader)
 	for path, isAllowed := range map[string]bool{
 		"/health": true, "/session/handoff": true, "/session/redeem": false, "/me": false, "/titles": false,
 	} {
@@ -108,8 +110,8 @@ func TestCrossOrigin_TheClientOriginReadsTheCoresClientAndTheLoadersDoesNot(t *t
 	t.Parallel()
 	harness := newHarness(t)
 	client, loader := "https://core1.client.example", "https://app.example"
-	harness.server.namedClientOrigin.Store(&client)
-	harness.server.namedLoaderOrigin.Store(&loader)
+	harness.server.NamedClientOrigin().Store(&client)
+	harness.server.NamedLoaderOrigin().Store(&loader)
 	for _, path := range []string{"/", "/assets/client-main.js", "/sw.js"} {
 		for origin, isAllowed := range map[string]bool{client: true, loader: false, "https://evil.example": false} {
 			address := harness.httpServer.URL + path

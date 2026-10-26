@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -14,15 +14,16 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
 // mine is GET /together/mine as token.
-func (harness testHarness) mine(t *testing.T, token string) MyTogetherOutput {
+func (harness testHarness) mine(t *testing.T, token string) api.MyTogetherOutput {
 	t.Helper()
 	answer := harness.do(t, http.MethodGet, "/together/mine", token, nil)
-	var mine MyTogetherOutput
+	var mine api.MyTogetherOutput
 	if err := json.Unmarshal([]byte(answer.body), &mine.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET /together/mine = %d %s", answer.status, answer.body)
 	}
@@ -43,7 +44,7 @@ func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 	opened := harness.openTogether(t, admin)
 	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", opened.Body.SessionID), admin,
 		map[string]string{"hostNote": "my partner"})
-	var link TogetherLinkOutput
+	var link api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -77,12 +78,12 @@ func TestTogether_TheHostSeesEachLinkToPassOnAgain(t *testing.T) {
 	opened := harness.openTogether(t, admin)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
 	made := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "Grandma"})
-	var link TogetherLinkOutput
+	var link api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
 		t.Fatal(err)
 	}
 	read := harness.do(t, http.MethodGet, path, admin, nil)
-	var details TogetherDetailsOutput
+	var details api.TogetherDetailsOutput
 	if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil || read.status != http.StatusOK {
 		t.Fatalf("GET %s = %d %s", path, read.status, read.body)
 	}
@@ -101,7 +102,7 @@ func TestTogether_AJoinWhoseSignInCannotBeCheckedFails(t *testing.T) {
 	opened := harness.openTogether(t, admin)
 	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", opened.Body.SessionID), admin,
 		map[string]string{"hostNote": "my partner"})
-	var link TogetherLinkOutput
+	var link api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestTogether_ADeviceWhoseSignInCannotBeCheckedIsClosed(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)

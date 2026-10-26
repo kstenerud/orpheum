@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -21,7 +22,7 @@ func TestStartPlayback_AFilmThatCannotBeConvertedIsRefusedAndStartsNoWork(t *tes
 	storetest.ExecRaw(t, harness.databasePath,
 		`UPDATE file_probe SET probe_json = json_remove(probe_json, '$.streams[0]') WHERE file_id = 2`)
 	wantError(t, harness.do(t, http.MethodPost, "/playback", admin, chrome(2)), http.StatusUnprocessableEntity,
-		CodeCannotConvert)
+		api.CodeCannotConvert)
 	if listed := harness.listedJobs(t, admin); len(listed) != 0 {
 		t.Errorf("a play of a film with no picture queued %+v; want nothing", listed)
 	}
@@ -31,7 +32,7 @@ func TestStartPlayback_AFilmThatCannotBeConvertedIsRefusedAndStartsNoWork(t *tes
 			`json('{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}}')), `+
 			`'$.format.durationMs'), duration_ms = 0 WHERE file_id = 2`)
 	wantError(t, harness.do(t, http.MethodPost, "/playback", admin, chrome(2)), http.StatusUnprocessableEntity,
-		CodeCannotConvert)
+		api.CodeCannotConvert)
 }
 
 // The whole-film prepare's byte paths are gone (D344 §1): a converted film's bytes are its chunks'.
@@ -42,7 +43,7 @@ func TestBytes_TheRetiredPreparedCopysPathsAreNotFound(t *testing.T) {
 	harness.shelveFilms(t)
 	token := harness.play(t, admin, chrome(2)).MediaToken
 	for _, path := range []string{"/master.m3u8", "/audio0/stream.m3u8", "/video/seg00001.m4s"} {
-		url := Prefix + "/bytes/media/hls/" + token + path
+		url := api.Prefix + "/bytes/media/hls/" + token + path
 		if answer := harness.getBytePath(t, url, admin, true, ""); answer.status != http.StatusNotFound {
 			t.Errorf("GET %s = %d, want 404", url, answer.status)
 		}

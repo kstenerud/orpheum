@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -124,12 +125,12 @@ type decision struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`
-	ResumePositionMs int64         `json:"resumePositionMs"`
-	MediaToken       string        `json:"mediaToken"`
-	Levelling        LevellingBody `json:"levelling"`
-	TitleName        string        `json:"titleName"`
-	OnLadder         *LadderBody   `json:"onLadder"`
-	Tracks           TracksBody    `json:"tracks"`
+	ResumePositionMs int64             `json:"resumePositionMs"`
+	MediaToken       string            `json:"mediaToken"`
+	Levelling        api.LevellingBody `json:"levelling"`
+	TitleName        string            `json:"titleName"`
+	OnLadder         *api.LadderBody   `json:"onLadder"`
+	Tracks           api.TracksBody    `json:"tracks"`
 }
 
 type subtitleTrack struct {
@@ -166,7 +167,7 @@ func (harness testHarness) getBytePath(t *testing.T, url, token string, byCookie
 		t.Fatal(err)
 	}
 	if byCookie {
-		cookie := byteCookie(MediaCookieName, token, false)
+		cookie := api.ByteCookie(api.MediaCookieName, token, false)
 		request.AddCookie(&cookie)
 	} else {
 		request.Header.Set("Authorization", "Bearer "+token)
@@ -193,7 +194,7 @@ func TestPlayback_AFileThatFitsPlaysDirectlyThroughTheCore(t *testing.T) {
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(1))
 	if decided.Delivery != "direct" || len(decided.NotDirectReasons) != 0 ||
-		!strings.HasPrefix(decided.URL, Prefix+"/bytes/media/direct/") {
+		!strings.HasPrefix(decided.URL, api.Prefix+"/bytes/media/direct/") {
 		t.Fatalf("the decision = %+v, want direct with a byte path", decided)
 	}
 	if decided.FileBitRateKbps != 2400 {
@@ -289,7 +290,7 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	if token == "" || strings.Contains(harness.logs.String(), token) {
 		t.Errorf("the log holds the playback's token %q, or none was found in %q", token, decided.URL)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(999)), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(999)), http.StatusNotFound, api.CodeNotFound)
 	harness.logs.AwaitLine(t, `"msg":"a playback was refused"`, `"fileId":999`)
 }
 
@@ -378,9 +379,10 @@ func TestPlayback_RefusesWhatCannotBePlayed(t *testing.T) {
 	}
 	wantInvalidAt(t, harness.do(t, http.MethodPost, "/playback", user, noBaseline), http.StatusBadRequest,
 		"body.playableFormats")
-	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(3)), http.StatusNotFound, CodeNotFound)
-	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(99)), http.StatusNotFound, CodeNotFound)
-	wantError(t, harness.do(t, http.MethodPost, "/playback", "", chrome(1)), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(3)), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(99)), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/playback", "", chrome(1)), http.StatusUnauthorized,
+		api.CodeAuthRequired)
 }
 
 func TestPlayback_AFileRemovedWhilePlayingIsNoFileToPlayAsItIsToStart(t *testing.T) {
@@ -391,10 +393,10 @@ func TestPlayback_AFileRemovedWhilePlayingIsNoFileToPlayAsItIsToStart(t *testing
 	decided := harness.play(t, user, chrome(1))
 	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET removed_at = 2 WHERE id = 1")
 	playing := harness.getBytePath(t, decided.URL, user, false, "")
-	wantErrorSaying(t, response{status: playing.status, body: playing.body}, http.StatusNotFound, CodeNotFound,
+	wantErrorSaying(t, response{status: playing.status, body: playing.body}, http.StatusNotFound, api.CodeNotFound,
 		"no such file to play")
 	wantErrorSaying(t, harness.do(t, http.MethodPost, "/playback", user, chrome(1)), http.StatusNotFound,
-		CodeNotFound, "no such file to play")
+		api.CodeNotFound, "no such file to play")
 }
 
 // A player whose film could not be read and can again asks for a new playback saying so, which the

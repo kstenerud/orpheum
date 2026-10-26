@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 )
@@ -20,7 +21,7 @@ func TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor(t *testing.T)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	token := harness.play(t, admin, chrome(1)).MediaToken
-	master := Prefix + "/bytes/media/chunks/" + token + "/master.m3u8"
+	master := api.Prefix + "/bytes/media/chunks/" + token + "/master.m3u8"
 	harness.getBytePath(t, master, admin, true, "") // queues film 1's read-through at play priority
 	// The play's wish is kept in memory and written when the demotion runs (D303, DL10).
 	if _, err := harness.queue.DemoteUnwanted(t.Context()); err != nil {

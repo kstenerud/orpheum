@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -18,10 +19,10 @@ import (
 )
 
 // listedJobs is the job view as an admin's GET /jobs answers it.
-func (harness testHarness) listedJobs(t *testing.T, token string) []JobBody {
+func (harness testHarness) listedJobs(t *testing.T, token string) []api.JobBody {
 	t.Helper()
 	answer := harness.do(t, http.MethodGet, "/jobs", token, nil)
-	var listed JobsOutput
+	var listed api.JobsOutput
 	if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET /jobs = %d %s", answer.status, answer.body)
 	}
@@ -29,13 +30,13 @@ func (harness testHarness) listedJobs(t *testing.T, token string) []JobBody {
 }
 
 // newestReadThrough is the newest read-through in the view.
-func newestReadThrough(t *testing.T, listed []JobBody) JobBody {
+func newestReadThrough(t *testing.T, listed []api.JobBody) api.JobBody {
 	t.Helper()
 	return newestOf(t, listed, jobs.KindReadThrough)
 }
 
 // newestOf is the newest job of a kind in the view.
-func newestOf(t *testing.T, listed []JobBody, kind jobs.Kind) JobBody {
+func newestOf(t *testing.T, listed []api.JobBody, kind jobs.Kind) api.JobBody {
 	t.Helper()
 	for _, job := range listed {
 		if string(job.Kind) == string(kind) {
@@ -43,7 +44,7 @@ func newestOf(t *testing.T, listed []JobBody, kind jobs.Kind) JobBody {
 		}
 	}
 	t.Fatalf("no %s job in %+v", kind, listed)
-	return JobBody{}
+	return api.JobBody{}
 }
 
 // The view lists a play's read-through of its film, and a cancel stops it on its node, so the next play
@@ -184,7 +185,7 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 		t.Fatal(err)
 	}
 	read := newestReadThrough(t, harness.listedJobs(t, admin))
-	wantNode := DestinationBody{
+	wantNode := api.DestinationBody{
 		Destination: "node:1", Name: "node local", Reason: "not connected", DownAt: fakeNodeLastHeard.UnixMilli(),
 	}
 	if read.State != "queued" || read.Destination != "node:1" || read.WaitingFor == nil ||

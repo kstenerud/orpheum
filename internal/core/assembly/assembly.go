@@ -106,6 +106,9 @@ type Services struct {
 	Scans *library.Scans
 	// Interest orders the work by what people play and look at (D324).
 	Interest *interest.Raiser
+	// ReadThrough reads each video through, for its sounds' loudness and its picture's timeline
+	// (D226, D247 §10).
+	ReadThrough *readthrough.Service
 	// Certificates renew the HTTPS certificates; the composition root, which makes them from its
 	// config, sets them before the runners start. Nil holds none.
 	Certificates Certificates
@@ -117,9 +120,6 @@ type Services struct {
 	chooser   *identify.Chooser
 	refresher *identify.Refresher
 	artwork   *artwork.Service
-	// readThrough reads each video through, for its sounds' loudness and its picture's timeline
-	// (D226, D247 §10).
-	readThrough *readthrough.Service
 	// chunks cuts films into chunks made on request, run by run (D247 §10).
 	chunks *chunks.Service
 	// playback plays files, and counts what its players need of the server's upload (D286 §5).
@@ -332,7 +332,7 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	// How long the work a viewer waits on will take, timing the read-throughs as they end (D324 §6).
 	dependencies.Waits, err = waits.NewEstimator(waits.Parts{
 		Database: parts.Database, Cache: parts.Cache, Attempts: services.Exchanges, Nodes: services.nodes,
-		ReadThroughs: services.readThrough, Clock: parts.Clock,
+		ReadThroughs: services.ReadThrough, Clock: parts.Clock,
 	})
 	if err != nil {
 		return fmt.Errorf("say how long work will take: %w", err)

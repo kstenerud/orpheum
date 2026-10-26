@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -8,15 +8,16 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // continueWatching is the owner's Continue Watching, by the API.
-func (harness testHarness) continueWatching(t *testing.T, sessionToken string) []InProgressBody {
+func (harness testHarness) continueWatching(t *testing.T, sessionToken string) []api.InProgressBody {
 	t.Helper()
 	answer := harness.do(t, http.MethodGet, "/home", sessionToken, nil)
 	var home struct {
-		ContinueWatching []InProgressBody `json:"continueWatching"`
+		ContinueWatching []api.InProgressBody `json:"continueWatching"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &home); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET /home = %d %s", answer.status, answer.body)
@@ -36,7 +37,7 @@ func (harness testHarness) setPositionReadAt(t *testing.T, fileID, positionMs, p
 }
 
 // rowsOf names Continue Watching's rows: each work's id and the file it resumes.
-func rowsOf(rows []InProgressBody) []string {
+func rowsOf(rows []api.InProgressBody) []string {
 	names := []string{}
 	for _, row := range rows {
 		names = append(names, fmt.Sprintf("%d:%d:%s", row.ID, row.FileID, row.FileName))

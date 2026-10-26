@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/platform/pacing"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -61,7 +62,7 @@ func TestPacedMedia_PacesAFilmsDownloadAsItsPlayerAsksAndSetsItBackWhenItDoesNot
 			t.Fatal(err)
 		}
 		if pace != "" {
-			request.Header.Set(PaceHeader, pace)
+			request.Header.Set(api.PaceHeader, pace)
 		}
 		response, err := client.Do(request)
 		if err != nil {
@@ -71,13 +72,13 @@ func TestPacedMedia_PacesAFilmsDownloadAsItsPlayerAsksAndSetsItBackWhenItDoesNot
 		_, _ = io.Copy(io.Discard, response.Body) //nolint:errcheck // what the test reads is the socket
 		_ = response.Body.Close()                 //nolint:errcheck // test teardown
 	}
-	media := Prefix + "/bytes/media/chunks/no-such-token/master.m3u8"
+	media := api.Prefix + "/bytes/media/chunks/no-such-token/master.m3u8"
 	get(media, "1500")
 	conn := testutil.Receive(t, conns, "the test server's connection")
 	if rate, class := pacingOf(t, conn); rate != 1500*1000/8 || class != 1<<2 {
 		t.Errorf("a download paced at 1500 kb/s: rate %d B/s, class %#x; want 187500 and DSCP LE", rate, class)
 	}
-	get(Prefix+"/health", "")
+	get(api.Prefix+"/health", "")
 	if rate, _ := pacingOf(t, conn); rate != 1500*1000/8 {
 		t.Errorf("another request on the connection set its rate to %d; want it left paced", rate)
 	}

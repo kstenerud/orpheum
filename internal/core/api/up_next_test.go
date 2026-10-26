@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"cmp"
@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -147,9 +148,9 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 		map[string]any{"toDeviceId": tv, "fileId": 2, "positionMs": 5000}))
 	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 2 })
 	next := fmt.Sprintf("/me/casts/%d/next", started.CastID)
-	wantError(t, harness.do(t, http.MethodPost, next, laptopToken, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, next, laptopToken, nil), http.StatusNotFound, api.CodeNotFound)
 	answer := harness.do(t, http.MethodPost, next, tvToken, nil)
-	var moved CastBody
+	var moved api.CastBody
 	if err := json.Unmarshal([]byte(answer.body), &moved); err != nil || answer.status != http.StatusOK ||
 		moved.CastID != started.CastID || moved.FileID != 3 || moved.TitleName != "Cat" || moved.IsSender {
 		t.Fatalf("POST %s by the TV = %d %s; want the same cast, of file 3, Cat", next, answer.status, answer.body)
@@ -160,7 +161,7 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 	if handed.CastID != started.CastID || handed.PositionMs != nil || handed.Credential == "" {
 		t.Errorf("the TV was handed %+v; want the same cast, from where the person left file 3", handed)
 	}
-	var phones MyCastsOutput
+	var phones api.MyCastsOutput
 	harness.readJSON(t, "/me/casts", phoneToken, &phones.Body)
 	if len(phones.Body.Casts) != 1 || phones.Body.Casts[0].FileID != 3 || phones.Body.Casts[0].TitleName != "Cat" {
 		t.Errorf("the phone's casts = %+v; want the one, now of Cat", phones.Body.Casts)
@@ -170,5 +171,5 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 			t.Fatalf("POST %s by the phone = %d %s", next, answer.status, answer.body)
 		}
 	}
-	wantError(t, harness.do(t, http.MethodPost, next, phoneToken, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodPost, next, phoneToken, nil), http.StatusConflict, api.CodeConflict)
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
@@ -34,7 +35,7 @@ func (harness testHarness) dialTogether(t *testing.T, credential string) socket 
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)
@@ -91,10 +92,10 @@ func (opened socket) awaitWelcome() together.Outbound {
 }
 
 // openTogether opens the session host hosts, and returns what it answered.
-func (harness testHarness) openTogether(t *testing.T, host string) OpenTogetherOutput {
+func (harness testHarness) openTogether(t *testing.T, host string) api.OpenTogetherOutput {
 	t.Helper()
 	answer := harness.do(t, http.MethodPost, "/together", host, nil)
-	var opened OpenTogetherOutput
+	var opened api.OpenTogetherOutput
 	if err := json.Unmarshal([]byte(answer.body), &opened.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /together = %d %s", answer.status, answer.body)
 	}
@@ -104,17 +105,17 @@ func (harness testHarness) openTogether(t *testing.T, host string) OpenTogetherO
 // joinByLink makes a link in the host's session, noted note, and joins by it as name.
 func (harness testHarness) joinByLink(
 	t *testing.T, host string, sessionID int64, note, name string,
-) JoinTogetherOutput {
+) api.JoinTogetherOutput {
 	t.Helper()
 	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", sessionID), host,
 		map[string]string{"hostNote": note})
-	var link TogetherLinkOutput
+	var link api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil || made.status != http.StatusCreated {
 		t.Fatalf("POST /together/%d/links = %d %s", sessionID, made.status, made.body)
 	}
 	joined := harness.do(t, http.MethodPost, "/together/join", "",
 		map[string]any{"secret": link.Body.Secret, "name": name})
-	var membership JoinTogetherOutput
+	var membership api.JoinTogetherOutput
 	if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
 		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
 	}
@@ -150,7 +151,7 @@ func (harness testHarness) viewerBytes(t *testing.T, url, credential string) int
 	if err != nil {
 		t.Fatal(err)
 	}
-	cookie := byteCookie(ViewerCookieName, credential, false)
+	cookie := api.ByteCookie(api.ViewerCookieName, credential, false)
 	request.AddCookie(&cookie)
 	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
@@ -167,9 +168,9 @@ func (harness testHarness) viewerBytesByHeader(t *testing.T, url, signedIn, memb
 	t.Helper()
 	headers := http.Header{}
 	if membership != "" {
-		headers.Set(ViewerHeaderName, membership)
+		headers.Set(api.ViewerHeaderName, membership)
 	}
-	return harness.doWithHeader(t, http.MethodGet, strings.TrimPrefix(url, Prefix), signedIn, headers, nil).status
+	return harness.doWithHeader(t, http.MethodGet, strings.TrimPrefix(url, api.Prefix), signedIn, headers, nil).status
 }
 
 // The host opens a session with nothing on, a viewer joins by their own link with a name of their
@@ -190,7 +191,7 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	}
 	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
 	viewer.awaitWelcome()
-	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, api.CodeNotFound)
 	putOn(host, viewer, 1)
 	started := harness.viewerPlayback(t, membership.Body.MembershipCredential)
 	var playing decision
@@ -261,7 +262,7 @@ func TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries(t *testing.T) {
 		t.Errorf("a playback of the film now on = %d %s", again.status, again.body)
 	}
 	harness.giveRoleLibraries(t, admin, "user") // the host's role reaches no library now
-	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, api.CodeNotFound)
 }
 
 // Only a role that may host Watch Together opens a session, only the host makes links, each with a
@@ -274,25 +275,25 @@ func TestTogether_ANewLinkForAGuestGivesTheirPlace(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
-	join := func(secret, name string) JoinTogetherOutput {
+	join := func(secret, name string) api.JoinTogetherOutput {
 		t.Helper()
 		joined := harness.do(t, http.MethodPost, "/together/join", "", map[string]any{"secret": secret, "name": name})
-		var membership JoinTogetherOutput
+		var membership api.JoinTogetherOutput
 		if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
 			t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
 		}
 		return membership
 	}
-	var first TogetherLinkOutput
+	var first api.TogetherLinkOutput
 	made := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
 	if err := json.Unmarshal([]byte(made.body), &first.Body); err != nil {
 		t.Fatal(err)
 	}
 	guest := join(first.Body.Secret, "Kim")
 	forGuest := fmt.Sprintf("%s/members/%d/links", path, guest.Body.MemberID)
-	wantError(t, harness.do(t, http.MethodPost, forGuest, "", nil), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodPost, forGuest, "", nil), http.StatusUnauthorized, api.CodeAuthRequired)
 	answered := harness.do(t, http.MethodPost, forGuest, admin, nil)
-	var again TogetherLinkOutput
+	var again api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(answered.body), &again.Body); err != nil || answered.status != http.StatusCreated ||
 		again.Body.Secret == "" {
 		t.Fatalf("POST %s = %d %s; want a new link", forGuest, answered.status, answered.body)
@@ -302,7 +303,7 @@ func TestTogether_ANewLinkForAGuestGivesTheirPlace(t *testing.T) {
 			moved.Body.MemberID, guest.Body.MemberID)
 	}
 	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("%s/members/999/links", path), admin, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 }
 
 func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
@@ -325,37 +326,37 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 	}
 	watcher := harness.signIn(t, "watcher", "watcher-password")
 	for token, canHost := range map[string]bool{admin: true, watcher: false} {
-		var me UserBody
+		var me api.UserBody
 		if err := json.Unmarshal([]byte(harness.do(t, http.MethodGet, "/me", token, nil).body), &me); err != nil ||
 			me.CanHostWatchTogether != canHost {
 			t.Errorf("GET /me for %s says it may host: %v (%v); want %v",
 				me.Name, me.CanHostWatchTogether, err, canHost)
 		}
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, nil), http.StatusForbidden, api.CodeForbidden)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
 	wantError(t, harness.do(t, http.MethodPost, path+"/links", watcher, map[string]string{"hostNote": "x"}),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 	wantError(t, harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": ""}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
-	var made2 TogetherLinkOutput
+	var made2 api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(link.body), &made2.Body); err != nil {
 		t.Fatal(err)
 	}
 	joined := harness.do(t, http.MethodPost, "/together/join", "",
 		map[string]any{"secret": made2.Body.Secret, "name": "Kim"})
-	var membership JoinTogetherOutput
+	var membership api.JoinTogetherOutput
 	if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
 		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/together/join", "",
-		map[string]any{"secret": made2.Body.Secret, "name": "stranger"}), http.StatusNotFound, CodeNotFound)
+		map[string]any{"secret": made2.Body.Secret, "name": "stranger"}), http.StatusNotFound, api.CodeNotFound)
 	left := harness.do(t, http.MethodPost, "/together/leave", membership.Body.MembershipCredential, nil)
 	if left.status != http.StatusNoContent {
 		t.Errorf("POST /together/leave = %d %s", left.status, left.body)
 	}
-	wantError(t, harness.do(t, http.MethodDelete, path, watcher, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodDelete, path, watcher, nil), http.StatusForbidden, api.CodeForbidden)
 	if ended := harness.do(t, http.MethodDelete, path, admin, nil); ended.status != http.StatusNoContent {
 		t.Errorf("DELETE %s = %d %s", path, ended.status, ended.body)
 	}
@@ -369,12 +370,12 @@ func TestTogether_LogsWhoOpenedJoinedLeftAndEnded(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
-	var link TogetherLinkOutput
+	var link api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(harness.do(t, http.MethodPost, path+"/links", admin,
 		map[string]string{"hostNote": "a cousin"}).body), &link.Body); err != nil {
 		t.Fatal(err)
 	}
-	var membership JoinTogetherOutput
+	var membership api.JoinTogetherOutput
 	if err := json.Unmarshal([]byte(harness.do(t, http.MethodPost, "/together/join", "",
 		map[string]any{"secret": link.Body.Secret, "name": "Kim"}).body), &membership.Body); err != nil {
 		t.Fatal(err)
@@ -458,7 +459,7 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	harness.server.togetherSilence.Store(int64(50 * time.Millisecond))
+	harness.server.TogetherSilence().Store(int64(50 * time.Millisecond))
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
@@ -488,9 +489,9 @@ func TestTogether_TheSilenceLimitIsThreeOfTheClientsPings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if web := time.Duration(milliseconds) * time.Millisecond; web != clientPingEvery || silenceLimit != 3*web {
+	if web := time.Duration(milliseconds) * time.Millisecond; web != api.ClientPingEvery || api.SilenceLimit != 3*web {
 		t.Errorf("the client pings every %v and the server waits %v; want the server's clientPingEvery %v, "+
-			"and a limit of three pings", web, silenceLimit, clientPingEvery)
+			"and a limit of three pings", web, api.SilenceLimit, api.ClientPingEvery)
 	}
 }
 
@@ -506,7 +507,7 @@ func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {
 	usernames := map[string]bool{}
 	for _, credential := range []string{opened.Body.MembershipCredential, membership.Body.MembershipCredential} {
 		answer := harness.do(t, http.MethodGet, path, credential, nil)
-		var ice ICEOutput
+		var ice api.ICEOutput
 		if err := json.Unmarshal([]byte(answer.body), &ice.Body); err != nil || answer.status != http.StatusOK ||
 			len(ice.Body.ICEServers) != 1 || ice.Body.ICEServers[0].Credential == "" {
 			t.Fatalf("GET %s = %d %s", path, answer.status, answer.body)
@@ -520,8 +521,8 @@ func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {
 		t.Errorf("the host and the viewer were handed %d usernames; want one each", len(usernames))
 	}
 	wantError(t, harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d/ice", opened.Body.SessionID+100),
-		membership.Body.MembershipCredential, nil), http.StatusNotFound, CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, path, "not-a-credential", nil), http.StatusNotFound, CodeNotFound)
+		membership.Body.MembershipCredential, nil), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, path, "not-a-credential", nil), http.StatusNotFound, api.CodeNotFound)
 }
 
 // The host gives each link its rights, which the session's details show beside it; a link made
@@ -532,15 +533,15 @@ func TestTogether_ALinkCarriesTheRightsTheHostGaveIt(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
-	readDetails := func() TogetherDetailsOutput {
-		var details TogetherDetailsOutput
+	readDetails := func() api.TogetherDetailsOutput {
+		var details api.TogetherDetailsOutput
 		read := harness.do(t, http.MethodGet, path, admin, nil)
 		if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil {
 			t.Fatal(err)
 		}
 		return details
 	}
-	if next := readDetails().Body.NextRights; next != (TogetherRightsBody{CanPlayPause: true, CanSeek: true}) {
+	if next := readDetails().Body.NextRights; next != (api.TogetherRightsBody{CanPlayPause: true, CanSeek: true}) {
 		t.Errorf("the first link starts with %+v; want every right", next)
 	}
 	for _, body := range []map[string]any{
@@ -552,7 +553,7 @@ func TestTogether_ALinkCarriesTheRightsTheHostGaveIt(t *testing.T) {
 		}
 	}
 	details := readDetails()
-	pauseOnly := TogetherRightsBody{CanPlayPause: true}
+	pauseOnly := api.TogetherRightsBody{CanPlayPause: true}
 	if details.Body.NextRights != pauseOnly {
 		t.Errorf("after a link given play and pause alone, the next starts with %+v", details.Body.NextRights)
 	}
@@ -588,7 +589,7 @@ func TestTogetherTuning_CarriesTheSnapSetting(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.setSetting(t, string(settings.TogetherSnapSeeksBeyondSeconds), "12")
-	tuning, err := harness.server.togetherTuning(t.Context(), harness.server.dependencies.Load())
+	tuning, err := harness.server.TogetherTuning(t.Context(), harness.server.Dependencies().Load())
 	if err != nil || tuning.SnapSeeksBeyondMs != 12_000 {
 		t.Errorf("the tuning's snap = %d ms (%v); want the 12 s set", tuning.SnapSeeksBeyondMs, err)
 	}
@@ -603,11 +604,11 @@ func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) 
 	opened := harness.openTogether(t, admin)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
 	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
-	var made TogetherLinkOutput
+	var made api.TogetherLinkOutput
 	if err := json.Unmarshal([]byte(link.body), &made.Body); err != nil {
 		t.Fatal(err)
 	}
-	var details TogetherDetailsOutput
+	var details api.TogetherDetailsOutput
 	if err := json.Unmarshal([]byte(harness.do(t, http.MethodGet, path, admin, nil).body), &details.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -622,5 +623,5 @@ func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) 
 		t.Errorf("an hour on, the host's links = %+v (%v); want none", details.Body.Links, err)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/together/join", "",
-		map[string]any{"secret": made.Body.Secret, "name": "Kim"}), http.StatusNotFound, CodeNotFound)
+		map[string]any{"secret": made.Body.Secret, "name": "Kim"}), http.StatusNotFound, api.CodeNotFound)
 }

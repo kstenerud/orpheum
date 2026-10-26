@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"maps"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -29,7 +30,7 @@ func TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo(t *testing.T) {
 		`UPDATE file_probe SET probe_json = json_set(probe_json, '$.format.durationMs', 30000),`+
 			` duration_ms = 30000 WHERE file_id = 1`)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	if early := harness.getBytePath(t, base+"master.m3u8", user, true, ""); early.status != http.StatusTooEarly {
 		t.Fatalf("before film 1's index is read: %d, want 425", early.status)
 	}
@@ -49,7 +50,7 @@ func TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo(t *testing.T) {
 		t.Errorf("film 1 to the playback that began on time, its keyframes known: %d\n%s\nwant it still on time",
 			kept.status, kept.body)
 	}
-	fresh := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	fresh := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	if copied := harness.getBytePath(t, fresh+"master.m3u8", user, true, ""); copied.status != http.StatusOK ||
 		!strings.Contains(copied.body, "picture/") {
 		t.Errorf("film 1 to a new playback, its keyframes known: %d\n%s\nwant its picture copied",

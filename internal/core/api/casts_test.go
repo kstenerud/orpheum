@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
@@ -37,7 +38,7 @@ func (harness testHarness) dialLiveSaying(t *testing.T, hello live.Inbound) live
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +96,7 @@ func (opened liveSocket) awaitDevices(want ...int64) {
 // thisDevice is the device token signed in on.
 func (harness testHarness) thisDevice(t *testing.T, token string) int64 {
 	t.Helper()
-	var devices DevicesOutput
+	var devices api.DevicesOutput
 	listed := harness.do(t, http.MethodGet, "/me/devices", token, nil)
 	if err := json.Unmarshal([]byte(listed.body), &devices.Body); err != nil {
 		t.Fatal(err)
@@ -114,7 +115,7 @@ func (harness testHarness) dialCast(t *testing.T, credential string, role togeth
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)
@@ -151,9 +152,9 @@ func (harness testHarness) startCast(t *testing.T, token string, toDeviceID, pos
 }
 
 // startedCast is the cast a 201 answer started.
-func startedCast(t *testing.T, answer response) CastBody {
+func startedCast(t *testing.T, answer response) api.CastBody {
 	t.Helper()
-	var started CastBody
+	var started api.CastBody
 	if err := json.Unmarshal([]byte(answer.body), &started); err != nil || answer.status != http.StatusCreated {
 		t.Fatalf("POST /me/casts = %d %s", answer.status, answer.body)
 	}
@@ -168,7 +169,7 @@ func TestLive_ADeviceIsListedWhileItsSocketIsOpenAndGoneAfterTheSilenceLimit(t *
 	phoneToken := harness.createAdminAndSignIn(t)
 	tvToken := harness.signIn(t, "owner", "owner-password")
 	phone, tv := harness.thisDevice(t, phoneToken), harness.thisDevice(t, tvToken)
-	harness.server.togetherSilence.Store(int64(300 * time.Millisecond))
+	harness.server.TogetherSilence().Store(int64(300 * time.Millisecond))
 	phoneSocket := harness.dialLive(t, phoneToken)
 	phoneSocket.keepAlive(50 * time.Millisecond)
 	phoneSocket.awaitDevices(phone)
@@ -197,8 +198,8 @@ func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
 	tv, closed := harness.thisDevice(t, tvToken), harness.thisDevice(t, closedToken)
 	tvSocket := harness.dialLive(t, tvToken)
 	tvSocket.awaitDevices(tv)
-	wantError(t, harness.startCast(t, phoneToken, closed, 0), http.StatusConflict, CodeConflict)
-	wantError(t, harness.startCast(t, tvToken, tv, 0), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, harness.startCast(t, phoneToken, closed, 0), http.StatusConflict, api.CodeConflict)
+	wantError(t, harness.startCast(t, tvToken, tv, 0), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	started := startedCast(t, harness.startCast(t, phoneToken, tv, 61_000))
 	received := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
 	if received.CastID != started.CastID || received.FileID != 1 || received.PositionMs == nil ||
@@ -217,7 +218,7 @@ func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
 		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandPause,
 	})
 	receiver.awaitGroup(together.GroupPaused)
-	var mine MyCastsOutput
+	var mine api.MyCastsOutput
 	listed := harness.do(t, http.MethodGet, "/me/casts", tvToken, nil)
 	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Casts) != 1 ||
 		mine.Body.Casts[0].IsSender || mine.Body.Casts[0].MembershipCredential == "" {
@@ -243,7 +244,7 @@ func TestCast_GoesOnlyToADeviceWithATabInFront(t *testing.T) {
 		return slices.Equal(message.DeviceIDs, []int64{phone, television}) &&
 			slices.Equal(message.InFrontDeviceIDs, []int64{phone})
 	})
-	wantError(t, harness.startCast(t, phoneToken, television, 0), http.StatusConflict, CodeConflict)
+	wantError(t, harness.startCast(t, phoneToken, television, 0), http.StatusConflict, api.CodeConflict)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	if err := wsjson.Write(ctx, tvSocket.connection, live.Inbound{Type: live.MessageFront}); err != nil {
@@ -281,7 +282,7 @@ func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
 	laptopRemote := harness.dialCast(t, second.MembershipCredential, together.RolePanel)
 	laptopRemote.awaitWelcome()
 	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", second.CastID), phoneToken,
-		map[string]string{"reason": "stopped"}), http.StatusNotFound, CodeNotFound)
+		map[string]string{"reason": "stopped"}), http.StatusNotFound, api.CodeNotFound)
 	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", second.CastID), tvToken,
 		map[string]string{"reason": "takenBack"})
 	if ended.status != http.StatusOK || !strings.Contains(ended.body, `"positionMs":`) {

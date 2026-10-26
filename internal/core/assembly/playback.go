@@ -15,7 +15,7 @@ import (
 // service.
 func (services *Services) openPlayback(parts Parts) {
 	database, queue := parts.Database, services.Queue
-	services.readThrough = readthrough.NewService(readthrough.Parts{
+	services.ReadThrough = readthrough.NewService(readthrough.Parts{
 		Database: database, Queue: queue, Nodes: services.nodes, Exchanges: services.Exchanges, Clock: parts.Clock,
 	})
 	levels := loudness.NewService(loudness.Parts{Database: database, Settings: parts.Settings})
@@ -25,7 +25,7 @@ func (services *Services) openPlayback(parts Parts) {
 	})
 	services.chunks = chunks.NewService(chunks.Parts{
 		Database: database, Cache: parts.Cache, Settings: parts.Settings, Queue: queue, Nodes: services.nodes,
-		Exchanges: services.Exchanges, Loudness: levels, ReadThrough: services.readThrough, Logger: parts.Logger,
+		Exchanges: services.Exchanges, Loudness: levels, ReadThrough: services.ReadThrough, Logger: parts.Logger,
 		Clock: parts.Clock, Encoders: services.nodes,
 	})
 	var reads playback.FileReads = services.Scans

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // listedRole is a role as GET /roles lists it.
@@ -84,12 +86,12 @@ func TestRoles_AnInviteeReachesOnlyTheirRolesLibraries(t *testing.T) {
 		t.Errorf("the invitee's role reaches library 1, yet GET /items/30 = %d %s", page.status, page.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, fmt.Sprintf("/roles/%d", harness.roleNamed(t, admin, "friends").ID),
-		admin, nil), http.StatusConflict, CodeConflict)
+		admin, nil), http.StatusConflict, api.CodeConflict)
 
 	harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
 		"name": "nothing", "capabilities": []string{}, "libraries": []any{},
 	})
-	var cousinAccount UserBody
+	var cousinAccount api.UserBody
 	cousinMe := harness.do(t, http.MethodGet, "/me", cousin, nil)
 	if err := json.Unmarshal([]byte(cousinMe.body), &cousinAccount); err != nil {
 		t.Fatal(err)
@@ -99,7 +101,7 @@ func TestRoles_AnInviteeReachesOnlyTheirRolesLibraries(t *testing.T) {
 	if moved.status != http.StatusNoContent {
 		t.Fatalf("PUT /users/%d/role = %d %s", cousinAccount.ID, moved.status, moved.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items/30", cousin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/items/30", cousin, nil), http.StatusNotFound, api.CodeNotFound)
 	friends := harness.roleNamed(t, admin, "friends")
 	if deleted := harness.do(t, http.MethodDelete, fmt.Sprintf("/roles/%d", friends.ID), admin, nil); deleted.status !=
 		http.StatusNoContent {
@@ -121,36 +123,36 @@ func TestRoles_RefuseWhatARoleCannotBe(t *testing.T) {
 		method string
 		path   string
 		body   map[string]any
-		code   Code
+		code   api.Code
 	}{
 		{
 			"renaming the user role", http.MethodPut, fmt.Sprintf("/roles/%d", userRole.ID),
 			map[string]any{"name": "people", "capabilities": userRole.Capabilities, "libraries": []any{}},
-			CodeConflict,
+			api.CodeConflict,
 		},
 		{"narrowing the admin role", http.MethodPut, fmt.Sprintf("/roles/%d", adminRole.ID), map[string]any{
 			"name": "admin", "capabilities": adminRole.Capabilities,
 			"libraries": []map[string]any{{"libraryId": 1}},
-		}, CodeConflict},
-		{"deleting a built-in role", http.MethodDelete, fmt.Sprintf("/roles/%d", userRole.ID), nil, CodeConflict},
+		}, api.CodeConflict},
+		{"deleting a built-in role", http.MethodDelete, fmt.Sprintf("/roles/%d", userRole.ID), nil, api.CodeConflict},
 		{
 			"a capability not in the set", http.MethodPost, "/roles",
 			map[string]any{"name": "x", "capabilities": []string{"fly"}, "libraries": []any{}},
-			CodeInvalidRequest,
+			api.CodeInvalidRequest,
 		},
 		{
 			"a library that does not exist", http.MethodPost, "/roles",
 			map[string]any{"name": "x", "capabilities": []string{}, "libraries": []map[string]any{{"libraryId": 9}}},
-			CodeInvalidRequest,
+			api.CodeInvalidRequest,
 		},
 		{"a library twice", http.MethodPost, "/roles", map[string]any{
 			"name": "x", "capabilities": []string{},
 			"libraries": []map[string]any{{"libraryId": 1}, {"libraryId": 1}},
-		}, CodeInvalidRequest},
+		}, api.CodeInvalidRequest},
 		{
 			"another role's name", http.MethodPost, "/roles",
 			map[string]any{"name": "user", "capabilities": []string{}, "libraries": []any{}},
-			CodeConflict,
+			api.CodeConflict,
 		},
 	} {
 		answer := harness.do(t, refused.method, refused.path, admin, refused.body)

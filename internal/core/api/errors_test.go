@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // documentedSchema is as much of a schema in the API document as these tests read.
@@ -24,13 +26,13 @@ type documentedSchema struct {
 
 // declaredCodes are the Code constants errors.go declares, read from its source, so a code added
 // there and left out of codes is caught.
-func declaredCodes(t *testing.T) []Code {
+func declaredCodes(t *testing.T) []api.Code {
 	t.Helper()
 	parsed, err := parser.ParseFile(token.NewFileSet(), "errors.go", nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var declared []Code
+	var declared []api.Code
 	for _, declaration := range parsed.Decls {
 		general, isGeneral := declaration.(*ast.GenDecl)
 		if !isGeneral || general.Tok != token.CONST {
@@ -43,7 +45,7 @@ func declaredCodes(t *testing.T) []Code {
 			}
 			for _, literal := range value.Values {
 				if basic, isBasic := literal.(*ast.BasicLit); isBasic {
-					declared = append(declared, Code(strings.Trim(basic.Value, `"`)))
+					declared = append(declared, api.Code(strings.Trim(basic.Value, `"`)))
 				}
 			}
 		}
@@ -61,8 +63,8 @@ func types(expression ast.Expr) string {
 
 func TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail(t *testing.T) {
 	t.Parallel()
-	if declared := declaredCodes(t); !slices.Equal(declared, codes()) {
-		t.Fatalf("errors.go declares the codes %v, and codes lists %v; one list, in step", declared, codes())
+	if declared := declaredCodes(t); !slices.Equal(declared, api.Codes()) {
+		t.Fatalf("errors.go declares the codes %v, and codes lists %v; one list, in step", declared, api.Codes())
 	}
 	harness := newHarness(t)
 	served := harness.do(t, http.MethodGet, "/openapi.json", "", nil)
@@ -75,34 +77,34 @@ func TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail(t *testing.T
 		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
 	}
 	schemas := document.Components.Schemas
-	if ref := schemas["Error"].Properties["error"].Ref; ref != schemaRefPrefix+problemBodySchemaName {
+	if ref := schemas["Error"].Properties["error"].Ref; ref != api.SchemaRefPrefix+api.ProblemBodySchemaName {
 		t.Errorf("an error's inside is %q, want the ProblemBody schema", ref)
 	}
 	detailByCode := map[string]documentedSchema{}
-	var named []Code
-	for _, form := range schemas[problemBodySchemaName].OneOf {
+	var named []api.Code
+	for _, form := range schemas[api.ProblemBodySchemaName].OneOf {
 		for _, code := range form.Properties["code"].Enum {
-			named = append(named, Code(code))
+			named = append(named, api.Code(code))
 			if detail, hasDetail := form.Properties["detail"]; hasDetail {
-				detailByCode[code] = schemas[strings.TrimPrefix(detail.Ref, schemaRefPrefix)]
+				detailByCode[code] = schemas[strings.TrimPrefix(detail.Ref, api.SchemaRefPrefix)]
 			}
 		}
 	}
 	slices.Sort(named)
-	every := codes()
+	every := api.Codes()
 	slices.Sort(every)
 	if !slices.Equal(named, every) {
 		t.Errorf("ProblemBody's forms name the codes %v, want each of %v once", named, every)
 	}
 	for _, want := range []struct {
-		code        Code
+		code        api.Code
 		field, kind string
 	}{
-		{CodeAuthRequired, "reason", "string"},
-		{CodeInvalidRequest, "problems", "array"},
-		{CodeRateLimited, "retryAfterMs", "integer"},
-		{CodeQuotaExhausted, "downloadsResetAt", "integer"},
-		{CodeProviderError, "reason", "string"},
+		{api.CodeAuthRequired, "reason", "string"},
+		{api.CodeInvalidRequest, "problems", "array"},
+		{api.CodeRateLimited, "retryAfterMs", "integer"},
+		{api.CodeQuotaExhausted, "downloadsResetAt", "integer"},
+		{api.CodeProviderError, "reason", "string"},
 	} {
 		code := want.code
 		// A slice is documented as ["array","null"], as every slice in the document is.
@@ -111,16 +113,16 @@ func TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail(t *testing.T
 			t.Errorf("%s's detail.%s is documented as %q, want %q", code, want.field, got, want.kind)
 		}
 	}
-	var reasons []ProviderReason
-	for _, reason := range detailByCode[string(CodeProviderError)].Properties["reason"].Enum {
-		reasons = append(reasons, ProviderReason(reason))
+	var reasons []api.ProviderReason
+	for _, reason := range detailByCode[string(api.CodeProviderError)].Properties["reason"].Enum {
+		reasons = append(reasons, api.ProviderReason(reason))
 	}
-	if !slices.Equal(reasons, providerReasons()) {
+	if !slices.Equal(reasons, api.ProviderReasons()) {
 		t.Errorf("provider_error's reasons are documented as %v, want every ProviderReason, %v, so a "+
-			"client can have words for each", reasons, providerReasons())
+			"client can have words for each", reasons, api.ProviderReasons())
 	}
-	if len(detailByCode) != len(problemDetails()) {
-		t.Errorf("%d codes document a detail, want the %d with one", len(detailByCode), len(problemDetails()))
+	if len(detailByCode) != len(api.ProblemDetails()) {
+		t.Errorf("%d codes document a detail, want the %d with one", len(detailByCode), len(api.ProblemDetails()))
 	}
 }
 
@@ -129,17 +131,17 @@ func TestInvalidRequest_NamesEachProblemByWhereItIsInTheDetail(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	refused := harness.do(t, http.MethodPost, "/libraries", admin, map[string]any{"name": 7})
-	wantError(t, refused, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, refused, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	var body struct {
 		Error struct {
-			Detail InvalidRequestDetailBody `json:"detail"`
+			Detail api.InvalidRequestDetailBody `json:"detail"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(refused.body), &body); err != nil {
 		t.Fatal(err)
 	}
 	problems := body.Error.Detail.Problems
-	if len(problems) == 0 || !slices.ContainsFunc(problems, func(problem RequestProblemBody) bool {
+	if len(problems) == 0 || !slices.ContainsFunc(problems, func(problem api.RequestProblemBody) bool {
 		return problem.Location == "body.name" && problem.Message != ""
 	}) {
 		t.Errorf("the refusal's detail is %s, want its problems, one at body.name", refused.body)
@@ -155,17 +157,17 @@ func TestErrorAnswers_AreLoggedWithTheirOperationAndCode(t *testing.T) {
 	harness.createAdminAndSignIn(t)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "CANARY-wrong", "device": testDevice}),
-		http.StatusUnauthorized, CodeAuthRequired)
+		http.StatusUnauthorized, api.CodeAuthRequired)
 	unnamed := harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "CANARY-unnamed"})
-	wantError(t, unnamed, unnamed.status, CodeInvalidRequest)
+	wantError(t, unnamed, unnamed.status, api.CodeInvalidRequest)
 
 	type errorAnswer struct {
-		Message   string `json:"msg"`
-		Operation string `json:"operation"`
-		Method    string `json:"method"`
-		Path      string `json:"path"`
-		Code      Code   `json:"code"`
+		Message   string   `json:"msg"`
+		Operation string   `json:"operation"`
+		Method    string   `json:"method"`
+		Path      string   `json:"path"`
+		Code      api.Code `json:"code"`
 	}
 	var answers []errorAnswer
 	for line := range strings.Lines(harness.logs.String()) {
@@ -178,8 +180,8 @@ func TestErrorAnswers_AreLoggedWithTheirOperationAndCode(t *testing.T) {
 		}
 	}
 	want := []errorAnswer{
-		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", CodeAuthRequired},
-		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", CodeInvalidRequest},
+		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", api.CodeAuthRequired},
+		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", api.CodeInvalidRequest},
 	}
 	if !slices.Equal(answers, want) {
 		t.Errorf("the error answers logged = %+v, want %+v", answers, want)

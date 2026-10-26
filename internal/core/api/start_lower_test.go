@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // A device whose link, measured on real video, was too slow for a film starts its next playback on
@@ -31,7 +33,7 @@ func TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork(t *
 	}
 	second := harness.play(t, user, chrome(1))
 	if second.OnLadder == nil || second.OnLadder.QualityKbps != 1200 ||
-		second.OnLadder.URL != Prefix+"/bytes/media/chunks/"+second.MediaToken+"/master.m3u8" {
+		second.OnLadder.URL != api.Prefix+"/bytes/media/chunks/"+second.MediaToken+"/master.m3u8" {
 		t.Errorf("after measuring 2 Mb/s, the next playback starts on %+v; want 1200k, by its own token",
 			second.OnLadder)
 	}

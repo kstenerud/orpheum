@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"cmp"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -173,7 +174,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (2, 1, 'en', 'Disc 1')")
 	var offered struct {
-		Orderings []OrderingBody `json:"orderings"`
+		Orderings []api.OrderingBody `json:"orderings"`
 	}
 	harness.readJSON(t, "/collections/20", user, &offered)
 	if got, want := fmt.Sprint(offered.Orderings),
@@ -184,9 +185,9 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 		return harness.do(t, http.MethodPut, "/collections/20/preferences", user,
 			map[string]string{"episodeOrdering": ordering})
 	}
-	wantError(t, choose("tmdb:none"), http.StatusBadRequest, CodeInvalidRequest)
+	wantError(t, choose("tmdb:none"), http.StatusBadRequest, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodPut, "/collections/99/preferences", user,
-		map[string]string{"episodeOrdering": "aired"}), http.StatusNotFound, CodeNotFound)
+		map[string]string{"episodeOrdering": "aired"}), http.StatusNotFound, api.CodeNotFound)
 	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
 		t.Errorf("after a refused choice: %s; want %s", got, want)
 	}
@@ -255,9 +256,9 @@ func (harness testHarness) wantSeriesOrderingsUnreached(t *testing.T, admin stri
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
 	wantError(t, harness.do(t, http.MethodPut, "/collections/20/preferences", partner,
-		map[string]string{"episodeOrdering": "tmdb:dvd"}), http.StatusNotFound, CodeNotFound)
+		map[string]string{"episodeOrdering": "tmdb:dvd"}), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/collections/20/not-in-order?limit=10", partner, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 }
 
 // Choosing an episode group no one has fetched yet keeps the choice and queues its fetch, and the
@@ -273,7 +274,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (3, 20, 'tmdb:intended', 'tmdb', 'absolute', 'intended', 'Intended Order', 14)`)
 	var offered struct {
-		Orderings []OrderingBody `json:"orderings"`
+		Orderings []api.OrderingBody `json:"orderings"`
 	}
 	harness.readJSON(t, "/collections/20", admin, &offered)
 	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true}" {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -16,8 +17,8 @@ import (
 func (harness testHarness) titleNames(t *testing.T, path, token string) (names []string, nextCursor string) {
 	t.Helper()
 	var page struct {
-		Titles     []EntryBody `json:"titles"`
-		NextCursor string      `json:"nextCursor"`
+		Titles     []api.EntryBody `json:"titles"`
+		NextCursor string          `json:"nextCursor"`
 	}
 	harness.readJSON(t, path, token, &page)
 	for _, entry := range page.Titles {
@@ -63,7 +64,7 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 		"/titles?kind=other&sort=name&limit=10&library=2", "/titles/letters?kind=other&sort=name&library=2",
 		"/libraries/2/folders?sort=name", "/search?query=beach&limit=10&library=2",
 	} {
-		wantError(t, harness.do(t, http.MethodGet, path, user, nil), http.StatusNotFound, CodeNotFound)
+		wantError(t, harness.do(t, http.MethodGet, path, user, nil), http.StatusNotFound, api.CodeNotFound)
 	}
 	if names, _ := harness.titleNames(t, "/titles?kind=any&sort=name&limit=10", user); fmt.Sprint(names) !=
 		"[Brass Arena Metropolis]" {
@@ -91,7 +92,7 @@ func TestBrowse_OtherVideosInTheirFourOrders(t *testing.T) {
 		}
 	}
 	var page struct {
-		Titles []EntryBody `json:"titles"`
+		Titles []api.EntryBody `json:"titles"`
 	}
 	harness.readJSON(t, "/titles?kind=other&sort=recorded&limit=1", admin, &page)
 	if entry := page.Titles[0]; entry.Kind != "other" || entry.Recorded == nil || entry.Recorded.From != "file" ||
@@ -131,7 +132,7 @@ func TestBrowse_AnOtherLibrarysFolders(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
-	var top, trip FolderOutput
+	var top, trip api.FolderOutput
 	harness.readJSON(t, "/libraries/2/folders?sort=recorded", admin, &top.Body)
 	if got := fmt.Sprint(top.Body.Subfolders); got != "[{2018 Wedding 2018 Wedding 1} {2019 2019 1} {Trip Trip 1}]" ||
 		len(top.Body.Titles) != 0 {

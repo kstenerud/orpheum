@@ -207,4 +207,8 @@
 //     (D237); destinations.go: a destination that is down, as what waits on it says (D231 §12);
 //     needs_attention.go: what needs the admin, counted for the status tray (D280);
 //     compress.go: which answers are sent gzipped (D342); request_id.go: each request's ID (D347).
+//   - The tests are package api_test, so their harness (api_test.go's newHarness) builds the API's
+//     dependencies by internal/core/assembly, as the server does, with fakes of the node, its bytes
+//     and OpenSubtitles and TMDB (D351 §4); export_test.go names what they read of the package's
+//     internals. A test of the internals alone, needing no harness, stays in package api.
 package api

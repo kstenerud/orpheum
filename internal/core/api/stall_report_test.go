@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -25,12 +26,12 @@ func stallReport(seq, positionMs int64) map[string]any {
 }
 
 // lowerQualityOf is the lower quality a report's answer offers, or nil.
-func lowerQualityOf(t *testing.T, answer response) *LadderBody {
+func lowerQualityOf(t *testing.T, answer response) *api.LadderBody {
 	t.Helper()
 	if answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
-	var output ReportOutput
+	var output api.ReportOutput
 	if err := json.Unmarshal([]byte(answer.body), &output.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +54,8 @@ func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryRep
 	if offered := lowerQualityOf(t, harness.report(t, user, playing, reportBody(1, 9_000, 0))); offered != nil {
 		t.Errorf("a report before any stall was answered with %+v; want nothing", offered)
 	}
-	want := LadderBody{
-		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
+	want := api.LadderBody{
+		URL: api.Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
 		QualityKbps: 1200, Height: 480, IsReady: false, FilmPictureKbps: 2400, LinkSharePercent: 70,
 	}
 	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(2, 12_000))); offered == nil ||

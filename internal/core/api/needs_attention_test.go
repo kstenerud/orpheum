@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -20,10 +21,10 @@ func TestNeedsAttention_CountsTheFoldersAndDisksOffline(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	counts := func() NeedsAttentionOutput {
+	counts := func() api.NeedsAttentionOutput {
 		t.Helper()
 		got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
-		var output NeedsAttentionOutput
+		var output api.NeedsAttentionOutput
 		if err := json.Unmarshal([]byte(got.body), &output.Body); err != nil || got.status != http.StatusOK {
 			t.Fatalf("GET /needs-attention = %d %s", got.status, got.body)
 		}
@@ -62,7 +63,7 @@ func TestNeedsAttention_CountsWhatWaitsForAMatch(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
-	var output NeedsAttentionOutput
+	var output api.NeedsAttentionOutput
 	if err := json.Unmarshal([]byte(got.body), &output.Body); err != nil || got.status != http.StatusOK {
 		t.Fatalf("GET /needs-attention = %d %s", got.status, got.body)
 	}

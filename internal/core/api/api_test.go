@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"bytes"
@@ -19,7 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/artwork"
+	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/assembly"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/backup"
@@ -31,26 +32,16 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/live"
-	"github.com/kstenerud/orpheum/internal/core/loudness"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
-	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
-	"github.com/kstenerud/orpheum/internal/core/preferences"
-	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
-	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
-	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
-	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
-	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -61,14 +52,14 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	UseErrorShape()
+	api.UseErrorShape()
 	m.Run()
 }
 
 const canary = "CANARY-api-4e1f-0123456789WXYZ"
 
 type testHarness struct {
-	server       *Server
+	server       *api.Server
 	tmdbProvider *identifytest.Provider
 	cache        *store.Cache
 	nodes        *fakeNodes
@@ -140,71 +131,54 @@ func (harness testHarness) handle(t *testing.T, handler jobs.Handler, job jobs.J
 // harnessServerBuild is the build the harness's server says it is.
 var harnessServerBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
 
-// newHarness serves an API whose dependencies are ready, over a real migrated database.
+// newHarness serves an API whose dependencies are ready, over a real migrated database: the server's
+// own services, as internal/core/assembly assembles them for it (D351), with fakes of the node, its
+// bytes, its scans and reads, TMDB and OpenSubtitles.
 func newHarness(t *testing.T) testHarness {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
-	service := auth.NewService(database, now, rand.Reader, seeded)
 	key, err := secrets.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	logs := &testutil.Log{}
-	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	logger := slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	server := api.NewServer(logger)
 	codes := &authtest.SetupCodes{}
 	provider, cache, nodes := identifytest.NewProvider(), storetest.OpenCache(t), &fakeNodes{}
 	provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
 	subtitler := &fakeSubtitler{}
 	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
-	providers := identify.Providers{"tmdb": provider}
-	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
-	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
 	directories, err := instancedir.Open(instancedir.PathsIn(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// One queue, as the server has: a cancel reaches the job the runner is running.
-	queue := jobs.NewQueue(jobs.QueueParts{
-		Cache: cache, Clock: now, Settings: seeded, Random: jobqueuetest.Unjittered(),
-		Logger: slog.New(slog.DiscardHandler),
-	})
-	preferencesService := preferences.NewService(database, now)
-	exchanges := corenodes.NewExchanges(corenodes.ExchangeParts{
-		Sender: nodes, Rooms: nodes, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-		Cache:    cache,
-		Settings: seeded, MaxSilence: time.Minute,
-	})
-	queue.OnCancel(exchanges.Cancelled)
-	loudnessService := loudness.NewService(loudness.Parts{Database: database, Settings: seeded})
-	readThroughService := readthrough.NewService(readthrough.Parts{
-		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Clock: now,
-	})
-	subtitlesService := subtitles.NewService(subtitles.Parts{
-		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Subtitler: subtitler, Clock: now,
-		MaxSilence: time.Minute,
-	})
-	chunksService := chunks.NewService(chunks.Parts{
-		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
-		Loudness: loudnessService, ReadThrough: readThroughService,
-		Logger: slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})), Clock: now,
-	})
 	reads := &fakeFileReads{}
-	playbackService := playback.NewService(playback.Parts{
-		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,
-		Subtitles: subtitlesService, Preferences: preferencesService,
-		Loudness: loudnessService, Chunks: chunksService, Offers: chunksService, Reads: reads,
+	core, err := assembly.Build(t.Context(), assembly.Parts{
+		Database: database, Cache: cache, Directories: directories, Settings: seeded, SecretKey: key,
+		SetupCodes: codes, Clock: now, Random: rand.Reader, Jitter: jobqueuetest.Unjittered(), Logger: logger,
+		Build: build.Provenance{Version: "test"},
+		Nodes: nodes, NodeBytes: nodeBytes, ScanRequests: nodes, FileReads: reads, Subtitler: subtitler,
+		Metadata: identify.Providers{"tmdb": provider},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencies := core.API
+	// One queue, as the server has: a cancel reaches the job the runner is running.
+	queue, exchanges := core.Queue, core.Exchanges
+	queue.OnCancel(exchanges.Cancelled)
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
-	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, subtitlesService.HandleConvertFetchedSubtitle)
+	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, dependencies.Subtitles.HandleConvertFetchedSubtitle)
 	go func() { _ = converter.Run(t.Context(), nil) }() //nolint:errcheck // it ends with the test
 	resolver := nodestest.NewResolver()
 	for kind, assignee := range map[jobs.Kind]func(corenodes.Resolver) corenodes.Assignee{
-		jobs.KindExtractSubtitle:        subtitlesService.Assignee,
-		jobs.KindConvertFetchedSubtitle: subtitlesService.Assignee,
-		jobs.KindReadThrough:            readThroughService.Assignee,
-		jobs.KindMakeChunks:             chunksService.Assignee,
+		jobs.KindExtractSubtitle:        dependencies.Subtitles.Assignee,
+		jobs.KindConvertFetchedSubtitle: dependencies.Subtitles.Assignee,
+		jobs.KindReadThrough:            core.ReadThrough.Assignee,
+		jobs.KindMakeChunks:             dependencies.Chunks.Assignee,
 	} {
 		exchanges.Handle(kind, assignee(resolver.Of(queue.NewRunner(kind, nil))))
 	}
@@ -214,13 +188,7 @@ func newHarness(t *testing.T) testHarness {
 			t.Errorf("node %d's result was not taken: %v", nodeID, err)
 		}
 	}
-	browser := library.NewBrowser(database, seeded)
-	browser.SetNodeConnections(nodes)
-	backups := backup.NewService(database, directories, now)
-	backups.UseQueue(queue, seeded)
-	secretStore := secrets.NewStore(database, key, now, rand.Reader, seeded)
-	service.SealLinksWith(secretStore)
-	if secretErr := turn.EnsureSecret(t.Context(), secretStore, rand.Reader); secretErr != nil {
+	if secretErr := turn.EnsureSecret(t.Context(), dependencies.Secrets, rand.Reader); secretErr != nil {
 		t.Fatal(secretErr)
 	}
 	identityKey, keyErr := identity.GenerateKey(rand.Reader)
@@ -231,7 +199,7 @@ func newHarness(t *testing.T) testHarness {
 		Files: directories, Key: identityKey, HTTP: &http.Client{}, Clock: now,
 		Logger: slog.New(slog.DiscardHandler), Version: "test", APIMajor: 1,
 		// As cmd/orpheum wires it: the realm the discovery names is what realm keys are made for.
-		OnRealm: service.SetRealm,
+		OnRealm: dependencies.Auth.SetRealm,
 	})
 	if discoveryErr != nil {
 		t.Fatal(discoveryErr)
@@ -242,70 +210,31 @@ func newHarness(t *testing.T) testHarness {
 	if mappingErr != nil {
 		t.Fatal(mappingErr)
 	}
-	hub := together.NewHub(now, rand.Reader, func(ctx context.Context, userID, fileID int64) bool {
-		reach, err := service.ReachOfUser(ctx, userID)
-		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
-	}, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	// As serve.go wires them: a group's players share the upload evenly from their start (D286 §5).
-	playbackService.GroupPlayersBy(hub.PlayersHostedBy)
-	looks := interest.NewRegister(now)
-	estimator, estimatorErr := waits.NewEstimator(waits.Parts{
-		Database: database, Cache: cache, Attempts: exchanges, Nodes: nodes, ReadThroughs: readThroughService,
-		Clock: now,
-	})
-	if estimatorErr != nil {
-		t.Fatal(estimatorErr)
+	dependencies.Discovery, dependencies.PortMapping = discoveryService, portMapping
+	dependencies.Relay = &turn.Issuer{Address: "203.0.113.7:3478", Secrets: dependencies.Secrets}
+	dependencies.Reachability = reachability.New(reachability.Parts{Clock: now, Random: rand.Reader})
+	dependencies.System = api.System{
+		Build: harnessServerBuild, StartedAt: now.Now(),
+		PersistentDirectory: directories.PersistentDirectory(), CacheDirectory: directories.CacheDirectory(),
+		PersistentDatabase: database, CacheDatabase: cache,
 	}
-	server.Ready(Dependencies{
-		Interest: looks, Waits: estimator, Live: live.NewRegistry(hub.CastCredential),
-		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
-		Secrets: secretStore, SetupCodes: codes,
-		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
-		Chooser:       identify.NewChooser(matcher, pass),
-		FilingReports: identify.NewFilingReports(database, directories, "test", now),
-		Libraries:     libraryAdmin(database, now, nodes, library.Retirement{Work: queue, Titles: pass}, seeded),
-		Refresher:     identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
-		Browser:       browser,
-		Artwork: artwork.NewService(artwork.Parts{
-			Database: database, Queue: queue,
-			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
-		}),
-		Playback:     playbackService,
-		Subtitles:    subtitlesService,
-		Chunks:       chunksService,
-		Backups:      backups,
-		Together:     hub,
-		Reachability: reachability.New(reachability.Parts{Clock: now, Random: rand.Reader}),
-		Preferences:  preferencesService,
-		NodeBytes:    nodeBytes,
-		Jobs:         queue,
-		Providers: []*coreproviders.Service{
-			tmdb.APIService(queue, now, seeded), tmdb.ImagesService(queue, now, seeded),
-			opensubtitles.Service(queue, now, seeded),
-		},
-		NodeReports: nodes, NodeWork: exchanges, Clock: now,
-		System: System{
-			Build: harnessServerBuild, StartedAt: now.Now(),
-			PersistentDirectory: directories.PersistentDirectory(), CacheDirectory: directories.CacheDirectory(),
-			PersistentDatabase: database, CacheDatabase: cache,
-		},
-		ConfigFileKeys: []ConfigFileKey{{
-			Key: "server.shutdown_grace_seconds", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
-			IsFromFile: false, Description: "seconds in-flight requests get to finish",
-		}},
-	})
+	dependencies.ConfigFileKeys = []api.ConfigFileKey{{
+		Key: "server.shutdown_grace_seconds", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
+		IsFromFile: false, Description: "seconds in-flight requests get to finish",
+	}}
+	server.Ready(dependencies)
 	// The tests' requests come from this machine, which is home: an admin's administer (D297 §6).
 	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")})
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	return testHarness{
-		server: server, httpServer: served, logs: logs, authService: service, setupCodes: codes,
+		server: server, httpServer: served, logs: logs, authService: dependencies.Auth, setupCodes: codes,
 		databasePath: database.Path(),
-		database:     database, looks: looks,
+		database:     database, looks: dependencies.Interest,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
-		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
-		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
-		chunks: chunksService, reads: reads, settings: seeded,
+		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: dependencies.Backups,
+		subtitler: subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
+		chunks: dependencies.Chunks, reads: reads, settings: seeded,
 	}
 }
 
@@ -356,7 +285,7 @@ func (harness testHarness) doWithHeader(
 		}
 		reader = bytes.NewReader(encoded)
 	}
-	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+Prefix+path, reader)
+	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+api.Prefix+path, reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +313,7 @@ func (harness testHarness) doWithHeader(
 }
 
 // wantError checks a response is an error in the one shape, with the code expected.
-func wantError(t *testing.T, got response, status int, code Code) {
+func wantError(t *testing.T, got response, status int, code api.Code) {
 	t.Helper()
 	if got.status != status {
 		t.Errorf("status = %d, want %d; body %s", got.status, status, got.body)
@@ -400,7 +329,7 @@ func wantError(t *testing.T, got response, status int, code Code) {
 	if problem.Code != code || problem.Message == "" {
 		t.Errorf("error = %+v, want code %s with a message", problem, code)
 	}
-	if code == CodeInvalidRequest {
+	if code == api.CodeInvalidRequest {
 		for _, location := range problemLocations(t, got) {
 			if location == "" {
 				t.Errorf("an invalid_request names no location, so no form can say which field: %s", got.body)
@@ -415,7 +344,7 @@ func problemLocations(t *testing.T, got response) []string {
 	t.Helper()
 	var body struct {
 		Error struct {
-			Detail InvalidRequestDetailBody `json:"detail"`
+			Detail api.InvalidRequestDetailBody `json:"detail"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(got.body), &body); err != nil {
@@ -434,7 +363,7 @@ func problemLocations(t *testing.T, got response) []string {
 // wantInvalidAt asserts an invalid_request with a problem at location, the field a form names.
 func wantInvalidAt(t *testing.T, got response, status int, location string) {
 	t.Helper()
-	wantError(t, got, status, CodeInvalidRequest)
+	wantError(t, got, status, api.CodeInvalidRequest)
 	if locations := problemLocations(t, got); !slices.Contains(locations, location) {
 		t.Errorf("the refusal's problems are at %v, want one at %s: %s", locations, location, got.body)
 	}
@@ -442,14 +371,14 @@ func wantInvalidAt(t *testing.T, got response, status int, location string) {
 
 // decodedProblem is a ProblemBody as a client reads it, its detail left as JSON.
 type decodedProblem struct {
-	Code      Code            `json:"code"`
+	Code      api.Code        `json:"code"`
 	Message   string          `json:"message"`
 	Detail    json.RawMessage `json:"detail"`
-	FailedHop Hop             `json:"failedHop"`
+	FailedHop api.Hop         `json:"failedHop"`
 }
 
 // wantErrorSaying is wantError, and the message the error says.
-func wantErrorSaying(t *testing.T, got response, status int, code Code, message string) {
+func wantErrorSaying(t *testing.T, got response, status int, code api.Code, message string) {
 	t.Helper()
 	wantError(t, got, status, code)
 	var body struct {
@@ -463,7 +392,7 @@ func wantErrorSaying(t *testing.T, got response, status int, code Code, message 
 // testDevice is the device the tests sign in on. The tests of cmd/orpheum keep their own,
 // signInDevice: a shared test package would import this one, which these in-package tests could
 // then not import.
-var testDevice = NewDeviceBody{Name: "Firefox on Linux", Platform: "web"}
+var testDevice = api.NewDeviceBody{Name: "Firefox on Linux", Platform: "web"}
 
 // createAdminAndSignIn completes setup as owner and returns a session token.
 func (harness testHarness) createAdminAndSignIn(t *testing.T) string {
@@ -491,18 +420,18 @@ func (harness testHarness) signIn(t *testing.T, name, password string) string {
 
 func TestHealth_AnswersBeforeTheDatabaseIsReady(t *testing.T) {
 	t.Parallel()
-	server := NewServer(slog.New(slog.DiscardHandler))
+	server := api.NewServer(slog.New(slog.DiscardHandler))
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	harness := testHarness{server: server, httpServer: served}
 
 	for _, tc := range []struct {
-		status     Status
+		status     api.Status
 		httpStatus int
 	}{
-		{StatusStarting, http.StatusOK},
-		{StatusMigrating, http.StatusOK},
-		{StatusDegraded, http.StatusServiceUnavailable},
+		{api.StatusStarting, http.StatusOK},
+		{api.StatusMigrating, http.StatusOK},
+		{api.StatusDegraded, http.StatusServiceUnavailable},
 	} {
 		server.SetStatus(tc.status, "step 1 of 1", "a reason")
 		got := harness.do(t, http.MethodGet, "/health", "", nil)
@@ -510,29 +439,31 @@ func TestHealth_AnswersBeforeTheDatabaseIsReady(t *testing.T) {
 			t.Errorf("health while %s = %d %s, want %d", tc.status, got.status, got.body, tc.httpStatus)
 		}
 	}
-	server.SetStatus(StatusMigrating, "step 1 of 1")
-	wantError(t, harness.do(t, http.MethodGet, "/me", "", nil), http.StatusServiceUnavailable, CodeMigrating)
+	server.SetStatus(api.StatusMigrating, "step 1 of 1")
+	wantError(t, harness.do(t, http.MethodGet, "/me", "", nil), http.StatusServiceUnavailable, api.CodeMigrating)
 }
 
 func TestSetup_TheCodeCreatesTheFirstAdminAndThenSetupIsClosed(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
-		map[string]any{"name": "owner", "password": "x", "device": testDevice}), http.StatusConflict, CodeSetupRequired)
+		map[string]any{"name": "owner", "password": "x", "device": testDevice}),
+		http.StatusConflict, api.CodeSetupRequired)
 	code, err := harness.authService.EnsureSetupCode(t.Context(), harness.setupCodes)
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/setup", "",
 		map[string]string{"setupCode": "WRONG-CODE", "name": "owner", "password": "x"}),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 	created := harness.do(t, http.MethodPost, "/setup", "",
 		map[string]string{"setupCode": code, "name": "owner", "password": "owner-password"})
 	if created.status != http.StatusCreated || !strings.Contains(created.body, `"isAdmin":true`) {
 		t.Fatalf("setup with the right code: %d %s", created.status, created.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/setup", "",
-		map[string]string{"setupCode": code, "name": "intruder", "password": "x"}), http.StatusConflict, CodeConflict)
+		map[string]string{"setupCode": code, "name": "intruder", "password": "x"}), http.StatusConflict,
+		api.CodeConflict)
 }
 
 // Before anyone signs in, a page asks whether the server needs its first admin, so it opens on
@@ -558,11 +489,12 @@ func TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut(t *testing.T) {
 	if me.status != http.StatusOK || !strings.Contains(me.body, `"name":"owner"`) {
 		t.Errorf("GET /me = %d %s", me.status, me.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/me", "", nil), http.StatusUnauthorized, CodeAuthRequired)
-	wantError(t, harness.do(t, http.MethodGet, "/me?token="+token, "", nil), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodGet, "/me", "", nil), http.StatusUnauthorized, api.CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodGet, "/me?token="+token, "", nil), http.StatusUnauthorized,
+		api.CodeAuthRequired)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "wrong", "device": testDevice}),
-		http.StatusUnauthorized, CodeAuthRequired)
+		http.StatusUnauthorized, api.CodeAuthRequired)
 	unnamed := harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "owner-password"})
 	if unnamed.status < 400 || unnamed.status >= 500 {
@@ -571,7 +503,7 @@ func TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut(t *testing.T) {
 	if out := harness.do(t, http.MethodDelete, "/session", token, nil); out.status != http.StatusNoContent {
 		t.Errorf("DELETE /session = %d %s", out.status, out.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/me", token, nil), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodGet, "/me", token, nil), http.StatusUnauthorized, api.CodeAuthRequired)
 }
 
 func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *testing.T) {
@@ -583,7 +515,7 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 		t.Fatal(err)
 	}
 	user := harness.signIn(t, "partner", "partner-password")
-	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, api.CodeForbidden)
 
 	wantInvalidAt(t, harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": "yes"}}),
@@ -633,10 +565,10 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 			login.status, login.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/secrets/plex_token", admin, map[string]string{"value": canary}),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 	malformed := harness.do(t, http.MethodPut, "/secrets/tmdb_api_key", admin,
 		map[string]any{"value": []string{canary}})
-	wantError(t, malformed, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, malformed, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	if strings.Contains(malformed.body, "CANARY") || !strings.Contains(malformed.body, "body.value") {
 		t.Errorf("a malformed secret's error must name where, not echo the value: %s", malformed.body)
 	}
@@ -645,9 +577,9 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 		t.Errorf("GET /secrets = %s; it lists the secret the server makes for itself", listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/secrets/turn_secret", admin, map[string]string{"value": canary}),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodDelete, "/secrets/turn_secret", admin, nil), http.StatusNotFound,
-		CodeNotFound)
+		api.CodeNotFound)
 	cleared := harness.do(t, http.MethodDelete, "/secrets/tmdb_api_key", admin, nil)
 	if cleared.status != http.StatusNoContent {
 		t.Errorf("DELETE /secrets/tmdb_api_key = %d %s", cleared.status, cleared.body)
@@ -677,7 +609,7 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 		{http.MethodPost, "/config/signin_failure_limit/reset"},
 		{http.MethodDelete, "/config/unused/x"},
 	} {
-		wantError(t, harness.do(t, request[0], request[1], user, nil), http.StatusForbidden, CodeForbidden)
+		wantError(t, harness.do(t, request[0], request[1], user, nil), http.StatusForbidden, api.CodeForbidden)
 	}
 
 	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
@@ -703,7 +635,7 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 		t.Errorf("POST /config/signin_failure_limit/reset = %d %s", reset.status, reset.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 
 	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM setting WHERE key = 'secret_last_chars_shown'")
 	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
@@ -726,7 +658,7 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 		t.Errorf("GET /config/unused = %d %s", unused.status, unused.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/config/unused/signin_failure_limit", admin, nil),
-		http.StatusConflict, CodeConflict)
+		http.StatusConflict, api.CodeConflict)
 	if deleted := harness.do(t, http.MethodDelete, "/config/unused/signin_falure_limit", admin, nil); deleted.status !=
 		http.StatusNoContent {
 		t.Errorf("DELETE /config/unused/signin_falure_limit = %d %s", deleted.status, deleted.body)
@@ -746,7 +678,7 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 	all := harness.do(t, http.MethodGet, "/config", admin, nil)
 	changed := harness.do(t, http.MethodGet, "/config?onlyModified=true", admin, nil)
 	var listed struct {
-		Settings []SettingBody `json:"settings"`
+		Settings []api.SettingBody `json:"settings"`
 	}
 	if err := json.Unmarshal([]byte(changed.body), &listed); err != nil || changed.status != http.StatusOK {
 		t.Fatalf("GET /config?onlyModified=true = %d %s", changed.status, changed.body)
@@ -762,14 +694,4 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 		!strings.Contains(all.body, `"key":"should_check_for_updates"`) {
 		t.Errorf("the filter kept an unchanged setting or dropped the changed one:\n%s", changed.body)
 	}
-}
-
-// libraryAdmin is the library admin service reading the harness's settings, as the server wires it.
-func libraryAdmin(
-	database *store.Database, now *clocktest.Fake, nodes *fakeNodes, retirement library.Retirement,
-	reader library.AdminSettings,
-) *library.Admin {
-	admin := library.NewAdmin(database, now, nodes, nodes, retirement)
-	admin.UseSettings(reader)
-	return admin
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 )
 
@@ -31,7 +32,7 @@ func TestBackups_AnAdminMakesOneAndSeesItListed(t *testing.T) {
 	}
 	harness.runBackups(t)
 	listed := harness.do(t, http.MethodGet, "/backups", admin, nil)
-	var backups BackupsOutput
+	var backups api.BackupsOutput
 	if err := json.Unmarshal([]byte(listed.body), &backups.Body); err != nil || listed.status != http.StatusOK {
 		t.Fatalf("GET /backups = %d %s", listed.status, listed.body)
 	}
@@ -53,7 +54,7 @@ func TestIdempotencyKey_ARepeatIsGivenTheFirstAnswerAndDoesNothingAgain(t *testi
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	click := http.Header{IdempotencyKeyHeader: []string{"click-1"}}
+	click := http.Header{api.IdempotencyKeyHeader: []string{"click-1"}}
 	first := harness.doWithHeader(t, http.MethodPost, "/backups", admin, click, map[string]bool{"includesKey": false})
 	harness.runBackups(t)
 	harness.clock.Advance(time.Second) // a second backup would have a name of its own
@@ -70,7 +71,7 @@ func TestIdempotencyKey_ARepeatIsGivenTheFirstAnswerAndDoesNothingAgain(t *testi
 	if other.status != http.StatusConflict || !strings.Contains(other.body, "Idempotency-Key") {
 		t.Errorf("the key used for another body answered %d %s; want 409", other.status, other.body)
 	}
-	harness.clock.Advance(idempotentAnswerKept + time.Second)
+	harness.clock.Advance(api.IdempotentAnswerKept + time.Second)
 	if later := harness.doWithHeader(t, http.MethodPost, "/backups", admin, click,
 		map[string]bool{"includesKey": false}); later.status != http.StatusAccepted {
 		t.Errorf("past the answer's keeping, the key answered %d %s; want a new backup asked for", later.status,
@@ -93,7 +94,7 @@ func (harness testHarness) runBackups(t *testing.T) {
 // backupCount is how many backups GET /backups lists.
 func (harness testHarness) backupCount(t *testing.T, admin string) int {
 	t.Helper()
-	var backups BackupsOutput
+	var backups api.BackupsOutput
 	listed := harness.do(t, http.MethodGet, "/backups", admin, nil)
 	if err := json.Unmarshal([]byte(listed.body), &backups.Body); err != nil {
 		t.Fatalf("GET /backups = %d %s", listed.status, listed.body)

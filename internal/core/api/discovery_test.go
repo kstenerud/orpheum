@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
@@ -64,7 +65,7 @@ var fingerprintText = regexp.MustCompile(`^([0-9a-hjkmnp-tv-z]{4}-){12}[0-9a-hjk
 
 // wantPendingWithItsCode fails the test unless a connected core is pending at baseURL with its
 // claim code and its identity key's fingerprint.
-func wantPendingWithItsCode(t *testing.T, status DiscoveryStatusBody, baseURL string) {
+func wantPendingWithItsCode(t *testing.T, status api.DiscoveryStatusBody, baseURL string) {
 	t.Helper()
 	if status.BaseURL != baseURL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" ||
 		!fingerprintText.MatchString(status.Fingerprint) {
@@ -91,13 +92,14 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if _, err := harness.authService.RealmKeyOfPerson(t.Context(), partnerPerson); err != nil {
 		t.Fatalf("the partner's realm key after signing in: %v", err)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/system/discovery", partner, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/system/discovery", partner, nil), http.StatusForbidden,
+		api.CodeForbidden)
 	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{
 		"baseUrl": "http://discovery.example.com/core/v1",
-	}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	fake := enrollingDiscovery(t)
 	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL})
-	var status DiscoveryStatusBody
+	var status api.DiscoveryStatusBody
 	if err := json.Unmarshal([]byte(connected.body), &status); err != nil || connected.status != http.StatusOK {
 		t.Fatalf("POST /system/discovery = %d %s", connected.status, connected.body)
 	}
@@ -110,7 +112,7 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 			status.PortMapping)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL}),
-		http.StatusConflict, CodeConflict)
+		http.StatusConflict, api.CodeConflict)
 	if left := harness.do(t, http.MethodDelete, "/system/discovery", admin, nil); left.status != http.StatusNoContent {
 		t.Fatalf("DELETE /system/discovery = %d %s", left.status, left.body)
 	}
@@ -143,15 +145,15 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 		return harness.do(t, http.MethodPost, "/system/discovery/claim", admin,
 			map[string]any{"key": key, "password": password})
 	}
-	wantError(t, keyed("wxyz-wxyz-wxyz-wxyz", "owner-password"), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, keyed("wxyz-wxyz-wxyz-wxyz", "owner-password"), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	// A mistyped password is refused before the key is sent, so it spends no key.
 	wrong := keyed("abcd-efgh-jkmn-pqrs", "not-the-password")
-	wantError(t, wrong, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, wrong, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	if !strings.Contains(wrong.body, "body.password") {
 		t.Errorf("a wrong password = %s; want it refused naming the field", wrong.body)
 	}
 	claimed := keyed("abcd-efgh-jkmn-pqrs", "owner-password")
-	var status DiscoveryStatusBody
+	var status api.DiscoveryStatusBody
 	if err := json.Unmarshal([]byte(claimed.body), &status); err != nil || claimed.status != http.StatusOK ||
 		status.State != "claimed" || status.Account != "karl@example.com" {
 		t.Fatalf("the key = %d %s; want claimed, naming karl's account", claimed.status, claimed.body)
@@ -161,5 +163,5 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 	if _, err := harness.authService.RealmKeyOfPerson(t.Context(), proof.RealmPerson("karlnas", "owner")); err != nil {
 		t.Errorf("the admin's realm key after the claim: %v; want one for karlnas", err)
 	}
-	wantError(t, keyed("abcd-efgh-jkmn-pqrs", "owner-password"), http.StatusConflict, CodeConflict)
+	wantError(t, keyed("abcd-efgh-jkmn-pqrs", "owner-password"), http.StatusConflict, api.CodeConflict)
 }

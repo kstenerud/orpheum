@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
@@ -32,17 +33,17 @@ func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *tes
 	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
 	var problem struct {
 		Error struct {
-			Code   Code                       `json:"code"`
-			Detail MediaUnreachableDetailBody `json:"detail"`
+			Code   api.Code                       `json:"code"`
+			Detail api.MediaUnreachableDetailBody `json:"detail"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
 		t.Fatal(err)
 	}
-	want := MediaUnreachableDetailBody{
+	want := api.MediaUnreachableDetailBody{
 		Reason: "node_away", NodeName: "local", UnavailableAt: fakeNodeLastHeard.UnixMilli(),
 	}
-	if refused.status != http.StatusServiceUnavailable || problem.Error.Code != CodeMediaUnreachable ||
+	if refused.status != http.StatusServiceUnavailable || problem.Error.Code != api.CodeMediaUnreachable ||
 		problem.Error.Detail != want {
 		t.Errorf("a play whose node is away: %d %s; want media_unreachable, node local away since it was last heard",
 			refused.status, refused.body)
@@ -68,14 +69,14 @@ func TestStartPlayback_AFilmStillBeingReadIsRefusedAsSoAndAskedToBeReadFirst(t *
 	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
 	var problem struct {
 		Error struct {
-			Code   Code                       `json:"code"`
-			Detail MediaUnreachableDetailBody `json:"detail"`
+			Code   api.Code                       `json:"code"`
+			Detail api.MediaUnreachableDetailBody `json:"detail"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Error.Code != CodeMediaUnreachable || problem.Error.Detail.Reason != "still_reading" {
+	if problem.Error.Code != api.CodeMediaUnreachable || problem.Error.Detail.Reason != "still_reading" {
 		t.Errorf("a play of a film still being read: %d %s; want media_unreachable, still reading", refused.status,
 			refused.body)
 	}
@@ -124,7 +125,8 @@ func TestPlayback_APlayerAsksWhetherItsFileCanBeReadNow(t *testing.T) {
 	if missing.status != http.StatusOK || !strings.Contains(missing.body, want) {
 		t.Errorf("a file under a missing root = %d %s; want %s", missing.status, missing.body, want)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/files/99/availability", user, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/files/99/availability", user, nil), http.StatusNotFound,
+		api.CodeNotFound)
 }
 
 // A play of a file under a root its node cannot read is refused at once, naming the root and since
@@ -244,10 +246,10 @@ func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *test
 }
 
 // retire is one of the retire actions, as an admin sends it (D231 §7).
-func (harness testHarness) retire(t *testing.T, admin, method, path string, body any) RetiredOutput {
+func (harness testHarness) retire(t *testing.T, admin, method, path string, body any) api.RetiredOutput {
 	t.Helper()
 	answer := harness.do(t, method, path, admin, body)
-	var retired RetiredOutput
+	var retired api.RetiredOutput
 	if err := json.Unmarshal([]byte(answer.body), &retired.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("%s %s = %d %s", method, path, answer.status, answer.body)
 	}
@@ -255,10 +257,10 @@ func (harness testHarness) retire(t *testing.T, admin, method, path string, body
 }
 
 // system is the System page, as an admin sees it.
-func (harness testHarness) system(t *testing.T, admin string) SystemOutput {
+func (harness testHarness) system(t *testing.T, admin string) api.SystemOutput {
 	t.Helper()
 	answer := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system SystemOutput
+	var system api.SystemOutput
 	if err := json.Unmarshal([]byte(answer.body), &system.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET /system = %d %s", answer.status, answer.body)
 	}
@@ -380,7 +382,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 		t.Errorf("the retire = %+v; want the node's 3 files removed and both its jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, node)
-	var libraries LibrariesOutput
+	var libraries api.LibrariesOutput
 	answer := harness.do(t, http.MethodGet, "/libraries", admin, nil)
 	if err := json.Unmarshal([]byte(answer.body), &libraries.Body); err != nil || len(libraries.Body.Libraries) != 1 ||
 		len(libraries.Body.Libraries[0].Roots) != 0 {
@@ -433,13 +435,14 @@ func TestRetireFile_AFileThatCannotBeReadIsGoneOnTheAdminsWord(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.watchedFilm2(t)
-	wantError(t, harness.do(t, http.MethodPost, "/files/2/retire", admin, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodPost, "/files/2/retire", admin, nil), http.StatusConflict, api.CodeConflict)
 	harness.missingMedia(t)
 	retired := harness.retire(t, admin, http.MethodPost, "/files/2/retire", nil)
 	if retired.Body.TombstonedFileCount != 1 {
 		t.Errorf("the retire = %+v; want the one file removed", retired.Body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/files/2/availability", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/files/2/availability", admin, nil), http.StatusNotFound,
+		api.CodeNotFound)
 	if still := harness.do(t, http.MethodGet, "/files/1/availability", admin, nil); still.status != http.StatusOK {
 		t.Errorf("the other file under the root = %d %s; want it kept", still.status, still.body)
 	}
@@ -457,7 +460,7 @@ func TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath(t *testin
 	harness.nodes.roots = []string{"/media", "/mnt/media"}
 	move := map[string]string{"nodeName": "local", "path": "/media", "newNodeName": "local", "newPath": "/elsewhere"}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	move["newPath"] = "/mnt/media"
 	moved := harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move)
 	if moved.status != http.StatusOK || !strings.Contains(moved.body, `"movedFileCount":3`) {
