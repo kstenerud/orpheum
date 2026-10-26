@@ -5,11 +5,13 @@
 
 # Library browsing
 
-- **Status:** SKETCH. Written 2026-10-25 at the owner's request: *"I want to have the ability to
-  browse individual libraries (so for example if I have two movie libraries, and want to look in
-  only one). This will be important when we add support for other kinds of videos, like home
-  movies, which won't fit under series or films. Come up with an early design for this and where
-  it might fit into the UI."* §8's questions are open.
+- **Status:** PLANNED, specified by the owner's answers of 2026-10-26
+  ([D349](../../decisions/working-notes.md)), which §9 sets out and which replace §5 where they
+  differ. Written 2026-10-25 at the owner's request: *"I want to have the ability to browse
+  individual libraries (so for example if I have two movie libraries, and want to look in only
+  one). This will be important when we add support for other kinds of videos, like home movies,
+  which won't fit under series or films. Come up with an early design for this and where it might
+  fit into the UI."*
 - **Depends on:** [library-model.md](library-model.md) (titles, collections, kinds),
   [web-client.md](web-client.md) (curated home rows, folder browsing),
   [closed-beta.md](closed-beta.md) (B2's "Browse filters and more sorts").
@@ -238,3 +240,50 @@ order (D138), within the set the owner allows (D149 §5).
     that leaves the server (bug-report attachments, discovery's listings) and out of guest and
     shared links unless chosen? *Recommended:* yes: nothing about an `other` title leaves the
     server, and the roles' library list is the only way in.
+
+## 9. As decided (D349)
+
+The owner's answers of 2026-10-26, quoted in D349, and the shapes they give. Where §2, §5 and §7
+recommend otherwise, this section holds.
+
+### 9.1 The page
+
+- **The top bar** is Films, Series, **Libraries**, Watch Together: the Libraries page replaces
+  Search (Q1, Q9). Films and Series gather every library holding their kind, less the libraries the
+  person left out of them on their own settings (Q8).
+- **The Libraries page** has one top row: the library chooser (the libraries the person reaches,
+  in alphabetical order, then *All libraries*; the first library is chosen on arrival), the view
+  and the sort the library offers, and a search field, which searches the library chosen or, with
+  *All libraries*, every one. Under it, the grid, with the alphabet rail when the sort is by a
+  name.
+- **Its address holds what it shows** (`/browse?library=3&view=folders&folder=…&sort=…&query=…`),
+  so the top bar's link opens it at its start and Back returns to where it was (Q2).
+- **What a library offers.** A film library lists its films, a series library its series, a mixed
+  one both, *All libraries* everything, each by name or newest first. An other library lists its
+  videos by recorded date (newest first, the default), by name, by file name or newest added, with
+  a View of *All* or *Folders* (Q5); no genre.
+- **The alphabet rail** shows only while the sort is by name or by file name, follows that order,
+  and offers only the letters some title in the list begins with in it, which the server names and
+  the rail asks for again with the list's background poll.
+
+### 9.2 Data and API
+
+| Piece | Shape |
+| --- | --- |
+| Library kind | `library.kind` gains `other`; such a library takes NFO files only (`metadata_source = 'nfo'`), which the schema checks, so nothing of it is ever matched online (Q10) |
+| Title kind | `title.kind` gains `other`: every video of an other library, one title a file, named by its file's name without its extension, or by the NFO file beside it; never an extra, an episode or another file's version; identified from its own data, never owed a match |
+| `other_video` | one row an other title, class C, the pass's: `recorded_at` and `recorded_from` (`tag`, `name`, `file`, `person`), its file's name and that name's sort key in the sort locale |
+| Recorded date | the probe's `creation_time` tag (the node reports it as `format.recordedAt`), else a date in the file's or a folder's name (`2019-07-14`, `20190714`, `2019-07`), else the file's modified time; an admin's correction is the override `recorded_at` (D170), `PUT /items/{id}/recorded-at` |
+| `GET /titles` | `kind=movie\|series\|other\|any`, `library` (one, narrowing the caller's reach; a library they do not reach is a 404), `sort=name\|added\|recorded\|file_name` (the last two for `other`), `from` by name or file name. Each entry says its `kind`; an other video its recorded date and where it came from. With no `library`, Films and Series leave out the person's left-out libraries |
+| `GET /titles/letters` | the same `kind`, `library` and `sort`: the rail's letters the list has titles under, `#` for those before A |
+| `GET /libraries/{id}/folders` | an other library's folder (`folder`, `` at its roots): the folders in it, each with how many videos it holds, and its own videos in the sort asked for |
+| `GET/PUT /me/preferences` | `leftOutLibraryIds`: the libraries the person leaves out of Films and Series |
+| `GET /search` | takes `library`, as `/titles` does; its hits may be `other` |
+| Filing report | `POST /items/{id}/filing-report` takes `includeOtherVideos`, off by default: a report on an other video then withholds its name and paths, and says so |
+
+### 9.3 Not yet
+
+- A frame taken from the video as an other video's picture: the node's artwork command reads only
+  images today. Until then an image beside the video (D215's names) is its picture, and a tile
+  with none shows its name and date.
+- Genres, and a search field on Films and Series (the owner's *"eventually"*).
