@@ -210,7 +210,7 @@ def gate_writes(command: str, cwd: Path) -> list[str]:
                 targets += write_targets(runs)
         for target in targets:
             path = resolver.path(target) if target else None
-            rel = relative(str(path), hooklib.ROOT) if path else None
+            rel = relative(str(path), hooklib.root_of(path)) if path else None
             if rel and (is_gate(rel) or is_gate(f"{rel}/x")):  # the file, or a gate directory
                 hits.append(rel)
     return hits
