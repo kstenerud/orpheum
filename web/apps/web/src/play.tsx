@@ -231,11 +231,12 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
 function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
   // On a television the player's own bar, which a remote reaches, and full screen at once; on a
   // computer or a phone the browser's own controls (the owner, 2026-10-25).
-  // A cast's receiver shows the film and nothing else (D337 §3).
-  const isOnTelevision = isTelevision(navigator.userAgent) && props.receiving === undefined;
+  // A cast's receiver, on any device, has a television's controls alone, over the film filling the
+  // window (D338 §5).
+  const hasTelevisionControls = isTelevision(navigator.userAgent) || props.receiving !== undefined;
   return {
-    hasControls: !isOnTelevision && props.receiving === undefined,
-    over: overTheFilm(isOnTelevision, props.receiving !== undefined),
+    hasControls: !hasTelevisionControls,
+    over: overTheFilm(hasTelevisionControls),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,

@@ -10,10 +10,12 @@ export const enCast = {
     heading: "Cast to",
     close: "Close",
     connectedNow: "Open now · last used {{used}}",
+    noTabInFront:
+      "Open, but no Orpheum tab is in front: bring one to the front there to cast to it",
+    notInFront:
+      "{{name}} has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
-    controlledFrom: "Controlled from {{name}}",
-    takeBack: "Take back control",
-    takeBackExplain: "Press again to take back control from {{name}}.",
+    controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
     remote: "Remote",
     aFilm: "A film",
     playingOn: "Playing on {{name}}",

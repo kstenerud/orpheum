@@ -56,8 +56,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   arrive (D250 §4); and while the group waits it reports its state at every check, so the server
   can end the wait on time (D250 §3). `src/together-follow.test.ts`.
 - **A page's live connection** (D337 §2) is the session socket's address with a hello of its own,
-  the session token in the hello alone; it keeps the person's devices connected now and the cast
-  handed to it until taken, pings, and connects again with a growing wait, but not after the server
+  the session token in the hello alone; the hello says whether the tab is in front, and the page
+  says it again as that changes (D338 §2); it keeps the person's devices connected now, those with a
+  tab in front, and the cast handed to it until taken, pings, and connects again with a growing wait, but not after the server
   refused the sign-in. `src/live-connection.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused

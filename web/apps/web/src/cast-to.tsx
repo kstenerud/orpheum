@@ -2,7 +2,7 @@
 
 import "./cast.css";
 
-import { useEffect, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
@@ -62,19 +62,26 @@ export function CastToDevice(props: {
   );
 }
 
-/** The person's other devices open now, read again as that set changes, each a button to cast to. */
+/**
+ * The person's other devices open now, read again as that set changes, each a button to cast to; a
+ * device with no Orpheum tab in front says so, and a cast to it is refused with what to do (D338 §2).
+ */
 function CastTargets(props: {
   readonly fileId: number;
   readonly positionMs: () => number | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, navigation } = useServices();
-  const { connectedDeviceIds } = useLive();
+  const { connectedDeviceIds, inFrontDeviceIds } = useLive();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  const chosenNameRef = useRef("");
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    problemText(t, cause, { conflict: t("cast.notInFront", { name: chosenNameRef.current }) }),
+  );
   const castTo = (device: Device): void => {
+    chosenNameRef.current = device.name;
     runRequest(async () => {
       await startCast(api, {
         toDeviceId: device.id,
@@ -87,7 +94,7 @@ function CastTargets(props: {
   };
   return (
     <BusyGroup isBusy={isBusy}>
-      <Targets devices={devices} onCast={castTo} />
+      <Targets devices={devices} inFrontDeviceIds={inFrontDeviceIds} onCast={castTo} />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </BusyGroup>
   );
@@ -99,6 +106,7 @@ function CastTargets(props: {
  */
 function Targets(props: {
   readonly devices: Resource<Device[]>;
+  readonly inFrontDeviceIds: readonly number[];
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -112,13 +120,21 @@ function Targets(props: {
   return devices.value.length === 0 ? (
     <p>{t("cast.none")}</p>
   ) : (
-    <TargetList devices={devices.value} onCast={props.onCast} />
+    <TargetList
+      devices={devices.value}
+      inFrontDeviceIds={props.inFrontDeviceIds}
+      onCast={props.onCast}
+    />
   );
 }
 
-/** The devices to cast to: each a button with its name and when it was last used. */
+/**
+ * The devices to cast to: each a button with its name and when it was last used, or, with no Orpheum
+ * tab in front, that one must be brought to the front there (D338 §2).
+ */
 function TargetList(props: {
   readonly devices: readonly Device[];
+  readonly inFrontDeviceIds: readonly number[];
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
@@ -135,7 +151,9 @@ function TargetList(props: {
             {device.name}
           </button>{" "}
           <span>
-            {t("cast.connectedNow", { used: dateTimeText(device.lastUsedAt, i18n.language) })}
+            {props.inFrontDeviceIds.includes(device.id)
+              ? t("cast.connectedNow", { used: dateTimeText(device.lastUsedAt, i18n.language) })
+              : t("cast.noTabInFront")}
           </span>
         </li>
       ))}

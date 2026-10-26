@@ -28,6 +28,8 @@ export interface LiveSnapshot {
   readonly isConnected: boolean;
   /** The person's devices connected now, this one among them, by id; empty until told. */
   readonly deviceIds: readonly number[];
+  /** Those of deviceIds with an Orpheum tab in front, which a cast can go to (D338 §2). */
+  readonly inFrontDeviceIds: readonly number[];
   /** The last cast handed to this device, until it is taken (takeReceive). */
   readonly receive: CastToReceive | undefined;
   /** Whether the server refused the sign-in, after which it connects no more. */
@@ -41,6 +43,8 @@ export interface LiveConnection {
   readonly subscribe: (listener: () => void) => () => void;
   /** Says the cast handed over has been taken, so it is not taken again. */
   readonly takeReceive: () => void;
+  /** Tells the server the page's tab came to the front, or went behind (D338 §2). */
+  readonly showFront: (isInFront: boolean) => void;
   readonly open: () => void;
   readonly close: () => void;
 }
@@ -53,6 +57,8 @@ export interface LiveConnectionOptions {
   readonly client?: string | undefined;
   readonly openSocket: OpenTogetherSocket;
   readonly monotonicMs: () => number;
+  /** Whether the page's tab is in front now, said in each hello (D338 §2); in front when not given. */
+  readonly isInFront?: (() => boolean) | undefined;
 }
 
 /** The WebSocket close code the server sends when it refuses the hello: a sign-in it does not know. */
@@ -61,6 +67,7 @@ const policyViolationCode = 1008;
 const startingSnapshot: LiveSnapshot = {
   isConnected: false,
   deviceIds: [],
+  inFrontDeviceIds: [],
   receive: undefined,
   isRefused: false,
 };
@@ -103,9 +110,18 @@ function parseReceive(value: unknown): CastToReceive | undefined {
 
 /** One message the server sends on a live connection, or undefined for one this client ignores. */
 export type LiveMessage =
-  | { readonly type: "devices"; readonly deviceIds: readonly number[] }
+  | {
+      readonly type: "devices";
+      readonly deviceIds: readonly number[];
+      readonly inFrontDeviceIds: readonly number[];
+    }
   | { readonly type: "receive"; readonly receive: CastToReceive }
   | { readonly type: "pong" };
+
+/** A list of ids as a message carries it; empty for none or one malformed. */
+function idsIn(ids: unknown): number[] {
+  return Array.isArray(ids) ? ids.filter((id): id is number => typeof id === "number") : [];
+}
 
 /** Reads one message the server sent; undefined for one malformed or unknown. */
 export function parseLiveMessage(text: string): LiveMessage | undefined {
@@ -120,13 +136,12 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
     return undefined;
   }
   switch (record["type"]) {
-    case "devices": {
-      const ids: unknown = record["deviceIds"];
-      const deviceIds = Array.isArray(ids)
-        ? ids.filter((id): id is number => typeof id === "number")
-        : [];
-      return { type: "devices", deviceIds };
-    }
+    case "devices":
+      return {
+        type: "devices",
+        deviceIds: idsIn(record["deviceIds"]),
+        inFrontDeviceIds: idsIn(record["inFrontDeviceIds"]),
+      };
     case "receive": {
       const receive = parseReceive(record["receive"]);
       return receive === undefined ? undefined : { type: "receive", receive };
@@ -149,6 +164,8 @@ class PageLiveConnection implements LiveConnection {
   #pinger: ReturnType<typeof setInterval> | undefined;
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   #isClosed = true;
+  /** Whether the current socket has said hello, after which a move of the tab is said on it. */
+  #isGreeted = false;
 
   constructor(options: LiveConnectionOptions) {
     this.#options = options;
@@ -165,6 +182,12 @@ class PageLiveConnection implements LiveConnection {
     if (this.#snapshot.receive !== undefined) {
       this.#change({ ...this.#snapshot, receive: undefined });
     }
+  };
+
+  readonly showFront = (isInFront: boolean): void => {
+    if (this.#isGreeted) {
+      this.#send({ type: "front", ...(isInFront ? {} : { behind: true }) });
+    } // else the hello says it
   };
 
   readonly open = (): void => {
@@ -213,7 +236,12 @@ class PageLiveConnection implements LiveConnection {
     switch (message.type) {
       case "devices":
         this.#attempt = 0;
-        this.#change({ ...this.#snapshot, isConnected: true, deviceIds: message.deviceIds });
+        this.#change({
+          ...this.#snapshot,
+          isConnected: true,
+          deviceIds: message.deviceIds,
+          inFrontDeviceIds: message.inFrontDeviceIds,
+        });
         return;
       case "receive":
         this.#change({ ...this.#snapshot, receive: message.receive });
@@ -247,6 +275,7 @@ class PageLiveConnection implements LiveConnection {
 
   #connect(): void {
     this.#generation += 1;
+    this.#isGreeted = false;
     this.#unansweredPings = 0;
     clearInterval(this.#pinger);
     this.#socket?.close();
@@ -259,7 +288,9 @@ class PageLiveConnection implements LiveConnection {
             type: "live",
             sessionToken: this.#options.sessionToken,
             ...(this.#options.client === undefined ? {} : { client: this.#options.client }),
+            ...((this.#options.isInFront?.() ?? true) ? {} : { behind: true }),
           });
+          this.#isGreeted = true;
           this.#pinger = setInterval(this.#ping, pingEveryMs);
         }
       },
@@ -278,8 +309,9 @@ class PageLiveConnection implements LiveConnection {
 }
 
 /**
- * A page's live connection, which connects when opened: says hello with the session token, keeps
- * the person's connected devices and the last cast handed to this device, pings as the session
+ * A page's live connection, which connects when opened: says hello with the session token and
+ * whether its tab is in front, says so again as that changes, keeps the person's connected devices,
+ * those in front, and the last cast handed to this device, pings as the session
  * socket does, and connects again with a growing wait after a drop, until closed or until the server
  * refuses the sign-in.
  */

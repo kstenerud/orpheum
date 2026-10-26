@@ -21825,7 +21825,7 @@ as it names its roles.
    more confirming it. Every other press works the receiver's own controls. Leaving gives the
    receiver back its own playback, which plays on there, and the remote is told.
 
-**Status:** Decided; being built (cast-to-device.md §11).
+**Status:** Decided, and built (cast-to-device.md §11, its assumptions 2, 3, 5, 7, 11–13). Device checks: VQ64–VQ66 and VQ68 as revised, and VQ71.
 
 ## D339 — Up next keeps its 30 s lead until credits are detected, a run of three autoplays with no press asks Still watching, and a host's autoplay moves their group on
 

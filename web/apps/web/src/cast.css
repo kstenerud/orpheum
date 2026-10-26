@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* A cast's receiver (cast-receiver.tsx): its line and its prompt over the film filling the window. */
+/* A cast's receiver (cast-receiver.tsx): its "Controlled from" line over the film filling the window. */
 .cast-receiver {
   position: fixed;
   z-index: 60;
@@ -30,23 +30,6 @@
   100% {
     opacity: 0;
   }
-}
-
-.cast-receiver__prompt {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  gap: var(--space-3);
-  max-width: 30rem;
-  padding: var(--space-4);
-  border-radius: var(--space-2);
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  font-size: var(--font-size-h2);
-  text-align: center;
-  pointer-events: auto;
-  transform: translate(-50%, -50%);
 }
 
 /* A cast's sender, its remote (cast-remote.tsx). */

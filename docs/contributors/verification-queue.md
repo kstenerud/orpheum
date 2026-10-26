@@ -618,25 +618,28 @@ An item is ticked only by the person who did it, and only with what they saw.
   `internal/core/rtcapi/verdict.go`, `web/apps/web/src/discovery-gate.tsx`)
 - [ ] **VQ64** — Sign a Fire TV stick (Silk, in pointer mode and again in spatial mode), the TCL TV
   (TV Bro) and a phone in as the same person; open any Orpheum page on the TV. On the phone, play a
-  film, press **Cast to another device** and choose the TV (D337; plans/cast-to-device.md §4, §8
-  step 3). Passes when the TV is listed by its name with when it was last used, plays the film within
-  a few seconds of where the phone stood, filling the screen with nothing on it but *Controlled from
-  ‹phone›*, which fades after about five seconds; with sound, or with **Sound on**, which OK starts;
+  film, press **Cast to another device** and choose the TV (D337, D338; plans/cast-to-device.md §4,
+  §8 step 3). Passes when the TV is listed by its name with when it was last used, plays the film
+  within a few seconds of where the phone stood, filling the screen with the TV's own player controls
+  over it and *Controlled from ‹phone› · Back, or OK twice, to take control here*, which fades after
+  about five seconds; with sound, or with **Sound on**, which OK starts;
   the phone shows the remote (no film playing on it), and its Play, Pause, Back 10 s, Forward 10 s and
   timeline move the TV within a second or two. (`web/apps/web/src/cast-to.tsx`, `cast-receiver.tsx`,
   `cast-remote.tsx`, `live.tsx`)
 - [ ] **VQ65** — With the phone casting to the TV as in VQ64, on the Fire TV in Silk's spatial mode
-  press Back, then Back again; then cast again and press OK twice; in pointer mode, press OK twice;
-  on the TCL, the remote's Back twice (D337 §4; §6.1). Passes when the first press shows *Take back
-  control* and the second takes it: the TV plays on with its own controls, and the phone says *‹TV›
-  took control back.* with **Play here from ‹position›**; a single press left alone hides the prompt
-  after about five seconds and the cast goes on. Then cast from the phone, then from a laptop: the
+  press Back once; cast again and press OK twice quickly; in pointer mode, press Back once, and again
+  OK twice quickly; on the TCL, the remote's Back once, and OK twice (D338 §6; §6.1). Passes when each
+  takes control back at once: the TV plays on as an ordinary player with its own controls, and the
+  phone says *‹TV› took control back.* with **Play here from ‹position›**; a single OK, or two half a
+  second or more apart, only works the TV's controls (opens them, presses what has focus) and the
+  cast goes on. Then cast from the phone, then from a laptop: the
   phone must say another device now controls the TV, and the TV follow the laptop. Lock the phone:
   the TV plays on. (`web/apps/web/src/cast-receiver.tsx`)
 - [ ] **VQ66** — With the phone casting to the TV as in VQ64, press the Fire TV remote's play/pause
-  key, and in Silk's spatial mode its Left and Right; on the TCL, its remote's play/pause (D337 §7;
-  §6.4). Passes when the TV pauses and plays, and seeks 10 s, without the take-back prompt, and the
-  phone shows *Paused* or *Playing* and the new position within a second or two.
+  key, and in Silk's spatial mode its Left and Right, and OK then (once the controls show) OK on
+  play; on the TCL, its remote's play/pause (D337 §7; D338 §5; §6.4). Passes when the TV pauses and
+  plays, and seeks 10 s, through its own controls, still controlled, and the phone shows *Paused* or
+  *Playing* and the new position within a second or two.
   (`web/apps/web/src/cast-receiver.tsx`, `player-commands.ts`)
 - [ ] **VQ67** — Sign the Fire TV stick (Silk, in spatial mode and again in pointer mode), the TCL TV
   (TV Bro) and a laptop's Chrome in as one person whose autoplay is on (Your account, *Playing*).
@@ -654,8 +657,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   10 s* counting down, then plays the next episode filling the screen, the phone's remote showing its
   title and length within a few seconds; then on the phone press **Up next**: the TV plays the one
   after. Turn autoplay off and let an episode end: the TV waits with the offer, and the phone's **Up
-  next** plays it. Cast the season's last episode and let it end: the TV goes home and the phone says
-  the film ended. (`web/apps/web/src/up-next.tsx`, `cast-receiver.tsx`, `cast-remote.tsx`,
+  next** plays it. Cast the season's last episode and let it end: the TV goes back to the page it
+  showed before the cast (D338 §1) and the phone says the film ended. (`web/apps/web/src/up-next.tsx`, `cast-receiver.tsx`, `cast-remote.tsx`,
   `live.tsx`)
 - [ ] **VQ69** — On the Fire TV stick (Silk, spatial mode) and a laptop's Chrome, signed in with
   autoplay on, play an episode with at least four after it in its season, seeking each to a minute
@@ -670,3 +673,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   next episode together, the guest's never showing the black stopped screen nor "Karl stopped the
   film" between, the group starting in step; done again with the host pressing Up next before the
   end, the same. (`web/apps/web/src/together-host.tsx`, `up-next.tsx`)
+- [ ] **VQ71** — Sign a laptop's Chrome, the Fire TV stick (Silk) and a phone in as one person
+  (D338 §1, §2). On the laptop open two Orpheum tabs, then bring a tab of another site to the front;
+  on the phone, play a film and open **Cast to another device**. Passes when the laptop is listed
+  with *Open, but no Orpheum tab is in front*, and choosing it says *‹laptop› has no Orpheum tab in
+  front. Bring an Orpheum tab to the front on it, then cast again.*; bring the second Orpheum tab to
+  the front, and within a second or two the list says *Open now*, and a cast plays in that tab, the
+  first staying as it was. On the Fire TV open a title's page, cast to it from the phone, then press
+  **Stop casting** on the phone: the TV goes back to that title's page, not paused on the film; cast
+  to it from its home page, reload the TV's page while it receives, then stop again: it goes back to
+  its home page. (`web/apps/web/src/live.tsx`, `cast-to.tsx`, `cast-return.ts`,
+  `internal/core/live/registry.go`)

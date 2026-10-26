@@ -126,6 +126,32 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().receive).toBeUndefined();
   });
 
+  it("says whether its tab is in front, in the hello and as it moves, and keeps the devices in front (D338 §2)", () => {
+    const sockets = fakeSockets();
+    let isInFront = false;
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+      isInFront: () => isInFront,
+    });
+    connection.open();
+    connection.showFront(true); // before the hello, which says where the tab is then
+    expect(sockets.sent).toEqual([]);
+    sockets.opened[0]!.onOpen();
+    expect(sockets.sent[0]).toEqual({ type: "live", sessionToken: "session", behind: true });
+    isInFront = true;
+    connection.showFront(true);
+    connection.showFront(false);
+    expect(sockets.sent.slice(1)).toEqual([{ type: "front" }, { type: "front", behind: true }]);
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({ type: "devices", deviceIds: [3, 4], inFrontDeviceIds: [4] }),
+    );
+    expect(connection.snapshot()).toMatchObject({ deviceIds: [3, 4], inFrontDeviceIds: [4] });
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3] }));
+    expect(connection.snapshot().inFrontDeviceIds).toEqual([]);
+  });
+
   it("reads a cast with no position as one starting where the person left the film", () => {
     expect(
       parseLiveMessage(

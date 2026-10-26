@@ -38,10 +38,10 @@ func isLiveHello(first json.RawMessage) bool {
 	return json.Unmarshal(first, &hello) == nil && hello.Type == live.MessageHello
 }
 
-// serveLiveSocket is a device's live connection, after its hello: registered while it lasts, its
-// person's connected devices and any cast handed to it written to it, its pings answered, until
-// either end closes or it stays silent past the silence limit. A sign-in of no device is refused, as
-// one that cannot be cast to (§2).
+// serveLiveSocket is a device's live connection, after its hello: registered while it lasts, in front
+// or behind as its tab says (D338 §2), its person's connected devices and any cast handed to it
+// written to it, its pings answered, until either end closes or it stays silent past the silence
+// limit. A sign-in of no device is refused, as one that cannot be cast to (§2).
 func (server *Server) serveLiveSocket(
 	ctx context.Context, connection togetherSocket, dependencies *Dependencies, first json.RawMessage,
 	request *http.Request,
@@ -77,7 +77,7 @@ func (server *Server) serveLiveSocket(
 			closing.Do(cancel) // too far behind: it reads nothing
 		}
 	}
-	registered := dependencies.Live.Connect(principal.UserID, principal.DeviceID, send)
+	registered := dependencies.Live.Connect(principal.UserID, principal.DeviceID, !hello.IsBehind, send)
 	device := []any{
 		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "client", clientScriptOf(hello.Client),
 	}
@@ -87,16 +87,21 @@ func (server *Server) serveLiveSocket(
 		defer close(written)
 		writeLive(ctx, connection, outbox, cancel)
 	}()
-	ended := readLive(ctx, connection, send, time.Duration(server.togetherSilence.Load()))
+	showFront := func(isInFront bool) { dependencies.Live.ShowFront(registered, isInFront) }
+	ended := readLive(ctx, connection, send, showFront, time.Duration(server.togetherSilence.Load()))
 	dependencies.Live.Disconnect(registered) // nothing is sent to it after this
 	server.logger.DebugContext(ctx, "live: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
 	<-written
 }
 
-// readLive answers each ping the device sends, until the socket or ctx ends or the device sends
-// nothing for silence, and says why it ended.
-func readLive(ctx context.Context, connection togetherSocket, send live.Sender, silence time.Duration) error {
+// readLive answers each ping the device sends and passes each move of its tab, to the front or
+// behind, to showFront (D338 §2), until the socket or ctx ends or the device sends nothing for
+// silence, and says why it ended.
+func readLive(
+	ctx context.Context, connection togetherSocket, send live.Sender, showFront func(isInFront bool),
+	silence time.Duration,
+) error {
 	for {
 		var message live.Inbound
 		readContext, cancel := context.WithTimeoutCause(ctx, silence, errSilent)
@@ -109,8 +114,12 @@ func readLive(ctx context.Context, connection togetherSocket, send live.Sender, 
 		if err != nil {
 			return err
 		}
-		if message.Type == live.MessagePing {
+		switch message.Type {
+		case live.MessagePing:
 			send(live.Outbound{Type: live.MessagePong, TMono: message.TMono})
+		case live.MessageFront:
+			showFront(!message.IsBehind)
+		case live.MessageHello, live.MessageDevices, live.MessageReceive, live.MessagePong:
 		}
 	}
 }
