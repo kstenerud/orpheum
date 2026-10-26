@@ -155,25 +155,22 @@ func newJobsWorld(t *testing.T, start time.Time) *jobsWorld {
 	return world
 }
 
-// wireQueue wires the queue, TMDB's provider services and the matcher over cache, as serve
-// does: again over a new cache.db when a test discards the old one.
+// wireQueue wires the queue, TMDB's provider services and the matcher over cache by serve's own
+// newMetadataJobs: again over a new cache.db when a test discards the old one.
 func (world *jobsWorld) wireQueue(cache *store.Cache) {
 	world.t.Helper()
 	logger := slog.New(slog.DiscardHandler)
 	world.cache = cache
-	world.queue = jobs.NewQueue(jobs.QueueParts{
-		Cache: cache, Clock: world.clock, Settings: world.config, Random: jobqueuetest.Unjittered(), Logger: logger,
-		ArgsMerges: jobArgsMerges(),
-	})
-	world.hosts = newHostProviders(world.queue, world.secrets, world.clock, world.config)
 	httpClient, err := outbound.NewClient(5*time.Second, "test")
 	if err != nil {
 		world.t.Fatal(err)
 	}
-	client := tmdb.New(httpClient, world.tmdbURL, world.secrets, world.hosts.tmdbAPI)
-	world.pass = identify.NewPass(world.database, world.clock, logger, identify.Providers{"tmdb": client}, world.config)
-	world.matcher = identify.NewMatcher(world.database, cache, world.pass, world.clock, logger)
-	world.refresher = identify.NewRefresher(world.database, world.queue, world.config, world.clock, logger)
+	metadata := newMetadataJobs(metadataParts{
+		database: world.database, cache: cache, settings: world.config, secrets: world.secrets, clock: world.clock,
+		random: jobqueuetest.Unjittered(), httpClient: httpClient, tmdbBaseURL: world.tmdbURL, logger: logger,
+	})
+	world.queue, world.hosts, world.pass = metadata.queue, metadata.hosts, metadata.pass
+	world.matcher, world.refresher = metadata.matcher, metadata.refresher
 	world.runner = world.queue.NewRunner(jobs.KindFetchMetadata, world.matcher.Handle)
 }
 

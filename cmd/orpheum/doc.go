@@ -66,7 +66,9 @@
 //     password read without echo.
 //     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
 //     builds only.
-//   - metadata.go: the background jobs and loops the core starts. artwork.go: the artwork service
+//   - metadata.go: the background jobs and loops the core starts; metadata_jobs.go: the metadata
+//     jobs' queue, pass and matcher, made one way for serve and the scenarios (newMetadataJobs), and
+//     the outside hosts' provider services. artwork.go: the artwork service
 //     and its cache's upkeep. nodes.go: the core's side of the node channel. node.go: orpheum node,
 //     the media node itself.
 package main
