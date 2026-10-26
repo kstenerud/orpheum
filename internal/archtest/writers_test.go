@@ -17,9 +17,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -213,31 +215,61 @@ func functionsUsed(
 }
 
 // loadExportFiles runs `go list -export` over the module and its dependencies: each package's
-// compiled export data, which the type checker imports.
+// compiled export data, which the type checker imports. The first call in the process runs it;
+// every later one shares its result (finding 8).
 func loadExportFiles(t *testing.T) map[string]string {
 	t.Helper()
-	command := exec.CommandContext(t.Context(), "go", "list", "-export", "-deps", "-json=ImportPath,Export",
-		modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("go list -export failed: %v\n%s", err, stderr.String())
-	}
-	exportFiles := map[string]string{}
-	decoder := json.NewDecoder(bytes.NewReader(output))
-	for {
-		var listed exportedPackage
-		err := decoder.Decode(&listed)
-		if errors.Is(err, io.EOF) {
-			break
-		}
+	exportFilesCache.once.Do(func() {
+		command := exec.CommandContext(t.Context(), "go", "list", "-export", "-deps", "-json=ImportPath,Export",
+			modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
+		var stderr bytes.Buffer
+		command.Stderr = &stderr
+		output, err := command.Output()
 		if err != nil {
-			t.Fatalf("decode go list -export output: %v", err)
+			exportFilesCache.err = fmt.Errorf("go list -export failed: %w\n%s", err, stderr.String())
+			return
 		}
-		exportFiles[listed.ImportPath] = listed.Export
+		exportFiles := map[string]string{}
+		decoder := json.NewDecoder(bytes.NewReader(output))
+		for {
+			var listed exportedPackage
+			decodeErr := decoder.Decode(&listed)
+			if errors.Is(decodeErr, io.EOF) {
+				break
+			}
+			if decodeErr != nil {
+				exportFilesCache.err = fmt.Errorf("decode go list -export output: %w", decodeErr)
+				return
+			}
+			exportFiles[listed.ImportPath] = listed.Export
+		}
+		exportFilesCache.files = exportFiles
+	})
+	if exportFilesCache.err != nil {
+		t.Fatal(exportFilesCache.err)
 	}
-	return exportFiles
+	return exportFilesCache.files
+}
+
+// exportFilesCache is loadExportFiles' result, loaded once per process: each export file's path
+// is good for the whole run, since nothing rebuilds the packages between calls.
+var exportFilesCache struct {
+	once  sync.Once
+	files map[string]string
+	err   error
+}
+
+// loadExportFiles shares one go list -export per process too (finding 8).
+func TestLoadExportFiles_SharesOneGoListPerProcess(t *testing.T) {
+	t.Parallel()
+	first := loadExportFiles(t)
+	second := loadExportFiles(t)
+	if len(first) == 0 || len(second) == 0 {
+		t.Fatal("loadExportFiles returned no packages")
+	}
+	if reflect.ValueOf(first).Pointer() != reflect.ValueOf(second).Pointer() {
+		t.Error("two calls to loadExportFiles did not share one result: each ran its own go list")
+	}
 }
 
 // TestArch_EachTableHasOneWritingPackage checks that each persistent.db and cache.db table is

@@ -6,10 +6,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -38,51 +41,115 @@ type sourceFile struct {
 }
 
 // loadModulePackages lists every package of this module that the rules govern. A missing go
-// command fails the test rather than skipping it (D190 §2): these tests are the gate.
+// command fails the test rather than skipping it (D190 §2): these tests are the gate. The first
+// call in the process runs `go list`; every later one shares its result (test architecture
+// review, 2026-10-26, finding 8: about 22 calls a run, each its own process).
 func loadModulePackages(t *testing.T) []listedPackage {
 	t.Helper()
-	command := exec.CommandContext(t.Context(), "go", "list", "-json",
-		modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("go list failed: %v\n%s", err, stderr.String())
+	modulePackagesCache.once.Do(func() {
+		command := exec.CommandContext(t.Context(), "go", "list", "-json",
+			modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
+		var stderr bytes.Buffer
+		command.Stderr = &stderr
+		output, err := command.Output()
+		if err != nil {
+			modulePackagesCache.err = fmt.Errorf("go list failed: %w\n%s", err, stderr.String())
+			return
+		}
+		packages, err := decodePackages(output)
+		if err != nil {
+			modulePackagesCache.err = fmt.Errorf("decode go list output: %w", err)
+			return
+		}
+		if len(packages) == 0 {
+			modulePackagesCache.err = errors.New("go list returned no packages; the rules would pass vacuously")
+			return
+		}
+		modulePackagesCache.packages = packages
+	})
+	if modulePackagesCache.err != nil {
+		t.Fatal(modulePackagesCache.err)
 	}
-	packages, err := decodePackages(output)
-	if err != nil {
-		t.Fatalf("decode go list output: %v", err)
-	}
-	if len(packages) == 0 {
-		t.Fatal("go list returned no packages; the rules would pass vacuously")
-	}
-	return packages
+	return modulePackagesCache.packages
+}
+
+// modulePackagesCache is loadModulePackages' result, loaded once per process: `go list` walks the
+// whole module graph, which costs seconds repeated by each of archtest's many callers.
+var modulePackagesCache struct {
+	once     sync.Once
+	packages []listedPackage
+	err      error
 }
 
 // loadCoreImportGraph lists every package the core depends on, the standard library and
 // third-party modules included, as a map from import path to its direct imports, so a rule can
-// follow the route a dependency takes rather than only see that it is there.
+// follow the route a dependency takes rather than only see that it is there. The first call in
+// the process runs `go list -deps`; every later one shares its result (finding 8).
 func loadCoreImportGraph(t *testing.T) map[string][]string {
 	t.Helper()
-	command := exec.CommandContext(t.Context(), "go", "list", "-deps", "-json", corePath+"/...")
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("go list -deps failed: %v\n%s", err, stderr.String())
+	coreImportGraphCache.once.Do(func() {
+		command := exec.CommandContext(t.Context(), "go", "list", "-deps", "-json", corePath+"/...")
+		var stderr bytes.Buffer
+		command.Stderr = &stderr
+		output, err := command.Output()
+		if err != nil {
+			coreImportGraphCache.err = fmt.Errorf("go list -deps failed: %w\n%s", err, stderr.String())
+			return
+		}
+		packages, err := decodePackages(output)
+		if err != nil {
+			coreImportGraphCache.err = fmt.Errorf("decode go list output: %w", err)
+			return
+		}
+		graph := map[string][]string{}
+		for _, listed := range packages {
+			graph[listed.ImportPath] = listed.Imports
+		}
+		if len(graph) == 0 {
+			coreImportGraphCache.err = errors.New("go list -deps returned no packages; the rule would pass vacuously")
+			return
+		}
+		coreImportGraphCache.graph = graph
+	})
+	if coreImportGraphCache.err != nil {
+		t.Fatal(coreImportGraphCache.err)
 	}
-	packages, err := decodePackages(output)
-	if err != nil {
-		t.Fatalf("decode go list output: %v", err)
+	return coreImportGraphCache.graph
+}
+
+// coreImportGraphCache is loadCoreImportGraph's result, loaded once per process.
+var coreImportGraphCache struct {
+	once  sync.Once
+	graph map[string][]string
+	err   error
+}
+
+// loadModulePackages shares one go list per process (finding 8): two calls, as two of archtest's
+// many tests would each make, return the same slice, not two each parsed from a go list of its
+// own.
+func TestLoadModulePackages_SharesOneGoListPerProcess(t *testing.T) {
+	t.Parallel()
+	first := loadModulePackages(t)
+	second := loadModulePackages(t)
+	if len(first) == 0 || len(second) == 0 {
+		t.Fatal("loadModulePackages returned no packages")
 	}
-	graph := map[string][]string{}
-	for _, listed := range packages {
-		graph[listed.ImportPath] = listed.Imports
+	if reflect.ValueOf(first).Pointer() != reflect.ValueOf(second).Pointer() {
+		t.Error("two calls to loadModulePackages did not share one result: each ran its own go list")
 	}
-	if len(graph) == 0 {
-		t.Fatal("go list -deps returned no packages; the rule would pass vacuously")
+}
+
+// loadCoreImportGraph shares one go list per process too (finding 8).
+func TestLoadCoreImportGraph_SharesOneGoListPerProcess(t *testing.T) {
+	t.Parallel()
+	first := loadCoreImportGraph(t)
+	second := loadCoreImportGraph(t)
+	if len(first) == 0 || len(second) == 0 {
+		t.Fatal("loadCoreImportGraph returned no packages")
 	}
-	return graph
+	if reflect.ValueOf(first).Pointer() != reflect.ValueOf(second).Pointer() {
+		t.Error("two calls to loadCoreImportGraph did not share one result: each ran its own go list")
+	}
 }
 
 // decodePackages reads the stream of JSON objects `go list -json` prints.
