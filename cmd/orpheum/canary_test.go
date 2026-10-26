@@ -36,7 +36,11 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
 	captured := newCapturedLog("ready", "stopping")
-	server := startServing(t, config, captured, "ready", nil)
+	// Cold, as a new installation starts. A seeded start, it seems, reaches its scheduled backup soon enough for
+	// the stop below to interrupt the copy's check, which leaves the snapshot behind (backup.write
+	// removes one only when the check fails); the command's backup in the same second then cannot take
+	// its name. A latent fault in backup, reported to the owner 2026-10-26, not this test's subject.
+	server := startServingCold(t, config, captured, "ready")
 	const adminName = "CONTROL-admin-name"
 	setupCode := setUpOwner(t, server, configPath, adminName)
 	token := signInAs(t, server.baseURL, adminName, ownerPassword)

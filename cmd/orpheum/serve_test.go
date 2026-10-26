@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -199,8 +200,21 @@ func startServing(
 	return startServingOn(t, listener, config, captured, awaited, node)
 }
 
-// startServingOn is startServing on the test's own listener.
+// startServingOn is startServing on the test's own listener. An instance with no persistent.db yet
+// starts from a seeded one (seedPersistentDatabase); one the test made or served before starts
+// from what it holds.
 func startServingOn(
+	t *testing.T, listener net.Listener, config Config, captured capturedLog, awaited string,
+	node func(ctx context.Context) error,
+) runningServer {
+	t.Helper()
+	seedPersistentDatabase(t, config)
+	return serveOn(t, listener, config, captured, awaited, node)
+}
+
+// serveOn runs serve on listener until the test stops it, and waits until it logs awaited, as
+// startServing says.
+func serveOn(
 	t *testing.T, listener net.Listener, config Config, captured capturedLog, awaited string,
 	node func(ctx context.Context) error,
 ) runningServer {
@@ -393,20 +407,41 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	}
 }
 
+// The one serving test that starts cold, as a new installation does: every other starts from a
+// seeded persistent.db (seedPersistentDatabase).
 func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	captured := newCapturedLog("ready")
-	server := startServing(t, config, captured, "ready", nil)
+	server := startServingCold(t, config, captured, "ready")
 	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusOK || !strings.Contains(health.body, `"status":"ready"`) {
 		t.Errorf("/health once ready = %d %s", health.status, health.body)
+	}
+	if logged := captured.String(); !strings.Contains(logged, `"msg":"migrating"`) ||
+		!strings.Contains(logged, "wrote the starting value of settings that had none") {
+		t.Errorf("a cold start neither migrated from empty nor wrote the settings' starting values:\n%s", logged)
 	}
 	if !strings.Contains(captured.String(), `"setupCode"`) {
 		t.Errorf("a server with no users logs no setup code:\n%s", captured)
 	}
 	if err := server.stop(); err != nil {
 		t.Errorf("serve returned %v after a clean stop, want nil", err)
+	}
+}
+
+// A new installation hashes a password at argon2id's production costs, RFC 9106's second option
+// (D194 §2): the costs every other serving test lowers (seedPersistentDatabase) are its own.
+func TestServe_ANewInstallationHashesPasswordsAtTheProductionCosts(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	server := startServingCold(t, config, newCapturedLog("ready"), "ready")
+	setUpOwner(t, server, path, "owner")
+	hashes := storetest.QueryRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
+		"SELECT CAST(password_hash AS TEXT) FROM user WHERE name = 'owner'")
+	production := regexp.MustCompile(`^\$argon2id\$v=19\$m=65536,t=3,p=4\$`)
+	if len(hashes) != 1 || !production.MatchString(hashes[0]) {
+		t.Errorf("the owner's password hash = %q; want argon2id at m=65536, t=3, p=4", hashes)
 	}
 }
 
