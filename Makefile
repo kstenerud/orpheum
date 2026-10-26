@@ -221,8 +221,12 @@ web-test:
 # passed (the owner, 2026-10-18: no light test waits on a heavy one).
 web-test-browser:
 	@$(PYTHON) scripts/area_stamp.py web-test-browser web -- $(MAKE) --no-print-directory web-test-browser-run
+# One browser-mode run at a time on the machine: two gates' runs at once (check-pr's tree, revert-red's
+# worktrees, a sandbox's agents) pushed a walk's 72 round trips to the browser past its timeout
+# (test-weight.md §26). The wait shows as this step's own time (§7).
+BROWSER_MODE_LOCK ?= /tmp/orpheum-browser-mode.lock
 web-test-browser-run: browsers
-	@npm --prefix web run --silent test:browser
+	@flock $(BROWSER_MODE_LOCK) npm --prefix web run --silent test:browser
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale
