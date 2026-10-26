@@ -5,7 +5,7 @@ import { expect } from "@playwright/test";
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
 import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
-import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
+import { longTrackName, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
@@ -47,29 +47,16 @@ test(
 );
 
 test(
-  "the System page shows the machine's hardware encoding and what a prepared film's prepare used",
+  "the System page shows the machine's hardware encoding",
   { tag: oneBrowserTag },
   async ({ page }) => {
     await signIn(page);
-    // Opening its page starts its prepare (D258 §1), once its page has asked how it plays.
-    const asked = page.waitForResponse(
-      (response) => response.request().method() === "POST" && response.url().endsWith("/playback"),
-    );
-    await openFilm(page, preparedFilm);
-    await asked;
+    // No prepare is listed beside it since D344 retired the whole-film prepare; the encoder trials stay.
     await page.goto(`${serverUrl()}/system`);
     await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
     await expect(
       page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
     ).toBeVisible();
-    // The prepared film's MPEG-2 picture was encoded, by whichever encoder the machine has. Its prepare
-    // is listed once it has finished, which may be after the page first loads.
-    const row = page.getByRole("row", { name: new RegExp(preparedFilm) });
-    await expect(async () => {
-      await page.reload();
-      await expect(row).toContainText(/x264|Quick Sync|NVENC/u, { timeout: 1000 });
-    }).toPass({ timeout: 90_000 });
-    await expect(row).toContainText("× real time");
   },
 );
 
