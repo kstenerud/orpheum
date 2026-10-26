@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
@@ -9,8 +9,12 @@ import {
   sessionCheckEveryMs,
   watchForSignOut,
 } from "./signed-out-watch.ts";
-import { servedBy, type Answer } from "./test-dom.tsx";
+import { failOnUnexpectedRequests, servedBy, type Answer } from "./test-dom.tsx";
 import { testOrigin } from "./test-services.tsx";
+
+// This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+// test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
+afterEach(failOnUnexpectedRequests);
 
 /** A navigation that keeps where it was told to go. */
 function recordingNavigation(went: Route[]): Navigation {

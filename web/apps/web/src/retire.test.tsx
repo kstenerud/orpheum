@@ -99,6 +99,7 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
         [200, { libraries: [{ ...films, roots: [] }] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [] }],
       "POST /libraries/3/roots/retire": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
@@ -128,6 +129,7 @@ it("deletes a library only once the admin confirms (D231 §7)", async () => {
         [200, { libraries: [] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [] }],
       "DELETE /libraries/3": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
@@ -148,6 +150,7 @@ it("the System page says since when each folder and disk is offline, and retires
       "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /system/discovery": noDiscovery,
       "GET /now-playing": [200, { playbacks: [] }],
+      "GET /filing-reports": [200, { reports: [] }],
       "GET /system": [
         [200, report],
         [200, { ...report, nodes: [] }],

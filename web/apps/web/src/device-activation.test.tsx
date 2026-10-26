@@ -53,6 +53,12 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
         {
           "GET /me/devices": [200, { devices: [] }],
           "GET /me": [200, { ...owner, canManageAccount: true }],
+          "GET /me/own-link": refusal(404, "not_found"),
+          "GET /me/preferences": [
+            200,
+            { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+          ],
+          "GET /libraries": [200, { libraries: [] }],
           "POST /activations": [
             200,
             {
@@ -205,6 +211,12 @@ describe("activating a device whose QR code was scanned (D321)", () => {
       {
         "GET /me/devices": [200, { devices: [] }],
         "GET /me": [200, { ...owner, canManageAccount: true }],
+        "GET /me/own-link": refusal(404, "not_found"),
+        "GET /me/preferences": [
+          200,
+          { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+        ],
+        "GET /libraries": [200, { libraries: [] }],
         "POST /activations": [
           200,
           { checkCode: "", deviceName: "Tizen", platform: "Tizen", askedSecondsAgo: 5 },

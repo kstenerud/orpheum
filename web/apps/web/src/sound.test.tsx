@@ -54,7 +54,15 @@ function boostBox(): HTMLInputElement | null | undefined {
 describe("how a device makes sound, asked of no one (D336 §4)", () => {
   it("is not asked before a device's first playback: the film plays at once", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /playback": [200, direct(true)] }, heard);
+    const services = servedBy(
+      {
+        "POST /playback": [200, direct(true)],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
     services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
     expect(mounted.container.querySelector("video")).not.toBeNull();
@@ -91,7 +99,15 @@ describe("the dialogue boost over the original (D336 §3)", () => {
           decision={direct(true)}
           onDecideAgain={(cause, at) => asked.push({ cause, at })}
         />,
-        servedBy({ "PUT /me/preferences": [204, undefined] }, heard),
+        servedBy(
+          {
+            "PUT /me/preferences": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "DELETE /playback/t": [204, null],
+          },
+          heard,
+        ),
       ),
     );
     const video = mounted.container.querySelector("video");
@@ -155,6 +171,12 @@ describe("the dialogue boost over the original (D336 §3)", () => {
           [200, boosted],
         ],
         "PUT /me/preferences": [204, undefined],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "GET /files/2/availability": [200, {}],
+        "DELETE /playback/t": [204, null],
+        "POST /playback/u/report": [200, {}],
+        "DELETE /playback/u": [204, null],
       },
       heard,
     );
@@ -174,7 +196,11 @@ describe("the dialogue boost over the original (D336 §3)", () => {
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={direct()} onDecideAgain={() => undefined} />,
-        servedBy({}),
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
       ),
     );
     expect(boostBox()).toBeUndefined();
@@ -240,7 +266,17 @@ describe("the dialogue boost on a film's ladder", () => {
 
   it("is switched under the film on its ladder, playing the other mix and kept for every file (the owner, 2026-10-24)", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
+    const services = servedBy(
+      {
+        "PUT /me/preferences": [204, undefined],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/availability": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "POST /playback/t/report": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={onLadder(false)} onDecideAgain={() => undefined} />,
@@ -268,7 +304,13 @@ describe("the dialogue boost on a film's ladder", () => {
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={onLadder(true)} onDecideAgain={() => undefined} />,
-        servedBy({}),
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/availability": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "POST /playback/t/report": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
       ),
     );
     expect(mounted.container.textContent).toContain("dialogue boost)");
@@ -284,7 +326,13 @@ describe("the dialogue boost on a film's ladder", () => {
           }}
           onDecideAgain={() => undefined}
         />,
-        servedBy({}),
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/availability": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "POST /playback/t/report": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
       ),
     );
     expect(mounted.container.textContent).not.toContain("Dialogue boost");

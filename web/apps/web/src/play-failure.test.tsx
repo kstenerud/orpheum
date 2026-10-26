@@ -36,10 +36,14 @@ afterEach(() => {
 describe("a playback that fails (D241 §7)", () => {
   it("asks the server why, and says its file's folder is missing", async () => {
     const services = servedBy({
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
       "GET /files/2/availability": [
         200,
         { unavailable: { reason: "root_missing", nodeName: "devnas", path: "/media/films" } },
       ],
+      "POST /playback/t/report": [200, {}],
+      "DELETE /playback/t": [204, null],
     });
     mounted = await mount(
       withServices(
@@ -54,7 +58,13 @@ describe("a playback that fails (D241 §7)", () => {
   });
 
   it("says the film could not play, not a prepared copy, for a film on its ladder (the owner's test, 2026-10-18)", async () => {
-    const services = servedBy({ "GET /files/2/availability": [200, {}] });
+    const services = servedBy({
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
+      "GET /files/2/availability": [200, {}],
+      "POST /playback/t/report": [200, {}],
+      "DELETE /playback/t": [204, null],
+    });
     const onLadder = {
       url: "/api/v1/bytes/media/chunks/t/master.m3u8",
       startAtBps: 1_896_000,
@@ -85,7 +95,13 @@ describe("a playback that fails (D241 §7)", () => {
   it("tells the server the player failed, in its own words (the owner's test, 2026-10-18)", async () => {
     const sent: string[] = [];
     sendFailuresTo((text) => sent.push(text));
-    const services = servedBy({ "GET /files/2/availability": [200, {}] });
+    const services = servedBy({
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
+      "GET /files/2/availability": [200, {}],
+      "POST /playback/t/report": [200, {}],
+      "DELETE /playback/t": [204, null],
+    });
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
@@ -98,7 +114,13 @@ describe("a playback that fails (D241 §7)", () => {
   });
 
   it("keeps the player's own words when the file can be read", async () => {
-    const services = servedBy({ "GET /files/2/availability": [200, {}] });
+    const services = servedBy({
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
+      "GET /files/2/availability": [200, {}],
+      "POST /playback/t/report": [200, {}],
+      "DELETE /playback/t": [204, null],
+    });
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
@@ -126,11 +148,15 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
       const heard: Heard[] = [];
       const services = servedBy(
         {
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
           "GET /files/2/availability": [
             [200, unavailable],
             [200, unavailable],
             [200, {}],
           ],
+          "POST /playback/t/report": [200, {}],
+          "DELETE /playback/t": [204, null],
         },
         heard,
       );
@@ -182,6 +208,8 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
       const heard: Heard[] = [];
       const services = servedBy(
         {
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
           "POST /playback": [
             [200, directDecision()],
             [200, directDecision({ mediaToken: "again" })],
@@ -191,6 +219,10 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
             [200, unavailable],
             [200, {}],
           ],
+          "POST /playback/t/report": [200, {}],
+          "DELETE /playback/t": [204, null],
+          "POST /playback/again/report": [200, {}],
+          "DELETE /playback/again": [204, null],
         },
         heard,
       );

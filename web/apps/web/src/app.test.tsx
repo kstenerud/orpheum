@@ -25,13 +25,40 @@ import { createPathMoves } from "./services.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 
+/**
+ * What every screen asks in the background once the shell mounts, regardless of what a test
+ * cares about: the alphabet rail's letters, the poll's own waits, and this tab's Watch Together
+ * sessions (D237, D267 §2). A test spreads this in and adds what it is actually testing.
+ */
+const backgroundAnswers: Answers = {
+  "GET /titles/letters": [200, { letters: [] }],
+  "GET /client-settings": [
+    200,
+    {
+      screenRefreshFirstWaitSeconds: 2,
+      screenRefreshLongestWaitSeconds: 30,
+      screenRefreshFailedWaitSeconds: 5,
+      interestSaidEverySeconds: 30,
+      shouldShowDeveloperPages: false,
+      shouldOfferDeviceTests: false,
+    },
+  ],
+  "GET /together/mine": [200, { sessions: [] }],
+};
+
 /** What the sign-in page says after signing out, when the server answers DELETE /session so. */
 async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | undefined> {
   const services = servedBy(
     {
+      ...backgroundAnswers,
       "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
       "GET /home": [200, { continueWatching: [] }],
       "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /needs-attention": [
+        200,
+        { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+      ],
+      "GET /setup": [200, { isRequired: false }],
       "DELETE /session": answer,
     },
     [],
@@ -88,6 +115,7 @@ describe("App", () => {
   it("asks again what this session may do each time the page's requests move path (D297 §6)", async () => {
     const heard: Heard[] = [];
     const answers: Answers = {
+      ...backgroundAnswers,
       // On the core's public name it administers nothing; on its LAN name, once moved there, it does.
       "GET /me": [
         [200, { id: 1, name: "owner", role: "admin", isAdmin: false }],
@@ -119,6 +147,7 @@ describe("App", () => {
 
   it("keeps an admin's warning sign while what the session may do is read again after a move (the owner, 2026-10-17)", async () => {
     const answers: Answers = {
+      ...backgroundAnswers,
       "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
       "GET /home": [200, { continueWatching: [] }],
       "GET /titles": [200, { titles: [], nextCursor: "" }],
@@ -148,6 +177,7 @@ describe("App", () => {
       const heard: Heard[] = [];
       const services = servedBy(
         {
+          ...backgroundAnswers,
           "GET /me": [200, { id: 1, name: "owner", role: isAdmin ? "admin" : "user", isAdmin }],
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
@@ -177,6 +207,7 @@ describe("App", () => {
   it("shows an admin the warning sign while films or series wait for their match, and the page leads to them (the owner, 2026-10-13)", async () => {
     const services = servedBy(
       {
+        ...backgroundAnswers,
         "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
         "GET /home": [200, { continueWatching: [] }],
         "GET /titles": [200, { titles: [], nextCursor: "" }],
@@ -206,22 +237,25 @@ describe("App", () => {
     const offersGallery = async (isOn: boolean | undefined): Promise<boolean> => {
       const services = servedBy(
         {
+          "GET /titles/letters": [200, { letters: [] }],
+          "GET /together/mine": [200, { sessions: [] }],
           "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
-          ...(isOn === undefined
-            ? {}
-            : {
-                "GET /client-settings": [
+          "GET /client-settings":
+            isOn === undefined
+              ? unreachable
+              : [
                   200,
                   {
                     screenRefreshFirstWaitSeconds: 2,
                     screenRefreshLongestWaitSeconds: 30,
                     screenRefreshFailedWaitSeconds: 5,
+                    interestSaidEverySeconds: 30,
                     shouldShowDeveloperPages: isOn,
+                    shouldOfferDeviceTests: false,
                   },
                 ],
-              }),
         },
         [],
         "token",
@@ -254,6 +288,7 @@ describe("App", () => {
     window.sessionStorage.clear();
     const services = servedBy(
       {
+        ...backgroundAnswers,
         "GET /me": [
           200,
           { id: 1, name: "owner", role: "admin", isAdmin: true, canHostWatchTogether: true },
@@ -263,6 +298,15 @@ describe("App", () => {
         "GET /needs-attention": [
           200,
           { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+        ],
+        "GET /together/3": [
+          200,
+          {
+            sessionId: 3,
+            nextRights: { canPlayPause: true, canSeek: true },
+            links: [],
+            members: [{ id: 1, name: "owner", isHost: true }],
+          },
         ],
       },
       [],
@@ -302,6 +346,7 @@ describe("the signed-in page's start", () => {
             screenRefreshFailedWaitSeconds: 7,
           },
         ],
+        "GET /together/mine": [200, { sessions: [] }],
       },
       heard,
       "token",

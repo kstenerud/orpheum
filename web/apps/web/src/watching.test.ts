@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { decisionTimesOf } from "./play-state.ts";
-import { bodyField, playbackCauses, servedBy, type Answer, type Heard } from "./test-dom.tsx";
+import {
+  bodyField,
+  failOnUnexpectedRequests,
+  playbackCauses,
+  servedBy,
+  type Answer,
+  type Heard,
+} from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
 import {
   startOnFilmsPictureKey,
@@ -13,6 +20,10 @@ import {
   type Preload,
   type StartPreload,
 } from "./watching.ts";
+
+// This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+// test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
+afterEach(failOnUnexpectedRequests);
 
 const playableFormats = testServices().playableFormats();
 

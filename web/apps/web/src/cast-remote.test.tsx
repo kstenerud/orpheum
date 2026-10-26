@@ -54,7 +54,11 @@ describe("the remote of a cast (D337 §5)", () => {
   });
 
   it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {
-    const services = servedBy({ "GET /me/casts": [200, { casts: [sent] }] }, [], "token");
+    const services = servedBy(
+      { "GET /me/casts": [200, { casts: [sent] }], "GET /files/4/up-next": [200, {}] },
+      [],
+      "token",
+    );
     const server = fakeTogetherServer();
     mounted = await mount(
       withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
@@ -77,7 +81,11 @@ describe("the remote of a cast (D337 §5)", () => {
   });
 
   it("says control was taken back, and offers to play here from where it stood (§9 Q5)", async () => {
-    const services = servedBy({ "GET /me/casts": [200, { casts: [sent] }] }, [], "token");
+    const services = servedBy(
+      { "GET /me/casts": [200, { casts: [sent] }], "GET /files/4/up-next": [200, {}] },
+      [],
+      "token",
+    );
     const server = fakeTogetherServer();
     mounted = await mount(
       withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
@@ -95,6 +103,7 @@ describe("the remote of a cast (D337 §5)", () => {
     const services = servedBy(
       {
         "GET /me/casts": [200, { casts: [sent] }],
+        "GET /files/4/up-next": [200, {}],
         "POST /me/casts/9/end": [200, { positionMs: 75_000, isPlaying: false }],
       },
       heard,

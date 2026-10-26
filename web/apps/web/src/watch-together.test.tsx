@@ -520,7 +520,18 @@ describe("the host's player in a session (D246 §5)", () => {
       filmPictureKbps: 2_400,
     };
     const services = {
-      ...servedBy({ "POST /playback/t/report": [200, { lowerQuality: offer }] }, [], "token"),
+      ...servedBy(
+        {
+          "POST /playback/t/report": [200, { lowerQuality: offer }],
+          "GET /files/5/waits": [200, {}],
+          "GET /files/5/up-next": [200, {}],
+          "GET /files/5/availability": [200, {}],
+          "PUT /playback/t/interest": [204, null],
+          "DELETE /playback/t": [204, null],
+        },
+        [],
+        "token",
+      ),
       openTogetherSocket: server.openSocket,
     };
     const mounted = await mount(
@@ -564,7 +575,15 @@ describe("the host's player in a session (D246 §5)", () => {
   it("is what the play page does while this tab hosts a session, and nothing without one", async () => {
     const server = fakeTogetherServer();
     const services = {
-      ...servedBy({}, [], "token"),
+      ...servedBy(
+        {
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "DELETE /playback/t": [204, null],
+        },
+        [],
+        "token",
+      ),
       openTogetherSocket: server.openSocket,
     };
     const view = (

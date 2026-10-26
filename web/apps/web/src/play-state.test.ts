@@ -121,7 +121,16 @@ describe("play state", () => {
     mounted = await mount(
       withServices(
         playView,
-        servedBy({ "POST /playback/gone/report": refusal(404, "not_found") }, heard),
+        servedBy(
+          {
+            "POST /playback/gone/report": refusal(404, "not_found"),
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/gone/interest": [204, null],
+            "DELETE /playback/gone": [204, null],
+          },
+          heard,
+        ),
       ),
     );
     const video = mounted.container.querySelector("video");
@@ -156,6 +165,12 @@ describe("play state", () => {
             ],
             "POST /playback/lost/report": refusal(404, "playback_gone"),
             "POST /playback/again/report": refusal(404, "playback_gone"),
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/lost/interest": [204, null],
+            "DELETE /playback/lost": [204, null],
+            "PUT /playback/again/interest": [204, null],
+            "DELETE /playback/again": [204, null],
           },
           heard,
         ),
@@ -206,6 +221,11 @@ describe("play state", () => {
               [200, directDecision({ mediaToken: "again" })],
             ],
             "POST /playback/lost/report": refusal(404, "playback_gone"),
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/lost/interest": [204, null],
+            "DELETE /playback/lost": [204, null],
+            "DELETE /playback/again": [204, null],
           },
           heard,
         ),
@@ -249,7 +269,19 @@ describe("play state", () => {
       onDecideAgain: () => undefined,
     });
     mounted = await mount(
-      withServices(playView, servedBy({ "POST /playback/failed/report": [204, undefined] }, heard)),
+      withServices(
+        playView,
+        servedBy(
+          {
+            "POST /playback/failed/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "GET /files/2/availability": [200, {}],
+            "DELETE /playback/failed": [204, null],
+          },
+          heard,
+        ),
+      ),
     );
     const video = videoOf(mounted);
     await act(async () => {
@@ -279,7 +311,14 @@ describe("play state", () => {
     mounted = await mount(
       withServices(
         playView,
-        servedBy({ "POST /playback/slow/report": [200, { lowerQuality: offer }] }),
+        servedBy({
+          "POST /playback/slow/report": [200, { lowerQuality: offer }],
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "GET /files/2/availability": [200, {}],
+          "PUT /playback/slow/interest": [204, null],
+          "DELETE /playback/slow": [204, null],
+        }),
       ),
     );
     const video = mounted.container.querySelector("video");
@@ -308,7 +347,19 @@ describe("play state", () => {
       onDecideAgain: () => undefined,
     });
     mounted = await mount(
-      withServices(playView, servedBy({ "POST /playback/timed/report": [204, undefined] }, heard)),
+      withServices(
+        playView,
+        servedBy(
+          {
+            "POST /playback/timed/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/timed/interest": [204, null],
+            "DELETE /playback/timed": [204, null],
+          },
+          heard,
+        ),
+      ),
     );
     const video = mounted.container.querySelector("video");
     if (video === null) {
@@ -348,7 +399,16 @@ describe("play state", () => {
     mounted = await mount(
       withServices(
         playView,
-        servedBy({ "POST /playback/preloaded/report": [204, undefined] }, heard),
+        servedBy(
+          {
+            "POST /playback/preloaded/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/preloaded/interest": [204, null],
+            "DELETE /playback/preloaded": [204, null],
+          },
+          heard,
+        ),
       ),
     );
     const video = videoOf(mounted);
@@ -373,7 +433,19 @@ describe("play state", () => {
       onDecideAgain: () => undefined,
     });
     mounted = await mount(
-      withServices(playView, servedBy({ "POST /playback/sought/report": [204, undefined] }, heard)),
+      withServices(
+        playView,
+        servedBy(
+          {
+            "POST /playback/sought/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/sought/interest": [204, null],
+            "DELETE /playback/sought": [204, null],
+          },
+          heard,
+        ),
+      ),
     );
     const video = mounted.container.querySelector("video");
     if (video === null) {
@@ -435,7 +507,16 @@ describe("play state", () => {
     });
     mounted = await mount(
       withServices(playView, {
-        ...servedBy({ "POST /playback/hiccup/report": [204, undefined] }, heard),
+        ...servedBy(
+          {
+            "POST /playback/hiccup/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/hiccup/interest": [204, null],
+            "DELETE /playback/hiccup": [204, null],
+          },
+          heard,
+        ),
         pathMoves,
       }),
     );
@@ -495,7 +576,15 @@ describe("play state", () => {
       mounted = await mount(
         withServices(
           playView,
-          servedBy({ "POST /playback/still/report": [204, undefined] }, heard),
+          servedBy(
+            {
+              "POST /playback/still/report": [204, undefined],
+              "GET /files/2/waits": [200, {}],
+              "GET /files/2/up-next": [200, {}],
+              "DELETE /playback/still": [204, null],
+            },
+            heard,
+          ),
         ),
       );
       const video = mounted.container.querySelector("video");
@@ -541,7 +630,18 @@ describe("play state", () => {
       decision: directDecision({ mediaToken: "remembered", onLadder }),
       onDecideAgain: () => undefined,
     });
-    mounted = await mount(withServices(playView, servedBy({})));
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy({
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/availability": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "POST /playback/remembered/report": [200, {}],
+          "DELETE /playback/remembered": [204, null],
+        }),
+      ),
+    );
     expect(mounted.container.textContent).toContain(
       "Starting at 480p, 1.2 Mb/s. The quality follows your connection.",
     );

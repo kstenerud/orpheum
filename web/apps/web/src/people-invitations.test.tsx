@@ -58,6 +58,7 @@ it("sends a waiting invitation another link, and names the person a used one mad
         {
           "GET /users": [200, { accounts: [] }],
           "GET /roles": [200, roles],
+          "GET /libraries": [200, { libraries: [] }],
           "GET /invitations": [200, { invitations: [waiting, used] }],
           "POST /invitations/7/links": [201, { secret: "another-secret", expiresAt: 2 }],
         },

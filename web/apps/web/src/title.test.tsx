@@ -380,6 +380,8 @@ describe("a film whose match is a guess (D301)", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
+        "PUT /interest/12": [204, null],
+        "DELETE /interest/12": [204, null],
       },
       heard,
     );
