@@ -114,6 +114,25 @@ func filmRunner(t *testing.T) *Runner {
 	return runner
 }
 
+// waitForAttach waits until a run has attached to pausing and returns its process's PID.
+func waitForAttach(t *testing.T, pausing *Pausing) int {
+	t.Helper()
+	attached := make(chan int, 1)
+	go func() {
+		for {
+			pausing.mutex.Lock()
+			process := pausing.process
+			pausing.mutex.Unlock()
+			if process != nil {
+				attached <- process.Pid
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	return testutil.Receive(t, attached, "the run to attach to its pausing")
+}
+
 func runFilm(t *testing.T, ctx context.Context, film *memoryFilm, mode string) (Ran, error) { //nolint:revive // t first
 	t.Helper()
 	return filmRunner(t).RunWatched(ctx, WatchedRun{
@@ -193,7 +212,12 @@ func TestRunWatched_APausedStreamedRunReadsNothingUntilContinued(t *testing.T) {
 		_, err := runFilm(t, WithPausing(t.Context(), pausing), film, "read-all")
 		ended <- err
 	}()
-	time.Sleep(500 * time.Millisecond) // gives a run that ignored its pause time to read
+	// Once the run has attached to pausing, Pause has already held its film and stopped its
+	// process (attach, Pausing.Pause): there is no later moment still to arrive.
+	pid := waitForAttach(t, pausing)
+	if state := stateOf(t, pid, true); state != "T" {
+		t.Fatalf("the paused run's process is in state %q, want stopped (T)", state)
+	}
 	if got := film.reads.Load(); got != 0 {
 		t.Fatalf("a paused run's film was read %d times; want none", got)
 	}

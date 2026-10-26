@@ -88,6 +88,10 @@ type Channel struct {
 	terms Terms
 	// account is what the channel saw. Guarded by mutex.
 	account Account
+	// beforeDataWrite, set only by a test, is called just before the writer's next write to the
+	// data pipe: a way for a test to know that a write which will block on a full pipe, nothing
+	// draining it, is about to start. Guarded by mutex.
+	beforeDataWrite func()
 
 	readerDone, writerDone chan struct{}
 }
@@ -385,6 +389,12 @@ func (channel *Channel) write(ctx context.Context, terms Terms) {
 			return // the run failed, said DONE, or Finish began, while the film was read (Serving, DONE)
 		}
 		put(put(put(buffer[:0], typeData), read.sequence), read.length)
+		channel.mutex.Lock()
+		hook := channel.beforeDataWrite
+		channel.mutex.Unlock()
+		if hook != nil {
+			hook()
+		}
 		if err := writeAll(channel.data, buffer[:headerBytes+int(read.length)]); err != nil {
 			return // FFmpeg has gone, or Finish closed the pipe
 		}

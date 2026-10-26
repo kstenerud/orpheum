@@ -433,7 +433,9 @@ func TestChannel_AHeldRunIsAnsweredOnlyOnceReleased(t *testing.T) {
 	fake.open(256, 2)
 	channel.Hold()
 	fake.send(typeRead, readBody(0, 256))
-	time.Sleep(50 * time.Millisecond) // gives a writer that ignored the hold time to read
+	// Once the READ is queued, the writer either waits (held) or has already read: the same mutex
+	// guards isHeld and the wait loop's exit, so there is no later moment still to arrive.
+	waitUntil(t, channel, "the held READ to reach the channel", func() bool { return len(channel.waiting) == 1 })
 	if got := source.reads.Load(); got != 0 {
 		t.Fatalf("a held run's film was read %d times; want none", got)
 	}
@@ -460,11 +462,18 @@ func TestChannel_FinishesWhateverStateFFmpegLeftItIn(t *testing.T) {
 	config := testConfig(newFilm(4 << 20))
 	config.DataPipeBytes = 0 // the default 64 KiB, which one block overfills
 	channel, fake = startFake(t, config)
+	writing := make(chan struct{}, 1)
+	channel.mutex.Lock()
+	channel.beforeDataWrite = func() { writing <- struct{}{} }
+	channel.mutex.Unlock()
 	fake.open(1<<20, 2)
 	fake.send(typeRead, readBody(0, 1<<20))
+	// The write begins, and is about to block on the default pipe with nothing draining it, before
+	// DONE is sent: DONE must not arrive first, or the node would stop serving the READ rather than
+	// starting it (Serving, DONE).
+	testutil.Receive(t, writing, "the writer to start writing DATA larger than the pipe")
 	fake.send(typeDone, doneOK())
-	time.Sleep(50 * time.Millisecond) // lets the writer fill the pipe and block
-	_ = fake.writing.Close()          //nolint:errcheck // FFmpeg exits without reading its DATA
+	_ = fake.writing.Close() //nolint:errcheck // FFmpeg exits without reading its DATA
 	finished := make(chan Account, 1)
 	go func() { finished <- channel.Finish() }()
 	select {
