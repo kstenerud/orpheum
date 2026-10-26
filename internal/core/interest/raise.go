@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -70,6 +71,10 @@ type Raiser struct {
 	// asked are the titles whose reads each look going on has asked for, so a look said again does
 	// not ask again: a read asked for while its scan lists asks for one more scan after it.
 	asked map[askedRead]bool
+	// raiseFailing and watchedFailing are a lasting failure of the raise and of the watched files'
+	// raise, said once a minute while it lasts rather than at every 5 s tick (the audit of
+	// 2026-10-25, C12).
+	raiseFailing, watchedFailing slogx.Failing
 }
 
 // askedRead is a title whose read a look asked for: the look, by its page, its person and when it
@@ -282,14 +287,9 @@ const raiseWatchedEvery = 12
 func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 	for ticks := 0; ; ticks++ {
 		if ticks%raiseWatchedEvery == 0 {
-			if err := raiser.RaiseWatched(ctx); err != nil && ctx.Err() == nil {
-				raiser.parts.Logger.WarnContext(ctx, "could not raise the watched files' work; trying again",
-					"err", err)
-			}
+			raiser.sayWatched(ctx, raiser.RaiseWatched(ctx))
 		}
-		if err := raiser.Raise(ctx); err != nil && ctx.Err() == nil {
-			raiser.parts.Logger.WarnContext(ctx, "could not raise the work of interest; trying again", "err", err)
-		}
+		raiser.sayRaise(ctx, raiser.Raise(ctx))
 		select {
 		case <-ctx.Done():
 			return
@@ -349,4 +349,41 @@ func (raiser *Raiser) withMembersAhead(
 		titleIDs = append(titleIDs, each.TitleID)
 	}
 	return interested, titleIDs, nil
+}
+
+// sayRaise logs a tick's failure to raise, while it lasts once a minute with how often it failed
+// (slogx.Failing), and the tick that raises again after one.
+func (raiser *Raiser) sayRaise(ctx context.Context, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	now, logger := raiser.parts.Clock.Now(), raiser.parts.Logger
+	if err == nil {
+		if isEnded, lasted := raiser.raiseFailing.Succeed(now); isEnded {
+			logger.InfoContext(ctx, "the work of interest is raised again", lasted...)
+		}
+		return
+	}
+	if isSaid, lasting := raiser.raiseFailing.Fail(now); isSaid {
+		logger.WarnContext(ctx, "could not raise the work of interest; trying again",
+			append([]any{"err", err}, lasting...)...)
+	}
+}
+
+// sayWatched is sayRaise for the watched files' raise.
+func (raiser *Raiser) sayWatched(ctx context.Context, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	now, logger := raiser.parts.Clock.Now(), raiser.parts.Logger
+	if err == nil {
+		if isEnded, lasted := raiser.watchedFailing.Succeed(now); isEnded {
+			logger.InfoContext(ctx, "the watched files' work is raised again", lasted...)
+		}
+		return
+	}
+	if isSaid, lasting := raiser.watchedFailing.Fail(now); isSaid {
+		logger.WarnContext(ctx, "could not raise the watched files' work; trying again",
+			append([]any{"err", err}, lasting...)...)
+	}
 }

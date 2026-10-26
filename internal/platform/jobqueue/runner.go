@@ -10,6 +10,8 @@ import (
 	"runtime/debug"
 	"slices"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Handler runs one job. Its answer says what happens next (answers.go): nil finishes it.
@@ -27,6 +29,8 @@ type Runner[T comparable] struct {
 	unrecorded *Outcome
 	// wake is this runner's own wake-up, left there when a job of its kind is queued.
 	wake chan struct{}
+	// failing is the runner's lasting failure to run, said once a minute while it lasts.
+	failing slogx.Failing
 }
 
 // NewRunner returns a runner for one kind of job.
@@ -63,9 +67,26 @@ func (runner *Runner[T]) Run(ctx context.Context, tick <-chan time.Time) error {
 		case <-tick:
 		case <-runner.wake:
 		}
-		if err := runner.RunDue(ctx); err != nil && ctx.Err() == nil {
-			runner.queue.logger.ErrorContext(ctx, "the job queue could not run", "kind", runner.kind, "err", err)
+		if err := runner.RunDue(ctx); ctx.Err() == nil {
+			runner.sayRun(ctx, err)
 		}
+	}
+}
+
+// sayRun logs a tick's failure to run, while it lasts once a minute with how often it failed
+// (slogx.Failing), and the tick that runs again after one: a runner ticks every second, and logged
+// each tick's failure while cache.db could not be written (the audit of 2026-10-25, C12).
+func (runner *Runner[T]) sayRun(ctx context.Context, err error) {
+	now, logger := runner.queue.clock.Now(), runner.queue.logger
+	if err == nil {
+		if isEnded, lasted := runner.failing.Succeed(now); isEnded {
+			logger.InfoContext(ctx, "the job queue runs again", append([]any{"kind", runner.kind}, lasted...)...)
+		}
+		return
+	}
+	if isSaid, lasting := runner.failing.Fail(now); isSaid {
+		logger.ErrorContext(ctx, "the job queue could not run",
+			append([]any{"kind", runner.kind, "err", err}, lasting...)...)
 	}
 }
 

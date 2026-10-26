@@ -33,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -657,16 +658,24 @@ const demoteUnwantedEvery = 5 * time.Second
 func demoteUnwanted(
 	ctx context.Context, queue *jobs.Queue, exchanges *nodes.Exchanges, tick <-chan time.Time, logger *slog.Logger,
 ) {
+	var failing slogx.Failing // said once a minute while it lasts, not every 5 s (the audit of 2026-10-25, C12)
 	for {
+		var tickedAt time.Time
 		select {
 		case <-ctx.Done():
 			return
-		case <-tick:
+		case tickedAt = <-tick:
 		}
 		demoted, err := queue.DemoteUnwanted(ctx)
 		if err != nil {
-			logger.WarnContext(ctx, "could not demote the jobs no one waits for; trying again", "err", err)
+			if isSaid, lasting := failing.Fail(tickedAt); isSaid {
+				logger.WarnContext(ctx, "could not demote the jobs no one waits for; trying again",
+					append([]any{"err", err}, lasting...)...)
+			}
 			continue
+		}
+		if isEnded, lasted := failing.Succeed(tickedAt); isEnded {
+			logger.InfoContext(ctx, "the jobs no one waits for are demoted again", lasted...)
 		}
 		for _, job := range demoted {
 			if job.IsAssigned {

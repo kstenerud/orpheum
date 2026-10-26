@@ -5,19 +5,43 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/backoff"
 )
 
 // answerRetry paces the tries of a result the core did not take: the first wait, and the longest one
-// the doubling stops at.
+// the doubling stops at, each moved at random by up to answerJitter of it either way, read from
+// random, so that nodes a restarted core left waiting do not all try again in the same instant (the
+// audit of 2026-10-25, G9). With no random, the waits are not moved.
 type answerRetry struct {
 	firstWait, longestWait time.Duration
+	random                 io.Reader
+}
+
+// answerJitter is how far an answer's retry may move either way: the job queue's own retries' share
+// (D231 §10), enough to spread nodes that failed together over a few seconds at the longest wait.
+const answerJitter = 0.1
+
+// waitAfter is the wait after tries failed tries, the first after one: doubled from the first wait
+// each try, to the longest, and jittered.
+func (retry answerRetry) waitAfter(tries int64) time.Duration {
+	wait := backoff.Doubled(retry.firstWait, retry.longestWait, tries-1)
+	if retry.random == nil {
+		return wait
+	}
+	moved, err := backoff.Jittered(retry.random, wait, retry.longestWait, answerJitter)
+	if err != nil {
+		return wait // a retry still happens, unmoved
+	}
+	return moved
 }
 
 // defaultAnswerRetry tries a result again after a second, doubling to every 30 s: a core that did not
@@ -26,7 +50,7 @@ type answerRetry struct {
 // limit (node_silent_after_seconds) its status ticks keep the node alive against. Internal bounds;
 // the result is kept until taken, so they decide only how soon, never whether.
 func defaultAnswerRetry() answerRetry {
-	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second}
+	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, random: rand.Reader}
 }
 
 // endedAttempts are the attempts whose work ended on this node, by token: those whose result the core
@@ -147,8 +171,8 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 		return
 	}
 	defer agent.workers.HeldResults.forget(token)
-	wait := agent.answerRetry.firstWait
-	for {
+	for tries := int64(1); ; tries++ {
+		wait := agent.answerRetry.waitAfter(tries)
 		// Taken before the post, so a hello said while the post fails still wakes the next try.
 		nextHello := agent.ended.nextHello()
 		var accepted struct{}
@@ -165,7 +189,6 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 		if !sleepUntilHelloOrDone(ctx, wait, nextHello) {
 			return
 		}
-		wait = min(2*wait, agent.answerRetry.longestWait)
 	}
 }
 
