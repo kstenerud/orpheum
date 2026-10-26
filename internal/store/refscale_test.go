@@ -305,7 +305,10 @@ var updateStatistics = flag.Bool("update-statistics", false,
 	"rewrite statistics/persistent.tsv from ANALYZE of the reference library")
 
 // writeStatistics runs ANALYZE on a copy of the reference library and writes its sqlite_stat1 as
-// the committed statistics, sorted, a sample-free index of each table's rows.
+// the committed statistics, sorted, a sample-free index of each table's rows. A table the
+// reference library leaves empty gets none: on one, ANALYZE writes a row for a partial index but
+// not for a plain one (invitation, 2026-10-26), which the statistics test refuses as half a table,
+// and no row at all is what the planner has of an empty table anyway.
 func writeStatistics(t *testing.T, database *Database) {
 	t.Helper()
 	copyPath := filepath.Join(t.TempDir(), "analyzed.db")
@@ -326,16 +329,31 @@ func writeStatistics(t *testing.T, database *Database) {
 		t.Fatal(err)
 	}
 	defer func() { _ = rows.Close() }() //nolint:errcheck // a read
-	var text strings.Builder
+	var found []statisticsRow
 	for rows.Next() {
-		var table, index, stat string
-		if err := rows.Scan(&table, &index, &stat); err != nil {
+		var row statisticsRow
+		if err := rows.Scan(&row.table, &row.index, &row.stat); err != nil {
 			t.Fatal(err)
 		}
-		fmt.Fprintf(&text, "%s\t%s\t%s\n", table, index, stat)
+		found = append(found, row)
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
+	}
+	var text strings.Builder
+	empty := map[string]bool{}
+	for _, row := range found {
+		if _, known := empty[row.table]; !known {
+			var holdsRows bool
+			query := `SELECT EXISTS (SELECT 1 FROM "` + strings.ReplaceAll(row.table, `"`, `""`) + `")`
+			if err := analyzed.QueryRowContext(t.Context(), query).Scan(&holdsRows); err != nil {
+				t.Fatal(err)
+			}
+			empty[row.table] = !holdsRows
+		}
+		if !empty[row.table] {
+			fmt.Fprintf(&text, "%s\t%s\t%s\n", row.table, row.index, row.stat)
+		}
 	}
 	if err := os.WriteFile(filepath.Join("statistics", "persistent.tsv"), []byte(text.String()), 0o600); err != nil {
 		t.Fatal(err)
