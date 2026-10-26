@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -236,5 +238,27 @@ func TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace(t *testing.T) 
 	if left, isRunning := bench.left(t); left != time.Minute || !isRunning {
 		t.Errorf("three-quarters read in three minutes, file 100's read-through takes %v (running %t); want 1m0s",
 			left, isRunning)
+	}
+}
+
+// A file with no read-through open costs its waits the same few statements however many other
+// files' read-throughs are open: after an import that is the whole unread library, polled by every
+// viewer of a film's page (audit 2026-10-25, S5). Only a file with its own open reads the others'.
+func TestEstimator_AFileWithNoReadThroughReadsNoOtherFilesRead(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t)
+	bench.file(t, 100, 1, 200, 90)
+	for id := int64(1); id <= 50; id++ {
+		bench.file(t, 100+id, 1, 100, 90)
+		bench.readThrough(t, id, 100+id, jobs.PriorityBackground, "queued", "{}")
+	}
+	ctx, tally := querytally.New(t.Context())
+	waits, err := bench.estimator.Of(ctx, 100)
+	if err != nil || waits.ReadThrough != nil {
+		t.Fatalf("file 100's waits = %+v, %v; want no read-through", waits, err)
+	}
+	ran := tally.String()
+	if strings.Contains(ran, "ListOpenReadThroughs") || strings.Contains(ran, "ListFileSizes") {
+		t.Errorf("the waits of a file with no read-through ran %s; want no other file's read", ran)
 	}
 }
