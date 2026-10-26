@@ -31,6 +31,9 @@ func (filer *libraryFiler) load(ctx context.Context, libraryID int64) error {
 			return err
 		}
 	}
+	if err := filer.loadRecordedTimes(ctx, libraryID); err != nil {
+		return err
+	}
 	if filer.library.MetadataSource != sourceTMDB {
 		if err := filer.loadNFOs(ctx); err != nil {
 			return err

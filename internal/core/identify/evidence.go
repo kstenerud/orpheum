@@ -19,8 +19,10 @@ const identificationAmbiguous = "ambiguous"
 // ambiguity, or that its provider found nothing. A pass reads these and never calls the provider
 // (D170, D172, D182).
 func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
-	if spec.kind == library.TitleKindEpisode {
-		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
+	if spec.kind == library.TitleKindEpisode || spec.kind == library.TitleKindOther {
+		// An episode's evidence is its series' listing, read where it is filed (D209); an other
+		// video is never matched (D349 section 10).
+		return nil
 	}
 	matchRow, found, err := filer.titleMatchState(ctx, titleID)
 	if err != nil || !found {

@@ -141,10 +141,13 @@ func (filer *libraryFiler) localImageOwner(
 }
 
 // showsArtKind is whether a title of a kind shows an image of an artwork kind: an episode its still, a
-// film its poster, backdrop and logo.
+// film its poster, backdrop and logo, an other video any (D349 section 3).
 func showsArtKind(titleKind, artKind string) bool {
-	if titleKind == library.TitleKindEpisode {
+	switch titleKind {
+	case library.TitleKindEpisode:
 		return artKind == library.ArtStill
+	case library.TitleKindOther:
+		return true
 	}
 	return titleKind == KindMovie && artKind != library.ArtStill
 }

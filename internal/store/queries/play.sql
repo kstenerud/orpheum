@@ -43,7 +43,7 @@ WHERE user_id = sqlc.arg(user_id) AND file_id = sqlc.arg(file_id)
 ORDER BY happened_at, id;
 
 -- name: ListRecentPlayPositions :many
--- A person's positions in live files of live films and episodes, most recent watching first,
+-- A person's positions in live files of live films, episodes and other videos (D349), most recent watching first,
 -- with each file's length where its probe knows it and when its work was last hidden: what
 -- Continue Watching is chosen from. Extras are left out (D162).
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
@@ -53,7 +53,7 @@ SELECT play_position.file_id, play_position.position_ms, play_position.position_
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
-JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
@@ -145,13 +145,13 @@ DELETE FROM play_position WHERE file_id IN (SELECT value FROM json_each(CAST(sql
 DELETE FROM purged_watching WHERE user_id = sqlc.arg(user_id);
 
 -- name: ListWatchedLiveFiles :many
--- The live files of live films and episodes anyone has a position in, with their titles: what a
+-- The live files of live films, episodes and other videos anyone has a position in, with their titles: what a
 -- person has shown interest in by watching it, whose work keeps the rung above the background
 -- (D324).
 SELECT DISTINCT play_position.file_id, title.id AS title_id
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
-JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 ORDER BY play_position.file_id;

@@ -319,6 +319,9 @@ type libraryFiler struct {
 	// writes; none in a match's filer, or with readsAsItGoes.
 	snap          snapshot
 	readsAsItGoes bool
+	// recordedByFile is when each of an other library's files says it was recorded, as its probe
+	// read it, for those that say (D349 §4).
+	recordedByFile map[int64]int64
 }
 
 // identifyUnits files units in turn. With changedAtStart a count of rows the writer had changed
@@ -372,8 +375,12 @@ func (filer *libraryFiler) listAwaitingMatch(ctx context.Context, libraryID int6
 	return nil
 }
 
-// identify files every video: films and episodes first, so an extra can find its film.
+// identify files every video: films and episodes first, so an extra can find its film; an other
+// library's each as a title of its own.
 func (filer *libraryFiler) identify(ctx context.Context) error {
+	if filer.isOtherLibrary() {
+		return filer.identifyOther(ctx)
+	}
 	if err := filer.contradictedPlacements(ctx); err != nil {
 		return err
 	}

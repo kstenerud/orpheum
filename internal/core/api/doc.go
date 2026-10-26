@@ -126,6 +126,8 @@
 //     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory.
 //   - Any signed-in user browses films and series, a title's detail, a series and search; a
 //     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
+//     A list or a search of one library is of one the user reaches (D349).
+//     Enforced by TestBrowse_OneLibrarysListAndALibraryNotReached and TestSearch_OfOneLibrary.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.

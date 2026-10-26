@@ -158,6 +158,18 @@
 //     §3). Its first kinds: a series' list of episode groups, fetched before its record carried
 //     one, and a group a person chose that is not fetched.
 //     TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep.
+//   - In an other library every video is a title of its own of the kind other, never an extra, an
+//     episode or another's version: named by its file without its date, or by its NFO file, and
+//     identified from them alone; it is never owed a match, no person can choose one, and no
+//     provider's id is kept for it (D349 §3, §10). It is dated by its container's recorded time,
+//     else a date in its file's or a folder's name, else the file's time, or by a person's
+//     correction, each said as such; a move keeps its title, named and dated again, and a pass
+//     again writes nothing; a change of locale keys its file's name again (D349 §4).
+//     TestPass_AnOtherLibraryFilesEachVideoAsATitleOfItsOwnNeverMatched,
+//     TestPass_AnOtherVideoMovedStaysItsTitleAndAPassAgainWritesNothing,
+//     TestChooser_AnOtherVideosDateIsCorrectedAndItIsNeverMatched,
+//     TestOtherName_IsTheFilesNameWithoutItsDate,
+//     TestRefreshSortAndSearchKeys_KeysAnOtherVideosFileNameInTheNewLocale.
 //   - A series renamed by its match keeps the new episodes its folders name.
 //     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
 //   - A provider's episode ids never find a film, nor its film ids an episode.

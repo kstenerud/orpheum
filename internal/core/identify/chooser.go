@@ -26,6 +26,8 @@ var (
 	ErrNoItem = errors.New("no such title or series")
 	// ErrNotChoosable is an episode: its series is what is matched (D209).
 	ErrNotChoosable = errors.New("an episode takes its match from its series; choose the series'")
+	// ErrNeverMatched is an other video, which is never matched online (D349 §10).
+	ErrNeverMatched = errors.New("an other video is never matched online")
 	// ErrUnknownProvider is a provider this server has no client for.
 	ErrUnknownProvider = errors.New("no such provider")
 	// ErrUnknownField is a field that cannot be overridden on this item.
@@ -49,6 +51,10 @@ func OverridableFields() []string {
 }
 
 func seriesOverridableFields() []string { return []string{fieldName, fieldOverview, fieldYear} }
+
+// otherOverridableFields are an other video's: its name and overview, and when it was recorded
+// (D349 §4).
+func otherOverridableFields() []string { return []string{fieldName, fieldOverview, fieldRecordedAt} }
 
 // Chooser is what a person does about identification: see the titles and series in a state,
 // see an ambiguous one's candidates, choose its match, and override a field (D172, D183, D209).
@@ -240,6 +246,9 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 	if !item.isSeries && item.title.Kind == library.TitleKindEpisode {
 		return fmt.Errorf("title %d: %w", itemID, ErrNotChoosable)
 	}
+	if !item.isSeries && item.title.Kind == library.TitleKindOther {
+		return fmt.Errorf("title %d: %w", itemID, ErrNeverMatched)
+	}
 	provider, known := chooser.matcher.providers[providerName]
 	if !known {
 		return fmt.Errorf("%q: %w", providerName, ErrUnknownProvider)
@@ -355,8 +364,11 @@ func (chooser *Chooser) ClearOverride(ctx context.Context, itemID int64, field s
 }
 
 func fieldsOf(item target) []string {
-	if item.isSeries {
+	switch {
+	case item.isSeries:
 		return seriesOverridableFields()
+	case item.title.Kind == library.TitleKindOther:
+		return otherOverridableFields()
 	}
 	return OverridableFields()
 }
@@ -366,7 +378,7 @@ func checkOverride(item target, field, value string) error {
 		return fmt.Errorf("%q: %w", field, ErrUnknownField)
 	}
 	switch field {
-	case fieldYear, fieldRuntimeMs:
+	case fieldYear, fieldRuntimeMs, fieldRecordedAt:
 		if number, err := strconv.ParseInt(value, 10, 64); err != nil || number <= 0 {
 			return fmt.Errorf("%s %q: %w; it takes a whole number above zero", field, value, ErrBadValue)
 		}

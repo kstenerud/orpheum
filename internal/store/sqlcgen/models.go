@@ -26,6 +26,14 @@ type Loudness struct {
 	MeasuredAt     int64
 }
 
+type OtherVideo struct {
+	TitleID      int64
+	RecordedAt   int64
+	RecordedFrom string
+	FileName     string
+	FileNameKey  []byte
+}
+
 type RefreshRequest struct {
 	ItemID            int64
 	RequestedAt       int64

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -85,6 +86,7 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 			DurationMs:     parseSecondsAsMs(raw.Format.Duration),
 			BitRateBps:     parseNonNegativeInt(raw.Format.BitRate),
 			ContainerTitle: tagValue(raw.Format.Tags, "title"),
+			RecordedAtMs:   raw.recordedAtMs(),
 		},
 		Streams:  make([]nodeproto.ProbeStream, 0, len(raw.Streams)),
 		Chapters: make([]nodeproto.ProbeChapter, 0, len(raw.Chapters)),
@@ -105,6 +107,51 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 		})
 	}
 	return record, nil
+}
+
+// recordedTags are the tags a file says it was recorded at by, the most telling first: a QuickTime
+// file's creationdate keeps the camera's own time and zone, where its creation_time may be the
+// moment it was copied.
+func recordedTags() []string { return []string{"com.apple.quicktime.creationdate", "creation_time"} }
+
+// recordedAtMs is when the file says it was recorded, in Unix milliseconds, or 0 (ProbeFormat).
+func (raw rawOutput) recordedAtMs() int64 {
+	for _, key := range recordedTags() {
+		if at := recordedTime(tagValue(raw.Format.Tags, key)); at != 0 {
+			return at
+		}
+	}
+	for _, stream := range raw.Streams {
+		if stream.CodecType == "video" {
+			return recordedTime(tagValue(stream.Tags, "creation_time"))
+		}
+	}
+	return 0
+}
+
+// recordedLayouts are the shapes a recorded time comes in: ffprobe's ISO 8601 with microseconds
+// and a Z, a QuickTime creationdate with its zone, and a space or no zone for the rest.
+func recordedLayouts() []string {
+	return []string{time.RFC3339Nano, "2006-01-02T15:04:05-0700", "2006-01-02 15:04:05", "2006-01-02T15:04:05"}
+}
+
+// earliestRecordingYear is the earliest year taken as a recording's: a container that keeps none
+// writes its clock's zero, 1904 (QuickTime) or 1970 (Unix), and no video file is older than 1950.
+const earliestRecordingYear = 1950
+
+// recordedTime is a tag's time in Unix milliseconds, or 0 for none, nonsense or a clock's zero.
+func recordedTime(value string) int64 {
+	for _, layout := range recordedLayouts() {
+		recorded, err := time.Parse(layout, strings.TrimSpace(value))
+		if err != nil {
+			continue
+		}
+		if recorded.Year() < earliestRecordingYear || recorded.Equal(time.Unix(0, 0)) {
+			return 0
+		}
+		return recorded.UnixMilli()
+	}
+	return 0
 }
 
 func (stream rawStream) toProbeStream() nodeproto.ProbeStream {

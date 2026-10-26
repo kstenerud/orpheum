@@ -16,10 +16,16 @@ const (
 	// LibraryKindShows is a series library, every video of which is an episode of a series (the
 	// owner, 2026-10-13).
 	LibraryKindShows = "shows"
+	// LibraryKindOther is a library of videos that are neither films nor series, home movies,
+	// concerts, lectures and clips, every one a title of the kind other and none identified online
+	// (D349 §3).
+	LibraryKindOther = "other"
 
 	TitleKindMovie   = "movie"
 	TitleKindEpisode = "episode"
 	TitleKindExtra   = "extra"
+	// TitleKindOther is a video of an other library: one file, never matched (D349 §3).
+	TitleKindOther = "other"
 
 	ArtPoster   = "poster"
 	ArtBackdrop = "backdrop"
@@ -30,6 +36,10 @@ const (
 // MetadataSourceTMDB is a library that takes its data from TMDB only; the others take NFO files
 // first, or only (D184).
 const MetadataSourceTMDB = "tmdb"
+
+// MetadataSourceNFO is a library that takes its data from NFO files only, as every other library does
+// (D349 §10).
+const MetadataSourceNFO = "nfo"
 
 // PrefersImagesBesideTheMedia is whether a library shows an image beside the media over its
 // provider's of the same kind: every library but one that takes TMDB only (D215 §1), as

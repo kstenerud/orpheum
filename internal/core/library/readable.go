@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -119,25 +120,40 @@ func (readability *Readability) node(ctx context.Context, nodeID int64) (nodeRea
 
 // finishPage gives a page's entries their posters, and says of each whether its files can be read
 // now: a series by its episodes', every other kind by its own.
-func (browser *Browser) finishPage(ctx context.Context, kind string, page Page) (Page, error) {
+func (browser *Browser) finishPage(ctx context.Context, page Page) (Page, error) {
 	page, err := browser.withPosters(ctx, page)
 	if err != nil {
 		return Page{}, err
 	}
-	ids := make([]int64, 0, len(page.Entries))
-	for _, entry := range page.Entries {
-		ids = append(ids, entry.ID)
-	}
-	unreadable, err := browser.unreadableItems(ctx, ids, kind == ListSeries)
+	seriesIDs, titleIDs := idsBySeries(page.Entries)
+	unreadable, err := browser.unreadableItems(ctx, seriesIDs, true)
 	if err != nil {
 		return Page{}, err
 	}
+	unreadableTitles, err := browser.unreadableItems(ctx, titleIDs, false)
+	if err != nil {
+		return Page{}, err
+	}
+	maps.Copy(unreadable, unreadableTitles)
 	for index := range page.Entries {
 		if why, isUnreadable := unreadable[page.Entries[index].ID]; isUnreadable {
 			page.Entries[index].Unreadable = &why
 		}
 	}
 	return page, nil
+}
+
+// idsBySeries are the ids of a page's series, and of its titles: a film, an episode or an other
+// video.
+func idsBySeries(entries []Entry) (seriesIDs, titleIDs []int64) {
+	for _, entry := range entries {
+		if entry.Kind == ListSeries {
+			seriesIDs = append(seriesIDs, entry.ID)
+		} else {
+			titleIDs = append(titleIDs, entry.ID)
+		}
+	}
+	return seriesIDs, titleIDs
 }
 
 // unreadableItems is, for each of itemIDs with live files none of which can be read now, why its

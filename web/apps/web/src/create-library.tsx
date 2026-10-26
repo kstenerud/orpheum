@@ -96,6 +96,19 @@ export function onAConnectedNode(draft: NewLibrary, nodes: readonly LibraryNode[
   };
 }
 
+/**
+ * The library the server is asked to create: the draft, but an other library is not asked where its
+ * information comes from, as it takes NFO files only and is never looked up online (D349).
+ */
+export function libraryToCreate(draft: NewLibrary): NewLibrary {
+  if (draft.kind !== "other") {
+    return draft;
+  }
+  const rest: NewLibrary = { ...draft };
+  delete rest.metadataSource;
+  return rest;
+}
+
 /** Whether the draft has a folder to read: the server refuses a library without one. */
 export function hasARoot(draft: NewLibrary): boolean {
   return (draft.rootPaths ?? []).length > 0;
@@ -217,6 +230,7 @@ function WhatItHolds(props: {
           ["movies", t("libraries.kindMovies")],
           ["shows", t("libraries.kindShows")],
           ["mixed", t("libraries.kindMixed")],
+          ["other", t("libraries.kindOther")],
         ]}
       />
     </>
@@ -234,19 +248,23 @@ function ThreeQuestions(props: {
   const { draft, setAnswer } = props;
   return (
     <>
-      <Question
-        legend={t("libraries.metadataSource")}
-        name="source"
-        value={draft.metadataSource}
-        onChange={(value) => {
-          setAnswer("metadataSource", value);
-        }}
-        choices={[
-          ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
-          ["tmdb", t("libraries.sourceTmdb")],
-          ["nfo", t("libraries.sourceNfo")],
-        ]}
-      />
+      {draft.kind === "other" ? (
+        <p>{t("libraries.sourceOther")}</p>
+      ) : (
+        <Question
+          legend={t("libraries.metadataSource")}
+          name="source"
+          value={draft.metadataSource ?? "nfo_then_tmdb"}
+          onChange={(value) => {
+            setAnswer("metadataSource", value);
+          }}
+          choices={[
+            ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
+            ["tmdb", t("libraries.sourceTmdb")],
+            ["nfo", t("libraries.sourceNfo")],
+          ]}
+        />
+      )}
       <Question
         legend={t("libraries.changeDetection")}
         name="changes"
@@ -362,7 +380,7 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   });
   const nodes = choices.state === "loaded" ? choices.value.nodes : [];
   const submit = (): void => {
-    const body = onAConnectedNode(draft, nodes);
+    const body = libraryToCreate(onAConnectedNode(draft, nodes));
     creating.runRequest(async (idempotencyKey) => {
       throwIfRefused(await api.POST("/libraries", { body, ...idempotent(idempotencyKey) }));
       setDraft(blankLibrary());

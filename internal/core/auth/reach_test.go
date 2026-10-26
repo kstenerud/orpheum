@@ -33,6 +33,30 @@ func TestReach_FailsClosedAndIsWhatTheRoleLists(t *testing.T) {
 	}
 }
 
+// A reach narrowed to one library reaches it alone, and only when it reached it; one less the
+// libraries a person left out reaches the rest of what it reached (D349).
+func TestReach_NarrowedToALibraryOrWithoutTheLeftOut(t *testing.T) {
+	t.Parallel()
+	one, two, three := int64(1), int64(2), int64(3)
+	if narrowed, ok := EveryLibrary().Narrowed(2); !ok || narrowed.Reaches(&one) || !narrowed.Reaches(&two) {
+		t.Error("every library narrowed to 2 reaches other than library 2")
+	}
+	if _, ok := LibrariesOnly(1).Narrowed(2); ok {
+		t.Error("a role of library 1 narrowed to library 2 reaches it")
+	}
+	without := EveryLibrary().Without([]int64{2}, []int64{1, 2, 3})
+	if !without.Reaches(&one) || without.Reaches(&two) || !without.Reaches(&three) {
+		t.Error("every library less 2 is not libraries 1 and 3")
+	}
+	listed := LibrariesOnly(1, 2).Without([]int64{2, 3}, []int64{1, 2, 3})
+	if !slices.Equal(listed.libraryIDs, []int64{1}) {
+		t.Errorf("libraries 1 and 2 less 2 and 3 reach %v, want 1", listed.libraryIDs)
+	}
+	if every := EveryLibrary().Without(nil, nil); !every.IsEveryLibrary() {
+		t.Error("every library less none is no longer every library")
+	}
+}
+
 // A principal's reach is its role's, read as it is authenticated: a library given to the role, or
 // taken back, counts from the next request (D243 §4).
 func TestAuthenticate_ReadsTheRolesLibrariesAtEachRequest(t *testing.T) {

@@ -147,6 +147,25 @@ func (q *Queries) GetOrdering(ctx context.Context, arg GetOrderingParams) (int64
 	return id, err
 }
 
+const getOtherVideo = `-- name: GetOtherVideo :one
+SELECT title_id, recorded_at, recorded_from, file_name, file_name_key
+FROM other_video
+WHERE title_id = ?
+`
+
+func (q *Queries) GetOtherVideo(ctx context.Context, titleID int64) (OtherVideo, error) {
+	row := q.db.QueryRowContext(ctx, getOtherVideo, titleID)
+	var i OtherVideo
+	err := row.Scan(
+		&i.TitleID,
+		&i.RecordedAt,
+		&i.RecordedFrom,
+		&i.FileName,
+		&i.FileNameKey,
+	)
+	return i, err
+}
+
 const getTitleIdentification = `-- name: GetTitleIdentification :one
 SELECT identification_state FROM title WHERE id = ?
 `
@@ -769,6 +788,44 @@ func (q *Queries) ListLibraryOriginalTexts(ctx context.Context, arg ListLibraryO
 	return items, nil
 }
 
+const listLibraryOtherVideos = `-- name: ListLibraryOtherVideos :many
+SELECT other_video.title_id, other_video.recorded_at, other_video.recorded_from, other_video.file_name,
+  other_video.file_name_key
+FROM item
+JOIN other_video ON other_video.title_id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title'
+`
+
+// The other videos of a library's live titles, as the pass last derived them (D349 section 4).
+func (q *Queries) ListLibraryOtherVideos(ctx context.Context, libraryID *int64) ([]OtherVideo, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryOtherVideos, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OtherVideo{}
+	for rows.Next() {
+		var i OtherVideo
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+			&i.FileNameKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibraryOverrides = `-- name: ListLibraryOverrides :many
 SELECT field_override.item_id, field_override.field, field_override.override_value
 FROM item
@@ -871,6 +928,45 @@ func (q *Queries) ListLibraryProviderResponses(ctx context.Context, libraryID *i
 			&i.FetchedAt,
 			&i.BodyGzip,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryRecordedTimes = `-- name: ListLibraryRecordedTimes :many
+SELECT file.id AS file_id,
+  CAST(json_extract(file_probe.probe_json, '$.format.recordedAtMs') AS INTEGER) AS recorded_at_ms
+FROM file
+JOIN file_probe ON file_probe.file_id = file.id
+WHERE file.library_id = ? AND file.removed_at IS NULL
+  AND json_extract(file_probe.probe_json, '$.format.recordedAtMs') IS NOT NULL
+`
+
+type ListLibraryRecordedTimesRow struct {
+	FileID       int64
+	RecordedAtMs int64
+}
+
+// When each live file of a library says it was recorded, as its node's probe read it, for those
+// that say: an other video's date (D349 section 4).
+func (q *Queries) ListLibraryRecordedTimes(ctx context.Context, libraryID int64) ([]ListLibraryRecordedTimesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryRecordedTimes, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryRecordedTimesRow{}
+	for rows.Next() {
+		var i ListLibraryRecordedTimesRow
+		if err := rows.Scan(&i.FileID, &i.RecordedAtMs); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1368,6 +1464,40 @@ func (q *Queries) ListNamesWithSortAndSearchKeys(ctx context.Context, locale str
 	return items, nil
 }
 
+const listOtherVideoFileNames = `-- name: ListOtherVideoFileNames :many
+SELECT title_id, file_name, file_name_key FROM other_video ORDER BY title_id
+`
+
+type ListOtherVideoFileNamesRow struct {
+	TitleID     int64
+	FileName    string
+	FileNameKey []byte
+}
+
+// Every other video's file name and its sort key in the locale, which a change of locale keys again.
+func (q *Queries) ListOtherVideoFileNames(ctx context.Context) ([]ListOtherVideoFileNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherVideoFileNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherVideoFileNamesRow{}
+	for rows.Next() {
+		var i ListOtherVideoFileNamesRow
+		if err := rows.Scan(&i.TitleID, &i.FileName, &i.FileNameKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOverrides = `-- name: ListOverrides :many
 SELECT field, override_value FROM field_override WHERE item_id = ? AND language = '' ORDER BY field
 `
@@ -1757,6 +1887,21 @@ func (q *Queries) RemoveVersion(ctx context.Context, arg RemoveVersionParams) er
 	return err
 }
 
+const setOtherVideoFileNameKey = `-- name: SetOtherVideoFileNameKey :exec
+UPDATE other_video SET file_name_key = ?1
+WHERE title_id = ?2 AND file_name_key IS NOT ?1
+`
+
+type SetOtherVideoFileNameKeyParams struct {
+	FileNameKey []byte
+	TitleID     int64
+}
+
+func (q *Queries) SetOtherVideoFileNameKey(ctx context.Context, arg SetOtherVideoFileNameKeyParams) error {
+	_, err := q.db.ExecContext(ctx, setOtherVideoFileNameKey, arg.FileNameKey, arg.TitleID)
+	return err
+}
+
 const setSearchAlternates = `-- name: SetSearchAlternates :exec
 UPDATE item_text SET search_alternates = ?1
 WHERE item_id = ?2 AND is_original = 1 AND search_alternates IS NOT ?1
@@ -1863,6 +2008,36 @@ func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalText
 		arg.Overview,
 		arg.Tagline,
 		arg.SearchAlternates,
+	)
+	return err
+}
+
+const upsertOtherVideo = `-- name: UpsertOtherVideo :exec
+INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+VALUES (?1, ?2, ?3, ?4, ?5)
+ON CONFLICT (title_id) DO UPDATE SET recorded_at = excluded.recorded_at, recorded_from = excluded.recorded_from,
+  file_name = excluded.file_name, file_name_key = excluded.file_name_key
+WHERE (other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key)
+  IS NOT (excluded.recorded_at, excluded.recorded_from, excluded.file_name, excluded.file_name_key)
+`
+
+type UpsertOtherVideoParams struct {
+	TitleID      int64
+	RecordedAt   int64
+	RecordedFrom string
+	FileName     string
+	FileNameKey  []byte
+}
+
+// An other video's date, where it came from, and its file's name and that name's sort key.
+// Only when it changes something (D303, DL9).
+func (q *Queries) UpsertOtherVideo(ctx context.Context, arg UpsertOtherVideoParams) error {
+	_, err := q.db.ExecContext(ctx, upsertOtherVideo,
+		arg.TitleID,
+		arg.RecordedAt,
+		arg.RecordedFrom,
+		arg.FileName,
+		arg.FileNameKey,
 	)
 	return err
 }

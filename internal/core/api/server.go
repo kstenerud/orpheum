@@ -181,7 +181,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerSecrets()
 	server.registerIdentification()
 	server.registerLibraries()
-	server.registerBrowse()
+	server.registerBrowsing()
 	server.registerArt()
 	server.registerDoctor()
 	server.registerSystem()
@@ -217,6 +217,13 @@ func NewServer(logger *slog.Logger) *Server {
 func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
 	server.registerLab()
+}
+
+// registerBrowsing registers a list's titles and a library browsed on its own (D349): films,
+// series and other videos, the alphabet rail's letters and an other library's folders.
+func (server *Server) registerBrowsing() {
+	server.registerBrowse()
+	server.registerLibraryBrowsing()
 }
 
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,

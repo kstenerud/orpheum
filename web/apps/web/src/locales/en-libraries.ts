@@ -52,10 +52,13 @@ export const enLibraries = {
     kindMovies: "Films",
     kindShows: "Series",
     kindMixed: "Both",
+    kindOther: "Other videos: home movies, concerts, lectures, clips",
     metadataSource: "Where information comes from",
     sourceNfoThenTmdb: "NFO files where there are any, and TMDB for the rest",
     sourceTmdb: "TMDB only; NFO files are ignored",
     sourceNfo: "NFO files only; nothing is fetched",
+    sourceOther:
+      "Other videos are never looked up online: each is named by its file, or an NFO file beside it, and dated by when it was recorded.",
     changeDetection: "How changes are noticed",
     changesWatch: "Watch the folders",
     changesInterval: "Check every so many hours",

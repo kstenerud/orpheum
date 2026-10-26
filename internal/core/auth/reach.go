@@ -39,6 +39,29 @@ func (reach Reach) Reaches(libraryID *int64) bool {
 	return libraryID != nil && slices.Contains(reach.libraryIDs, *libraryID)
 }
 
+// Narrowed is the reach of one library alone, an intersection: false when the caller does not reach
+// it, so a list of a library outside the role says so rather than looking empty (D349).
+func (reach Reach) Narrowed(libraryID int64) (Reach, bool) {
+	if !reach.Reaches(&libraryID) {
+		return Reach{}, false
+	}
+	return LibrariesOnly(libraryID), true
+}
+
+// Without is the reach less the libraries left out (D349 §8): of liveLibraryIDs, the libraries
+// there are, for a caller who reaches every one.
+func (reach Reach) Without(leftOut, liveLibraryIDs []int64) Reach {
+	if len(leftOut) == 0 {
+		return reach
+	}
+	reached := reach.libraryIDs
+	if reach.isEveryLibrary {
+		reached = liveLibraryIDs
+	}
+	kept := slices.DeleteFunc(slices.Clone(reached), func(id int64) bool { return slices.Contains(leftOut, id) })
+	return LibrariesOnly(kept...)
+}
+
 // ReachesNone is whether the caller reaches no library at all: a role the admin has given none.
 func (reach Reach) ReachesNone() bool { return !reach.isEveryLibrary && len(reach.libraryIDs) == 0 }
 

@@ -684,6 +684,7 @@ export const en = {
     kindSeries: "Series",
     kindEpisode: "Episode",
     kindExtra: "Extra",
+    kindOther: "Video",
   },
   files: {
     heading: "What the scanner saw",

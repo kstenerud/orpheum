@@ -50,7 +50,9 @@ func (pass *Pass) RefreshSortAndSearchKeys(ctx context.Context) (int, error) {
 				rewrittenCount++
 			}
 		}
-		return nil
+		rekeyed, rekeyErr := rekeyOtherFileNames(ctx, queries, sorter)
+		rewrittenCount += rekeyed
+		return rekeyErr
 	})
 	if err != nil {
 		return 0, fmt.Errorf("refresh the %s sort keys and the search folds: %w", locale, err)
@@ -135,4 +137,28 @@ func rekeyName(
 		return false, fmt.Errorf("sort item %d: %w", item.itemID, err)
 	}
 	return true, nil
+}
+
+// rekeyOtherFileNames keys every other video's file name again where its key is not the one the
+// locale derives now, for the sort by file name (D349 §4), and says how many it rewrote.
+func rekeyOtherFileNames(ctx context.Context, queries *sqlcgen.Queries, sorter *textindex.Sorter) (int, error) {
+	rows, err := queries.ListOtherVideoFileNames(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list the other videos' file names: %w", err)
+	}
+	rewritten := 0
+	for _, row := range rows {
+		key := sorter.Key(row.FileName)
+		if bytes.Equal(key, row.FileNameKey) {
+			continue
+		}
+		err := queries.SetOtherVideoFileNameKey(ctx, sqlcgen.SetOtherVideoFileNameKeyParams{
+			FileNameKey: key, TitleID: row.TitleID,
+		})
+		if err != nil {
+			return rewritten, fmt.Errorf("key other video %d's file name again: %w", row.TitleID, err)
+		}
+		rewritten++
+	}
+	return rewritten, nil
 }

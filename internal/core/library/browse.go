@@ -3,18 +3,20 @@
 package library
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // Refusals a browse can meet.
@@ -29,9 +31,22 @@ var (
 const (
 	ListFilms  = "movie"
 	ListSeries = "series"
-	SortName   = "name"
-	SortAdded  = "added"
+	// ListOther is an other library's videos, neither films nor series (D349 §3).
+	ListOther = "other"
+	// ListAny is films, series and other videos together, by name or newest first: a mixed library's,
+	// or every library's (D349 §1).
+	ListAny   = "any"
+	SortName  = "name"
+	SortAdded = "added"
+	// SortRecorded is newest recorded first, and SortFileName by the files' names: other videos'
+	// alone (D349 §4).
+	SortRecorded = "recorded"
+	SortFileName = "file_name"
 )
+
+// ErrNoSuchSort is an order the list does not come in: by recorded date or file name, but for
+// other videos.
+var ErrNoSuchSort = errors.New("the list does not come in that order")
 
 // BrowseSettings is what the browser reads from the settings: the locale lists sort in (D47), and
 // the thresholds that choose Continue Watching (play-state.md).
@@ -40,8 +55,8 @@ type BrowseSettings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }
 
-// Browser is what a person browses and searches: films and series in a locale's order or newest
-// first, a title's detail, a series' episodes (cut-a §5, Browse; D47, D48).
+// Browser is what a person browses and searches: films, series and other videos in a locale's order
+// or newest first, a title's detail, a series' episodes (cut-a §5, Browse; D47, D48, D349).
 type Browser struct {
 	database *store.Database
 	settings BrowseSettings
@@ -61,9 +76,11 @@ func NewBrowser(database *store.Database, config BrowseSettings) *Browser {
 	return &Browser{database: database, settings: config}
 }
 
-// Entry is one film or series in a list.
+// Entry is one film, series or other video in a list.
 type Entry struct {
-	ID                  int64
+	ID int64
+	// Kind is what it is: ListFilms, ListSeries or ListOther.
+	Kind                string
 	Name                string
 	Year                int64
 	IdentificationState string
@@ -72,6 +89,11 @@ type Entry struct {
 	LibraryID    int64
 	AddedAt      int64
 	PosterSha256 string // its poster's hash; "" when it has none
+	// LandscapeSha256 is an other video's 16:9 picture, its still or else its backdrop; "" when it
+	// has none (D349 §3).
+	LandscapeSha256 string
+	// Other is an other video's date and file name; nil for a film or a series.
+	Other *OtherFacts
 	// Unreadable is why none of its files can be read now, the first's, or nil when one can, or it
 	// has none (D241 §3).
 	Unreadable *Unreadable
@@ -81,13 +103,25 @@ type Entry struct {
 	// EpisodeCount is how many episodes a series has with a live file, in the ordering its person
 	// watches it in, and FinishedEpisodeCount how many of them they finished; 0 for a film.
 	EpisodeCount, FinishedEpisodeCount int64
-	// found is where it stands newest first, which a page's cursor holds: set by listByAdded alone.
-	found foundKey
 }
 
-// foundKey is when the scan that found a title or a series' newest episode listed it, and that
-// file's own modified time (step 0058).
-type foundKey struct{ at, fileModifiedAt int64 }
+// OtherFacts are an other video's: when it was recorded, where that came from (tag, name, file or
+// person), and its file's name (D349 §4).
+type OtherFacts struct {
+	RecordedAtMs int64
+	RecordedFrom string
+	FileName     string
+}
+
+// otherFactsOf is an other video's facts as a query reads them, or nil when the pass gave it none.
+func otherFactsOf(recordedAt *int64, recordedFrom, fileName *string) *OtherFacts {
+	if recordedAt == nil {
+		return nil
+	}
+	return &OtherFacts{
+		RecordedAtMs: *recordedAt, RecordedFrom: ptr.ValueOrZero(recordedFrom), FileName: ptr.ValueOrZero(fileName),
+	}
+}
 
 // Page is one page of a list, and the cursor of the next; "" on the last.
 type Page struct {
@@ -97,146 +131,143 @@ type Page struct {
 
 // ListQuery asks for one page of a list, of the libraries Reach reaches (D243 §4).
 type ListQuery struct {
-	Kind   string // ListFilms or ListSeries
-	Sort   string // SortName or SortAdded
+	Kind   string // ListFilms, ListSeries, ListOther or ListAny
+	Sort   string // SortName or SortAdded; for ListOther SortRecorded or SortFileName too
 	Cursor string
-	// From is a name a list by name starts at, its first title sorted at or after it in the
-	// sort_locale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
+	// From is a name a list by name or by file name starts at, its first title sorted at or after it
+	// in the sort_locale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
 	From  string
 	Limit int64
+	// Reach is the libraries listed: the caller's, narrowed to one library or less those they left
+	// out (auth.Reach's Narrowed and Without).
 	Reach auth.Reach
 	// UserID is the person listing, whose progress each entry shows.
 	UserID int64
 }
 
-// List is one page of films or series, only those with a live file.
+// List is one page of films, series or other videos, only those with a live file.
 func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error) {
-	var page Page
-	var err error
-	if query.Sort == SortAdded {
-		page, err = browser.listByAdded(ctx, query)
-	} else {
-		page, err = browser.listByName(ctx, query)
+	if (query.Sort == SortRecorded || query.Sort == SortFileName) && query.Kind != ListOther {
+		return Page{}, fmt.Errorf("%s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
 	}
+	keyed, err := browser.listKeyed(ctx, query)
 	if err != nil {
 		return Page{}, err
 	}
-	return browser.withProgress(ctx, query.UserID, query.Kind, page)
+	entries := make([]Entry, 0, len(keyed))
+	for _, each := range keyed {
+		entries = append(entries, each.entry)
+	}
+	page := closePage(entries, query.Limit, func(last int) string {
+		return encodeCursor(keyed[last].key, entries[last].ID)
+	})
+	page, err = browser.finishPage(ctx, page)
+	if err != nil {
+		return Page{}, err
+	}
+	return browser.withProgress(ctx, query.UserID, page)
 }
 
-// listByName is one page in the sort_locale's order (D47): after its cursor, or from its From.
-func (browser *Browser) listByName(ctx context.Context, query ListQuery) (Page, error) {
-	sorter, err := browser.sorter(ctx)
+// keyedEntry is an entry with its place in its list's order: the key a cursor holds.
+type keyedEntry struct {
+	entry Entry
+	key   []byte
+}
+
+// listPosition is where a page starts: after a key and an id, in its list's order.
+type listPosition struct {
+	key []byte
+	id  int64
+}
+
+// listKeyed is one page's entries with their keys: of one kind, or of every kind merged in the
+// list's order, each kind read from the same place.
+func (browser *Browser) listKeyed(ctx context.Context, query ListQuery) ([]keyedEntry, error) {
+	after, err := browser.startOf(ctx, query)
 	if err != nil {
-		return Page{}, err
+		return nil, err
 	}
-	locale := sorter.Locale()
-	afterKey, afterID, err := decodeCursor(query.Cursor)
+	kinds := []string{query.Kind}
+	if query.Kind == ListAny {
+		kinds = []string{ListFilms, ListSeries, ListOther}
+	}
+	var keyed []keyedEntry
+	for _, kind := range kinds {
+		ofKind, listErr := browser.listKind(ctx, kind, query, after)
+		if listErr != nil {
+			return nil, fmt.Errorf("list %s by %s: %w", kind, query.Sort, listErr)
+		}
+		keyed = append(keyed, ofKind...)
+	}
+	isNewestFirst := query.Sort == SortAdded || query.Sort == SortRecorded
+	slices.SortFunc(keyed, func(first, second keyedEntry) int {
+		order := cmp.Or(bytes.Compare(first.key, second.key), cmp.Compare(first.entry.ID, second.entry.ID))
+		if isNewestFirst {
+			return -order
+		}
+		return order
+	})
+	if int64(len(keyed)) > query.Limit {
+		keyed = keyed[:query.Limit]
+	}
+	return keyed, nil
+}
+
+// startOf is where a list's page starts: after its cursor, at its From, or at its start.
+func (browser *Browser) startOf(ctx context.Context, query ListQuery) (listPosition, error) {
+	key, id, err := decodeCursor(query.Cursor)
 	if err != nil {
-		return Page{}, err
+		return listPosition{}, err
 	}
-	if query.From != "" && query.Cursor == "" {
+	isByName := query.Sort == SortName || query.Sort == SortFileName
+	switch {
+	case query.Cursor != "" && !isByName && len(key) != keyLength(query.Sort):
+		return listPosition{}, ErrBadCursor
+	case query.Cursor != "":
+		return listPosition{key: key, id: id}, nil
+	case query.From != "" && isByName:
+		sorter, sorterErr := browser.sorter(ctx)
+		if sorterErr != nil {
+			return listPosition{}, sorterErr
+		}
 		// Every title whose key is the name's or after it: no item's id is below zero.
-		afterKey, afterID = sorter.Key(query.From), -1
+		return listPosition{key: sorter.Key(query.From), id: -1}, nil
+	case isByName:
+		return listPosition{key: []byte{}, id: 0}, nil
 	}
-	var entries []Entry
-	var keys [][]byte
-	queries := browser.database.Read()
-	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
-	if query.Kind == ListSeries {
-		rows, listErr := queries.ListSeriesByName(ctx, sqlcgen.ListSeriesByNameParams{
-			Locale: locale, AfterKey: afterKey, AfterID: afterID, MaxRows: query.Limit,
-			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-		})
-		err = listErr
-		for _, row := range rows {
-			entries = append(entries, Entry{
-				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
-			})
-			keys = append(keys, row.CollationKey)
-		}
-	} else {
-		rows, listErr := queries.ListFilmsByName(ctx, sqlcgen.ListFilmsByNameParams{
-			Locale: locale, AfterKey: afterKey, AfterID: afterID, MaxRows: query.Limit,
-			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-		})
-		err = listErr
-		for _, row := range rows {
-			entries = append(entries, Entry{
-				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
-			})
-			keys = append(keys, row.CollationKey)
-		}
+	// Newest first starts before everything.
+	start := make([]byte, 0, keyLength(query.Sort))
+	for range keyLength(query.Sort) / 8 {
+		start = binary.BigEndian.AppendUint64(start, uint64(1)<<62)
 	}
-	if err != nil {
-		return Page{}, fmt.Errorf("list %s by name: %w", query.Kind, err)
-	}
-	return browser.finishPage(ctx, query.Kind,
-		closePage(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }))
+	return listPosition{key: start, id: int64(1) << 62}, nil
 }
 
-// listByAdded is one page newest first: by the scan that found it, most recent first, then by its
-// file's own time, newest first, then by id (the owner, 2026-10-25; step 0058's found_at). A film is
-// as new as the scan that first found it; a series as its newest episode.
-func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page, error) {
-	cursorKey, id, err := decodeCursor(query.Cursor)
-	if err != nil {
-		return Page{}, err
+// keyLength is how long a newest-first list's key is: a found time and a file's time, or a
+// recorded time.
+func keyLength(sort string) int {
+	if sort == SortRecorded {
+		return 8
 	}
-	beforeFoundAt, beforeModifiedAt, beforeID := int64(1)<<62, int64(1)<<62, int64(1)<<62 // before everything
-	if query.Cursor != "" {
-		if len(cursorKey) != 16 {
-			return Page{}, ErrBadCursor
-		}
-		beforeFoundAt = int64(binary.BigEndian.Uint64(cursorKey[:8]))    //nolint:gosec // a time we encoded
-		beforeModifiedAt = int64(binary.BigEndian.Uint64(cursorKey[8:])) //nolint:gosec // a time we encoded
-		beforeID = id
+	return 16
+}
+
+// timeKey is a newest-first list's key: its times, each eight bytes, big-endian.
+func timeKey(times ...int64) []byte {
+	key := make([]byte, 0, 8*len(times))
+	for _, at := range times {
+		key = binary.BigEndian.AppendUint64(key, uint64(at)) //nolint:gosec // a time
 	}
-	var entries []Entry
-	queries := browser.database.Read()
-	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
-	if query.Kind == ListSeries {
-		rows, listErr := queries.ListSeriesByAdded(ctx, sqlcgen.ListSeriesByAddedParams{
-			BeforeFoundAt: beforeFoundAt, BeforeModifiedAt: beforeModifiedAt, BeforeID: beforeID, MaxRows: query.Limit,
-			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-		})
-		err = listErr
-		for _, row := range rows {
-			entries = append(entries, Entry{
-				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
-				found: foundKey{at: row.FoundAt, fileModifiedAt: row.FoundFileModifiedAt},
-			})
-		}
-	} else {
-		rows, listErr := queries.ListFilmsByAdded(ctx, sqlcgen.ListFilmsByAddedParams{
-			BeforeFoundAt: beforeFoundAt, BeforeModifiedAt: beforeModifiedAt, BeforeID: beforeID, MaxRows: query.Limit,
-			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-		})
-		err = listErr
-		for _, row := range rows {
-			entries = append(entries, Entry{
-				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
-				found: foundKey{at: row.FoundAt, fileModifiedAt: row.FoundFileModifiedAt},
-			})
-		}
+	return key
+}
+
+// keyTimes are a newest-first list's key's times.
+func keyTimes(key []byte) (first, second int64) {
+	first = int64(binary.BigEndian.Uint64(key[:8])) //nolint:gosec // a time we encoded
+	if len(key) >= 16 {
+		second = int64(binary.BigEndian.Uint64(key[8:16])) //nolint:gosec // a time we encoded
 	}
-	if err != nil {
-		return Page{}, fmt.Errorf("list %s by date added: %w", query.Kind, err)
-	}
-	return browser.finishPage(ctx, query.Kind, closePage(entries, query.Limit, func(last int) string {
-		found := entries[last].found
-		key := binary.BigEndian.AppendUint64(nil, uint64(found.at))            //nolint:gosec // a time
-		key = binary.BigEndian.AppendUint64(key, uint64(found.fileModifiedAt)) //nolint:gosec // a time
-		return encodeCursor(key, entries[last].ID)
-	}))
+	return first, second
 }
 
 // closePage closes a list: a full page has a next cursor, made from its last entry.

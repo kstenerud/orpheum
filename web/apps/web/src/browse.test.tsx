@@ -37,6 +37,7 @@ describe("browse", () => {
           {
             id: 10,
             name: "Metropolis",
+            kind: "movie",
             year: 1995,
             identificationState: "identified",
             libraryId: 1,
@@ -46,6 +47,7 @@ describe("browse", () => {
           {
             id: 11,
             name: "Untitled",
+            kind: "movie",
             identificationState: "unidentified",
             libraryId: 1,
             addedAt: 2,
@@ -73,6 +75,7 @@ describe("browse", () => {
           {
             id: 12,
             name: "The Thief of Bagdad",
+            kind: "movie",
             year: 1992,
             identificationState: "identified",
             isGuessed: true,
@@ -125,6 +128,7 @@ describe("a title that cannot be played now (D241 §3)", () => {
           {
             id: 10,
             name: "Metropolis",
+            kind: "movie",
             identificationState: "identified",
             libraryId: 1,
             addedAt: 1,
@@ -144,6 +148,7 @@ describe("how far in a poster's film or series is watched (the owner, 2026-10-25
   const base: Entry = {
     id: 1,
     name: "A",
+    kind: "movie",
     identificationState: "identified",
     libraryId: 1,
     addedAt: 1,

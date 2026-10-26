@@ -3,6 +3,7 @@
 package library
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -79,6 +80,32 @@ func (browser *Browser) withPosters(ctx context.Context, page Page) (Page, error
 	}
 	for index := range page.Entries {
 		page.Entries[index].PosterSha256 = posters[page.Entries[index].ID]
+	}
+	return browser.withLandscapes(ctx, page)
+}
+
+// withLandscapes gives each other video its 16:9 picture, its still or else its backdrop (D349 §3).
+func (browser *Browser) withLandscapes(ctx context.Context, page Page) (Page, error) {
+	var ids []int64
+	for _, entry := range page.Entries {
+		if entry.Kind == ListOther {
+			ids = append(ids, entry.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return page, nil
+	}
+	stills, err := browser.shownArtSourceSha256s(ctx, ArtStill, ids)
+	if err != nil {
+		return Page{}, err
+	}
+	backdrops, err := browser.shownArtSourceSha256s(ctx, ArtBackdrop, ids)
+	if err != nil {
+		return Page{}, err
+	}
+	for index := range page.Entries {
+		id := page.Entries[index].ID
+		page.Entries[index].LandscapeSha256 = cmp.Or(stills[id], backdrops[id])
 	}
 	return page, nil
 }

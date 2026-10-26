@@ -20,6 +20,9 @@
 //   - The same output always makes the same record, whatever order Go iterates a map in
 //     (scanner.md: deleting the node's cache changes nothing it reports).
 //     TestParse_IsTheSameRecordEveryTime.
+//   - When a file says it was recorded is a QuickTime creationdate, else its container's
+//     creation_time, else its first video track's, and a clock's zero or a time before 1950 is none
+//     (D349 §4). TestParse_TheTimeAFileSaysItWasRecordedAt.
 //
 // # Read before changing
 //

@@ -58,7 +58,7 @@ type RootScanBody struct {
 type LibraryBody struct {
 	ID                 int64            `json:"id"`
 	Name               string           `json:"name"`
-	Kind               string           `enum:"movies,shows,mixed" json:"kind"`
+	Kind               string           `enum:"movies,shows,mixed,other" json:"kind"`
 	MetadataSource     string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
 	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
@@ -81,9 +81,12 @@ type CreateLibraryInput struct {
 	AuthorizationHeader
 	Body struct {
 		Name string `json:"name"            minLength:"1"`
-		Kind string `enum:"movies,shows,mixed" json:"kind"`
-		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only.
-		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
+		// Kind: films, series, both, or other videos, neither films nor series, never identified
+		// online (D349).
+		Kind string `enum:"movies,shows,mixed,other" json:"kind"`
+		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only. Asked
+		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
+		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
 		CheckEveryHours *int64   `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
@@ -276,9 +279,13 @@ func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
 			"checkEveryHours is given with changeDetection interval, and only then")
 	}
+	metadataSource, err := metadataSourceOf(body.Kind, body.MetadataSource)
+	if err != nil {
+		return nil, err
+	}
 	id, err := dependencies.Libraries.Create(ctx, library.CreateRequest{
 		NodeName: body.NodeName, NewLibrary: library.NewLibrary{
-			Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource,
+			Name: body.Name, Kind: body.Kind, MetadataSource: metadataSource,
 			ChangeDetection: body.ChangeDetection, CheckEveryHours: body.CheckEveryHours, IsWritable: body.IsWritable,
 			Roots: body.RootPaths,
 		},
@@ -289,6 +296,22 @@ func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput
 	output := &CreatedOutput{}
 	output.Body.ID = id
 	return output, nil
+}
+
+// metadataSourceOf is a new library's metadata source: the one asked of it (D184), or for an other
+// library NFO files, as it is never identified online and is not asked (D349).
+func metadataSourceOf(kind, asked string) (string, error) {
+	switch {
+	case kind == library.LibraryKindOther && asked != "" && asked != library.MetadataSourceNFO:
+		return "", invalidRequestAt(http.StatusUnprocessableEntity, "body.metadataSource",
+			"an other library is never identified online: it takes NFO files only")
+	case kind == library.LibraryKindOther:
+		return library.MetadataSourceNFO, nil
+	case asked == "":
+		return "", invalidRequestAt(http.StatusUnprocessableEntity, "body.metadataSource",
+			"metadataSource is asked of every library but an other one (D184)")
+	}
+	return asked, nil
 }
 
 // NodeBody is one node, and the roots it configured when it is connected (D107). What else it
@@ -595,6 +618,8 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, library.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file")
+	case errors.Is(err, library.ErrNoSuchSort): // recorded and file_name are other videos' alone
+		return invalidRequestAt(http.StatusUnprocessableEntity, "query.sort", err.Error())
 	}
 	return server.logInternalError(ctx, action, err)
 }

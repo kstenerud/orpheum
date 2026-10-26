@@ -86,9 +86,9 @@ ORDER BY title.id;
 -- failure of their own to be fetched and a person's refresh waiting (D231 section 4). Only those
 -- with a live file: a title whose files went elsewhere waits for no one (the owner's NAS,
 -- 2026-10-13, where a series library's films became its episodes). An episode is its series'
--- (D209). An unidentified one not searched yet waits for no one, unless its fetch failed on its
--- own, which waits for a person's look again, or a person asked for it again, which the list says
--- is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
+-- (D209); an other video is never matched (D349). An unidentified one not searched yet waits for
+-- no one, unless its fetch failed on its own, which waits for a person's look again, or a person
+-- asked for it again, which the list says is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
 -- staging, 2026-10-21, where the count said 15 and the list was hundreds of episodes).
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
@@ -99,7 +99,7 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
 LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
-  AND title.kind != 'episode'
+  AND title.kind NOT IN ('episode', 'other')
   AND (title.identification_state != 'unidentified' OR title.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1

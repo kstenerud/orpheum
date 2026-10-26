@@ -184,6 +184,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getNotInOrdering", "setSeriesPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
 		"getUpNext",
+		// A list's letters and an other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
+		"getTitleLetters", "getLibraryFolder",
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",

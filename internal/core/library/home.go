@@ -74,7 +74,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 		rowIndexByTitle[row.TitleID] = len(inProgress)
 		inProgress = append(inProgress, InProgress{
 			Entry: Entry{
-				ID: row.TitleID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				ID: row.TitleID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				LibraryID: ptr.ValueOrZero(row.LibraryID),
 			},
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
@@ -105,7 +105,7 @@ func (browser *Browser) withPostersAndFileNames(
 		}
 		entries = append(entries, rows[index].Entry)
 	}
-	posterPage, err := browser.finishPage(ctx, ListFilms, Page{Entries: entries})
+	posterPage, err := browser.finishPage(ctx, Page{Entries: entries})
 	if err != nil {
 		return nil, err
 	}

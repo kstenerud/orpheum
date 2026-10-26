@@ -266,6 +266,8 @@ func wholeReadsAllowed() map[string]string {
 			"hourly, for the few owed a part of their orderings (D335)",
 		"CountItemsMissingSortKey":       sweep + "start counts the names with no key in the locale",
 		"ListNamesWithSortAndSearchKeys": sweep + "the key refresh reads every name, each with its key by item",
+		"ListOtherVideoFileNames": sweep + "the key refresh reads every other video's file name with its key, " +
+			"as it reads every name (D349)",
 	}
 }
 
@@ -346,6 +348,8 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibrarySeriesForPass":       library + snapshot,
 		"ListLibrarySeriesEpisodePlaces": library + snapshot,
 		"ListLibraryProviderResponses":   library + snapshot,
+		"ListLibraryOtherVideos":         library + snapshot,
+		"ListLibraryRecordedTimes":       library + "an other library's pass reads when its files were recorded (D349)",
 		"ListLibraryLiveEpisodeSources":  library + snapshot,
 		"ListLibraryExtraRelations":      library + snapshot,
 		"ListFileTitles":                 library + "the scanner view",

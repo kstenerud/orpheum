@@ -92,6 +92,8 @@ var wireShapeByVersion = map[int]string{
 	// 45 extracts a video's text tracks together: the command names them all, and the answer carries
 	// each one's text or failure (D340).
 	45: "281baf20e25334ac786b9fdf670f975728f014b6575523f15665987b442beca4",
+	// 46 adds a probed file's recorded time, RecordedAtMs, an other video's date (D349 §4).
+	46: "62b38ced485d4bf7b82d89f02e9eae5cb1b1424e1fc3a47c19c3189a626d2c84",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
