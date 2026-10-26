@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/build"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // version is the build this binary is, in a word: its release tag, or "dev" and its commit, as
@@ -200,9 +201,7 @@ func commandCore(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	outside := releaseWiring()
-	outside.machineZone = machineZone(systemZoneSources(call.lookupEnv))
-	outside.logLevel = opened.level
+	outside := releaseWiringFor(opened, machineZone(systemZoneSources(call.lookupEnv)))
 	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure
 	}
@@ -232,6 +231,15 @@ func usage() string {
 
 // releaseWiring is what a running server reaches outside itself: the providers' real addresses,
 // which a test replaces with its fakes.
+// A release's wiring for a run whose log is opened (releaseWiringFor): the log_level setting moves
+// opened's level, which the log writes at (D347), and zone is the machine's time zone.
+func releaseWiringFor(opened processLog, zone localtime.Zone) wiring {
+	outside := releaseWiring()
+	outside.machineZone = zone
+	outside.logLevel = opened.level
+	return outside
+}
+
 func releaseWiring() wiring {
 	return wiring{
 		tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL, openSubtitlesBaseURL: opensubtitles.BaseURL,

@@ -37,13 +37,14 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 				allowedHeaders)
 		}
 	}
-	me := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil)
-	exposed := me.header.Get("Access-Control-Expose-Headers")
-	if me.status != http.StatusOK || me.header.Get("Access-Control-Allow-Origin") != client ||
-		!strings.Contains(exposed, "Content-Range") || strings.Contains(exposed, ClientScriptHeader) {
+	fromClient := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil)
+	exposed := fromClient.header.Get("Access-Control-Expose-Headers")
+	if fromClient.status != http.StatusOK || fromClient.header.Get("Access-Control-Allow-Origin") != client ||
+		!strings.Contains(exposed, "Content-Range") || !strings.Contains(exposed, RequestIDHeader) ||
+		strings.Contains(exposed, ClientScriptHeader) {
 		t.Errorf("GET /me from the client's origin = %d, allowing %q and exposing %q; want it allowed, the "+
-			"range exposed and the core's own client script not", me.status,
-			me.header.Get("Access-Control-Allow-Origin"), exposed)
+			"range and the request's ID exposed and the core's own client script not", fromClient.status,
+			fromClient.header.Get("Access-Control-Allow-Origin"), exposed)
 	}
 	nobody := ""
 	harness.server.namedClientOrigin.Store(&nobody)

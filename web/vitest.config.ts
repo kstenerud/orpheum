@@ -7,6 +7,11 @@ import { VitestTimings } from "./e2e/vitest-timings.ts";
 
 export default defineConfig({
   plugins: [react()],
+  // Vite's own deny list but for its "**/.git/**": revert-red's worktrees and check-pr's tree live
+  // under .git/, where vitest's module runner could load no test ("Cannot find module"), so every
+  // unit-test probe failed before a test ran and passed as red (A45, 2026-10-26); the browser-mode
+  // config has the same. The repository's own .git keeps its objects and top-level files refused.
+  server: { fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/objects/**", "**/.git/*"] } },
   test: {
     // e2e/ holds the browser tier's own helpers, whose logic is tested like any other.
     include: ["{packages,apps}/*/src/**/*.test.{ts,tsx}", "e2e/**/*.test.ts"],
