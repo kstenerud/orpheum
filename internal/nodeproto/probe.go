@@ -25,6 +25,17 @@ type ProbeFormat struct {
 	// says none, or a time no camera keeps (before 1950, the zero of a QuickTime or Unix clock). A
 	// home video's date (D349 §4).
 	RecordedAtMs int64 `json:"recordedAtMs,omitempty"`
+	// Disc, for a DVD's or a Blu-ray's image, says which disc and which of its titles the record is
+	// of (D350): its main title, never the image's own bytes, so it never plays direct.
+	Disc *ProbeDisc `json:"disc,omitempty"`
+}
+
+// ProbeDisc is the disc a disc image holds and the title of it a probe describes.
+type ProbeDisc struct {
+	// Kind is "dvd" or "bluray".
+	Kind string `json:"kind"`
+	// TitleNumber is the title's number on a DVD, its playlist's on a Blu-ray.
+	TitleNumber int `json:"titleNumber"`
 }
 
 // ProbeStream is one track, as the container describes it (scanner.md, Track facts).

@@ -288,7 +288,7 @@ func directoryRule(relative string) (nodeproto.SkipRule, bool) {
 	case isSystemFolder(path.Base(relative)):
 		return nodeproto.SkipSystem, true
 	case strings.EqualFold(path.Base(relative), "VIDEO_TS") || strings.EqualFold(path.Base(relative), "BDMV"):
-		return nodeproto.SkipDiscImage, true
+		return nodeproto.SkipDiscFolder, true
 	}
 	return "", false
 }
@@ -306,6 +306,10 @@ func isSystemFolder(name string) bool {
 	return false
 }
 
+// discImageExtension is a DVD's or a Blu-ray's image, read as a video whatever the video extensions
+// say: its node serves its main title (D350).
+const discImageExtension = "iso"
+
 // kindOf is how a file named name is read: as a video, an NFO or a subtitle; "" and no rule for an
 // image beside the media, which is not read until it is needed (D215); or the rule that skips it.
 func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.SkipRule) {
@@ -320,9 +324,7 @@ func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.Ski
 		return nodeproto.ExamineSubtitle, ""
 	case isImage(extension):
 		return "", ""
-	case extension == "iso":
-		return "", nodeproto.SkipDiscImage
-	case !rules.VideoExtensions[extension]:
+	case !rules.VideoExtensions[extension] && extension != discImageExtension:
 		return "", nodeproto.SkipExtension
 	case isSampleFile(name):
 		return "", nodeproto.SkipSample

@@ -25,7 +25,9 @@ type Prober interface {
 // Films makes the film a probe reads from the file the scanner opened: execx.Runner's FilmOf, which
 // streams it when the node's FFmpeg can be streamed one (D330).
 type Films interface {
-	FilmOf(absolutePath string, opened execx.OpenedFilm, reading execx.FilmReading) execx.Film
+	FilmOf(
+		ctx context.Context, absolutePath string, opened execx.OpenedFilm, reading execx.FilmReading,
+	) (execx.Film, error)
 }
 
 // emitFunc takes one record of a listing or an examining.

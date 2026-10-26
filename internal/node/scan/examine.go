@@ -11,6 +11,7 @@ import (
 	"io/fs"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/disc"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -143,9 +144,14 @@ func (walk *walk) observe(place location, info fs.FileInfo) error {
 }
 
 // probe probes the video at place: streamed from the file the scanner opens, when its options make
-// films (Options.Films), or by its path. Its failure is errProbe's.
+// films (Options.Films), or by its path; a disc image's main title, which is only streamed (D350).
+// Its failure is errProbe's.
 func (walk *walk) probe(place location) (nodeproto.Probe, error) {
 	film := execx.Film{Path: place.absolute()}
+	isDiscImage := disc.IsImageName(place.relativePath)
+	if options := walk.scanner.options; options.Films == nil && isDiscImage {
+		return nodeproto.Probe{}, fmt.Errorf("%w: %w", errProbe, execx.ErrDiscNeedsStreaming)
+	}
 	if options := walk.scanner.options; options.Films != nil {
 		file, err := place.mediaRoot.Open(place.relativePath)
 		if err != nil {
@@ -157,8 +163,10 @@ func (walk *walk) probe(place location) (nodeproto.Probe, error) {
 			return nodeproto.Probe{}, fmt.Errorf("%w: stat %s: %w", errProbe, place.relativePath, err)
 		}
 		opened := execx.OpenedFilm{File: file, Facts: facts, Disks: options.Disks, Root: place.mediaRoot.Path()}
-		opened.Window = options.FilmReadWindow
-		film = options.Films.FilmOf(film.Path, opened, execx.ReadsIndex)
+		opened.Window, opened.IsDiscImage = options.FilmReadWindow, isDiscImage
+		if film, err = options.Films.FilmOf(walk.ctx, film.Path, opened, execx.ReadsIndex); err != nil {
+			return nodeproto.Probe{}, fmt.Errorf("%w: %w", errProbe, err)
+		}
 	}
 	probed, err := walk.scanner.prober.Probe(walk.ctx, film)
 	if err != nil {

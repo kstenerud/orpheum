@@ -101,9 +101,11 @@ func audioEntry(stream nodeproto.ProbeStream) (Audio, bool) {
 }
 
 // ContainerOf is the container a file is, from the demuxer's names, or false when none of the
-// menu's.
+// menu's, or when it is a disc image, whose title is in no container a client can be given (D350).
 func ContainerOf(format nodeproto.ProbeFormat) (Container, bool) {
 	switch {
+	case format.Disc != nil:
+		return "", false
 	case slices.Contains(format.FormatNames, "mp4") || slices.Contains(format.FormatNames, "mov"):
 		return MP4, true
 	case slices.Contains(format.FormatNames, "matroska"):

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/disc"
+	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -52,12 +54,12 @@ func TestFilmOf_StreamsTheOpenedFileOnTheTermsOfWhatTheRunReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	film := runner.FilmOf(path, opened, ReadsWholeFilm)
+	film := filmOf(t, runner, path, opened, ReadsWholeFilm)
 	if film.Stream != nil || film.Path != path || film.Size != 1000 {
 		t.Errorf("a runner that does not stream made %+v; want the film by its path", film)
 	}
 	runner.StreamFilms()
-	whole, probe := runner.FilmOf(path, opened, ReadsWholeFilm), runner.FilmOf(path, opened, ReadsIndex)
+	whole, probe := filmOf(t, runner, path, opened, ReadsWholeFilm), filmOf(t, runner, path, opened, ReadsIndex)
 	if whole.Stream == nil || probe.Stream == nil {
 		t.Fatalf("a runner that streams made %+v and %+v; want both streamed", whole, probe)
 	}
@@ -77,6 +79,74 @@ func TestFilmOf_StreamsTheOpenedFileOnTheTermsOfWhatTheRunReads(t *testing.T) {
 	if err := whole.Stream.Source.ReadAt(t.Context(), make([]byte, 10), 990); err != nil {
 		t.Errorf("the stream could not read the opened file: %v", err)
 	}
+}
+
+// A disc image's film is its main title: served as the image's runs that hold it, sized and
+// budgeted as the title, and carrying it for the probe; a runner that cannot stream refuses it, and
+// an image that is no disc says so (D350 §3).
+func TestFilmOf_ADiscImageIsServedAsItsMainTitleAndOnlyStreamed(t *testing.T) {
+	t.Parallel()
+	bluRay := disctest.BluRay{
+		Playlists: []disctest.BluRayPlaylist{{Number: 5, Items: []disctest.BluRayItem{
+			{Clip: "00001", OutMs: 1000}, {Clip: "00002", OutMs: 1000},
+		}}},
+		Clips: map[string][]byte{"00001": disctest.M2TS("one", 40), "00002": disctest.M2TS("two", 35)},
+	}
+	path, opened := openedTestImage(t, disctest.Volume{Files: bluRay.Files(), Metadata: true}.Bytes())
+	runner, err := NewRunner(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.FilmOf(t.Context(), path, opened, ReadsIndex); !errors.Is(err, ErrDiscNeedsStreaming) {
+		t.Errorf("a runner that reads by path made a disc's film with %v; want ErrDiscNeedsStreaming", err)
+	}
+	runner.StreamFilms()
+	film := filmOf(t, runner, path, opened, ReadsIndex)
+	want := string(disctest.M2TS("one", 40)) + string(disctest.M2TS("two", 35))
+	served := make([]byte, film.Size)
+	if readErr := film.Stream.Source.ReadAt(t.Context(), served, 0); readErr != nil || string(served) != want {
+		t.Errorf("the disc's film served %.30q… (%v); want its playlist's clips, joined", served, readErr)
+	}
+	if film.Disc == nil || film.Disc.Number != 5 || film.Size != int64(len(want)) ||
+		film.Stream.Source.Size() != film.Size || film.Stream.BudgetBytes != film.Size/16+filmBudgetFloorBytes {
+		t.Errorf("the disc's film is %+v; want playlist 5, sized and budgeted as its title of %d bytes",
+			film, len(want))
+	}
+	_, notDisc := openedTestFilm(t)
+	notDisc.IsDiscImage = true
+	if _, err := runner.FilmOf(t.Context(), path, notDisc, ReadsIndex); !errors.Is(err, disc.ErrNotADisc) {
+		t.Errorf("a file named a disc image that is none made a film with %v; want disc.ErrNotADisc", err)
+	}
+}
+
+// filmOf is runner's film of the file opened at path, for a run that reads it as reading.
+func filmOf(t *testing.T, runner *Runner, path string, opened OpenedFilm, reading FilmReading) Film {
+	t.Helper()
+	film, err := runner.FilmOf(t.Context(), path, opened, reading)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return film
+}
+
+// openedTestImage is a disc image opened as the node opens one, and its path.
+func openedTestImage(t *testing.T, image []byte) (string, OpenedFilm) {
+	t.Helper()
+	path, opened := openedTestFilm(t)
+	path = filepath.Join(filepath.Dir(path), "film.iso")
+	if err := os.WriteFile(path, image, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = file.Close() }) //nolint:errcheck // the test's own file
+	if opened.Facts, err = file.Stat(); err != nil {
+		t.Fatal(err)
+	}
+	opened.File, opened.IsDiscImage = file, true
+	return path, opened
 }
 
 // openedTestFilm is a film of 1,000 bytes opened as the node opens one, and its path.

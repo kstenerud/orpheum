@@ -122,6 +122,8 @@ type Runner struct {
 	streamsFilms atomic.Bool
 	// filmRuns numbers the runs a film is streamed to, from 1, each FFmpeg's DONE naming its own.
 	filmRuns atomic.Int64
+	// discTitles are the disc images' main titles FilmOf has read.
+	discTitles discTitles
 
 	stuck stuckProcesses
 }

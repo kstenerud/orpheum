@@ -49,6 +49,9 @@ func (prober *Prober) Probe(ctx context.Context, film execx.Film) (nodeproto.Pro
 	if err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", film.Path, err)
 	}
+	if film.Disc != nil {
+		return ParseDisc(output, *film.Disc)
+	}
 	return Parse(output)
 }
 

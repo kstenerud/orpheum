@@ -85,6 +85,10 @@
 //   - FilmOf is the one place a run's film is made: by path, or, once StreamFilms, served from the file
 //     the node opened, through its disk's gate, each run numbered and bounded by what it reads, a
 //     probe far less than a whole read. TestFilmOf_StreamsTheOpenedFileOnTheTermsOfWhatTheRunReads.
+//   - A disc image's film is its main title (internal/node/disc), served from the image's runs that
+//     hold it, sized and budgeted as the title and carrying it for the probe, its structure read once
+//     through the disk's gate; a runner that cannot stream a film refuses one (ErrDiscNeedsStreaming,
+//     D350). TestFilmOf_ADiscImageIsServedAsItsMainTitleAndOnlyStreamed.
 //   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
 //     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
 //
@@ -95,6 +99,7 @@
 //   - D112: the node probes its confinement and reports it.
 //   - D190 §4: the fake ffmpeg fixture asserts the arguments and environment.
 //   - D233 §5, §10: a stall classified, and a process that outlives its kill.
+//   - D350: a disc image plays its main title, served through fdproxy.
 //   - docs/contributors/design/plans/cut-a.md §7.
 //
 // # Where to change
@@ -103,6 +108,7 @@
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
 //     pause.go: pausing a watched run for play-driven work. film.go: a run's film, by path or
 //     served through the node (internal/node/fdproxy), and whether FFmpeg can be served one.
+//     disc.go: a disc image's main title as a run's film.
 //     proc_linux.go: reading a process group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.

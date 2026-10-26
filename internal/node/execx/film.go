@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/disc"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 )
@@ -45,6 +46,9 @@ type Film struct {
 	// CacheBlocks is how many blocks of a streamed film FFmpeg keeps (fdproxy's specification,
 	// Reading in Blocks): filmCacheBlocks, for every film alike.
 	CacheBlocks int
+	// Disc, when the film is a disc image, is its main title, what the run is served of it (D350):
+	// Size is then the title's.
+	Disc *disc.Title
 }
 
 // Input names the film as a run's input: by path (FileInput), or streamed (StreamedInput).
@@ -123,6 +127,8 @@ type OpenedFilm struct {
 	Disks  *diskwatch.Gate
 	Root   string
 	Window time.Duration
+	// IsDiscImage is a DVD's or a Blu-ray's image (disc.IsImageName), whose main title is the film.
+	IsDiscImage bool
 }
 
 // StreamFilms has the runner stream every film to the run that reads it from now on (D330): its
@@ -131,23 +137,37 @@ func (runner *Runner) StreamFilms() { runner.streamsFilms.Store(true) }
 
 // FilmOf is the film at path, an absolute path, opened and checked as opened, for a run that reads it
 // as reading: served from the opened file through its disk's gate when the runner streams films, the
-// run given no path to it; by its path otherwise. The caller closes the file once the run has ended.
-func (runner *Runner) FilmOf(path string, opened OpenedFilm, reading FilmReading) Film {
+// run given no path to it; by its path otherwise. A disc image's film is its main title, served from
+// the image's runs that hold it, which only a streamed run can be (ErrDiscNeedsStreaming, D350 §3);
+// an image whose title cannot be read is the error that says why. The caller closes the file once
+// the run has ended.
+func (runner *Runner) FilmOf(ctx context.Context, path string, opened OpenedFilm, reading FilmReading) (Film, error) {
 	film := Film{Path: path, Size: opened.Facts.Size()}
 	if !runner.streamsFilms.Load() {
-		return film
+		if opened.IsDiscImage {
+			return Film{}, ErrDiscNeedsStreaming
+		}
+		return film, nil
+	}
+	var source fdproxy.Source = fdproxy.NewFileSource(
+		opened.File, opened.Facts, opened.Disks, opened.Root, path, opened.Window,
+	)
+	if opened.IsDiscImage {
+		title, err := runner.discTitles.titleOf(ctx, path, opened.Facts, source)
+		if err != nil {
+			return Film{}, err
+		}
+		film.Disc, film.Size, source = &title, title.SizeBytes(), titleSource{image: source, title: title}
 	}
 	film.Stream = &fdproxy.Config{
-		Run: runner.filmRuns.Add(1),
-		Source: fdproxy.NewFileSource(
-			opened.File, opened.Facts, opened.Disks, opened.Root, path, opened.Window,
-		),
+		Run:             runner.filmRuns.Add(1),
+		Source:          source,
 		MostOutstanding: filmMostOutstanding,
 		BudgetBytes:     reading.budget(film.Size),
 		DataPipeBytes:   filmDataPipeBytes,
 	}
 	film.CacheBlocks = filmCacheBlocks
-	return film
+	return film, nil
 }
 
 // openFilm makes a run's film channel and hands FFmpeg its ends at filmReadFD and filmWriteFD:

@@ -4,10 +4,16 @@ package agent
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/disc"
+	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -60,6 +66,48 @@ func TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt(
 				seen.film)
 		}
 		finalRunReport(t, core)
+	}
+}
+
+// A run of a disc image is served the image's main title, the run told which it is, on a whole
+// read's terms; a node whose FFmpeg reads by path refuses it, saying why (D350 §3).
+func TestAgent_ARunOfADiscImageIsServedItsMainTitle(t *testing.T) {
+	t.Parallel()
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{Data: disctest.Sectors("the film", 3), DurationMs: 9000},
+	}}}}
+	image := disctest.Volume{Files: dvd.Files()}.Bytes()
+	for _, isStreamed := range []bool{true, false} {
+		core, socket := startFakeCore(t)
+		maker := filmRecordingChunkMaker{films: make(chan filmSeen, 1)}
+		root, _ := startAgentWithWorkers(t, socket, Workers{
+			Scanner: fakeScanner{}, Artworker: fakeArtworker{}, ChunkMaker: maker, Films: filmsRunner(t, isStreamed),
+		})
+		if err := os.WriteFile(filepath.Join(root.Path(), "Film.iso"), image, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		named := nodeproto.BytesFile{
+			RootPath: root.Path(), Path: []byte("Film.iso"), PayloadHash: nodetest.PayloadHashHex(t, string(image)),
+		}
+		core.sendMakeChunks(1, nodeproto.MakeChunks{
+			Video: named, StoreDir: "3/chunks-picture/0123456789abcdef",
+			Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}, BoundsMs: []int64{0, 2000, 4000},
+		})
+		if !isStreamed {
+			if report := receiveChunksReport(t, core); !strings.Contains(report.Refusal, "fdproxy") {
+				t.Errorf("a node whose FFmpeg reads by path ended a disc's run %+v; want a refusal saying why",
+					report)
+			}
+			continue
+		}
+		seen := testutil.Receive(t, maker.films, "the run's film")
+		if seen.film.Disc == nil || seen.film.Disc.Kind != disc.DVD || seen.readErr != nil ||
+			string(seen.contents) != string(disctest.Sectors("the film", 3)) || seen.film.Stream.BudgetBytes < 64<<20 {
+			t.Errorf("a disc's run was given %+v serving %.20q… (%v); want its DVD's main title, on a whole "+
+				"read's terms",
+				seen.film, seen.contents, seen.readErr)
+		}
+		receiveChunksReport(t, core)
 	}
 }
 

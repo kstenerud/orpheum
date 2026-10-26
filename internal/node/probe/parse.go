@@ -47,6 +47,7 @@ type rawFormat struct {
 
 type rawStream struct {
 	Index          int               `json:"index"`
+	ID             string            `json:"id"`
 	CodecType      string            `json:"codec_type"`
 	CodecName      string            `json:"codec_name"`
 	Profile        string            `json:"profile"`

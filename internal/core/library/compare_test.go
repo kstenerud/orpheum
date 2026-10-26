@@ -105,13 +105,14 @@ func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *tes
 	}
 }
 
-// A disc's image and a disc's folder are skipped, each filed with its rule, so a film the beta
-// does not read is not missing in silence; the videos inside a disc's folder are never read as
-// films of their own (D306 §5).
-func TestTakeListing_SkipsADiscsImageAndADiscsFolder(t *testing.T) {
+// A disc's image is read as a video, its node serving its main title, though the video extensions
+// do not name it (D350); a disc's folder is skipped, filed with its rule, so a film the beta does not
+// read is not missing in silence, and the videos inside it are never read as films of their own
+// (D306 §5).
+func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.takeListing([]nodeproto.ScanRecord{
+	taken := world.takeListing([]nodeproto.ScanRecord{
 		listedFile("Metropolis (1995).iso", 3, 1),
 		listedDirectory("Wing (1979)"),
 		listedDirectory("Wing (1979)/VIDEO_TS"),
@@ -127,10 +128,14 @@ func TestTakeListing_SkipsADiscsImageAndADiscsFolder(t *testing.T) {
 			skipped[strings.TrimPrefix(path, root+"/")] = *file.FilingReason
 		}
 	}
-	const rule = "disc_image_not_supported_yet"
-	want := map[string]string{"Metropolis (1995).iso": rule, "Wing (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
+	const rule = "disc_folder_not_supported_yet"
+	want := map[string]string{"Wing (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
 	if !mapsEqual(skipped, want) {
 		t.Errorf("skipped %v, want %v", skipped, want)
+	}
+	wantExamined := []string{"video Metropolis (1995).iso", "video Nosferatu (1998)/Nosferatu (1998).mkv"}
+	if got := examined(taken); !slices.Equal(got, wantExamined) {
+		t.Errorf("taken to be read: %q; want %q, the disc's image a video", got, wantExamined)
 	}
 }
 

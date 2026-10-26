@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
@@ -68,9 +70,47 @@ func TestExamine_AProbeIsServedTheFileTheScannerOpenedWhenTheNodeStreamsFilms(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	whole := runner.FilmOf(wantPath, execx.OpenedFilm{Facts: facts}, execx.ReadsWholeFilm)
+	whole, err := runner.FilmOf(t.Context(), wantPath, execx.OpenedFilm{Facts: facts}, execx.ReadsWholeFilm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if probe := streamed.films[0].Stream; probe.BudgetBytes >= whole.Stream.BudgetBytes {
 		t.Errorf("the probe may be served %d bytes, a whole read %d; want a probe's budget, the smaller",
 			probe.BudgetBytes, whole.Stream.BudgetBytes)
+	}
+}
+
+// A disc image's probe is served its main title, the disc's facts with it; a node whose FFmpeg reads
+// by path cannot serve one, and says so in the file's error rather than probing the image's raw bytes
+// (D350).
+func TestExamine_ADiscImageIsProbedAsItsMainTitleOnlyWhenStreamed(t *testing.T) {
+	t.Parallel()
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{Data: disctest.Sectors("the film", 2), DurationMs: 5000},
+	}}}}
+	image := string(disctest.Volume{Files: dvd.Files()}.Bytes())
+	media := nodetest.OpenMediaRoot(t, writeTree(t, map[string]string{"Film/Film (2001).iso": image}))
+	runner, err := execx.NewRunner(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	streaming := options
+	streaming.Films, streaming.Disks, streaming.FilmReadWindow = runner, diskwatch.NewGate(clock.System{}), time.Minute
+	byPath := &streamReadingProber{}
+	iso := video("Film/Film (2001).iso")
+	records := examineAll(t, NewScanner([]*confine.MediaRoot{media}, byPath, options), media, iso)
+	if len(byPath.films) != 0 || len(records) != 1 || records[0].Error == nil ||
+		records[0].Error.Code != nodeproto.CodeProbeFailed ||
+		!strings.Contains(records[0].Error.PlatformError.Text, "fdproxy") {
+		t.Errorf("a node that reads by path examined a disc image as %+v, probing %d; want a probe failure saying "+
+			"the image needs a streamed FFmpeg", records, len(byPath.films))
+	}
+	runner.StreamFilms()
+	streamed := &streamReadingProber{}
+	examineAll(t, NewScanner([]*confine.MediaRoot{media}, streamed, streaming), media, iso)
+	if len(streamed.films) != 1 || streamed.films[0].Disc == nil || streamed.films[0].Disc.DurationMs != 5000 ||
+		!slices.Equal(streamed.contents, []string{string(disctest.Sectors("the film", 2))}) {
+		t.Errorf("a node that streams films probed %+v serving %d films' bytes; want the image's main title, "+
+			"its disc facts with it", streamed.films, len(streamed.contents))
 	}
 }

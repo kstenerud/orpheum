@@ -94,6 +94,9 @@ var wireShapeByVersion = map[int]string{
 	45: "281baf20e25334ac786b9fdf670f975728f014b6575523f15665987b442beca4",
 	// 46 adds a probed file's recorded time, RecordedAtMs, an other video's date (D349 §4).
 	46: "62b38ced485d4bf7b82d89f02e9eae5cb1b1424e1fc3a47c19c3189a626d2c84",
+	// 47 says a disc image's probe is of its main title (ProbeFormat.Disc), and a disc's folder is
+	// skipped as disc_folder_not_supported_yet, an image being read (D350).
+	47: "fef4610c120047fd82fb706c6cdf70d01b3ccfa72930f2260cfa09ff901050bf",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

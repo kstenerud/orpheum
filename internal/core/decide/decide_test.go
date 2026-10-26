@@ -232,6 +232,24 @@ func TestDecide_APersonsChoiceWins(t *testing.T) {
 	}
 }
 
+// A disc image's title is never played as it is, even when a person prefers it and its streams fit:
+// the original's bytes are the image's (D350 §4). Its picture is copied when the device plays it.
+func TestDecide_ADiscImageIsNeverPlayedDirect(t *testing.T) {
+	t.Parallel()
+	bluRay := probeOf("mpegts", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
+	bluRay.Format.Disc = &nodeproto.ProbeDisc{Kind: "bluray", TitleNumber: 800}
+	formats := browser
+	formats.Containers = append(slices.Clone(formats.Containers), decide.MPEGTS)
+	for _, preferred := range []decide.Delivery{"", decide.Direct} {
+		got := decide.Decide(decide.Input{Probe: bluRay, PlayableFormats: formats, PreferredDelivery: preferred})
+		if got.Delivery != decide.HLS || got.Profile != decide.Remux ||
+			!slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonContainer}) {
+			t.Errorf("a Blu-ray's title, %q preferred, decided %+v; want its picture copied for the container",
+				preferred, got)
+		}
+	}
+}
+
 // A chosen audio track that is not the one the original starts with is prepared, since a browser
 // plays the original's first, and it is the chosen track whose codec is asked (D230 §5).
 func TestDecide_AChosenAudioTrackOtherThanTheFirstIsPreparedAndItsCodecAsked(t *testing.T) {

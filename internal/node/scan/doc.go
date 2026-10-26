@@ -21,7 +21,9 @@
 //     TestList_ListsEveryEntryWithItsStatAndReadsNoFile.
 //   - An examining's probe is served the very file the scanner opened, on a probe's terms, when the
 //     node streams films (Options.Films, D330), and reads it by its path otherwise.
-//     TestExamine_AProbeIsServedTheFileTheScannerOpenedWhenTheNodeStreamsFilms.
+//     TestExamine_AProbeIsServedTheFileTheScannerOpenedWhenTheNodeStreamsFilms. A disc image's
+//     probe is served its main title, and a node that cannot stream one says so in its error
+//     (D350). TestExamine_ADiscImageIsProbedAsItsMainTitleOnlyWhenStreamed.
 //   - A listing goes only as deep as asked, from where asked.
 //     TestList_GoesOnlyAsDeepAsAskedFromWhereAsked.
 //   - A symlink is followed only into a media root, and a directory is walked once however many
