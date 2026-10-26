@@ -213,8 +213,9 @@ ORDER BY length(root_path) DESC, root_path;
 
 -- name: ListSubtitleTracksOfVideo :many
 -- A video's subtitle tracks, its own and those of the live sidecar files attached to it, with the
--- payload hash of the file each track's bytes are in: what a playback offers.
-SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, f.payload_hash AS bytes_payload_hash
+-- file each track's bytes are in and its payload hash: what a playback offers.
+SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, s.bytes_file,
+  f.payload_hash AS bytes_payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = sqlc.arg(video_file) AND s.kind = 'subtitle'
@@ -229,11 +230,21 @@ WHERE video_file = sqlc.arg(video_file) AND bytes_file = video_file AND kind = '
 ORDER BY stream_index;
 
 -- name: GetSubtitleStream :one
--- A subtitle track, and the live file its bytes are in, for the job that extracts it.
-SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
+-- A subtitle track, and the live file its bytes are in: where its text is kept, and the job that
+-- extracts it.
+SELECT s.id, s.video_file, s.stream_index, s.codec, s.bytes_file, f.payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.id = sqlc.arg(id) AND s.kind = 'subtitle';
+
+-- name: ListSubtitleStreamsInFile :many
+-- The subtitle tracks whose bytes are in a live file, a video's own or a sidecar's one, and where
+-- the file is: the job that extracts them, all from one read of it (D340).
+SELECT s.id, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
+FROM stream s
+JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+WHERE s.bytes_file = sqlc.arg(bytes_file) AND s.kind = 'subtitle'
+ORDER BY s.stream_index;
 
 -- name: GetSidecarStream :one
 -- A sidecar's one stream: a whole-file track has no stream index (schema.md, stream).

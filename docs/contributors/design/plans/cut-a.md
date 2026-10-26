@@ -263,8 +263,10 @@ token names this sending of the job, so a result is taken only for the attempt t
 - `examine{rootPath, files[{path, kind}]}`: probe, hash and read the sidecars of a batch; the
   answer is `examined` records (`observed`, `sidecar`, `skip`, `error`)
 - `prepare{video, profile, renditionDir, audio[]}`: a rendition (§6)
-- `extract_subtitle{video, streamIndex}`, `{sidecar}` or `{fetchedSubRip}`: one job makes both ASS
-  and WebVTT ([D217](../../decisions/working-notes.md) §6)
+- `extract_subtitle{video, streamIndexes[]}`, `{sidecar}` or `{fetchedSubRip}`: one job makes both ASS
+  and WebVTT ([D217](../../decisions/working-notes.md) §6), of every text track of a video it names
+  from one read of it, each answered with its own text or failure
+  ([D340](../../decisions/working-notes.md#d340--a-videos-text-subtitle-tracks-are-extracted-by-one-job-from-one-read-of-it-and-a-failed-track-alone-is-tried-again-when-next-played))
 - `read_through{video, loudnessTracks[], videoTimeline}` (was `measure_loudness`; [chunks.md](chunks.md) §2):
   each audio track's integrated loudness, range and true peak, and its stereo mix's when it has more
   than two channels ([D226](../../decisions/working-notes.md) §1), and the picture's keyframes and
@@ -451,7 +453,8 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   <out_dir>/v%v/stream.m3u8
 ```
 
-- **Text subtitles** are extracted by `extract_subtitle` jobs queued alongside, one per track.
+- **Text subtitles** are extracted by `extract_subtitle` jobs queued alongside, one per file the
+  tracks are in: a video's from one read of it (D340).
   The output is ASS for JASSUB and WebVTT for the cast receiver and the browser's own fullscreen
   (D254), served as sidecar files rather than as HLS renditions in Cut A.
 - **The boost matrix** is one fixed matrix whose centre gain is set in M3 by listening test on a

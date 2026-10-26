@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -17,12 +18,12 @@ import (
 
 // Subtitler makes a subtitle's ASS and WebVTT; subtitle.Extractor is the real one.
 type Subtitler interface {
-	ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (subtitle.Text, error)
+	ExtractTracks(ctx context.Context, film execx.Film, streamIndexes []int) ([]subtitle.TrackText, error)
 	ConvertText(ctx context.Context, source []byte) (subtitle.Text, error)
 }
 
-// subtitleWork is an extraction held until the node's one extraction slot is free, since an
-// embedded track means reading the whole video, which posts its answer to the core.
+// subtitleWork is an extraction held until the node's one extraction slot is free, since a video's
+// tracks mean reading the whole video, which posts its answer to the core.
 func (agent *Agent) subtitleWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.ExtractSubtitle,
 ) heldWork {
@@ -30,7 +31,8 @@ func (agent *Agent) subtitleWork(
 		attempt: held, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runExtraction(jobCtx, command)
-			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
+			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall) +
+				trackFailures(answer.Tracks)
 		},
 	})
 }
@@ -142,9 +144,9 @@ type notTriedError struct{ error }
 
 func (refusal notTriedError) Unwrap() error { return refusal.error }
 
-// runExtraction makes one subtitle's text, or says why it could not: that the converter could
-// not, which is the source's, or that the node did not try. The text is a video's track, a
-// sidecar or a fetched subtitle's text, whichever the command names, and only one.
+// runExtraction makes a subtitle's text, or says why it could not: that the converter could not,
+// which is the source's, or that the node did not try. The text is a video's tracks, a sidecar or a
+// fetched subtitle's text, whichever the command names, and only one.
 func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
 	sourceCount := 0
 	for _, isSet := range []bool{command.Video != nil, command.Sidecar != nil, command.FetchedSubRip != nil} {
@@ -158,39 +160,74 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 	case agent.workers.Subtitler == nil:
 		err = notTriedError{errors.New("this node does not extract subtitles")}
 	case sourceCount != 1:
-		err = notTriedError{errors.New("a subtitle names a video's track, a sidecar or a fetched text, and only one")}
+		err = notTriedError{errors.New("a subtitle names a video's tracks, a sidecar or a fetched text, and only one")}
+	case command.Video != nil && len(command.StreamIndexes) == 0:
+		err = notTriedError{errors.New("a video's extraction names no track")}
+	case command.Video != nil:
+		var tracks []nodeproto.TrackText
+		if tracks, err = agent.extractTracks(ctx, *command.Video, command.StreamIndexes); err == nil {
+			return nodeproto.SubtitleText{Tracks: tracks}
+		}
 	case command.FetchedSubRip != nil:
 		text, err = agent.convertFetched(ctx, command.FetchedSubRip)
-	case command.Video != nil:
-		text, err = agent.extractTrack(ctx, *command.Video, command.StreamIndex)
 	default:
 		text, err = agent.convertSidecar(ctx, *command.Sidecar)
 	}
+	if err != nil {
+		return subtitleAnswerOf(err)
+	}
+	return nodeproto.SubtitleText{ASS: text.ASS, VTT: text.VTT}
+}
+
+// subtitleAnswerOf is the answer of an extraction that made nothing: the node did not try, FFmpeg
+// stalled, or the converter could not make the text.
+func subtitleAnswerOf(err error) nodeproto.SubtitleText {
 	if errors.As(err, new(notTriedError)) {
 		return nodeproto.SubtitleText{Refusal: err.Error(), RefusalCode: refusalCodeOf(err)}
 	}
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.SubtitleText{Stall: stall}
 	}
-	if err != nil {
-		return nodeproto.SubtitleText{Failure: err.Error()}
-	}
-	return nodeproto.SubtitleText{ASS: text.ASS, VTT: text.VTT}
+	return nodeproto.SubtitleText{Failure: err.Error()}
 }
 
-// extractTrack extracts a track of a video checked to be the one the core named (D100).
-func (agent *Agent) extractTrack(
-	ctx context.Context, video nodeproto.BytesFile, streamIndex int,
-) (subtitle.Text, error) {
+// extractTracks extracts tracks of a video checked to be the one the core named (D100), from one
+// read of it (D340), each with its text or its own failure.
+func (agent *Agent) extractTracks(
+	ctx context.Context, video nodeproto.BytesFile, streamIndexes []int,
+) ([]nodeproto.TrackText, error) {
 	film, closeFilm, err := agent.openFilm(ctx, video)
 	if stallOf(err) != nil {
-		return subtitle.Text{}, err
+		return nil, err
 	}
 	if err != nil {
-		return subtitle.Text{}, notTriedError{err}
+		return nil, notTriedError{err}
 	}
 	defer closeFilm()
-	return agent.workers.Subtitler.ExtractTrack(ctx, film, streamIndex)
+	extracted, err := agent.workers.Subtitler.ExtractTracks(ctx, film, streamIndexes)
+	if err != nil {
+		return nil, err
+	}
+	tracks := make([]nodeproto.TrackText, 0, len(extracted))
+	for _, track := range extracted {
+		answer := nodeproto.TrackText{StreamIndex: track.StreamIndex, ASS: track.Text.ASS, VTT: track.Text.VTT}
+		if track.Err != nil {
+			answer = nodeproto.TrackText{StreamIndex: track.StreamIndex, Failure: track.Err.Error()}
+		}
+		tracks = append(tracks, answer)
+	}
+	return tracks, nil
+}
+
+// trackFailures says, for the log, which of a video's tracks could not be made and why.
+func trackFailures(tracks []nodeproto.TrackText) string {
+	var failures []string
+	for _, track := range tracks {
+		if track.Failure != "" {
+			failures = append(failures, fmt.Sprintf("stream %d: %s", track.StreamIndex, track.Failure))
+		}
+	}
+	return strings.Join(failures, "; ")
 }
 
 // convertSidecar converts a subtitle file beside the media, read through the root it is under and

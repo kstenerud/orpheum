@@ -18,8 +18,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// subtitleStreamID is the stream row of film 2's ASS track, as shelveSubtitles records it.
-const subtitleStreamID = 5
+// subtitleStreamID is the stream row of film 2's ASS track, as shelveSubtitles records it, and
+// subtitleFileID the file it is in, film 2, which its extraction job works on (D340).
+const (
+	subtitleStreamID = 5
+	subtitleFileID   = 2
+)
 
 // shelveSubtitles records film 2's subtitle tracks as a scan would: its ASS, English and the
 // default, and its PGS; and film 1's own track, which no playback of film 2 may reach.
@@ -31,8 +35,12 @@ func (harness testHarness) shelveSubtitles(t *testing.T) {
 		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
 }
 
-// sidecarStreamID is the stream row of film 2's Spanish subtitle file, as shelveSidecar records it.
-const sidecarStreamID = 7
+// sidecarStreamID is the stream row of film 2's Spanish subtitle file, as shelveSidecar records it,
+// and sidecarFileID the file's.
+const (
+	sidecarStreamID = 7
+	sidecarFileID   = 10
+)
 
 // shelveSidecar records "Film (2002).es.srt" beside film 2 as a scan would: the file, attached,
 // with its payload hash, and its one track.
@@ -48,18 +56,25 @@ func (harness testHarness) shelveSidecar(t *testing.T) {
 		 (7, 10, 2, NULL, 'subtitle', 'subrip', 'es', 'es')`)
 }
 
-// extract runs the extraction job of film 2's ASS track, answering the node's command with
+// extract runs the extraction job of film 2's text tracks, answering the node's command with
 // answer, and returns the command and how the job ended.
 func (harness testHarness) extract(
 	t *testing.T, jobID int64, answer nodeproto.SubtitleText,
 ) (nodeproto.Command, error) {
 	t.Helper()
-	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
+	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID}}
 	finished := harness.handle(t, harness.subtitles.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	harness.answerSubtitle(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
 	return command, testutil.Receive(t, finished, "the extraction job to end")
+}
+
+// trackText is a node's answer that made the text of a video's track at streamIndex.
+func trackText(streamIndex int, ass, vtt string) nodeproto.SubtitleText {
+	return nodeproto.SubtitleText{
+		Tracks: []nodeproto.TrackText{{StreamIndex: streamIndex, ASS: []byte(ass), VTT: []byte(vtt)}},
+	}
 }
 
 // storeExtractedText keeps text as extracted for the track at streamIndex of the file with
@@ -76,7 +91,7 @@ func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, 
 	}
 }
 
-// subtitleJobCount counts the extraction jobs ever queued for film 2's ASS track.
+// subtitleJobCount counts the extraction jobs ever queued for film 2's text tracks.
 func (harness testHarness) subtitleJobCount(t *testing.T) int {
 	t.Helper()
 	all, err := harness.cache.Read().ListJobs(t.Context(), 100)
@@ -85,7 +100,7 @@ func (harness testHarness) subtitleJobCount(t *testing.T) int {
 	}
 	count := 0
 	for _, job := range all {
-		if job.Kind == string(jobs.KindExtractSubtitle) && job.StreamID != nil && *job.StreamID == subtitleStreamID {
+		if job.Kind == string(jobs.KindExtractSubtitle) && job.FileID != nil && *job.FileID == subtitleFileID {
 			count++
 		}
 	}
@@ -153,13 +168,15 @@ func TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntil
 	}
 }
 
-// checkExtractCommand fails unless command asks for stream 2 of film 2 by root, path and hash.
+// checkExtractCommand fails unless command asks for stream 2 of film 2 by root, path and hash, and
+// not its PGS.
 func checkExtractCommand(t *testing.T, command nodeproto.Command, jobID int64) {
 	t.Helper()
 	sent := command.ExtractSubtitle
 	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || command.JobID != jobID ||
 		sent.Sidecar != nil || sent.Video == nil || sent.Video.RootPath != "/media" ||
-		string(sent.Video.Path) != "Film (2002).mkv" || sent.Video.PayloadHash != "0c0d" || sent.StreamIndex != 2 {
+		string(sent.Video.Path) != "Film (2002).mkv" || sent.Video.PayloadHash != "0c0d" ||
+		!slices.Equal(sent.StreamIndexes, []int{2}) {
 		t.Fatalf("the node was sent %+v, want stream 2 of the MKV by root, path and hash", command)
 	}
 }
@@ -172,8 +189,7 @@ func TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain(t 
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	track := offeredASSTrack(t, harness.play(t, user, chrome(2)))
-	extracted := nodeproto.SubtitleText{ASS: []byte("[Script Info]"), VTT: []byte("WEBVTT")}
-	command, err := harness.extract(t, 90, extracted)
+	command, err := harness.extract(t, 90, trackText(2, "[Script Info]", "WEBVTT"))
 	if err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
@@ -204,8 +220,7 @@ func TestSubtitles_ExtractedTextIsKeptInPersistentDBWhichOutlivesCacheDB(t *test
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	extracted := nodeproto.SubtitleText{ASS: []byte("[Script Info]"), VTT: []byte("WEBVTT")}
-	if _, err := harness.extract(t, 93, extracted); err != nil {
+	if _, err := harness.extract(t, 93, trackText(2, "[Script Info]", "WEBVTT")); err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
 	// Making it again reads the whole video, so it is not cache.db's to lose (the architecture
@@ -226,7 +241,8 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	if _, err := harness.extract(t, 91, nodeproto.SubtitleText{Failure: "ffmpeg: bad"}); err == nil ||
+	failedTrack := nodeproto.SubtitleText{Tracks: []nodeproto.TrackText{{StreamIndex: 2, Failure: "ffmpeg: bad"}}}
+	if _, err := harness.extract(t, 91, failedTrack); err == nil ||
 		!strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
@@ -273,7 +289,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		decided.Subtitles[1].StreamID != sidecarStreamID || decided.Subtitles[1].Language != "es" {
 		t.Fatalf("the subtitles offered = %+v, want the video's own track, then the Spanish file", decided.Subtitles)
 	}
-	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: sidecarStreamID}}
+	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: sidecarFileID}}
 	finished := harness.handle(t, harness.subtitles.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	sent := command.ExtractSubtitle
@@ -299,7 +315,7 @@ func TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain(t *testin
 	harness.shelveFilms(t)
 	harness.shelveSubtitles(t)
 	decided := harness.play(t, user, chrome(2))
-	job := jobs.Job{ID: 94, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
+	job := jobs.Job{ID: 94, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID}}
 	if err := harness.subtitles.RecordFailure(t.Context(), job, "node 1 said nothing five times"); err != nil {
 		t.Fatal(err)
 	}

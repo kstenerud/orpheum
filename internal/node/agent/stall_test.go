@@ -82,9 +82,9 @@ func TestAgent_AStalledReadThroughOrExtractionIsAnsweredStalledNotFailed(t *test
 	}
 	wantStall(t, "a stalled read-through", measured.Stall)
 
-	core.queueExtraction(2, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: stallingStreamIndex})
+	core.queueExtraction(2, nodeproto.ExtractSubtitle{Video: &video, StreamIndexes: []int{2, stallingStreamIndex}})
 	extracted := receiveSubtitle(t, core)
-	if extracted.Failure != "" || extracted.Refusal != "" {
+	if extracted.Failure != "" || extracted.Refusal != "" || extracted.Tracks != nil {
 		t.Errorf("a stalled extraction answered %+v; want a stall, not the file's failure", extracted)
 	}
 	wantStall(t, "a stalled extraction", extracted.Stall)

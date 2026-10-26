@@ -53,12 +53,26 @@ type Text struct {
 	VTT []byte
 }
 
-// ExtractTrack extracts the text track at streamIndex of film, a video the caller has checked.
-func (extractor *Extractor) ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (Text, error) {
+// extractTrack extracts the text track at streamIndex of film, a video the caller has checked, on
+// a read of its own.
+func (extractor *Extractor) extractTrack(ctx context.Context, film execx.Film, streamIndex int) (Text, error) {
+	ass, err := extractor.readFilm(ctx, film, arguments(film.Input(), "0:"+strconv.Itoa(streamIndex), codecASS),
+		MaxTextBytes)
+	if err != nil {
+		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
+	}
+	return extractor.withVTT(ctx, ass)
+}
+
+// readFilm runs FFmpeg once through film, given the film's whole read to finish, and returns what it
+// wrote, up to stdoutLimitBytes.
+func (extractor *Extractor) readFilm(
+	ctx context.Context, film execx.Film, arguments []string, stdoutLimitBytes int,
+) ([]byte, error) {
 	ran, err := extractor.runner.RunWatched(ctx, execx.WatchedRun{
 		Access:           confine.Access{Read: film.Readable()},
-		Arguments:        arguments(film.Input(), "0:"+strconv.Itoa(streamIndex), codecASS),
-		StdoutLimitBytes: MaxTextBytes,
+		Arguments:        arguments,
+		StdoutLimitBytes: stdoutLimitBytes,
 		Watch: execx.Watch{
 			StartGrace: trackStartGrace, StallWindow: trackStallWindow,
 			Deadline: film.ReadingDeadline(extractor.slowestReadBytesPerSecond),
@@ -66,9 +80,9 @@ func (extractor *Extractor) ExtractTrack(ctx context.Context, film execx.Film, s
 		Film: film.Stream,
 	})
 	if err != nil {
-		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
+		return nil, fmt.Errorf("read the film: %w", err)
 	}
-	return extractor.withVTT(ctx, ran.Stdout)
+	return ran.Stdout, nil
 }
 
 // ConvertText converts a subtitle's text — a sidecar's bytes or a fetched subtitle's — in any

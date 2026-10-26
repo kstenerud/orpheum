@@ -225,7 +225,7 @@ func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *test
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	job := jobs.Job{ID: 93, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
+	job := jobs.Job{ID: 93, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{FileID: subtitleFileID}}
 	harness.nodes.isAway.Store(true)
 	err := harness.subtitles.HandleExtractSubtitle(t.Context(), job)
 	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.NodeDestination(1) {

@@ -16608,7 +16608,9 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
 (audit-2026-09-27 §3), are built in `internal/node/prepared`: a rendition played within the grace
 stands for "someone is partway through it", since only the core knows who is. §4's Playwright
 timing test is built (`web/e2e/play-timing.spec.ts`, Chromium and Firefox). §6 is amended by D223 §5:
-a subtitle file beside the media is converted at first play.
+a subtitle file beside the media is converted at first play. §6's job is revised by
+[D340](#d340--a-videos-text-subtitle-tracks-are-extracted-by-one-job-from-one-read-of-it-and-a-failed-track-alone-is-tried-again-when-next-played):
+one job per file, a video's text tracks all from one read of it.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
@@ -21812,9 +21814,47 @@ realm in 3.5 s.
 
 **Status:** Decided; not built.
 
-## D340 — Reserved: One subtitle extraction per video
+## D340 — A video's text subtitle tracks are extracted by one job from one read of it, and a failed track alone is tried again when next played
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner (*"build it"*), on finding N3 of the
+[2026-10-25 audit](../design/research/audit-2026-10-25.md): each embedded text track was its own job
+and its own read of the whole file, one at a time, so a film with N text tracks cost N reads of
+20–60 GB on the disk its playback used. **Revises**
+[D217](#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed)
+§6's job, which made one track's ASS and WebVTT.
+
+1. **A subtitle job is a file's.** `extract_subtitle` works on the file a track's bytes are in, no
+   longer on the stream: a video, for its own text tracks, or a subtitle file beside it, for its one.
+   A play queues one job per such file that holds a track with no text kept; run, the job asks the
+   node for every text track in the file that has neither a text nor a failure kept.
+2. **A video is read once for all its tracks.** The command names the video and its tracks
+   (`streamIndexes`, node protocol 44). The node's FFmpeg reads the film once and writes every
+   track as ASS into one Matroska on stdout; each track is taken out of that in memory and converted
+   to WebVTT, as before. Its watchdog gives the run the whole file's read. Matroska on the one stdout
+   rather than a pipe or a temporary file per track: it changes neither the runner's descriptors nor
+   what a confined run may write.
+3. **A track fails alone.** The answer carries each track's text or its own failure. A track that
+   cannot be taken out of the Matroska or converted fails alone. FFmpeg fails the whole read for one
+   track it cannot convert, so then the node reads each track on its own, and only that track fails:
+   N reads, in that case alone. A refusal or a stall still says nothing of the bytes and is the whole
+   command's: not kept, the job tried again, and a second stall in a row the failure of every track
+   it named (D233 §6).
+4. **The retry rule.** A failed track is kept as its own failure and shows `prepare_failed`; the
+   others' texts are kept, and the job fails naming the tracks that failed. The next play forgets the
+   failure and queues the file's job, which then asks for that track alone. A job given up (D231 §4,
+   §10) is the failure of each of its tracks with nothing kept, never of one already made or failed.
+5. **The subtitles package's first invariant** now reads: every text subtitle track of a played
+   video, its own and its subtitle files', is extracted, whatever the decision, once per payload hash
+   of the file it is in, by one job per file that makes every track in it not yet made, a video's
+   from one read of it; a track not yet extracted is 425 with Retry-After, a failed one is
+   `prepare_failed` on its own, the others kept, and it alone is extracted again when next played; a
+   node's refusal or a stall is the whole job's, not kept, and its job is tried again; and a playback
+   reaches only its own file's tracks.
+6. **Out of scope.** Making the text from the playback's own read of the film
+   ([data-timeliness.md](../design/plans/data-timeliness.md) §4.4) stays open. A job that works on a
+   file is raised by a person's interest in that file, as a read-through is (D324 §3).
+
+**Status:** Decided.
 
 ## D341 — Reserved: A hidden tab's interest
 
