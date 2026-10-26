@@ -18,6 +18,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 func writeConfig(t *testing.T, text string) string {
@@ -261,6 +262,28 @@ func TestLoadConfig_TheACMEDirectoryIsTheFilesLetsEncryptsByDefault(t *testing.T
 	if config, _, err = loadConfig(writeConfig(t, unnamed), kindCore); err != nil ||
 		config.HTTPS.ACMEDirectory != certificate.LetsEncrypt {
 		t.Errorf("with none named: %q, %v; want Let's Encrypt's", config.HTTPS.ACMEDirectory, err)
+	}
+}
+
+// The most WebRTC connections the core holds is the config's [webrtc] max_connections, its starting
+// value when the file names none, and a value under one is refused (D348).
+func TestLoadConfig_TheWebRTCConnectionLimitIsTheFilesOrItsStartingValue(t *testing.T) {
+	t.Parallel()
+	core := validConfigTexts[kindCore]
+	named := strings.Replace(core, "max_connections = 64", "max_connections = 7", 1)
+	config, _, err := loadConfig(writeConfig(t, named), kindCore)
+	if err != nil || config.WebRTC.MaxConnections != 7 {
+		t.Errorf("with 7 named: %d, %v; want 7", config.WebRTC.MaxConnections, err)
+	}
+	unnamed := strings.Replace(core, "max_connections = 64\n", "", 1)
+	if config, _, err = loadConfig(writeConfig(t, unnamed), kindCore); err != nil ||
+		config.WebRTC.MaxConnections != rtcapi.DefaultMaxConnections {
+		t.Errorf("with none named: %d, %v; want %d", config.WebRTC.MaxConnections, err,
+			rtcapi.DefaultMaxConnections)
+	}
+	zero := strings.Replace(core, "max_connections = 64", "max_connections = 0", 1)
+	if _, _, err = loadConfig(writeConfig(t, zero), kindCore); err == nil {
+		t.Error("with 0 named: loaded; want it refused")
 	}
 }
 
