@@ -9,7 +9,7 @@
 - **Requested by** the owner, 2026-10-26: *"I also want iso support now."* This revisits
   [D306](../../decisions/working-notes.md#d306--the-scanner-is-tested-on-names-of-our-own-places-an-unnumbered-episode-by-a-guessed-title-match-and-keeps-watching-by-title-and-edition)
   §5, which kept disc images out of the beta and listed each as skipped,
-  `disc_image_not_supported_yet`.
+  `disc_image_not_supported_yet` (renamed `disc_folder_not_supported_yet` once an image is read).
 - **Decision:** [D350](../../decisions/working-notes.md#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy).
 - Web pages read are noted under `/yoloai/cache/iso-research/`; the libraries' sources read are
   libudfread, libdvdread and libbluray (VideoLAN, `master` of 2026-10-26) and jellyfin

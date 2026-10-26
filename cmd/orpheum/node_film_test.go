@@ -43,7 +43,11 @@ func TestStreamsFilms_OnlyWhenTheNodesFFmpegHasTheProtocolAndSaysWhich(t *testin
 		}
 		var logged bytes.Buffer
 		said := streamFilmsIfAble(t.Context(), runner, slog.New(slog.NewTextHandler(&logged, nil)))
-		got := runner.FilmOf("/media/film.mkv", openedFilm(t), execx.ReadsWholeFilm).Stream != nil
+		film, err := runner.FilmOf(t.Context(), "/media/film.mkv", openedFilm(t), execx.ReadsWholeFilm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := film.Stream != nil
 		if got != example.want || !strings.Contains(logged.String(), example.wantSaid) {
 			t.Errorf("%s: streams films %v, said %q; want %v, saying it reads films %s", example.name, got,
 				logged.String(), example.want, example.wantSaid)

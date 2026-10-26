@@ -84,9 +84,10 @@ type Decision struct {
 
 // Decide resolves cut-a §6's first question, whether the original plays as it is, and when it
 // does not, which profile converts it: its own picture copied (remux) or not decoded (h264), on
-// its ladder (D344 §1).
+// its ladder (D344 §1). A disc image's title is never played as it is, whatever a person prefers:
+// its bytes are the image's (D350 §4).
 func Decide(input Input) Decision {
-	if input.PreferredDelivery == Direct {
+	if input.PreferredDelivery == Direct && input.Probe.Format.Disc == nil {
 		return Decision{Delivery: Direct}
 	}
 	// Where the client is plays no part: a slow link shows itself by its stalls (D247 §11).

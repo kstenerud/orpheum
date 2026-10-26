@@ -17,6 +17,11 @@
 //     path (execx.Film, D330). TestProbe_RunsFFprobeOnTheFileProtocolOnly.
 //   - A record is bounded: valid UTF-8, bounded strings, and a file with too many streams or
 //     chapters is refused rather than cut short. TestParse_BoundsWhatAHostileFileCanMakeTheNodeReport.
+//   - A disc image's main title is told what only the disc says: which disc and title it is, its
+//     duration, its chapters where the stream has none, and its streams' languages by identifier,
+//     a stream's own kept (D350 §4). TestProbe_ADiscsTitleCarriesWhatOnlyTheDiscSays; with the
+//     pinned ffprobe reading both discs' titles through fdproxy,
+//     TestProbe_ThePinnedFFprobeReadsADiscsMainTitleServedFromItsImage (integration tier).
 //   - The same output always makes the same record, whatever order Go iterates a map in
 //     (scanner.md: deleting the node's cache changes nothing it reports).
 //     TestParse_IsTheSameRecordEveryTime.
@@ -35,5 +40,5 @@
 //
 //   - The ffprobe arguments and the output parser: probe.go runs ffprobe, bounded in what it may
 //     say; parse.go reads its output into the record, refusing a file past the bounds on streams
-//     and chapters.
+//     and chapters. disc.go: the record of a disc's main title.
 package probe

@@ -694,3 +694,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   and Right from the grid's last column reaches it; opening the `other` library's Folders shows its
   subfolders and videos, Up leaves a folder, and one click reaches each from the bar.
   (`web/apps/web/src/library-browse.tsx`, `modal-dialog.tsx`, `focus-navigation.ts`)
+- [ ] **VQ73** — On staging, put a decrypted DVD image (`.iso`, a film of your own, made by MakeMKV's
+  backup or a DVD ripper that decrypts) in a film library and scan it (D350). Passes when the film
+  is identified by its file name, its page shows the main feature's length (not a trailer's) and
+  its audio tracks with their languages, it plays from the start, and a seek to the middle plays from
+  there with picture and sound in step. An encrypted image is instead listed as a file that could
+  not be read, its message saying it is encrypted. (`internal/node/disc`,
+  `internal/node/execx/disc.go`)
+- [ ] **VQ74** — As VQ73 with a decrypted Blu-ray image whose film is one clip. Passes as VQ73 does,
+  and the picture is copied, not re-encoded, on a browser that plays H.264 (the play's decision
+  says remux). (`internal/node/disc/bluray.go`)
+- [ ] **VQ75** — As VQ74 with a Blu-ray image whose main playlist joins several clips (a seamless
+  branching disc, or one with a multi-angle or obfuscated playlist set). Passes when the right
+  playlist is picked (its length matches the film's) and the film plays across the clips' joins;
+  report what is wrong when it does not: which clip, at what time, and whether seeking across a join
+  works. A DVD title with angles or seamless branching is refused as interleaved, saying so.
+  (`internal/node/disc`)

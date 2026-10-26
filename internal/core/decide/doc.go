@@ -43,6 +43,9 @@
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
 //
+//   - A disc image's title never plays as it is, whatever a person prefers: its bytes are the
+//     image's (D350 §4). Enforced by TestDecide_ADiscImageIsNeverPlayedDirect.
+//
 //   - A sound plays as it is wherever the playable formats say the device plays its codec and its
 //     channels; how the device makes sound plays no part. Only the person's dialogue boost, on, over
 //     a sound of more than two channels converts it, for dialogue_boost; a stereo sound has no centre

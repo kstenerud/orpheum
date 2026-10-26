@@ -79,10 +79,13 @@ func streamedFilm(t *testing.T, runner *Runner, path string, reading FilmReading
 	if err != nil {
 		t.Fatal(err)
 	}
-	film := runner.FilmOf(path, OpenedFilm{
+	film, err := runner.FilmOf(t.Context(), path, OpenedFilm{
 		File: file, Facts: facts, Disks: diskwatch.NewGate(clock.System{}), Root: filepath.Dir(path),
 		Window: streamedReadWindow,
 	}, reading)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if film.Stream == nil {
 		t.Fatal("a streaming runner gave a film by path")
 	}

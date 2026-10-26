@@ -38,6 +38,10 @@
 //     Enforced by TestRead_AToneOfKnownLevelMeasuresAsItIsAndItsPictureHasItsKeyframes
 //     (integration tier).
 //
+//   - A disc image's main title, served through fdproxy (D350), reads through as the stream it
+//     holds does on its own. Enforced by TestRead_ADiscsMainTitleReadsThroughAsTheStreamItHolds
+//     (integration tier).
+//
 //   - A read is watched for a stall, with the deadline of reading the whole file, or, when it
 //     measures loudness, of decoding its sound at real time when the core says how long it is and
 //     that takes longer. Enforced by TestRead_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled
