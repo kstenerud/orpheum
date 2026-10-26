@@ -13,30 +13,19 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sync"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/assembly"
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/chunks"
-	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
-	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/live"
-	"github.com/kstenerud/orpheum/internal/core/loudness"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
-	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
-	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
@@ -105,7 +94,7 @@ func serve(
 		return degraded("the voice relay could not start", err)
 	}
 	defer func() { err = errors.Join(err, stopRelay()) }()
-	stopBackgroundJobs, err := opened.jobServices.startBackgroundLoops(ctx, logger)
+	stopBackgroundJobs, err := startBackgroundLoops(ctx, opened, logger)
 	if err != nil {
 		return degraded("the background jobs could not start", err)
 	}
@@ -163,7 +152,9 @@ type wiring struct {
 	logLevel *slog.LevelVar
 }
 
-// openedServices is what openAndWire opened and serve must close.
+// openedServices is what openAndWire opened and serve must close, and what serve runs: the core's
+// services as internal/core/assembly assembles them (D351), and what the config alone makes beside
+// them.
 type openedServices struct {
 	lock        *instancedir.Lock
 	directories *instancedir.Directories
@@ -171,10 +162,12 @@ type openedServices struct {
 	cache       *store.Cache
 	settings    *settings.Service
 	secrets     *secrets.Store
-	jobServices jobServices
-	nodes       *nodes.Service
-	// exchanges are how a job asks a node for work; the node channel hands them the results.
-	exchanges *nodes.Exchanges
+	// core is the core's services, assembled.
+	core *assembly.Services
+	// queue is the one job queue, which the certificates' renewals are queued on.
+	queue *jobs.Queue
+	// outboundClient is the one client every call to another host goes through.
+	outboundClient *http.Client
 	// together is Watch Together's sessions, whose memberships the voice relay admits, and whose links
 	// and devices' locators a discovery finds the core by.
 	together *together.Hub
@@ -183,16 +176,20 @@ type openedServices struct {
 	// reachability checks the public path, and answers its echo for the admin's checks and for the
 	// discovery's outside probe, whose nonces the heartbeat sends.
 	reachability *reachability.Checker
+	// certificates obtains and renews the HTTPS certificates: the server's public name's (D243 §6)
+	// and its discovery's (D273).
+	certificates *servedCertificates
+	// discovery keeps the core enrolled with its discovery, when an admin connected one (D273).
+	discovery *discovery.Service
+	// portMapping keeps the core's HTTPS port open at the home router while the discovery publishes
+	// it (D273 §7).
+	portMapping *portmap.Service
 }
 
-// with is opened holding what the API's dependencies opened that the services opened after them use,
-// and the Watch Together sessions, made before the discovery so that it may find their links.
-func (opened openedServices) with(
-	dependencies *api.Dependencies, directories *instancedir.Directories, logger *slog.Logger,
-) openedServices {
-	opened.settings, opened.secrets, opened.directories = dependencies.Settings, dependencies.Secrets, directories
-	opened.auth = dependencies.Auth
-	opened.together = newTogether(dependencies, logger)
+// with is opened holding the core's services, and those of them that what the config makes uses.
+func (opened openedServices) with(core *assembly.Services) openedServices {
+	opened.core, opened.queue, opened.outboundClient = core, core.Queue, core.OutboundClient
+	opened.secrets, opened.auth, opened.together = core.API.Secrets, core.API.Auth, core.API.Together
 	return opened
 }
 
@@ -200,12 +197,8 @@ func (opened openedServices) release() error {
 	return errors.Join(opened.cache.Close(), opened.database.Close(), opened.lock.Release())
 }
 
-// nodeWorkMaxSilence is how long running work may go without a word from its node before its job
-// is given up and retried: the node reports at every status tick, and a run of chunks at each chunk.
-const nodeWorkMaxSilence = 5 * time.Minute
-
-// openAndWire opens the instance's directories and the database, migrates, and hands the API its
-// dependencies.
+// openAndWire opens the instance's directories and the database, migrates, has the core's services
+// assembled over them, and hands the API its dependencies.
 func openAndWire(
 	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,
 	logger *slog.Logger,
@@ -227,53 +220,72 @@ func openAndWire(
 	if err != nil {
 		return opened, err
 	}
-	opened.database = database
+	opened.database, opened.directories = database, directories
 	opened.cache, err = openCache(ctx, config, directories, logger)
 	if err != nil {
 		return opened, errors.Join(err, database.Close())
 	}
-	dependencies, err := buildDependencies(ctx, directories, database, outside.machineZone, logger)
+	opened, dependencies, err := wireCore(ctx, config, server, outside, opened, logger)
 	if err == nil {
 		dependencies.ConfigFileKeys, err = configFileKeys(config, configReport)
-	}
-	if err == nil {
-		err = mountDiagnostics(ctx, server.Mux(), config, outside.logLevel, dependencies.Settings, logger)
-	}
-	if err == nil {
-		opened = opened.with(&dependencies, directories, logger)
-		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
-	}
-	if err == nil {
-		opened = openNodeWork(opened, logger)
-		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
-	}
-	if err == nil {
-		opened, err = openReachedFromOutside(ctx, config, opened, outside, server.RTC(), logger)
 	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
-	dependencies.Chooser, dependencies.Refresher = opened.jobServices.chooser, opened.jobServices.refresher
-	dependencies.Libraries = libraryAdminOf(database, opened)
-	dependencies.Browser = library.NewBrowser(database, opened.settings)
-	dependencies.Browser.SetNodeConnections(opened.nodes)
-	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
-	dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks, dependencies.Discovery =
-		opened.jobServices.subtitles, opened.jobServices.artwork, opened.jobServices.chunks,
-		opened.jobServices.discovery
-	if opened, err = wireJobsInto(&dependencies, opened, logger); err != nil {
-		return opened, errors.Join(err, opened.cache.Close(), database.Close())
-	}
-	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
-	dependencies.NodeBytes = openByteSocket(opened.nodes, opened.jobServices.scans)
-	dependencies.Reachability, dependencies.Relay = opened.reachability, newRelayIssuer(config, opened, logger)
-	dependencies.System = api.System{
-		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
-		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,
-		PublicName: config.HTTPS.Domain, Certificate: certificateExpiry(opened.jobServices.certificates),
-	}
 	readyToServe(ctx, server, dependencies, logger)
 	return opened, nil
+}
+
+// wireCore seeds the settings, loads the secret key, has the core's services assembled (D351), makes
+// sure a server with no users has a setup code, and makes what the config alone makes beside them:
+// the debug endpoints, the certificates, the discovery, port mapping, the reachability check and the
+// relay's credentials. It returns the API's dependencies, whole but for the config file's keys.
+func wireCore(
+	ctx context.Context, config Config, server *api.Server, outside wiring, opened openedServices,
+	logger *slog.Logger,
+) (openedServices, api.Dependencies, error) {
+	var err error
+	if opened.settings, err = seededSettings(ctx, opened.database, outside.machineZone, logger); err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	secretKey, err := loadOrCreateSecretKey(opened.directories, logger)
+	if err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	if diagnosticsErr := mountDiagnostics(
+		ctx, server.Mux(), config, outside.logLevel, opened.settings, logger,
+	); diagnosticsErr != nil {
+		return opened, api.Dependencies{}, diagnosticsErr
+	}
+	core, err := assembly.Build(ctx, assembly.Parts{
+		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
+		SecretKey: secretKey, SetupCodes: runSetupCodes{directories: opened.directories},
+		Clock: clock.System{}, Random: rand.Reader, Logger: logger, Build: thisBuild(),
+		TMDBBaseURL: outside.tmdbBaseURL, TMDBImagesBaseURL: outside.tmdbImagesBaseURL,
+		OpenSubtitlesBaseURL: outside.openSubtitlesBaseURL,
+	})
+	if err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	opened = opened.with(core)
+	if setupErr := ensureSetupCode(ctx, core.API.Auth, core.API.SetupCodes, logger); setupErr != nil {
+		return opened, api.Dependencies{}, setupErr
+	}
+	if opened, err = openReachedFromOutside(ctx, config, opened, outside, server.RTC(), logger); err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	core.Certificates = opened.certificates
+	dependencies := core.API
+	dependencies.Discovery, dependencies.PortMapping = opened.discovery, opened.portMapping
+	dependencies.Reachability, dependencies.Relay = opened.reachability, newRelayIssuer(config, opened, logger)
+	dependencies.System = api.System{
+		Build: thisBuild(), StartedAt: clock.System{}.Now(),
+		PersistentDirectory: opened.directories.PersistentDirectory(),
+		CacheDirectory:      opened.directories.CacheDirectory(), PersistentDatabase: opened.database,
+		CacheDatabase: opened.cache, PublicName: config.HTTPS.Domain,
+		Certificate: certificateExpiry(opened.certificates),
+	}
+	return opened, dependencies, nil
 }
 
 // readyToServe hands the API server its dependencies, which it answers with from now on, and keeps
@@ -288,162 +300,6 @@ func readyToServe(ctx context.Context, server *api.Server, dependencies api.Depe
 // connectionShare is what takes a network's share of WebRTC connections: the WebRTC server.
 type connectionShare interface {
 	SetConnectionsPerNetwork(limit int)
-}
-
-// newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
-// (D243 §4), read from dependencies when asked: the hub is made before the library, so the discovery
-// may find its links (discovery-core.md K7).
-func newTogether(dependencies *api.Dependencies, logger *slog.Logger) *together.Hub {
-	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
-		reach, err := dependencies.Auth.ReachOfUser(ctx, userID)
-		return err == nil && dependencies.Browser.ReachFile(ctx, reach, fileID) == nil
-	}
-	return together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
-}
-
-// wireJobsInto gives the API the job queue, the outside hosts' provider services and the port
-// mapping's report, and makes a backup a job, the scheduled ones and an admin's (D243 §11); the
-// Watch Together sessions; and what orders the work by interest (D324).
-func wireJobsInto(
-	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
-) (openedServices, error) {
-	opened.jobServices.nodes, opened.jobServices.together = opened.nodes, opened.together
-	dependencies.Together = opened.together
-	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
-	// Which of each person's devices are open now, and the casts between them (D337).
-	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential)
-	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
-	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
-		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)
-	})
-	// A group's players, put on at once, share the upload evenly from their start (D286 §5).
-	dependencies.Playback.GroupPlayersBy(dependencies.Together.PlayersHostedBy)
-	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
-	dependencies.PortMapping = opened.jobServices.portMapping
-	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
-	opened.jobServices.backups = dependencies.Backups
-	var err error
-	if opened.jobServices.interest, err = newInterestRaiser(dependencies, opened, logger); err != nil {
-		return opened, err
-	}
-	// How long the work a viewer waits on will take, timing the read-throughs as they end (D324 §6).
-	dependencies.Waits, err = waits.NewEstimator(waits.Parts{
-		Database: opened.database, Cache: opened.cache, Attempts: opened.exchanges, Nodes: opened.nodes,
-		ReadThroughs: opened.jobServices.readThrough, Clock: clock.System{},
-	})
-	if err != nil {
-		return opened, fmt.Errorf("say how long work will take: %w", err)
-	}
-	return opened, nil
-}
-
-// newInterestRaiser is what orders the work by what people play and look at (D324), its register
-// handed to the API.
-func newInterestRaiser(
-	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
-) (*interest.Raiser, error) {
-	dependencies.Interest = interest.NewRegister(clock.System{})
-	raiser, err := interest.NewRaiser(interest.Parts{
-		Register: dependencies.Interest, Jobs: jobs.NewInterestJobs(opened.cache, clock.System{}),
-		Nodes: opened.exchanges, Waiting: opened.jobServices.queue, Reads: dependencies.Playback,
-		Playing:  playingFiles(dependencies.Playback),
-		Database: opened.database, Settings: opened.settings, Clock: clock.System{}, Logger: logger,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("order the work by interest: %w", err)
-	}
-	return raiser, nil
-}
-
-// openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its
-// sounds' loudness and its picture's timeline, its subtitles and its chunks, which it
-// returns among the job services, and the playback service.
-func openPlayback(
-	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
-) (jobServices, *playback.Service) {
-	services, queue := opened.jobServices, opened.jobServices.queue
-	services.readThrough = readthrough.NewService(readthrough.Parts{
-		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges, Clock: clock.System{},
-	})
-	levels := loudness.NewService(loudness.Parts{Database: database, Settings: opened.settings})
-	services.subtitles = subtitles.NewService(subtitles.Parts{
-		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Subtitler: services.subtitler, Clock: clock.System{}, MaxSilence: nodeWorkMaxSilence,
-	})
-	services.chunks = chunks.NewService(chunks.Parts{
-		Database: database, Cache: opened.cache, Settings: opened.settings, Queue: queue, Nodes: opened.nodes,
-		Exchanges: opened.exchanges, Loudness: levels, ReadThrough: services.readThrough, Logger: logger,
-		Clock: clock.System{}, Encoders: opened.nodes,
-	})
-	services.playback = playback.NewService(playback.Parts{
-		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
-		Random: rand.Reader, Subtitles: services.subtitles,
-		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Offers: services.chunks,
-		Reads: opened.jobServices.scans, Roots: opened.jobServices.scans,
-	})
-	// A run its node cannot make fast enough moves its players down a quality, before it is evicted
-	// (D286 §4, D309 §6).
-	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
-	// The nodes keep the chunk stores by how strongly the players want them (D309 §8).
-	opened.nodes.SetStoreTiers(services.playback.StoreTiers)
-	return services, services.playback
-}
-
-// openExchanges are how the server gives its nodes work and takes their word on it, wired to the
-// node channel and the job runners (D234 §7).
-func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges {
-	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: opened.nodes, Clock: clock.System{}, Random: rand.Reader, Logger: logger, Cache: opened.cache,
-		Settings: opened.settings, MaxSilence: nodeWorkMaxSilence, Rooms: opened.nodes,
-	})
-	opened.nodes.SetResultSink(exchanges)
-	return exchanges
-}
-
-// openNodeWork opens the node channel's service, the exchanges that give the nodes their work, and the
-// scans of their roots.
-func openNodeWork(opened openedServices, logger *slog.Logger) openedServices {
-	var ingester *library.Ingester
-	opened.nodes, ingester = newNodeService(opened, logger)
-	opened.exchanges = openExchanges(opened, logger)
-	opened.jobServices.exchanges = opened.exchanges
-	opened.jobServices.scans = openScans(opened, ingester, logger)
-	opened.jobServices.scanSchedule = library.NewScanSchedule(
-		opened.database, opened.jobServices.scans, opened.settings, clock.System{}, logger)
-	opened.nodes.SetChanges(opened.jobServices.scanSchedule)
-	return opened
-}
-
-// openScans are the scans of the nodes' roots, which a node's hello asks for (D240), and a stall on a
-// root's disk asks for too (D233 §10).
-func openScans(opened openedServices, ingester *library.Ingester, logger *slog.Logger) *library.Scans {
-	scans := library.NewScans(library.ScansParts{
-		Cache: opened.cache, Ingester: ingester, Jobs: opened.jobServices.queue, Assigner: opened.exchanges,
-		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
-	})
-	opened.nodes.SetScans(scans)
-	opened.exchanges.SetDiskStalls(scans)
-	holdSlowReadsForQuickPasses(opened.exchanges, scans)
-	return scans
-}
-
-// holdSlowReadsForQuickPasses has a background read of whole films wait while a scan is on its quick
-// pass of the film's disk, so a library is listed and playable before any film is read through
-// (D255 §3).
-func holdSlowReadsForQuickPasses(exchanges *nodes.Exchanges, scans nodes.QuickPasses) {
-	exchanges.SetQuickPasses(scans)
-}
-
-// openByteSocket is the core's client of the node's byte socket: media bytes for the API, results
-// the node holds, too large to post, for the node channel (D234 §5), and the probes of roots the
-// scans ask, outside every queue (D327).
-func openByteSocket(service *nodes.Service, scans *library.Scans) *nodes.ByteSocketClient {
-	byteSocket := nodes.NewByteSocketClient(service, scans)
-	service.SetHeldResultReader(byteSocket)
-	if scans != nil {
-		scans.SetProber(byteSocket)
-	}
-	return byteSocket
 }
 
 // openAndMigrateOrStartOver is openAndMigrate, and with database.when_unmigratable = "start_over"
@@ -526,19 +382,17 @@ func reportMigration(setStatus func(api.Status, string, ...string), logger *slog
 	}
 }
 
-// buildDependencies writes any setting that has no row yet, loads the secret key, builds the
-// services and makes sure a server with no users has a setup code, which it logs.
-func buildDependencies(
-	ctx context.Context, directories *instancedir.Directories, database *store.Database,
-	machineZone localtime.Zone, logger *slog.Logger,
-) (api.Dependencies, error) {
-	systemClock := clock.System{}
-	settingsService := settings.NewService(database, systemClock, logger)
+// seededSettings is the server's settings, the machine's time zone its own until an admin chooses one
+// (D246 §7), with any setting that has no row yet written before anything reads one (D201).
+func seededSettings(
+	ctx context.Context, database *store.Database, machineZone localtime.Zone, logger *slog.Logger,
+) (*settings.Service, error) {
+	settingsService := settings.NewService(database, clock.System{}, logger)
 	settingsService.UseMachineZone(machineZone)
 	logger.InfoContext(ctx, "the machine's time zone, the server's until one is chosen", "timeZone", machineZone.Name())
 	seedReport, err := settingsService.Seed(ctx)
 	if err != nil {
-		return api.Dependencies{}, err
+		return nil, err
 	}
 	if len(seedReport.Inserted) > 0 {
 		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", seedReport.Inserted)
@@ -551,32 +405,22 @@ func buildDependencies(
 		logger.WarnContext(ctx, "a setting row this release does not read; left alone, and doctor lists it",
 			"key", unused.String())
 	}
-	secretKey, err := loadOrCreateSecretKey(directories, logger)
-	if err != nil {
-		return api.Dependencies{}, err
-	}
-	secretStore := secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService)
-	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
-	// Each link keeps its secret sealed, so a person's own link can be shown to them again (K7).
-	authService.SealLinksWith(secretStore)
-	authService.OnSignInLimitFull(warnSignInLimitFull(ctx, logger))
-	codes := runSetupCodes{directories: directories}
+	return settingsService, nil
+}
+
+// ensureSetupCode makes sure a server with no users has a setup code, which it logs.
+func ensureSetupCode(
+	ctx context.Context, authService *auth.Service, codes auth.SetupCodes, logger *slog.Logger,
+) error {
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
-		return api.Dependencies{}, err
+		return err
 	}
 	if code != "" {
 		logger.WarnContext(ctx, "no one can sign in yet: create the first admin with this one-time setup code, "+
 			"at POST /api/v1/setup; `orpheum setup-code` prints it again", "setupCode", code)
 	}
-	return api.Dependencies{
-		Auth: authService, Settings: settingsService,
-		Secrets: secretStore, SetupCodes: codes,
-		Preferences:   preferences.NewService(database, systemClock),
-		Backups:       backup.NewService(database, directories, systemClock),
-		FilingReports: identify.NewFilingReports(database, directories, thisBuild().Version, systemClock),
-		Clock:         systemClock,
-	}, nil
+	return nil
 }
 
 // loadOrCreateSecretKey reads secret.key, or writes a new one on first start. A key replaced or
@@ -737,21 +581,4 @@ func newWebRTC(ctx context.Context, handler http.Handler, config WebRTCConfig, l
 	rtc := rtcapi.New(ctx, handler, logger)
 	rtc.SetMaxConnections(config.MaxConnections)
 	return relaxForDevelopment(rtc)
-}
-
-// warnSignInLimitFull warns, once a minute at most as auth tells it, that the failed-sign-in limit is
-// full and refuses sign-ins it holds no count for: only an attack from many networks fills it.
-func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
-	return func() {
-		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
-			"are refused until its counts age out: many networks are failing sign-ins at once")
-	}
-}
-
-// libraryAdminOf is the library admin service, reading the server's settings.
-func libraryAdminOf(database *store.Database, opened openedServices) *library.Admin {
-	admin := library.NewAdmin(database, clock.System{}, opened.nodes, opened.jobServices.scans,
-		library.Retirement{Work: opened.jobServices.queue, Titles: opened.jobServices.pass})
-	admin.UseSettings(opened.settings)
-	return admin
 }

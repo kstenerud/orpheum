@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"io"
 	"log/slog"
@@ -21,7 +22,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -88,12 +91,38 @@ func TestServeHTTPS_ServesTheNamesCertificate(t *testing.T) {
 	}
 }
 
+// renewalWorld is what a certificate's renewal is queued on: the job queue over cache.db on a fake
+// clock, and the secrets a person sets the DNS provider's token in.
+type renewalWorld struct {
+	clock   *clocktest.Fake
+	cache   *store.Cache
+	queue   *jobs.Queue
+	secrets *secrets.Store
+}
+
+func newRenewalWorld(t *testing.T, start time.Time) renewalWorld {
+	t.Helper()
+	database := storetest.OpenMigrated(t)
+	config := settingstest.Seeded(t, database)
+	key, err := secrets.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	world := renewalWorld{clock: clocktest.NewFake(start), cache: storetest.OpenCache(t)}
+	world.secrets = secrets.NewStore(database, key, world.clock, rand.Reader, config)
+	world.queue = jobs.NewQueue(jobs.QueueParts{
+		Cache: world.cache, Clock: world.clock, Settings: config, Random: jobqueuetest.Unjittered(),
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	return world
+}
+
 // Setting the DNS provider's token asks for the certificate at once: the renewal queued at start,
 // before any token, had failed and waited for the sweep's next daily look (staging, 2026-10-06).
 // Clearing it asks for nothing.
 func TestRenewWhenTokenSet_SettingTheTokenAsksForTheCertificateAtOnce(t *testing.T) {
 	t.Parallel()
-	world := newJobsWorld(t, time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC))
+	world := newRenewalWorld(t, time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC))
 	directories, err := instancedir.Open(instancedir.PathsIn(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)

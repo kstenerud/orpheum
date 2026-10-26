@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package assembly
 
 import (
 	"context"
@@ -76,6 +76,27 @@ func TestWakeOwedPasses_ALibraryOwingAPassAsksForTheOwedPassesSweep(t *testing.T
 	if !slices.Equal(sweeps.names, []string{sweepOwedPasses}) {
 		t.Errorf("a library owing a pass asked for %v, want the %q sweep", sweeps.names, sweepOwedPasses)
 	}
+}
+
+// toldSender is a node that records what it is told, and has no work sent to it.
+type toldSender struct{ told chan nodeproto.Command }
+
+func (sender toldSender) Enqueue(_ int64, command nodeproto.Command) { sender.told <- command }
+
+func (toldSender) Send(context.Context, int64, nodeproto.Command) error { return nil }
+
+func (toldSender) ParkUnlessConnected(context.Context, int64) error { return nil }
+
+func (toldSender) Withdraw(int64, string) bool { return false }
+
+func (toldSender) StartOf(int64) string { return "" }
+
+func (toldSender) Unanswered(_ context.Context, _ int64, err error) error { return err }
+
+func (toldSender) Unpark(context.Context, jobs.Destination) {}
+
+func (toldSender) Resources(context.Context, int64) (nodes.Resources, bool, error) {
+	return nodes.Resources{}, false, nil
 }
 
 // tankRooms are a connected node whose one disk, tank, holds /media.

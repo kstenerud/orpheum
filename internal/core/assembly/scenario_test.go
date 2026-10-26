@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package assembly
 
 import (
 	"context"
@@ -465,9 +465,10 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		Fetchers: map[string]artwork.Fetcher{"tmdb": missingPosterFetcher{}}, Clock: world.clock,
 		Logger: slog.New(slog.DiscardHandler),
 	})
-	services := jobServices{
-		queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass, matcher: world.matcher,
+	services := &Services{
+		Queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass, matcher: world.matcher,
 		invariants: world.database, removedFiles: library.NewFilePurger(world.database), settings: world.config,
+		clock: world.clock,
 	}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		// No files to measure, nothing due a rolling refresh, and backups, scans and credentials are

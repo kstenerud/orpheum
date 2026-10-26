@@ -4,464 +4,25 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
-	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/chunks"
-	"github.com/kstenerud/orpheum/internal/core/discovery"
-	"github.com/kstenerud/orpheum/internal/core/identify"
-	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/portmap"
-	"github.com/kstenerud/orpheum/internal/core/preferences"
-	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
-	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
-	"github.com/kstenerud/orpheum/internal/core/readthrough"
-	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/core/subtitles"
-	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
-	"github.com/kstenerud/orpheum/internal/store"
 )
-
-// jobServices is what the background jobs need: the identification pass, the job queue, the
-// matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
-// matches name, playback's chunks, the subtitles and the read-throughs.
-type jobServices struct {
-	pass      *identify.Pass
-	queue     *jobs.Queue
-	matcher   *identify.Matcher
-	chooser   *identify.Chooser
-	refresher *identify.Refresher
-	settings  *settings.Service
-	artwork   *artwork.Service
-	// readThrough reads each video through, for its sounds' loudness and its picture's timeline
-	// (D226, D247 §10).
-	readThrough *readthrough.Service
-	// chunks cuts films into chunks made on request, run by run (D247 §10).
-	chunks *chunks.Service
-	// playback plays files, and counts what its players need of the server's upload (D286 §5).
-	playback *playback.Service
-	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
-	subtitles *subtitles.Service
-	// nodes is the node channel, whose hellos and statuses the job services hear.
-	nodes *nodes.Service
-	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
-	exchanges *nodes.Exchanges
-	// scans run the scans of the nodes' roots: a listing, then the batches it leaves (D240).
-	scans *library.Scans
-	// scanSchedule asks for the scans libraries that notice changes by themselves are due (D27,
-	// D272 §1).
-	scanSchedule *library.ScanSchedule
-	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
-	backups *backup.Service
-	// certificates obtains and renews the HTTPS certificates: the server's public name's (D243 §6)
-	// and its discovery's (D273).
-	certificates *servedCertificates
-	// discovery keeps the core enrolled with its discovery, when an admin connected one (D273).
-	discovery *discovery.Service
-	// portMapping keeps the core's HTTPS port open at the home router while the discovery publishes
-	// it (D273 §7).
-	portMapping *portmap.Service
-	// subtitler fetches subtitles on request (D224).
-	subtitler *opensubtitles.Client
-	// outboundClient is the one client every call to another host goes through: TMDB's API and
-	// image server, and OpenSubtitles, sharing one transport and its connections.
-	outboundClient *http.Client
-	// providerServices are each outside host's provider service, which every call to it asks
-	// first (D231 §5): TMDB's API, TMDB's image server and OpenSubtitles, in that order.
-	providerServices hostProviders
-	// sessions remembers each session's use, which writeSessionUses writes in batches (D303 §4).
-	sessions sessionUseFlusher
-	// invariants checks persistent.db's invariants, at start and daily (D303, M7).
-	invariants invariantChecker
-	// credentials deletes the credentials ended past their keeping, daily (D304 §6).
-	credentials credentialPurger
-	// removedFiles deletes the files removed past their keeping, daily (D304 §6, D306 §8).
-	removedFiles removedFilePurger
-	// interest orders the work by what people play and look at (D324).
-	interest *interest.Raiser
-	// together ends Watch Together's links and sessions past their lifetimes (D346).
-	together staleEnder
-}
 
 // raiseInterestEvery is how often the work of interest is raised and released: a bound on how late
 // a page opened raises its work, short against a person's look of tens of seconds; a few cache.db
 // writes a tick, for the few films people play and look at.
 const raiseInterestEvery = 5 * time.Second
 
-// playingFiles are the files played now, as the playback service last heard them: a playback a
-// film's page warmed up, which has not played, is no one watching (D324 §2).
-func playingFiles(service *playback.Service) func() []int64 {
-	return func() []int64 { return filesPlayed(service.NowPlaying()) }
-}
-
-// filesPlayed are the files of the playbacks that have played.
-func filesPlayed(nowPlaying []playback.NowPlaying) []int64 {
-	var files []int64
-	for _, playing := range nowPlaying {
-		if playing.HasPlayed {
-			files = append(files, playing.FileID)
-		}
-	}
-	return files
-}
-
-// removedFilePurger deletes the files removed before a time: library.FilePurger.
-type removedFilePurger interface {
-	PurgeRemovedFiles(ctx context.Context, removedBefore time.Time, forgets ...library.PurgedFilesForget) (int, error)
-}
-
-// credentialPurger deletes the credentials ended past their keeping: auth.Service.
-type credentialPurger interface {
-	PurgeEndedCredentials(ctx context.Context) (int, error)
-}
-
-// newJobServices builds the providers, the pass and the queue, and returns the jobs a crash left
-// running to the queue.
-func newJobServices(
-	ctx context.Context, opened openedServices, outside wiring, logger *slog.Logger,
-) (jobServices, error) {
-	providerTimeout, err := opened.settings.Duration(ctx, settings.ProviderTimeoutSeconds)
-	if err != nil {
-		return jobServices{}, err
-	}
-	httpClient, err := outbound.NewClient(providerTimeout, version)
-	if err != nil {
-		return jobServices{}, err
-	}
-	metadata := newMetadataJobs(metadataParts{
-		database: opened.database, cache: opened.cache, settings: opened.settings, secrets: opened.secrets,
-		clock: clock.System{}, random: rand.Reader, httpClient: httpClient, tmdbBaseURL: outside.tmdbBaseURL,
-		logger: logger,
-	})
-	queue, hosts, pass := metadata.queue, metadata.hosts, metadata.pass
-	subtitler, err := opensubtitles.New(
-		httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{}, hosts.openSubtitles)
-	if err != nil {
-		return jobServices{}, err
-	}
-	requeued, err := queue.RequeueRunning(ctx)
-	if err != nil {
-		return jobServices{}, err
-	}
-	if requeued > 0 {
-		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "requeuedCount", requeued)
-	}
-	if err := keepSortAndSearchKeysCurrent(ctx, pass, opened.settings, logger); err != nil {
-		return jobServices{}, err
-	}
-	pass.AfterPass(func(ctx context.Context, report identify.Report) {
-		queueOwedFetches(ctx, queue, report, logger)
-		// A pass follows every scan: new files may want measuring (D226 §2), and new items their
-		// matches. Every sweep but the pass's own runs after it (D231 §3).
-		queue.RequestSweeps(sweepsAfterAPass()...)
-	})
-	wakeOwedPasses(pass, queue)
-	return jobServices{
-		sessions: opened.auth, invariants: opened.database, credentials: opened.auth,
-		removedFiles: library.NewFilePurger(opened.database),
-		pass:         pass, queue: queue, matcher: metadata.matcher, settings: opened.settings, subtitler: subtitler,
-		outboundClient: httpClient, providerServices: hosts,
-		chooser:   identify.NewChooser(metadata.matcher, pass),
-		refresher: metadata.refresher,
-	}, nil
-}
-
-// wakeOwedPasses has a library marked as owing a pass ask for the owed passes' sweep, which runs
-// each such library's pass once however many marked it (D303, DL14).
-func wakeOwedPasses(pass *identify.Pass, sweeps sweepRequester) {
-	pass.OnPassOwed(func() { sweeps.RequestSweeps(sweepOwedPasses) })
-}
-
-// jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
-// its item's own failure (D231 §4, §10), its retry schedule when it has its own, how many of its
-// jobs run at once, and the sweeps that derive its work from persistent.db (D231 §3).
-type jobRunners []jobRunner
-
-// jobRunner is one of them.
-type jobRunner struct {
-	kind          jobs.Kind
-	handler       jobs.Handler
-	recordFailure jobs.FailureRecorder
-	retrySchedule []time.Duration
-	concurrency   int
-	// derivedBy names the sweeps that queue the kind's work again from persistent.db, or is
-	// derivedByAPlay for work a play asks for, which the next play asks for again.
-	derivedBy []string
-	// assignee, for a kind whose work a node does, is how its jobs given to a node are resolved.
-	assignee func(runner nodes.Resolver) nodes.Assignee
-}
-
-// derivedByAPlay names what derives the work a play asks for: a run of chunks, a subtitle's text. It
-// needs no sweep, since the next play asks again (D231 §4).
-func derivedByAPlay() []string { return []string{"the next play"} }
-
-// derivedByAScanRequest names what derives a scan's work: a scan asked for by an admin, a node's
-// hello or the scan schedule's sweep, which a lost scan is asked for again by (D240).
-func derivedByAScanRequest() []string { return []string{"the next scan asked for"} }
-
-// runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
-// by the caller: one fetch per provider; a node's job is given to its node and answered at once,
-// the core holding each node to its slots and devices (D234 §7, D240 §5).
-func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
-	return jobRunners{
-		{
-			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
-			[]string{
-				sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses, sweepMissing,
-			},
-			nil,
-		},
-		{
-			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
-			artworkRetrySchedule, 1,
-			[]string{sweepPasses},
-			services.artwork.Assignee,
-		},
-		{
-			jobs.KindExtractSubtitle, services.subtitles.HandleExtractSubtitle, services.subtitles.RecordFailure,
-			nil, 1, derivedByAPlay(), services.subtitles.Assignee,
-		},
-		{
-			jobs.KindConvertFetchedSubtitle, services.subtitles.HandleConvertFetchedSubtitle,
-			services.subtitles.RecordFailure, nil, 1, derivedByAPlay(), services.subtitles.Assignee,
-		},
-		{
-			// A read-through that gave up keeps nothing, so the next sweep asks again (D244 §1).
-			jobs.KindReadThrough, services.readThrough.HandleReadThrough, nil, nil, 1,
-			[]string{sweepReadThroughs},
-			services.readThrough.Assignee,
-		},
-		{
-			// A run lost is forgotten, so the next player's ask for its chunks queues another.
-			jobs.KindMakeChunks, services.chunks.HandleMakeChunks, services.chunks.RecordMakeChunksFailure, nil, 1,
-			derivedByAPlay(), services.chunks.Assignee,
-		},
-		{
-			jobs.KindScan, services.scans.HandleScan, services.scans.RecordScanFailure, nil, 1,
-			derivedByAScanRequest(), services.scans.ScanAssignee,
-		},
-		{
-			jobs.KindExamine, services.scans.HandleExamine, services.scans.RecordExamineFailure, nil, 1,
-			derivedByAScanRequest(), services.scans.ExamineAssignee,
-		},
-		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
-		{jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1, []string{sweepCertificate}, nil},
-	}
-}
-
-// The sweeps, by what they derive (D231 §3): the first match of each film and series with no
-// answer yet; the refreshes people asked for that no fetch has answered; the one recheck of each
-// image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
-// §3); every library identified again from persistent.db, each item's season listings and images
-// owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
-// video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
-const (
-	sweepFirstMatches     = "first matches"
-	sweepMissing          = "what should have been fetched"
-	sweepReconsidered     = "ambiguous matches reconsidered"
-	sweepRefreshRequests  = "refreshes people asked for"
-	sweepRechecks         = "rechecks of missing images"
-	sweepRollingRefresh   = "rolling refresh"
-	sweepPasses           = "identification passes"
-	sweepOwedPasses       = "identification passes owed"
-	sweepReadThroughs     = "read-throughs"
-	sweepScheduledBackup  = "the scheduled backup"
-	sweepCertificate      = "the certificate's renewal"
-	sweepScheduledScans   = "the scheduled scans"
-	sweepUnavailableRoots = "the unavailable roots scanned again"
-	sweepInvariants       = "the database's invariants"
-	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
-	sweepRemovedFiles     = "removed files past their keeping"
-)
-
-// scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
-// scan: a bound on how late one starts, against intervals of hours, and a read of persistent.db's
-// roots, nothing more.
-const scheduledScansCheckEvery = 15 * time.Minute
-
-// purgeEndedCredentials is the ended credentials' sweep: it queues no work, and deletes those past
-// their keeping.
-func purgeEndedCredentials(purger credentialPurger) func(ctx context.Context) (int, error) {
-	return func(ctx context.Context) (int, error) {
-		if _, err := purger.PurgeEndedCredentials(ctx); err != nil {
-			return 0, fmt.Errorf("purge ended credentials: %w", err)
-		}
-		return 0, nil
-	}
-}
-
-// purgeRemovedFiles is the removed files' sweep: it queues no work, and deletes those removed more
-// than removed_files_kept_days ago, keeping what was watched of them on their versions and
-// forgetting what each person chose in them and the subtitles fetched for them.
-func purgeRemovedFiles(
-	purger removedFilePurger, config *settings.Service, now clock.Clock,
-) func(ctx context.Context) (int, error) {
-	return func(ctx context.Context) (int, error) {
-		kept, err := config.Duration(ctx, settings.RemovedFilesKeptDays)
-		if err != nil {
-			return 0, fmt.Errorf("read removed_files_kept_days: %w", err)
-		}
-		_, err = purger.PurgeRemovedFiles(ctx, now.Now().Add(-kept),
-			playback.FoldWatchingOfPurgedFiles, preferences.ForgetPreferencesOfPurgedFiles,
-			subtitles.ForgetSubtitlesOfPurgedFiles)
-		if err != nil {
-			return 0, fmt.Errorf("purge removed files: %w", err)
-		}
-		return 0, nil
-	}
-}
-
-// invariantChecker checks persistent.db's invariants: store.Database.
-type invariantChecker interface {
-	CheckInvariants(ctx context.Context) ([]store.Violation, error)
-}
-
-// checkInvariants is the invariants' sweep: it queues no work, and logs each invariant the data no
-// longer keeps as an error, with the first rows it fails at, so a fault that writes what no healthy
-// server holds is named the day it starts (D303, M7): the owner's NAS gathered 80,246 empty titles
-// under one series, found only when its page took 45 seconds to draw.
-func checkInvariants(checker invariantChecker, logger *slog.Logger) func(ctx context.Context) (int, error) {
-	return func(ctx context.Context) (int, error) {
-		violations, err := checker.CheckInvariants(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("check the database's invariants: %w", err)
-		}
-		for _, violation := range violations {
-			logger.ErrorContext(ctx,
-				"the database breaks one of its invariants: a fault wrote what no healthy server holds",
-				"invariant", violation.Invariant, "rows", violation.Rows)
-		}
-		return 0, nil
-	}
-}
-
-// certificateCheckEvery is how often the certificate's sweep asks whether a renewal is due: daily,
-// against a month's margin before it expires (D243 §6).
-const certificateCheckEvery = 24 * time.Hour
-
-// renewCertificate runs a renewal; a server with no public name and no discovery has none to renew.
-func (services jobServices) renewCertificate(ctx context.Context, job jobs.Job) error {
-	if services.certificates == nil {
-		return jobs.MarkPermanent(errNoPublicName)
-	}
-	return services.certificates.HandleRenew(ctx, job)
-}
-
-// queueCertificateRenewal asks for a renewal when one is due; none for a server with no public name.
-func (services jobServices) queueCertificateRenewal(ctx context.Context) (int, error) {
-	if services.certificates == nil {
-		return 0, nil
-	}
-	return services.certificates.QueueRenewal(ctx)
-}
-
-// scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due, so an
-// hourly backup comes within five minutes of its hour; a look at the backup directory, nothing
-// more (D305 §2).
-const scheduledBackupCheckEvery = 5 * time.Minute
-
-// sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
-func sweepsAfterAPass() []string {
-	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs}
-}
-
 // sweepCheckEvery is how often the sweeping loop looks for a sweep whose interval has passed: a
 // bound on how late one runs, not a choice about how often work is derived.
 const sweepCheckEvery = time.Minute
-
-// sweeps are every sweep that derives the server's work from persistent.db (D231 §3), each queuing
-// what the library's state implies of one kind's work, as its name says.
-func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
-	// The sweeps that derive first matches, the refreshes people asked for, rechecks and the
-	// identification passes run as derived_work_sweep_every_seconds says, besides at start, after
-	// each pass and when a destination comes back (D231 §3).
-	derivedWorkEvery := func(ctx context.Context) time.Duration {
-		return lengthOrStarting(ctx, services.settings, settings.DerivedWorkSweepEverySeconds, logger)
-	}
-	return []jobs.Sweep{
-		// Before the first matches, which queue what it returns to them.
-		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
-		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
-		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
-		// A little at a time, hourly and at start, never after each pass (D335 §3).
-		{Name: sweepMissing, Derive: services.refresher.QueueMissing, Every: derivedWorkEvery},
-		{
-			Name: sweepRechecks, Every: derivedWorkEvery,
-			Derive: func(ctx context.Context) (int, error) {
-				due, err := services.artwork.DueRechecks(ctx)
-				if err != nil {
-					return 0, err
-				}
-				return services.refresher.QueueRechecks(ctx, due)
-			},
-		},
-		{
-			Name: sweepRollingRefresh, Derive: services.refresher.Sweep,
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.MetadataRefreshCheckEveryHours, logger)
-			},
-		},
-		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
-		// The passes a match or a refresh left owed, one per library however many asked (D303, DL14).
-		{Name: sweepOwedPasses, Derive: services.pass.IdentifyOwed, Every: derivedWorkEvery},
-		{
-			Name: sweepCertificate, Derive: services.queueCertificateRenewal,
-			Every: func(context.Context) time.Duration { return certificateCheckEvery },
-		},
-		{
-			Name: sweepScheduledBackup, Derive: services.backups.QueueScheduled,
-			Every: func(context.Context) time.Duration { return scheduledBackupCheckEvery },
-		},
-		{
-			Name: sweepScheduledScans, Derive: services.scanSchedule.QueueDue,
-			Every: func(context.Context) time.Duration { return scheduledScansCheckEvery },
-		},
-		{
-			Name: sweepUnavailableRoots, Derive: services.scanSchedule.RescanUnavailable,
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.UnavailableRootRescanSeconds, logger)
-			},
-		},
-		{
-			Name: sweepEndedCredentials, Derive: purgeEndedCredentials(services.credentials),
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.RetentionSweepEveryHours, logger)
-			},
-		},
-		{
-			Name:   sweepRemovedFiles,
-			Derive: purgeRemovedFiles(services.removedFiles, services.settings, clock.System{}),
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.RetentionSweepEveryHours, logger)
-			},
-		},
-		{
-			Name: sweepInvariants, Derive: checkInvariants(services.invariants, logger),
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.InvariantsCheckEveryHours, logger)
-			},
-		},
-		{
-			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,
-			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.ReadThroughSweepEveryHours, logger)
-			},
-		},
-	}
-}
 
 // settingReader reads a length-of-time setting: settings.Service.
 type settingReader interface {
@@ -474,116 +35,94 @@ func lengthOrStarting(ctx context.Context, config settingReader, key settings.Ke
 	return settings.DurationOrStarting(ctx, config, key, logger)
 }
 
-// newRunner is a runner of one kind, with its retry schedule and the recording of its failures.
-func (services jobServices) newRunner(runnerSpec jobRunner) *jobs.Runner {
-	runner := services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
-	if runnerSpec.retrySchedule != nil {
-		runner.WithRetrySchedule(runnerSpec.retrySchedule)
-	}
-	if runnerSpec.recordFailure != nil {
-		runner.WithFailureRecorder(runnerSpec.recordFailure)
-	}
-	return runner
-}
-
 // startBackgroundLoops starts a runner for every kind of job, the sweeps that derive their work
 // (at start, on their timers, after each pass and when a destination comes back, D231 §3), and
 // the artwork cache's upkeep. They run until the returned stop is called.
-func (services jobServices) startBackgroundLoops(ctx context.Context, logger *slog.Logger) (stop func(), err error) {
-	artworkRetrySchedule, err := artwork.RetrySchedule(ctx, services.settings)
+func startBackgroundLoops(ctx context.Context, opened openedServices, logger *slog.Logger) (stop func(), err error) {
+	core := opened.core
+	artworkRetrySchedule, err := artwork.RetrySchedule(ctx, opened.settings)
 	if err != nil {
 		return nil, err
 	}
-	if err := services.exchanges.Load(ctx); err != nil {
+	if err := core.Exchanges.Load(ctx); err != nil {
 		return nil, err
 	}
-	if err := services.scans.Resume(ctx); err != nil {
+	if err := core.Scans.Resume(ctx); err != nil {
 		return nil, err
 	}
-	services.queue.OnCancel(services.exchanges.Cancelled)
-	services.queue.OnOverdue(services.exchanges.Overdue)
-	services.queue.SetReportedProgress(reportedProgressOf(services.exchanges))
+	core.Queue.OnCancel(core.Exchanges.Cancelled)
+	core.Queue.OnOverdue(core.Exchanges.Overdue)
+	core.Queue.SetReportedProgress(reportedProgressOf(core.Exchanges))
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
-	startRunner := func(runnerSpec jobRunner) {
-		kind, runner := runnerSpec.kind, services.newRunner(runnerSpec)
+	for _, running := range core.KindRunners(artworkRetrySchedule) {
 		loops.Go(func() {
 			// A runner looks for due jobs each second, and at once when the queue wakes it (a new
 			// job, an unparked destination), so the tick only catches a retry coming due.
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
-			if err := runner.Run(loopsContext, ticker.C); err != nil {
-				logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
+			if err := running.Runner.Run(loopsContext, ticker.C); err != nil {
+				logger.ErrorContext(ctx, "a job queue stopped", "kind", string(running.Kind), "err", err)
 			}
 		})
-	}
-	for _, runnerSpec := range services.runners(artworkRetrySchedule) {
-		// A node's word on a job given to it is taken by a runner of its kind, as its handler's answer.
-		if runnerSpec.assignee != nil {
-			services.exchanges.Handle(runnerSpec.kind, runnerSpec.assignee(services.newRunner(runnerSpec)))
-		}
-		for range runnerSpec.concurrency {
-			startRunner(runnerSpec)
-		}
 	}
 	loops.Go(func() {
 		// A node says where the work it holds is at each of its status ticks; a silence is looked
 		// for every silenceCheckEvery.
 		ticker := time.NewTicker(silenceCheckEvery)
 		defer ticker.Stop()
-		services.exchanges.Watch(loopsContext, ticker.C)
+		core.Exchanges.Watch(loopsContext, ticker.C)
 	})
-	for _, sweep := range services.sweeps(logger) {
-		services.queue.AddSweep(sweep)
-	}
+	core.AddSweeps(logger)
 	loops.Go(func() {
 		ticker := time.NewTicker(sweepCheckEvery)
 		defer ticker.Stop()
-		services.queue.Sweeping(loopsContext, ticker.C)
+		core.Queue.Sweeping(loopsContext, ticker.C)
 	})
 	loops.Go(func() {
 		ticker := time.NewTicker(demoteUnwantedEvery)
 		defer ticker.Stop()
-		demoteUnwanted(loopsContext, services.queue, services.exchanges, ticker.C, logger)
+		demoteUnwanted(loopsContext, core.Queue, core.Exchanges, ticker.C, logger)
 	})
-	if services.interest != nil {
+	if core.Interest != nil {
 		loops.Go(func() {
 			ticker := time.NewTicker(raiseInterestEvery)
 			defer ticker.Stop()
-			services.interest.Run(loopsContext, ticker.C)
+			core.Interest.Run(loopsContext, ticker.C)
 		})
 	}
 	loops.Go(func() {
 		ticker := time.NewTicker(pruneFinishedEvery)
 		defer ticker.Stop()
-		pruneFinished(loopsContext, services.queue, ticker.C, logger)
+		pruneFinished(loopsContext, core.Queue, ticker.C, logger)
 	})
-	services.startUpkeep(loopsContext, &loops, logger)
-	loops.Go(func() { services.discovery.Run(loopsContext) })
-	loops.Go(func() { services.portMapping.Run(loopsContext) })
+	startUpkeep(loopsContext, opened, &loops, logger)
+	loops.Go(func() { opened.discovery.Run(loopsContext) })
+	loops.Go(func() { opened.portMapping.Run(loopsContext) })
 	return func() { cancel(); loops.Wait() }, nil
 }
 
 // startUpkeep starts, on loops, the loops that keep things tidy until ctx ends: the artwork
 // cache's ceiling, the sessions' remembered uses written in batches (D303 §4), the players' share of
 // the server's upload (D286 §5), and Watch Together's links and sessions past their lifetimes (D346).
-func (services jobServices) startUpkeep(ctx context.Context, loops *sync.WaitGroup, logger *slog.Logger) {
-	loops.Go(func() { maintainArtworkCache(ctx, services.artwork, services.settings, logger) })
-	loops.Go(func() { writeSessionUses(ctx, services.sessions, services.settings, logger) })
+func startUpkeep(ctx context.Context, opened openedServices, loops *sync.WaitGroup, logger *slog.Logger) {
+	dependencies := opened.core.API
+	loops.Go(func() { maintainArtworkCache(ctx, dependencies.Artwork, opened.settings, logger) })
+	loops.Go(func() { writeSessionUses(ctx, dependencies.Auth, opened.settings, logger) })
 	loops.Go(func() {
 		ticker := time.NewTicker(uploadLogEvery)
 		defer ticker.Stop()
-		services.playback.WatchUpload(ctx, ticker.C, logger)
+		dependencies.Playback.WatchUpload(ctx, ticker.C, logger)
 	})
 	loops.Go(func() {
 		ticker := time.NewTicker(uploadKeptEvery)
 		defer ticker.Stop()
-		services.playback.KeepUnderShare(ctx, ticker.C, logger)
+		dependencies.Playback.KeepUnderShare(ctx, ticker.C, logger)
 	})
 	loops.Go(func() {
 		ticker := time.NewTicker(togetherStaleEvery)
 		defer ticker.Stop()
-		endStaleTogether(ctx, services.together, services.settings, ticker.C, logger)
+		endStaleTogether(ctx, dependencies.Together, opened.settings, ticker.C, logger)
 	})
 }
 
@@ -675,63 +214,3 @@ func reportedProgressOf(exchanges *nodes.Exchanges) jobs.ReportedProgress {
 		return string(word), isSaid
 	}
 }
-
-// keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's
-// fold for search, what this build derives: now, for a change made while the server was stopped,
-// a release's new starting value or a build that collates or folds otherwise, and whenever a
-// person changes the locale (D47, D48; agent-failures A4).
-func keepSortAndSearchKeysCurrent(
-	ctx context.Context, pass *identify.Pass, settingsService *settings.Service, logger *slog.Logger,
-) error {
-	rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
-	if err != nil {
-		return err
-	}
-	if rewrittenCount > 0 {
-		logger.InfoContext(ctx, "keyed and folded names again for sorting and search", "rewrittenCount", rewrittenCount)
-	}
-	settingsService.OnChange(settings.SortLocale, func(ctx context.Context) error {
-		rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
-		if err == nil {
-			logger.InfoContext(ctx, "the sort locale changed; keyed and folded names again for sorting and search",
-				"rewrittenCount", rewrittenCount)
-		}
-		return err
-	})
-	return nil
-}
-
-// queueOwedFetches queues what a pass left owing: the first match of each film and series with
-// no answer yet (D170; owed until it has one, D231 §3); and a matched series' season listings,
-// whenever a new episode needs one (D209 §3). A later match is a person's request.
-func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
-	queued := 0
-	for _, itemID := range report.AwaitingMatch {
-		wasQueued, err := queue.Enqueue(ctx, identify.FirstMatchJob(itemID))
-		if err != nil {
-			logger.ErrorContext(ctx, "could not queue a match", "itemId", itemID, "err", err)
-			return
-		}
-		if wasQueued {
-			queued++
-		}
-	}
-	for _, seriesID := range report.AwaitingListings {
-		wasQueued, err := queue.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID}, Destination: identify.FetchDestination,
-			Reason: "a season listing a new episode needs",
-		})
-		if err != nil {
-			logger.ErrorContext(ctx, "could not queue a season listing", "seriesId", seriesID, "err", err)
-			return
-		}
-		if wasQueued {
-			queued++
-		}
-	}
-	if queued > 0 {
-		logger.InfoContext(ctx, "queued fetches", "queuedCount", queued)
-	}
-}
-
-var _ tmdb.Keys = (*secrets.Store)(nil)

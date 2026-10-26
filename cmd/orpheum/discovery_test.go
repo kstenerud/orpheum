@@ -84,15 +84,3 @@ func TestLogActivation_NamesWhoActivatedWhatForWhom(t *testing.T) {
 		}
 	}
 }
-
-// A full failed-sign-in limit is warned of, so the operator learns that sign-ins are being refused
-// for want of room (c21fe368).
-func TestWarnSignInLimitFull_WarnsThatSignInsAreRefused(t *testing.T) {
-	t.Parallel()
-	var logged bytes.Buffer
-	warnSignInLimitFull(t.Context(), slog.New(slog.NewJSONHandler(&logged, nil)))()
-	if !strings.Contains(logged.String(), `"level":"WARN"`) ||
-		!strings.Contains(logged.String(), "the failed-sign-in limit is full") {
-		t.Errorf("logged %s; want a warning that the limit is full", logged.String())
-	}
-}

@@ -35,7 +35,7 @@
 //     through the queue; ErrNotOneTarget refuses the rest.
 //   - A target has at most one open job of a kind, and a repeat request merges into it
 //     (internal/platform/jobqueue says how). TestEnqueue_QueuesATargetOnceWhileItIsOpen;
-//     a fetch's arguments merge as identify.FetchArgsMerge says, wired in cmd/orpheum:
+//     a fetch's arguments merge as identify.FetchArgsMerge says, wired in internal/core/assembly:
 //     TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsksForTheImagesAgain.
 //     A repeat request raises a queued job, wakes one waiting to retry, looks at once at a parked
 //     one's destination, and follows a running one once if the run does not cover it.
@@ -73,11 +73,11 @@
 //     TestEnqueue_AJobWaitsUntilItsRunnableAt.
 //   - Every kind's work is derived by a sweep from persistent.db, or asked for by a play, and each
 //     kind whose item can fail records the failure as a fact there (D231 §3, §4, §10); the server
-//     registers them (cmd/orpheum).
+//     registers them (internal/core/assembly).
 //     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact. So
 //     cache.db can be discarded at any moment, losing only timing: the matches owed, a person's
 //     refresh and a recheck are derived again, and a failure of the item's own is not retried.
-//     TestScenario_S78_DiscardingCacheDBLosesOnlyTiming (cmd/orpheum).
+//     TestScenario_S78_DiscardingCacheDBLosesOnlyTiming (internal/core/assembly).
 //   - A retire cancels the queued, parked and running work of what it took out, by target or by
 //     the destination it waits on, and forgets those destinations (D231 §7, §9).
 //     TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations.
@@ -106,5 +106,6 @@
 //     and cancelling what is retired.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. readiness.go: how far work a person waits for is. Each
-//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go).
+//     kind's handler, runner count and argument merge are internal/core/assembly's (jobs.go,
+//     metadata.go; D351).
 package jobs

@@ -20,7 +20,7 @@ const reachabilityDialWait = 5 * time.Second
 func newReachability(config Config, opened openedServices) *reachability.Checker {
 	relayAddress := relayAddressOf(config)
 	return reachability.New(reachability.Parts{
-		Name: config.HTTPS.Domain, RelayAddress: relayAddress, HTTP: opened.jobServices.outboundClient,
+		Name: config.HTTPS.Domain, RelayAddress: relayAddress, HTTP: opened.outboundClient,
 		Resolver: net.DefaultResolver, Dialer: &net.Dialer{Timeout: reachabilityDialWait},
 		Clock: clock.System{}, Random: rand.Reader,
 	})

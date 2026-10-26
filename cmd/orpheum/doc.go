@@ -6,8 +6,12 @@
 // `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
 //
 // This is the composition root. It is the only package that reads argv, the environment or the
-// process's standard streams, and the only one that exits; it builds the logger, the clock and
-// every dependency, and passes typed values down.
+// process's standard streams, and the only one that exits; it builds the logger and the clock, opens
+// the instance's directories and databases, and runs the lifecycle: the listeners, the node channel,
+// the job runners and loops on their tickers, the shutdown. The core's services are assembled by
+// internal/core/assembly, which it gives what it opened and read, and which the tests share; what
+// the config alone makes (the certificates, the discovery, port mapping, the reachability check, the
+// relay, WebRTC, the debug endpoints) it makes here, beside them (D351).
 //
 // # Invariants
 //
@@ -49,6 +53,8 @@
 //   - D43: one binary, one process per role; D233 §2 and D235 §4 ended its thin supervisor.
 //   - D44: prefer the platform's supervisor, and never exit when you could report.
 //   - D181: migrate is also a command, so an operator can run it without starting the server.
+//   - D351: the core's services are assembled in internal/core/assembly; this package reads the
+//     outside world and runs the lifecycle.
 //   - D195: the binary is named orpheum; environment variables take an ORPHEUM_ prefix.
 //   - docs/contributors/design/plans/cut-a.md §2 and §3.
 //
@@ -56,7 +62,7 @@
 //
 //   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
-//     only parses flags and wires dependencies.
+//     only parses flags and passes what it read down.
 //   - instance.go: an instance directory's top-level config, its kind and its directories, and
 //     making one (default-config, D242). config.go: its full config (cut-a §2a), the keys of its
 //     kind, each with a starting value or none (D200, D201). configfill.go: running a missing key
@@ -66,9 +72,10 @@
 //     password read without echo.
 //     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
 //     builds only.
-//   - metadata.go: the background jobs and loops the core starts; metadata_jobs.go: the metadata
-//     jobs' queue, pass and matcher, made one way for serve and the scenarios (newMetadataJobs), and
-//     the outside hosts' provider services. artwork.go: the artwork service
-//     and its cache's upkeep. nodes.go: the core's side of the node channel. node.go: orpheum node,
-//     the media node itself.
+//   - serve.go's openAndWire and wireCore: what is opened, seeded and read for the assembly, and what
+//     is made beside it. A service of the core's, or its wiring to another, is
+//     internal/core/assembly's.
+//   - metadata.go: the runners, sweeps and loops the core runs on their tickers. artwork.go: the
+//     artwork cache's upkeep. nodes.go: the node channel's listener. node.go: orpheum node, the media
+//     node itself.
 package main

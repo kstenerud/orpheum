@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package assembly
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 // metadataParts are what the metadata jobs are made over: the databases, the settings, the secrets
 // TMDB's key is read from, the clock and randomness the queue runs on, the one outbound client, where
-// TMDB answers, and the log.
+// TMDB answers, a test's fake providers in its place, and the log.
 type metadataParts struct {
 	database    *store.Database
 	cache       *store.Cache
@@ -33,7 +33,9 @@ type metadataParts struct {
 	random      io.Reader
 	httpClient  *http.Client
 	tmdbBaseURL string
-	logger      *slog.Logger
+	// providers are a test's fakes; nil is TMDB at tmdbBaseURL.
+	providers identify.Providers
+	logger    *slog.Logger
 }
 
 // metadataJobs are the job queue, the outside hosts' provider services, and the identification
@@ -46,15 +48,20 @@ type metadataJobs struct {
 	refresher *identify.Refresher
 }
 
-// newMetadataJobs makes the metadata jobs as the server runs them: serve's wiring, and the
-// scenarios' (scenario_test.go), so the two cannot drift.
+// newMetadataJobs makes the metadata jobs as the server runs them: Build's, and the scenarios'
+// (scenario_test.go), so the two cannot drift.
 func newMetadataJobs(parts metadataParts) metadataJobs {
 	queue := jobs.NewQueue(jobs.QueueParts{
 		Cache: parts.cache, Clock: parts.clock, Settings: parts.settings, Random: parts.random, Logger: parts.logger,
 		ArgsMerges: jobArgsMerges(),
 	})
 	hosts := newHostProviders(queue, parts.secrets, parts.clock, parts.settings)
-	providers := identify.Providers{"tmdb": tmdb.New(parts.httpClient, parts.tmdbBaseURL, parts.secrets, hosts.tmdbAPI)}
+	providers := parts.providers
+	if providers == nil {
+		providers = identify.Providers{
+			"tmdb": tmdb.New(parts.httpClient, parts.tmdbBaseURL, parts.secrets, hosts.tmdbAPI),
+		}
+	}
 	pass := identify.NewPass(parts.database, parts.clock, parts.logger, providers, parts.settings)
 	return metadataJobs{
 		queue: queue, hosts: hosts, pass: pass,
@@ -104,3 +111,69 @@ func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
 		jobs.KindReadThrough: readthrough.ArgsMerge(),
 	}
 }
+
+// wakeOwedPasses has a library marked as owing a pass ask for the owed passes' sweep, which runs
+// each such library's pass once however many marked it (D303, DL14).
+func wakeOwedPasses(pass *identify.Pass, sweeps sweepRequester) {
+	pass.OnPassOwed(func() { sweeps.RequestSweeps(sweepOwedPasses) })
+}
+
+// keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's
+// fold for search, what this build derives: now, for a change made while the server was stopped,
+// a release's new starting value or a build that collates or folds otherwise, and whenever a
+// person changes the locale (D47, D48; agent-failures A4).
+func keepSortAndSearchKeysCurrent(
+	ctx context.Context, pass *identify.Pass, settingsService *settings.Service, logger *slog.Logger,
+) error {
+	rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
+	if err != nil {
+		return err
+	}
+	if rewrittenCount > 0 {
+		logger.InfoContext(ctx, "keyed and folded names again for sorting and search", "rewrittenCount", rewrittenCount)
+	}
+	settingsService.OnChange(settings.SortLocale, func(ctx context.Context) error {
+		rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
+		if err == nil {
+			logger.InfoContext(ctx, "the sort locale changed; keyed and folded names again for sorting and search",
+				"rewrittenCount", rewrittenCount)
+		}
+		return err
+	})
+	return nil
+}
+
+// queueOwedFetches queues what a pass left owing: the first match of each film and series with
+// no answer yet (D170; owed until it has one, D231 §3); and a matched series' season listings,
+// whenever a new episode needs one (D209 §3). A later match is a person's request.
+func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
+	queued := 0
+	for _, itemID := range report.AwaitingMatch {
+		wasQueued, err := queue.Enqueue(ctx, identify.FirstMatchJob(itemID))
+		if err != nil {
+			logger.ErrorContext(ctx, "could not queue a match", "itemId", itemID, "err", err)
+			return
+		}
+		if wasQueued {
+			queued++
+		}
+	}
+	for _, seriesID := range report.AwaitingListings {
+		wasQueued, err := queue.Enqueue(ctx, jobs.Request{
+			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID}, Destination: identify.FetchDestination,
+			Reason: "a season listing a new episode needs",
+		})
+		if err != nil {
+			logger.ErrorContext(ctx, "could not queue a season listing", "seriesId", seriesID, "err", err)
+			return
+		}
+		if wasQueued {
+			queued++
+		}
+	}
+	if queued > 0 {
+		logger.InfoContext(ctx, "queued fetches", "queuedCount", queued)
+	}
+}
+
+var _ tmdb.Keys = (*secrets.Store)(nil)

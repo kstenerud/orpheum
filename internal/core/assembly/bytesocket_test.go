@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package assembly
 
 import (
 	"bytes"
@@ -39,9 +39,15 @@ func (taken *takenResults) Deliver(_ context.Context, _ int64, result nodeproto.
 	taken.results = append(taken.results, result)
 	return nil
 }
-func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress)                 {}
-func (*takenResults) Interrupt(context.Context, int64, string)                                   {}
+
+func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress) {}
+
+func (*takenResults) Interrupt(context.Context, int64, string) {}
+
 func (*takenResults) Reconcile(context.Context, int64, []nodeproto.HeldAttempt, map[string]bool) {}
+
+// benchSocketName is the bench node's byte socket, in its run directory.
+const benchSocketName = "node.sock"
 
 // byteSocketBench is a node channel whose node said hello, with its byte socket answered by
 // answer, and how to post to the channel as that node.
@@ -60,7 +66,7 @@ func newByteSocketBench(t *testing.T, answer http.HandlerFunc) byteSocketBench {
 		PollHold: time.Second,
 	})
 	runDir := filepath.Join(t.TempDir(), "run")
-	listener, err := unixsocket.Listen(runDir, nodeSocketName)
+	listener, err := unixsocket.Listen(runDir, benchSocketName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +104,7 @@ func newByteSocketBench(t *testing.T, answer http.HandlerFunc) byteSocketBench {
 	var reply nodeproto.HelloReply
 	_, hello := postAs(nodeproto.PathHello, 0, nodeproto.Hello{
 		Name: "local", ProtocolVersion: nodeproto.ProtocolVersion,
-		ByteSocketPath: filepath.Join(runDir, nodeSocketName),
+		ByteSocketPath: filepath.Join(runDir, benchSocketName),
 	})
 	if err := json.Unmarshal(hello, &reply); err != nil {
 		t.Fatal(err)
