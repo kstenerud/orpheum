@@ -46,6 +46,15 @@ def _run(command: list[str], root: str) -> str:
     return done.stdout
 
 
+def git_run(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
+    """A git command's full result (returncode, stdout and stderr), never raising."""
+    return subprocess.run(["git", *args], capture_output=True, text=True, cwd=cwd, check=False)
+
+
+def rev_exists(ref: str) -> bool:
+    return git_run("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").returncode == 0
+
+
 @functools.cache
 def go_module(root: str) -> str:
     mod = Path(root) / "go.mod"

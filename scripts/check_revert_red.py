@@ -92,7 +92,9 @@ from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # 
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
-from revert_red_dependents import go_dependents, python_tests_naming, python_tests_reaching, toplevel, web_source_readers
+from revert_red_dependents import (git_run as _git, go_dependents, python_tests_naming,  # noqa: F401 (tests reach rev_exists here)
+                                   python_tests_reaching, rev_exists, toplevel, web_source_readers)
+from revert_red_locales import LOCALE_SOURCE, locale_runs
 from revert_red_naming import naming_runs
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
@@ -184,16 +186,6 @@ class Outcome:
     @property
     def is_failure(self) -> bool:
         return self.verdict in ("GREEN", "NO_RUNNER", "TIMED_OUT", "PROBE_BROKEN")
-
-
-def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], capture_output=True, text=True, cwd=cwd, check=False
-    )
-
-
-def rev_exists(ref: str) -> bool:
-    return _git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").returncode == 0
 
 
 def commit_type(subject: str) -> str | None:
@@ -385,6 +377,9 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
         users = users_of_change(toplevel(), base, head, change.path, dependents)
         if users:
             attempts.append(Attempt(go_test(*users), ", found by the tests of the code that uses what it changed"))
+    elif LOCALE_SOURCE.search(change.path) and base and head:
+        # The catalogue's own test, then the tests rendering its changed keys, first (revert_red_locales).
+        attempts = [*locale_runs(toplevel(), base, head, change.path), *attempts]
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
