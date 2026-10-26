@@ -597,6 +597,64 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   a test; or a "the tests that name it" run that is mostly green before a red in the whole package
   (the naming misses how the tests reach the code: a route by its path, a value through an interface).
 
+### 31. A locale file's probe widening to nearly the whole suite through `i18n.ts`
+
+- **Mechanism:** revert-red scoped a changed locale file to `vitest related` over the file itself;
+  103 of 167 app test files import `i18n.ts`, so "related" to a locale file was nearly all of them.
+- **Instance** (test-architecture-2026-10-26, finding 4): `en-settings.ts` probes 85 s and 52 s,
+  `status-tray.tsx` (the shell, a different fan-out) 81 s; the largest probe kind at 1120 s of one
+  check-pr's run.
+- **Why it was invisible:** "related" reads as narrow because it is an import graph, not the whole
+  suite by name; only a barrel module's fan-in (test-weight.md §11's own warning sign) shows it is not.
+- **Fix:** `scripts/revert_red_locales.py` diffs a locale file's two versions by their leaves' dotted
+  paths (spreads followed to the files they import, read at the same revision) and matches each
+  changed path against a literal `t("a.b")` in the app's source — the same pattern
+  `locales/catalogue.test.ts` already uses to find what a file asks for. The source files found are
+  run through `vitest related`, narrower than the locale file's own importers; the catalogue's own
+  test runs alone first regardless, cheap and already catching a key gone missing. A key only ever
+  built from a template literal, or not found at all, is not matched, and the file falls through
+  unchanged to the existing whole-file scope — never a GREEN verdict resting on the scan, as the Go
+  precedent (§30) never rests one on its naming. Measured against real commits (2026-10-26):
+  `en-together.ts`'s D346 change (added keys, caught by the catalogue test alone) 3 s;
+  `en-settings.ts`'s (keys asked for only through a built string, so unmatched and left to the old
+  scope) 34 s, against the 85 s and 52 s above — the old scope itself measured faster here than in
+  the review, which is the noise test-weight.md's own "What makes these hard to see" warns of, not a
+  second fix; the gain the scan itself gives shows in `en-together.ts`'s and the unit tests
+  (`scripts/tests/test_revert_red_locales.py`) built to prove the matching rather than only measure it.
+- **Warning sign:** a probe's "vitest related" row for a `locales/` file's revert taking seconds more
+  than its catalogue test alone; a locale commit whose changed keys are all reached only through a
+  built string (`` t(`a.${camelKey(b)}`) ``), where the scan can place nothing and every such probe
+  pays the old scope in full.
+
+### 32. A worker spawned and torn down for every file, isolated or not
+
+- **Mechanism:** vitest's own isolation starts a fresh worker, module registry and environment per
+  file; a file whose module graph holds no mutable state worth isolating pays that startup anyway.
+- **Instance** (2026-10-26): 218 files, about 334 ms a worker's own startup each (vitest's own
+  hint); a `.test.ts` file with no `@vitest-environment happy-dom` pragma — plain, DOM-free, 97 of
+  218 — never mounts a component, so nothing of its module state outlives the test.
+- **Why it was invisible:** isolation's cost is each worker's own, which parallelism spreads thin; it
+  shows only when many files share few workers, as a large `vitest related` batch does.
+- **Fix:** `vitest.config.ts` splits the suite into two projects, extending the root config: "fast",
+  the 97 plain `.test.ts` files (found by the absence of the pragma, read from the file itself, not
+  kept as a list, so a file that starts using happy-dom moves itself back automatically), with
+  `isolate: false`; "default", everything else, isolated as before. Measured: the 97-file subset 3.68 s
+  isolated, 1.36 s not, stable across repeated runs, three shuffled orders and a single worker running
+  every one of them in sequence; the whole suite's wall time dropped a modest, repeatable amount once
+  caches warmed (back-to-back, 2026-10-26: about 29.2 s against 27.5 s). Running `--no-isolate` over
+  the *whole* suite, as a check of the risk being traded away, failed a file nothing about it touches:
+  a happy-dom file's mounted components kept firing effects into the next file sharing its worker,
+  inflating a `console.error` spy's call count from 1 to 6 — exactly what the pragma-based split is
+  built to keep out of the fast project. `make check-everything` (the nightly) also runs
+  `npm run test:isolated` (`vitest run --isolate`, overriding both projects), the whole suite with
+  every file isolated, trusting none of the above.
+- **Not taken:** `pool: 'threads'` in place of the default `forks` — measured slower (27.9 s against
+  22.9 s for the whole suite) and a higher per-worker startup (427 ms against 334 ms) on this machine.
+- **Warning sign:** a `.test.ts` file added to `vitest.config.ts`'s "fast" project's reach that
+  mounts a component or opens a module-level cache without resetting it per test — vitest's hint
+  line ("Isolate N workers spawned … faster with isolate: false") naming a large N with few of the
+  files near vitest's `testTimeout`, which the default project's own isolation still protects.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
