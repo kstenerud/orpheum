@@ -210,6 +210,9 @@ export const en = {
     wrongPassword: "That is not your current password. Check it and try again.",
     notOnThisDevice:
       "This device was activated by a code, so it can watch and host but not change your password, remove devices or activate others. Do that on a device you signed in to with your password.",
+    librariesHeading: "Films and Series libraries",
+    librariesText:
+      "Films and Series gather every library below. Leave one out to keep its titles off those pages; it stays on the Libraries page.",
   },
   activate: {
     heading: "Activate a device",

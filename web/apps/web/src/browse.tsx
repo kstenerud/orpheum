@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   AlphabetRail,
+  useAlphabetRailLetters,
   useLetterJump,
   useLetterJumpState,
   type LetterJump,
@@ -189,9 +190,23 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
           listRef={listRef}
         />
       </div>
-      {sort === "name" ? <AlphabetRail onLetter={onLetter} /> : null}
+      {sort === "name" ? <BrowseAlphabetRail kind={props.kind} onLetter={onLetter} /> : null}
     </section>
   );
+}
+
+/**
+ * Films' or Series' alphabet rail, only shown sorted by name (D349 §9): its letters are only
+ * those some title in the whole list (every library the person reaches, less any left out, D349
+ * §8) begins with, asked for again with the list's own background poll, through
+ * alphabet-rail.tsx's one mechanism, shared with the Libraries page.
+ */
+function BrowseAlphabetRail(props: {
+  readonly kind: BrowseKind;
+  readonly onLetter: (letter: string) => void;
+}): JSX.Element {
+  const letters = useAlphabetRailLetters(props.kind, undefined, "name");
+  return <AlphabetRail onLetter={props.onLetter} letters={letters} />;
 }
 
 /** The order to list in. */

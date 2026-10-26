@@ -42,6 +42,7 @@ async function accountOf(
           200,
           { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
         ],
+        "GET /libraries": [200, { libraries: [] }],
       }),
     ),
   );
@@ -111,6 +112,7 @@ describe("your account", () => {
           ],
           "GET /me/own-link": refusal(404, "not_found"),
           "GET /me/preferences": refusal(404, "not_found"),
+          "GET /libraries": [200, { libraries: [] }],
         }),
       ),
     );
@@ -162,6 +164,7 @@ describe("an admin's administering from away (D302)", () => {
             ],
             "GET /me/own-link": refusal(404, "not_found"),
             "GET /me/preferences": refusal(404, "not_found"),
+            "GET /libraries": [200, { libraries: [] }],
             "PUT /me/admin-away": [204, {}],
           },
           heard,
@@ -184,5 +187,89 @@ describe("an admin's administering from away (D302)", () => {
   it("is not offered to a person who is no admin", async () => {
     const person = await accountOf(true);
     expect(person.textContent).not.toContain("Administering from away from home");
+  });
+});
+
+describe("the libraries a person leaves out of Films and Series (D349 §8)", () => {
+  /** Two libraries that gather into Films and Series, and one other-videos library beside them. */
+  const libraries = [
+    {
+      id: 1,
+      name: "Films",
+      kind: "movies",
+      metadataSource: "tmdb",
+      changeDetection: "watch",
+      isWritable: true,
+      createdAt: 0,
+    },
+    {
+      id: 2,
+      name: "Kids' films",
+      kind: "movies",
+      metadataSource: "tmdb",
+      changeDetection: "watch",
+      isWritable: true,
+      createdAt: 0,
+    },
+    {
+      id: 3,
+      name: "Home movies",
+      kind: "other",
+      metadataSource: "nfo",
+      changeDetection: "watch",
+      isWritable: true,
+      createdAt: 0,
+    },
+  ];
+
+  it("offers every library Films or Series gathers, none an other library, checked until left out", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <Account />,
+        servedBy(
+          {
+            "GET /me/devices": [200, { devices: [] }],
+            "GET /me": [
+              200,
+              { id: 1, name: "owner", role: "user", isAdmin: false, canManageAccount: true },
+            ],
+            "GET /me/own-link": refusal(404, "not_found"),
+            "GET /me/preferences": [
+              200,
+              {
+                isDialogueBoostOn: false,
+                isLevellingOn: true,
+                isAutoplayOn: true,
+                leftOutLibraryIds: [2],
+              },
+            ],
+            "GET /libraries": [200, { libraries }],
+            "PUT /me/preferences": [204, {}],
+          },
+          heard,
+        ),
+      ),
+    );
+    await settleUntil(() => mounted?.container.textContent.includes("Kids' films") === true);
+    expect(mounted.container.textContent).not.toContain("Home movies");
+    const boxes = [
+      ...mounted.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    ].filter((box) => box.closest("li") !== null);
+    const filmsBox = boxes.find((box) => box.closest("li")?.textContent === "Films");
+    const kidsBox = boxes.find((box) => box.closest("li")?.textContent === "Kids' films");
+    expect(filmsBox?.checked).toBe(true);
+    expect(kidsBox?.checked).toBe(false);
+    await click(kidsBox);
+    await settleUntil(() =>
+      heard.some((request) => request.methodAndPath === "PUT /me/preferences"),
+    );
+    const put = heard.find((request) => request.methodAndPath === "PUT /me/preferences");
+    expect(put?.body).toEqual({ leftOutLibraryIds: [] });
+  });
+
+  it("is shown to no one who reaches no library Films or Series gather", async () => {
+    const page = await accountOf(true);
+    expect(page.textContent).not.toContain("Films and Series libraries");
   });
 });
