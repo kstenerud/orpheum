@@ -23,7 +23,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
-	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
@@ -142,12 +141,12 @@ func newJobServices(
 	if err != nil {
 		return jobServices{}, err
 	}
-	queue := jobs.NewQueue(jobs.QueueParts{
-		Cache: opened.cache, Clock: clock.System{}, Settings: opened.settings, Random: rand.Reader, Logger: logger,
-		ArgsMerges: jobArgsMerges(),
+	metadata := newMetadataJobs(metadataParts{
+		database: opened.database, cache: opened.cache, settings: opened.settings, secrets: opened.secrets,
+		clock: clock.System{}, random: rand.Reader, httpClient: httpClient, tmdbBaseURL: outside.tmdbBaseURL,
+		logger: logger,
 	})
-	hosts := newHostProviders(queue, opened.secrets, clock.System{}, opened.settings)
-	providers := identify.Providers{"tmdb": tmdb.New(httpClient, outside.tmdbBaseURL, opened.secrets, hosts.tmdbAPI)}
+	queue, hosts, pass := metadata.queue, metadata.hosts, metadata.pass
 	subtitler, err := opensubtitles.New(
 		httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{}, hosts.openSubtitles)
 	if err != nil {
@@ -160,7 +159,6 @@ func newJobServices(
 	if requeued > 0 {
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "requeuedCount", requeued)
 	}
-	pass := identify.NewPass(opened.database, clock.System{}, logger, providers, opened.settings)
 	if err := keepSortAndSearchKeysCurrent(ctx, pass, opened.settings, logger); err != nil {
 		return jobServices{}, err
 	}
@@ -171,14 +169,13 @@ func newJobServices(
 		queue.RequestSweeps(sweepsAfterAPass()...)
 	})
 	wakeOwedPasses(pass, queue)
-	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		sessions: opened.auth, invariants: opened.database, credentials: opened.auth,
 		removedFiles: library.NewFilePurger(opened.database),
-		pass:         pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
+		pass:         pass, queue: queue, matcher: metadata.matcher, settings: opened.settings, subtitler: subtitler,
 		outboundClient: httpClient, providerServices: hosts,
-		chooser:   identify.NewChooser(matcher, pass),
-		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
+		chooser:   identify.NewChooser(metadata.matcher, pass),
+		refresher: metadata.refresher,
 	}, nil
 }
 
@@ -186,48 +183,6 @@ func newJobServices(
 // each such library's pass once however many marked it (D303, DL14).
 func wakeOwedPasses(pass *identify.Pass, sweeps sweepRequester) {
 	pass.OnPassOwed(func() { sweeps.RequestSweeps(sweepOwedPasses) })
-}
-
-// hostProviders are the outside hosts' provider services (D231 §5).
-type hostProviders struct {
-	tmdbAPI, tmdbImages, openSubtitles *coreproviders.Service
-}
-
-// all are the services, in the order the System page lists them.
-func (hosts hostProviders) all() []*coreproviders.Service {
-	return []*coreproviders.Service{hosts.tmdbAPI, hosts.tmdbImages, hosts.openSubtitles}
-}
-
-// newHostProviders builds each outside host's provider service, its health kept in the job queue,
-// and has a person's change of a host's key or login try it again.
-func newHostProviders(
-	queue *jobs.Queue, secretStore *secrets.Store, clockSource clock.Clock, settingsReader coreproviders.Settings,
-) hostProviders {
-	hosts := hostProviders{
-		tmdbAPI:       tmdb.APIService(queue, clockSource, settingsReader),
-		tmdbImages:    tmdb.ImagesService(queue, clockSource, settingsReader),
-		openSubtitles: opensubtitles.Service(queue, clockSource, settingsReader),
-	}
-	secretStore.OnChange(func(ctx context.Context, name secrets.Name) {
-		switch name {
-		case secrets.TMDBAPIKey:
-			hosts.tmdbAPI.CredentialsChanged(ctx)
-		case secrets.OpenSubtitlesUsername, secrets.OpenSubtitlesPassword:
-			hosts.openSubtitles.CredentialsChanged(ctx)
-		case secrets.TURNSecret, secrets.DNSProviderToken: // no outside host we call uses them yet
-		}
-	})
-	return hosts
-}
-
-// jobArgsMerges are the kinds whose repeat requests merge their arguments their own way (D231 §8):
-// a fetch's, a backup's and a read-through's, whose packages say how. The others keep the queued
-// job's.
-func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
-	return map[jobs.Kind]jobs.ArgsMerge{
-		jobs.KindFetchMetadata: identify.FetchArgsMerge(), jobs.KindBackup: backup.JobArgsMerge(),
-		jobs.KindReadThrough: readthrough.ArgsMerge(),
-	}
 }
 
 // jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
