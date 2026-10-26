@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package librarytest gives tests the fixture they share: an enrolled node, a library over a root
-// on it, written through the store's queries, and the numbered envelope a node sends a scan in. It
-// is imported only by tests. A test that arranges a whole catalog makes its node and library here
-// and writes the rest beside them; cmd/orpheum's tests make them through nodes.Enrol and
-// library.Create instead, the path serve's database is made by.
+// on it, the catalog rows a scan would file under it (item, title, version, file, file_probe,
+// stream), written through the store's queries, and the numbered envelope a node sends a scan in.
+// It is imported only by tests. cmd/orpheum's tests make a node and a library through
+// nodes.Enrol and library.Create instead, the path serve's database is made by.
 //
 // # Invariants
 //
@@ -22,4 +22,6 @@
 // # Where to change
 //
 //   - fixture.go: Node, LibraryOn and NodeWithLibrary, and Scan, which frames a scan's records.
+//   - catalog.go: Item, Title, Version, File, Probe and Stream, the builders for the catalog's own
+//     tables; a schema rename to one of their columns is made once, here.
 package librarytest
