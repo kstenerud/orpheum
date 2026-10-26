@@ -21789,9 +21789,28 @@ realm in 3.5 s.
 
 **Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
 
-## D339 — Reserved: Up next, revised: the 30 s lead, Still watching after three autoplays, a group follows its host into the next episode
+## D339 — Up next keeps its 30 s lead until credits are detected, a run of three autoplays with no press asks Still watching, and a host's autoplay moves their group on
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, answering what
+[up-next.md](../design/plans/up-next.md) §2 and §9 left open:
+
+> *"accept 30 seconds for now"*
+
+1. **The offer keeps its fixed lead**, 30 s before the end, until credits are detected
+   ([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance)), when
+   it moves to the credits' start (D139).
+2. **"Still watching?"** After three episodes autoplayed in a row with no press between, the next
+   autoplay does not count down: the film's end shows a *Still watching?* card, **Continue** (focused,
+   so OK presses it), which plays the next episode, and **Stop**, which leaves the film. Any press
+   on the page, a remote's, a key, a tap or a click, starts the run again. Three is a justified
+   constant (`stillWatchingAfterAutoplays`): the field's number, so a person asleep is not played a
+   season, and a press resets it, so no one awake meets it. The run is the tab's.
+3. **In Watch Together the host's autoplay moves the whole group on.** The host's player moving on
+   to the next episode, by autoplay or by a press of Up next, does not stop the session as leaving
+   the player does (D246 §5): the next episode's player puts its film on for everyone, so every
+   screen follows the host's player into it without going black between.
+
+**Status:** Decided; not built.
 
 ## D340 — Reserved: One subtitle extraction per video
 
@@ -21894,9 +21913,44 @@ device: a converted film whose keyframes come late now starts on time, its twin 
 
 **Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
 
-## D346 — Reserved: Watch Together's invitations and sessions are short-lived
+## D346 — A Watch Together invitation is short-term: a link admits for an hour, ending the session ends every link and membership, and a session idle for six hours is ended
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner:
+
+> *"watch together should be a short-term invitation. Invitations are good for an hour, and once
+> the host ends the session, all invitations and session links are invalidated. A host who forgets
+> to close the session has it closed after 6h of inactivity."*
+
+This revises [D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback)
+§3, under which a link waited until it was used or withdrawn, and a session lasted until its host
+ended it or the server restarted.
+
+1. **A link admits its person for an hour from when it was made**, then no one: it leaves the
+   host's list and the discovery's links, and a join by it is refused as a used or withdrawn one is.
+   Whoever joined by it in time stays in; their membership is not the link. A new link for a
+   guest's place (D267 §4 as amended) is a link like any other. The host's list says until when each waiting link
+   admits (*good until 21:40*).
+2. **Ending the session ends everything of it at once**: every link, every membership's credential
+   and every viewer's cookie admit nothing from then on (as built since Cut A; D119, D246 §5).
+3. **A session idle for six hours is ended as the host's end would**, each device told why
+   (`idle`). **Idle** is neither playback nor anything a member does. Playback is the group playing
+   with a player attached; a group left "playing" with every player gone plays to no one. What a
+   member does is a command (play, pause, seek, a film put on or stopped), a join, a leave, a link
+   made or withdrawn, a member removed, or the host opening their session's page. What a device's
+   page sends by itself is not: its state reports and pings each second, its notes, what it waits
+   on, a reconnect, and voice signalling, since a call set up again after a drop is the page's, not
+   a person's. Two people only talking for six hours with nothing on are ended; they open a new one.
+4. **Both are settings, not constants:** `together_link_lifetime_seconds` (3600) and
+   `together_idle_session_end_hours` (6). They are a household's policy, the owner's numbers a
+   start: another household may send an invitation earlier in the day or want a long pause kept, and
+   nothing in the code depends on their values. They are read each minute, the bound on how late an
+   idle session is ended; a link is refused from the moment its hour is up whatever the look's time.
+5. **A guest holding a link that no longer works is told so plainly**: invitations are
+   short-lived, this one has expired, was used or withdrawn, or the session is over, and to ask the
+   sender for a new one. A guest whose session the server closed is told it was closed because
+   nothing had happened in it for hours.
+
+**Status:** Decided; not built.
 
 ## D347 — The core's log level is a setting an admin changes while it runs, and every API request carries an ID into its log lines and its answer
 
