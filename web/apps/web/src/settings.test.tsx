@@ -28,6 +28,41 @@ afterEach(() => {
   mounted = undefined;
 });
 
+/**
+ * Opens a setting's About dialog by its key and returns what each of its paragraphs says: the
+ * catalogue's short words, then its longer ones where it has any.
+ */
+async function paragraphsFor(key: string): Promise<readonly (string | null)[]> {
+  mounted?.unmount();
+  mounted = await mount(
+    withServices(
+      <SettingsView
+        isAdvanced={false}
+        search=""
+        problems={new Map()}
+        resetting={new Set()}
+        onSave={ignore}
+        onReset={ignore}
+        settings={[
+          {
+            key,
+            kind: "integer",
+            description: "a server description, never shown while the catalogue has one",
+            value: 1,
+            startingValue: 1,
+            isModified: false,
+            isImportant: true,
+            section: "together",
+            setAt: 1,
+          },
+        ]}
+      />,
+    ),
+  );
+  await click(mounted.container.querySelector(`button[aria-label="What ${key} is for"]`));
+  return [...mounted.container.querySelectorAll("dialog p")].map((p) => p.textContent);
+}
+
 describe("settings", () => {
   it("shows whether a secret is set and its last characters, never its value, and when it must be entered again", () => {
     const markup = renderToStaticMarkup(
@@ -212,5 +247,36 @@ describe("settings", () => {
     );
     expect(isFound("SEEK", "together_drift_left_alone_ms", "How far it may drift")).toBe(false);
     expect(isFound("  ", "any_key", "")).toBe(true);
+  });
+
+  it("says a Watch Together invitation is short-lived and an idle session ends (D346, D339)", async () => {
+    expect(await paragraphsFor("together_link_lifetime_seconds")).toEqual([
+      "How long a Watch Together link lets its person in.",
+      "A Watch Together invitation is short-lived: a link not used within this long of being made lets no one in. Whoever already joined by it stays.",
+    ]);
+    expect(await paragraphsFor("together_idle_session_end_hours")).toEqual([
+      "How long a Watch Together session with nothing playing and no one doing anything lasts before it ends.",
+      "A host may forget to end their session. Once nothing has played in it and no one has done anything in it for this long, it ends as if the host had ended it, and its links stop working.",
+    ]);
+  });
+
+  it("says a film is converted, not prepared, now the whole-film prepare is retired (D344)", async () => {
+    expect(await paragraphsFor("hls_segment_length_seconds")).toEqual([
+      "The length of each piece a converted film is cut into. Changing it cuts films again when they are next played.",
+      "A converted film is sent in short pieces. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
+    ]);
+    const playLadder = await paragraphsFor("play_ladder_wait_ms");
+    expect(playLadder[1]).toBe(
+      "A film is cut into pieces where its own keyframes fall once they are read. Until then, playback waits up to this long, then plays the original where the device can, or cuts the film at even times instead.",
+    );
+    expect(await paragraphsFor("node_progress_every_seconds")).toEqual([
+      "How often, at most, a media node reports how far a read-through in progress is.",
+    ]);
+  });
+
+  it("says the server's log level can be changed at once (D347)", async () => {
+    expect(await paragraphsFor("log_level")).toEqual([
+      "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
+    ]);
   });
 });
