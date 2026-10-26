@@ -6,7 +6,7 @@ import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
-import { artUrl, type components } from "@orpheum/sdk";
+import type { components } from "@orpheum/sdk";
 import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -20,7 +20,7 @@ import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { FilingReportButton } from "./filing-report.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
-import { Poster } from "./poster.tsx";
+import { Poster, WideArt } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { usePageInterest } from "./page-interest.ts";
@@ -78,13 +78,11 @@ export function TitleView(props: {
   const { title } = props;
   return (
     <article className="title">
-      {title.art.backdropSha256 === undefined ? null : (
-        <img
-          className="title__backdrop"
-          src={artUrl(title.art.backdropSha256, "landscape-l")}
-          alt={""}
-        />
-      )}
+      <WideArt
+        sourceSha256={title.art.backdropSha256}
+        size="landscape-l"
+        className="title__backdrop"
+      />
       <div className="title__head">
         <TitleArt title={title} />
         <TitleFacts title={title} />
@@ -111,7 +109,7 @@ function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
     return <Poster sourceSha256={art.posterSha256} />;
   }
   return art.stillSha256 === undefined ? null : (
-    <img className="title__still" src={artUrl(art.stillSha256, "landscape-m")} alt={""} />
+    <WideArt sourceSha256={art.stillSha256} size="landscape-m" className="title__still" />
   );
 }
 

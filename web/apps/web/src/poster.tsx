@@ -61,6 +61,23 @@ export function Still(props: {
   );
 }
 
+/**
+ * A title page's wide art, its backdrop or its still, in size, and nothing while it is not made yet:
+ * the page shows no broken image (the owner, 2026-10-26: "the banner is a broken link"), and the art
+ * is asked for again and shown once made, as a poster is.
+ */
+export function WideArt(props: {
+  readonly sourceSha256: string | undefined;
+  readonly size: ArtSize;
+  readonly className: string;
+}): JSX.Element | null {
+  const shown = useArtShown(props.sourceSha256, props.size);
+  if (shown.url === undefined) {
+    return null;
+  }
+  return <img className={props.className} src={shown.url} alt={""} onError={shown.onError} />;
+}
+
 /** The address an image is shown by, undefined for its blank, and what its img does when it fails. */
 interface ArtShown {
   readonly url: string | undefined;

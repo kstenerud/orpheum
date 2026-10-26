@@ -7,7 +7,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
-import { Poster, Still } from "./poster.tsx";
+import { Poster, Still, WideArt } from "./poster.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
 describe("a poster's or a still's image that does not load (the owner, Fire TV, 2026-10-25)", () => {
@@ -34,6 +34,34 @@ describe("a poster's or a still's image that does not load (the owner, Fire TV, 
     });
     expect(mounted.container.querySelector("img")).toBeNull();
     expect(mounted.container.querySelector("span.series__still")).not.toBeNull();
+  });
+
+  it("shows nothing for a title page's backdrop not made yet, and shows it once made", async () => {
+    // The title page's banner showed as a broken image (the owner, 2026-10-26).
+    const probes = stubImages();
+    const poll = handPoller();
+    mounted = await mount(
+      <BackgroundChangesContext value={poll.poller}>
+        <WideArt sourceSha256="aa11" size="landscape-l" className="title__backdrop" />
+      </BackgroundChangesContext>,
+    );
+    expect(mounted.container.querySelector("img")?.getAttribute("src")).toBe(
+      "/api/v1/bytes/art/aa11/landscape-l.webp",
+    );
+    act(() => {
+      mounted?.container.querySelector("img")?.dispatchEvent(new Event("error"));
+    });
+    expect(mounted.container.innerHTML).toBe("");
+    act(() => {
+      poll.ask(() => undefined);
+    });
+    await act(async () => {
+      probes.at(-1)?.answer(true);
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector("img.title__backdrop")?.getAttribute("src")).toBe(
+      "/api/v1/bytes/art/aa11/landscape-l.webp?again=1",
+    );
   });
 
   it("asks for an image that did not load again, and shows it once it loads", async () => {
