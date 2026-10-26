@@ -42,6 +42,11 @@ def root_of(path: str | Path) -> Path:
     found, project = _git_dirs(directory), _git_dirs(ROOT)
     if found is None or project is None or found[1] != project[1]:
         return ROOT
+    # Only the project or a worktree inside it: from a worktree that is itself the project, a path
+    # outside it reached the main checkout around it, and its file read as one of the project's
+    # (the hooks' own tests, run in an agent's worktree, 2026-10-26).
+    if not found[0].is_relative_to(ROOT.resolve()):
+        return ROOT
     return found[0]
 
 
