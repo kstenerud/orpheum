@@ -77,6 +77,9 @@
 //     (D188). Enforced by TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom.
 //   - The roster shows the round trip each device last reported; only the device measures it
 //     (D66). Enforced by TestHub_TheRosterShowsEachDevicesRoundTripItReported.
+//   - A device's state report sends the roster only when it changed what every device was last
+//     told, and a message to every device is encoded once for them all. Enforced by
+//     TestHub_AStateThatChangesNothingSendsNoRoster and TestBroadcast_IsEncodedOnceForEveryDevice.
 //   - Voice signalling goes only to the device it names. Enforced by
 //     TestHub_RelaysVoiceSignallingToTheDeviceItNames.
 //   - A discovery finds the core by each unused link's locate hash, its offers proven under the link's

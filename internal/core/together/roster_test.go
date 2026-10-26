@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package together
+
+import (
+	"bytes"
+	"testing"
+)
+
+// A device's state report that changes nothing anyone sees sends no roster: while a group waits each
+// device reports every second, and each report sent every device the roster, the same one (the
+// audit of 2026-10-25, R2). One that changes it is sent as before.
+func TestHub_AStateThatChangesNothingSendsNoRoster(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guestDevice, _ := stage.attach(t, stage.join(t).MembershipCredential, RolePlayback)
+	stage.ready(t, guestDevice, true)
+	before := hostBox.count(MessageRoster)
+	for range 5 {
+		stage.ready(t, guestDevice, true)
+	}
+	if sent := hostBox.count(MessageRoster) - before; sent != 0 {
+		t.Errorf("five reports that changed nothing sent the host %d rosters; want none", sent)
+	}
+	stage.ready(t, guestDevice, false)
+	if sent := hostBox.count(MessageRoster) - before; sent != 1 {
+		t.Errorf("a report that changed the guest's buffering sent the host %d rosters; want one", sent)
+	}
+}
+
+// A message sent to every device is encoded once, its bytes shared by every device's writer, and
+// encodes as the same message sent to one device would.
+func TestBroadcast_IsEncodedOnceForEveryDevice(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	_, guestBox := stage.attach(t, stage.join(t).MembershipCredential, RolePlayback)
+	toHost, toGuest := hostBox.last(MessageRoster), guestBox.last(MessageRoster)
+	hostBytes, hostErr := toHost.MarshalJSON()
+	guestBytes, guestErr := toGuest.MarshalJSON()
+	if hostErr != nil || guestErr != nil || len(hostBytes) == 0 || &hostBytes[0] != &guestBytes[0] {
+		t.Fatalf("the roster to the host and to the guest encoded apart (%v, %v); want one encoding", hostErr, guestErr)
+	}
+	alone := toHost
+	alone.encoded = nil
+	if aloneBytes, err := alone.MarshalJSON(); err != nil || !bytes.Equal(aloneBytes, hostBytes) {
+		t.Errorf("the roster sent to one device encodes as %s (%v); want %s, the broadcast's", aloneBytes, err,
+			hostBytes)
+	}
+}
