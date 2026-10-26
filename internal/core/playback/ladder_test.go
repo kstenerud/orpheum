@@ -45,6 +45,8 @@ func (cut *cutAfterChunks) Offered(context.Context, chunks.Playback) (chunks.Off
 
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
+func (*cutAfterChunks) ForgetFile(int64) {}
+
 func (*cutAfterChunks) StopUnwanted(context.Context, int64) error { return nil }
 
 func (*cutAfterChunks) InterestsBy(chunks.Interests) {}

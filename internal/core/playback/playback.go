@@ -282,10 +282,25 @@ func (service *Service) issued(
 	if started.Tracks, err = service.tracksOf(ctx, playback, probe, started); err != nil {
 		return Started{}, err
 	}
-	if started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle); err != nil {
+	if started.Token, err = service.issueToken(playback, idle); err != nil {
 		return Started{}, err
 	}
 	return started, nil
+}
+
+// issueToken issues the playback's media token, and has the chunks forget each film it left with no
+// playback: their run tracker otherwise keeps every film ever played (the audit of 2026-10-25, C5).
+func (service *Service) issueToken(playback tokenPlayback, idle time.Duration) (string, error) {
+	token, unplayed, err := service.tokens.issue(service.random, playback, service.clock.Now(), idle)
+	if err != nil {
+		return "", err
+	}
+	if service.chunks != nil {
+		for _, fileID := range unplayed {
+			service.chunks.ForgetFile(fileID)
+		}
+	}
+	return token, nil
 }
 
 // startingPoint is where a playback of file starts, in started, its resume position and the
