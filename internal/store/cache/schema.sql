@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 39
+-- cache schema version 40
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +60,10 @@ CREATE INDEX job_claim ON job(kind, priority DESC, runnable_at, id) WHERE state 
 -- An open job of a kind on a target: an enqueue's look for one to merge into, and a wait's mark.
 CREATE INDEX job_open_target ON job(kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id,
   scan_id, scan_batch_id, chunk_store_id) WHERE state IN ('queued', 'running', 'assigned');
+-- The open jobs about an item, and about a file: the work a person's interest raises, looked up by
+-- the items and files it is in (D324 section 3; the audit of 2026-10-25, C4).
+CREATE INDEX job_open_item ON job(item_id) WHERE state IN ('queued', 'running', 'assigned');
+CREATE INDEX job_open_file ON job(file_id) WHERE state IN ('queued', 'running', 'assigned');
 -- The jobs in a state: the running ones a start requeues, the assigned ones whose time ran out.
 CREATE INDEX job_state ON job(state, kind, assigned_until);
 -- The jobs a person waits for, which fall to background priority once no one does.

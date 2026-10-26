@@ -382,11 +382,16 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 }
 
 const listOpenJobsOfItemsAndFiles = `-- name: ListOpenJobsOfItemsAndFiles :many
-SELECT id, priority, state FROM job
-WHERE state IN ('queued', 'running', 'assigned')
-  AND (item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-    OR file_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
-ORDER BY id
+SELECT job.id, job.priority, job.state, job.destination, job.wanted_until
+FROM json_each(CAST(?1 AS TEXT)) AS wanted
+CROSS JOIN job ON job.item_id = wanted.value
+WHERE job.state IN ('queued', 'running', 'assigned')
+UNION
+SELECT job.id, job.priority, job.state, job.destination, job.wanted_until
+FROM json_each(CAST(?2 AS TEXT)) AS wanted
+CROSS JOIN job ON job.file_id = wanted.value
+WHERE job.state IN ('queued', 'running', 'assigned')
+ORDER BY 1
 `
 
 type ListOpenJobsOfItemsAndFilesParams struct {
@@ -395,13 +400,17 @@ type ListOpenJobsOfItemsAndFilesParams struct {
 }
 
 type ListOpenJobsOfItemsAndFilesRow struct {
-	ID       int64
-	Priority int64
-	State    string
+	ID          int64
+	Priority    int64
+	State       string
+	Destination *string
+	WantedUntil *int64
 }
 
 // The queued, running and assigned jobs about any of some items or files: the work a person's
-// interest in them raises (D324 section 3).
+// interest in them raises (D324 section 3). Driven by the ids asked about, each looked up by
+// job_open_item or job_open_file, so it reads as many rows as those have open jobs, not every
+// open job (the audit of 2026-10-25, C4).
 func (q *Queries) ListOpenJobsOfItemsAndFiles(ctx context.Context, arg ListOpenJobsOfItemsAndFilesParams) ([]ListOpenJobsOfItemsAndFilesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listOpenJobsOfItemsAndFiles, arg.ItemIdsJSON, arg.FileIdsJSON)
 	if err != nil {
@@ -411,7 +420,13 @@ func (q *Queries) ListOpenJobsOfItemsAndFiles(ctx context.Context, arg ListOpenJ
 	items := []ListOpenJobsOfItemsAndFilesRow{}
 	for rows.Next() {
 		var i ListOpenJobsOfItemsAndFilesRow
-		if err := rows.Scan(&i.ID, &i.Priority, &i.State); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Priority,
+			&i.State,
+			&i.Destination,
+			&i.WantedUntil,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -701,9 +716,14 @@ func (q *Queries) RaiseJob(ctx context.Context, arg RaiseJobParams) (RaiseJobRow
 
 const releaseJobsOfItemsAndFiles = `-- name: ReleaseJobsOfItemsAndFiles :exec
 UPDATE job SET wanted_until = CAST(?1 AS INTEGER)
-WHERE wanted_until IS NOT NULL AND priority < ?2 AND state IN ('queued', 'running', 'assigned')
-  AND (item_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))
-    OR file_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
+WHERE wanted_until IS NOT NULL AND priority < CAST(?2 AS INTEGER) AND id IN (
+  SELECT open_job.id FROM json_each(CAST(?3 AS TEXT)) AS wanted
+  CROSS JOIN job AS open_job ON open_job.item_id = wanted.value
+  WHERE open_job.state IN ('queued', 'running', 'assigned')
+  UNION
+  SELECT open_job.id FROM json_each(CAST(?4 AS TEXT)) AS wanted
+  CROSS JOIN job AS open_job ON open_job.file_id = wanted.value
+  WHERE open_job.state IN ('queued', 'running', 'assigned'))
 `
 
 type ReleaseJobsOfItemsAndFilesParams struct {
