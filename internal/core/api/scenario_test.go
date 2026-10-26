@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -158,15 +159,16 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 	harness.shelveAudioStreams(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)`,
-		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 2, '/attic')`,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		   first_seen_at, last_seen_at)
-		 VALUES (10, 1, 2, '/attic/Film (2003).mp4', CAST('/attic/Film (2003).mp4' AS BLOB), 10, X'1a1b', 'listed',
-		   1, 1)`,
+		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 2, '/attic')`)
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 10, LibraryID: 1, NodeID: 2, Path: "/attic/Film (2003).mp4", SizeBytes: 10,
+		PayloadHash: []byte{0x1a, 0x1b}, Filing: "listed",
+	})
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO file_probe (file_id, probe_json, duration_ms)
-		 SELECT 10, probe_json, duration_ms FROM file_probe WHERE file_id = 1`,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
-		 VALUES (10, 10, 0, 'audio', 'aac', 2)`)
+		 SELECT 10, probe_json, duration_ms FROM file_probe WHERE file_id = 1`)
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 10, StreamIndex: 0, Kind: "audio", Codec: "aac", ChannelCount: 2})
 	harness.nodes.awayNodeID = 2
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	for _, fileID := range []int64{10, 1} { // the down node's first, as a doomed attempt would have been

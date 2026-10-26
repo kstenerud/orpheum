@@ -32,24 +32,26 @@ func (harness testHarness) shelveOtherVideos(t *testing.T) {
 	}
 	librarytest.LibraryOn(t, harness.database, 1,
 		librarytest.Library{Name: "Home movies", Kind: "other", MetadataSource: "nfo", Root: "/h"})
+	for index, path := range []string{
+		"/h/2019/2019-07-14 Beach day.mp4", "/h/2018 Wedding/ceremony.mp4", "/h/Trip/clip.mp4",
+	} {
+		id := int64(40 + index)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{
+			ID: id, Library: 2, Kind: "other", IdentificationState: "identified", FollowedSource: "none", AddedAt: 4,
+		})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 4})
+		librarytest.File(t, harness.database, librarytest.FileSpec{
+			ID: id, LibraryID: 2, NodeID: 1, Path: path, SizeBytes: 10, PayloadHash: []byte{byte(0x40 + index)},
+			Filing: "listed", VersionID: id, FirstSeenAt: 10 * int64(index+1), ModifiedAt: 5,
+		})
+	}
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (40, 'title', 2, 4), (41, 'title', 2, 4),
-		 (42, 'title', 2, 4)`,
-		`INSERT INTO title (id, kind, identification_state, followed_source)
-		 VALUES (40, 'other', 'identified', 'none'), (41, 'other', 'identified', 'none'),
-		 (42, 'other', 'identified', 'none')`,
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES
 		 (40, 'und', 1, 'Beach day', 'beach day'), (41, 'und', 1, 'Wedding', 'wedding'),
 		 (42, 'und', 1, 'clip', 'clip')`,
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key)
 		 VALUES (40, 'en', 'other', %s), (41, 'en', 'other', %s), (42, 'en', 'other', %s)`,
 			key("Beach day"), key("Wedding"), key("clip")),
-		"INSERT INTO version (id, title_id, created_at) VALUES (40, 40, 4), (41, 41, 4), (42, 42, 4)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
-		 last_seen_at, modified_at) VALUES
-		 (40, 2, 1, '/h/2019/2019-07-14 Beach day.mp4', 10, X'40', 'listed', 40, 10, 10, 5),
-		 (41, 2, 1, '/h/2018 Wedding/ceremony.mp4', 10, X'41', 'listed', 41, 20, 20, 5),
-		 (42, 2, 1, '/h/Trip/clip.mp4', 10, X'42', 'listed', 42, 30, 30, 5)`,
 		fmt.Sprintf(`INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key) VALUES
 		 (40, %d, 'tag', '2019-07-14 Beach day.mp4', %s), (41, %d, 'name', 'ceremony.mp4', %s),
 		 (42, %d, 'file', 'clip.mp4', %s)`,
