@@ -32,6 +32,7 @@ import {
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { Libraries } from "./libraries.tsx";
+import { LibraryBrowse } from "./library-browse.tsx";
 import { People } from "./people.tsx";
 import {
   BackgroundChangesContext,
@@ -44,7 +45,6 @@ import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
-import { Search } from "./search.tsx";
 import type { Session } from "./session.ts";
 import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
@@ -214,7 +214,7 @@ function ScreenLoading(): JSX.Element {
   return <p>{t("common.loading")}</p>;
 }
 
-/** The screens anyone signed in may see to watch: lists, a title, a series, playing and search. */
+/** The screens anyone signed in may see to watch: lists, a title, a series, playing, Libraries. */
 function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "home") {
     return <Home />;
@@ -237,8 +237,16 @@ function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "play") {
     return <Play key={route.fileId} fileId={route.fileId} />;
   }
-  if (route.screen === "search") {
-    return <Search key={route.query} query={route.query} />;
+  if (route.screen === "browse") {
+    return (
+      <LibraryBrowse
+        library={route.library}
+        view={route.view}
+        folder={route.folder}
+        sort={route.sort}
+        query={route.query ?? ""}
+      />
+    );
   }
   return undefined;
 }

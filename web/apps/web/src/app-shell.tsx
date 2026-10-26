@@ -61,7 +61,6 @@ interface Destination {
   readonly labelKey:
     | "films"
     | "series"
-    | "search"
     | "watchTogether"
     | "deviceTests"
     | "identify"
@@ -92,8 +91,10 @@ const destinations: readonly Destination[] = [
   { route: { screen: "films" }, labelKey: "films", audience: "everyone", group: "watching" },
   { route: { screen: "series" }, labelKey: "series", audience: "everyone", group: "watching" },
   {
-    route: { screen: "search", query: "" },
-    labelKey: "search",
+    // The Libraries page (D349 §9.1), which replaces Search in the top bar; its own labelKey is
+    // the admin's "libraries" (Manage), reused: both say "Libraries", each at its own place.
+    route: { screen: "browse" },
+    labelKey: "libraries",
     audience: "everyone",
     group: "watching",
   },
@@ -182,7 +183,7 @@ export function AppShell(props: {
   const links = (group: Destination["group"]): JSX.Element[] =>
     inGroup(group).map((destination) => (
       <Place
-        key={destination.labelKey}
+        key={`${destination.group}-${destination.labelKey}`}
         destination={destination}
         isCurrent={destination.route.screen === props.currentScreen}
         isOn={destination.labelKey === "watchTogether" && props.isHostingTogether === true}

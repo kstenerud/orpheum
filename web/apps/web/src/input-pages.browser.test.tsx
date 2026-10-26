@@ -203,12 +203,26 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => isFocusOnLinkTo("/series/20?season=1")).toBe(true);
   });
 
-  it("types a search, arrows down into its results, opens one and goes back to it", async () => {
+  it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
       walkServices(
         {
           ...signedIn,
+          "GET /libraries": {
+            libraries: [
+              {
+                id: 1,
+                name: "Films",
+                kind: "mixed",
+                metadataSource: "nfo_then_tmdb",
+                changeDetection: "watch",
+                isWritable: true,
+                createdAt: 0,
+              },
+            ],
+          },
+          "GET /titles/letters": { letters: [] },
           "GET /search": {
             results: [
               { id: 101, kind: "movie", name: "Metropolis", year: 1995 },
@@ -217,12 +231,20 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
           },
           "GET /items/102": filmDetail(102, "Metropolis Wave"),
         },
-        "/search",
+        "/browse?library=1",
       ),
     );
     await drawn("input[type=search]");
     await press("{ArrowDown}");
-    expect(document.activeElement?.getAttribute("type")).toBe("search");
+    const first = document.activeElement;
+    expect(first).toBeInstanceOf(HTMLElement);
+    const reached: Set<Element> =
+      first instanceof HTMLElement ? await reachedFrom(first, press) : new Set();
+    const isSearchInput = (control: Element): control is HTMLInputElement =>
+      control instanceof HTMLInputElement && control.type === "search";
+    const searchInput = [...reached].find(isSearchInput);
+    expect(searchInput).toBeDefined();
+    searchInput?.focus();
     await press("heat{Enter}");
     await drawn('main a[href="/titles/102"]');
     expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/102"))).toBe(true);

@@ -12,6 +12,11 @@ export const labPages = ["device", "input", "remote", "extend", "cast"] as const
 /** One of the device lab's probes. */
 export type LabPage = (typeof labPages)[number];
 
+/** The order a library's list comes in (D349 §9.1): recorded and file_name, an other library's. */
+export type LibrarySort = "name" | "added" | "recorded" | "file_name";
+
+const librarySorts: readonly LibrarySort[] = ["name", "added", "recorded", "file_name"];
+
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
   | { readonly screen: "home" }
@@ -21,7 +26,21 @@ export type Route =
   /** A series' page: its seasons, or one season's episodes (the owner, 2026-10-07: drill down). */
   | { readonly screen: "series-page"; readonly collectionId: number; readonly season?: number }
   | { readonly screen: "play"; readonly fileId: number }
-  | { readonly screen: "search"; readonly query: string }
+  /**
+   * The Libraries page (D349 §9.1), which replaces Search: the library chosen ("all" for every one
+   * the person reaches, undefined for none chosen yet, which the page itself resolves to the first
+   * reachable by name and replaces the address with), its view (folders, an other library's; all
+   * else), the folder shown in it, its sort and its search query, all in the address so Back and a
+   * reload return to it. Its address is built by routeHref, never by hand (D227's reason).
+   */
+  | {
+      readonly screen: "browse";
+      readonly library?: number | "all";
+      readonly view?: "folders";
+      readonly folder?: string;
+      readonly sort?: LibrarySort;
+      readonly query?: string;
+    }
   | { readonly screen: "identify" }
   | { readonly screen: "libraries" }
   | { readonly screen: "files"; readonly libraryId: number }
@@ -80,10 +99,7 @@ const shapes: readonly Shape[] = [
     },
   },
   { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId) => ({ screen: "play", fileId }) },
-  {
-    pattern: /^\/search\/?$/u,
-    toRoute: (_, search) => ({ screen: "search", query: search.get("query") ?? "" }),
-  },
+  { pattern: /^\/browse\/?$/u, toRoute: (_, search) => browseRoute(search) },
   { pattern: /^\/identify\/?$/u, toRoute: () => ({ screen: "identify" }) },
   { pattern: /^\/libraries\/?$/u, toRoute: () => ({ screen: "libraries" }) },
   {
@@ -112,6 +128,40 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/lab\/extend\/player\/?$/u, toRoute: () => ({ screen: "lab-extend-player" }) },
 ];
 
+/** A library id from the address: a positive whole number, else undefined (not a library). */
+function libraryIdOf(raw: string): number | undefined {
+  return /^[1-9]\d{0,15}$/u.test(raw) ? Number(raw) : undefined;
+}
+
+/** The Libraries page's library parameter, read from its address: "all", an id, or none chosen. */
+function browseLibraryOf(raw: string | null): number | "all" | undefined {
+  if (raw === null) {
+    return undefined;
+  }
+  return raw === "all" ? "all" : libraryIdOf(raw);
+}
+
+/**
+ * The Libraries page's route, read from its address: library "all" for every one chosen in the
+ * chooser, a library's id, or undefined for none chosen yet (the page itself picks the first
+ * reachable by name, and replaces the address with it, D349 §9.1 point 2).
+ */
+function browseRoute(search: URLSearchParams): Route {
+  const library = browseLibraryOf(search.get("library"));
+  const view = search.get("view") === "folders" ? "folders" : undefined;
+  const folder = search.get("folder") ?? undefined;
+  const sort = librarySorts.find((candidate) => candidate === search.get("sort"));
+  const query = search.get("query") ?? "";
+  return {
+    screen: "browse",
+    ...(library === undefined ? {} : { library }),
+    ...(view === undefined ? {} : { view }),
+    ...(folder === undefined ? {} : { folder }),
+    ...(sort === undefined ? {} : { sort }),
+    ...(query === "" ? {} : { query }),
+  };
+}
+
 /** The route an address names; an address the client does not know is not-found, never a guess. */
 /** The account's route, with the scanned code its address carries, if both its parts are there. */
 function accountRoute(search: URLSearchParams): Route {
@@ -138,12 +188,32 @@ function queryRouteHref(route: Route): string | undefined {
     const query = new URLSearchParams({ code: route.scanned.code, key: route.scanned.keyHash });
     return `/account?${query.toString()}`;
   }
-  if (route.screen === "search") {
-    return route.query === ""
-      ? "/search"
-      : `/search?${new URLSearchParams({ query: route.query }).toString()}`;
+  if (route.screen === "browse") {
+    return browseRouteHref(route);
   }
   return undefined;
+}
+
+/** The Libraries page's address, holding what it shows (D349 §9.1 point 2). */
+function browseRouteHref(route: Route & { readonly screen: "browse" }): string {
+  const query = new URLSearchParams();
+  if (route.library !== undefined) {
+    query.set("library", String(route.library));
+  }
+  if (route.view !== undefined) {
+    query.set("view", route.view);
+  }
+  if (route.folder !== undefined) {
+    query.set("folder", route.folder);
+  }
+  if (route.sort !== undefined) {
+    query.set("sort", route.sort);
+  }
+  if (route.query !== undefined && route.query !== "") {
+    query.set("query", route.query);
+  }
+  const asString = query.toString();
+  return asString === "" ? "/browse" : `/browse?${asString}`;
 }
 
 /** The address of one of the device lab's routes, or undefined for another. */

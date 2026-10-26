@@ -48,8 +48,21 @@
 }
 
 .poster-card__art > .poster,
+.poster-card__art > .poster-card__tile,
 .poster-card__art > progress {
   grid-area: 1 / 1;
+}
+
+/* An other video's 16:9 tile, in a poster's place (D349 §9.1): no poster shape fits it. */
+.poster-card__tile {
+  display: grid;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
 }
 
 .poster-card__art > progress {

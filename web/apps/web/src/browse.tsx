@@ -2,24 +2,31 @@
 
 import "./browse.css";
 
-import { reportFailure, type components } from "@orpheum/sdk";
-import { memo, useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import type { components } from "@orpheum/sdk";
+import { memo, useCallback, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { focusAndShow } from "./focus-navigation.ts";
+import {
+  AlphabetRail,
+  useLetterJump,
+  useLetterJumpState,
+  type LetterJump,
+} from "./alphabet-rail.tsx";
+import { dateText } from "./date-time-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
+import { Still } from "./poster.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useItemsInView } from "./items-in-view.ts";
-import { usePages, type Page, type Pages } from "./use-pages.ts";
+import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
-/** One film or series in a list, as the server sends it. */
+/** One film, series or other video in a list, as the server sends it. */
 export type Entry = components["schemas"]["EntryBody"];
 
 /** Which list: films or series. */
@@ -34,9 +41,13 @@ export type BrowseSort = "name" | "added";
  */
 const entriesPerPage = 60;
 
-/** A grid of films or series, each a poster with its name and year under it. */
+/**
+ * A grid of films, series or other videos, each a poster or a 16:9 tile with its name and year or
+ * date under it. kind, given, is every entry's (Films, Series, a home page row); left out, each
+ * entry's own says it, for a list a library's kind does not fix (the Libraries page, D349 §9.1).
+ */
 export function PosterGrid(props: {
-  readonly kind: BrowseKind;
+  readonly kind?: BrowseKind | undefined;
   readonly entries: readonly Entry[];
   /** Watches each poster, by its place, for the list to know which are in view (usePages). */
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
@@ -60,7 +71,7 @@ export function PosterGrid(props: {
  * usePages keeps each unchanged entry the very one shown before.
  */
 const GridPoster = memo(function GridPoster(props: {
-  readonly kind: BrowseKind;
+  readonly kind: BrowseKind | undefined;
   readonly entry: Entry;
   readonly watch: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
@@ -69,21 +80,28 @@ const GridPoster = memo(function GridPoster(props: {
 });
 
 /**
- * A film's or series' poster as every list shows it: its page, its year, its status cues, and how
- * far in it is watched when partway.
+ * A film's, a series' or an other video's poster as every list shows it: its page, its year or
+ * date, its status cues, and how far in it is watched when partway. kind, left out, is the entry's
+ * own.
  */
 export function EntryPoster(props: {
-  readonly kind: BrowseKind;
+  readonly kind?: BrowseKind | undefined;
   readonly entry: Entry;
   readonly watch?: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { entry, kind } = props;
+  const { entry } = props;
+  const kind = props.kind ?? entry.kind;
   const percent = watchedPercentOf(entry);
   return (
     <PosterCard
       to={itemRoute(kind, entry.id)}
       posterSha256={entry.posterSha256}
+      art={
+        entry.kind === "other" ? (
+          <Still sourceSha256={entry.landscapeSha256} className="poster-card__tile" />
+        ) : undefined
+      }
       name={entry.name}
       details={<EntryDetails entry={entry} />}
       isDimmed={entry.unavailable !== undefined}
@@ -115,14 +133,20 @@ export function watchedPercentOf(entry: Entry): number | undefined {
   return Math.round((finishedEpisodeCount * 100) / episodeCount);
 }
 
-/** The lines under a film's or series' name: its year, and that it cannot play now. */
+/**
+ * The lines under a title's name: a film's or series' year, an other video's recorded date (D349
+ * §9.1), and that it cannot play now.
+ */
 export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { entry } = props;
   return (
     <>
       {entry.year === undefined ? null : (
         <PosterDetail>{t("browse.year", { year: entry.year })}</PosterDetail>
+      )}
+      {entry.recorded === undefined ? null : (
+        <PosterDetail>{dateText(entry.recorded.recordedAt, i18n.language)}</PosterDetail>
       )}
       {entry.unavailable === undefined ? null : (
         <PosterDetail title={unavailableText(t, entry.unavailable)}>
@@ -140,11 +164,8 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
 export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [sort, setSort] = useState<BrowseSort>("name");
-  const [jump, setJump] = useState<LetterJump | undefined>(undefined);
+  const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
-  const onLetter = useCallback((letter: string) => {
-    setJump((last) => ({ letter, count: (last?.count ?? 0) + 1 }));
-  }, []);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -155,7 +176,7 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
           <SortChoice
             sort={sort}
             onSort={(chosen) => {
-              setJump(undefined);
+              clearJump();
               setSort(chosen);
             }}
           />
@@ -170,44 +191,6 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
       </div>
       {sort === "name" ? <AlphabetRail onLetter={onLetter} /> : null}
     </section>
-  );
-}
-
-/** A letter of the alphabet rail pressed, counted, so the same letter pressed again jumps again. */
-interface LetterJump {
-  readonly letter: string;
-  readonly count: number;
-}
-
-/** The letters of the alphabet rail, a list's names' first characters: digits and marks, then A to Z. */
-const railLetters = [
-  "#",
-  ...Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x41 + index)),
-];
-
-/**
- * A list's alphabet beside its grid, by name only, to jump to a letter (the owner, 2026-10-25): a
- * letter moves the list to its first title, # to the first of all, those beginning with a digit or
- * a mark, a focus container of its own.
- */
-function AlphabetRail(props: { readonly onLetter: (letter: string) => void }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <ol className="alphabet-rail" aria-label={t("browse.alphabet")} data-focus-container="">
-      {railLetters.map((letter) => (
-        <li key={letter}>
-          <button
-            type="button"
-            className="alphabet-rail__letter"
-            onClick={() => {
-              props.onLetter(letter);
-            }}
-          >
-            {letter}
-          </button>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -255,7 +238,14 @@ function BrowsePages(props: {
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
-  useLetterJump({ kind, jump: props.jump, pages, listRef: props.listRef });
+  useLetterJump({
+    kind,
+    sort: "name",
+    library: undefined,
+    jump: props.jump,
+    pages,
+    listRef: props.listRef,
+  });
   return (
     <BrowseView
       kind={kind}
@@ -265,71 +255,6 @@ function BrowsePages(props: {
       watchItemAt={watchItemAt}
     />
   );
-}
-
-/**
- * Moves a list by name to the first title at or after the letter jump names, as the server sorts
- * them (`from`), # to the first of all: it loads the list's pages up to it, as scrolling would,
- * and focuses its poster at the top of the view, so a remote goes on from there; where no title
- * comes at or after the letter, the last. The newest jump wins over one still loading.
- */
-function useLetterJump(props: {
-  readonly kind: BrowseKind;
-  readonly jump: LetterJump | undefined;
-  readonly pages: Pages<Entry>;
-  readonly listRef: RefObject<HTMLElement | null>;
-}): void {
-  const { api } = useServices();
-  const { kind, jump, listRef } = props;
-  const { loadUntil, loadedSoFar } = props.pages;
-  // The place of the poster to focus once it is drawn, the last's for -1, undefined for none; the
-  // jump found it, the drawing of the pages after it focuses it.
-  const toFocusRef = useRef<number | undefined>(undefined);
-  const [found, setFound] = useState(0);
-  useEffect(() => {
-    if (jump === undefined) {
-      return undefined;
-    }
-    let isCurrent = true;
-    const from = jump.letter === "#" ? {} : { from: jump.letter };
-    const query = { kind, sort: "name" as const, limit: 1, ...from };
-    api
-      .GET("/titles", { params: { query } })
-      .then(async (answer) => {
-        const first = dataOrThrow(answer).titles?.[0];
-        const place = await loadUntil((entry) => entry.id === first?.id);
-        if (isCurrent) {
-          toFocusRef.current = place ?? -1;
-          setFound((count) => count + 1);
-        }
-      })
-      .catch(reportFailure);
-    return () => {
-      isCurrent = false;
-    };
-  }, [api, kind, jump, loadUntil]);
-  useEffect(() => {
-    const place = toFocusRef.current;
-    if (place === undefined) {
-      return;
-    }
-    const posters = listRef.current?.querySelectorAll<HTMLElement>(".poster-grid > li > a");
-    const poster = place < 0 ? posters?.[posters.length - 1] : posters?.[place];
-    if (poster !== undefined) {
-      toFocusRef.current = undefined;
-      showAtTop(poster);
-    }
-  }, [found, loadedSoFar, listRef]);
-}
-
-/** Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner. */
-function showAtTop(poster: HTMLElement): void {
-  // A test's DOM may have no scrolling at all.
-  if (typeof poster.scrollIntoView === "function") {
-    poster.scrollIntoView({ block: "start" });
-  }
-  // Focused as a key would, a remote's press being one; scrolled on, gently, clear of the banner.
-  focusAndShow(poster, true);
 }
 
 /** A list's pages as they show: loading, failed with why, empty, or the grid and a way to more. */

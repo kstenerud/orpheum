@@ -22150,8 +22150,9 @@ is a person's override).
 kinds as they come (Q3); an other video filed as a film in a library that says so, which would have
 spared the title table its new kind and made every list of films ask the library's kind.
 
-**Status:** Building (library-browsing.md). The picture of an other video is an image beside it
-where there is one; a frame the node takes from the video waits for its own step.
+**Status:** Built (library-browsing.md), including the Libraries page itself (2026-10-26). The
+picture of an other video is an image beside it where there is one; a frame the node takes from
+the video waits for its own step.
 
 ## D350 — Reserved: Disc images (ISO)
 

@@ -13,6 +13,12 @@ export function Link(props: {
   readonly label?: string;
   /** Whether it leads to the page shown now, marked for the eye and a screen reader alike. */
   readonly isCurrent?: boolean;
+  /**
+   * Told of a plain click followed, after go: a drop-down's own list closes itself this way
+   * (library-browse.tsx's RouteChooser), rather than a non-interactive wrapper taking the press
+   * jsx-a11y-x refuses.
+   */
+  readonly onNavigate?: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
   const { navigation } = useServices();
@@ -22,6 +28,7 @@ export function Link(props: {
     if (isPlain) {
       event.preventDefault();
       navigation.go(props.to);
+      props.onNavigate?.();
     }
   };
   return (

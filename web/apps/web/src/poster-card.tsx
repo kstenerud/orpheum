@@ -20,6 +20,11 @@ import type { Route } from "./router.ts";
 export function PosterCard(props: {
   readonly to: Route;
   readonly posterSha256: string | undefined;
+  /**
+   * Its art in place of the portrait poster made from posterSha256: an other video's 16:9 tile
+   * (D349 §9.1), whose own Still already shows a named blank where it has none.
+   */
+  readonly art?: ReactNode;
   readonly name: string;
   /** The lines under the name: a year, a file's name, why it cannot play now. */
   readonly details?: ReactNode;
@@ -34,14 +39,14 @@ export function PosterCard(props: {
   /** Watches the item, for a list that loads more as its end comes into view. */
   readonly watch?: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
-  const { to, posterSha256, name, details, progress, isDimmed, cues, actions, watch } = props;
+  const { to, posterSha256, art, name, details, progress, isDimmed, cues, actions, watch } = props;
   const linkClass =
     isDimmed === true ? "poster-card__link poster-card__link--dimmed" : "poster-card__link";
   return (
     <li ref={watch} className="poster-card">
       <Link to={to} className={linkClass}>
         <span className="poster-card__art">
-          <Poster sourceSha256={posterSha256} />
+          {art ?? <Poster sourceSha256={posterSha256} />}
           {progress === undefined ? null : (
             <progress value={progress.percent} max={100} aria-label={progress.label} />
           )}
