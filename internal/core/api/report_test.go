@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -209,5 +210,5 @@ func TestPlayState_AReportOnAPlaybackTheServerDoesNotHaveSaysItIsGone(t *testing
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	gone := harness.do(t, http.MethodPost, "/playback/never-issued-token/report", user, reportBody(1, 60_000, 0))
-	wantError(t, gone, http.StatusNotFound, CodePlaybackGone)
+	wantError(t, gone, http.StatusNotFound, api.CodePlaybackGone)
 }

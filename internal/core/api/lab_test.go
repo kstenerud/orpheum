@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
@@ -19,7 +20,7 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	sent := map[string]any{"probe": "device", "result": map[string]any{
 		"screen": map[string]any{"width": 1920, "height": 1080}, "hasMediaSource": true,
 	}}
@@ -30,7 +31,7 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	var named struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal([]byte(answer.body), &named); err != nil || len(named.ID) != labResultIDLength {
+	if err := json.Unmarshal([]byte(answer.body), &named); err != nil || len(named.ID) != api.LabResultIDLength {
 		t.Fatalf("the answer %s names no result (%v)", answer.body, err)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a lab page sent its results"`, `"labResultId":"`+named.ID+`"`,
@@ -42,11 +43,11 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 		t.Errorf("a page signed in to nothing sent a result: %d", answer.status)
 	}
 	tooLarge := map[string]any{"probe": "remote", "result": map[string]any{
-		"log": strings.Repeat("x", labResultBytesAtMost),
+		"log": strings.Repeat("x", api.LabResultBytesAtMost),
 	}}
 	answer = harness.do(t, http.MethodPost, "/lab-results", user, tooLarge)
 	if answer.status != http.StatusRequestEntityTooLarge {
-		t.Errorf("a result over %d bytes was taken: %d %s", labResultBytesAtMost, answer.status, answer.body)
+		t.Errorf("a result over %d bytes was taken: %d %s", api.LabResultBytesAtMost, answer.status, answer.body)
 	}
 	unknown := map[string]any{"probe": "elsewhere", "result": map[string]any{}}
 	answer = harness.do(t, http.MethodPost, "/lab-results", user, unknown)
@@ -70,7 +71,7 @@ func TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn(t *t
 	user := harness.createAdminAndSignIn(t)
 	isOffered := func() bool {
 		served := harness.do(t, http.MethodGet, "/client-settings", user, nil)
-		var got ClientSettingsBody
+		var got api.ClientSettingsBody
 		if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
 			t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
 		}
@@ -80,9 +81,9 @@ func TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn(t *t
 	if isOffered() {
 		t.Error("the device tests are offered before the admin turned them on")
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/lab-results", user, sent), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/lab-results", user, sent), http.StatusNotFound, api.CodeNotFound)
 
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	if !isOffered() {
 		t.Error("the device tests are not offered once the admin turned them on")
 	}
@@ -112,7 +113,7 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	sent := labInputEvents(labKeyEvent(0),
 		map[string]any{"seq": 1, "atMs": 5376, "kind": "move", "mode": "geometric", "latencyMs": 66},
 		map[string]any{
@@ -182,8 +183,8 @@ func TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn(t *testi
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	sent := labInputEvents(labKeyEvent(0))
-	wantError(t, harness.do(t, http.MethodPost, "/lab-input-events", user, sent), http.StatusNotFound, CodeNotFound)
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	wantError(t, harness.do(t, http.MethodPost, "/lab-input-events", user, sent), http.StatusNotFound, api.CodeNotFound)
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
 	if answer.status != http.StatusNoContent {
 		t.Errorf("POST /lab-input-events with the tests on = %d %s", answer.status, answer.body)
@@ -197,7 +198,7 @@ func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *te
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	inField := labKeyEvent(0)
 	inField["inField"] = true
 	inFullscreen := labKeyEvent(9)

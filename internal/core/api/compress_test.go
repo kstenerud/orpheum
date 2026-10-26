@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"bytes"
@@ -15,6 +15,8 @@ import (
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // A list an operation of compressedOperations answers with is sent gzipped to a client that accepts
@@ -31,7 +33,7 @@ func TestCompress_AListIsGzippedToAClientThatAcceptsIt(t *testing.T) {
 		t.Fatalf("/config to a client taking no gzip: %d, %v; want it as it is, varying by Accept-Encoding",
 			plain.status, plain.header)
 	}
-	if len(plain.body) < smallestCompressedAnswer {
+	if len(plain.body) < api.SmallestCompressedAnswer {
 		t.Fatalf("/config is %d bytes, too few for this test to see it gzipped", len(plain.body))
 	}
 	zipped := harness.doWithHeader(t, http.MethodGet, "/config", token,
@@ -88,7 +90,7 @@ var notCredentials = map[string]map[string]string{
 // nothing.
 func TestArch_NoCompressedOperationAnswersWithACredential(t *testing.T) {
 	t.Parallel()
-	document := NewServer(slog.New(slog.DiscardHandler)).OpenAPI()
+	document := api.NewServer(slog.New(slog.DiscardHandler)).OpenAPI()
 	operations := map[string]*huma.Operation{}
 	for _, item := range document.Paths {
 		for _, operation := range []*huma.Operation{item.Get, item.Post, item.Put, item.Delete, item.Head, item.Patch} {
@@ -97,7 +99,7 @@ func TestArch_NoCompressedOperationAnswersWithACredential(t *testing.T) {
 			}
 		}
 	}
-	for _, id := range compressedOperations {
+	for _, id := range api.CompressedOperations {
 		operation, isRegistered := operations[id]
 		if !isRegistered {
 			t.Errorf("compressedOperations names %s, which the API does not register", id)

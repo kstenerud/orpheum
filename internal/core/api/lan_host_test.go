@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // The plain listener answers the names a household reaches it by and refuses any other with 421, so a
@@ -23,7 +25,7 @@ func TestLANHandler_AnswersTheHousesNamesAndRefusesAnyOther(t *testing.T) {
 		// No Host is a container's HTTP/1.0 health check; a browser always sends one.
 		"": true,
 	} {
-		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, Prefix+"/health", http.NoBody)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, api.Prefix+"/health", http.NoBody)
 		request.Host = host
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)

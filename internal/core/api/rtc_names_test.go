@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -31,7 +32,7 @@ func TestRTCOffer_NamesAConnectionByTheSignInOfItsRequests(t *testing.T) {
 		answered := harness.do(t, http.MethodPost, "/rtc/offer", token, map[string]any{
 			"type": offer.Type, "sdp": offer.SDP,
 		})
-		var body SessionDescriptionBody
+		var body api.SessionDescriptionBody
 		if answered.status != http.StatusOK || json.Unmarshal([]byte(answered.body), &body) != nil {
 			return rtcapi.Description{}, fmt.Errorf("POST /rtc/offer = %d %s", answered.status, answered.body)
 		}
@@ -39,7 +40,7 @@ func TestRTCOffer_NamesAConnectionByTheSignInOfItsRequests(t *testing.T) {
 	}
 	first := rtcapitest.Connect(t, answer, rtcapitest.OnLoopback())
 	signedIn := first.Do(rtcapi.RequestHead{
-		Method: http.MethodGet, Path: Prefix + "/libraries",
+		Method: http.MethodGet, Path: api.Prefix + "/libraries",
 		Headers: http.Header{"Authorization": {"Bearer " + token}},
 	}, nil)
 	if signedIn.Head.Status != http.StatusOK {

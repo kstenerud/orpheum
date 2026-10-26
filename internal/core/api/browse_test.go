@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/hex"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
@@ -84,7 +85,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		t.Errorf("series = %d %s", shows.status, shows.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name", user, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 
 	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
 	if !strings.Contains(detail.body, `"codec":"truehd","language":"en","channelCount":8`) ||
@@ -109,7 +110,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		`"episode":{"seriesId":20,"seriesName":"Brass Arena","seasonNumber":1,"episodeNumber":1}`) {
 		t.Errorf("an episode's detail = %s", episode.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, api.CodeNotFound)
 
 	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
 	if !strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":1`) {
@@ -142,9 +143,9 @@ func TestBrowse_AListByNameFromALetterStartsAtItsFirstTitle(t *testing.T) {
 		t.Errorf("films from I = %d %s; want none, Metropolis before it", fromI.status, fromI.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=added&from=H&limit=10", admin, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name&from=H&cursor=abc&limit=10", admin,
-		nil), http.StatusUnprocessableEntity, CodeInvalidRequest)
+		nil), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
 func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
@@ -281,9 +282,9 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		t.Errorf("the specials = %s; want E32 and E34", specials.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=2&cursor=nope", user, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodGet, "/collections/99/seasons/1?limit=2", user, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 }
 
 // A series' page says its person's next episode, which it offers to play (the owner, 2026-10-25):
@@ -423,7 +424,7 @@ func TestSchema_NamesEveryReasonAFileCannotBeReadNow(t *testing.T) {
 func (harness testHarness) titlesProgress(t *testing.T, path, token string) string {
 	t.Helper()
 	var page struct {
-		Titles []EntryBody `json:"titles"`
+		Titles []api.EntryBody `json:"titles"`
 	}
 	harness.readJSON(t, path, token, &page)
 	var entries []string

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -25,7 +26,7 @@ func TestFilingReport_IsMarkdownOnTheServersDiskThatTheAdminReadsBack(t *testing
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"UPDATE file SET path = '/m/Brass Arena/Brass Arena - S01E01 - Pilot.mkv' WHERE id = 2")
 	made := harness.do(t, http.MethodPost, "/items/20/filing-report", admin, nil)
-	var report FilingReportBody
+	var report api.FilingReportBody
 	if err := json.Unmarshal([]byte(made.body), &report); err != nil || made.status != http.StatusCreated {
 		t.Fatalf("POST /items/20/filing-report = %d %s", made.status, made.body)
 	}
@@ -53,9 +54,9 @@ func TestFilingReport_IsMarkdownOnTheServersDiskThatTheAdminReadsBack(t *testing
 		t.Errorf("GET /filing-reports/%s = %d %s", report.Name, read.status, read.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/filing-reports/..%2Fsecret.key", admin, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/filing-report", admin, nil), http.StatusNotFound,
-		CodeNotFound)
+		api.CodeNotFound)
 	if _, err = harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)

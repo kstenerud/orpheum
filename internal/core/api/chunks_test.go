@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -56,7 +57,7 @@ func TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackI
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	early := harness.getBytePath(t, base+"master.m3u8", user, true, "")
 	if early.status != http.StatusTooEarly || early.header.Get("Retry-After") != "1" {
 		t.Errorf("before film 1 has a grid: %d %v, want 425 with Retry-After 1", early.status, early.header)
@@ -92,10 +93,10 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	harness.measureFilmOnesLoudness(t)
-	fresh := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	fresh := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, fresh+"master.m3u8", user, true, ""), "sound0-96k")
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	if raw := harness.getBytePath(t, base+"sound0-96k-raw/stream.m3u8", user, true, ""); raw.status != http.StatusOK {
@@ -114,13 +115,13 @@ func TestChunks_APersonWithoutLevellingIsOfferedTheSoundUnlevelled(t *testing.T)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
 	harness.measureFilmOnesLoudness(t)
-	levelled := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	levelled := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, levelled+"master.m3u8", user, true, ""), "sound0-96k")
 	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent && answer.status != http.StatusOK {
 		t.Fatalf("PUT /me/preferences: %d %s", answer.status, answer.body)
 	}
-	unlevelled := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	unlevelled := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, unlevelled+"master.m3u8", user, true, ""), "sound0-96k-raw")
 }
 
@@ -135,7 +136,7 @@ func TestChunks_AStallStartsTheUnlevelledSoundItsPlaybackKept(t *testing.T) {
 	harness.shelveAudioStreams(t)
 	playing := harness.play(t, user, chrome(1))
 	harness.keepFilmOnesTimeline(t)
-	base := Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	harness.measureFilmOnesLoudness(t)
 	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(1, 21_000))); offered == nil {
@@ -178,7 +179,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	// Played before the film is cut, so not on its ladder: no run is started for its start (D260 §1).
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	grid, _, err := harness.chunks.Grid(t.Context(), 1)
 	if err != nil {
@@ -193,7 +194,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	chunk := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, "")
 	if chunk.status != http.StatusOK || chunk.body != "chunk one" ||
 		chunk.header.Get("Content-Type") != "video/iso.segment" ||
-		chunk.header.Get("Cache-Control") != cacheForADay {
+		chunk.header.Get("Cache-Control") != api.CacheForADay {
 		t.Errorf("a chunk made while the core waited: %d %v %q, want it, cached", chunk.status, chunk.header,
 			chunk.body)
 	}
@@ -229,7 +230,7 @@ func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	// Played before the film is cut, so not on its ladder: no run is started for its start (D260 §1).
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	grid, _, err := harness.chunks.Grid(t.Context(), 1)
 	if err != nil {
@@ -251,7 +252,7 @@ func TestChunks_APlayerSayingASeekTookItThereIsTakenAtItsWord(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
 		harness.httpServer.URL+base+"q700k432p/00001.m4s", http.NoBody)
@@ -279,7 +280,7 @@ func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	harness.measureFilmOnesLoudness(t)
 	if early := harness.getBytePath(t, base+"sound0-96k/00002.m4s", user, true, ""); early.status !=
@@ -320,13 +321,13 @@ func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *t
 	if answer := harness.report(t, user, first, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
-	next := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/master.m3u8"
+	next := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/master.m3u8"
 	if master := harness.getBytePath(t, next, user, true, ""); master.status != http.StatusOK ||
 		strings.Contains(master.body, "picture/stream.m3u8") || !strings.Contains(master.body, "q2000k540p") {
 		t.Errorf("the next playback's master playlist offers the picture given up, or nothing:\n%s", master.body)
 	}
 	other := harness.signIn(t, "owner", "owner-password")
-	elsewhere := Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
+	elsewhere := api.Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
 	if master := harness.getBytePath(t, elsewhere, other, true, ""); !strings.Contains(master.body,
 		"picture/stream.m3u8") {
 		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
@@ -351,14 +352,14 @@ func TestChunks_APageThatGaveUpTheOwnPictureStartsAgainAtTheTwin(t *testing.T) {
 	asked["hasGivenUpOwnPicture"] = true
 	asked["cause"] = "ownPictureGivenUp"
 	again := harness.play(t, user, asked)
-	master := harness.getBytePath(t, Prefix+"/bytes/media/chunks/"+again.MediaToken+"/master.m3u8", user, true, "")
+	master := harness.getBytePath(t, api.Prefix+"/bytes/media/chunks/"+again.MediaToken+"/master.m3u8", user, true, "")
 	if master.status != http.StatusOK || strings.Contains(master.body, "picture/stream.m3u8") ||
 		!strings.Contains(master.body, "q2400k1080p/stream.m3u8") {
 		t.Errorf("a page that gave up the picture is not offered the twin, H.264 at 1080p at 2.4 Mb/s:\n%s",
 			master.body)
 	}
 	other := harness.signIn(t, "owner", "owner-password")
-	elsewhere := Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
+	elsewhere := api.Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
 	if master := harness.getBytePath(t, elsewhere, other, true, ""); !strings.Contains(master.body,
 		"picture/stream.m3u8") {
 		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
@@ -371,12 +372,12 @@ func TestChunks_APageThatGaveUpTheOwnPictureStartsAgainAtTheTwin(t *testing.T) {
 func TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	err := harness.server.chunksError(t.Context(), "have a chunk made", fmt.Errorf("1/chunks-q700k432p/x: %w",
+	err := harness.server.ChunksError(t.Context(), "have a chunk made", fmt.Errorf("1/chunks-q700k432p/x: %w",
 		chunks.ErrNoRoomToMake))
-	var refused *Error
+	var refused *api.Error
 	if !errors.As(err, &refused) || refused.GetStatus() != http.StatusTooManyRequests ||
-		refused.ErrorBody.Error.Code != CodeNoRoomToMake {
-		t.Errorf("an evicted quality's chunk = %v; want 429 %s", err, CodeNoRoomToMake)
+		refused.ErrorBody.Error.Code != api.CodeNoRoomToMake {
+		t.Errorf("an evicted quality's chunk = %v; want 429 %s", err, api.CodeNoRoomToMake)
 	}
 }
 
@@ -386,7 +387,7 @@ func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, admin, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, admin, chrome(1)).MediaToken + "/"
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
@@ -441,7 +442,7 @@ func TestChunks_AnUnmadeChunkOfAFilmWhoseRootIsUnavailableIsUnreachable(t *testi
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)

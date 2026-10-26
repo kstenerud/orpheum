@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -49,7 +50,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 		t.Errorf("after measuring film 1, a sweep finds %v, want only film 2", ids)
 	}
 	direct := harness.play(t, user, chrome(1))
-	if direct.Delivery != "direct" || direct.Levelling != (LevellingBody{IsMeasured: true, GainDB: 12.7}) {
+	if direct.Delivery != "direct" || direct.Levelling != (api.LevellingBody{IsMeasured: true, GainDB: 12.7}) {
 		t.Errorf("played directly: %s, %+v; want raised 12.7 dB to -23 LUFS (D226 §3)",
 			direct.Delivery, direct.Levelling)
 	}
@@ -109,12 +110,12 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 		what       string
 		integrated float64
 		peak       *float64
-		want       LevellingBody
+		want       api.LevellingBody
 	}{
-		{"a loud film", -18.8, new(0.4), LevellingBody{IsMeasured: true, GainDB: -4.2}},
-		{"a quiet film with high peaks", -30.0, new(-3.0), LevellingBody{IsMeasured: true, GainDB: 2.0}},
-		{"a near-silent one", -60.0, new(-50.0), LevellingBody{IsMeasured: true, GainDB: 20.0}},
-		{"silence", -70.0, nil, LevellingBody{IsMeasured: true, GainDB: 0}},
+		{"a loud film", -18.8, new(0.4), api.LevellingBody{IsMeasured: true, GainDB: -4.2}},
+		{"a quiet film with high peaks", -30.0, new(-3.0), api.LevellingBody{IsMeasured: true, GainDB: 2.0}},
+		{"a near-silent one", -60.0, new(-50.0), api.LevellingBody{IsMeasured: true, GainDB: 20.0}},
+		{"silence", -70.0, nil, api.LevellingBody{IsMeasured: true, GainDB: 0}},
 	} {
 		storetest.ExecRaw(t, harness.databasePath, "DELETE FROM loudness")
 		integrated := check.integrated

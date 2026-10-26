@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -22,7 +23,7 @@ func TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	grid, _, err := harness.chunks.Grid(t.Context(), 1)
 	if err != nil {
@@ -35,11 +36,11 @@ func TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted(t *testing.T) {
 	if chunk := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); chunk.status != http.StatusOK {
 		t.Fatalf("the chunk: %d %s", chunk.status, chunk.body)
 	}
-	upload := harness.server.dependencies.Load().Playback.TakeUpload(time.Second)
+	upload := harness.server.Dependencies().Load().Playback.TakeUpload(time.Second)
 	if want := (playback.Upload{Playbacks: 1, NeedKbps: 700, SentKbps: 200}); upload != want {
 		t.Errorf("the upload after a chunk of 25 kB of a 700k quality, over a second = %+v; want %+v", upload, want)
 	}
-	if again := harness.server.dependencies.Load().Playback.TakeUpload(time.Second); again.SentKbps != 0 {
+	if again := harness.server.Dependencies().Load().Playback.TakeUpload(time.Second); again.SentKbps != 0 {
 		t.Errorf("the bytes sent, taken again = %d kbit/s; want them counted afresh", again.SentKbps)
 	}
 }
@@ -52,7 +53,7 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
-	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	if master := harness.getBytePath(t, base+"master.m3u8", user, true, ""); master.status != http.StatusOK {
 		t.Fatalf("the master playlist: %d %s", master.status, master.body)
 	}
@@ -66,16 +67,16 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 	harness.nodeBytes.files[store+"00002.m4s"] = "chunk two"
 	harness.nodeBytes.mutex.Unlock()
 	if first := harness.getBytePath(t, base+"q2000k540p/00001.m4s", user, true, ""); first.status != http.StatusOK ||
-		first.header.Get(CeilingHeader) != "" {
+		first.header.Get(api.CeilingHeader) != "" {
 		t.Fatalf("a chunk, the upload unanswered: %d, ceiling %q; want none", first.status,
-			first.header.Get(CeilingHeader))
+			first.header.Get(api.CeilingHeader))
 	}
 	harness.setSetting(t, "server_upload_mbps", "1") // a share of 850 kbit/s
 	ctx, cancel := context.WithCancel(t.Context())
 	tick, done := make(chan time.Time), make(chan struct{})
 	logger := slog.New(slog.NewJSONHandler(harness.logs, nil))
 	go func() {
-		harness.server.dependencies.Load().Playback.KeepUnderShare(ctx, tick, logger)
+		harness.server.Dependencies().Load().Playback.KeepUnderShare(ctx, tick, logger)
 		close(done)
 	}()
 	tick <- harness.clock.Now()
@@ -84,7 +85,7 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 	cancel()
 	testutil.Receive(t, done, "the upload's keeping to stop")
 	next := harness.getBytePath(t, base+"q2000k540p/00002.m4s", user, true, "")
-	if ceiling := next.header.Get(CeilingHeader); ceiling != "796" {
+	if ceiling := next.header.Get(api.CeilingHeader); ceiling != "796" {
 		t.Errorf("the next chunk's ceiling = %q; want 796, the highest quality under the share, 700k "+
 			"and its sound", ceiling)
 	}
@@ -108,8 +109,8 @@ func TestUpload_EachStartTakesWhatIsLeftOfTheShare(t *testing.T) {
 		t.Errorf("the starts' qualities = %d, %d; want the film's own, 2400, and 400", first.OnLadder.QualityKbps,
 			second.OnLadder.QualityKbps)
 	}
-	chunk := Prefix + "/bytes/media/chunks/" + second.MediaToken + "/q400k360p/00001.m4s"
-	if ceiling := harness.getBytePath(t, chunk, user, true, "").header.Get(CeilingHeader); ceiling != "496" {
+	chunk := api.Prefix + "/bytes/media/chunks/" + second.MediaToken + "/q400k360p/00001.m4s"
+	if ceiling := harness.getBytePath(t, chunk, user, true, "").header.Get(api.CeilingHeader); ceiling != "496" {
 		t.Errorf("the second's first chunk says a ceiling of %q; want 496", ceiling)
 	}
 }

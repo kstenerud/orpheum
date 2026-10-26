@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -36,7 +37,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	wantError(t, harness.do(t, http.MethodPost, "/invitations", admin, map[string]string{"role": "user"}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	invitation := harness.invite(t, admin, "user", "the partner")
 	if pending := harness.do(t, http.MethodGet, "/invitations", admin, nil); !strings.Contains(pending.body,
 		`"role":"user","adminNote":"the partner"`) {
@@ -56,7 +57,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	if name != "partner" {
 		t.Errorf("registering signed in as %q, want partner", name)
 	}
-	var made struct{ Account AccountBody }
+	var made struct{ Account api.AccountBody }
 	made.Account = harness.accountNamed(t, admin, "partner")
 	if made.Account.AdminNote != "the partner" || !made.Account.HasPassword {
 		t.Errorf("GET /users lists partner as %+v, want the invitation's note and a password", made.Account)
@@ -64,9 +65,9 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	again := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
 		"secret": invitation.Link.Secret, "name": "another", "password": "x", "device": testDevice,
 	})
-	wantError(t, again, http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, again, http.StatusUnauthorized, api.CodeAuthRequired)
 	wantError(t, harness.do(t, http.MethodPost, "/invitations", partner,
-		map[string]string{"role": "user", "adminNote": "x"}), http.StatusForbidden, CodeForbidden)
+		map[string]string{"role": "user", "adminNote": "x"}), http.StatusForbidden, api.CodeForbidden)
 
 	television := harness.activate(t, partner, map[string]any{"deviceName": "Living room TV"})
 	if _, name := readSignIn(t, television); name != "partner" {
@@ -74,7 +75,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	}
 
 	wantErrorSaying(t, harness.do(t, http.MethodPut, "/me/password", partner,
-		map[string]string{"currentPassword": "wrong", "newPassword": "new"}), http.StatusForbidden, CodeForbidden,
+		map[string]string{"currentPassword": "wrong", "newPassword": "new"}), http.StatusForbidden, api.CodeForbidden,
 		"the current password is wrong")
 	if changed := harness.do(t, http.MethodPut, "/me/password", partner,
 		map[string]string{"currentPassword": "partner-password", "newPassword": "new"}); changed.status !=
@@ -90,11 +91,11 @@ func TestDevices_APersonListsRenamesAndRemovesTheirOwnAndAnAdminAnyones(t *testi
 	admin := harness.createAdminAndSignIn(t)
 	second := harness.signIn(t, "owner", "owner-password")
 	listed := harness.do(t, http.MethodGet, "/me/devices", admin, nil)
-	var mine DevicesOutput
+	var mine api.DevicesOutput
 	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Devices) != 2 {
 		t.Fatalf("GET /me/devices = %d %s", listed.status, listed.body)
 	}
-	var other DeviceBody
+	var other api.DeviceBody
 	for _, device := range mine.Body.Devices {
 		if !device.IsThisDevice {
 			other = device
@@ -111,8 +112,9 @@ func TestDevices_APersonListsRenamesAndRemovesTheirOwnAndAnAdminAnyones(t *testi
 		http.StatusNoContent {
 		t.Errorf("remove = %d %s", removed.status, removed.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/me", second, nil), http.StatusUnauthorized, CodeAuthRequired)
-	wantError(t, harness.do(t, http.MethodDelete, "/me/devices/9999", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/me", second, nil), http.StatusUnauthorized, api.CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodDelete, "/me/devices/9999", admin, nil), http.StatusNotFound,
+		api.CodeNotFound)
 	if byAdmin := harness.do(t, http.MethodGet, "/users/1/devices", admin, nil); !strings.Contains(byAdmin.body,
 		`"isThisDevice":true`) {
 		t.Errorf("GET /users/1/devices = %s", byAdmin.body)
@@ -131,20 +133,20 @@ func TestSession_ARemovedDeviceIsToldItWasSignedOutAndMeNamesTheDevice(t *testin
 	admin := harness.createAdminAndSignIn(t)
 	other := harness.signIn(t, "owner", "owner-password")
 	me := harness.do(t, http.MethodGet, "/me", other, nil)
-	var body UserBody
+	var body api.UserBody
 	if err := json.Unmarshal([]byte(me.body), &body); err != nil || body.Device == nil ||
 		body.Device.Name != "Firefox on Linux" {
 		t.Fatalf("GET /me = %s, want the device it is on", me.body)
 	}
 	harness.do(t, http.MethodDelete, "/me/devices/"+itoa(body.Device.ID), admin, nil)
 	signedOut := harness.do(t, http.MethodGet, "/items/1", other, nil)
-	wantError(t, signedOut, http.StatusUnauthorized, CodeAuthRequired)
-	if !strings.Contains(signedOut.body, `"reason":"`+ReasonSessionEnded+`"`) {
-		t.Errorf("a removed device's request = %s, want the reason %s", signedOut.body, ReasonSessionEnded)
+	wantError(t, signedOut, http.StatusUnauthorized, api.CodeAuthRequired)
+	if !strings.Contains(signedOut.body, `"reason":"`+api.ReasonSessionEnded+`"`) {
+		t.Errorf("a removed device's request = %s, want the reason %s", signedOut.body, api.ReasonSessionEnded)
 	}
 	if never := harness.do(t, http.MethodGet, "/me", "", nil); !strings.Contains(never.body,
-		`"reason":"`+ReasonNoSession+`"`) {
-		t.Errorf("a request with no session = %s, want the reason %s", never.body, ReasonNoSession)
+		`"reason":"`+api.ReasonNoSession+`"`) {
+		t.Errorf("a request with no session = %s, want the reason %s", never.body, api.ReasonNoSession)
 	}
 }
 
@@ -223,7 +225,7 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 		t.Errorf("PUT /users/2/admin-note = %d %s", noted.status, noted.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "OWNER"}),
-		http.StatusConflict, CodeConflict)
+		http.StatusConflict, api.CodeConflict)
 	if renamed := harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "Sam"}); renamed.status !=
 		http.StatusNoContent {
 		t.Fatalf("rename = %d %s", renamed.status, renamed.body)
@@ -233,7 +235,7 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 		!strings.Contains(page.body, `"watchedMs":0`) {
 		t.Errorf("GET /users/2 = %d %s", page.status, page.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/users/99", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/users/99", admin, nil), http.StatusNotFound, api.CodeNotFound)
 }
 
 // activate activates a television by the code it asks for, entered by the session enteredBy with the
@@ -241,13 +243,13 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 func (harness testHarness) activate(t *testing.T, enteredBy string, body map[string]any) response {
 	t.Helper()
 	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
-	var pairing PairingOutput
+	var pairing api.PairingOutput
 	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil || len(pairing.Body.Code) != 9 {
 		t.Fatalf("POST /pairings = %d %s", asked.status, asked.body)
 	}
 	body["code"] = strings.ToUpper(pairing.Body.Code)
 	entered := harness.do(t, http.MethodPost, "/activations", enteredBy, body)
-	var claim ActivationOutput
+	var claim api.ActivationOutput
 	if err := json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK {
 		t.Fatalf("POST /activations = %d %s", entered.status, entered.body)
 	}
@@ -293,17 +295,17 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 		t.Errorf("the admin's activation signed the television in as %q, want partner", name)
 	}
 	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
-	var pairing PairingOutput
+	var pairing api.PairingOutput
 	if err = json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": 1}),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 	wantInvalidAt(t, harness.do(t, http.MethodPost, "/activations", partner,
 		map[string]any{"code": pairing.Body.Code}), http.StatusUnprocessableEntity, "body.deviceName")
 	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
-		map[string]any{"code": "zzzz-zzzz", "deviceName": "TV"}), http.StatusNotFound, CodeNotFound)
+		map[string]any{"code": "zzzz-zzzz", "deviceName": "TV"}), http.StatusNotFound, api.CodeNotFound)
 	// Never for another admin, and never from away, where the admin does not administer (the
 	// Plex-chain review's T1).
 	other, err := harness.authService.CreateUser(t.Context(),
@@ -313,11 +315,11 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": other}),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
 	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": made}),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 }
 
 // Codes no device shows, entered again and again, limit the person entering them, as failed
@@ -334,7 +336,7 @@ func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 			break
 		}
 	}
-	wantErrorSaying(t, refused, http.StatusTooManyRequests, CodeRateLimited,
+	wantErrorSaying(t, refused, http.StatusTooManyRequests, api.CodeRateLimited,
 		"too many failed sign-ins; wait and try again")
 }
 
@@ -348,7 +350,7 @@ func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *test
 	invitation := harness.invite(t, admin, "user", "the cousin")
 	path := fmt.Sprintf("/invitations/%d/links", invitation.Invitation.ID)
 	another := harness.do(t, http.MethodPost, path, admin, nil)
-	var link IssuedSecretBody
+	var link api.IssuedSecretBody
 	if err := json.Unmarshal([]byte(another.body), &link); err != nil || another.status != http.StatusCreated ||
 		link.Secret == "" || link.Secret == invitation.Link.Secret {
 		t.Fatalf("POST %s = %d %s; want another link", path, another.status, another.body)
@@ -363,26 +365,26 @@ func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *test
 	readSignIn(t, registered)
 	wantError(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
 		"secret": invitation.Link.Secret, "name": "another", "password": "x", "device": testDevice,
-	}), http.StatusUnauthorized, CodeAuthRequired)
-	var after InvitationsOutput
+	}), http.StatusUnauthorized, api.CodeAuthRequired)
+	var after api.InvitationsOutput
 	answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
 	if err := json.Unmarshal([]byte(answer.body), &after.Body); err != nil || len(after.Body.Invitations) != 1 ||
 		after.Body.Invitations[0].Made == nil || after.Body.Invitations[0].Made.Name != "cousin" ||
 		after.Body.Invitations[0].LiveLinks != 0 {
 		t.Errorf("GET /invitations = %s; want the used invitation naming cousin, with no live link", answer.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, path, admin, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodPost, path, admin, nil), http.StatusConflict, api.CodeConflict)
 	withdraw := fmt.Sprintf("/invitations/%d", invitation.Invitation.ID)
-	wantError(t, harness.do(t, http.MethodDelete, withdraw, admin, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodDelete, withdraw, admin, nil), http.StatusConflict, api.CodeConflict)
 	wantError(t, harness.do(t, http.MethodPost, "/invitations/999/links", admin, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 }
 
 // invite makes an invitation into role, with the admin's note, and returns it and its link.
 func (harness testHarness) invite(t *testing.T, admin, role, note string) InvitationAndLink {
 	t.Helper()
 	invited := harness.do(t, http.MethodPost, "/invitations", admin, map[string]string{"role": role, "adminNote": note})
-	var made InviteOutput
+	var made api.InviteOutput
 	if err := json.Unmarshal([]byte(invited.body), &made.Body); err != nil || invited.status != http.StatusCreated ||
 		made.Body.Link.Secret == "" || made.Body.Invitation.AdminNote != note || made.Body.Invitation.Role != role {
 		t.Fatalf("POST /invitations = %d %s", invited.status, invited.body)
@@ -392,15 +394,15 @@ func (harness testHarness) invite(t *testing.T, admin, role, note string) Invita
 
 // InvitationAndLink is an invitation and its link, as POST /invitations answers.
 type InvitationAndLink struct {
-	Invitation InvitationBody
-	Link       IssuedSecretBody
+	Invitation api.InvitationBody
+	Link       api.IssuedSecretBody
 }
 
 // accountNamed is the person named name, as the admin's list shows them.
-func (harness testHarness) accountNamed(t *testing.T, admin, name string) AccountBody {
+func (harness testHarness) accountNamed(t *testing.T, admin, name string) api.AccountBody {
 	t.Helper()
 	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
-	var everyone AccountsOutput
+	var everyone api.AccountsOutput
 	if err := json.Unmarshal([]byte(listed.body), &everyone.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +412,7 @@ func (harness testHarness) accountNamed(t *testing.T, admin, name string) Accoun
 		}
 	}
 	t.Fatalf("GET /users lists no %s: %s", name, listed.body)
-	return AccountBody{}
+	return api.AccountBody{}
 }
 
 func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
@@ -428,8 +430,8 @@ func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
 	if me := harness.do(t, http.MethodGet, "/me", admin, nil); !strings.Contains(me.body, `"hasNoLibrary":false`) {
 		t.Errorf("GET /me of the admin = %d %s", me.status, me.body)
 	}
-	wantError(t, harness.do(t, http.MethodDelete, "/users/1", partner, nil), http.StatusForbidden, CodeForbidden)
-	wantError(t, harness.do(t, http.MethodDelete, "/users/1", admin, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodDelete, "/users/1", partner, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodDelete, "/users/1", admin, nil), http.StatusConflict, api.CodeConflict)
 	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
 		t.Fatalf("DELETE /users/2 = %d %s", removed.status, removed.body)
 	}
@@ -439,7 +441,7 @@ func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
 	if listed := harness.do(t, http.MethodGet, "/users", admin, nil); strings.Contains(listed.body, "partner") {
 		t.Errorf("GET /users after removal = %s", listed.body)
 	}
-	wantError(t, harness.do(t, http.MethodDelete, "/users/2", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodDelete, "/users/2", admin, nil), http.StatusNotFound, api.CodeNotFound)
 }
 
 // Removing a person keeps what they set for everyone, an override, a setting and a key, and forgets
@@ -508,7 +510,7 @@ func TestSignOut_TheDeviceSignedOutOnLeavesThePersonsDevices(t *testing.T) {
 		t.Fatalf("DELETE /session = %d %s", out.status, out.body)
 	}
 	listed := harness.do(t, http.MethodGet, "/me/devices", admin, nil)
-	var mine DevicesOutput
+	var mine api.DevicesOutput
 	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Devices) != 1 ||
 		!mine.Body.Devices[0].IsThisDevice {
 		t.Errorf("GET /me/devices after the other device signed out = %d %s; want this device alone",

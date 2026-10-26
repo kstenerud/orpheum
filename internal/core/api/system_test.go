@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
@@ -49,9 +50,9 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		t.Fatalf("GET /system = %d %s", got.status, got.body)
 	}
 	var system struct {
-		Server   ServerBody       `json:"server"`
-		Findings []FindingBody    `json:"findings"`
-		Nodes    []SystemNodeBody `json:"nodes"`
+		Server   api.ServerBody       `json:"server"`
+		Findings []api.FindingBody    `json:"findings"`
+		Nodes    []api.SystemNodeBody `json:"nodes"`
 	}
 	if err := json.Unmarshal([]byte(got.body), &system); err != nil {
 		t.Fatal(err)
@@ -72,11 +73,11 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/system", harness.signIn(t, "partner", "partner-password"), nil),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 }
 
 // checkServerFacts checks the server's own facts on the System page.
-func checkServerFacts(t *testing.T, server ServerBody) {
+func checkServerFacts(t *testing.T, server api.ServerBody) {
 	t.Helper()
 	if server.Build.Name != "v0.3.0" || server.Host.Platform == "" || server.Host.Kernel == "" ||
 		server.GoVersion == "" || len(server.Disks) != 2 ||
@@ -86,7 +87,7 @@ func checkServerFacts(t *testing.T, server ServerBody) {
 }
 
 // checkLocalFacts checks what the connected node said about itself, as the System page shows it.
-func checkLocalFacts(t *testing.T, local SystemNodeBody) {
+func checkLocalFacts(t *testing.T, local api.SystemNodeBody) {
 	t.Helper()
 	checkBuildAndHost(t, local)
 	if !local.IsConnected || local.Connection != "connected" || local.LastHeardAt == nil ||
@@ -100,7 +101,7 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 }
 
 // checkStuck checks the connected node's work waiting on a disk, as the System page shows it.
-func checkStuck(t *testing.T, stuck []StuckBody) {
+func checkStuck(t *testing.T, stuck []api.StuckBody) {
 	t.Helper()
 	if len(stuck) != 1 || stuck[0].Program != "ffprobe" || stuck[0].Paths[0] != "/media/films/A.mkv" ||
 		stuck[0].GaveUpAt != 9 {
@@ -109,7 +110,7 @@ func checkStuck(t *testing.T, stuck []StuckBody) {
 }
 
 // checkBuildAndHost checks the connected node's build, against the server's, and its system.
-func checkBuildAndHost(t *testing.T, local SystemNodeBody) {
+func checkBuildAndHost(t *testing.T, local api.SystemNodeBody) {
 	t.Helper()
 	if local.Host == nil || local.Host.Description != "Debian GNU/Linux 13 (trixie)" ||
 		local.Build == nil || local.Build.Name != "v0.3.0" || !local.IsServersBuild {
@@ -119,7 +120,7 @@ func checkBuildAndHost(t *testing.T, local SystemNodeBody) {
 }
 
 // checkHardware checks the connected node's hardware encoding, as the System page shows it.
-func checkHardware(t *testing.T, hardware *HardwareBody) {
+func checkHardware(t *testing.T, hardware *api.HardwareBody) {
 	t.Helper()
 	if hardware == nil || hardware.ChosenEncoder != "h264_qsv" || len(hardware.GPUs) != 1 ||
 		hardware.GPUs[0].Driver != "i915" || len(hardware.Trials) != 2 ||
@@ -130,22 +131,22 @@ func checkHardware(t *testing.T, hardware *HardwareBody) {
 
 func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testing.T) {
 	t.Parallel()
-	quickSync := hardwareFinding("local", nodeproto.Hardware{
+	quickSync := api.HardwareFinding("local", nodeproto.Hardware{
 		GPUs: []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128"}}, ChosenEncoder: "h264_qsv",
 	})
-	if quickSync.Verdict != VerdictOK || !strings.Contains(quickSync.Detail, "h264_qsv") {
+	if quickSync.Verdict != api.VerdictOK || !strings.Contains(quickSync.Detail, "h264_qsv") {
 		t.Errorf("a node encoding with Quick Sync: %+v, want ok, naming it", quickSync)
 	}
-	noGPU := hardwareFinding("local", nodeproto.Hardware{ChosenEncoder: "x264"})
-	if noGPU.Verdict != VerdictOK || !strings.Contains(noGPU.Detail, "no GPU") {
+	noGPU := api.HardwareFinding("local", nodeproto.Hardware{ChosenEncoder: "x264"})
+	if noGPU.Verdict != api.VerdictOK || !strings.Contains(noGPU.Detail, "no GPU") {
 		t.Errorf("a node with no GPU: %+v, want ok, saying it has none", noGPU)
 	}
-	blocked := hardwareFinding("local", nodeproto.Hardware{
+	blocked := api.HardwareFinding("local", nodeproto.Hardware{
 		GPUs:          []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128", NoAccessReason: "permission denied"}},
 		Trials:        []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "Failed to initialise VAAPI"}},
 		ChosenEncoder: "x264",
 	})
-	if blocked.Verdict != VerdictWarning || !strings.Contains(blocked.Detail, "Failed to initialise VAAPI") ||
+	if blocked.Verdict != api.VerdictWarning || !strings.Contains(blocked.Detail, "Failed to initialise VAAPI") ||
 		!strings.Contains(blocked.Action, "/dev/dri/renderD128") {
 		t.Errorf("a node whose user cannot open its GPU: %+v, want a warning with the trial's words and the device "+
 			"to give it (D225 §3)", blocked)
@@ -155,17 +156,17 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
 	server := build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h1"}
-	if same := nodeBuildFinding("local", server, server); same.Verdict != VerdictOK {
+	if same := api.NodeBuildFinding("local", server, server); same.Verdict != api.VerdictOK {
 		t.Errorf("a node on the server's own binary: %+v, want ok", same)
 	}
-	older := nodeBuildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
-	if older.Verdict != VerdictWarning || !strings.Contains(older.Detail, "v0.2.0") ||
+	older := api.NodeBuildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
+	if older.Verdict != api.VerdictWarning || !strings.Contains(older.Detail, "v0.2.0") ||
 		!strings.Contains(older.Detail, "dev-abc-modified") || older.Action == "" {
 		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
 	}
-	rebuilt := nodeBuildFinding("local",
+	rebuilt := api.NodeBuildFinding("local",
 		build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h2"}, server)
-	if rebuilt.Verdict != VerdictWarning || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
+	if rebuilt.Verdict != api.VerdictWarning || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
 	}
 }
@@ -179,7 +180,7 @@ func TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider(t *testing.T) {
 		Destination: jobs.RootDestination(1, "/media"), Reason: "missing", AwaitsSignal: true,
 	})
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system SystemOutput
+	var system api.SystemOutput
 	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
 		t.Fatalf("GET /system = %d %s", got.status, got.body)
 	}
@@ -190,13 +191,13 @@ func TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider(t *testing.T) {
 	if want := []string{"/media on node 1", "TMDB"}; !slices.Equal(names, want) {
 		t.Errorf("the destinations down are %q, want %q (D231 §12)", names, want)
 	}
-	providersByName := map[string]ProviderBody{}
+	providersByName := map[string]api.ProviderBody{}
 	for _, provider := range system.Body.Providers {
 		providersByName[provider.Name] = provider
 	}
-	api, subtitles := providersByName["TMDB"], providersByName["OpenSubtitles"]
-	if len(system.Body.Providers) != 3 || api.RatePerSecond != 40 || api.BackgroundRatePerSecond != 32 ||
-		api.Down == nil || api.Down.Reason != "unreachable" || api.Credentials != "unknown" {
+	tmdbAPI, subtitles := providersByName["TMDB"], providersByName["OpenSubtitles"]
+	if len(system.Body.Providers) != 3 || tmdbAPI.RatePerSecond != 40 || tmdbAPI.BackgroundRatePerSecond != 32 ||
+		tmdbAPI.Down == nil || tmdbAPI.Down.Reason != "unreachable" || tmdbAPI.Credentials != "unknown" {
 		t.Errorf("the providers are %+v; want three, TMDB at 40 a second, 32 for the background, down", providersByName)
 	}
 	if subtitles.RatePerSecond != 5 || subtitles.Down != nil || subtitles.Quota != nil {
@@ -219,11 +220,11 @@ func TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline(t *testing.T) {
 		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
 		 VALUES (1, '/media/disk1', '/media', 3000, 'missing')`)
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system SystemOutput
+	var system api.SystemOutput
 	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
 		t.Fatalf("GET /system = %d %s", got.status, got.body)
 	}
-	want := []OfflineBody{
+	want := []api.OfflineBody{
 		{
 			LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", MountPath: "/media/disk1",
 			OfflineAt: 3000,
@@ -296,10 +297,10 @@ func TestSystem_ListsEachNodesDevicesAndAnAdminSetsADevicesReaderLimit(t *testin
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/nodes/device-reader-limit", admin, map[string]any{
 		"nodeName": "attic", "deviceKey": "disk:sdc", "readerLimit": 2,
-	}), http.StatusNotFound, CodeNotFound)
+	}), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodPut, "/nodes/device-reader-limit", admin, map[string]any{
 		"nodeName": "local", "deviceKey": "disk:sdc", "readerLimit": 0,
-	}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
 // The System page shows how the queue is doing, by kind: queued, the oldest of them, and failed in
@@ -405,12 +406,12 @@ func (certificate expiringAt) ExpiresAt() (time.Time, bool) {
 func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
 	t.Parallel()
 	expiry := time.Date(2026, 12, 31, 12, 0, 0, 0, time.UTC)
-	system := System{
+	system := api.System{
 		PersistentDirectory: t.TempDir(), CacheDirectory: t.TempDir(),
 		PersistentDatabase: sizedAt(1), CacheDatabase: sizedAt(1),
 		PublicName: "media.orpheum-app.com", Certificate: expiringAt{moment: expiry, isObtained: true},
 	}
-	facts, err := serverFacts(t.Context(), system)
+	facts, err := api.ServerFacts(t.Context(), system)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,12 +420,12 @@ func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
 		t.Errorf("an obtained certificate = %+v; want the name, expiring %v", facts.Certificate, expiry)
 	}
 	system.Certificate = expiringAt{}
-	if facts, err = serverFacts(t.Context(), system); err != nil || facts.Certificate == nil ||
+	if facts, err = api.ServerFacts(t.Context(), system); err != nil || facts.Certificate == nil ||
 		facts.Certificate.ExpiresAt != nil {
 		t.Errorf("no certificate yet = %+v (%v); want the name with no expiry", facts.Certificate, err)
 	}
 	system.PublicName, system.Certificate = "", nil
-	if facts, err = serverFacts(t.Context(), system); err != nil || facts.Certificate != nil {
+	if facts, err = api.ServerFacts(t.Context(), system); err != nil || facts.Certificate != nil {
 		t.Errorf("no public name = %+v (%v); want no certificate shown", facts.Certificate, err)
 	}
 }
@@ -441,7 +442,7 @@ func TestSystem_NamesAsManyOfAHeldBackScansRemovalsAsTheSettingSays(t *testing.T
 		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 3 of 5 files')`)
 	harness.setSetting(t, string(settings.ScanWithheldRemovalsNamed), "2")
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system SystemOutput
+	var system api.SystemOutput
 	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
 		t.Fatalf("GET /system = %d %s", got.status, got.body)
 	}
@@ -468,7 +469,7 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
 		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 3 of 5 files')`)
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system SystemOutput
+	var system api.SystemOutput
 	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
 		t.Fatalf("GET /system = %d %s", got.status, got.body)
 	}
@@ -495,27 +496,27 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 // to give up; a filesystem passed on from elsewhere is noted; local disks are fine (D233 §10).
 func TestShareFinding_WarnsOfAShareThatWaitsForItsServerForGood(t *testing.T) {
 	t.Parallel()
-	local := shareFinding("local", []nodeproto.Device{{Key: "disk:sda", MountPaths: []string{"/media"}}})
-	if local.Verdict != VerdictOK {
+	local := api.ShareFinding("local", []nodeproto.Device{{Key: "disk:sda", MountPaths: []string{"/media"}}})
+	if local.Verdict != api.VerdictOK {
 		t.Errorf("a node on a local disk: %+v, want ok", local)
 	}
-	hard := shareFinding("local", []nodeproto.Device{
+	hard := api.ShareFinding("local", []nodeproto.Device{
 		{
 			Key: "network:nas:/films", Filesystem: "nfs4", MountPaths: []string{"/media/films"},
 			WhenGone: nodeproto.ShareWaitsForever,
 		},
 	})
-	if hard.Verdict != VerdictWarning || !strings.Contains(hard.Detail, "/media/films") ||
+	if hard.Verdict != api.VerdictWarning || !strings.Contains(hard.Detail, "/media/films") ||
 		!strings.Contains(hard.Action, "soft,timeo=100,retrans=3") {
 		t.Errorf("a node on a hard NFS share: %+v, want a warning naming it, saying to mount it soft", hard)
 	}
-	passed := shareFinding("local", []nodeproto.Device{
+	passed := api.ShareFinding("local", []nodeproto.Device{
 		{
 			Key: "unknown:0:45", Filesystem: "virtiofs", MountPaths: []string{"/tank/media"},
 			WhenGone: nodeproto.ShareMayWaitForever,
 		},
 	})
-	if passed.Verdict != VerdictOK || !strings.Contains(passed.Detail, "/tank/media (virtiofs)") ||
+	if passed.Verdict != api.VerdictOK || !strings.Contains(passed.Detail, "/tank/media (virtiofs)") ||
 		!strings.Contains(passed.Detail, "soft,timeo=100,retrans=3") {
 		t.Errorf("a node on a filesystem passed on: %+v, want a note naming it and the mount to use behind it", passed)
 	}
@@ -525,12 +526,12 @@ func TestShareFinding_WarnsOfAShareThatWaitsForItsServerForGood(t *testing.T) {
 // dead-share protection; one reading them through the node is fine (D330; audit 2026-10-25 N9).
 func TestFilmReadingFinding_WarnsOfANodeWhoseFFmpegReadsFilmsByTheirPaths(t *testing.T) {
 	t.Parallel()
-	through := filmReadingFinding("local", nodeproto.Hardware{ReadsFilmsThroughNode: true})
-	if through.Verdict != VerdictOK || !strings.Contains(through.Detail, "fdproxy") {
+	through := api.FilmReadingFinding("local", nodeproto.Hardware{ReadsFilmsThroughNode: true})
+	if through.Verdict != api.VerdictOK || !strings.Contains(through.Detail, "fdproxy") {
 		t.Errorf("a node whose FFmpeg reads films through it: %+v, want ok, saying so", through)
 	}
-	byPath := filmReadingFinding("local", nodeproto.Hardware{})
-	if byPath.Verdict != VerdictWarning || !strings.Contains(byPath.Detail, "by its path") ||
+	byPath := api.FilmReadingFinding("local", nodeproto.Hardware{})
+	if byPath.Verdict != api.VerdictWarning || !strings.Contains(byPath.Detail, "by its path") ||
 		!strings.Contains(byPath.Action, "fdproxy") {
 		t.Errorf("a node on the stock FFmpeg: %+v, want a warning saying runs read films by path, and the build to run",
 			byPath)

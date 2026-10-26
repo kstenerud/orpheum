@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"crypto/ed25519"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // Anyone may read the client's manifest, signed by the key the core's links name, which a loader
@@ -17,11 +18,11 @@ import (
 func TestClientManifest_IsSignedByTheKeyTheLinksName(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	wantError(t, harness.do(t, http.MethodGet, "/client-manifest", "", nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/client-manifest", "", nil), http.StatusNotFound, api.CodeNotFound)
 	manifest := []byte(`{"version":"test","script":"index-x.js","files":[]}`)
 	harness.server.SetClientManifest(manifest)
 	served := harness.do(t, http.MethodGet, "/client-manifest", "", nil)
-	var got ClientManifestBody
+	var got api.ClientManifestBody
 	if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
 		t.Fatalf("GET /client-manifest = %d %s (%v)", served.status, served.body, err)
 	}
@@ -37,7 +38,7 @@ func TestClientManifest_IsSignedByTheKeyTheLinksName(t *testing.T) {
 		!proof.VerifyClientManifest(publicKey, decode(got.Manifest), decode(got.Signature)) {
 		t.Errorf("the manifest served is %+v; want the manifest set, signed under its key", got)
 	}
-	if proof.Fingerprint(publicKey) != harness.server.dependencies.Load().Discovery.Status().Fingerprint {
+	if proof.Fingerprint(publicKey) != harness.server.Dependencies().Load().Discovery.Status().Fingerprint {
 		t.Error("the manifest is signed by a key other than the one the core's links name")
 	}
 }

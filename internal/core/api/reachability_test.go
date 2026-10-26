@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 )
@@ -23,18 +24,18 @@ func TestReachability_AnAdminChecksItAndTheEchoAnswersOnlyItsOwnNonce(t *testing
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
 	wantError(t, harness.do(t, http.MethodPost, "/system/reachability", partner, nil), http.StatusForbidden,
-		CodeForbidden)
+		api.CodeForbidden)
 	checked := harness.do(t, http.MethodPost, "/system/reachability", admin, nil)
-	var report ReachabilityOutput
+	var report api.ReachabilityOutput
 	if err := json.Unmarshal([]byte(checked.body), &report.Body); err != nil || checked.status != http.StatusOK {
 		t.Fatalf("POST /system/reachability = %d %s", checked.status, checked.body)
 	}
-	for hop, result := range map[string]ReachabilityResult{
+	for hop, result := range map[string]api.ReachabilityResult{
 		"https": report.Body.HTTPS, "relayUdp": report.Body.RelayUDP, "relayTcp": report.Body.RelayTCP,
 	} {
 		if result.Outcome != reachability.NotChecked {
 			t.Errorf("%s with no name and no relay = %+v; want not checked", hop, result)
 		}
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/reachability/made-up", "", nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/reachability/made-up", "", nil), http.StatusNotFound, api.CodeNotFound)
 }

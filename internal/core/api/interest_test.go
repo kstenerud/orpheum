@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"net/http"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // A player that moves to another quality stops the run of the one it left: one player wants one
@@ -19,7 +21,7 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 	token := harness.play(t, user, chrome(1)).MediaToken
 	harness.keepFilmOnesTimeline(t)
 	harness.measureFilmOnesLoudness(t)
-	base := Prefix + "/bytes/media/chunks/" + token + "/"
+	base := api.Prefix + "/bytes/media/chunks/" + token + "/"
 	for _, stream := range []string{"q700k432p", "q400k360p"} {
 		if answer := harness.getBytePath(t, base+stream+"/00001.m4s", user, true, ""); answer.status !=
 			http.StatusTooEarly {

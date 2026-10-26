@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -244,6 +245,26 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 	nodes.queued = append(nodes.queued, command)
 }
 
+// ConnectedNodeID is node 1, while it is connected.
+func (nodes *fakeNodes) ConnectedNodeID(ctx context.Context) (int64, bool) {
+	return 1, nodes.IsConnected(ctx, 1)
+}
+
+// EncodesOnAGPU is false: the fake node encodes on its processor.
+func (*fakeNodes) EncodesOnAGPU(int64) bool { return false }
+
+// SetResultSink takes nothing: the node's answers go where takeResult says.
+func (*fakeNodes) SetResultSink(corenodes.ResultSink) {}
+
+// SetScans takes nothing: no hello asks the fake node for a scan.
+func (*fakeNodes) SetScans(corenodes.ScanRequester) {}
+
+// SetChanges takes nothing: the fake node watches nothing change.
+func (*fakeNodes) SetChanges(corenodes.ChangeTaker) {}
+
+// SetStoreTiers takes nothing: the fake node keeps no chunk stores.
+func (*fakeNodes) SetStoreTiers(corenodes.StoreTiers) {}
+
 // InProgress is the scans in progress the test set.
 func (nodes *fakeNodes) InProgress(context.Context) (map[library.ScanRoot]library.ScanProgress, error) {
 	return nodes.scanning, nil
@@ -358,13 +379,13 @@ func TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges(t *testing.T) {
 		t.Errorf("after watching was chosen, GET /libraries = %s; want watch and no hours", listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/libraries/9/change-detection", admin,
-		map[string]any{"changeDetection": "manual"}), http.StatusNotFound, CodeNotFound)
+		map[string]any{"changeDetection": "manual"}), http.StatusNotFound, api.CodeNotFound)
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodPut, path, harness.signIn(t, "partner", "partner-password"),
-		map[string]any{"changeDetection": "manual"}), http.StatusForbidden, CodeForbidden)
+		map[string]any{"changeDetection": "manual"}), http.StatusForbidden, api.CodeForbidden)
 }
 
 func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
@@ -372,7 +393,7 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
-		http.StatusServiceUnavailable, CodeNodeSilent)
+		http.StatusServiceUnavailable, api.CodeNodeSilent)
 	harness.connectNode(t, "/media/shows")
 	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/etc")),
 		http.StatusUnprocessableEntity, "body.rootPaths")
@@ -391,7 +412,7 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 		t.Errorf("scans asked for of %v, want the new root", harness.nodes.scanned)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
-		http.StatusConflict, CodeConflict)
+		http.StatusConflict, api.CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
 	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":"",`+
 		`"missingMountPaths":[],"watch":{"isWatching":false,"cause":"watch-limit","reason":"too many folders"}}]`) {
@@ -409,7 +430,7 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	if scanned.status != http.StatusAccepted || !strings.Contains(scanned.body, `"askedRootCount":1`) {
 		t.Errorf("POST /libraries/1/scan = %d %s", scanned.status, scanned.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/9/scan", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/9/scan", admin, nil), http.StatusNotFound, api.CodeNotFound)
 }
 
 func TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery(t *testing.T) {
@@ -437,9 +458,10 @@ func TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery(t *testing.T) {
 		t.Errorf("a user's GET /libraries = %d %s; want the library without its roots", listed.status, listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", user, newShows("/media/shows")),
-		http.StatusForbidden, CodeForbidden)
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/scan", user, nil), http.StatusForbidden, CodeForbidden)
-	wantError(t, harness.do(t, http.MethodGet, "/files?limit=10", user, nil), http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/scan", user, nil), http.StatusForbidden,
+		api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/files?limit=10", user, nil), http.StatusForbidden, api.CodeForbidden)
 }
 
 func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
@@ -454,8 +476,8 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 		 (1, 1, '/m/a.mkv', 'listed', NULL, 1, 2), (1, 1, '/m/b.txt', 'skipped', 'extension', 1, 2),
 		 (1, 1, '/m/c.mkv', 'errored', 'permission_denied', 1, 2)`)
 	var page struct {
-		Files      []FileBody `json:"files"`
-		NextCursor string     `json:"nextCursor"`
+		Files      []api.FileBody `json:"files"`
+		NextCursor string         `json:"nextCursor"`
 	}
 	first := harness.do(t, http.MethodGet, "/files?limit=2", admin, nil)
 	if err := json.Unmarshal([]byte(first.body), &page); err != nil || len(page.Files) != 2 || page.NextCursor == "" {
@@ -470,7 +492,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 		t.Errorf("filing=skipped = %s", skipped.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/files", admin, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	wantInvalidAt(t, harness.do(t, http.MethodGet, "/files?limit=2&cursor=x", admin, nil),
 		http.StatusUnprocessableEntity, "query.cursor")
 }
@@ -501,7 +523,7 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
-		map[string]string{"nodeName": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
+		map[string]string{"nodeName": "local", "path": "/m/disk1"}), http.StatusConflict, api.CodeConflict)
 }
 
 func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *testing.T) {
@@ -520,7 +542,7 @@ func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *test
 	}
 	// The page sends a missing mount's path, not the root's: the root's is refused.
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
-		map[string]string{"nodeName": "local", "path": "/m"}), http.StatusConflict, CodeConflict)
+		map[string]string{"nodeName": "local", "path": "/m"}), http.StatusConflict, api.CodeConflict)
 	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"})
 	if gone.status != http.StatusAccepted {
@@ -549,5 +571,5 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/nodes", harness.signIn(t, "partner", "partner-password"), nil),
-		http.StatusForbidden, CodeForbidden)
+		http.StatusForbidden, api.CodeForbidden)
 }

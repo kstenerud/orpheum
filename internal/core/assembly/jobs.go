@@ -84,9 +84,9 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 		},
 		{
 			// A read-through that gave up keeps nothing, so the next sweep asks again (D244 §1).
-			jobs.KindReadThrough, services.readThrough.HandleReadThrough, nil, nil, 1,
+			jobs.KindReadThrough, services.ReadThrough.HandleReadThrough, nil, nil, 1,
 			[]string{sweepReadThroughs},
-			services.readThrough.Assignee,
+			services.ReadThrough.Assignee,
 		},
 		{
 			// A run lost is forgotten, so the next player's ask for its chunks queues another.
@@ -331,7 +331,7 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 			Every: every(settings.InvariantsCheckEveryHours),
 		},
 		{
-			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,
+			Name: sweepReadThroughs, Derive: services.ReadThrough.QueueReadThroughs,
 			Every: every(settings.ReadThroughSweepEveryHours),
 		},
 	}

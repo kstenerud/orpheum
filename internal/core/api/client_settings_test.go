@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
@@ -17,11 +18,12 @@ func TestClientSettings_EveryClientReadsHowOftenAScreenAsksAgain(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
-	wantError(t, harness.do(t, http.MethodGet, "/client-settings", "", nil), http.StatusUnauthorized, CodeAuthRequired)
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ScreenRefreshLongestWaitSeconds, "45")
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.InterestSaidEverySeconds, "20")
+	wantError(t, harness.do(t, http.MethodGet, "/client-settings", "", nil), http.StatusUnauthorized,
+		api.CodeAuthRequired)
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ScreenRefreshLongestWaitSeconds, "45")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.InterestSaidEverySeconds, "20")
 	served := harness.do(t, http.MethodGet, "/client-settings", token, nil)
-	var got ClientSettingsBody
+	var got api.ClientSettingsBody
 	if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
 		t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
 	}
@@ -41,9 +43,9 @@ func TestClientSettings_TheDeveloperPagesAreOfferedOnlyWhenTurnedOn(t *testing.T
 	t.Parallel()
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
-	read := func() ClientSettingsBody {
+	read := func() api.ClientSettingsBody {
 		served := harness.do(t, http.MethodGet, "/client-settings", token, nil)
-		var got ClientSettingsBody
+		var got api.ClientSettingsBody
 		if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
 			t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
 		}
@@ -52,7 +54,7 @@ func TestClientSettings_TheDeveloperPagesAreOfferedOnlyWhenTurnedOn(t *testing.T
 	if read().ShouldShowDeveloperPages {
 		t.Error("the developer pages are offered before the admin turned them on")
 	}
-	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldShowDeveloperPages, "true")
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldShowDeveloperPages, "true")
 	if !read().ShouldShowDeveloperPages {
 		t.Error("the developer pages are not offered once the admin turned them on")
 	}

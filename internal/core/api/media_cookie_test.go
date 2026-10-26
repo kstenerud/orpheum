@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // doWithHeaders sends a request with the given headers and cookie and returns the response, closed.
@@ -16,7 +18,7 @@ func (harness testHarness) doWithHeaders(
 	t *testing.T, method, path, body string, header http.Header,
 ) (closedResponse, string) {
 	t.Helper()
-	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+Prefix+path,
+	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+api.Prefix+path,
 		bytes.NewReader([]byte(body)))
 	if err != nil {
 		t.Fatal(err)
@@ -53,12 +55,12 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 		`"device":{"name":"Firefox on Linux","platform":"web"}}`
 	signedIn, _ := harness.doWithHeaders(t, http.MethodPost, "/session", credentials, nil)
 	cookies := (&http.Response{Header: signedIn.Header}).Cookies()
-	if len(cookies) != 1 || cookies[0].Name != MediaCookieName || !cookies[0].HttpOnly ||
-		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != Prefix+"/bytes/" || cookies[0].Secure {
+	if len(cookies) != 1 || cookies[0].Name != api.MediaCookieName || !cookies[0].HttpOnly ||
+		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != api.Prefix+"/bytes/" || cookies[0].Secure {
 		t.Fatalf("sign-in set %+v; want one HttpOnly, SameSite=Strict media cookie scoped to /bytes/, not Secure "+
 			"over plain HTTP", cookies)
 	}
-	withCookie := http.Header{"Cookie": {MediaCookieName + "=" + cookies[0].Value}}
+	withCookie := http.Header{"Cookie": {api.MediaCookieName + "=" + cookies[0].Value}}
 	image, body := harness.doWithHeaders(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
 	if image.StatusCode != http.StatusOK || body != "RIFF....WEBP" {
 		t.Errorf("an image by the cookie alone: %d %q", image.StatusCode, body)
@@ -88,8 +90,8 @@ func TestMediaCookie_AskingWhoIAmSetsItAgainForThisSession(t *testing.T) {
 	// who it is at start and is given this session's cookie before it fetches any bytes.
 	me, _ := harness.doWithHeaders(t, http.MethodGet, "/me", "", http.Header{"Authorization": {"Bearer " + token}})
 	cookies := (&http.Response{Header: me.Header}).Cookies()
-	if me.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != MediaCookieName ||
-		cookies[0].Value != token || cookies[0].Path != Prefix+"/bytes/" || !cookies[0].HttpOnly {
+	if me.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != api.MediaCookieName ||
+		cookies[0].Value != token || cookies[0].Path != api.Prefix+"/bytes/" || !cookies[0].HttpOnly {
 		t.Errorf("GET /me = %d with cookies %+v; want this session's media cookie on /bytes/", me.StatusCode, cookies)
 	}
 	refused, _ := harness.doWithHeaders(t, http.MethodGet, "/me", "", nil)
@@ -103,7 +105,7 @@ func sendOverTLS(
 	t *testing.T, server *httptest.Server, method, path, body string, header http.Header,
 ) (closedResponse, string) {
 	t.Helper()
-	request, err := http.NewRequestWithContext(t.Context(), method, server.URL+Prefix+path, strings.NewReader(body))
+	request, err := http.NewRequestWithContext(t.Context(), method, server.URL+api.Prefix+path, strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,11 +154,11 @@ func TestMediaCookie_OverTLSItIsHostOnlyAndThePlainNameNoLongerCounts(t *testing
 	t.Cleanup(overTLS.Close)
 	signedIn, _ := sendOverTLS(t, overTLS, http.MethodPost, "/session", `{"name":"owner","password":"owner-password",`+
 		`"device":{"name":"Firefox on Linux","platform":"web"}}`, nil)
-	hostOnly := cookieNamed(signedIn, "__Host-"+MediaCookieName)
+	hostOnly := cookieNamed(signedIn, "__Host-"+api.MediaCookieName)
 	if hostOnly == nil || !hostOnly.Secure || hostOnly.Path != "/" || hostOnly.Domain != "" || !hostOnly.HttpOnly {
 		t.Fatalf("over TLS sign-in set %+v; want a host-only media cookie: Secure, at /, for no domain", hostOnly)
 	}
-	if plain := cookieNamed(signedIn, MediaCookieName); plain == nil || plain.MaxAge >= 0 {
+	if plain := cookieNamed(signedIn, api.MediaCookieName); plain == nil || plain.MaxAge >= 0 {
 		t.Errorf("over TLS sign-in left the plain media cookie as %+v; want it cleared", plain)
 	}
 	image := "/bytes/art/" + hash + "/portrait-s.webp"
@@ -165,7 +167,7 @@ func TestMediaCookie_OverTLSItIsHostOnlyAndThePlainNameNoLongerCounts(t *testing
 		http.StatusOK || body != "RIFF....WEBP" {
 		t.Errorf("an image by the host-only cookie: %d %q", answer.StatusCode, body)
 	}
-	byPlain := http.Header{"Cookie": {MediaCookieName + "=" + hostOnly.Value}}
+	byPlain := http.Header{"Cookie": {api.MediaCookieName + "=" + hostOnly.Value}}
 	if answer, _ := sendOverTLS(t, overTLS, http.MethodGet, image, "", byPlain); answer.StatusCode !=
 		http.StatusUnauthorized {
 		t.Errorf("an image by the plain name over TLS, which another core could have set: %d, want 401",
@@ -188,7 +190,7 @@ func TestMediaCookie_ALoadFromAnotherSitesPageIsNotSignedInByIt(t *testing.T) {
 		"": http.StatusOK, "same-origin": http.StatusOK, "none": http.StatusOK,
 		"same-site": http.StatusUnauthorized, "cross-site": http.StatusUnauthorized,
 	} {
-		header := http.Header{"Cookie": {MediaCookieName + "=" + token}}
+		header := http.Header{"Cookie": {api.MediaCookieName + "=" + token}}
 		if site != "" {
 			header.Set("Sec-Fetch-Site", site)
 		}

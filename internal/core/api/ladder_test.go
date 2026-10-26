@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -20,7 +21,7 @@ func TestPlayback_AFilmItsDeviceCannotPlayStartsOnItsLadderAtItsMasterPlaylist(t
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	master := func(started decision) string {
-		return Prefix + "/bytes/media/chunks/" + started.MediaToken + "/master.m3u8"
+		return api.Prefix + "/bytes/media/chunks/" + started.MediaToken + "/master.m3u8"
 	}
 	before := harness.play(t, user, chrome(2))
 	if before.Delivery != "hls" || before.OnLadder == nil || before.OnLadder.URL != master(before) ||

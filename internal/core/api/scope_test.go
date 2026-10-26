@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
@@ -73,7 +74,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 		answered := harness.do(t, http.MethodPost, "/rtc/offer", admin, map[string]any{
 			"type": offer.Type, "sdp": offer.SDP,
 		})
-		var answer SessionDescriptionBody
+		var answer api.SessionDescriptionBody
 		if answered.status != http.StatusOK || json.Unmarshal([]byte(answered.body), &answer) != nil {
 			return rtcapi.Description{}, fmt.Errorf("POST /rtc/offer = %d %s", answered.status, answered.body)
 		}
@@ -82,7 +83,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	host := strings.TrimPrefix(harness.httpServer.URL, "http://")
 	ask := func(path string) rtcapitest.Reply {
 		headers := http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}}
-		return link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: Prefix + path, Headers: headers}, nil)
+		return link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: api.Prefix + path, Headers: headers}, nil)
 	}
 	// The harness's home is this machine, which the connection's pair reaches directly.
 	if users := ask("/users"); users.Head.Status != http.StatusOK {
@@ -101,7 +102,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	if isAdminOver(t, ask("/me")) {
 		t.Error("an admin's /me over WebRTC from away says they administer")
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, api.CodeForbidden)
 	if _, canManage := harness.mayAdminister(t, admin); !canManage {
 		t.Error("away from home the admin may not manage their own account, which a person may")
 	}
@@ -111,7 +112,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 // read as an admin's either way.
 func isAdminOver(t *testing.T, asked rtcapitest.Reply) bool {
 	t.Helper()
-	var me UserBody
+	var me api.UserBody
 	if asked.Head.Status != http.StatusOK || json.Unmarshal(asked.Body, &me) != nil || me.Role != "admin" {
 		t.Fatalf("an admin's /me over WebRTC = %d %s; want their role", asked.Head.Status, asked.Body)
 	}
@@ -126,7 +127,7 @@ func TestIsDirectPath_CountsNoRelayedOrFailedPath(t *testing.T) {
 		rtcapi.PathDirectIPv4: true, rtcapi.PathDirectIPv6: true, rtcapi.PathPunchedIPv4: true,
 		rtcapi.PathPunchedIPv6: true, rtcapi.PathRelayed: false, rtcapi.PathFailed: false,
 	} {
-		if got := isDirectPath(path); got != want {
+		if got := api.IsDirectPath(path); got != want {
 			t.Errorf("isDirectPath(%s) = %t; want %t", path, got, want)
 		}
 	}
@@ -145,18 +146,18 @@ func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.
 	}
 	adminDevice := harness.thisDeviceID(t, admin)
 	wantError(t, harness.do(t, http.MethodDelete, "/me/devices/"+strconv.FormatInt(adminDevice, 10), television,
-		nil), http.StatusForbidden, CodeForbidden)
+		nil), http.StatusForbidden, api.CodeForbidden)
 	wantError(t, harness.doWithHeader(t, http.MethodPost, "/me/devices/sign-out-elsewhere", television,
-		http.Header{"Idempotency-Key": {"k1"}}, nil), http.StatusForbidden, CodeForbidden)
+		http.Header{"Idempotency-Key": {"k1"}}, nil), http.StatusForbidden, api.CodeForbidden)
 	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
-	var pairing PairingOutput
+	var pairing api.PairingOutput
 	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
 		t.Fatal(err)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/activations", television,
-		map[string]any{"code": pairing.Body.Code, "deviceName": "Phone"}), http.StatusForbidden, CodeForbidden)
+		map[string]any{"code": pairing.Body.Code, "deviceName": "Phone"}), http.StatusForbidden, api.CodeForbidden)
 	wantError(t, harness.do(t, http.MethodPost, "/activations/answer", television,
-		map[string]any{"code": pairing.Body.Code, "isMatch": true}), http.StatusForbidden, CodeForbidden)
+		map[string]any{"code": pairing.Body.Code, "isMatch": true}), http.StatusForbidden, api.CodeForbidden)
 	if me := harness.do(t, http.MethodGet, "/me", television, nil); !strings.Contains(me.body,
 		`"canManageAccount":false`) {
 		t.Errorf("GET /me for the television = %s; want canManageAccount false", me.body)
@@ -168,7 +169,8 @@ func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.
 	}
 	// Nor carry away the person's own link, which outlives the device removed (the device code
 	// audit's M4); a password sign-in reads it.
-	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", television, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", television, nil), http.StatusForbidden,
+		api.CodeForbidden)
 	if own := harness.do(t, http.MethodGet, "/me/own-link", admin, nil); own.status == http.StatusForbidden {
 		t.Errorf("GET /me/own-link for the admin's own sign-in = %d %s", own.status, own.body)
 	}
@@ -201,8 +203,8 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 		t.Errorf("an admin's /me = %s; want never, the default", me.body)
 	}
 	harness.server.SetHomeNetworks(away)
-	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, CodeForbidden)
-	wantError(t, setAway(admin, "always"), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, setAway(admin, "always"), http.StatusForbidden, api.CodeForbidden)
 	harness.server.SetHomeNetworks(home)
 	if set := setAway(admin, "always"); set.status != http.StatusNoContent {
 		t.Fatalf("setting always from home = %d %s", set.status, set.body)
@@ -215,18 +217,18 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 		t.Error("an admin set to always is told from away that they do not administer")
 	}
 	// From away they may not turn it off either: it is set at home alone.
-	wantError(t, setAway(admin, "never"), http.StatusForbidden, CodeForbidden)
+	wantError(t, setAway(admin, "never"), http.StatusForbidden, api.CodeForbidden)
 	harness.server.SetHomeNetworks(home)
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
-	wantError(t, setAway(partner, "always"), http.StatusForbidden, CodeForbidden)
+	wantError(t, setAway(partner, "always"), http.StatusForbidden, api.CodeForbidden)
 	if me := harness.do(t, http.MethodGet, "/me", partner, nil); strings.Contains(me.body, "adminAway") {
 		t.Errorf("a person's /me = %s; says nothing of administering", me.body)
 	}
-	wantError(t, setAway(admin, "sometimes"), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, setAway(admin, "sometimes"), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
 // machineNetworks are this machine's own addresses, each as a one-address network.

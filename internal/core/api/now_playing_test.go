@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
@@ -32,7 +33,7 @@ func TestNowPlaying_TheAdminSeesAPlaybackAndStopsItWithAMessage(t *testing.T) {
 		!strings.Contains(shown.Name, "Film (2001)") || shown.DeviceName == "" {
 		t.Errorf("now playing shows %+v; want the partner, on their device, playing film 1 directly", shown)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/now-playing", partner, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/now-playing", partner, nil), http.StatusForbidden, api.CodeForbidden)
 
 	harness.clock.Advance(31 * time.Second)
 	if quiet := harness.do(t, http.MethodGet, "/now-playing", admin, nil); strings.Contains(quiet.body, `"fileId":1`) {
@@ -54,17 +55,18 @@ func TestNowPlaying_TheAdminSeesAPlaybackAndStopsItWithAMessage(t *testing.T) {
 	if told.status != http.StatusOK || !strings.Contains(told.body, `"stop":{"message":"The server is going down`) {
 		t.Errorf("the next report's answer = %d %s; want the stop and its message", told.status, told.body)
 	}
-	wantError(t, harness.report(t, partner, playing, reportBody(3, 80_000, 0)), http.StatusNotFound, CodePlaybackGone)
+	wantError(t, harness.report(t, partner, playing, reportBody(3, 80_000, 0)), http.StatusNotFound,
+		api.CodePlaybackGone)
 	if after := harness.do(t, http.MethodGet, "/now-playing", admin, nil); strings.Contains(after.body, `"fileId":1`) {
 		t.Errorf("now playing after the stop = %s; want it gone", after.body)
 	}
 }
 
 // onlyPlaying is the one playback GET /now-playing lists, which fails the test when there is not one.
-func (harness testHarness) onlyPlaying(t *testing.T, admin string) NowPlayingBody {
+func (harness testHarness) onlyPlaying(t *testing.T, admin string) api.NowPlayingBody {
 	t.Helper()
 	listed := harness.do(t, http.MethodGet, "/now-playing", admin, nil)
-	var nowPlaying NowPlayingOutput
+	var nowPlaying api.NowPlayingOutput
 	if err := json.Unmarshal([]byte(listed.body), &nowPlaying.Body); err != nil || len(nowPlaying.Body.Playbacks) != 1 {
 		t.Fatalf("GET /now-playing = %d %s; want one playback", listed.status, listed.body)
 	}

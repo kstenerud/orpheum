@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
 	"github.com/kstenerud/orpheum/internal/core/together"
@@ -28,21 +29,21 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 	harness.server.SetRTC(rtc)
 	token := harness.createAdminAndSignIn(t)
 	wantError(t, harness.do(t, http.MethodPost, "/rtc/offer", "", map[string]any{"type": "offer", "sdp": "v=0"}),
-		http.StatusUnauthorized, CodeAuthRequired)
+		http.StatusUnauthorized, api.CodeAuthRequired)
 
 	//nolint:contextcheck // the harness's requests carry the test's context
 	link := rtcapitest.Connect(t, func(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 		answered := harness.do(t, http.MethodPost, "/rtc/offer", token, map[string]any{
 			"type": offer.Type, "sdp": offer.SDP,
 		})
-		var answer SessionDescriptionBody
+		var answer api.SessionDescriptionBody
 		if answered.status != http.StatusOK || json.Unmarshal([]byte(answered.body), &answer) != nil {
 			return rtcapi.Description{}, fmt.Errorf("POST /rtc/offer = %d %s", answered.status, answered.body)
 		}
 		return rtcapi.Description{Type: answer.Type, SDP: answer.SDP}, nil
 	})
 	signedIn := link.Do(rtcapi.RequestHead{
-		Method: http.MethodGet, Path: Prefix + "/libraries",
+		Method: http.MethodGet, Path: api.Prefix + "/libraries",
 		Headers: http.Header{"Authorization": {"Bearer " + token}},
 	}, nil)
 	if signedIn.Head.Status != http.StatusOK || !strings.Contains(string(signedIn.Body), `"libraries"`) {
@@ -55,14 +56,14 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 		t.Fatal(err)
 	}
 	started := link.Do(rtcapi.RequestHead{
-		Method: http.MethodPost, Path: Prefix + "/playback",
+		Method: http.MethodPost, Path: api.Prefix + "/playback",
 		Headers: http.Header{"Authorization": {"Bearer " + token}, "Content-Type": {"application/json"}},
 	}, asked)
 	if started.Head.Status != http.StatusOK {
 		t.Fatalf("POST /playback over a channel = %d %s", started.Head.Status, started.Body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"over":"webrtc"`)
-	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: Prefix + "/libraries"}, nil)
+	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: api.Prefix + "/libraries"}, nil)
 	if anonymous.Head.Status != http.StatusUnauthorized {
 		t.Errorf("GET /libraries over a channel with no sign-in = %d; want 401: a connection grants nothing",
 			anonymous.Head.Status)
@@ -81,7 +82,7 @@ func TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel(t *testing.T) {
 	opened := harness.openTogether(t, admin)
 	link := rtcapitest.Connect(t, rtc.Answer)
 
-	device, head := link.Upgrade(togetherSocketPath)
+	device, head := link.Upgrade(api.TogetherSocketPath)
 	if head.Status != http.StatusSwitchingProtocols {
 		t.Fatalf("the upgrade was answered %d; want 101", head.Status)
 	}
@@ -104,7 +105,7 @@ func TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel(t *testing.T) {
 		}
 	}
 
-	stranger, _ := link.Upgrade(togetherSocketPath)
+	stranger, _ := link.Upgrade(api.TogetherSocketPath)
 	stranger.Send(`{"type":"state"}`)
 	if closing := stranger.Closed(); closing.Code != int(websocket.StatusPolicyViolation) {
 		t.Errorf("a first message that is no hello closed with %d %q; want %d", closing.Code, closing.Reason,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package api
+package api_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/interest"
@@ -135,9 +136,9 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	wantInvalidAt(t, harness.do(t, http.MethodPost, "/items/10/match", admin,
 		map[string]string{"provider": "imdb", "providerId": "2"}), http.StatusUnprocessableEntity, "body.provider")
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/match", admin,
-		map[string]string{"provider": "tmdb", "providerId": "2"}), http.StatusNotFound, CodeNotFound)
+		map[string]string{"provider": "tmdb", "providerId": "2"}), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=maybe", admin, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
 func TestIdentification_OverridesAreSetAndRemoved(t *testing.T) {
@@ -156,7 +157,7 @@ func TestIdentification_OverridesAreSetAndRemoved(t *testing.T) {
 		t.Errorf("DELETE the override = %d %s", removed.status, removed.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/items/10/overrides/year", admin, nil),
-		http.StatusNotFound, CodeNotFound)
+		http.StatusNotFound, api.CodeNotFound)
 }
 
 func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
@@ -185,11 +186,11 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		{http.MethodPost, "/items/10/refresh", nil},
 	} {
 		wantError(t, harness.do(t, request.method, request.path, user, request.body), http.StatusForbidden,
-			CodeForbidden)
+			api.CodeForbidden)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", "", nil),
 		http.StatusUnauthorized,
-		CodeAuthRequired)
+		api.CodeAuthRequired)
 }
 
 func TestIdentification_APersonMayRefreshATitleWheneverTheyLike(t *testing.T) {
@@ -206,7 +207,7 @@ func TestIdentification_APersonMayRefreshATitleWheneverTheyLike(t *testing.T) {
 		t.Errorf("a second refresh while the first waits = %d %s; want accepted, already queued", again.status,
 			again.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/items/99/refresh", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/items/99/refresh", admin, nil), http.StatusNotFound, api.CodeNotFound)
 }
 
 func TestIdentification_AnItemsOwnFailureIsShownOnItsPagesAndARefreshTriesAgain(t *testing.T) {
@@ -240,7 +241,7 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 	harness.tmdbProvider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3 * time.Second})
 	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"})
-	wantErrorSaying(t, answer, http.StatusServiceUnavailable, CodeRateLimited, "TMDB asks us to wait")
+	wantErrorSaying(t, answer, http.StatusServiceUnavailable, api.CodeRateLimited, "TMDB asks us to wait")
 	if !strings.Contains(answer.body, `"retryAfterMs":3000`) ||
 		!strings.Contains(answer.body, `"failedHop":"provider"`) {
 		t.Errorf("a rate limited choice: %s, want the wait and the provider as the failing leg (cut-a §5.2)",
@@ -262,7 +263,7 @@ func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLe
 		harness.tmdbProvider.SetFailure(failure)
 		answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 			map[string]string{"provider": "tmdb", "providerId": "2"})
-		wantError(t, answer, http.StatusServiceUnavailable, CodeProviderError)
+		wantError(t, answer, http.StatusServiceUnavailable, api.CodeProviderError)
 		if !strings.Contains(answer.body, `"reason":"`+reason+`"`) ||
 			!strings.Contains(answer.body, `"failedHop":"provider"`) {
 			t.Errorf("%v: %s, want reason %s and the provider as the failing leg", failure, answer.body, reason)
