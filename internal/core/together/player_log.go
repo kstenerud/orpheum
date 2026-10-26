@@ -7,6 +7,32 @@ import (
 	"time"
 )
 
+// logEvent is the attribute key every log line in this file and in logChange (group.go) carries
+// alongside its message: a stable name a test matches, so rewording the message does not break the
+// match (test architecture review, 2026-10-26, finding 12). It is not current.group.event (what
+// changed the group), a different attribute already named "event".
+const logEvent = "logEvent"
+
+// logEvent's values, one per log line that carries it.
+const (
+	eventPlayerChanged     = "playerChanged"
+	eventPlayerNoted       = "playerNoted"
+	eventVoiceMeasured     = "voiceMeasured"
+	eventVoiceCallStep     = "voiceCallStep"
+	eventPongResidual      = "pongResidual"
+	eventVoiceOff          = "voiceOff"
+	eventMicrophoneChanged = "microphoneChanged"
+	eventLoadHeldChanged   = "loadHeldChanged"
+	eventCorrectsBySeeks   = "correctsBySeeks"
+	eventOwnMarkExpired    = "ownMarkExpired"
+	eventLeaderCommand     = "leaderCommand"
+	eventPlayerDiagnosis   = "playerDiagnosis"
+	eventPlayedMuted       = "playedMuted"
+	eventUnmutedTap        = "unmutedTap"
+	eventContinueAsked     = "continueAsked"
+	eventGroupChanged      = "groupChanged"
+)
+
 // deviceAttributes name a device in a log line: its session, its member and itself.
 func (current *session) deviceAttributes(who *member, from *device) []any {
 	return []any{"sessionId", current.id, "memberId", who.id, "deviceId", from.id}
@@ -21,7 +47,8 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 		return
 	}
 	attributes := append(current.deviceAttributes(who, from),
-		"playing", message.Playing, "buffering", message.Buffering, positionMsAttribute, message.PositionMs,
+		logEvent, eventPlayerChanged, "playing", message.Playing, "buffering", message.Buffering,
+		positionMsAttribute, message.PositionMs,
 		"behindGroupMs", current.positionAt(now).Milliseconds()-message.PositionMs)
 	if !from.playerChangedAt.IsZero() {
 		attributes = append(attributes, "lastStateMs", now.Sub(from.playerChangedAt).Milliseconds())
@@ -46,7 +73,7 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 	if current.logAtInfo(ctx, who, from, note) {
 		return
 	}
-	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))
+	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerNoted, "kind", string(note.Kind))
 	for _, field := range []struct {
 		name  string
 		value int64
@@ -87,40 +114,44 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		return true
 	case NoteVoiceCall:
 		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
-			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
+			append(current.deviceAttributes(who, from), logEvent, eventVoiceCallStep,
+				"partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
 		return true
 	case NotePonged:
 		current.logger.InfoContext(ctx, "watch together: a player's pong said where the group is",
-			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs,
+			append(current.deviceAttributes(who, from), logEvent, eventPongResidual, "roundTripMs", note.RoundTripMs,
 				"aheadOfExpectedMs", note.AheadOfExpectedMs, "placing", note.Why)...)
 		return true
 	case NoteVoiceOff:
 		current.logger.InfoContext(ctx, "watch together: voice turned off",
-			append(current.deviceAttributes(who, from), "why", note.Why)...)
+			append(current.deviceAttributes(who, from), logEvent, eventVoiceOff, "why", note.Why)...)
 		return true
 	case NoteVoiceTalk:
 		current.logger.InfoContext(ctx, "watch together: a person's microphone changed",
-			append(current.deviceAttributes(who, from), "microphone", note.Why)...)
+			append(current.deviceAttributes(who, from), logEvent, eventMicrophoneChanged, "microphone", note.Why)...)
 		return true
 	case NoteLoadHeld:
 		current.logger.InfoContext(ctx, "watch together: a ready player's loading changed while its group waits",
-			append(current.deviceAttributes(who, from), "loading", note.Why)...)
+			append(current.deviceAttributes(who, from), logEvent, eventLoadHeldChanged, "loading", note.Why)...)
 		return true
 	case NoteCorrectsBySeeks:
 		current.logger.InfoContext(ctx, "watch together: a player corrects by seeks alone",
-			append(current.deviceAttributes(who, from), "returnCostMs", note.ReturnCostMs)...)
+			append(current.deviceAttributes(who, from), logEvent, eventCorrectsBySeeks,
+				"returnCostMs", note.ReturnCostMs)...)
 		return true
 	case NoteOwnMarkExpired:
 		current.logger.InfoContext(ctx, "watch together: a player's own move fired no event; its mark was given up",
-			append(current.deviceAttributes(who, from), "move", note.Why)...)
+			append(current.deviceAttributes(who, from), logEvent, eventOwnMarkExpired, "move", note.Why)...)
 		return true
 	case NoteLeaderCommand:
 		current.logger.InfoContext(ctx, "watch together: a leading player sent a command",
-			append(current.deviceAttributes(who, from), "command", note.Why, "recentEvents", note.RecentEvents)...)
+			append(current.deviceAttributes(who, from), logEvent, eventLeaderCommand,
+				"command", note.Why, "recentEvents", note.RecentEvents)...)
 		return true
 	case NoteDiagnosis:
 		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
-			append(current.deviceAttributes(who, from), "why", note.Why, positionMsAttribute, note.PositionMs,
+			append(current.deviceAttributes(who, from), logEvent, eventPlayerDiagnosis,
+				"why", note.Why, positionMsAttribute, note.PositionMs,
 				"readyState", note.ReadyState, "videoBuffered", note.VideoBuffered,
 				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
 				"mapping", note.Mapping, "mediaSourceState", note.MediaSourceState)...)
@@ -128,16 +159,18 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NotePlayedMuted:
 		current.logger.InfoContext(ctx,
 			"watch together: the browser would not play the film with sound; it plays muted",
-			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+			append(current.deviceAttributes(who, from), logEvent, eventPlayedMuted,
+				positionMsAttribute, note.PositionMs)...)
 		return true
 	case NoteUnmuted:
 		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
-			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs, "why", note.Why,
-				"soundState", note.SoundState)...)
+			append(current.deviceAttributes(who, from), logEvent, eventUnmutedTap,
+				positionMsAttribute, note.PositionMs, "why", note.Why, "soundState", note.SoundState)...)
 		return true
 	case NoteContinueAsked:
 		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
-			append(current.deviceAttributes(who, from), "navigation", note.Why, "page", note.Page)...)
+			append(current.deviceAttributes(who, from), logEvent, eventContinueAsked,
+				"navigation", note.Why, "page", note.Page)...)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
@@ -149,7 +182,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 // (the acceptance's congested run, 2026-10-06; D262 §1).
 func (current *session) logVoice(ctx context.Context, who *member, from *device, voice VoiceStats) {
 	attributes := append(current.deviceAttributes(who, from),
-		"partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
+		logEvent, eventVoiceMeasured, "partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
 		"jitterBufferMs", voice.JitterBufferMs, "jitterBufferTargetMs", voice.JitterBufferTargetMs,
 		"concealedShare", voice.ConcealedShare, "packetsLost", voice.PacketsLost, "packetsLate", voice.PacketsLate,
 		"fecPackets", voice.FECPackets, "path", voice.Path, "receivedLevel", voice.ReceivedLevel,

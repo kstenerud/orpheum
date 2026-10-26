@@ -8,6 +8,21 @@ import (
 	"time"
 )
 
+// lineWith is the first line of logged whose logEvent attribute is event, matched by key rather
+// than by the message's English sentence, so rewording the message does not break the match (test
+// architecture review, 2026-10-26, finding 12).
+func lineWith(t *testing.T, logged, event string) string {
+	t.Helper()
+	marker := "logEvent=" + event
+	for line := range strings.Lines(logged) {
+		if strings.Contains(line, marker) {
+			return line
+		}
+	}
+	t.Fatalf("no line with %s:\n%s", marker, logged)
+	return ""
+}
+
 // A device's player beginning or stopping playing or buffering is logged, with where it is, how far
 // behind the group, and how long its last state lasted; a report that changes neither is not.
 func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.T) {
@@ -21,7 +36,7 @@ func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Buffering: true, PositionMs: 5000})
 	var changes []string
 	for line := range strings.Lines(stage.logs.String()) {
-		if strings.Contains(line, `"watch together: a device's player changed"`) {
+		if strings.Contains(line, "logEvent=playerChanged") {
 			changes = append(changes, line)
 		}
 	}
@@ -56,7 +71,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 		`kind=chunkLoaded loadMs=5200 filmMs=10200 loadedKbps=2300 qualityKbps=1200 track=video`,
 		`kind=nudged positionMs=30000 driftMs=380 returnCostMs=220 rate=1.1`,
 	} {
-		isNoted := strings.Contains(logged, `msg="watch together: a device's player noted"`)
+		isNoted := strings.Contains(logged, "logEvent=playerNoted")
 		if !isNoted || !strings.Contains(logged, want) {
 			t.Errorf("the log does not note %q:\n%s", want, logged)
 		}
@@ -70,7 +85,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
 		}
 	}
-	if strings.Count(stage.logs.String(), "a device's player noted") != 3 {
+	if strings.Count(stage.logs.String(), "logEvent=playerNoted") != 3 {
 		t.Errorf("an unknown note was logged:\n%s", stage.logs)
 	}
 }
@@ -93,12 +108,12 @@ func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing
 			PartnerGain: new(0.0),
 		},
 	}})
-	want := `level=INFO msg="watch together: a voice call measured"`
-	fields := `partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 concealedShare=0.043 ` +
-		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp receivedLevel=0.126 sentLevel=0.032 ` +
-		`playback=elementInterrupted ringLevel=0.4 partnerGain=0`
-	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, fields) {
-		t.Errorf("the log does not say the call's statistics:\n%s", logged)
+	fields := `logEvent=voiceMeasured partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 ` +
+		`concealedShare=0.043 packetsLost=312 packetsLate=97 fecPackets=40 path=udp receivedLevel=0.126 ` +
+		`sentLevel=0.032 playback=elementInterrupted ringLevel=0.4 partnerGain=0`
+	if line := lineWith(t, stage.logs.String(), "voiceMeasured"); !strings.Contains(line, "level=INFO") ||
+		!strings.Contains(line, fields) {
+		t.Errorf("the log does not say the call's statistics:\n%s", stage.logs.String())
 	}
 	unknowns := []*PlayerNote{
 		{Kind: NoteVoiceStats},
@@ -123,10 +138,9 @@ func TestHub_LogsAVoiceCallsStepsAndRefusesAnUnknownOne(t *testing.T) {
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteVoiceCall, PartnerDeviceID: 4, Why: "signalDropped",
 	}})
-	want := `level=INFO msg="watch together: a voice call took a step"`
-	if logged := stage.logs.String(); !strings.Contains(logged, want) ||
-		!strings.Contains(logged, "partnerDeviceId=4 step=signalDropped") {
-		t.Errorf("the log does not say the call's step:\n%s", logged)
+	if line := lineWith(t, stage.logs.String(), "voiceCallStep"); !strings.Contains(line, "level=INFO") ||
+		!strings.Contains(line, "partnerDeviceId=4 step=signalDropped") {
+		t.Errorf("the log does not say the call's step:\n%s", stage.logs.String())
 	}
 	unknowns := []*PlayerNote{
 		{Kind: NoteVoiceCall, Why: "offered"}, {Kind: NoteVoiceCall, PartnerDeviceID: 4, Why: "catchUp"},
@@ -152,13 +166,21 @@ func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 	} {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
-	want := `level=INFO msg="watch together: a player's pong said where the group is"`
 	logged := stage.logs.String()
-	for _, said := range []string{
+	var pongs []string
+	for line := range strings.Lines(logged) {
+		if strings.Contains(line, "logEvent=pongResidual") {
+			pongs = append(pongs, line)
+		}
+	}
+	if len(pongs) != 2 {
+		t.Fatalf("logged %d pongs; want 2:\n%s", len(pongs), logged)
+	}
+	for index, said := range []string{
 		"roundTripMs=84 aheadOfExpectedMs=173 placing=placed", "roundTripMs=97 aheadOfExpectedMs=-12 placing=kept",
 	} {
-		if !strings.Contains(logged, want) || !strings.Contains(logged, said) {
-			t.Errorf("the log does not say %q:\n%s", said, logged)
+		if !strings.Contains(pongs[index], "level=INFO") || !strings.Contains(pongs[index], said) {
+			t.Errorf("pong %d does not say %q:\n%s", index, said, pongs[index])
 		}
 	}
 }
@@ -172,9 +194,9 @@ func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteOwnMarkExpired, Why: "pause",
 	}})
-	want := `level=INFO msg="watch together: a player's own move fired no event; its mark was given up"`
-	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, "move=pause") {
-		t.Errorf("the log does not say the mark given up:\n%s", logged)
+	if line := lineWith(t, stage.logs.String(), "ownMarkExpired"); !strings.Contains(line, "level=INFO") ||
+		!strings.Contains(line, "move=pause") {
+		t.Errorf("the log does not say the mark given up:\n%s", stage.logs.String())
 	}
 }
 
@@ -190,9 +212,10 @@ func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteSought, PositionMs: 60_000, ToMs: 60_600, Why: "skip",
 	}})
-	want := `level=INFO msg="watch together: a player corrects by seeks alone"`
-	if logged := stage.logs.String(); !strings.Contains(logged, want) ||
-		!strings.Contains(logged, "returnCostMs=220") || !strings.Contains(logged, "why=skip") {
+	logged := stage.logs.String()
+	line := lineWith(t, logged, "correctsBySeeks")
+	if !strings.Contains(line, "level=INFO") || !strings.Contains(line, "returnCostMs=220") ||
+		!strings.Contains(logged, "why=skip") {
 		t.Errorf("the log does not say the player corrects by seeks, and skipped:\n%s", logged)
 	}
 }
@@ -219,7 +242,7 @@ func TestHub_LogsAPlayersLoadingHeldAndTheRuleItWasReadyBy(t *testing.T) {
 	})
 	logged := stage.logs.String()
 	for _, want := range []string{
-		`msg="watch together: a ready player's loading changed while its group waits"`, "loading=held",
+		"logEvent=loadHeldChanged", "loading=held",
 		"loading=goesOn", "buffering=false", "readyOnMs=3000 loadsFaster=3.4",
 	} {
 		if !strings.Contains(logged, want) {
@@ -240,15 +263,13 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
 	logged := stage.logs.String()
-	for _, want := range []string{
-		`level=INFO msg="watch together: the browser would not play the film with sound; it plays muted"`,
-		"positionMs=4919",
-		`level=INFO msg="watch together: a tap turned a muted player's sound on"`,
-		"positionMs=31585",
-	} {
-		if !strings.Contains(logged, want) {
-			t.Errorf("the log does not say %s:\n%s", want, logged)
-		}
+	muted := lineWith(t, logged, "playedMuted")
+	if !strings.Contains(muted, "level=INFO") || !strings.Contains(muted, "positionMs=4919") {
+		t.Errorf("the log does not say the player played muted at 4919ms:\n%s", logged)
+	}
+	unmuted := lineWith(t, logged, "unmutedTap")
+	if !strings.Contains(unmuted, "level=INFO") || !strings.Contains(unmuted, "positionMs=31585") {
+		t.Errorf("the log does not say the tap unmuted the player at 31585ms:\n%s", logged)
 	}
 }
 
@@ -268,7 +289,7 @@ func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
 	}})
 	logged := stage.logs.String()
 	for _, want := range []string{
-		`level=INFO msg="watch together: a guest's page asked for a tap to continue"`,
+		"logEvent=continueAsked",
 		"navigation=reload", `page="` + page + `"`,
 	} {
 		if !strings.Contains(logged, want) {
@@ -315,9 +336,9 @@ func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceOff, Why: why}}
 	}
 	stage.hub.Handle(t.Context(), device, off("left"))
-	if logged := stage.logs.String(); !strings.Contains(logged, `level=INFO msg="watch together: voice turned off"`) ||
-		!strings.Contains(logged, "why=left") {
-		t.Errorf("the log does not say voice turned off, and why:\n%s", logged)
+	if line := lineWith(t, stage.logs.String(), "voiceOff"); !strings.Contains(line, "level=INFO") ||
+		!strings.Contains(line, "why=left") {
+		t.Errorf("the log does not say voice turned off, and why:\n%s", stage.logs.String())
 	}
 	stage.hub.Handle(t.Context(), device, off("bored"))
 	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
@@ -337,8 +358,7 @@ func TestHub_LogsAPersonsMicrophoneChanging(t *testing.T) {
 	for _, why := range []string{"talking", "muted", "unmuted", "stopped"} {
 		stage.hub.Handle(t.Context(), device, talk(why))
 		logged := stage.logs.String()
-		if !strings.Contains(logged, `msg="watch together: a person's microphone changed"`) ||
-			!strings.Contains(logged, "microphone="+why) {
+		if !strings.Contains(logged, "logEvent=microphoneChanged") || !strings.Contains(logged, "microphone="+why) {
 			t.Errorf("the log does not say the microphone was %s:\n%s", why, logged)
 		}
 	}
@@ -361,7 +381,7 @@ func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
 	}})
 	logged := stage.logs.String()
 	for _, want := range []string{
-		`level=INFO msg="watch together: a device's player said what it holds"`,
+		"logEvent=playerDiagnosis",
 		`why=movedItself positionMs=10319 readyState=1 videoBuffered=10.14-30.20 audioBuffered=0.00-30.10`,
 	} {
 		if !strings.Contains(logged, want) {
@@ -414,7 +434,7 @@ func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
 		Kind: NoteLeaderCommand, Why: "pause", RecentEvents: "play@100 pause(own)@120 play@125 pause@510",
 	}})
 	logged := stage.logs.String()
-	if !strings.Contains(logged, `msg="watch together: a leading player sent a command"`) ||
+	if !strings.Contains(logged, "logEvent=leaderCommand") ||
 		!strings.Contains(logged, `command=pause recentEvents="play@100 pause(own)@120 play@125 pause@510"`) {
 		t.Errorf("the log does not say the command and its events:\n%s", logged)
 	}

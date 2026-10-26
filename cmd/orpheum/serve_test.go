@@ -47,7 +47,9 @@ func TestMain(m *testing.M) {
 }
 
 // signallingHandler writes JSON records to a buffer and closes a channel when a record with a
-// given message is logged, so a test waits for "ready" instead of sleeping.
+// given message, or a record carrying logEvent with a given value, is logged, so a test waits for
+// "ready" instead of sleeping: a wait by logEvent survives a reword of the message it names (test
+// architecture review, 2026-10-26, finding 12).
 type signallingHandler struct {
 	slog.Handler
 	mutex   *sync.Mutex
@@ -58,11 +60,26 @@ type signallingHandler struct {
 func (handler signallingHandler) Handle(ctx context.Context, record slog.Record) error {
 	handler.mutex.Lock()
 	defer handler.mutex.Unlock()
-	if signal, isAwaited := handler.signals[record.Message]; isAwaited {
-		close(signal)
-		delete(handler.signals, record.Message)
+	for _, key := range awaitKeysOf(record) {
+		if signal, isAwaited := handler.signals[key]; isAwaited {
+			close(signal)
+			delete(handler.signals, key)
+		}
 	}
 	return handler.Handler.Handle(ctx, record)
+}
+
+// awaitKeysOf are the names a record can be awaited by: its message, and its logEvent attribute's
+// value if it carries one.
+func awaitKeysOf(record slog.Record) []string {
+	keys := []string{record.Message}
+	record.Attrs(func(attr slog.Attr) bool {
+		if attr.Key == logEvent {
+			keys = append(keys, attr.Value.String())
+		}
+		return true
+	})
+	return keys
 }
 
 func (handler signallingHandler) WithAttrs(attributes []slog.Attr) slog.Handler {
@@ -70,9 +87,9 @@ func (handler signallingHandler) WithAttrs(attributes []slog.Attr) slog.Handler 
 	return handler
 }
 
-// couldNotStart is what a server that could not start logs; a test waiting for anything else fails
-// at it rather than at its wait's limit.
-const couldNotStart = "the server could not start; it stays up to report why at /api/v1/health"
+// couldNotStart is logEvent's value for a server that could not start; a test waiting for anything
+// else fails at it rather than at its wait's limit.
+const couldNotStart = eventCouldNotStart
 
 // capturedLog is a debug-level JSON log in memory that can be waited on.
 type capturedLog struct {
@@ -555,7 +572,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	server := startServing(t, config, captured, "ready", nil)
 	logged := captured.String()
 	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
-	ready := strings.Index(logged, `"msg":"ready"`)
+	ready := strings.Index(logged, `"logEvent":"ready"`)
 	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
 		strings.Contains(logged[sweep:ready], "secret_last_chars_shown") {
 		t.Errorf("the sweep was not logged before ready, or touched the setting a person set:\n%s", logged)
