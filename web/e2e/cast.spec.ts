@@ -19,7 +19,10 @@ async function isPaused(page: Page): Promise<boolean> {
   return await page.locator("video").evaluate((video: HTMLVideoElement) => video.paused);
 }
 
-/** Signs two devices in, plays the film on the first and casts it to the second, which plays it. */
+/**
+ * Signs two devices in, plays the film on the first and casts it to the second, which is asked, is
+ * answered Play and plays it.
+ */
 async function castBetweenTwo(browser: Browser): Promise<{ sender: Page; receiver: Page }> {
   const sender = await (await browser.newContext()).newPage();
   const receiver = await (await browser.newContext()).newPage();
@@ -30,6 +33,9 @@ async function castBetweenTwo(browser: Browser): Promise<{ sender: Page; receive
   await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
   await sender.getByRole("button", { name: "Cast to another device" }).click();
   await sender.locator(".cast-to__devices button").first().click();
+  // The receiver asks first (D358): the first only asks, playing on, until it is answered.
+  await expect(sender.getByText(/^Asking /u)).toBeVisible({ timeout: 10_000 });
+  await receiver.locator(".cast-asked").getByRole("button", { name: "Play" }).click();
 
   await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
   await expect(sender.locator("video")).toHaveCount(0);
