@@ -1,9 +1,12 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
-1. **Now:** the process review's last two items: F12 (handoffs generated from the decisions' status),
-   then F1 (the gate container). Narrow tests while working; ONE make check and ONE commit per batch.
-2. **Then:** the three open playback bugs recorded 2026-10-26 (audio-track switch restarts at 0; a seek loops
-   on an init.mp4 no run covers; the ABR ceiling never rises), and the backup "file already exists" bug.
+1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
+2. **Now (owner 2026-10-27):** find why the owner's home playback went over WebRTC through the public IP
+   (11.22.33.144) instead of the LAN (research agent running: local-path-2026-10-27.md). Owner questions open:
+   D352 Q2 (where the steadiness level is remembered: core beside the speed, or browser keyed by a network
+   name the core hands out); D353's per-stream positions (now, or code debt). Done 2026-10-27: audio switch
+   at 0, seek wait and backup snapshot, the first measurement (13009698),
+   D353 calculated seek threshold, D352 adaptive bitrate controller.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
 
