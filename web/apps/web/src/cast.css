@@ -45,15 +45,6 @@
   gap: var(--space-2);
 }
 
-.cast-remote__timeline {
-  width: 100%;
-  accent-color: var(--color-accent);
-}
-
-.cast-remote__time {
-  font-variant-numeric: tabular-nums;
-}
-
 /* The list of devices to cast to (cast-to.tsx). */
 .cast-to__devices {
   display: grid;

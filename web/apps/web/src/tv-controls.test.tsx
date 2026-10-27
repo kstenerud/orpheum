@@ -9,7 +9,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { commandEventName } from "./input-commands.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { clockText, overlayAnswer, TvControls } from "./tv-controls.tsx";
+import { clockText } from "./timeline.tsx";
+import { overlayAnswer, TvControls } from "./tv-controls.tsx";
 
 describe("a television's player overlay, as Jellyfin's (the owner, Fire TV, 2026-10-25)", () => {
   it("seeks and shows the scrub bar alone on Left and Right while hidden, taking the press", () => {

@@ -228,7 +228,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   it("seeks by Left and Right on the scrub bar, focus staying there", async () => {
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
-    const scrub = document.querySelector<HTMLInputElement>(".tv-controls__scrub");
+    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
     scrub?.focus();
     expect(document.activeElement).toBe(scrub);
     await press("{ArrowRight}");
@@ -242,7 +242,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   it("plays and pauses by Space on any of its controls", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await onAFireTv();
-    const scrub = document.querySelector<HTMLInputElement>(".tv-controls__scrub");
+    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
     scrub?.focus();
     const playsBefore = play.mock.calls.length;
     await press(" ");
