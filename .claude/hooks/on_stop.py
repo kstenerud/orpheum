@@ -31,7 +31,7 @@ def main() -> None:
         code.unlink(missing_ok=True)
         docs.unlink(missing_ok=True)
         return
-    if hooklib.check_pr_running() is not None:
+    if hooklib.check_pr_running() is not None or gate_held():
         # Run beside check-pr, make check slowed it and failed a test on the load (2026-10-20). The
         # mark stays, so the first turn to end after check-pr does runs it.
         return
@@ -48,6 +48,14 @@ def main() -> None:
         return
     # make check prints only failures and the log's path (scripts/quiet_gate.py); cap it anyway.
     block(target, (done.stdout + done.stderr)[-6000:])
+
+
+def gate_held() -> bool:
+    """Whether some gate holds the repository's gate lock (scripts/gate_lock.py). The Stop hook never
+    waits for one: it has ten minutes, and check-pr takes longer; the mark stays for the next turn."""
+    done = subprocess.run([sys.executable, str(hooklib.ROOT / "scripts" / "gate_lock.py"), "--held"],
+                          cwd=hooklib.ROOT, capture_output=True, check=False)
+    return done.returncode == 0
 
 
 def already_passed() -> bool:

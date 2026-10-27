@@ -44,3 +44,9 @@
   [M3's closing audit](../design/research/audit-2026-09-29.md) §9 D: *"agreed"*.)
 - A decision that has not been validated against real hardware or a real library says so, in
   its own **Status** line. Most of the early ones have not been.
+- **A decision numbered after D351 is built only when each numbered point is proven.** Before its
+  **Status** says built, it carries a **Proven by:** block, one line per numbered point, each
+  naming a Go test, a TypeScript test file or a `VQ<n>` item for what only a device shows:
+  `- 2: TestBrowse_ALibraryLeftOutOfFilmsAndSeries, web/apps/web/src/left-out-libraries.test.tsx`.
+  `make check-claims` refuses a built decision with a point that cites nothing, or cites what does
+  not exist (process review F11b, 2026-10-27: D349 was called built with two of its points unbuilt).

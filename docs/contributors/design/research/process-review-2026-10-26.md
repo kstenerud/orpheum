@@ -58,3 +58,13 @@ assembly shared with the tests (an earlier commit..48b805c6); sleeps → signals
 5. **F17** (the lock), **F8** (keep clean-failure output), **F9** (statistics equality), **F18**.
 6. **F1** (the gate container), the largest.
 7. **F11b**, **F12**, **F13**: the documentation-side mechanisms.
+
+## 4. State, 2026-10-27
+
+The owner approved sets 1–3 (F11a dropped: check-pr's revert-red already catches what a per-commit
+run would, and a run per commit is the cost principle §25 forbids). Done: F15, F16, F5, F6;
+F17 the gate lock, F8 a broken probe's output kept, F9 the statistics compared on every reference
+run, F18 moved helpers followed, F11b decisions' **Proven by:** (conventions.md), F2 the owed
+check-pr shown at a session's start, F13 the standing orders at every prompt, F14 the SubagentStop
+hook, and principle §25 (the commit after an earlier commit). Open: F12 (generated handoffs), F1 (the gate
+container).

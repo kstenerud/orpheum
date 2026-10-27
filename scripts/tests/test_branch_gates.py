@@ -469,6 +469,7 @@ class RevertRedClaims(unittest.TestCase):
             self.TEST: (repo.root / self.TEST).read_text() + "        assert False, 'broken here'\n"})
         outcome = self.probe(repo, base)
         self.assertEqual(outcome.verdict, "PROBE_BROKEN", outcome.detail)
+        self.assertIn("broken here", outcome.detail, "the clean run's failure is kept (F8)")
         self.assertTrue(outcome.is_failure)
         self.assertIn("fix the environment", rr.report([outcome]))
         self.assertEqual(repo.git("status", "--porcelain"), "", "the reverted file is put back")

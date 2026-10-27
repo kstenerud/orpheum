@@ -20,6 +20,8 @@ work they bear on, and one that bears on two kinds of work is listed under both.
 - [§23](23-proportionate-test-runs.md) — A test run is proportionate to the change
 - [§24](24-cheap-checks-first.md) — Cheap checks first, never behind an expensive one; piecework
   fails fast, the final run finishes
+- [§25](25-velocity-is-a-resource.md) — Velocity is a resource, and the dev cycle's time costs it
+  quadratically
 
 ## Data and the user's files
 
