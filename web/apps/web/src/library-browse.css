@@ -5,6 +5,10 @@
 .library-browse__chooser {
   position: relative;
   display: inline-flex;
+  /* The field's name centred on its button, a gap between: unset, the name sat at the button's top
+     edge and against its side (the owner's Firefox on a Mac, 2026-10-27). */
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .library-browse__chooser-button {
@@ -21,7 +25,6 @@
 
 .library-browse__chooser-field {
   color: var(--color-muted);
-  font-size: var(--font-size-small);
 }
 
 .library-browse__chooser-panel ul {
