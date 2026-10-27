@@ -126,7 +126,9 @@
 //     in TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus; step 0060 (D363), which carries a
 //     production database's files to places and coverage and refuses a mixed library loudly, in
 //     TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage and
-//     TestMigrate_Step0060RefusesAMixedLibrary.
+//     TestMigrate_Step0060RefusesAMixedLibrary; step 0061 (D366), which dates each title and series
+//     by its year alone until a pass reads its day, in
+//     TestMigrate_Step0061DatesEachTitleAndSeriesByItsYear.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

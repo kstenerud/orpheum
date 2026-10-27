@@ -34,6 +34,7 @@ type FolderInput struct {
 	ID     int64  `path:"id"`
 	Folder string `doc:"Its path below the library's folders, as a listed folder's path says it; absent for their top" maxLength:"4096" query:"folder"` //nolint:lll // one struct tag
 	Sort   string `doc:"The order its videos come in" enum:"recorded,name,file_name,added" query:"sort" required:"true"`
+	Order  string `doc:"The way the sort runs, as GET /titles takes it" enum:"ascending,descending" query:"order"`
 }
 
 // SubfolderBody is a folder in a folder.
@@ -64,25 +65,56 @@ func (server *Server) registerLibraryBrowsing() {
 	}, server.getLibraryFolder)
 }
 
-// listReach is the libraries a list holds: one library, which the person must reach, or every one
-// they reach, less, for films and series, those they left out of them (D349 §8).
+// listOf is which list a request asks for: its kind, one library's or 0, and whether it is a row of
+// Home.
+type listOf struct {
+	kind      string
+	libraryID int64
+	isHome    bool
+}
+
+// listReach is the libraries a list holds: one library, which the person must reach; for a row of
+// Home, every one they reach less those they left out of Home (D366 §5); else every one they
+// reach, less, for films and series, those they left out of them (D349 §8).
 func (server *Server) listReach(
-	ctx context.Context, dependencies *Dependencies, principal auth.Principal, kind string, libraryID int64,
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, list listOf,
 ) (auth.Reach, error) {
-	if libraryID != 0 {
-		narrowed, isReached := principal.Reach.Narrowed(libraryID)
+	switch {
+	case list.libraryID != 0:
+		narrowed, isReached := principal.Reach.Narrowed(list.libraryID)
 		if !isReached {
 			return auth.Reach{}, newError(http.StatusNotFound, CodeNotFound, "no such library")
 		}
 		return narrowed, nil
-	}
-	if kind != library.ListFilms && kind != library.ListSeries {
+	case list.isHome:
+		return server.homeReach(ctx, dependencies, principal)
+	case list.kind != library.ListFilms && list.kind != library.ListSeries:
 		return principal.Reach, nil
 	}
 	leftOut, err := dependencies.Preferences.LeftOutLibraries(ctx, principal.UserID)
 	if err != nil {
 		return auth.Reach{}, server.logInternalError(ctx, "read the libraries a person left out", err)
 	}
+	return server.reachWithout(ctx, dependencies, principal, leftOut)
+}
+
+// homeReach is the libraries Home's rows draw on: every one the person reaches less those they left
+// out of Home (D366 §5). An item two libraries reach is on it while either is left in, as each list
+// holds an item any library of its reach reaches (D363 §6).
+func (server *Server) homeReach(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
+) (auth.Reach, error) {
+	leftOut, err := dependencies.Preferences.LeftOutOfHome(ctx, principal.UserID)
+	if err != nil {
+		return auth.Reach{}, server.logInternalError(ctx, "read the libraries a person left out of Home", err)
+	}
+	return server.reachWithout(ctx, dependencies, principal, leftOut)
+}
+
+// reachWithout is the libraries the person reaches less those leftOut names.
+func (server *Server) reachWithout(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, leftOut []int64,
+) (auth.Reach, error) {
 	if len(leftOut) == 0 {
 		return principal.Reach, nil
 	}
@@ -98,7 +130,7 @@ func (server *Server) getTitleLetters(ctx context.Context, input *LettersInput) 
 	if err != nil {
 		return nil, err
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, input.Kind, input.Library)
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kind: input.Kind, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +150,8 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 		return nil, err
 	}
 	folder, err := dependencies.Browser.Folder(ctx, library.FolderQuery{
-		LibraryID: input.ID, Path: input.Folder, Sort: input.Sort, Reach: principal.Reach, UserID: principal.UserID,
+		LibraryID: input.ID, Path: input.Folder, Sort: input.Sort, Order: input.Order, Reach: principal.Reach,
+		UserID: principal.UserID,
 	})
 	if errors.Is(err, library.ErrNoFolders) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())

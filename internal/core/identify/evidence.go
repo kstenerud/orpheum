@@ -83,7 +83,7 @@ func (filer *libraryFiler) fromResponse(
 
 // fromMetadata takes a provider's answer as the title's source.
 func (spec *titleSpec) fromMetadata(provider string, metadata Metadata) {
-	spec.name, spec.year = metadata.Name, metadata.Year
+	spec.name, spec.year, spec.releaseDate = metadata.Name, metadata.Year, metadata.ReleaseDate
 	spec.overview, spec.tagline = metadata.Overview, metadata.Tagline
 	if metadata.RuntimeMs > 0 {
 		spec.runtimeMs = metadata.RuntimeMs

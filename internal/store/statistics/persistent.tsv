@@ -3,6 +3,7 @@ artwork	artwork_item	17400 2 1
 artwork	artwork_source	17400 1
 collection		200
 collection	collection_series_found	200 200 200
+collection	collection_series_released	200 200
 collection_member	collection_member_title	10000 1
 collection_member	sqlite_autoindex_collection_member_1	10000 50 1
 collection_member	sqlite_autoindex_collection_member_2	10000 50 50
@@ -46,7 +47,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		14
+schema_step		15
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_listing	3700 3700 1850 2 1
 stream	sqlite_autoindex_stream_1	55400 4 1
@@ -54,6 +55,7 @@ stream	stream_media	55400 4 2
 title		13500
 title	title_ambiguous	0 0
 title	title_film_found	3500 3500 3500
+title	title_film_released	3500 47
 title	title_other_found	0 0 0
 title	title_waiting	0 0
 user		2

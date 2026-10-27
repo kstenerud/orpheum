@@ -256,12 +256,21 @@
 //     series, the libraries they left out; a library they do not reach is no such library, not an
 //     empty one (D349 §1, §8). Every kind together is one list in one order, each kind read from
 //     the same place and merged. Other videos come newest recorded first, by name, by file name or
-//     newest added first; films and series in none but their two orders (D349 §4).
+//     newest added first; films and series by name, newest added or newest released, a film by its
+//     release date and a series by its first air date (D349 §4, D366 §1).
 //     TestBrowse_OneLibrarysListAndALibraryNotReached, TestBrowse_ALibraryLeftOutOfFilmsAndSeries,
 //     TestBrowse_OtherVideosInTheirFourOrders (internal/core/api).
 //
+//   - Every sort runs either way, its own way by default, A to Z by a name and newest first by a
+//     date, read by the same index the other way (browse_orders.sql); what has no release date
+//     comes after every dated one whichever way, a page at a time across it (D366 §2, §3).
+//     TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast, TestBrowse_OtherVideosRunEitherWay
+//     (internal/core/api). Z to A, a name starts the list at the last title before it (D366 §4).
+//     TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt (internal/core/api).
+//
 //   - The alphabet rail's letters are those a list by name or file name has a title under in its
-//     order, found by a read from each letter that has one, never the list (D349 §9).
+//     order, whichever way it runs, found by a read from each letter that has one, never the list
+//     (D349 §9).
 //     TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder (internal/core/api).
 //
 //   - An other library's folders are its files' folders below its roots, every root's together,
@@ -372,6 +381,7 @@
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
+//     lists.go, lists_other.go, lists_released.go: each list's reads, either way (D366);
 //     home.go: Continue Watching and the resume thresholds;
 //     next_up.go: a collection's members as a person stands in them, their Next Up, and what plays
 //     after a file (UpNext);

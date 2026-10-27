@@ -68,7 +68,8 @@ async function mountBrowse(
     library: number | "all" | undefined;
     view: "folders" | undefined;
     folder: string | undefined;
-    sort: "name" | "added" | "recorded" | "file_name" | undefined;
+    sort: "name" | "added" | "recorded" | "file_name" | "released" | undefined;
+    order: "ascending" | "descending" | undefined;
     query: string;
   }>,
   answers: Record<string, Answer | readonly Answer[]>,
@@ -83,6 +84,7 @@ async function mountBrowse(
           view={state.view}
           folder={state.folder}
           sort={state.sort}
+          order={state.order}
           query={state.query ?? ""}
         />,
         services,
@@ -223,6 +225,82 @@ describe("the Libraries page (D349)", () => {
     );
     expect(query.get("kind")).toBe("any");
     expect(query.has("library")).toBe(false);
+  });
+
+  it("offers a films library's every sort either way, by release date too, the way in the address (D366)", async () => {
+    mounted = await mountBrowse(
+      { library: 1 },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+      },
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    await click(buttonWithText(mounted.container, "Name, A–Z"));
+    const links = [...mounted.container.querySelectorAll<HTMLAnchorElement>("a")].filter((link) =>
+      link.href.includes("sort="),
+    );
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Name, A–Z",
+      "Name, Z–A",
+      "Newest released",
+      "Oldest released",
+      "Newest added",
+      "Oldest added",
+    ]);
+    const hrefs = links.map(
+      (link) => new URLSearchParams(link.getAttribute("href")?.split("?")[1]),
+    );
+    expect(hrefs.map((query) => `${query.get("sort") ?? ""}/${query.get("order") ?? ""}`)).toEqual([
+      "name/",
+      "name/descending",
+      "released/",
+      "released/ascending",
+      "added/",
+      "added/ascending",
+    ]);
+  });
+
+  it("lists Z to A as its address says, with the rail's letters Z to A (D366 §2, §4)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountBrowse(
+      { library: 1, sort: "name", order: "descending" },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": [200, { letters: ["A", "H", "Z"] }],
+      },
+      heard,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
+    const query = new URLSearchParams(
+      heard.find((each) => each.methodAndPath === "GET /titles")?.query,
+    );
+    expect(query.get("sort")).toBe("name");
+    expect(query.get("order")).toBe("descending");
+    const shown = [...mounted.container.querySelectorAll(".alphabet-rail__letter")].map(
+      (letter) => letter.textContent,
+    );
+    expect(shown).toEqual(["Z", "H", "A"]);
+    expect(buttonWithText(mounted.container, "Name, Z–A")).toBeDefined();
+  });
+
+  it("asks an other library's folder either way (D366 §2)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountBrowse(
+      { library: 5, view: "folders", sort: "recorded", order: "ascending" },
+      {
+        "GET /libraries": [200, { libraries: [library(5, "Home movies", "other")] }],
+        "GET /libraries/5/folders": [200, { folder: "", subfolders: [], titles: [] }],
+      },
+      heard,
+    );
+    await settleUntil(() =>
+      heard.some((each) => each.methodAndPath === "GET /libraries/5/folders"),
+    );
+    const folder = heard.find((each) => each.methodAndPath === "GET /libraries/5/folders");
+    expect(new URLSearchParams(folder?.query).get("order")).toBe("ascending");
   });
 
   it("shows the alphabet rail only sorted by name or file name, never by newest or recorded", async () => {

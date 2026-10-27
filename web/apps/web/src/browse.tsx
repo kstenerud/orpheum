@@ -22,6 +22,13 @@ import { Still } from "./poster.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
+import {
+  defaultOrderOf,
+  orderQuery,
+  sortChoiceLabel,
+  sortChoicesOf,
+  type SortChoice,
+} from "./sort-choices.ts";
 import { Loaded } from "./loaded.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
@@ -34,8 +41,8 @@ export type Entry = components["schemas"]["EntryBody"];
 /** Which list: films or series. */
 export type BrowseKind = "movie" | "series";
 
-/** The order a list comes in. */
-export type BrowseSort = "name" | "added";
+/** The sorts Films and Series offer, the first their default (D366 §1). */
+const browseSorts = ["name", "released", "added"] as const;
 
 /**
  * How many posters a page loads, a best guess: a few screens of the grid, few enough to answer at
@@ -161,14 +168,16 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
 }
 
 /**
- * Films or series, by name or newest first, with no pagination to click through: the next page
- * loads as the end comes into view, or on the button that is always there for it.
+ * Films or series, by name, release date or date added, either way (D366), with no pagination to
+ * click through: the next page loads as the end comes into view, or on the button that is always
+ * there for it.
  */
 export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
-  const [sort, setSort] = useState<BrowseSort>("name");
+  const [choice, setChoice] = useState<SortChoice>({ sort: "name", order: "ascending" });
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
+  const isNamed = choice.sort === "name";
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -176,23 +185,29 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
           <h1 id="browse-heading">
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
-          <SortChoice
-            sort={sort}
-            onSort={(chosen) => {
+          <SortChooser
+            choice={choice}
+            onChoose={(chosen) => {
               clearJump();
-              setSort(chosen);
+              setChoice(chosen);
             }}
           />
         </div>
         <BrowsePages
-          key={`${props.kind}/${sort}`}
+          key={`${props.kind}/${choice.sort}/${choice.order}`}
           kind={props.kind}
-          sort={sort}
-          jump={sort === "name" ? jump : undefined}
+          choice={choice}
+          jump={isNamed ? jump : undefined}
           listRef={listRef}
         />
       </div>
-      {sort === "name" ? <BrowseAlphabetRail kind={props.kind} onLetter={onLetter} /> : null}
+      {isNamed ? (
+        <BrowseAlphabetRail
+          kind={props.kind}
+          isZToA={choice.order === "descending"}
+          onLetter={onLetter}
+        />
+      ) : null}
     </section>
   );
 }
@@ -205,29 +220,44 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
  */
 function BrowseAlphabetRail(props: {
   readonly kind: BrowseKind;
+  readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
   const letters = useAlphabetRailLetters(props.kind, undefined, "name");
-  return <AlphabetRail onLetter={props.onLetter} letters={letters} />;
+  return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
 
-/** The order to list in. */
-export function SortChoice(props: {
-  readonly sort: BrowseSort;
-  readonly onSort: (sort: BrowseSort) => void;
+/** A choice's value in the select: its sort, and the way it runs when not the sort's own. */
+function choiceValue(choice: SortChoice): string {
+  return choice.order === defaultOrderOf(choice.sort)
+    ? choice.sort
+    : `${choice.sort}:${choice.order}`;
+}
+
+/** The order to list in: each sort Films and Series offer, either way (D366 §2). */
+export function SortChooser(props: {
+  readonly choice: SortChoice;
+  readonly onChoose: (choice: SortChoice) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const choices = sortChoicesOf(browseSorts);
   return (
     <label>
       {t("browse.sort")}
       <select
-        value={props.sort}
+        value={choiceValue(props.choice)}
         onChange={(event) => {
-          props.onSort(event.target.value === "added" ? "added" : "name");
+          const chosen = choices.find((choice) => choiceValue(choice) === event.target.value);
+          if (chosen !== undefined) {
+            props.onChoose(chosen);
+          }
         }}
       >
-        <option value="name">{t("browse.byName")}</option>
-        <option value="added">{t("browse.byAdded")}</option>
+        {choices.map((choice) => (
+          <option key={choiceValue(choice)} value={choiceValue(choice)}>
+            {sortChoiceLabel(t, choice)}
+          </option>
+        ))}
       </select>
     </label>
   );
@@ -239,25 +269,33 @@ const entryId = (entry: Entry): number => entry.id;
 /** One list in one order, read a page at a time, moved to a letter as the alphabet rail asks. */
 function BrowsePages(props: {
   readonly kind: BrowseKind;
-  readonly sort: BrowseSort;
+  readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { api } = useServices();
-  const { kind, sort } = props;
+  const { kind } = props;
+  const { sort, order } = props.choice;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = { kind, sort, limit: entriesPerPage, ...(cursor === "" ? {} : { cursor }) };
+      const query = {
+        kind,
+        sort,
+        ...orderQuery({ sort, order }),
+        limit: entriesPerPage,
+        ...(cursor === "" ? {} : { cursor }),
+      };
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, sort],
+    [api, kind, sort, order],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
   useLetterJump({
     kind,
     sort: "name",
+    isZToA: order === "descending",
     library: undefined,
     jump: props.jump,
     pages,

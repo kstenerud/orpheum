@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { railLetters } from "./alphabet-rail.tsx";
+import { fromForLetter, railLetters } from "./alphabet-rail.tsx";
 import { Browse, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
@@ -167,5 +167,62 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
     expect(heard.filter((each) => each.methodAndPath === "GET /titles/letters")).toHaveLength(
       lettersAsksByName,
     );
+  });
+});
+
+describe("the rail follows a name sort's direction (D366 §4)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("starts a jump Z to A at the letter after it, Z at the start and # at A", () => {
+    expect(fromForLetter("M", false)).toEqual({ from: "M" });
+    expect(fromForLetter("#", false)).toEqual({});
+    expect(fromForLetter("M", true)).toEqual({ from: "N" });
+    expect(fromForLetter("Z", true)).toEqual({});
+    expect(fromForLetter("#", true)).toEqual({ from: "A" });
+  });
+
+  it("lists Films Z to A when chosen, its letters Z to A, and a jump asks Z to A from the next letter", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /titles": [firstPage, lastPage, page([film(5, "Keepsake Hollow")], "")],
+        "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+      },
+      heard,
+    );
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<Browse kind="movie" />, services)}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
+    const options = [...mounted.container.querySelectorAll("option")].map(
+      (each) => each.textContent,
+    );
+    expect(options).toEqual([
+      "Name, A–Z",
+      "Name, Z–A",
+      "Newest released",
+      "Oldest released",
+      "Newest added",
+      "Oldest added",
+    ]);
+    await choose(mounted.container.querySelector("select"), "name:descending");
+    await settleUntil(() => titlesHeard(heard).length >= 2);
+    expect(new URLSearchParams(titlesHeard(heard)[1]?.query).get("order")).toBe("descending");
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const shown = [...mounted.container.querySelectorAll(".alphabet-rail__letter")].map(
+      (letter) => letter.textContent,
+    );
+    expect(shown).toEqual(["M", "B", "#"]);
+    await click(buttonWithText(mounted.container, "M"));
+    await settleUntil(() => titlesHeard(heard).length >= 3);
+    const jump = new URLSearchParams(titlesHeard(heard)[2]?.query);
+    expect(jump.get("from")).toBe("N");
+    expect(jump.get("order")).toBe("descending");
   });
 });

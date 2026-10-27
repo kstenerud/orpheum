@@ -21,6 +21,7 @@ type titleSpec struct {
 	key            string // set for episodes and extras, whose name does not identify them
 	name           string
 	year           int
+	releaseDate    string // its source's release date, ISO 8601, which a year alone stands in for (D366 §1)
 	runtimeMs      int64
 	overview       string
 	tagline        string
@@ -46,7 +47,7 @@ func (spec *titleSpec) fromNFO(nfo NFO) {
 	if nfo.RuntimeMs > 0 {
 		spec.runtimeMs = nfo.RuntimeMs
 	}
-	spec.overview, spec.tagline = nfo.Plot, nfo.Tagline
+	spec.overview, spec.tagline, spec.releaseDate = nfo.Plot, nfo.Tagline, nfo.ReleaseDate
 	merged := maps.Clone(spec.ids)
 	maps.Copy(merged, nfo.ProviderIDs)
 	spec.ids, spec.lockedFields = merged, nfo.LockedFields
@@ -241,7 +242,8 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 		}
 	}
 	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateTitleResolvedParams{
-		Kind: spec.kind, Year: ptr.NilIfZero(year), RuntimeMs: ptr.NilIfZero(runtimeMs),
+		Kind: spec.kind, Year: ptr.NilIfZero(year), ReleasedOn: releasedOn(year, spec.releaseDate),
+		RuntimeMs:      ptr.NilIfZero(runtimeMs),
 		FollowedSource: source, FollowedSourceID: sourceID,
 		IdentificationState: spec.identification, ID: titleID,
 	})

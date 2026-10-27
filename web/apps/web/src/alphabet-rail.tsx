@@ -28,17 +28,19 @@ export const railLetters = [
  * letter moves the list to its first title, # to the first of all, those beginning with a digit or
  * a mark, a focus container of its own. Given letters (D349 §9.1), only those shown: the ones some
  * title in the list begins with, as the server names them (GET /titles/letters); every letter,
- * undefined, for a list that has not asked.
+ * undefined, for a list that has not asked. A list Z to A lists its letters Z to A, # last (D366 §4).
  */
 export function AlphabetRail(props: {
   readonly onLetter: (letter: string) => void;
   readonly letters?: readonly string[] | undefined;
+  readonly isZToA?: boolean | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const shown =
+  const given =
     props.letters === undefined
       ? railLetters
       : railLetters.filter((letter) => props.letters?.includes(letter) === true);
+  const shown = props.isZToA === true ? [...given].reverse() : given;
   return (
     <ol className="alphabet-rail" aria-label={t("browse.alphabet")} data-focus-container="">
       {shown.map((letter) => (
@@ -56,6 +58,19 @@ export function AlphabetRail(props: {
       ))}
     </ol>
   );
+}
+
+/**
+ * The name a jump to a letter asks the list to start from (`/titles?from=`), none for the list's
+ * start. A to Z, the letter itself, # the start; Z to A, where the server starts at the last title
+ * before the name, the letter after it, Z the start and # A (D366 §4).
+ */
+export function fromForLetter(letter: string, isZToA: boolean): { readonly from?: string } {
+  if (!isZToA) {
+    return letter === "#" ? {} : { from: letter };
+  }
+  const next = railLetters[railLetters.indexOf(letter) + 1];
+  return next === undefined ? {} : { from: next };
 }
 
 /**
@@ -97,7 +112,8 @@ export function showAtTop(poster: HTMLElement): void {
 
 /**
  * Moves a list by name or file name to the first title at or after the letter jump names, as the
- * server sorts them (`from`), # to the first of all: it loads the list's pages up to it, as
+ * server sorts them (`from`), # to the first of all; Z to A, to the first of the letter's titles in
+ * that order (fromForLetter): it loads the list's pages up to it, as
  * scrolling would, and focuses its poster at the top of the view, so a remote goes on from there;
  * where no title comes at or after the letter, the last. The newest jump wins over one still
  * loading.
@@ -105,6 +121,7 @@ export function showAtTop(poster: HTMLElement): void {
 export function useLetterJump<T extends { readonly id: number }>(props: {
   readonly kind: "movie" | "series" | "other" | "any";
   readonly sort: "name" | "file_name";
+  readonly isZToA?: boolean | undefined;
   readonly library: number | undefined;
   readonly jump: LetterJump | undefined;
   readonly pages: Pages<T>;
@@ -112,6 +129,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
 }): void {
   const { api } = useServices();
   const { kind, sort, library, jump, listRef } = props;
+  const isZToA = props.isZToA === true;
   const { loadUntil, loadedSoFar } = props.pages;
   // The place of the poster to focus once it is drawn, the last's for -1, undefined for none; the
   // jump found it, the drawing of the pages after it focuses it.
@@ -122,8 +140,14 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
       return undefined;
     }
     let isCurrent = true;
-    const from = jump.letter === "#" ? {} : { from: jump.letter };
-    const query = { kind, sort, limit: 1, ...(library === undefined ? {} : { library }), ...from };
+    const query = {
+      kind,
+      sort,
+      limit: 1,
+      ...(isZToA ? { order: "descending" as const } : {}),
+      ...(library === undefined ? {} : { library }),
+      ...fromForLetter(jump.letter, isZToA),
+    };
     api
       .GET("/titles", { params: { query } })
       .then(async (answer) => {
@@ -138,7 +162,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
     return () => {
       isCurrent = false;
     };
-  }, [api, kind, sort, library, jump, loadUntil]);
+  }, [api, kind, sort, isZToA, library, jump, loadUntil]);
   useEffect(() => {
     const place = toFocusRef.current;
     if (place === undefined) {

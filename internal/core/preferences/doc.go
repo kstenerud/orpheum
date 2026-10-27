@@ -44,6 +44,10 @@
 //     TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile,
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff and
 //     TestPreferences_AutoplayIsOnUntilThePersonTurnsItOff (internal/core/api).
+//   - The libraries a person leaves out of Films and Series and those they leave out of Home are
+//     two choices, each none until made, and one leaves nothing out of the other's place (D349 §8,
+//     D366 §5). Enforced by TestBrowse_ALibraryLeftOutOfFilmsAndSeries and
+//     TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows (internal/core/api).
 //
 // # Read before changing
 //
@@ -57,4 +61,5 @@
 //
 //   - preferences.go: what is kept and how a file's starting tracks are worked out from it.
 //     keep.go: the writes: a choice, what a started file used, an offset and the switches.
+//     libraries.go: the libraries left out of Films and Series, and out of Home.
 package preferences

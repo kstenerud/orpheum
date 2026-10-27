@@ -60,7 +60,11 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	if err != nil {
 		return nil, err
 	}
-	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID, principal.Reach)
+	reach, err := server.homeReach(ctx, dependencies, principal)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID, reach)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list Continue Watching", err)
 	}

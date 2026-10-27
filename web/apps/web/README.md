@@ -198,8 +198,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
   where no title comes after the letter the last. The rail (`src/alphabet-rail.tsx`,
   `useAlphabetRailLetters`) is given the letters a list has titles under (`GET /titles/letters`),
   refreshed with the list's own background poll (D237), and shows only those: Films, Series and
-  the Libraries page all ask it this one way, Films and Series shown only sorted by name.
-  `src/alphabet-rail.test.tsx`.
+  the Libraries page all ask it this one way, Films and Series shown only sorted by name. A list Z
+  to A lists its letters Z to A, and a letter starts it at the letter's first title in that order,
+  asking from the letter after it (`fromForLetter`, D366 §4). `src/alphabet-rail.test.tsx`.
+- **Every sort runs either way** (D366 §2): Films, Series and the Libraries page offer each sort
+  its own way and the other (`src/sort-choices.ts`), names A–Z or Z–A, dates newest or oldest
+  first; films and series sort by release date too (§1); the Libraries page keeps the way in its
+  address (`order`, named only when not the sort's own). `src/library-browse.test.tsx`,
+  `src/alphabet-rail.test.tsx`, `src/router.test.ts`.
+- **A person leaves a library out of Home on their own account** (D366 §5): every library they
+  reach is on Home until they leave it out (`leftOutOfHomeLibraryIds`), apart from Films and
+  Series' choice; Home's newest rows ask `GET /titles?home=true`, and the server draws Continue
+  Watching the same way. `src/left-out-libraries.tsx`; `src/account.test.tsx`,
+  `src/home.test.tsx`.
 - **A person leaves a library out of Films and Series on their own account** (D349 §8): every
   `movies`, `shows` or `mixed` library they reach is in, until they leave it out
   (`leftOutLibraryIds`, `GET`/`PUT /me/preferences`); it stays on the Libraries page regardless.
@@ -209,7 +220,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   reaches, the first chosen by name on a fresh visit and the chosen library, the view, the folder,
   the sort and a search query all held in its address (`/browse`), so Back and a reload return to
   it; a film library lists its films, a series library its series, a mixed one both, *All libraries*
-  everything, each by name or newest first; an other library lists its videos by recorded date (the
+  everything, each by name or newest first, a film or series library by release date too, each
+  either way; an other library lists its videos by recorded date (the
   default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
   own, with *Up* back out; the library, the view and the sort are each a focusable drop-down
@@ -316,7 +328,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
-  `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8), `watching.ts` (the film a tab watches: its page's warm-up
+  `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

@@ -131,7 +131,10 @@ type Metadata struct {
 	Overview     string
 	Tagline      string
 	Year         int
-	RuntimeMs    int64
+	// ReleaseDate is a film's release date or a series' first air date, ISO 8601, as the provider
+	// gives it; "" when it gives none (D366 §1).
+	ReleaseDate string
+	RuntimeMs   int64
 	// IDs are the work's ids at every provider the response names, this one's included.
 	IDs map[string]string
 	// Artwork are the images the provider has for the work, fetched later (D212).

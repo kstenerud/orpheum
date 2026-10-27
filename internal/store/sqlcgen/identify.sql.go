@@ -1174,9 +1174,9 @@ func (q *Queries) ListLibrarySeriesEpisodePlaces(ctx context.Context, libraryID 
 }
 
 const listLibrarySeriesForPass = `-- name: ListLibrarySeriesForPass :many
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id,
-  collection.identification_state, item.filing_library_id, library.metadata_source, item_text.name,
-  ordering.id AS aired_ordering_id
+SELECT collection.id, collection.year, collection.released_on, collection.followed_source,
+  collection.followed_source_id, collection.identification_state, item.filing_library_id, library.metadata_source,
+  item_text.name, ordering.id AS aired_ordering_id
 FROM item
 CROSS JOIN collection ON collection.id = item.id AND collection.kind = 'series'
 CROSS JOIN library ON library.id = item.filing_library_id
@@ -1188,6 +1188,7 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'c
 type ListLibrarySeriesForPassRow struct {
 	ID                  int64
 	Year                *int64
+	ReleasedOn          *int64
 	FollowedSource      *string
 	FollowedSourceID    *string
 	IdentificationState *string
@@ -1210,6 +1211,7 @@ func (q *Queries) ListLibrarySeriesForPass(ctx context.Context, libraryID *int64
 		if err := rows.Scan(
 			&i.ID,
 			&i.Year,
+			&i.ReleasedOn,
 			&i.FollowedSource,
 			&i.FollowedSourceID,
 			&i.IdentificationState,
@@ -1318,8 +1320,8 @@ func (q *Queries) ListLibraryTitles(ctx context.Context, libraryID *int64) ([]Li
 }
 
 const listLibraryTitlesForPass = `-- name: ListLibraryTitlesForPass :many
-SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source,
-  title.followed_source_id
+SELECT title.id, title.kind, title.year, title.released_on, title.runtime_ms, title.identification_state,
+  title.followed_source, title.followed_source_id
 FROM item
 JOIN title ON title.id = item.id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
@@ -1329,6 +1331,7 @@ type ListLibraryTitlesForPassRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
+	ReleasedOn          *int64
 	RuntimeMs           *int64
 	IdentificationState string
 	FollowedSource      *string
@@ -1349,6 +1352,7 @@ func (q *Queries) ListLibraryTitlesForPass(ctx context.Context, libraryID *int64
 			&i.ID,
 			&i.Kind,
 			&i.Year,
+			&i.ReleasedOn,
 			&i.RuntimeMs,
 			&i.IdentificationState,
 			&i.FollowedSource,
@@ -2128,20 +2132,21 @@ func (q *Queries) SetSearchAlternates(ctx context.Context, arg SetSearchAlternat
 const updateTitleResolved = `-- name: UpdateTitleResolved :exec
 UPDATE title SET
   kind = ?1,
-  year = ?2, runtime_ms = ?3, followed_source = ?4,
-  followed_source_id = ?5,
-  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END
-WHERE id = ?7
+  year = ?2, released_on = ?3, runtime_ms = ?4,
+  followed_source = ?5, followed_source_id = ?6,
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?7 END
+WHERE id = ?8
   -- Only when it changes something (D303, DL9).
-  AND (kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
-    IS NOT (?1, ?2, ?3, ?4,
-      ?5,
-      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END)
+  AND (kind, year, released_on, runtime_ms, followed_source, followed_source_id, identification_state)
+    IS NOT (?1, ?2, ?3, ?4, ?5,
+      ?6,
+      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?7 END)
 `
 
 type UpdateTitleResolvedParams struct {
 	Kind                string
 	Year                *int64
+	ReleasedOn          *int64
 	RuntimeMs           *int64
 	FollowedSource      *string
 	FollowedSourceID    *string
@@ -2156,6 +2161,7 @@ func (q *Queries) UpdateTitleResolved(ctx context.Context, arg UpdateTitleResolv
 	_, err := q.db.ExecContext(ctx, updateTitleResolved,
 		arg.Kind,
 		arg.Year,
+		arg.ReleasedOn,
 		arg.RuntimeMs,
 		arg.FollowedSource,
 		arg.FollowedSourceID,

@@ -212,7 +212,8 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     await pressPad(pad, padButtons.down);
     expect(document.activeElement?.tagName).toBe("SELECT");
     await pressPad(pad, padButtons.ok);
-    await expect.poll(() => document.querySelector("select")?.value).toBe("added");
+    // The next choice after Name, A–Z is Name, Z–A (D366 §2).
+    await expect.poll(() => document.querySelector("select")?.value).toBe("name:descending");
     await expect
       .poll(() => heard.filter((each) => each === "GET /titles").length)
       .toBeGreaterThan(1);

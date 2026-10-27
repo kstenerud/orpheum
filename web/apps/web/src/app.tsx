@@ -246,6 +246,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
         view={route.view}
         folder={route.folder}
         sort={route.sort}
+        order={route.order}
         query={route.query ?? ""}
       />
     );

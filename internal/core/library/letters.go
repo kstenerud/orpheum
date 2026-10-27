@@ -23,7 +23,7 @@ func RailLetters() []string {
 // first title from each letter that has one, never the list: a read for each letter with a title,
 // and one more.
 func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string, error) {
-	if query.Sort != SortName && query.Sort != SortFileName {
+	if !isByName(query.Sort) {
 		return nil, fmt.Errorf("letters of %s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
 	}
 	sorter, err := browser.sorter(ctx)
@@ -35,7 +35,8 @@ func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string,
 	for index, letter := range letters[1:] {
 		starts[index+1] = sorter.Key(letter)
 	}
-	query.Limit, query.Cursor, query.From = 1, "", ""
+	// A list's letters are the same whichever way it runs: they are read A to Z (D366 §4).
+	query.Limit, query.Cursor, query.From, query.Order = 1, "", "", OrderAscending
 	found := []string{}
 	after := listPosition{key: []byte{}, id: 0}
 	for {

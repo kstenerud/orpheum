@@ -3537,6 +3537,8 @@ export interface components {
             isLevellingOn: boolean;
             /** @description The libraries left out of Films and Series, which gather every other library of those kinds */
             leftOutLibraryIds: number[] | null;
+            /** @description The libraries left out of Home, whose rows draw on every other library the person reaches */
+            leftOutOfHomeLibraryIds: number[] | null;
         };
         MyTogetherBody: {
             isHost: boolean;
@@ -4352,6 +4354,7 @@ export interface components {
             isDialogueBoostOn?: boolean;
             isLevellingOn?: boolean;
             leftOutLibraryIds?: number[] | null;
+            leftOutOfHomeLibraryIds?: number[] | null;
         };
         SetSeriesPreferencesInputBody: {
             episodeOrdering?: string;
@@ -7152,6 +7155,8 @@ export interface operations {
             query: {
                 /** @description Its path below the library's folders, as a listed folder's path says it; absent for their top */
                 folder?: string;
+                /** @description The way the sort runs, as GET /titles takes it */
+                order?: "ascending" | "descending";
                 /** @description The order its videos come in */
                 sort: "recorded" | "name" | "file_name" | "added";
             };
@@ -9397,15 +9402,19 @@ export interface operations {
             query: {
                 /** @description From the previous page's nextCursor */
                 cursor?: string;
-                /** @description A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does */
+                /** @description A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles */
                 from?: string;
+                /** @description The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series */
+                home?: boolean;
                 /** @description movie, series or other; any: every kind, every library's */
                 kind: "movie" | "series" | "other" | "any";
                 /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
                 library?: number;
                 limit: number;
-                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only */
-                sort: "name" | "added" | "recorded" | "file_name";
+                /** @description The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way */
+                order?: "ascending" | "descending";
+                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
+                sort: "name" | "added" | "recorded" | "file_name" | "released";
             };
             header?: {
                 /** @description Bearer <session token> */
