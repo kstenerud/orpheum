@@ -94,7 +94,7 @@ type CreateLibraryInput struct {
 		CheckEveryHours *int64   `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
 		NodeName        string   `doc:"The node's configured name" json:"nodeName" minLength:"1"`
-		RootPaths       []string `doc:"Roots the node configured" json:"rootPaths" minItems:"1"`
+		RootPaths       []string `doc:"The node's configured roots, or folders inside them (D359)" json:"rootPaths" minItems:"1"` //nolint:lll // one struct tag
 	}
 }
 
@@ -271,6 +271,7 @@ func (server *Server) registerLibraries() {
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
 	}, server.getFiles)
 	server.registerRescans()
+	server.registerLibraryFolders()
 }
 
 func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
@@ -476,7 +477,7 @@ type RepointInput struct {
 		NodeName    string `doc:"The root's node" json:"nodeName" minLength:"1"`
 		Path        string `doc:"The root's path" json:"path" minLength:"1"`
 		NewNodeName string `doc:"The node it is on now: the same, or another" json:"newNodeName" minLength:"1"`
-		NewPath     string `doc:"Where it is now: one of that node's configured roots" json:"newPath" minLength:"1"`
+		NewPath     string `doc:"Where it is now: one of that node's configured roots, or a folder inside one" json:"newPath" minLength:"1"` //nolint:lll // one struct tag
 	}
 }
 
@@ -620,7 +621,7 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 	case errors.Is(err, library.ErrNodeNotConnected):
 		return newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the node has not connected since the server started, so its roots are not known")
-	case errors.Is(err, library.ErrNotANodeRoot): // only a new library names roots
+	case errors.Is(err, library.ErrNotANodeRoot), errors.Is(err, library.ErrRootCovered): // a new library's
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.rootPaths", err.Error())
 	case errors.Is(err, library.ErrNoSuchRoot): // a root's answer names it by path
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.path", err.Error())

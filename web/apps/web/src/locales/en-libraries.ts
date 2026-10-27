@@ -85,7 +85,21 @@ export const enLibraries = {
     nodeAway: "{{name}} (not connected)",
     roots: "Folders this library reads",
     rootsHelp:
-      "Tick at least one. Only the folders the node's configuration lists (node.root_paths) appear here; to add one, list it there and restart the node.",
+      "Tick at least one: a folder the node's configuration lists (node.root_paths), or a folder inside one, chosen below. Only folders inside those can be chosen; to add one, list it there and restart the node.",
+    browseInside: "Or choose a folder inside one",
+    browseOpen: "Browse {{node}}: {{path}}",
+    browseUp: "Up one folder",
+    browseChoose: "Choose this folder",
+    browseEmpty: "No folders in it.",
+    browseNotAnswering:
+      "This folder is not responding: the disk or share it is on did not answer in time.",
+    browseMissing: "This folder is not there any more.",
+    browseFailed:
+      "This folder cannot be chosen: it could not be read, or it is reached through a link.",
+    browseAgain: "Try again",
+    addRoot: "Add a folder…",
+    addRootCancel: "Cancel",
+    rootAdded: "Added {{path}}. A scan of it is under way.",
     noNodes:
       "No node has connected since the server started. Start one, and its folders show here.",
     noRootsYet:

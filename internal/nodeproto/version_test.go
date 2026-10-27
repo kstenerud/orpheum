@@ -97,6 +97,9 @@ var wireShapeByVersion = map[int]string{
 	// 47 says a disc image's probe is of its main title (ProbeFormat.Disc), and a disc's folder is
 	// skipped as disc_folder_not_supported_yet, an image being read (D350).
 	47: "fef4610c120047fd82fb706c6cdf70d01b3ccfa72930f2260cfa09ff901050bf",
+	// 48 adds the folders in a folder on the byte socket, FolderListing, and names a library folder
+	// inside a root as a command's root (D359): a node of 47 would refuse it.
+	48: "8b869c817d2f83afa184b486739a0b5d4efa856693582e0bead30daf2ec22981",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -118,7 +121,7 @@ func wireShape() string {
 	for _, message := range []reflect.Type{
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
 		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
-		reflect.TypeFor[PlaceProbe](),
+		reflect.TypeFor[PlaceProbe](), reflect.TypeFor[FolderListing](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

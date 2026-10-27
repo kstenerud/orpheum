@@ -132,24 +132,53 @@ func (socketClient *ByteSocketClient) ReadHeldResult(
 func (socketClient *ByteSocketClient) ProbePlace(ctx context.Context, nodeID int64, root string) (
 	nodeproto.PlaceProbe, error,
 ) {
-	response, err := socketClient.Do(ctx, nodeID, http.MethodGet, nodeproto.ProbeRequest{Path: root}.Target(), nil)
+	target := nodeproto.ProbeRequest{Path: root}.Target()
+	probe, err := askAnswer[nodeproto.PlaceProbe](ctx, socketClient, nodeID, target, maxProbeBytes)
 	if err != nil {
 		return nodeproto.PlaceProbe{}, fmt.Errorf("probe root %s on node %d: %w", root, nodeID, err)
-	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only
-	if response.StatusCode != http.StatusOK {
-		return nodeproto.PlaceProbe{}, fmt.Errorf("probe root %s on node %d: the node answered %s", root, nodeID,
-			response.Status)
-	}
-	var probe nodeproto.PlaceProbe
-	if err := json.NewDecoder(io.LimitReader(response.Body, maxProbeBytes)).Decode(&probe); err != nil {
-		return nodeproto.PlaceProbe{}, fmt.Errorf("read the probe of root %s on node %d: %w", root, nodeID, err)
 	}
 	return probe, nil
 }
 
 // maxProbeBytes bounds a probe's answer: a few short fields, and a failure's text.
 const maxProbeBytes = 64 << 10
+
+// ListFolders asks a node for the folders in a folder, one of its roots or a folder inside one, on its
+// byte socket, outside every queue, for an admin choosing a library folder (D359 §2). The caller bounds
+// its wait by ctx; the node's listing goes on, shared by the next ask.
+func (socketClient *ByteSocketClient) ListFolders(ctx context.Context, nodeID int64, path string) (
+	nodeproto.FolderListing, error,
+) {
+	target := nodeproto.FoldersRequest{Path: path}.Target()
+	listing, err := askAnswer[nodeproto.FolderListing](ctx, socketClient, nodeID, target, maxFolderListingBytes)
+	if err != nil {
+		return nodeproto.FolderListing{}, fmt.Errorf("list the folders in %s on node %d: %w", path, nodeID, err)
+	}
+	return listing, nil
+}
+
+// askAnswer GETs target on a node's byte socket and decodes its JSON answer, within maxBytes: a
+// question answered outside every queue, a probe or a folder listing.
+func askAnswer[Answer any](
+	ctx context.Context, socketClient *ByteSocketClient, nodeID int64, target string, maxBytes int64,
+) (Answer, error) {
+	var answer Answer
+	response, err := socketClient.Do(ctx, nodeID, http.MethodGet, target, nil)
+	if err != nil {
+		return answer, err
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only
+	if response.StatusCode != http.StatusOK {
+		return answer, fmt.Errorf("the node answered %s", response.Status)
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxBytes)).Decode(&answer); err != nil {
+		return answer, fmt.Errorf("read its answer: %w", err)
+	}
+	return answer, nil
+}
+
+// maxFolderListingBytes bounds a folder listing's answer: tens of thousands of folders' names.
+const maxFolderListingBytes = 8 << 20
 
 // takeHeld is the result a held result's bytes encode, when they are the ones posted named and the
 // result is for the same job and attempt.

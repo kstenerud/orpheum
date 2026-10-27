@@ -14,6 +14,12 @@
 //     or removes. Enforced by the forbidigo rules tagged [media-root] and [delete].
 //   - MediaRoot reads through os.Root, so nothing it opens is outside the root; following a
 //     link into another root is the scanner's decision, made with Resolve and RelativeIfInside (D206).
+//   - A library folder inside a root is opened as a media root of its own only when every element of
+//     its path is a directory and none a link, so it is named by its real path; Subfolders lists its
+//     real folders, no link and no hidden one; Holding finds the configured root that holds a clean
+//     path (D359 §1, §2). TestMediaRoot_AFolderIsARootOfItsOwnReachedWithoutALink,
+//     TestMediaRoot_SubfoldersAreTheRealFoldersButTheHiddenOnes,
+//     TestHolding_IsTheConfiguredRootAFolderIsAtOrUnderByAPathThatCannotClimbOut.
 //   - ReadFile refuses a file past its bound rather than cut it short.
 //     TestMediaRoot_ReadFileRefusesAFilePastItsBound.
 //   - Open never waits: a pipe opens without waiting for a writer, so a caller can see it is no

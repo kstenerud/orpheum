@@ -37,11 +37,8 @@ func Create(
 	newLibrary.Name = textindex.Line(newLibrary.Name) // a person's text is shown to others (D211 §2)
 	var id int64
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		_, err := store.OrNotFound(queries.GetLiveLibraryByName(ctx, newLibrary.Name))
-		if err == nil {
-			return fmt.Errorf("%w: %q", ErrNameTaken, newLibrary.Name)
-		}
-		if !errors.Is(err, store.ErrNotFound) {
+		err := refuseTakenName(ctx, queries, newLibrary.Name)
+		if err != nil {
 			return err
 		}
 		writable := int64(0)
@@ -68,4 +65,16 @@ func Create(
 		return nil
 	})
 	return id, err
+}
+
+// refuseTakenName refuses a name a live library has (ErrNameTaken); name is as Create stores it.
+func refuseTakenName(ctx context.Context, queries *sqlcgen.Queries, name string) error {
+	_, err := store.OrNotFound(queries.GetLiveLibraryByName(ctx, name))
+	if err == nil {
+		return fmt.Errorf("%w: %q", ErrNameTaken, name)
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	return nil
 }

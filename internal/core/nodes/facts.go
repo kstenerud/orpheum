@@ -190,9 +190,30 @@ func (service *Service) bringBackRootsAnswering(
 		if disk.Failure != "" || disk.Device == 0 || !isNotAnswering(previous, disk.Path) {
 			continue
 		}
-		if _, err := service.scans.BringBackRoot(ctx, nodeID, disk.Path, disk.Device, disk.IsMountPoint); err != nil {
-			service.logger.WarnContext(ctx, "could not bring back a root whose disk answers again",
-				"nodeId", nodeID, "rootPath", disk.Path, "err", err)
+		service.bringBackFoldersOf(ctx, nodeID, disk)
+	}
+}
+
+// bringBackFoldersOf brings back what is on a root whose disk answers again: the root, by the facts
+// the status measured, as its last complete scan read them; and each library folder inside it, whose
+// facts are its own, by a scan of it, which brings it back once it reads it (D359 §4).
+func (service *Service) bringBackFoldersOf(ctx context.Context, nodeID int64, disk nodeproto.Disk) {
+	if _, err := service.scans.BringBackRoot(ctx, nodeID, disk.Path, disk.Device, disk.IsMountPoint); err != nil {
+		service.logger.WarnContext(ctx, "could not bring back a root whose disk answers again",
+			"nodeId", nodeID, "rootPath", disk.Path, "err", err)
+	}
+	folders, err := service.coveredRoots(ctx, nodeID, []string{disk.Path})
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not read the libraries' roots", "nodeId", nodeID, "err", err)
+		return
+	}
+	for _, folder := range folders {
+		if folder == disk.Path {
+			continue
+		}
+		if err := service.scans.RequestOnHello(ctx, nodeID, folder); err != nil {
+			service.logger.WarnContext(ctx, "could not ask for the scan of a library folder whose disk answers again",
+				"nodeId", nodeID, "rootPath", folder, "err", err)
 		}
 	}
 }

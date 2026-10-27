@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -92,7 +93,8 @@ func (hashes *Hashes) OpenNamed(
 func openNamed(
 	roots map[string]*confine.MediaRoot, named nodeproto.BytesFile, hashes *Hashes,
 ) (*os.File, fs.FileInfo, error) {
-	root, known := roots[named.RootPath]
+	// The root path is a configured root's, or a library folder's inside one (D359 §1).
+	root, folder, known := confine.Holding(roots, named.RootPath)
 	if !known {
 		return nil, nil, ErrNoRoot
 	}
@@ -100,7 +102,14 @@ func openNamed(
 	if err != nil || len(payloadHash) == 0 || len(named.Path) == 0 {
 		return nil, nil, ErrBadName
 	}
-	return open(root, string(named.Path), payloadHash, hashes)
+	if folder == "." {
+		return open(root, string(named.Path), payloadHash, hashes)
+	}
+	// os.Root keeps the open inside the configured root; this keeps it inside the library folder.
+	if !filepath.IsLocal(string(named.Path)) {
+		return nil, nil, ErrBadName
+	}
+	return open(root, filepath.Join(folder, string(named.Path)), payloadHash, hashes)
 }
 
 // Open is namedfile.Open, remembering each payload hash it computes.

@@ -18,6 +18,7 @@ import { useResource } from "./use-resource.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { CreateLibrary } from "./create-library.tsx";
 import { RepointRoot, type Place } from "./repoint-root.tsx";
+import { AddRoot } from "./add-root.tsx";
 
 /** A library, as an admin sees it. */
 export type Library = components["schemas"]["LibraryBody"];
@@ -306,6 +307,8 @@ export function LibraryCard(props: {
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
   readonly onRepoint?: (root: Root, to: Place) => void;
+  /** Adding a folder to it, one of a node's configured roots or a folder inside one (D359 §3). */
+  readonly onAddRoot?: (to: Place) => void;
   readonly onChangeDetection?: (choice: ChangeDetection) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -325,6 +328,9 @@ export function LibraryCard(props: {
           />
         ))}
       </ul>
+      {props.onAddRoot === undefined ? null : (
+        <AddRoot places={props.places ?? []} onAdd={props.onAddRoot} />
+      )}
       <ChangeDetectionChoice
         key={`${library.changeDetection}:${String(library.checkEveryHours)}`}
         library={library}
@@ -429,17 +435,21 @@ function useScanActions(
   };
 }
 
-function useLibraryActions(reload: () => void): {
+/** What an admin does with a library from its card, and each library's note. */
+interface LibraryActions {
   readonly notesByLibraryId: ReadonlyMap<number, string>;
   readonly scan: (libraryId: number) => void;
   readonly rescan: (libraryId: number) => void;
   readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: (libraryId: number) => void;
   readonly repoint: (libraryId: number, root: Root, to: Place) => void;
+  readonly addRoot: (libraryId: number, to: Place) => void;
   readonly setChangeDetection: (libraryId: number, choice: ChangeDetection) => void;
   /** Whether an action runs, which every library's buttons wait for (D244 §4). */
   readonly isActing: boolean;
-} {
+}
+
+function useLibraryActions(reload: () => void): LibraryActions {
   const { t } = useTranslation();
   const { api } = useServices();
   const { notesByLibraryId, setNote, act, isActing } = useLibraryNotes();
@@ -461,6 +471,13 @@ function useLibraryActions(reload: () => void): {
       act(libraryId, async (idempotencyKey) => {
         const movedFileCount = await repointRoot(api, { libraryId, root, to }, idempotencyKey);
         setNote(libraryId, t("libraries.repointed", { count: movedFileCount }));
+        reload();
+      });
+    },
+    addRoot: (libraryId, to) => {
+      act(libraryId, async (idempotencyKey) => {
+        await addLibraryRoot(api, { libraryId, to }, idempotencyKey);
+        setNote(libraryId, t("libraries.rootAdded", { path: to.path }));
         reload();
       });
     },
@@ -535,7 +552,25 @@ async function repointRoot(
   return moved.movedFileCount;
 }
 
-/** Every place a root can move to: each connected node's configured roots. */
+/** Adds a folder to a library, which the server scans (D359 §3). */
+async function addLibraryRoot(
+  api: Api,
+  adding: { readonly libraryId: number; readonly to: Place },
+  idempotencyKey: string,
+): Promise<void> {
+  throwIfRefused(
+    await api.POST("/libraries/{id}/roots", {
+      params: { path: { id: adding.libraryId } },
+      body: { nodeName: adding.to.nodeName, path: adding.to.path },
+      ...idempotent(idempotencyKey),
+    }),
+  );
+}
+
+/**
+ * Every place a root can move to, or a folder be added from: each connected node's configured roots,
+ * and the folders browsed to inside them (D359).
+ */
 function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
   return (answer.nodes ?? [])
     .filter((node) => node.isConnected)
@@ -615,6 +650,9 @@ export function Libraries(): JSX.Element {
       places={placeList}
       onRepoint={(root, to) => {
         actions.repoint(library.id, root, to);
+      }}
+      onAddRoot={(to) => {
+        actions.addRoot(library.id, to);
       }}
       onChangeDetection={(choice) => {
         actions.setChangeDetection(library.id, choice);

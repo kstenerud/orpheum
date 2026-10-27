@@ -3,8 +3,10 @@
 package confine
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // MediaRoot is a media root opened read-only. It lists, stats, reads links and opens files for
@@ -20,7 +23,14 @@ import (
 type MediaRoot struct {
 	path string
 	root *os.Root
+	// configured is the path of the root the node was configured with that this one is, or is a
+	// library folder inside (Folder).
+	configured string
 }
+
+// ErrNotARealFolder is a library folder whose path passes through a link, or names what is not a
+// directory: a library folder is named by its real path (D359 §1).
+var ErrNotARealFolder = errors.New("not a folder reached without a link")
 
 // OpenMediaRoot opens the directory at path, which must be absolute, as a media root. Its
 // path is recorded with symlinks resolved, so a link's target can be matched against it.
@@ -36,11 +46,95 @@ func OpenMediaRoot(path string) (*MediaRoot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("media root %s: %w", path, err)
 	}
-	return &MediaRoot{path: resolved, root: root}, nil
+	return &MediaRoot{path: resolved, root: root, configured: resolved}, nil
 }
 
 // Path is the root's absolute path, symlinks resolved.
 func (media *MediaRoot) Path() string { return media.path }
+
+// ConfiguredPath is the path of the root the node was configured with that holds this one: its own
+// path, or for a library folder inside a configured root (Folder), that root's. The node's disk gate
+// keys its readings by it, so a stuck share holds one reading however many library folders it holds.
+func (media *MediaRoot) ConfiguredPath() string { return media.configured }
+
+// Folder opens a library folder inside the root, relativePath below it, as a media root of its own,
+// read through os.Root as the root is, so nothing it opens is outside the folder: what a library
+// folder narrower than a configured root is listed and examined through (D359 §1). Every element of
+// relativePath must be a directory and none a link, so the folder's path is its real one, as a
+// configured root's is (ErrNotARealFolder). The caller closes it.
+func (media *MediaRoot) Folder(relativePath string) (*MediaRoot, error) {
+	if err := media.checkRealFolder(relativePath); err != nil {
+		return nil, err
+	}
+	folder, err := media.root.OpenRoot(relativePath)
+	if err != nil {
+		return nil, fmt.Errorf("open folder %s: %w", relativePath, err)
+	}
+	return &MediaRoot{path: filepath.Join(media.path, relativePath), root: folder, configured: media.configured}, nil
+}
+
+// checkRealFolder is nil when every element of relativePath, a local path below the root, is a
+// directory and none a link; "." is the root itself.
+func (media *MediaRoot) checkRealFolder(relativePath string) error {
+	if relativePath == "." {
+		return nil
+	}
+	if !filepath.IsLocal(relativePath) || filepath.Clean(relativePath) != relativePath {
+		return fmt.Errorf("%s: %w", relativePath, ErrNotARealFolder)
+	}
+	reached := ""
+	for element := range strings.SplitSeq(relativePath, string(filepath.Separator)) {
+		reached = filepath.Join(reached, element)
+		info, err := media.root.Lstat(reached)
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", reached, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("%s: %w", reached, ErrNotARealFolder)
+		}
+	}
+	return nil
+}
+
+// Subfolders are the names of the directories in the folder at relativePath ("." for the root), in
+// byte order, for an admin choosing a library folder (D359 §2): a link is not one, even to a
+// directory, since a library folder is named by its real path, and a hidden folder, its name starting
+// with ".", is left out. The folder itself must be reached without a link (ErrNotARealFolder).
+func (media *MediaRoot) Subfolders(relativePath string) ([]string, error) {
+	if err := media.checkRealFolder(relativePath); err != nil {
+		return nil, err
+	}
+	entries, err := media.ReadDir(relativePath)
+	if err != nil {
+		return nil, err
+	}
+	names := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			names = append(names, entry.Name())
+		}
+	}
+	return names, nil
+}
+
+// Holding is the root of roots, the node's configured roots by path, that holds path, and path
+// relative to it, "." for the root itself: a library folder's root, the folder at or under it by a
+// clean path (D359 §1). False when no root holds it, a path with ".." among them.
+func Holding(roots map[string]*MediaRoot, path string) (*MediaRoot, string, bool) {
+	if root, isRoot := roots[path]; isRoot {
+		return root, ".", true
+	}
+	holding, isHeld := pathtree.DeepestHolding(path, slices.Collect(maps.Keys(roots)))
+	if !isHeld {
+		return nil, "", false
+	}
+	root := roots[holding]
+	relativePath, isInside := root.RelativeIfInside(path)
+	if !isInside {
+		return nil, "", false
+	}
+	return root, relativePath, true
+}
 
 // Close releases the root.
 func (media *MediaRoot) Close() error {

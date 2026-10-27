@@ -125,6 +125,33 @@ func TestAgent_ReadsThroughOnlyTheVideoTheCoreNamed(t *testing.T) {
 	}
 }
 
+// A run reads a video named under a library folder inside one of the node's roots, by its path there
+// (D359 §4): a folder narrower than a configured root plays as the root did.
+func TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	folder := filepath.Join(root.Path(), "video", "movies")
+	if err := os.MkdirAll(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	video := nodeproto.BytesFile{
+		RootPath: folder, Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	core.sendReadThrough(1, nodeproto.ReadThrough{
+		Video: video, LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}},
+	})
+	measured := receiveReadThrough(t, core)
+	wantPath := folder + "/film.mkv"
+	if measured.Refusal != "" || measured.Failure != "" || len(measured.Loudness) != 1 ||
+		measured.Loudness[0].Stereo.RangeLU != float64(len(wantPath)) {
+		t.Errorf("reading through a video under a library folder: %+v, want %s read", measured, wantPath)
+	}
+}
+
 func TestAgent_AReadThroughAnswersEachPartItWasAskedFor(t *testing.T) {
 	t.Parallel()
 	video, _, core := startExtractionAgent(t)

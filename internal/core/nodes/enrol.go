@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -142,7 +143,8 @@ func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, nam
 		return fmt.Errorf("read node %d's library roots: %w", nodeID, err)
 	}
 	for _, root := range libraryRoots {
-		if slices.Contains(named, root.RootPath) {
+		// A library folder is a root the hello names or a folder inside one (D359 §4).
+		if _, isHeld := pathtree.DeepestHolding(root.RootPath, named); isHeld {
 			continue
 		}
 		if err := service.scans.MarkRootNotNamed(ctx, nodeID, root.RootPath); err != nil {
@@ -152,21 +154,20 @@ func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, nam
 	return nil
 }
 
-// coveredRoots are the roots, of those a node's hello names, that a live library covers on it: a
-// scan of any other stores nothing, and would only hold the node's scans of those that do (the
-// owner, 2026-10-02). Creating a library over a root asks for its scan.
+// coveredRoots are the live libraries' folders on a node that are one of roots, which its hello or
+// status names, or a folder inside one (D359 §4), once each: a scan of a root no library covers stores
+// nothing, and would only hold the node's scans of those that do (the owner, 2026-10-02). Creating a
+// library over a folder asks for its scan.
 func (service *Service) coveredRoots(ctx context.Context, nodeID int64, roots []string) ([]string, error) {
-	covered := make([]string, 0, len(roots))
-	for _, root := range roots {
-		_, err := store.OrNotFound(service.database.Read().GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
-			NodeID: nodeID, RootPath: root,
-		}))
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-		case err != nil:
-			return nil, fmt.Errorf("read the library over %s: %w", root, err)
-		default:
-			covered = append(covered, root)
+	libraryRoots, err := service.database.Read().ListLiveRootsOfNode(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("read node %d's library roots: %w", nodeID, err)
+	}
+	covered := make([]string, 0, len(libraryRoots))
+	for _, root := range libraryRoots {
+		_, isHeld := pathtree.DeepestHolding(root.RootPath, roots)
+		if isHeld && !slices.Contains(covered, root.RootPath) {
+			covered = append(covered, root.RootPath)
 		}
 	}
 	return covered, nil

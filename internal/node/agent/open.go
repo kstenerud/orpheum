@@ -41,12 +41,10 @@ func refusalCodeOf(err error) nodeproto.RefusalCode {
 // FFmpeg's would be (D233 §10), left to end on its own, listed as stuck until it does; and while it is,
 // every other open under its root is the same stall at once, touching nothing (diskwatch).
 func (agent *Agent) openNamed(ctx context.Context, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
+	// A root's path is its key in the roots, and a library folder's its real path inside one (D359).
 	path := named.RootPath + "/" + string(named.Path)
-	if root, known := agent.roots[named.RootPath]; known {
-		path = root.Path() + "/" + string(named.Path)
-	}
 	window := cmp.Or(agent.workers.OpenStallWindow, defaultOpenStallWindow)
-	operation := diskwatch.Operation{Root: named.RootPath, Path: path, Window: window}
+	operation := diskwatch.Operation{Root: agent.gateRootOf(named.RootPath), Path: path, Window: window}
 	opened, err := diskwatch.Run(ctx, agent.diskGate, operation, func() (openedFile, error) {
 		file, facts, openErr := agent.openFile(agent.roots, named)
 		return openedFile{file: file, facts: facts}, openErr

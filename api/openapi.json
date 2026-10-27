@@ -123,6 +123,26 @@
         ],
         "type": "object"
       },
+      "AddLibraryRootInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeName": {
+            "description": "The node's configured name",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "One of the node's configured roots, or a folder inside one",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeName",
+          "path"
+        ],
+        "type": "object"
+      },
       "AdminAwayInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -999,7 +1019,7 @@
             "type": "string"
           },
           "rootPaths": {
-            "description": "Roots the node configured",
+            "description": "The node's configured roots, or folders inside them (D359)",
             "items": {
               "type": "string"
             },
@@ -4050,6 +4070,43 @@
         ],
         "type": "object"
       },
+      "NodeFoldersOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "failure": {
+            "description": "Why it could not be listed, in the node's words",
+            "type": "string"
+          },
+          "folders": {
+            "description": "The names of the folders in it, in byte order: no link and no hidden folder",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "readable",
+              "notAnswering",
+              "missing",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "state",
+          "folders"
+        ],
+        "type": "object"
+      },
       "NodeWorkBody": {
         "additionalProperties": false,
         "properties": {
@@ -5352,7 +5409,7 @@
             "type": "string"
           },
           "newPath": {
-            "description": "Where it is now: one of that node's configured roots",
+            "description": "Where it is now: one of that node's configured roots, or a folder inside one",
             "minLength": 1,
             "type": "string"
           },
@@ -11826,6 +11883,60 @@
         ]
       }
     },
+    "/libraries/{id}/roots": {
+      "post": {
+        "operationId": "postLibraryRoot",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddLibraryRootInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a folder to a library, and scan it (admin; D359)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
     "/libraries/{id}/roots/repoint": {
       "post": {
         "operationId": "postLibraryRootRepoint",
@@ -12864,6 +12975,70 @@
           }
         },
         "summary": "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/nodes/{name}/folders": {
+      "get": {
+        "operationId": "getNodeFolders",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "One of the node's configured roots, or a folder inside one, by a clean absolute path",
+            "explode": false,
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "description": "One of the node's configured roots, or a folder inside one, by a clean absolute path",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeFoldersOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The folders in a node's root or a folder inside it, to choose a library folder (admin; D359)",
         "tags": [
           "Libraries"
         ]

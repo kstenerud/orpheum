@@ -11,6 +11,7 @@ import (
 	"errors"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -178,6 +179,42 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	posted.AttemptToken = "a5"
 	if _, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted); err == nil {
 		t.Error("a result the node does not hold was taken")
+	}
+}
+
+// The core asks a node for the folders in a folder on its byte socket, outside every queue, and takes
+// its answer; a refusal is an error (D359 §2).
+func TestListFolders_AsksTheNodesByteSocket(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	socketDir := filepath.Join(t.TempDir(), "run")
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
+	listener, err := unixsocket.Listen(socketDir, "node.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+nodeproto.PathBytesFolders, func(writer http.ResponseWriter, request *http.Request) {
+		path := request.URL.Query().Get("path")
+		if path != "/media/video" {
+			http.Error(writer, "not a root's", http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(writer).Encode(nodeproto.FolderListing{ //nolint:errcheck // the test reads what arrives
+			Path: path, State: nodeproto.ProbeReadable, Folders: []string{"movies", "shows"},
+		})
+	})
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
+	go func() { _ = server.Serve(listener) }() //nolint:errcheck // closed at cleanup
+	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // as above
+	client := NewByteSocketClient(harness.service, nil)
+	listing, err := client.ListFolders(t.Context(), reply.NodeID, "/media/video")
+	if err != nil || listing.State != nodeproto.ProbeReadable ||
+		!slices.Equal(listing.Folders, []string{"movies", "shows"}) {
+		t.Errorf("the listing = %+v, %v; want movies and shows", listing, err)
+	}
+	if _, err := client.ListFolders(t.Context(), reply.NodeID, "/etc"); err == nil {
+		t.Error("a listing the node refused was taken")
 	}
 }
 
