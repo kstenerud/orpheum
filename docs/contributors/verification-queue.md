@@ -833,6 +833,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   Failed 2026-10-27 (the owner, nas.example): signed out and in again on the Fire TV, it is still listed as
   "Chrome on Android". It signed in through the discovery's page over WebRTC, whose logged user agent is
   empty: the name likely comes from the discovery's sign-in, not device.ts. Fixed in this batch.
+  Found 2026-10-27 (the lead's agent): the name is device.ts's alone, but the device is made by the
+  realm sign-in or the code on the discovery's own page, the loader orpheum-connect serves from the web
+  client it was packaged with; the bundle live at app.orpheum-app.com that evening named no Silk and no
+  Fire TV (its browser list Edge, Firefox, Samsung Internet, Chrome, Safari), so it was packaged before
+  An earlier commit. No code changes: to see again once orpheum-connect is packaged and deployed from an
+  Orpheum with an earlier commit, signing in from the discovery's page.
 - [ ] **VQ85** — D369, the player's own controls on every device, on staging. Passes when: on a
   computer, the Play page shows the app's bar over the film and no browser controls; a mouse's move
   shows it and five still seconds hide it while the film plays; a click on the film pauses
@@ -858,3 +864,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   dialogue boost turned on at the top plays the boosted mix, kept as the quality steps. Note whether a
   blip is heard at each switch, and on which device. (`internal/core/chunks/ownsound.go`,
   `internal/node/chunks/arguments.go`, `web/packages/player/src/hls.ts`)
+- [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
+  deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
+  OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
+  sight as it is reached, down to Sign out, whose OK signs the TV out; the TV then shows the
+  discovery's own sign-in (app.orpheum-app.com), not the server's, and does not go back to the
+  household by itself; and, signed in again, the TV removed under *Your devices* on a phone leaves
+  its films for that same sign-in within a second or two, with nothing pressed on the TV. (The
+  owner, 2026-10-27: no way to sign out on the TV; a removed TV kept its films until pressed; it
+  landed on the server's sign-in.) (`web/apps/web/src/app-shell.css`, `live.tsx`,
+  `loader-at-client-origin.tsx`, `loader-households.ts`, `internal/core/live/registry.go`)
