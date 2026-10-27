@@ -27,7 +27,7 @@ class Command(unittest.TestCase):
         tree = MAIN / ".git" / "check-pr" / "tree"
         self.assertEqual(
             in_dev_image.command(["test-acceptance-here"], tree, {}, MAIN),
-            [str(MAIN / "dev"), "sh", "-c", in_dev_image.IN_DIRECTORY, "sh", str(tree), "test-acceptance-here"])
+            [str(MAIN / "dev"), "--gate", "sh", "-c", in_dev_image.IN_DIRECTORY, "sh", str(tree), "test-acceptance-here"])
 
     def test_a_directory_outside_the_main_checkout_is_refused(self):
         with self.assertRaises(SystemExit):

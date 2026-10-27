@@ -9,7 +9,8 @@
 The acceptance shapes the container's loopback with tc and checks its MTU is a real link's, so it runs
 only in the development image; check-pr ran it on the host and it failed asking to be run through
 ./dev, which a person then had to do (2026-10-23; the owner: prerequisites install themselves). In
-the image (it sets ORPHEUM_IN_DEV_IMAGE) the target runs at once. Otherwise it runs through the main
+the image (it sets ORPHEUM_IN_DEV_IMAGE) the target runs at once. Otherwise it runs in the gate's
+container (`./dev --gate`), apart from the dev loop's so a gate never replaces it, through the main
 checkout's ./dev, never a worktree's: check-pr's tree is a worktree inside the main checkout, which
 ./dev mounts at its own path, and whose web/node_modules the tree's links point into, where a
 container of the tree's own could not see them.
@@ -43,7 +44,7 @@ def command(arguments: list[str], directory: Path, env: Mapping[str, str], main:
         return ["make", "--no-print-directory", *arguments]
     if not directory.resolve().is_relative_to(main.resolve()):
         raise SystemExit(f"{directory} is outside {main}, which ./dev mounts; run it from inside the checkout")
-    return [str(main / "dev"), "sh", "-c", IN_DIRECTORY, "sh", str(directory), *arguments]
+    return [str(main / "dev"), "--gate", "sh", "-c", IN_DIRECTORY, "sh", str(directory), *arguments]
 
 
 def main(argv: list[str]) -> int:

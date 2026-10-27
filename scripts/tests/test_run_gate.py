@@ -15,6 +15,8 @@ sys.path.insert(0, str(REPO / "scripts"))
 import run_gate  # noqa: E402
 
 LAUNCHER = str(REPO / "dev")
+# Where an engine is, every gate runs in the gate's container, through in_dev_image (process review F1).
+IN_GATE = [sys.executable, str(REPO / "scripts" / "in_dev_image.py")]
 
 
 def which_only(*present: str):
@@ -22,24 +24,32 @@ def which_only(*present: str):
 
 
 class GateCommand(unittest.TestCase):
-    def test_a_host_with_go_and_node_runs_make_directly(self):
+    def test_a_host_with_an_engine_runs_the_gate_in_its_container_even_with_go_and_node(self):
+        """One environment for every gate run: the host's tools and fonts never decide it (F1)."""
         self.assertEqual(run_gate.gate_command("check", {}, which_only("go", "node", "docker")),
-                         ["make", "check"])
+                         [*IN_GATE, "check"])
+
+    def test_a_host_with_go_and_node_and_no_engine_runs_make_directly(self):
+        self.assertEqual(run_gate.gate_command("check", {}, which_only("go", "node")), ["make", "check"])
+
+    def test_the_owner_may_keep_a_run_on_the_host(self):
+        env = {run_gate.ON_HOST: "1"}
+        self.assertEqual(run_gate.gate_command("check", env, which_only("go", "node", "docker")), ["make", "check"])
 
     def test_inside_the_dev_image_make_runs_directly(self):
         env = {run_gate.IN_DEV_IMAGE: "1"}
         self.assertEqual(run_gate.gate_command("check-docs", env, which_only()), ["make", "check-docs"])
 
-    def test_a_host_missing_a_tool_runs_the_gate_through_dev(self):
+    def test_a_host_missing_a_tool_runs_the_gate_in_the_container(self):
         for present in (("docker",), ("go", "docker"), ("node", "podman")):
             with self.subTest(present=present):
                 self.assertEqual(run_gate.gate_command("check", {}, which_only(*present)),
-                                 [LAUNCHER, "make", "check"])
+                                 [*IN_GATE, "check"])
 
     def test_the_engine_dev_would_use_is_the_one_asked(self):
         env = {"ORPHEUM_DEV_ENGINE": "podman"}
         self.assertEqual(run_gate.gate_command("check", env, which_only("podman")),
-                         [LAUNCHER, "make", "check"])
+                         [*IN_GATE, "check"])
         with self.assertRaises(run_gate.NoWayToRun):
             run_gate.gate_command("check", env, which_only("docker"))
 
