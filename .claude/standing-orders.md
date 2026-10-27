@@ -7,7 +7,7 @@
    - Done: D363 overlap and copies (owner accepted its Test-Weakened; VQ80 passed, VQ81 mostly), D365
      runtime matching (Crowd fixed), the rescan's hour-long wait, the player fixes (VQ78 passed; VQ79
      owes the new device name), the MPEG-TS seek, readthrough's formats.
-   - Icon component done; D366 done (staging, step 0061; VQ83 for the owner). Brave on
+   - Icon component done; D366 done (staging, step 0061; VQ83 passed). Brave on
      the Mac: all fine (owner, 2026-10-27). Every agent of the batch is in: check-pr runs.
    - Then: one full check-pr, the owner's go, nas.example (step 0060 there is VQ82); then the inventory of every
      decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
@@ -25,6 +25,12 @@
      chunk_sound_kbps stereo (owner 2026-10-27: nas.example's Chrome play heard "AAC stereo 96 kb/s, transcoded
      from AAC stereo" at the top rung); HLS audio groups per variant; test a switch's blip on devices. And
      the play line's `delivery=direct` on a chunked play says what was sent (startsOnLadderKbps was set).
+   - A person's library choices move to a Configure dialog on each library's browse page (owner 2026-10-27):
+     "show in Films/Series" (films and series libraries) and "show on Home", the account page's two lists
+     gone (one way to do it); a ModalDialog, reachable by remote.
+   - D367, Up and Back everywhere (owner 2026-10-27: drill down to play, Up to go back up, Back like a
+     browser): every page with a parent offers Up (episode→season, film→its page, other video→its library
+     at its folder, season→series, title→its library, folder→folder above, library→Libraries).
    **TS widget audit (owner 2026-10-27: "can it happen now?" yes):** the read-only audit runs now (agent;
    report to design/research/ui-widgets-audit-2026-10-27.md), so D364 and our own controls build on the
    standard set; the consolidation waits for the owner's choice.

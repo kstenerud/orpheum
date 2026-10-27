@@ -135,6 +135,8 @@ it("deletes a library only once the admin confirms (D231 §7)", async () => {
   mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   await click(buttonWithText(mounted.container, "Delete the library…"));
   expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /libraries/3");
+  // The confirmation says what deleting does: nothing of the media or of what was watched goes (D363 §10).
+  expect(mounted.container.textContent).toContain("Nothing is deleted");
   await click(buttonWithText(mounted.container, "Delete it"));
   expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /libraries/3");
   // Deleted from its own page, the admin is back at the list (D361 §2).
