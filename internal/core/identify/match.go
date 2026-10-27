@@ -103,11 +103,18 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", err
 	}
-	switch chosen, how := settleMatch(query, candidates, true); how {
+	candidates, fit, err := matcher.fitFilm(ctx, provider, title.ID, query, candidates)
+	if err != nil {
+		return "", err
+	}
+	chosen, how := settleMatch(query, candidates, true, fit.lengthsMs)
+	matcher.logFilmSettled(ctx, title.ID, query, candidates, fit, settlement{chosen: chosen, how: how})
+	settled := answer{id: chosen.ID, identification: identificationIdentified, body: fit.fetched[chosen.ID]}
+	switch how {
 	case clearly:
-		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identificationIdentified)
+		return OutcomeMatched, matcher.acceptAnswer(ctx, provider, title, settled)
 	case byGuess:
-		return OutcomeMatched, matcher.acceptGuess(ctx, provider, title, chosen.ID, candidates)
+		return OutcomeMatched, matcher.acceptGuess(ctx, provider, title, settled, candidates)
 	case unsettled:
 	}
 	if len(candidates) == 0 {
@@ -247,7 +254,13 @@ func (matcher *Matcher) isSettledByKept(ctx context.Context, itemID int64, query
 	if len(candidates) == 0 {
 		return true, nil
 	}
-	_, how := settleMatch(query, candidates, query.Kind == KindMovie)
+	var lengths []int64
+	if query.Kind == KindMovie {
+		if lengths, err = matcher.fileLengths(ctx, itemID); err != nil {
+			return false, err
+		}
+	}
+	_, how := settleMatch(query, candidates, query.Kind == KindMovie, lengths)
 	return how != unsettled, nil
 }
 
@@ -264,6 +277,7 @@ func (matcher *Matcher) keptCandidates(ctx context.Context, itemID int64) ([]Can
 		candidates = append(candidates, Candidate{
 			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
 			ProviderPosterPath: ptr.ValueOrZero(row.ProviderPosterPath), Votes: int(ptr.ValueOrZero(row.Votes)),
+			RuntimeMs: ptr.ValueOrZero(row.RuntimeMs),
 		})
 	}
 	return candidates, provider, nil
@@ -280,11 +294,13 @@ func (matcher *Matcher) accept(
 
 // answer is the work a match settled on, and by whom: identified by the matcher or confirmed by a
 // person. A rescan's answer replaces every id an earlier match recorded, keeping only those its
-// files give, keptIDs (D357 §4); nil keeps them all.
+// files give, keptIDs (D357 §4); nil keeps them all. Its body is the work's details where settling
+// it fetched them already, for its runtime (D365 §4); nil fetches them.
 type answer struct {
 	id             string
 	identification string
 	keptIDs        map[string]string
+	body           []byte
 }
 
 // acceptAnswer is accept, of an answer.
@@ -292,9 +308,13 @@ func (matcher *Matcher) acceptAnswer(
 	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, settled answer,
 ) error {
 	id, identification := settled.id, settled.identification
-	body, err := provider.Fetch(ctx, title.Kind, id)
-	if err != nil {
-		return fmt.Errorf("fetch %s %s: %w", provider.Name(), id, err)
+	body := settled.body
+	if body == nil {
+		fetched, err := provider.Fetch(ctx, title.Kind, id)
+		if err != nil {
+			return fmt.Errorf("fetch %s %s: %w", provider.Name(), id, err)
+		}
+		body = fetched
 	}
 	metadata, err := provider.Parse(title.Kind, body)
 	if err != nil {
@@ -478,9 +498,9 @@ func (matcher *Matcher) markAmbiguous(
 // acceptGuess accepts a film's match the matcher guessed among candidates (D301): matched as any
 // other, its candidates kept for a person correcting it, and marked a guess until one does.
 func (matcher *Matcher) acceptGuess(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id string, candidates []Candidate,
+	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, guessed answer, candidates []Candidate,
 ) error {
-	if err := matcher.accept(ctx, provider, title, id, identificationIdentified); err != nil {
+	if err := matcher.acceptAnswer(ctx, provider, title, guessed); err != nil {
 		return err
 	}
 	return matcher.markGuess(ctx, provider, title.ID, candidates)
@@ -534,6 +554,7 @@ func (matcher *Matcher) keepCandidates(
 				Name: ptr.NilIfZero(candidate.Name), Year: ptr.NilIfZero(int64(candidate.Year)),
 				ProviderPosterPath: ptr.NilIfZero(candidate.ProviderPosterPath),
 				Votes:              ptr.NilIfZero(int64(candidate.Votes)),
+				RuntimeMs:          ptr.NilIfZero(candidate.RuntimeMs),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)

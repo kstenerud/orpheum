@@ -68,19 +68,21 @@ func (matcher *Matcher) rematch(ctx context.Context, itemID int64, said filesQue
 	return matcher.rematchFilm(ctx, itemID, said)
 }
 
-// settlement is the work a rescan's match settled on, how, and by which rule; and the search's
-// candidates, for a guess or a person to choose from.
+// settlement is the work a rescan's match settled on, how, and by which rule; the search's
+// candidates, for a guess or a person to choose from; and the details fetched of the one chosen
+// for its runtime, nil when none were (D365 §4).
 type settlement struct {
 	chosen     Candidate
 	how        settledBy
 	rule       string
 	candidates []Candidate
+	chosenBody []byte
 }
 
 // settledFromFiles is what an item's files say settles its match on: an id they give, or a fresh
-// search for their name and year.
+// search for their name and year, a film's candidates fitted to its files (D365).
 func (matcher *Matcher) settledFromFiles(
-	ctx context.Context, provider Provider, kind string, said filesQuery,
+	ctx context.Context, provider Provider, itemID int64, kind string, said filesQuery,
 ) (settlement, error) {
 	id, err := idOfIDs(ctx, provider, kind, said.ids)
 	if err != nil {
@@ -93,8 +95,15 @@ func (matcher *Matcher) settledFromFiles(
 	if err != nil {
 		return settlement{}, err
 	}
-	chosen, how, rule := settleMatchSaying(query, candidates, kind == KindMovie)
-	return settlement{chosen: chosen, how: how, rule: rule, candidates: candidates}, nil
+	candidates, fit, err := matcher.fitFilm(ctx, provider, itemID, query, candidates)
+	if err != nil {
+		return settlement{}, err
+	}
+	chosen, how, rule := settleMatchSaying(query, candidates, kind == KindMovie, fit.lengthsMs)
+	matcher.logFilmSettled(ctx, itemID, query, candidates, fit, settlement{chosen: chosen, how: how})
+	return settlement{
+		chosen: chosen, how: how, rule: rule, candidates: candidates, chosenBody: fit.fetched[chosen.ID],
+	}, nil
 }
 
 // settleRematch ends a rescan's match that settled: another work replaces the old one (replace), and the
@@ -142,7 +151,7 @@ func (matcher *Matcher) rematchFilm(ctx context.Context, titleID int64, said fil
 	if ptr.ValueOrZero(title.FollowedSource) == provider.Name() {
 		result.before = ptr.ValueOrZero(title.FollowedSourceID)
 	}
-	settled, err := matcher.settledFromFiles(ctx, provider, KindMovie, said)
+	settled, err := matcher.settledFromFiles(ctx, provider, titleID, KindMovie, said)
 	if err != nil {
 		return rematched{}, err
 	}
@@ -154,6 +163,7 @@ func (matcher *Matcher) rematchFilm(ctx context.Context, titleID int64, said fil
 	return matcher.settleRematch(ctx, provider, titleID, settled, result, func() error {
 		return matcher.acceptAnswer(ctx, provider, title, answer{
 			id: settled.chosen.ID, identification: identificationIdentified, keptIDs: said.ids,
+			body: settled.chosenBody,
 		})
 	})
 }
@@ -280,7 +290,7 @@ func (matcher *Matcher) rematchSeries(ctx context.Context, seriesID int64, said 
 	if isSeriesMatched(series) {
 		result.before = ptr.ValueOrZero(series.FollowedSourceID)
 	}
-	settled, err := matcher.settledFromFiles(ctx, provider, KindSeries, said)
+	settled, err := matcher.settledFromFiles(ctx, provider, series.ID, KindSeries, said)
 	if err != nil {
 		return rematched{}, err
 	}

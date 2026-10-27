@@ -34,8 +34,11 @@ const (
 // the oldest, with one the most voted (Disney's The Thief of Bagdad over another of 1992), and TMDB's order
 // after. With no candidate named as the query, a work released under another name is guessed
 // (underAnotherName, D307 §1).
-func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Candidate, settledBy) {
-	chosen, how, _ := settleMatchSaying(query, candidates, isYearExpected)
+//
+// A film's candidates are settled otherwise (settleFilm, D365): by how their runtimes fit its files'
+// lengths, lengthsMs, which a series' search passes none of.
+func settleMatch(query Query, candidates []Candidate, isYearExpected bool, lengthsMs []int64) (Candidate, settledBy) {
+	chosen, how, _ := settleMatchSaying(query, candidates, isYearExpected, lengthsMs)
 	return chosen, how
 }
 
@@ -57,7 +60,12 @@ func tierRules() []string {
 }
 
 // settleMatchSaying is settleMatch, and which of its rules settled the match.
-func settleMatchSaying(query Query, candidates []Candidate, isYearExpected bool) (Candidate, settledBy, string) {
+func settleMatchSaying(
+	query Query, candidates []Candidate, isYearExpected bool, lengthsMs []int64,
+) (Candidate, settledBy, string) {
+	if query.Kind == KindMovie {
+		return settleFilm(query, candidates, isYearExpected, lengthsMs)
+	}
 	for index, tier := range matchTiers(query) {
 		var found []Candidate
 		for _, candidate := range candidates {
@@ -76,6 +84,12 @@ func settleMatchSaying(query Query, candidates []Candidate, isYearExpected bool)
 			return Candidate{}, unsettled, settledByNothing
 		}
 	}
+	return settleByOtherNames(query, candidates)
+}
+
+// settleByOtherNames is the guess among candidates none of which is named as the query is: one
+// nearly named so, or a work under another name (D307 §1).
+func settleByOtherNames(query Query, candidates []Candidate) (Candidate, settledBy, string) {
 	if near, found := nearlyNamed(query, candidates); found {
 		return near, byGuess, settledByNearlyTheName
 	}

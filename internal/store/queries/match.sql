@@ -49,8 +49,11 @@ WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfTitle :many
 -- A title's live files: live files of its live versions, as ListTitleFiles and
--- CountLiveFilesOfTitle count them.
-SELECT file.id, file.path
+-- CountLiveFilesOfTitle count them; and how long each plays, 0 before it is probed, which a film's
+-- candidates' runtimes are fitted against (D365 section 1).
+SELECT file.id, file.path,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
 FROM file
 JOIN version ON version.id = file.version_id
 WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
