@@ -143,6 +143,42 @@ func TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot(t 
 	}
 }
 
+// A library folder inside a root that is gone is listed as a root that could not be read, not refused:
+// its listing begins at the folder, says it was not found, and completes, so the core keeps its files
+// and marks it unavailable until a listing reads it (D40, D241 §2). Refused, the folder's scan was
+// given up and it stayed complete (staging, 2026-10-27, VQ81).
+func TestAgent_ListsALibraryFolderThatIsGoneAsARootThatCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	libraryFolderTree(t, root.Path())
+	movies := filepath.Join(root.Path(), "video", "gone") // a folder renamed away since it was added
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
+		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: movies, Path: "."},
+	}}
+	listing := testutil.Receive(t, core.scans, "the gone folder's listing").Listing
+	if listing == nil || listing.Refusal != "" {
+		t.Fatalf("the gone folder's listing = %+v; want it listed, not refused", listing)
+	}
+	beganAt, paths := beganAtAndListed(listing)
+	var rootErrors []nodeproto.ScanError
+	var completed *nodeproto.ScanComplete
+	for _, record := range listing.Records {
+		if record.Error != nil && record.Error.Scope == nodeproto.ScopeRoot {
+			rootErrors = append(rootErrors, *record.Error)
+		}
+		if record.ScanComplete != nil {
+			completed = record.ScanComplete
+		}
+	}
+	if beganAt != movies || len(paths) != 0 || len(rootErrors) != 1 || rootErrors[0].Code != nodeproto.CodeNotFound ||
+		completed == nil || completed.RootPath != movies {
+		t.Errorf("the gone folder's listing began at %q, listed %v, with root errors %+v, completed %+v; want "+
+			"it begun and completed at %s with nothing listed and one root error, not found", beganAt, paths,
+			rootErrors, completed, movies)
+	}
+}
+
 // A listing or an examining under a root the node was not given is refused, whatever the core asks
 // (D107).
 func TestAgent_RefusesToListOrExamineARootItWasNotGiven(t *testing.T) {
