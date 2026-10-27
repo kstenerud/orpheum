@@ -24,8 +24,10 @@
    **Now also:** D365, the matcher prefers the runtime that fits, a year either side, then votes (agent).
    **Next batch (owner 2026-10-27):** films and series sort by release date too (now: name, date added; other
    videos: recorded). Every sort runs either way: dates newest↔oldest, names A–Z↔Z–A; unknown dates last.
-   **Player fixes done** (staging): VQ78, VQ79 for the owner's devices.
-   **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once).
+   **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
+   **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once). And
+   our own player controls on computers too, replacing Chrome's built-in ones, reachable by arrows (owner
+   chose; loses Chrome's speed menu and picture-in-picture unless we add them).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.

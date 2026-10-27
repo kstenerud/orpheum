@@ -202,4 +202,23 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     expect(play).toHaveBeenCalledTimes(3);
     mounted.unmount();
   });
+
+  // Chrome keeps focus on its own control a click pressed, inside the video, and presses it at
+  // Space before the page hears the key: the full-screen button left full screen.
+  it("takes focus back to the video after a press on it or its own controls", async () => {
+    const video = videoAt(30);
+    const outside = document.createElement("button");
+    document.body.append(video, outside);
+    video.tabIndex = -1;
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    focusOn(outside);
+    vi.useFakeTimers();
+    act(() => {
+      video.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      vi.runAllTimers();
+    });
+    expect(document.activeElement).toBe(video);
+    mounted.unmount();
+    vi.useRealTimers();
+  });
 });
