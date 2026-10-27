@@ -23111,3 +23111,60 @@ with a source of its own, and
 `internal/core/library/art.go` and `web/apps/web/src/poster.tsx`; the tiles' interest in
 `internal/core/interest/register.go`, `PUT /tiles/interest` and `web/apps/web/src/tile-interest.ts`.
 Not seen on a device yet.
+
+## D363 — Libraries may overlap: a file is found once, at every place it is, and each list shows an item once however a person reaches it
+
+**Decided** (2026-10-27), by the project owner: "Overlap between libraries should be allowed", the
+model agreed point by point the same day, and of copies and folders within folders: "If I happen to
+add two directories to a library, and they have some duplicates (or perhaps one directory is a parent
+of the other), I don't want it to show me duplicate entries. Same goes for when I'm in the libraries
+page, viewing 'All libraries'"; "We'd have to be careful of edge cases like an item that has a
+duplicate, but the current user only has access to one of those duplicates via his library access";
+and "I don't want to try to handle the case of different encodes of the same video. Let them show up
+as duplicates, and the admin can handle it at the filesystem level." Until now a file belonged to one
+library (`file.library_id`), so a folder could be in one library alone:
+[D359 §1](#d359--a-librarys-folder-is-any-folder-beneath-one-of-its-nodes-configured-roots-chosen-by-browsing-the-nodes-folders)
+refused a folder at, above or below another library's, and a copy of a file at a second path was a
+second file, shown twice
+([D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)).
+**Revises** D359 §1 (its refusal of overlap) and D179 (a copy at a second path); **removes** the
+`mixed` kind of library (D349), which no library has.
+
+1. **Libraries may overlap.** A library's folder may be at, above or below another library's, on any
+   node. Within one library, a folder beneath another of its folders adds nothing: adding one is
+   refused as already covered, and adding a parent takes its children's place.
+2. **The file is the base unit, found at one or more places.** A place is a node and a path. Each place
+   is scanned and watched once, whatever libraries cover it. A file's identity stays its payload hash
+   (D179); a file at a second place whose hash matches a live file elsewhere is a candidate copy, and
+   becomes the same file only once a full read of both shows the same bytes (D116's whole-file pass,
+   run for that pair alone). Until then, and if they differ, they are two files; a difference is
+   logged.
+3. **What lies beside a file is the place's.** Subtitles, images and NFO files beside a copy belong to
+   that place; a person is offered those of the places they reach.
+4. **A library covers places; it does not own files.** A file is in every library that covers one of
+   its places. Nothing records a file's library; coverage is the libraries' folders.
+5. **A file is part of at most one film, one run of episodes and one other video.** Libraries of the
+   same kind covering it share that one item. Libraries of different kinds covering it each give it
+   the item of their kind: a film library and an other library over one folder show the film and the
+   other video. A film's different files, a re-encode or a 4K copy, stay its versions (D155).
+6. **Each list shows an item once, however it is reached.** A library's list, All libraries, Films,
+   Series, Home and a folder's videos list items, never files or places: an item two folders, two
+   libraries or two copies reach appears once.
+7. **Different files of one other video stay separate.** Two encodes of a home video are two items;
+   nothing guesses that they are one, and the admin settles it on disk.
+8. **A person reaches only the places their libraries cover, and learns of no other.** They see an item
+   when any of its files has a place they reach; they play only from places they reach, and fall back
+   to another of those only, when a disk stops answering; nothing they are shown names or counts a
+   place they cannot reach. An admin sees every place of a file, and the doctor lists the files found
+   at more than one place.
+9. **An item's match, where its sources disagree:** a person's match wins (D357); else the NFO beside
+   the place first found; the doctor lists the items whose places' NFO files disagree.
+10. **Deleting a library deletes no item.** What no library covers any more is kept, its data
+    reapable: reaped only under storage pressure, by the existing budgets, oldest first. A person's
+    progress stays with the file, and a library covering it again finds it as it was.
+11. **Items stay members of collections** ([D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)),
+    whatever libraries cover them.
+12. **The migration carries production's database** (nas.example's, at step 0059) to the new model: each
+    file's library becomes a coverage of its place, and nothing a person did is lost.
+
+**Status:** Decided 2026-10-27.
