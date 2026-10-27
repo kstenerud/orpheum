@@ -300,9 +300,14 @@ function Extras(props: {
  */
 export function titleUp(title: TitleDetail | undefined): Route {
   const place = title?.episode;
-  if (place === undefined) {
-    return { screen: "films" };
-  }
+  return place === undefined ? { screen: "films" } : episodeUp(place);
+}
+
+/**
+ * The page above an episode: its season in the aired order, else its group in the ordering the
+ * person chose, the series' top where that ordering leaves it out.
+ */
+export function episodeUp(place: EpisodePlace): Route {
   if (place.ordering === undefined) {
     return { screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber };
   }

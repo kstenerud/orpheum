@@ -4684,6 +4684,39 @@
         ],
         "type": "object"
       },
+      "PlaysBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episode": {
+            "$ref": "#/components/schemas/EpisodePlaceBody",
+            "description": "An episode's series and place; absent for any other"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ],
+            "type": "string"
+          },
+          "libraryId": {
+            "description": "The library its file lives in",
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titleId",
+          "kind",
+          "libraryId"
+        ],
+        "type": "object"
+      },
       "PortMappingBody": {
         "additionalProperties": false,
         "properties": {
@@ -6802,6 +6835,9 @@
           },
           "onLadder": {
             "$ref": "#/components/schemas/LadderBody"
+          },
+          "plays": {
+            "$ref": "#/components/schemas/PlaysBody"
           },
           "preferences": {
             "$ref": "#/components/schemas/PlaybackPreferencesBody"

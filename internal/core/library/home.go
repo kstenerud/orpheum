@@ -80,7 +80,8 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
 		if row.Kind == TitleKindEpisode {
-			if inProgress[len(inProgress)-1].Episode, err = browser.episodePlace(ctx, userID, row.TitleID); err != nil {
+			last := &inProgress[len(inProgress)-1]
+			if last.Episode, err = browser.EpisodePlaceOf(ctx, userID, row.TitleID); err != nil {
 				return nil, err
 			}
 		}

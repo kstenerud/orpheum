@@ -135,6 +135,7 @@ type decision struct {
 	TitleName        string            `json:"titleName"`
 	OnLadder         *api.LadderBody   `json:"onLadder"`
 	Tracks           api.TracksBody    `json:"tracks"`
+	Plays            *api.PlaysBody    `json:"plays"`
 }
 
 type subtitleTrack struct {
@@ -233,6 +234,67 @@ func TestPlayback_NamesTheTitleItPlaysAndNeverAPath(t *testing.T) {
 	harness.fileFilmAsTitle(t, "Metropolis")
 	if named := harness.play(t, user, chrome(1)); named.TitleName != "Metropolis" {
 		t.Errorf("the title's name = %q, want Metropolis", named.TitleName)
+	}
+}
+
+// The decision says what the file plays and where it lives, which the Play page goes up to with no
+// page of the app behind it (the owner, 2026-10-27): a film by its title, an episode by its series
+// and its place in the ordering its person watches in, an other video by its library; nothing for a
+// file filed as no title.
+func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // Metropolis (10, file 1); episodes 21-24 of series 20, files 2-5
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Kind: "other", AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 6, TitleID: 30, CreatedAt: 3})
+	for _, file := range []librarytest.FileSpec{
+		{ID: 6, Path: "/m/Home/Beach.mkv", PayloadHash: []byte{0x06}, Filing: "listed", VersionID: 6},
+		{ID: 7, Path: "/m/Unknown.mkv", PayloadHash: []byte{0x07}, Filing: "unidentified"},
+	} {
+		file.LibraryID, file.NodeID, file.SizeBytes = 1, 1, 10
+		librarytest.File(t, harness.database, file)
+	}
+	// Each a video a browser plays as it is.
+	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
+		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}}]}`
+	for fileID := int64(1); fileID <= 7; fileID++ {
+		librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: fileID, ProbeJSON: mp4, DurationMs: 1000})
+	}
+	seen := func(fileID int64) string {
+		plays := harness.play(t, user, chrome(fileID)).Plays
+		if plays == nil {
+			return "nothing"
+		}
+		text := fmt.Sprintf("%s %d in library %d", plays.Kind, plays.TitleID, plays.LibraryID)
+		if episode := plays.Episode; episode != nil {
+			text += fmt.Sprintf(", series %d season %d %q", episode.SeriesID, episode.SeasonNumber, episode.Ordering)
+			if in := episode.InOrdering; in != nil {
+				text += fmt.Sprintf(" group %d", in.GroupNumber)
+			}
+		}
+		return text
+	}
+	for fileID, want := range map[int64]string{
+		1: "movie 10 in library 1",
+		4: `episode 23 in library 1, series 20 season 1 ""`,
+		6: "other 30 in library 1",
+		7: "nothing",
+	} {
+		if got := seen(fileID); got != want {
+			t.Errorf("file %d plays %s; want %s", fileID, got, want)
+		}
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
+		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+	for fileID, want := range map[int64]string{
+		5: `episode 24 in library 1, series 20 season 2 "tmdb:dvd" group 2`,
+		4: `episode 23 in library 1, series 20 season 1 "tmdb:dvd" group 1`,
+		3: `episode 22 in library 1, series 20 season 1 "tmdb:dvd"`, // which the DVD order leaves out
+	} {
+		if got := seen(fileID); got != want {
+			t.Errorf("DVD order, file %d plays %s; want %s", fileID, got, want)
+		}
 	}
 }
 

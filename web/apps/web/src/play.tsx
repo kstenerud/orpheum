@@ -18,7 +18,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { BackButton } from "./back-button.tsx";
+import { BackToTheList } from "./play-up.tsx";
 import { AudioMenu, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import {
   FilmPlayer,
@@ -164,7 +164,7 @@ function PlayerView(
   const offered = useUpNextOffered(fileId, decision.preferences.isAutoplayOn, receiving);
   return (
     <UpNextContext value={offered}>
-      {isOwn ? <BackToTheList /> : null}
+      {isOwn ? <BackToTheList plays={props.decision.plays} /> : null}
       {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
       <PlayContext value={ways}>
         {/* A remote's first arrow starts on the video, not the Back above it (focus-navigation.ts). */}
@@ -188,16 +188,6 @@ function PlayerView(
       />
     </UpNextContext>
   );
-}
-
-/**
- * A way back to the list the film was chosen from, home when the page was opened from outside (the
- * owner, 2026-10-27: "when I play a video, there's no way to return to the list of videos"). A
- * television's player has the remote's Back instead, and a cast's receiver shows the film alone
- * (D337 §3), so neither shows it.
- */
-function BackToTheList(): JSX.Element | null {
-  return isTelevision(navigator.userAgent) ? null : <BackButton up={{ screen: "home" }} />;
 }
 
 /** The bare player's button where onBare is given, and Cast to another device (D337). */

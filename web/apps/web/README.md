@@ -152,6 +152,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   browser keeps its back out of the remote's reach): the page before when it was this app's, else
   up in place of the current one: an episode to its season, a season to its series, a film, an
   extra or a series to its list. `src/back-button.test.tsx`, `src/navigation.test.ts`.
+- **A Play page's Back goes up to what it plays from** (the owner, 2026-10-27): the page before
+  when it was this app's, else, by what the playback's answer says it plays (`plays`), a film's or
+  an extra's page, an episode's series where it is in the person's ordering, an other video's
+  library's list, and home where it says nothing. A television shows no button, and its remote's
+  Back, at the base laid under a page opened directly, goes to the same place.
+  `src/play.test.tsx`, `src/input-player.browser.test.tsx`.
 - **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
   *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; none on a
