@@ -23224,6 +23224,13 @@ question per session); **keeps** D337 §1, §5's remote and split devices, §6 (
 10. **Stop casting on the sending device** ends the session and returns the receiver to the page it was
     on before the session began (D338 §4); the sending device is offered "Play here from ‹time›" for a
     video that was playing.
+11. **With Watch Together also running, one place holds the playback controls** (the owner: *"It could
+    become confusing if both icons are up, and both pages they lead to have playback controls. Maybe
+    when both features are active, it's best to have the cast page have an 'end casting' button and a
+    'go here for playback controls' button that takes them to the watch together page, which has the
+    more complete set of controls"*). The cast page then offers End casting and a way to Watch
+    Together's page, where the controls are; it shows none of its own. How the two tray icons read
+    side by side is designed with the build, and shown to the owner before it is built.
 
 **Status:** Decided 2026-10-27.
 

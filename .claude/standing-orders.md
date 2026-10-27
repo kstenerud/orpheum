@@ -21,7 +21,7 @@
    code-debt, the owner's asks; collections' UI, D160) for the owner to choose from.
    **Next batch, also (owner 2026-10-27):** a library's setting for whether its items show on the home page.
    Each person chooses for themselves (owner 2026-10-27), beside D349 §8's per-person leave-out.
-   **Now also:** D365, the matcher prefers the runtime that fits, a year either side, then votes (agent).
+   **D365 done** (staging's Crowd now 1020910), and a rescan no longer waits an hour.
    **Next batch (owner 2026-10-27):** films and series sort by release date too (now: name, date added; other
    videos: recorded). Every sort runs either way: dates newest↔oldest, names A–Z↔Z–A; unknown dates last.
    **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
