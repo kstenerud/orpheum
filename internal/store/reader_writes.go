@@ -27,5 +27,8 @@ func readerWritesAllowed() map[string]string {
 			"text it plays",
 		"jobqueue.(*Queue[...]).CancelOpenOf": "a play's GET cancels the run of chunks a seek went past (D250 §5)",
 		"chunks.(*Service).storeIDOf":         "a play's GET names the chunk store its first run makes",
+		// Once a place, never once a read: the place is noted, and the reads after it skip it.
+		"library.(*Scans).request": "a play's GET that finds its file not at a place asks for a scan of " +
+			"the place's folder, which sees it there again or removes it (D363 §8)",
 	}
 }

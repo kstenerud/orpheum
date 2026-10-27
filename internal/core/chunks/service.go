@@ -88,6 +88,9 @@ type Parts struct {
 	// Encoders say whether a film's node encodes on a GPU, which chooses its ladder (D323 §3); nil
 	// encodes every film in software.
 	Encoders Encoders
+	// Absences are the places a read found a film's file not at, which a run reads from last (D363
+	// §8); nil knows of none.
+	Absences *library.Absences
 }
 
 // HoldBack stops the work on a node no one plays, and gives it none until a time, reporting how
@@ -116,6 +119,7 @@ type Service struct {
 	logger      *slog.Logger
 	clock       clock.Clock
 	encoders    Encoders
+	absences    *library.Absences
 	// holdBack stops a node's other work while a run players want, encoded in software, is behind
 	// playback (D324 §5): the exchanges; nil holds nothing back.
 	holdBack HoldBack
@@ -143,7 +147,7 @@ func NewService(parts Parts) *Service {
 	service := &Service{
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
-		clock: parts.Clock, encoders: parts.Encoders, runs: newRunTracker(),
+		clock: parts.Clock, encoders: parts.Encoders, absences: parts.Absences, runs: newRunTracker(),
 	}
 	if parts.Exchanges != nil {
 		service.holdBack = parts.Exchanges

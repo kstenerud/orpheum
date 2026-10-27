@@ -121,6 +121,22 @@ func TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade(t *tes
 	}
 }
 
+// A run of a video renamed away from its path is refused untried and named gone, so the core reads
+// another place of it (D363 §8).
+func TestAgent_ARunOfAVideoGoneFromItsPathIsRefusedAsGone(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	video.Path = []byte("renamed-away.mkv")
+	core.sendMakeChunks(1, nodeproto.MakeChunks{
+		Video: video, StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 0,
+		BoundsMs: []int64{0, 2000}, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+	})
+	if refused := receiveChunksReport(t, core); refused.State != nodeproto.RunRefused ||
+		refused.RefusalCode != nodeproto.RefusedGone || refused.LastChunk != -1 {
+		t.Errorf("a run of a video gone from its path ended %+v; want refused untried, gone", refused)
+	}
+}
+
 // A job whose work panics in the node's own code ends alone and says why to the core; the node goes
 // on, and makes the next run (D248 §2).
 func TestAgent_AJobThatPanicsSaysSoAndTheNodeGoesOn(t *testing.T) {

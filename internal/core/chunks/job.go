@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -80,7 +81,8 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	queries := service.database.Read()
 	// At the first place on its store's node that can be read now: a copy beside it when the first's
 	// disk does not answer (D363 §8).
-	located, err := library.PlaceOnNodeToRead(ctx, queries, service.nodes, film.file, film.file.NodeID)
+	located, err := library.PlaceOnNodeToRead(ctx, queries, service.nodes, service.absences, film.file,
+		film.file.NodeID)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -241,7 +243,7 @@ func (service *Service) RecordMakeChunksFailure(ctx context.Context, job jobs.Jo
 func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
-		Answer: func(_ context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
+		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
 			command := attempt.Work.MakeChunks
 			if command == nil {
 				return jobs.MarkPermanent(fmt.Errorf("%s job %d's attempt names no run", attempt.Kind, attempt.JobID))
@@ -250,7 +252,7 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 				return fmt.Errorf("node %d answered the run of %s with something other than a run's report",
 					attempt.NodeID, command.StoreDir)
 			}
-			return service.takeEnd(job, attempt.NodeID, *command, *result.MakeChunks)
+			return service.takeEnd(ctx, job, attempt.NodeID, *command, *result.MakeChunks)
 		},
 		Unanswered: func(_ context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
 			return nodes.UnansweredOutcome(job, err, func(string) error {
@@ -304,10 +306,11 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 
 // takeEnd takes the node's word on how a run ended, and says how the job ended: done; FFmpeg
 // failing on the source, which fails again; stalled, tried again once; refused for want of room,
-// parked until the node's disk has it; or refused otherwise, tried again. Whatever the run made
+// parked until the node's disk has it; refused for its film not at the place read, tried again at
+// once at a copy beside it (readElsewhere); or refused otherwise, tried again. Whatever the run made
 // before it ended is known made.
 func (service *Service) takeEnd(
-	job jobs.Job, nodeID int64, command nodeproto.MakeChunks, report nodeproto.MakeChunksReport,
+	ctx context.Context, job jobs.Job, nodeID int64, command nodeproto.MakeChunks, report nodeproto.MakeChunksReport,
 ) error {
 	service.runs.ended(job.ID)
 	if report.LastChunk >= command.FirstChunk {
@@ -336,6 +339,9 @@ func (service *Service) takeEnd(
 				AwaitsSignal: true,
 			}, refused)
 		}
+		if report.RefusalCode == nodeproto.RefusedGone || report.RefusalCode == nodeproto.RefusedChanged {
+			return service.readElsewhere(ctx, nodeID, command, refused)
+		}
 		return refused
 	}
 	return fmt.Errorf("node %d ended %s in a state this core does not know: %q", nodeID, what, report.State)
@@ -348,4 +354,31 @@ func hasSound(sounds []Sound, stream Stream) bool {
 	return slices.ContainsFunc(sounds, func(sound Sound) bool {
 		return soundStream(sound, stream.SoundKbps, stream.IsUnlevelled) == stream
 	})
+}
+
+// readElsewhere answers a run its node refused because its film is not at the place it read, or is
+// not the file named there (D100): the place is noted absent, so the film is read at another of its
+// places on the node until a scan sees it there again, and with one the run is tried again at once,
+// at no cost of an attempt; with none it is the refusal, tried again on the job's back-off (D363 §8).
+// A play whose first place was renamed away waited on runs refused there though a copy stood beside
+// it (staging, 2026-10-27, VQ81).
+func (service *Service) readElsewhere(
+	ctx context.Context, nodeID int64, command nodeproto.MakeChunks, refused error,
+) error {
+	read := command.Video
+	place := []byte(strings.TrimSuffix(read.RootPath, "/") + "/" + string(read.Path))
+	service.absences.Note(ctx, nodeID, place, refused.Error())
+	queries := service.database.Read()
+	file, err := library.PlayableFile(ctx, queries, fileOfStore(command.StoreDir))
+	if err != nil {
+		return errors.Join(refused, err)
+	}
+	next, err := library.PlaceOnNodeToRead(ctx, queries, service.nodes, service.absences, file, nodeID)
+	if err != nil || service.absences.IsAbsent(nodeID, next.ReportedPathRaw) {
+		return refused
+	}
+	service.logger.InfoContext(ctx, "a run of chunks found its film not at a place; it reads another place "+
+		"of it on the node", "nodeId", nodeID, "storeDir", command.StoreDir, "from", string(place),
+		"to", string(next.ReportedPathRaw))
+	return jobs.Bump(refused)
 }

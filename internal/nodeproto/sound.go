@@ -49,6 +49,11 @@ type RefusalCode string
 // and says why; the scan that sees the change ends the old file's jobs (S74).
 const RefusedChanged RefusalCode = "changed"
 
+// RefusedGone is work refused because no file is at its path under its root: renamed or deleted
+// since the scan, or its library folder gone. The core reads another place of the file, where it has
+// one (D363 §8), until a scan sees it there again.
+const RefusedGone RefusalCode = "gone"
+
 // RefusedNoRoom is a run refused because the prepared directory's disk is past its limit and
 // nothing can be evicted: the core waits for the node's status to show room (D231 §5).
 const RefusedNoRoom RefusalCode = "no_room"

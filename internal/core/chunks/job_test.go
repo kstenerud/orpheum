@@ -5,12 +5,14 @@ package chunks
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -181,6 +183,43 @@ func TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays(t *testing.T) {
 		fixture.service.reported(t, testutil.Receive(t, fixture.node.sent, "the run's command"), check.report)
 		if err := testutil.Receive(t, ended, "the run's job to end"); !check.isWant(err) {
 			t.Errorf("%s: the job ended %v", what, err)
+		}
+	}
+}
+
+// A run its node refuses because its film is not at the place it read, renamed away, is tried again
+// reading the copy beside it, which the runs after it read too, until a scan sees the film there
+// again; with no other place it is a refusal tried again on its back-off (D363 §8). A play of a film
+// renamed away waited on runs refused there though its copy stood (staging, 2026-10-27, VQ81).
+func TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesideIt(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	service.absences = library.NewAbsences(slog.New(slog.DiscardHandler))
+	backup := librarytest.LibraryOn(t, service.database, 1,
+		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/m2"})
+	librarytest.File(t, service.database, librarytest.FileSpec{
+		LibraryID: backup, NodeID: 1, Path: "/m2/f1.mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 3,
+	})
+	gone := nodeproto.MakeChunksReport{
+		State: nodeproto.RunRefused, LastChunk: -1, Refusal: "no such file", RefusalCode: nodeproto.RefusedGone,
+	}
+	run := testRun{"picture", mustGrid(t, service).ID(), runArgs{FirstChunk: 3, LastChunk: 5}}
+	readAt := func(id int64) (nodeproto.Command, <-chan error) {
+		t.Helper()
+		ended := fixture.start(t, id, run)
+		return testutil.Receive(t, fixture.node.sent, "the run's command"), ended
+	}
+	for index, want := range []string{"/m/f1.mkv", "/m2/f1.mkv", "/m/f1.mkv"} {
+		command, ended := readAt(int64(7 + index))
+		read := command.MakeChunks.Video
+		if got := read.RootPath + "/" + string(read.Path); got != want {
+			t.Fatalf("the run read %s; want %s", got, want)
+		}
+		service.reported(t, command, gone)
+		err := testutil.Receive(t, ended, "the refused run to end")
+		if _, isParked := jobqueue.ParkingOf(err); err == nil || isParked || jobs.IsMarkedPermanent(err) {
+			t.Errorf("a run refused at %s for its film gone ended %v; want it tried again", want, err)
 		}
 	}
 }

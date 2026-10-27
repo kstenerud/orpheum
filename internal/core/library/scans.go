@@ -285,13 +285,19 @@ func (scans *Scans) ReadNow(ctx context.Context, nodeID int64, reportedPath []by
 		}
 		return nil
 	}
+	return scans.requestFolderOf(ctx, nodeID, reportedPath, jobs.PriorityPersonsRequest)
+}
+
+// requestFolderOf asks for a scan, at priority, of the folder of the file a node reported at
+// reportedPath, within the library folder that holds it; none when no live one does.
+func (scans *Scans) requestFolderOf(ctx context.Context, nodeID int64, reportedPath []byte, priority int64) error {
 	roots, err := scans.ingester.database.Read().ListLiveRootPathsOnNode(ctx, nodeID)
 	if err != nil {
 		return fmt.Errorf("list node %d's library folders: %w", nodeID, err)
 	}
 	for _, root := range roots {
 		if relative, under := RelativeToRoot(reportedPath, root); under {
-			return scans.RequestUnder(ctx, nodeID, root, path.Dir(string(relative)), jobs.PriorityPersonsRequest)
+			return scans.RequestUnder(ctx, nodeID, root, path.Dir(string(relative)), priority)
 		}
 	}
 	return nil

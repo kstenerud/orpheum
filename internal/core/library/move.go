@@ -40,7 +40,7 @@ func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, erro
 	if err != nil {
 		return Retired{}, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	place, err := PlaceToRead(ctx, queries, admin.nodes, auth.EveryLibrary(), file)
+	place, err := PlaceToRead(ctx, queries, admin.nodes, nil, auth.EveryLibrary(), file)
 	if err != nil {
 		return Retired{}, err
 	}

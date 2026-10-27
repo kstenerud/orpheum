@@ -240,6 +240,12 @@
 //     TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem,
 //     TestSubtitleTracks_ASubtitleBesideACopyIsOfferedWhereItsPlaceIsReached.
 //
+//   - A place at which a read found its file not there, renamed or deleted, is read last of the
+//     places its reader reaches until a complete scan of it sees the file there again (Absences, the
+//     ingester's, in memory), and asks for a scan of its folder (D363 §8).
+//     TestPlaceToRead_AfterAReadFindsTheFileNotAtAPlaceItReadsAnotherUntilAScanSeesItThere,
+//     TestAbsences_APlaceNotedAsksForAScanOfItsFolder.
+//
 //   - A root, or a disk mounted inside one, is offline since the first scan in a row that found
 //     it missing, until one finds it. TestOffline_IsSinceTheFirstScanThatFoundARootOrDiskMissingUntilOneFindsIt.
 //

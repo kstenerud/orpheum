@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -367,17 +368,16 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	return output
 }
 
-// relayDirect relays a file's bytes from its node: the core never opens a media file (D193 §1).
+// relayDirect relays a file's bytes from its node: the core never opens a media file (D193 §1). A
+// node that answers that the file is not at the place read, or is not the one named (D100), has the
+// read go on to the next place its holder reaches, which the plays after it read first, until a scan
+// sees it there again (D363 §8); with no other place, the file is no longer there as it was.
 func (server *Server) relayDirect(
 	ctx context.Context, method string, input *DirectInput,
 ) (*huma.StreamResponse, error) {
 	dependencies, holder, err := server.mediaHolder(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
-	}
-	source, err := dependencies.Playback.DirectSource(ctx, input.Token, holder)
-	if err != nil {
-		return nil, server.playbackError(ctx, "find a playback's bytes", err)
 	}
 	header := http.Header{}
 	if input.Range != "" {
@@ -386,11 +386,51 @@ func (server *Server) relayDirect(
 	if input.IfRange != "" {
 		header.Set("If-Range", input.IfRange)
 	}
-	return server.relay(ctx, dependencies, relayRequest{method, source, header, cacheNeverPrivately},
-		func() error {
-			// The node refuses a file that is gone or no longer the one named (D100).
-			return newError(http.StatusNotFound, CodeFileUnavailable, "the file is no longer there as it was")
-		})
+	tried := map[string]bool{}
+	for {
+		source, err := dependencies.Playback.DirectSource(ctx, input.Token, holder)
+		if err != nil {
+			return nil, server.playbackError(ctx, "find a playback's bytes", err)
+		}
+		place := fmt.Sprintf("%d:%s", source.NodeID, source.PlacePath)
+		if tried[place] {
+			return nil, fileNotThere()
+		}
+		tried[place] = true
+		answer, err := server.relay(ctx, dependencies, relayRequest{method, source, header, cacheNeverPrivately},
+			func(status int) error {
+				if status == http.StatusNotFound || status == http.StatusConflict {
+					return &notThereError{status: status}
+				}
+				return fileNotThere()
+			})
+		notThere, isNotThere := errors.AsType[*notThereError](err)
+		if !isNotThere {
+			return answer, err
+		}
+		dependencies.Playback.NotThere(ctx, source, notThere.Error())
+		server.logger.InfoContext(ctx, "a direct read found its file not at a place; it tries the next it may",
+			"nodeId", source.NodeID, "path", string(source.PlacePath), "nodeStatus", notThere.status)
+	}
+}
+
+// notThereError is a node's answer that the file read is not at its place, 404, or that the one there
+// is not the one named, 409 (D100).
+type notThereError struct {
+	status int
+}
+
+func (notThere *notThereError) Error() string {
+	if notThere.status == http.StatusConflict {
+		return "the node has another file at this path"
+	}
+	return "the node has no such file at this path"
+}
+
+// fileNotThere is a file to play that its node does not have at any place read, or not as it was.
+func fileNotThere() error {
+	// The node refuses a file that is gone or no longer the one named (D100).
+	return newError(http.StatusNotFound, CodeFileUnavailable, "the file is no longer there as it was")
 }
 
 // playbackError maps the playback package's refusals, and a subtitle provider's that reach the API
@@ -507,7 +547,7 @@ func (server *Server) nodeReadError(ctx context.Context, err error) error {
 // relay streams what a node's byte socket answers, or the refusal when it answers anything but
 // the bytes or a range of them.
 func (server *Server) relay(
-	ctx context.Context, dependencies *Dependencies, request relayRequest, refuse func() error,
+	ctx context.Context, dependencies *Dependencies, request relayRequest, refuse func(status int) error,
 ) (*huma.StreamResponse, error) {
 	source := request.source
 	//nolint:bodyclose // closed by the stream below, or on refusal
@@ -525,7 +565,7 @@ func (server *Server) relay(
 	case http.StatusOK, http.StatusPartialContent, http.StatusRequestedRangeNotSatisfiable:
 	default:
 		_ = answer.Body.Close() //nolint:errcheck // the answer is refused, unread
-		return nil, refuse()
+		return nil, refuse(answer.StatusCode)
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		defer func() { _ = answer.Body.Close() }() //nolint:errcheck // read-only

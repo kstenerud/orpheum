@@ -27,10 +27,14 @@ func (agent *Agent) evict(ctx context.Context) {
 	}
 }
 
-// refusalCodeOf names a refusal the core says apart: a file changed since the scan.
+// refusalCodeOf names a refusal the core says apart: a file changed since the scan, or no file at
+// its path at all.
 func refusalCodeOf(err error) nodeproto.RefusalCode {
-	if errors.Is(err, namedfile.ErrChanged) {
+	switch {
+	case errors.Is(err, namedfile.ErrChanged):
 		return nodeproto.RefusedChanged
+	case errors.Is(err, fs.ErrNotExist), errors.Is(err, namedfile.ErrNotRegular):
+		return nodeproto.RefusedGone
 	}
 	return ""
 }

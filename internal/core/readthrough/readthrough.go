@@ -413,7 +413,7 @@ func (service *Service) locate(
 	ctx context.Context, queries *sqlcgen.Queries, job jobs.Job, file sqlcgen.GetPlayableFileRow,
 	command *nodeproto.ReadThrough,
 ) (library.Located, error) {
-	located, err := library.PlaceToRead(ctx, queries, service.nodes, auth.EveryLibrary(), file)
+	located, err := library.PlaceToRead(ctx, queries, service.nodes, nil, auth.EveryLibrary(), file)
 	if err != nil {
 		return located, jobs.MarkPermanent(err)
 	}
