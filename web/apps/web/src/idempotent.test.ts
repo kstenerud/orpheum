@@ -27,7 +27,8 @@ const sources: Record<string, string> = import.meta.glob(
  * the same code (D288 §1); a page tells the core of a failure it met on its own, each a report of
  * its own (failure-reports.ts); the client origin redeems a hand-off's code as it loads, a code
  * the core takes once (D308 §4); and the device lab sends each input event as it happens, a record of
- * its own (lab-events.ts).
+ * its own (lab-events.ts); and a page tells the core how it chose its path once per reach, for the
+ * log alone (path-choice.ts).
  */
 const notSentByAClick = new Set([
   "./watching.ts",
@@ -38,6 +39,7 @@ const notSentByAClick = new Set([
   "./failure-reports.ts",
   "./loader-at-client-origin.tsx",
   "./lab-events.ts",
+  "./path-choice.ts",
 ]);
 
 /** The text of each call that begins at an index in source: from it to its closing parenthesis. */

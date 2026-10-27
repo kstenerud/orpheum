@@ -106,9 +106,11 @@ func isFromHome(ctx context.Context) bool {
 	return isMarked && isHome
 }
 
-// isDirectPath is whether a WebRTC connection's path reaches the core with no relay between.
+// isDirectPath is whether a WebRTC connection's path reaches the core with no relay between, nor a
+// NAT it shares with its client: a hairpinned pair's client address is a public one shared by every
+// device behind that NAT, a carrier's being many households', so it is never the house's (D354 §4).
 func isDirectPath(path rtcapi.Path) bool {
-	return path != rtcapi.PathRelayed && path != rtcapi.PathFailed
+	return path != rtcapi.PathRelayed && path != rtcapi.PathFailed && path != rtcapi.PathHairpinnedIPv4
 }
 
 // pathOf names the way the request whose context ctx is reached the core, for its log: over WebRTC

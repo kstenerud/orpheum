@@ -6,12 +6,60 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Reached } from "./discovery-start.ts";
 import { betterPathFirstMs, betterPathMostMs, keepPath } from "./kept-path.ts";
+import { pairsSettleMs, type PathChoice } from "./path-choice.ts";
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 describe("the kept path", () => {
+  it("tells the core how its first path was chosen, over it, once the page is signed in (D354 §5)", async () => {
+    vi.useFakeTimers();
+    const away: Reached = { kind: "direct", origin: "https://2a01-db8--1.core1.orpheum-core.com" };
+    const asked: { url: string; authorization: string | null; body: string }[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input instanceof Request ? input.url : input);
+      asked.push({
+        url,
+        authorization: new Headers(init?.headers).get("Authorization"),
+        body: init?.body instanceof ArrayBuffer ? new TextDecoder().decode(init.body) : "",
+      });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    };
+    const choice: PathChoice = {
+      browser: "chrome",
+      isLanNameUsed: true,
+      localNetwork: "granted",
+      directOffered: 1,
+      lanOffered: 0,
+      names: [{ name: away.origin, outcome: "answered" }],
+      reached: `direct ${away.origin}`,
+    };
+    const signedIn: { token?: string } = {};
+    const kept = keepPath(
+      {
+        first: away,
+        choice,
+        another: () => Promise.resolve(away),
+        better: () => Promise.resolve(undefined),
+        onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
+      },
+      { token: () => signedIn.token },
+    );
+    kept.carried.catch(() => undefined);
+    signedIn.token = "a-token";
+    await vi.advanceTimersByTimeAsync(pairsSettleMs);
+    kept.close();
+    globalThis.fetch = realFetch;
+    const told = asked.filter((each) => each.url.endsWith("/api/v1/client-paths"));
+    expect(told.map((each) => [each.url, each.authorization])).toEqual([
+      [`${away.origin}/api/v1/client-paths`, "Bearer a-token"],
+    ]);
+    expect(JSON.parse(told[0]?.body ?? "{}")).toEqual(choice);
+  });
+
   it("tells each move with the name of the path it went to, for the play report beside it (the owner, 2026-10-17)", async () => {
     vi.useFakeTimers();
     const away: Reached = { kind: "direct", origin: "https://2a01-db8--1.core1.orpheum-core.com" };

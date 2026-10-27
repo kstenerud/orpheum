@@ -19,6 +19,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
+// firefox is a browser's user agent, as a page puts it in a request's head.
+const firefox = "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0"
+
 // A signed-in client's offer is answered, and its requests over data channels reach the same API, its
 // own sign-in carried in each request's head (D273 §8).
 func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
@@ -57,12 +60,17 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 	}
 	started := link.Do(rtcapi.RequestHead{
 		Method: http.MethodPost, Path: api.Prefix + "/playback",
-		Headers: http.Header{"Authorization": {"Bearer " + token}, "Content-Type": {"application/json"}},
+		Headers: http.Header{
+			"Authorization": {"Bearer " + token}, "Content-Type": {"application/json"}, "User-Agent": {firefox},
+		},
 	}, asked)
 	if started.Head.Status != http.StatusOK {
 		t.Fatalf("POST /playback over a channel = %d %s", started.Head.Status, started.Body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"over":"webrtc"`)
+	// It names the browser, whose page puts its user agent in each head, and the device: a playback over
+	// WebRTC said userAgent="" (local-path-2026-10-27.md §4 item 7).
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"over":"webrtc"`, `"userAgent":"`+firefox+`"`,
+		fmt.Sprintf(`"deviceId":%d`, harness.thisDeviceID(t, token)))
 	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: api.Prefix + "/libraries"}, nil)
 	if anonymous.Head.Status != http.StatusUnauthorized {
 		t.Errorf("GET /libraries over a channel with no sign-in = %d; want 401: a connection grants nothing",

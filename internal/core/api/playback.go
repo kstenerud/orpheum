@@ -226,8 +226,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
 	who := []any{
-		"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent,
-		"over", input.over, "host", input.host, "clientAddress", input.clientAddress,
+		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "fileId", input.Body.FileID,
+		logKeyUserAgent, input.userAgent, "over", input.over, "host", input.host, "clientAddress", input.clientAddress,
 		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts,
 	}
 	if input.Body.StartsAtMs != nil {

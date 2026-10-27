@@ -23,6 +23,7 @@ import {
 } from "@orpheum/sdk";
 
 import type { Reached, Reaching } from "./discovery-start.ts";
+import { reportPathChoice, type PathChoice } from "./path-choice.ts";
 import { pathName } from "./transport-choice.ts";
 
 /** What a page keeps of the paths to its core. */
@@ -84,10 +85,11 @@ export const failuresBeforeGivingUp = 2;
 /**
  * Keeps the paths reaching found, moving to another when the one in use fails and to a better one
  * when it answers later, as at home once Firefox's local-network prompt is allowed; media loads are
- * signed in with the session's token until setMediaCredentials says more.
+ * signed in with the session's token until setMediaCredentials says more. How the first path was
+ * chosen, when reaching says, is told to the core's log over it once signed in (path-choice.ts).
  */
 export function keepPath(
-  reaching: Reaching,
+  reaching: Omit<Reaching, "choice"> & { readonly choice?: PathChoice },
   session: { readonly token: () => string | undefined },
 ): KeptPath {
   let isFirst = true;
@@ -123,6 +125,14 @@ export function keepPath(
   // Media is carried over once, on whichever path the keeper holds when each load is asked for: one
   // carried over per path would answer each load once for every path the page ever used.
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
+  if (reaching.choice !== undefined) {
+    // A failure to tell it is dropped: it is for the log alone.
+    reportPathChoice(keeper.fetch, {
+      token: session.token,
+      choice: reaching.choice,
+      transport: reaching.first.kind === "webrtc" ? reaching.first.transport : undefined,
+    }).catch(() => undefined);
+  }
   carried.catch(reportFailure);
   const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));
   used.onClose(looking.stop);

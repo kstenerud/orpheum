@@ -8,6 +8,7 @@
  */
 
 import { browserLocalNetwork, type LocalNetwork, type LocalNetworkState } from "./local-network.ts";
+import { pathChoiceOf, type PathChoice } from "./path-choice.ts";
 import {
   connectRtc,
   discoverySignaller,
@@ -19,6 +20,7 @@ import {
   realmName,
   realmSignIn,
   sessionOfferKey,
+  type DirectOutcome,
   type DiscoveryClient,
   type Held,
   type LinkFragment,
@@ -308,6 +310,8 @@ export type Reached =
  */
 export interface Reaching {
   readonly first: Reached;
+  /** How the first path was chosen, and why, for the core's log (path-choice.ts). */
+  readonly choice: PathChoice;
   readonly another: (failed: Reached) => Promise<Reached>;
   readonly better: (current: Reached) => Promise<Reached | undefined>;
   /** Tells listener when the browser's local-network permission is granted; returns its removal. */
@@ -365,14 +369,15 @@ export async function reachCore(
     return origin === undefined ? undefined : { kind: "direct", origin };
   };
   const state = await localNetwork.state();
-  const isDenied = state === "denied";
-  const first = (await direct(raced(target, state, client.fetch))) ?? (await overWebrtc());
+  const race = await firstRace(client, target, state);
+  const first = race.first ?? (await overWebrtc());
   // Whether the page is in the house: its LAN name answered. There WebRTC finds the LAN pair, and
   // the core's public names are never better than it: through them the page is away, with no admin
   // (D300 §4; the owner's Firefox at home, 2026-10-15, moved to the public IPv6 name and lost admin).
   let isAtHome = isLanOf(target, first);
   return {
     first,
+    choice: race.choice(first),
     another: async (failed) => {
       const others = target.directUrls.filter(
         (url) => failed.kind !== "direct" || new URL(url).origin !== failed.origin,
@@ -404,8 +409,34 @@ export async function reachCore(
         : undefined;
     },
     onLocalNetworkGranted: (listener) => localNetwork.onGranted(listener),
-    onLocalNetworkAsking: askingWhereTried(target, isDenied, localNetwork),
+    onLocalNetworkAsking: askingWhereTried(target, state === "denied", localNetwork),
   };
+}
+
+/**
+ * The first race of the target's names, as the browser's local-network permission, state, allows: the
+ * name that answered, if one did, and how the choice of the path taken, first, was made and why.
+ */
+async function firstRace(
+  client: DiscoveryClient,
+  target: Target,
+  state: LocalNetworkState,
+): Promise<{ readonly first?: Reached; readonly choice: (first: Reached) => PathChoice }> {
+  let outcomes: readonly DirectOutcome[] = [];
+  const origin = await firstDirectPath(raced(target, state, client.fetch), client.fetch, {
+    tell: (told) => {
+      outcomes = told;
+    },
+  });
+  const choice = (first: Reached): PathChoice =>
+    pathChoiceOf({
+      ...target,
+      raced: outcomes,
+      localNetwork: state,
+      userAgent: globalThis.navigator.userAgent,
+      directOrigin: first.kind === "direct" ? first.origin : undefined,
+    });
+  return origin === undefined ? { choice } : { first: { kind: "direct", origin }, choice };
 }
 
 /**

@@ -347,6 +347,36 @@
         ],
         "type": "object"
       },
+      "CandidatePairBody": {
+        "additionalProperties": false,
+        "properties": {
+          "browser": {
+            "description": "The browser's end: type, protocol, address",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "core": {
+            "description": "The core's end: type, protocol, address",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "isSelected": {
+            "description": "Whether it is the pair the connection selected",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "succeeded, failed, in-progress, waiting or frozen",
+            "maxLength": 20,
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "browser",
+          "core"
+        ],
+        "type": "object"
+      },
       "CandidatesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -543,6 +573,82 @@
           "manifest",
           "signature",
           "publicKey"
+        ],
+        "type": "object"
+      },
+      "ClientPathBody": {
+        "additionalProperties": false,
+        "properties": {
+          "browser": {
+            "description": "The browser's family, as the page judged it: firefox, chrome, safari or other",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "directOffered": {
+            "description": "How many of the core's names the discovery offered",
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "isLanNameUsed": {
+            "description": "Whether the page tries the core's LAN name in this browser at all",
+            "type": "boolean"
+          },
+          "lanOffered": {
+            "description": "How many of those are LAN names",
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "localNetwork": {
+            "description": "The browser's local-network permission as the page read it",
+            "enum": [
+              "granted",
+              "denied",
+              "prompt",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "names": {
+            "description": "Each of the core's names the page raced or left out, with what came of it",
+            "items": {
+              "$ref": "#/components/schemas/RacedNameBody"
+            },
+            "maxItems": 16,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reached": {
+            "description": "What the page reached the core by: \"webrtc\", or \"direct\" and the name's origin",
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "webrtcPairs": {
+            "description": "Over WebRTC, its first connection's candidate pairs, the selected one and those to the core's host candidates first",
+            "items": {
+              "$ref": "#/components/schemas/CandidatePairBody"
+            },
+            "maxItems": 16,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "browser",
+          "isLanNameUsed",
+          "localNetwork",
+          "directOffered",
+          "lanOffered",
+          "reached",
+          "names"
         ],
         "type": "object"
       },
@@ -4966,6 +5072,25 @@
         ],
         "type": "object"
       },
+      "RacedNameBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "outcome": {
+            "description": "answered; failed, and how; not waited for; or left out, and why",
+            "maxLength": 300,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "outcome"
+        ],
+        "type": "object"
+      },
       "RateLimitedDetailBody": {
         "additionalProperties": false,
         "properties": {
@@ -7718,6 +7843,7 @@
               "direct_ipv4",
               "punched_ipv6",
               "punched_ipv4",
+              "hairpinned_ipv4",
               "relayed",
               "failed"
             ],
@@ -8631,6 +8757,51 @@
         "summary": "The core's client's files by their hashes, signed by its identity key (D308)",
         "tags": [
           "Setup and auth"
+        ]
+      }
+    },
+    "/client-paths": {
+      "post": {
+        "operationId": "reportClientPath",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientPathBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "How a page chose its path to the core, and why, for the server's log",
+        "tags": [
+          "Playback"
         ]
       }
     },

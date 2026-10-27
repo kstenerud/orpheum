@@ -159,6 +159,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How a page chose its path to the core, and why, for the server's log */
+        post: operations["reportClientPath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/client-problems": {
         parameters: {
             query?: never;
@@ -2225,6 +2242,16 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
+        CandidatePairBody: {
+            /** @description The browser's end: type, protocol, address */
+            browser: string;
+            /** @description The core's end: type, protocol, address */
+            core: string;
+            /** @description Whether it is the pair the connection selected */
+            isSelected?: boolean;
+            /** @description succeeded, failed, in-progress, waiting or frozen */
+            state: string;
+        };
         CandidatesOutputBody: {
             candidates: components["schemas"]["CandidateBody"][] | null;
             provider?: string;
@@ -2291,6 +2318,33 @@ export interface components {
             manifest: string;
             publicKey: string;
             signature: string;
+        };
+        ClientPathBody: {
+            /** @description The browser's family, as the page judged it: firefox, chrome, safari or other */
+            browser: string;
+            /**
+             * Format: int64
+             * @description How many of the core's names the discovery offered
+             */
+            directOffered: number;
+            /** @description Whether the page tries the core's LAN name in this browser at all */
+            isLanNameUsed: boolean;
+            /**
+             * Format: int64
+             * @description How many of those are LAN names
+             */
+            lanOffered: number;
+            /**
+             * @description The browser's local-network permission as the page read it
+             * @enum {string}
+             */
+            localNetwork: "granted" | "denied" | "prompt" | "unknown";
+            /** @description Each of the core's names the page raced or left out, with what came of it */
+            names: components["schemas"]["RacedNameBody"][] | null;
+            /** @description What the page reached the core by: "webrtc", or "direct" and the name's origin */
+            reached: string;
+            /** @description Over WebRTC, its first connection's candidate pairs, the selected one and those to the core's host candidates first */
+            webrtcPairs?: components["schemas"]["CandidatePairBody"][] | null;
         };
         ClientProblemInputBody: {
             /** @description What failed, in the page's own words */
@@ -3829,6 +3883,11 @@ export interface components {
              */
             downloadsResetAt: number;
         };
+        RacedNameBody: {
+            name: string;
+            /** @description answered; failed, and how; not waited for; or left out, and why */
+            outcome: string;
+        };
         RateLimitedDetailBody: {
             /**
              * Format: int64
@@ -4669,7 +4728,7 @@ export interface components {
             /** Format: int64 */
             count: number;
             /** @enum {string} */
-            path: "direct_ipv6" | "direct_ipv4" | "punched_ipv6" | "punched_ipv4" | "relayed" | "failed";
+            path: "direct_ipv6" | "direct_ipv4" | "punched_ipv6" | "punched_ipv4" | "hairpinned_ipv4" | "relayed" | "failed";
         };
     };
     responses: never;
@@ -5148,6 +5207,40 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClientManifestBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reportClientPath: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientPathBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

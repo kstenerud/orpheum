@@ -120,12 +120,17 @@ type Server struct {
 	// connections took each path.
 	connections map[*webrtc.PeerConnection]bool
 	paths       map[Path]int
+	// localPath is what the connections said of the path from the house (D354).
+	localPath localPathWatch
 	// sources are the networks connected clients are counted under, by their connections.
 	sources map[*webrtc.PeerConnection]netip.Prefix
 	// held are the records of the connections held, for the log, by their connections, numbered
 	// from numbered.
 	held     map[*webrtc.PeerConnection]*heldConnection
 	numbered int64
+	// lanPort and lanIPs are where the core takes WebRTC at home (ListenLAN): 0 and none until then.
+	lanPort int
+	lanIPs  []netip.Addr
 }
 
 // bounds are the bounds on each connection.
@@ -235,6 +240,9 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	}
 	server.api = webrtc.NewAPI(webrtc.WithSettingEngine(own))
 	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(relayed))
+	server.mutex.Lock()
+	server.lanPort, server.lanIPs = port, slices.Clone(lanIPs)
+	server.mutex.Unlock()
 	return nil
 }
 
@@ -345,11 +353,11 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
 			own.keep(connection.GetStats())
-			server.recordPath(connection, selectedPath(connection), server.clock.Now().Sub(openedAt))
+			server.recordSelectedPath(connection, server.clock.Now().Sub(openedAt))
 			server.holdWithinItsSourcesShare(connection, verdict)
 		}
 		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
-			server.recordPath(connection, PathFailed, server.clock.Now().Sub(openedAt))
+			server.recordPath(PathFailed, nil, server.clock.Now().Sub(openedAt))
 		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			server.forget(connection)
@@ -381,6 +389,17 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		})
 	})
 	return connection, nil
+}
+
+// recordSelectedPath records the path a connection that just connected took, by its selected pair,
+// took after its offer.
+func (server *Server) recordSelectedPath(connection *webrtc.PeerConnection, took time.Duration) {
+	pair := selectedPair(connection)
+	path := PathFailed
+	if pair != nil {
+		path = pathOf(pair.Local, pair.Remote)
+	}
+	server.recordPath(path, pair, took)
 }
 
 // answer sets the offer and returns the answer once the core's candidates are gathered.

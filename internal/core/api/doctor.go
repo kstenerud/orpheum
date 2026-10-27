@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
@@ -65,6 +67,9 @@ func (server *Server) getDoctor(ctx context.Context, input *AuthorizationHeader)
 // System page.
 func (server *Server) collectFindings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
 	findings := []FindingBody{artworkFinding(dependencies)}
+	if server.rtc != nil {
+		findings = append(findings, hairpinFinding(server.rtc.HairpinWarning()))
+	}
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list nodes", err)
@@ -183,6 +188,41 @@ func ConfinementFinding(where string, confinement []nodeproto.Confinement) Findi
 		finding.Detail = "FFmpeg runs without all its confinement: " + strings.Join(missing, "; ")
 		finding.Action = strings.Join(remedies, "; ")
 	}
+	return finding
+}
+
+// hairpinFinding is whether devices reach the server through the NAT they share with it and back,
+// not across the house's network (D354 §2): a warning naming the UDP port and the house's address a
+// device in the house could not reach, while hairpin, isStanding, stands.
+func hairpinFinding(hairpin rtcapi.Hairpin, isStanding bool) FindingBody {
+	finding := FindingBody{
+		Check: "WebRTC from devices at home", Verdict: VerdictOK,
+		Detail: "no device has reached this server through your provider and back since it started, " +
+			"or since the last time one at home reached it directly",
+	}
+	if !isStanding {
+		return finding
+	}
+	finding.Verdict = VerdictWarning
+	seen := fmt.Sprintf("%d connection(s) from %s, most recently %s, went out to the provider and back, "+
+		"through the address this server shares with them", hairpin.Count, hairpin.Client,
+		hairpin.LastAt.UTC().Format(time.RFC3339))
+	if hairpin.UDPPort == 0 || len(hairpin.LANAddresses) == 0 {
+		finding.Detail = "devices at home may reach this server through your provider, not your network: " +
+			"it takes WebRTC on no port at the house's address. " + seen
+		finding.Action = "set webrtc.udp_port and discovery.lan_addresses, publish that UDP port at the " +
+			"house's address, and restart the server"
+		return finding
+	}
+	addresses := make([]string, 0, len(hairpin.LANAddresses))
+	for _, address := range hairpin.LANAddresses {
+		addresses = append(addresses, address.String())
+	}
+	finding.Detail = fmt.Sprintf("devices at home reach this server through your provider, not your network: "+
+		"UDP port %d at %s is not reachable. %s", hairpin.UDPPort, strings.Join(addresses, ", "), seen)
+	finding.Action = fmt.Sprintf("publish UDP port %d from the server's machine (Docker: -p %d:%d/udp) and let "+
+		"it through its firewall; this clears once a device at home reaches the server directly, or a week "+
+		"after the last such connection", hairpin.UDPPort, hairpin.UDPPort, hairpin.UDPPort)
 	return finding
 }
 

@@ -547,6 +547,8 @@ export const en = {
           directIpv4: "directly over IPv4: {{count}}",
           punchedIpv6: "through the router's firewall over IPv6: {{count}}",
           punchedIpv4: "through the router's NAT over IPv4: {{count}}",
+          hairpinnedIpv4:
+            "out through the provider and back over IPv4, one address at both ends, not across the house's network: {{count}}",
           relayed: "through a relay: {{count}}",
           failed: "failed to connect: {{count}}",
         },

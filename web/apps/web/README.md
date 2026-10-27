@@ -84,7 +84,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   never as a network that cannot reach it, and a remembered one stays remembered. Every WebRTC
   transport a page used is closed with its path, when its hand-off fails, and when the page leaves
   for good. `discovery-gate.test.tsx`, `kept-path.test.ts`, `loader-pages.test.tsx`,
-  `session.test.ts`, and the SDK's `discovery.test.ts`.
+  `session.test.ts`, and the SDK's `discovery.test.ts`. Once signed in, the page tells the core's log
+  how it chose its first path and why, over WebRTC with its pairs as the browser sees them (D354 §5).
+  `path-choice.test.ts`, and the SDK's `rtc-pairs.test.ts`.
 - **At a discovery the page is its loader, which runs the core's own client** (D308): `app.` keeps
   no core's session, hands a link on to its core's client origin, and hands a realm sign-in on by a
   single-use code; a client origin is bound to the core its name names and opens nothing for

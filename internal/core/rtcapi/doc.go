@@ -31,9 +31,15 @@
 //   - With the STUN servers it is given (UseICEServers: the core's own, never its discovery's, the
 //     Plex-chain review's L3), an answer carries the public address the core's NAT gives it.
 //     TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
-//   - Each connection's path (direct, punched or relayed, by family; or failed) is counted and
-//     logged, told by the core's end of its selected pair (D274 §3).
-//     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.
+//   - Each connection's path (direct, punched or relayed, by family; hairpinned; or failed) is counted
+//     and logged, told by the core's end of its selected pair (D274 §3); the log names both ends by
+//     type and address. TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair,
+//     TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress.
+//   - A punched IPv4 pair whose two ends are one address is hairpinned, out to the NAT both share and
+//     back, and logged as a warning; it stands as HairpinWarning, with where the core takes WebRTC at
+//     home, until a direct connection from a home network, or for HairpinWarningLasts after the last
+//     (D354). TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse,
+//     TestHairpinWarning_LapsesAWeekAfterTheLastHairpin.
 //   - A request over WebRTC carries the core's own public IPv6 /64s on its connection, from its host
 //     and STUN-found candidates alone, never a private, link-local, relayed or client address (D297
 //     §6). TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd.
@@ -78,7 +84,7 @@
 // # Where to change
 //
 //   - rtcapi.go: offers, connections and their bounds; relayed.go: the core's own check of an offer
-//     a discovery passed on; path.go: the paths connections take;
+//     a discovery passed on; path.go: the paths connections take; local_path.go: the hairpin warning;
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket.
 package rtcapi

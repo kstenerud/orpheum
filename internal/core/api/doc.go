@@ -70,7 +70,14 @@
 //     TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome. Enforced by
 //     TestSignIn_AnAdminAdministersFromAnyOrigin,
 //     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt and
-//     TestIsDirectPath_CountsNoRelayedOrFailedPath.
+//     TestIsDirectPath_CountsNoRelayedOrFailedPath. A hairpinned pair is never from home, its client's
+//     address a NAT's that many households may share (D354 §4).
+//   - Doctor warns while devices reach the server through the provider and back, naming the UDP port
+//     and the house's address a device at home could not reach (D354 §2).
+//     TestHairpinFinding_WarnsThatDevicesAtHomeReachTheServerThroughTheProvider.
+//   - A page's choice of its path to the core, with its reasons and its WebRTC pairs as the browser sees
+//     them, is logged in one bounded line from a signed-in page (D354 §5).
+//     TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each

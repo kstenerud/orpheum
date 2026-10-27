@@ -216,6 +216,7 @@ func NewServer(logger *slog.Logger) *Server {
 // what a lab page measured on a device.
 func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
+	server.registerClientPaths()
 	server.registerLab()
 }
 

@@ -126,6 +126,7 @@ func TestIsDirectPath_CountsNoRelayedOrFailedPath(t *testing.T) {
 	for path, want := range map[rtcapi.Path]bool{
 		rtcapi.PathDirectIPv4: true, rtcapi.PathDirectIPv6: true, rtcapi.PathPunchedIPv4: true,
 		rtcapi.PathPunchedIPv6: true, rtcapi.PathRelayed: false, rtcapi.PathFailed: false,
+		rtcapi.PathHairpinnedIPv4: false,
 	} {
 		if got := api.IsDirectPath(path); got != want {
 			t.Errorf("isDirectPath(%s) = %t; want %t", path, got, want)

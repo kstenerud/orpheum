@@ -74,7 +74,7 @@ type PortMappingItemBody struct {
 
 // WebRTCPathBody is how many connections took one path.
 type WebRTCPathBody struct {
-	Path  string `enum:"direct_ipv6,direct_ipv4,punched_ipv6,punched_ipv4,relayed,failed" json:"path"`
+	Path  string `enum:"direct_ipv6,direct_ipv4,punched_ipv6,punched_ipv4,hairpinned_ipv4,relayed,failed" json:"path"`
 	Count int    `json:"count"`
 }
 

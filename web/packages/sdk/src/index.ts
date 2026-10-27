@@ -47,7 +47,13 @@ export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, isTurnedAway, TurnedAway } from "./rtc-connect.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
-export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
+export {
+  directFetch,
+  directPathWaitMs,
+  firstDirectPath,
+  notWaitedFor,
+  type DirectOutcome,
+} from "./direct-path.ts";
 export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";
 export type { PathWays } from "./path-keeper.ts";
 export {
@@ -136,6 +142,7 @@ export type {
 } from "./rtc-media.ts";
 export type { Description, Signaller } from "./rtc-connect.ts";
 export type { FetchRequest } from "./rtc-transport.ts";
+export { candidatePairsOf, pairsReportedMost, type CandidatePairSeen } from "./rtc-pairs.ts";
 export {
   ApiProblem,
   dataOrThrow,
