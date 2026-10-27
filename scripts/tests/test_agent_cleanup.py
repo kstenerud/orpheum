@@ -146,6 +146,14 @@ class StoppedAgentsProcesses(StateDir):
         self.assertIsNotNone(left.wait(timeout=10))
         self.assertIsNone(working.poll())
 
+    def test_a_record_a_week_old_is_forgotten_at_the_next_write(self):
+        agents.mark_stopped(ident("old"), now=1000.0)
+        old = self.state / f"{ident('old')}.json"
+        os.utime(old, (1000.0, 1000.0))
+        agents.mark_stopped(ident("new"), now=1000.0 + agents.RECORD_KEPT_SECONDS + 1)
+        self.assertFalse(old.exists())
+        self.assertTrue((self.state / f"{ident('new')}.json").exists())
+
     def test_an_agent_never_seen_stopping_has_not_stopped(self):
         self.assertFalse(agents.has_stopped("never"))
 

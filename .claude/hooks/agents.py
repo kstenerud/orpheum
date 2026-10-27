@@ -78,15 +78,34 @@ def state(agent_id: str, root: Path | None = None) -> dict[str, float]:
     return found if isinstance(found, dict) else {}
 
 
+# How long an agent's record is kept after it was last written. Claude Code fires SubagentStop for its
+# own helpers too, about four a minute, and 231 records had gathered in an afternoon (2026-10-27); a
+# worktree's agent stopped long before is judged stopped as one never recorded would not be, so a week
+# keeps every record that can still matter.
+RECORD_KEPT_SECONDS = 7 * 24 * 60 * 60
+
+
 def _record(agent_id: str, key: str, root: Path | None, now: float | None) -> None:
     if not is_agent_id(agent_id):
         return
     path = _state_path(agent_id, root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    recorded = {**state(agent_id, root), key: time.time() if now is None else now}
+    at = time.time() if now is None else now
+    recorded = {**state(agent_id, root), key: at}
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(recorded), encoding="utf-8")
     temporary.replace(path)
+    _forget_old(path.parent, at)
+
+
+def _forget_old(directory: Path, now: float) -> None:
+    """Deletes the records last written more than RECORD_KEPT_SECONDS before now."""
+    for record in directory.glob("*.json"):
+        try:
+            if now - record.stat().st_mtime > RECORD_KEPT_SECONDS:
+                record.unlink()
+        except OSError:
+            continue
 
 
 def mark_active(agent_id: str, root: Path | None = None, now: float | None = None) -> None:
