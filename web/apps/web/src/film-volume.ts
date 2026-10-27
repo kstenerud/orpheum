@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 
 /**
  * The film's volume in this tab, from 0 to 1: one value the player follows and a slider anywhere
- * sets, so the status tray's pop-up turns the host's film down without leaving it (D281 §5).
+ * sets, the host's player and the session's controls alike (D281 §5).
  */
 let tabFilmVolume = 1;
 const listeners = new Set<() => void>();

@@ -6,15 +6,13 @@ import {
   playedMutedEvent,
   soundOnAtTap,
   type CannotKeepUp,
-  type GroupCommand,
   type TogetherConnection,
 } from "@orpheum/sdk";
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import type { Route } from "./router.ts";
-import { useServices, useToken } from "./services.tsx";
+import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { forgetMembership, startLagMemory, type Membership } from "./together-storage.ts";
@@ -40,9 +38,10 @@ interface HostPlayer {
 /**
  * The host's player in their Watch Together session, while this tab hosts one (D246 §5): the film
  * the host starts plays for everyone; the host's own play, pause and seeks are the group's; the
- * host's video waits for the viewers only at the group's sync points (D250 §2); leaving the player
- * stops it for everyone. With no
- * session it shows nothing and does nothing.
+ * host's video waits for the viewers only at the group's sync points (D250 §2). Leaving the player
+ * leaves the film playing for the group, on the server's clock, the host's session page holding its
+ * controls; Stop there, or another film the host plays, ends it (D364 §15, withdrawing D246 §5's stop
+ * on leaving). With no session it shows nothing and does nothing.
  */
 export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
   // Started on this device or another of the host's, had back from the server (D267 §2).
@@ -113,39 +112,18 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
   useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
 }
 
-/** The host's stop, sent as they leave the player: every screen goes black (D246 §5). */
-const stopForEveryone: GroupCommand = { command: "stop" };
-
-/**
- * The host's command as they leave the player of fileId for goingTo: stop, so every screen goes black
- * (D246 §5), unless they leave it for another film's player, as Up next and its autoplay move them on,
- * when nothing is sent and that player puts its film on for everyone: the group follows the host's
- * player into the next episode, its screens never going black between (D339 §3).
- */
-export function commandOnLeavingFor(goingTo: Route, fileId: number): GroupCommand | undefined {
-  return goingTo.screen === "play" && goingTo.fileId !== fileId ? undefined : stopForEveryone;
-}
-
-/** commandOnLeavingFor, asked of where the host is going as they leave. */
-function useCommandOnLeaving(fileId: number): () => GroupCommand | undefined {
-  const { navigation } = useServices();
-  return useCallback(() => commandOnLeavingFor(navigation.route(), fileId), [navigation, fileId]);
-}
-
 /** The host's player, leading the session it is connected to. */
 function HostLeading(
   props: HostPlayer & { readonly membership: Membership; readonly onOver: () => void },
 ): JSX.Element {
   const { t } = useTranslation();
   const token = useToken();
-  const commandOnLeaving = useCommandOnLeaving(props.fileId);
   const { connection, snapshot } = useTogether({
     credential: props.membership.credential,
     sessionToken: token,
-    commandOnLeaving,
   });
   const { fileId, video, startPositionMs, onOver } = props;
-  // The tab's one voice for the session, shared with the status tray's pop-up (D281 §5).
+  // The tab's one voice for the session, shared with the session's page (D281 §5).
   const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
   const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;

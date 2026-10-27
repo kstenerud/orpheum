@@ -33,7 +33,10 @@ describe("AppShell", () => {
       /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
-    expect(markup).toContain('<a href="/watch-together">Watch Together</a>');
+    // No Watch Together or Cast in the top bar: their signs in the status tray (D364 §12).
+    expect(markup).not.toContain('<a href="/watch-together">Watch Together</a>');
+    expect(markup).toContain('href="/watch-together" class="status-tray__button');
+    expect(markup).toContain('href="/casting" class="status-tray__button');
     expect(markup).not.toContain("/libraries");
     expect(markup).not.toContain("/jobs");
     expect(markup).toContain("partner on Firefox on Mac");
@@ -184,7 +187,7 @@ describe("AppShell", () => {
     );
     const watching = /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
     expect(watching).toContain('href="/films"');
-    expect(watching).toContain('href="/watch-together"');
+    expect(watching).not.toContain('href="/watch-together"');
     expect(watching).not.toContain('href="/jobs"');
     // One menu, behind its icon, marked as where one is (the owner, 2026-10-11).
     expect(markup.match(/<details/gu)).toHaveLength(1);
@@ -223,7 +226,7 @@ describe("AppShell", () => {
     expect(markupWith(false)).not.toContain('href="/ui-gallery"');
   });
 
-  it("offers Device tests beside Watch Together, to everyone, only while the server offers them (the owner, 2026-10-25)", () => {
+  it("offers Device tests among the places for watching, to everyone, only while the server offers them (the owner, 2026-10-25)", () => {
     const watchingWith = (showsDeviceTests: boolean | undefined): string => {
       const markup = renderToStaticMarkup(
         withServices(
@@ -242,7 +245,7 @@ describe("AppShell", () => {
       return /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
     };
     expect(watchingWith(true)).toMatch(
-      /href="\/watch-together"[^>]*>Watch Together<\/a><\/li><li><a href="\/lab"[^>]*>Device tests<\/a>/u,
+      /href="\/browse"[^>]*>Libraries<\/a><\/li><li><a href="\/lab"[^>]*>Device tests<\/a>/u,
     );
     expect(watchingWith(false)).not.toContain('href="/lab"');
     expect(watchingWith(undefined)).not.toContain('href="/lab"');

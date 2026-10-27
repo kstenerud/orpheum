@@ -292,7 +292,7 @@ describe("App", () => {
     );
   });
 
-  it("marks Watch Together as on, on every screen, while this tab hosts a session (the owner's UI backlog)", async () => {
+  it("turns Watch Together's sign blue, on every screen, while this tab hosts a session, with no top-bar item (D364 §12)", async () => {
     window.sessionStorage.clear();
     const services = servedBy(
       {
@@ -321,19 +321,23 @@ describe("App", () => {
       "token",
     );
     const mounted = await mount(withServices(<App />, services));
-    const mark = (): Element | null => mounted.container.querySelector(".app-shell__on");
-    expect(mark()).toBeNull();
+    const sign = (): Element | null =>
+      mounted.container.querySelector(".status-tray a[href='/watch-together']");
+    expect(
+      mounted.container.querySelector(".app-shell__watching a[href='/watch-together']"),
+    ).toBeNull();
+    expect(sign()?.className).toContain("status-tray__button--off");
     await act(async () => {
       keepMembership(tabStorage(), "host", { sessionId: 3, credential: "host-credential" });
       await Promise.resolve();
     });
-    expect(mark()?.closest("a")?.getAttribute("href")).toBe("/watch-together");
-    expect(mark()?.closest("a")?.textContent).toBe("Watch Together on now");
+    expect(sign()?.className).toContain("status-tray__button--on");
+    expect(sign()?.getAttribute("aria-label")).toBe("Watch Together is on: its controls");
     await act(async () => {
       forgetMembership(tabStorage(), "host");
       await Promise.resolve();
     });
-    expect(mark()).toBeNull();
+    expect(sign()?.className).toContain("status-tray__button--off");
     mounted.unmount();
   });
 });

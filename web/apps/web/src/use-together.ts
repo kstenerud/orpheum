@@ -2,7 +2,6 @@
 
 import {
   createTogetherConnection,
-  type GroupCommand,
   type CannotKeepUp,
   type DeviceRole,
   type Standing,
@@ -33,11 +32,6 @@ export interface TogetherDevice {
   readonly credential: string | undefined;
   /** A signed-in host's session token, which goes in the hello too (D243 §2). */
   readonly sessionToken?: string | undefined;
-  /**
-   * The command it sends as the component goes, asked then: the host's stop as they leave the
-   * player, or none as it moves on to another film's player. Stable, or the connection opens again.
-   */
-  readonly commandOnLeaving?: (() => GroupCommand | undefined) | undefined;
   /** What the device does for its member (D120): "video" when not given; a cast's remote plays nothing. */
   readonly role?: DeviceRole | undefined;
 }
@@ -52,7 +46,7 @@ export function useTogether(device: TogetherDevice): {
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket } = useServices();
-  const { credential, sessionToken, commandOnLeaving, role } = device;
+  const { credential, sessionToken, role } = device;
   const connection = useMemo(
     () =>
       credential === undefined
@@ -70,13 +64,9 @@ export function useTogether(device: TogetherDevice): {
   useEffect(() => {
     connection?.open();
     return () => {
-      const leaving = commandOnLeaving?.();
-      if (leaving !== undefined) {
-        connection?.command(leaving);
-      }
-      connection?.close();
+      connection?.close(); // sending nothing: leaving stops no film for anyone (D364 §15)
     };
-  }, [connection, commandOnLeaving]);
+  }, [connection]);
   const snapshot = useSyncExternalStore(
     connection?.subscribe ?? subscribeToNothing,
     connection?.snapshot ?? noSnapshot,

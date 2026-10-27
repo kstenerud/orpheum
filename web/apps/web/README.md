@@ -26,8 +26,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `no-restricted-syntax` on `error.error.message`; `src/screen-refusals.test.tsx`.
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
   an admin's destinations show to an admin only (the server refuses them to anyone else); Device
-  tests, beside Watch Together, shows to everyone while the server offers them
+  tests, among the places for watching, shows to everyone while the server offers them
   (`should_offer_device_tests`). `src/app-shell.test.tsx`, `src/lab.test.tsx`.
+- **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
+  both always in the tray, Cast's to everyone and Watch Together's to a person who may host or a
+  signed-in guest in a session, white while their function is off and blue, pulsing gently unless
+  less motion is asked for, while it is on; each leads by the owner's table: Watch Together's to its
+  setup or the session's page (a signed-in guest's `/together`), Cast's to the devices to cast to,
+  taking the film of the Play page it is pressed on, or the cast's remote, or Watch Together's page
+  while both are on. `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
+  `src/ui-gallery.test.tsx`.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.
@@ -51,41 +59,44 @@ The web client: the browser and phone interface, served embedded by the core. MP
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves
   the address once used. `src/together-viewer.test.tsx`.
-- **A person casts only to their own devices open now, to the tab in front there, and the receiver
-  keeps a television's controls** (D337, D338; plans/cast-to-device.md): every signed-in page holds a
-  live connection (`src/live.tsx`) that says whether its tab is in front, and a cast handed to it
-  first asks "‹Device› wants to play ‹Film› here" (`src/cast-asked.tsx`, D358), Play focused for a
-  remote's OK: Play's press asks for the page full screen and opens the film's Play page, noting the
-  page it took the tab over from, the film's sound let play by that press; Not now, or a minute's
-  silence, ends the cast, the sender, still playing, saying so, and it hands its playback off only
-  once the receiver puts the film on; a cast replacing one received is received at once; should
-  the sound still be refused, the first key, click or tap turns it on, and does nothing else. The
-  page leads the cast's
-  session of one from where the sender stood, fills the window and shows a television's player
-  controls, which a mouse's move, a click or a tap opens as well as a remote's keys, a mouse's
-  click on its video pausing or playing it as on an ordinary page, and a fading
-  *Controlled from* line; its controls, media keys and seeks stay its own;
-  Back (a Fire TV's history step too, and full screen left by the browser, not the page: a Fire
-  TV's Back or Escape in full screen, told to the log), or OK or a click or tap twice within 500 ms,
-  leaves controlled mode once, the film playing on here and the remote told; stopped by the remote it goes back to the page it
-  was on before the cast, replaced it goes on; at the film's end it shows its Up next, which counts
-  down by the person's autoplay and moves the cast on to the next episode in the same cast, handed
-  to it again, else it goes back to that page too (plans/up-next.md). *Cast to another device*
-  lists the person's other devices open now, by name and last use, says of one with no Orpheum tab
-  in front that one must be brought to the front, and is not offered while the tab hosts Watch
-  Together; the remote (`/casting`) holds no player, commands the receiver, offers its film's *Up
-  next*, follows the receiver to the next episode, and once the cast is over says why with *Play
-  here from*, which opens the film where the cast stood (`/play/‹id›?at=‹ms›`), asked for with
-  cause castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
-  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-return.test.ts`,
-  `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`, `src/watching.test.ts`; on
-  devices, VQ64–VQ66, VQ68, VQ71, VQ76 and VQ77.
+- **Casting is a session with a device: whatever the person plays goes there while it lasts, and
+  the receiver keeps a television's controls** (D364, revising D337, D338 and D358;
+  plans/cast-to-device.md): every signed-in page holds a live connection (`src/live.tsx`) that says
+  whether its tab is in front and is told the cast its device sends. The casting page (`/casting`,
+  the tray's Cast) lists the person's other devices open now, by name and last use, saying of one
+  with no Orpheum tab in front that one must be brought to the front; one chosen starts a session,
+  moving the film the person came from at its position (`/casting?file=‹id›`, `src/playing-here.ts`).
+  The receiver asks once, "‹Device› wants to use this device for playback" (`src/cast-asked.tsx`),
+  Use focused for a remote's OK: Use's press asks for the page full screen, tells the server, and
+  lets every video of the session play with sound; Not now, or a minute's silence, ends the session,
+  the sender saying so. Every film the sender then plays (`PlayOrSendOn`) is handed to the receiver
+  in the same cast, which opens its Play page, noting the page the session took the tab over from;
+  between videos the receiver waits full screen on "Ready, controlled from ‹Device›"
+  (`/cast-ready`, `src/cast-ready.tsx`), at a film's end with nothing after it too; a cast replacing
+  one received is received at once; should the sound still be refused, the first key, click or tap
+  turns it on, and does nothing else. The page leads the cast's session from where the sender stood,
+  or, while its person hosts Watch Together, that session as their player; it fills the window and
+  shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
+  remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
+  fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
+  history step too, and full screen left by the browser, not the page, told to the log), or OK or a
+  click or tap twice within 500 ms, takes control back, ending the session: a film plays on here, the
+  ready page goes home. Stopped by the sender it goes back to the page it was on before the session.
+  The remote holds no player: with a film playing, its controls (`src/session-remote.tsx`), Up next,
+  *Play on this device instead* (`/play/‹id›?at=‹ms›&here=1`, the receiver waiting ready) and Stop
+  casting; with none, *Ready on ‹Device›* and Stop casting; with Watch Together on too, a way to its
+  page, which holds the controls; once over it says why with *Play here from*, asked for with cause
+  castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
+  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-ready.test.tsx`,
+  `src/cast-return.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
+  `src/watching.test.ts`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76, VQ77 and VQ88.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.
 - **The host's player leads their session while this tab hosts one, and is as before without
-  one**: the film goes on for everyone, and stops as the host leaves the player.
-  `src/watch-together.test.tsx`.
+  one**: the film goes on for everyone, and goes on as the host leaves the player (D364 §15, D246
+  §5's stop on leaving withdrawn); the session's page holds its remote, the way back to the film and
+  Stop for everyone, and Stop casting while the host casts too. `src/watch-together.test.tsx`.
 - **On a discovery's origin the page reaches its core through the discovery** (webrtc-transport.md
   W4c): the discovery names its client API in the page (`<meta name="orpheum-discovery-client-api">`;
   the client reads no environment, D204); a link is spent by its click, never the page's loading; the

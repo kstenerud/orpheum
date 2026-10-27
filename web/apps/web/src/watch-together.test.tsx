@@ -22,7 +22,8 @@ import {
 } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
-import { fakeTogetherServer } from "./test-together.ts";
+import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
+import { LiveProvider } from "./live.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { keepMembership } from "./together-storage.ts";
@@ -389,8 +390,101 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
   });
 });
 
+describe("what plays, on the host's session page (D364 §13, §15)", () => {
+  /**
+   * The session page of the host of session sessionId, whose film 4, Metropolis, plays for the group; a
+   * session of its own for each test, whose details no earlier one has read, so the live connection
+   * opens first.
+   */
+  async function sessionPage(
+    heard: Heard[],
+    sessionId: number,
+  ): Promise<{
+    readonly mounted: Awaited<ReturnType<typeof mount>>;
+    readonly services: ReturnType<typeof servedBy>;
+    readonly sockets: ReturnType<typeof liveAndSession>;
+  }> {
+    window.sessionStorage.setItem(
+      "orpheum.together.host",
+      JSON.stringify({ sessionId, credential: "host-credential" }),
+    );
+    const services = servedBy(
+      {
+        [`GET /together/${String(sessionId)}`]: [
+          200,
+          {
+            sessionId,
+            nextRights: allRights,
+            links: [],
+            members: [karl],
+            fileId: 4,
+            titleName: "Metropolis",
+            durationMs: 600_000,
+          },
+        ],
+        "POST /me/casts/9/end": [200, { positionMs: 0, isPlaying: false }],
+      },
+      heard,
+      "token",
+    );
+    const sockets = liveAndSession();
+    const mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <WatchTogether />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.session.accept();
+    await sockets.session.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 1,
+      isHost: true,
+      group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
+      roster: [],
+    });
+    return { mounted, services, sockets };
+  }
+
+  it("holds the group's controls as a remote, the way back to the film, and Stop for everyone", async () => {
+    const { mounted, sockets } = await sessionPage([], 31);
+    const remote = sockets.session;
+    expect(remote.heard[0]).toMatchObject({ credential: "host-credential", role: "panel" });
+    expect(mounted.container.querySelector("video")).toBeNull();
+    expect(mounted.container.textContent).toContain("Metropolis");
+    expect(mounted.container.textContent).toContain("1:01 / 10:00");
+    await click(mounted.container.querySelector('button[aria-label="Play"]'));
+    expect(remote.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
+    expect(mounted.container.querySelector('a[href="/play/4"]')?.textContent).toBe(
+      "Back to the film",
+    );
+    await click(buttonWithText(mounted.container, "Stop the film for everyone"));
+    expect(remote.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
+    mounted.unmount();
+  });
+
+  it("holds Stop casting too while this device casts (D364 §11)", async () => {
+    const heard: Heard[] = [];
+    const { mounted, sockets } = await sessionPage(heard, 32);
+    expect(buttonWithText(mounted.container, "Stop casting")).toBeUndefined();
+    await sockets.live.say({
+      type: "sending",
+      sending: { castId: 9, receiverDeviceId: 2, receiverName: "Fire TV", isAccepted: true },
+    });
+    expect(mounted.container.textContent).toContain("Casting to Fire TV.");
+    await click(buttonWithText(mounted.container, "Stop casting"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "stopped",
+    });
+    mounted.unmount();
+  });
+});
+
 describe("the host's player in a session (D246 §5)", () => {
-  it("puts the film on for everyone from where it starts, and stops it on leaving", async () => {
+  it("puts the film on for everyone from where it starts, and leaves it playing on leaving (D364 §15)", async () => {
     hostSession();
     const server = fakeTogetherServer();
     const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
@@ -431,7 +525,8 @@ describe("the host's player in a session (D246 §5)", () => {
     // The film's volume beside each person's voice, on the host's player too (the owner, 2026-10-12).
     expect(mounted.container.querySelector(".film-volume input")).not.toBeNull();
     mounted.unmount();
-    expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
+    // Leaving the player stops nothing for the group: Stop, or another film, does (D246 §5 withdrawn).
+    expect(server.heard.filter((message) => message["command"] === "stop")).toEqual([]);
   });
 
   it("offers the host a tap for sound when the browser plays the film muted, as after a reload", async () => {

@@ -104,7 +104,8 @@ func startBackgroundLoops(ctx context.Context, opened openedServices, logger *sl
 
 // startUpkeep starts, on loops, the loops that keep things tidy until ctx ends: the artwork
 // cache's ceiling, the sessions' remembered uses written in batches (D303 §4), the players' share of
-// the server's upload (D286 §5), and Watch Together's links and sessions past their lifetimes (D346).
+// the server's upload (D286 §5), Watch Together's links and sessions past their lifetimes (D346),
+// and the casts whose receiver is gone (D364 §6).
 func startUpkeep(ctx context.Context, opened openedServices, loops *sync.WaitGroup, logger *slog.Logger) {
 	dependencies := opened.core.API
 	loops.Go(func() { maintainArtworkCache(ctx, dependencies.Artwork, opened.settings, logger) })
@@ -123,6 +124,11 @@ func startUpkeep(ctx context.Context, opened openedServices, loops *sync.WaitGro
 		ticker := time.NewTicker(togetherStaleEvery)
 		defer ticker.Stop()
 		endStaleTogether(ctx, dependencies.Together, opened.settings, ticker.C, logger)
+	})
+	loops.Go(func() {
+		ticker := time.NewTicker(castsGoneEvery)
+		defer ticker.Stop()
+		endGoneCasts(ctx, dependencies.Live, dependencies.Together, ticker.C, logger)
 	})
 }
 

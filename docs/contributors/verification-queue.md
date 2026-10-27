@@ -892,3 +892,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   unwatched* leaves it as never watched. Restarting a finished film and stopping early leaves its check,
   and a series' Next Up does not step back. (`web/apps/web/src/watched-mark.tsx`, `status-cues.tsx`,
   `series.tsx`, `title.tsx`; `internal/core/playback/watched.go`, `internal/core/library/watched.go`)
+- [ ] **VQ90** — D364, casting as a session, on staging: the Mac casting to the Fire TV (Silk), then
+  the Mac casting to Chrome on Linux. Passes when: the banner has no Watch Together or Cast item, and
+  the tray shows both signs white with nothing on; on a film's Play page on the Mac, Cast's sign leads
+  to the devices, and choosing the TV asks "‹Mac› wants to use this device for playback" there, whose
+  Use (OK on the remote) moves the film to the TV at its position, full screen with sound, and turns
+  Cast's sign blue, gently pulsing, on every page of the Mac (note whether the pulse reads well or
+  distracts); browsing to another film on the Mac and pressing Play plays it on the TV with no
+  question and no press on the TV, the Mac showing the remote; a film's end with nothing after it, or
+  the remote's "Play on this device instead", leaves the TV full screen on "Ready, controlled from
+  ‹Mac›", and the next Play on the Mac starts there with sound; the Mac's sign leads back to the
+  remote from anywhere, and the Mac loaded again, or woken from sleep, still shows the session;
+  taking control back on the TV (Back, OK twice) plays the film on there as its own, or with nothing
+  playing goes to its home page, the Mac told; Stop casting on the Mac returns the TV to the page it
+  was on before the session and offers "Play here from ‹time›"; the TV switched off for two minutes
+  ends the session, the Mac's sign going white. Then with Watch Together hosted on the Mac: its sign
+  blue, leading to the session's page, which holds the film's controls, Back to the film and Stop,
+  and, while casting too, Stop casting; Cast's sign then leads to that page; the film keeps playing
+  for a guest while the host browses away from it; a signed-in guest sees Watch Together's sign blue
+  and returns to the session by it. (`web/apps/web/src/status-tray.tsx`, `cast-remote.tsx`,
+  `cast-to.tsx`, `cast-ready.tsx`, `cast-receiver.tsx`, `together-plays.tsx`, `live.tsx`,
+  `internal/core/live/registry.go`, `internal/core/api/casts.go`)

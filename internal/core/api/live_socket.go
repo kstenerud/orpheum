@@ -122,7 +122,8 @@ func readLive(
 			send(live.Outbound{Type: live.MessagePong, TMono: message.TMono})
 		case live.MessageFront:
 			showFront(!message.IsBehind)
-		case live.MessageHello, live.MessageDevices, live.MessageReceive, live.MessagePong, live.MessageSignedOut:
+		case live.MessageHello, live.MessageDevices, live.MessageReceive, live.MessageSending, live.MessagePong,
+			live.MessageSignedOut:
 		}
 	}
 }

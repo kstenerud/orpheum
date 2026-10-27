@@ -1184,8 +1184,25 @@ export interface paths {
         /** The casts this device sends or receives, each with a credential for it */
         get: operations["listMyCasts"];
         put?: never;
-        /** Cast a film from this device to another of one's own, connected now (D337) */
+        /** Start casting from this device to another of one's own, connected now (D337, D364) */
         post: operations["startCast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/casts/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say Use, on its receiver, to a cast it was asked about (D364 §2) */
+        post: operations["acceptCast"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1220,6 +1237,23 @@ export interface paths {
         put?: never;
         /** Move a cast this device sends or receives on to what plays after its film, the next episode, which its receiver is handed (plans/up-next.md) */
         post: operations["moveCastOn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/casts/{id}/play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5) */
+        post: operations["playInCast"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2444,8 +2478,12 @@ export interface components {
              * @description How long the film plays, 0 when unknown
              */
             durationMs: number;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description What plays, 0 for nothing, the receiver ready (D364 §5)
+             */
             fileId: number;
+            isAccepted: boolean;
             isSender: boolean;
             /** @description What this device's session socket says hello with */
             membershipCredential: string;
@@ -2461,6 +2499,18 @@ export interface components {
              */
             titleId: number;
             titleName: string;
+        };
+        CastFilm: {
+            /**
+             * Format: int64
+             * @description What to play; absent, nothing, the receiver ready for the next
+             */
+            fileId?: number;
+            /**
+             * Format: int64
+             * @description Where to start, in ms; absent, where the person left the film
+             */
+            positionMs?: number;
         };
         CertificateBody: {
             /** Format: int64 */
@@ -2792,10 +2842,10 @@ export interface components {
         };
         EndCastInputBody: {
             /**
-             * @description takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)
+             * @description takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358)
              * @enum {string}
              */
-            reason: "takenBack" | "stopped" | "filmEnded" | "declined" | "unanswered";
+            reason: "takenBack" | "stopped" | "declined" | "unanswered";
         };
         EndCastOutputBody: {
             isPlaying: boolean;
@@ -4564,8 +4614,11 @@ export interface components {
             volume: number;
         };
         StartCastInputBody: {
-            /** Format: int64 */
-            fileId: number;
+            /**
+             * Format: int64
+             * @description What to play; absent, nothing, the receiver ready for the next
+             */
+            fileId?: number;
             /**
              * Format: int64
              * @description Where to start, in ms; absent, where the person left the film
@@ -4803,6 +4856,11 @@ export interface components {
         TogetherDetailsOutputBody: {
             /**
              * Format: int64
+             * @description How long what plays lasts, in ms; absent when unknown
+             */
+            durationMs?: number;
+            /**
+             * Format: int64
              * @description What plays; absent while nothing does
              */
             fileId?: number;
@@ -4811,6 +4869,8 @@ export interface components {
             nextRights: components["schemas"]["TogetherRightsBody"];
             /** Format: int64 */
             sessionId: number;
+            /** @description The name of what plays; absent while nothing does */
+            titleName?: string;
         };
         TogetherLinkBody: {
             /**
@@ -7928,6 +7988,40 @@ export interface operations {
             };
         };
     };
+    acceptCast: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     endCast: {
         parameters: {
             query?: never;
@@ -7979,6 +8073,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    playInCast: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CastFilm"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

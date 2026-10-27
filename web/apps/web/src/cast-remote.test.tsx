@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Casting } from "./cast-remote.tsx";
+import { LiveProvider } from "./live.tsx";
 import { Play } from "./play.tsx";
 import {
   bodyField,
@@ -15,16 +16,15 @@ import {
   mount,
   playbackCauses,
   servedBy,
-  settleUntil,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
-import { fakeTogetherServer } from "./test-together.ts";
+import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
 /** The cast this device sends, as GET /me/casts lists it. */
-const sent = {
+const cast = {
   castId: 9,
   isSender: true,
   fileId: 4,
@@ -51,33 +51,67 @@ const welcome = {
   roster: [],
 };
 
-describe("the remote of a cast (D337 §5)", () => {
+/** The cast this device sends, as the live connection says it, its receiver having said Use. */
+const sending = {
+  castId: 9,
+  receiverDeviceId: 2,
+  receiverName: "Fire TV",
+  fileId: 4,
+  titleName: "Metropolis",
+  durationMs: 600_000,
+  isAccepted: true,
+};
+
+describe("the casting page (D364 §8, §13)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
+    window.sessionStorage.clear();
   });
 
-  it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {
+  /** The casting page, its live connection saying the cast this device sends, its session joined. */
+  async function casting(
+    answers: Parameters<typeof servedBy>[0],
+    heard: Heard[] = [],
+    sent: Readonly<Record<string, unknown>> = sending,
+  ): Promise<{
+    readonly services: ReturnType<typeof servedBy>;
+    readonly sockets: ReturnType<typeof liveAndSession>;
+  }> {
     const services = servedBy(
-      { "GET /me/casts": [200, { casts: [sent] }], "GET /files/4/up-next": [200, {}] },
-      [],
+      { "GET /me/casts": [200, { casts: [cast] }], "GET /files/4/up-next": [200, {}], ...answers },
+      heard,
       "token",
     );
-    const server = fakeTogetherServer();
+    const sockets = liveAndSession();
     mounted = await mount(
-      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+      withServices(
+        <LiveProvider>
+          <Casting />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
     );
-    await server.accept();
+    await sockets.live.accept();
+    await sockets.live.say({ type: "sending", sending: sent });
+    await sockets.session.accept();
+    await sockets.session.say(welcome);
+    return { services, sockets };
+  }
+
+  it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {
+    const { sockets } = await casting({});
+    const server = sockets.session;
     expect(server.heard[0]).toMatchObject({ type: "hello", credential: "remote", role: "panel" });
-    await server.say(welcome);
-    expect(mounted.container.querySelector("video")).toBeNull();
-    expect(mounted.container.textContent).toContain("Metropolis");
-    expect(mounted.container.textContent).toContain("Playing on Fire TV");
-    expect(mounted.container.textContent).toContain("1:01 / 10:00");
-    await click(buttonNamed(mounted.container, "Play"));
+    const page = mounted!.container;
+    expect(page.querySelector("video")).toBeNull();
+    expect(page.textContent).toContain("Metropolis");
+    expect(page.textContent).toContain("Playing on Fire TV");
+    expect(page.textContent).toContain("1:01 / 10:00");
+    await click(buttonNamed(page, "Play"));
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
-    await click(buttonNamed(mounted.container, "Forward 10 s"));
+    await click(buttonNamed(page, "Forward 10 s"));
     expect(server.heard.at(-1)).toMatchObject({
       type: "command",
       command: "seek",
@@ -85,64 +119,117 @@ describe("the remote of a cast (D337 §5)", () => {
     });
   });
 
-  it("says control was taken back, and offers to play here from where it stood, which it opens at (§9 Q5)", async () => {
-    const services = servedBy(
-      { "GET /me/casts": [200, { casts: [sent] }], "GET /files/4/up-next": [200, {}] },
-      [],
-      "token",
+  it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {
+    await casting({}, [], { ...sending, fileId: 0, titleName: "" });
+    const page = mounted!.container;
+    expect(page.textContent).toContain("Ready on Fire TV.");
+    expect(buttonNamed(page, "Play")).toBeUndefined();
+    expect(buttonWithText(page, "Stop casting")).toBeDefined();
+  });
+
+  it("follows what plays on the receiver as the live connection says it (D364 §3)", async () => {
+    const { sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
+    await sockets.live.say({
+      type: "sending",
+      sending: { ...sending, fileId: 5, titleName: "Cat" },
+    });
+    expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
+  });
+
+  it("plays here instead, from where the receiver stood, the receiver waiting ready (D364 §4)", async () => {
+    const heard: Heard[] = [];
+    const { services } = await casting(
+      { "POST /me/casts/9/play": [200, { ...cast, fileId: 0 }] },
+      heard,
     );
-    const server = fakeTogetherServer();
-    mounted = await mount(
-      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+    await click(buttonWithText(mounted!.container, "Play on this device instead"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({});
+    expect(services.navigation.route()).toEqual({
+      screen: "play",
+      fileId: 4,
+      atMs: 61_000,
+      shouldPlayHere: true,
+    });
+  });
+
+  it("leaves the controls to Watch Together's page while that is on too, leading there (D364 §11)", async () => {
+    window.sessionStorage.setItem(
+      "orpheum.together.host",
+      JSON.stringify({ sessionId: 3, credential: "host-credential" }),
     );
-    await server.accept();
-    await server.say(welcome);
-    await server.say({ type: "ended", reason: "takenBack" });
-    expect(mounted.container.textContent).toContain("Fire TV took control back.");
-    await click(buttonWithText(mounted.container, "Play here from 1:01"));
+    await casting({});
+    const page = mounted!.container;
+    expect(page.textContent).toContain("Watch Together is on");
+    expect(buttonNamed(page, "Play")).toBeUndefined();
+    expect(page.querySelector('a[href="/watch-together"]')).not.toBeNull();
+    expect(buttonWithText(page, "Stop casting")).toBeDefined();
+  });
+
+  it("says control was taken back, and offers to play here from where it stood, which it opens at (D364 §9)", async () => {
+    const { services, sockets } = await casting({
+      "GET /me/devices": [200, { devices: [] }],
+    });
+    await sockets.live.say({ type: "sending" });
+    await sockets.session.say({ type: "ended", reason: "takenBack" });
+    expect(mounted!.container.textContent).toContain("Fire TV took control back.");
+    await click(buttonWithText(mounted!.container, "Play here from 1:01"));
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4, atMs: 61_000 });
   });
 
-  it("stops casting at Stop, the receiver told", async () => {
+  it("stops casting at Stop, offering to play here from where it stood (D364 §10)", async () => {
+    const heard: Heard[] = [];
+    await casting(
+      {
+        "POST /me/casts/9/end": [200, { positionMs: 75_000, isPlaying: false }],
+        "GET /me/devices": [200, { devices: [] }],
+      },
+      heard,
+    );
+    await click(buttonWithText(mounted!.container, "Stop casting"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "stopped",
+    });
+    expect(mounted!.container.textContent).toContain("Casting stopped.");
+    expect(buttonWithText(mounted!.container, "Play here from 1:15")).not.toBeUndefined();
+  });
+
+  it("says the receiver was gone for two minutes (D364 §6)", async () => {
+    const { sockets } = await casting({ "GET /me/devices": [200, { devices: [] }] });
+    await sockets.session.say({ type: "ended", reason: "receiverGone" });
+    expect(mounted!.container.textContent).toContain(
+      "Fire TV was gone for two minutes, so casting stopped.",
+    );
+  });
+
+  it("lists the devices to cast to when this device casts nothing, the film it came from with it (D364 §1, §13)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /me/casts": [200, { casts: [sent] }],
-        "GET /files/4/up-next": [200, {}],
-        "POST /me/casts/9/end": [200, { positionMs: 75_000, isPlaying: false }],
+        "GET /me/devices": [200, { devices: [] }],
       },
       heard,
       "token",
     );
     const server = fakeTogetherServer();
     mounted = await mount(
-      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+      withServices(
+        <LiveProvider>
+          <Casting fileId={4} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
     );
     await server.accept();
-    await server.say(welcome);
-    await click(buttonWithText(mounted.container, "Stop casting"));
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
-      reason: "stopped",
-    });
-    expect(buttonWithText(mounted.container, "Play here from 1:15")).not.toBeUndefined();
+    await server.say({ type: "sending" });
+    expect(mounted.container.textContent).toContain("Cast to");
+    expect(mounted.container.textContent).toContain("None of your other devices");
   });
 
-  it("says when this device casts nothing", async () => {
-    const services = servedBy({ "GET /me/casts": [200, { casts: [] }] }, [], "token");
-    mounted = await mount(withServices(<Casting />, services));
-    expect(mounted.container.textContent).toContain("This device is not casting anything.");
-  });
-
-  it("offers the film's Up next, which moves the cast on, and follows the receiver to it (plans/up-next.md)", async () => {
+  it("offers the film's Up next, which moves the cast on (plans/up-next.md)", async () => {
     const heard: Heard[] = [];
-    const cat = { ...sent, fileId: 5, titleId: 3, titleName: "Cat", durationMs: 1_200_000 };
-    const bag = { ...sent, fileId: 6, titleId: 4, titleName: "Bag", durationMs: 1_300_000 };
-    const services = servedBy(
+    const cat = { ...cast, fileId: 5, titleId: 3, titleName: "Cat", durationMs: 1_200_000 };
+    const { sockets } = await casting(
       {
-        "GET /me/casts": [
-          [200, { casts: [sent] }],
-          [200, { casts: [bag] }],
-        ],
         "GET /files/4/up-next": [
           200,
           {
@@ -160,26 +247,18 @@ describe("the remote of a cast (D337 §5)", () => {
           },
         ],
         "GET /files/5/up-next": [200, {}],
-        "GET /files/6/up-next": [200, {}],
         "POST /me/casts/9/next": [200, cat],
       },
       heard,
-      "token",
     );
-    const server = fakeTogetherServer();
-    mounted = await mount(
-      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
-    );
-    await server.accept();
-    await server.say(welcome);
-    await click(buttonWithText(mounted.container, "Up next: S1E2 · Cat"));
+    await click(buttonWithText(mounted!.container, "Up next: S1E2 · Cat"));
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
-    expect(mounted.container.querySelector("h1")?.textContent).toBe("Cat");
-    expect(buttonWithText(mounted.container, "Up next: S1E2 · Cat")).toBeUndefined();
-    // The receiver's own Up next played the one after: its session says another file plays.
-    await server.say({ type: "group", seq: 4, group: { ...welcome.group, fileId: 6 } });
-    await settleUntil(() => mounted?.container.querySelector("h1")?.textContent === "Bag");
-    expect(mounted.container.textContent).toContain("Bag");
+    await sockets.live.say({
+      type: "sending",
+      sending: { ...sending, fileId: 5, titleName: "Cat" },
+    });
+    expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
+    expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();
   });
 });
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The English catalogue's casting part (D337): the list of devices to cast to, the receiver's line
- * and prompt, and the remote, kept apart so the catalogue fits in one read (en.ts).
+ * The English catalogue's casting part (D337, D364): the casting page and its list of devices to
+ * cast to, the receiver's question, line and ready page, and the remote of a session's film, kept
+ * apart so the catalogue fits in one read (en.ts).
  */
 export const enCast = {
   cast: {
-    open: "Cast to another device",
+    page: "Cast",
     heading: "Cast to",
-    close: "Close",
     connectedNow: "Open now · last used {{used}}",
     noTabInFront:
       "Open, but no Orpheum tab is in front: bring one to the front there to cast to it",
@@ -17,9 +17,8 @@ export const enCast = {
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
     asked: {
-      film: "{{device}} wants to play {{film}} here",
-      aFilm: "{{device}} wants to play a film here",
-      play: "Play",
+      question: "{{device}} wants to use this device for playback",
+      use: "Use",
       notNow: "Not now",
     },
     asking: "Asking {{name}}…",
@@ -33,22 +32,30 @@ export const enCast = {
       touch: "Tap to turn the sound on",
       pointer: "Click to turn the sound on",
     },
-    remote: "Remote",
+    ready: "Ready, controlled from {{name}}",
+    notReceiving: "This device is not being cast to.",
+    toHome: "Go to the home page",
     aFilm: "A film",
     playingOn: "Playing on {{name}}",
-    playing: "Playing",
-    paused: "Paused",
-    waiting: "Starting…",
+    readyOn: "Ready on {{name}}. What you play now plays there.",
+    withTogether:
+      "Casting to {{name}}. Watch Together is on, so its page has the controls for what plays.",
+    toTogether: "Go to Watch Together's controls",
     stop: "Stop casting",
     playHere: "Play here from {{at}}",
-    notCasting: "This device is not casting anything.",
+    playHereInstead: "Play on this device instead",
     sendingOn: "Sending it to the device you cast to…",
     over: {
       takenBack: "{{name}} took control back.",
       replaced: "Another of your devices now controls {{name}}.",
       stopped: "Casting stopped.",
-      filmEnded: "The film ended on {{name}}.",
+      receiverGone: "{{name}} was gone for two minutes, so casting stopped.",
       gone: "The cast is over.",
     },
+  },
+  remote: {
+    playing: "Playing",
+    paused: "Paused",
+    waiting: "Starting…",
   },
 };

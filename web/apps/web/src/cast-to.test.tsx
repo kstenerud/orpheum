@@ -7,12 +7,11 @@ import { act, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
-import { castAnswerGraceMs, castAnswerWithinMs, isNotedSending, noteSending } from "./cast.ts";
+import { castAnswerGraceMs, castAnswerWithinMs } from "./cast.ts";
 import { castReturnKey } from "./cast-return.ts";
-import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
+import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import {
-  bodyField,
   buttonWithText,
   click,
   mount,
@@ -22,30 +21,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
-
-/**
- * A server for the page's live connection, the first socket it opens, and one for the cast's
- * session of one, every socket after: a sender waiting for its receiver's answer, a receiver asking
- * (D358).
- */
-function liveAndSession(): {
-  readonly live: FakeTogetherServer;
-  readonly session: FakeTogetherServer;
-  readonly openSocket: FakeTogetherServer["openSocket"];
-} {
-  const live = fakeTogetherServer();
-  const session = fakeTogetherServer();
-  let opened = 0;
-  return {
-    live,
-    session,
-    openSocket: (listeners) => {
-      opened += 1;
-      return opened === 1 ? live.openSocket(listeners) : session.openSocket(listeners);
-    },
-  };
-}
+import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
 /** A cast's session of one welcoming a device, nothing on yet. */
 const castWelcome = {
@@ -60,11 +36,22 @@ const castWelcome = {
   roster: [],
 };
 
-/** Answers Play to the cast the receiver asks about (D358 §1, §2). */
-async function pressPlay(container: HTMLElement): Promise<void> {
-  const play = buttonWithText(container, "Play");
-  expect(play).toBeDefined();
-  await click(play);
+/** The cast the Laptop sends to the Fire TV, as the live connection says it (D364 §6). */
+const sendingToTheTv = {
+  castId: 9,
+  receiverDeviceId: 2,
+  receiverName: "Fire TV",
+  fileId: 4,
+  titleName: "Metropolis",
+  durationMs: 0,
+  isAccepted: false,
+};
+
+/** Answers Use to the cast the receiver asks about (D364 §2). */
+async function pressUse(container: HTMLElement): Promise<void> {
+  const use = buttonWithText(container, "Use");
+  expect(use).toBeDefined();
+  await click(use);
 }
 
 /** A device of the person's, as GET /me/devices lists it. */
@@ -109,14 +96,20 @@ function Leaving(): JSX.Element {
   );
 }
 
-describe("Cast to another device (D337 §1, §2)", () => {
+/** The film playing here as the casting page was reached: film 4, at 61 s. */
+const playingHere = (): { fileId: number; positionMs: number } => ({
+  fileId: 4,
+  positionMs: 61_000,
+});
+
+describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
   });
 
-  it("lists the person's other devices open now, and casts to the one chosen from where the film stands", async () => {
+  it("lists the person's other devices open now, and starts a session with the one chosen, moving the film playing here", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -139,7 +132,7 @@ describe("Cast to another device (D337 §1, §2)", () => {
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <CastToDevice fileId={4} positionMs={() => 61_000} />
+          <CastTargets film={playingHere} />
         </LiveProvider>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
@@ -147,40 +140,47 @@ describe("Cast to another device (D337 §1, §2)", () => {
     await server.accept();
     expect(server.heard[0]).toEqual({ type: "live", sessionToken: "token" });
     await server.say({ type: "devices", deviceIds: [1, 2] });
-    await click(buttonWithText(mounted.container, "Cast to another device"));
     expect(mounted.container.textContent).toContain("Fire TV");
     expect(mounted.container.textContent).not.toContain("Phone, closed");
     expect(buttonWithText(mounted.container, "Laptop")).toBeUndefined();
-    const before = services.navigation.route();
     await click(buttonWithText(mounted.container, "Fire TV"));
     const cast = heard.find((each) => each.methodAndPath === "POST /me/casts");
     expect(cast?.body).toEqual({ toDeviceId: 2, fileId: 4, positionMs: 61_000 });
-    expect(bodyField(cast!, "toDeviceId")).toBe(2);
-    // The receiver is asked first, and the film plays on here until it answers Play (D358 §3).
+    // The receiver is asked once whether to be used (D364 §2), and this page says so till it answers.
     expect(mounted.container.textContent).toContain("Asking Fire TV…");
-    expect(services.navigation.route()).toEqual(before);
-    expect(isNotedSending(tabStorage())).toBe(false);
     await sockets.session.accept();
     expect(sockets.session.heard[0]).toMatchObject({ credential: "sender", role: "panel" });
-    await sockets.session.say(castWelcome);
-    expect(services.navigation.route()).toEqual(before);
-    // The receiver's Play puts the film on in the cast's session: the hand-off.
-    await sockets.session.say({
-      type: "group",
-      seq: 2,
-      group: { ...castWelcome.group, fileId: 4 },
+  });
+
+  it("starts a session with nothing playing where no film was playing here (D364 §1)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [device(1, "Laptop", true), device(2, "Fire TV")] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+      },
+      heard,
+      "token",
+    );
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await click(buttonWithText(mounted.container, "Fire TV"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
+      toDeviceId: 2,
     });
-    expect(services.navigation.route()).toEqual({ screen: "casting" });
-    // A film played here next goes on to the TV (§9 Q3).
-    expect(isNotedSending(tabStorage())).toBe(true);
-    noteSending(tabStorage(), false);
   });
 
   /** The Laptop casting film 4 to the Fire TV, and what the page then shows and says. */
-  async function castToTheTv(heard: Heard[]): Promise<{
-    readonly sockets: ReturnType<typeof liveAndSession>;
-    readonly services: ReturnType<typeof servedBy>;
-  }> {
+  async function castToTheTv(heard: Heard[]): Promise<ReturnType<typeof liveAndSession>> {
     const services = servedBy(
       {
         "GET /me/devices": [200, { devices: [device(1, "Laptop", true), device(2, "Fire TV")] }],
@@ -194,40 +194,42 @@ describe("Cast to another device (D337 §1, §2)", () => {
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <CastToDevice fileId={4} positionMs={() => 61_000} />
+          <CastTargets film={playingHere} />
         </LiveProvider>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
     );
     await sockets.live.accept();
     await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
-    await click(buttonWithText(mounted.container, "Cast to another device"));
     await click(buttonWithText(mounted.container, "Fire TV"));
     await sockets.session.accept();
     await sockets.session.say(castWelcome);
-    return { sockets, services };
+    return sockets;
   }
 
-  it("says its receiver declined, and plays on here (D358 §3)", async () => {
-    const { sockets, services } = await castToTheTv([]);
-    const before = services.navigation.route();
+  it("says its receiver declined, offering the devices again (D358 §3)", async () => {
+    const sockets = await castToTheTv([]);
     await sockets.session.say({ type: "ended", reason: "declined" });
     expect(mounted?.container.textContent).toContain("Fire TV declined.");
-    expect(services.navigation.route()).toEqual(before);
-    expect(isNotedSending(tabStorage())).toBe(false);
     expect(buttonWithText(mounted!.container, "Fire TV")).toBeDefined(); // to cast again
+  });
+
+  it("says nothing more once its receiver said Use, the casting page showing the session (D364 §2)", async () => {
+    const sockets = await castToTheTv([]);
+    await sockets.live.say({ type: "sending", sending: { ...sendingToTheTv, isAccepted: true } });
+    await sockets.session.say({ type: "ended", reason: "stopped" });
+    expect(mounted?.container.textContent).not.toContain("ended before it started");
   });
 
   it("says its receiver did not answer, as it says or after a minute and a little more (D358 §4)", async () => {
     const said = await castToTheTv([]);
-    await said.sockets.session.say({ type: "ended", reason: "unanswered" });
+    await said.session.say({ type: "ended", reason: "unanswered" });
     expect(mounted?.container.textContent).toContain("Fire TV did not answer.");
     mounted?.unmount();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
       const heard: Heard[] = [];
-      const { services } = await castToTheTv(heard);
-      const before = services.navigation.route();
+      await castToTheTv(heard);
       await act(async () => {
         vi.advanceTimersByTime(castAnswerWithinMs);
         await Promise.resolve();
@@ -241,7 +243,6 @@ describe("Cast to another device (D337 §1, §2)", () => {
       expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
         reason: "unanswered",
       });
-      expect(services.navigation.route()).toEqual(before);
     } finally {
       vi.useRealTimers();
     }
@@ -257,14 +258,13 @@ describe("Cast to another device (D337 §1, §2)", () => {
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <CastToDevice fileId={4} positionMs={() => undefined} />
+          <CastTargets film={() => undefined} />
         </LiveProvider>,
         { ...services, openTogetherSocket: server.openSocket },
       ),
     );
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1] });
-    await click(buttonWithText(mounted.container, "Cast to another device"));
     expect(mounted.container.textContent).toContain(
       "None of your other devices has Orpheum open now",
     );
@@ -286,14 +286,13 @@ describe("Cast to another device (D337 §1, §2)", () => {
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <CastToDevice fileId={4} positionMs={() => undefined} />
+          <CastTargets film={() => undefined} />
         </LiveProvider>,
         { ...services, openTogetherSocket: server.openSocket },
       ),
     );
     await server.accept();
     await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 3] });
-    await click(buttonWithText(mounted.container, "Cast to another device"));
     const items = [...mounted.container.querySelectorAll(".cast-to__devices li")].map(
       (item) => item.textContent,
     );
@@ -331,15 +330,25 @@ describe("Cast to another device (D337 §1, §2)", () => {
   });
 });
 
-describe("the page's live connection (D337 §2, §4)", () => {
+describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
   });
 
-  it("receives a cast handed to it, opening the film's Play page", async () => {
-    const services = servedBy({}, [], "token");
+  /** A cast handed to the receiver: cast 5, of film 7, from the Pixel. */
+  const handed = {
+    castId: 5,
+    membershipCredential: "cast",
+    fileId: 7,
+    fromDeviceId: 2,
+    fromDeviceName: "Pixel",
+  };
+
+  it("asks once whether to be used for playback, tells the server its Use, and opens the film's Play page", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, heard, "token");
     const sockets = liveAndSession();
     const server = sockets.live;
     mounted = await mount(
@@ -351,24 +360,39 @@ describe("the page's live connection (D337 §2, §4)", () => {
       ),
     );
     await server.accept();
-    await server.say({
-      type: "receive",
-      receive: {
-        castId: 5,
-        membershipCredential: "cast",
-        fileId: 7,
-        positionMs: 61_000,
-        fromDeviceId: 2,
-        fromDeviceName: "Pixel",
-      },
-    });
-    await pressPlay(mounted.container);
+    await server.say({ type: "receive", receive: { ...handed, positionMs: 61_000 } });
+    expect(mounted.container.textContent).toContain("Pixel wants to use this device for playback");
+    await pressUse(mounted.container);
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /me/casts/5/accept");
     expect(mounted.container.textContent).toContain("receiving cast 5");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
   });
 
+  it("goes full screen and ready between videos, then plays the next with no question (D364 §3, §5)", async () => {
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <ReceivingFile />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 0 } });
+    await pressUse(mounted.container);
+    expect(services.navigation.route()).toEqual({ screen: "cast-ready" });
+    await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 8 } });
+    expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 8 });
+    await sockets.live.say({ type: "receive", receive: { ...handed, fileId: 0 } });
+    expect(services.navigation.route()).toEqual({ screen: "cast-ready" });
+    expect(mounted.container.textContent).toContain("receiving file 0");
+  });
+
   it("goes back to the page a cast took it over from as casting ends there, through a cast that replaced it (D338 §1)", async () => {
-    const services = servedBy({}, [], "token");
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const before = services.navigation.route();
     expect(before.screen).not.toBe("play");
     const sockets = liveAndSession();
@@ -382,18 +406,11 @@ describe("the page's live connection (D337 §2, §4)", () => {
       ),
     );
     await server.accept();
-    const handed = {
-      castId: 5,
-      membershipCredential: "cast",
-      fileId: 7,
-      fromDeviceId: 2,
-      fromDeviceName: "Pixel",
-    };
     await server.say({ type: "receive", receive: handed });
-    await pressPlay(mounted.container);
+    await pressUse(mounted.container);
     // A cast replacing the one received is received at once: its device is asked no more.
     await server.say({ type: "receive", receive: { ...handed, castId: 6, fileId: 9 } });
-    expect(buttonWithText(mounted.container, "Play")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
     await click(buttonWithText(mounted.container, "leave"));
     expect(services.navigation.route()).toEqual(before);
@@ -402,7 +419,7 @@ describe("the page's live connection (D337 §2, §4)", () => {
   });
 
   it("stays on the film, forgetting the page before, as its control is taken back here (D338 §6)", async () => {
-    const services = servedBy({}, [], "token");
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const sockets = liveAndSession();
     const server = sockets.live;
     mounted = await mount(
@@ -414,106 +431,96 @@ describe("the page's live connection (D337 §2, §4)", () => {
       ),
     );
     await server.accept();
-    await server.say({
-      type: "receive",
-      receive: { castId: 5, membershipCredential: "c", fileId: 7, fromDeviceId: 2 },
-    });
-    await pressPlay(mounted.container);
+    await server.say({ type: "receive", receive: handed });
+    await pressUse(mounted.container);
     await click(buttonWithText(mounted.container, "take back"));
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
     expect(tabStorage().getItem(castReturnKey)).toBeNull();
   });
-
-  it("plays the next episode when the same cast is handed again with it (plans/up-next.md)", async () => {
-    const services = servedBy({}, [], "token");
-    const sockets = liveAndSession();
-    const server = sockets.live;
-    mounted = await mount(
-      withServices(
-        <LiveProvider>
-          <ReceivingFile />
-        </LiveProvider>,
-        { ...services, openTogetherSocket: sockets.openSocket },
-      ),
-    );
-    await server.accept();
-    const handed = {
-      castId: 5,
-      membershipCredential: "cast",
-      fileId: 7,
-      fromDeviceId: 2,
-      fromDeviceName: "Pixel",
-    };
-    await server.say({ type: "receive", receive: handed });
-    await pressPlay(mounted.container);
-    await server.say({
-      type: "receive",
-      receive: { ...handed, fileId: 8, membershipCredential: "again" },
-    });
-    expect(mounted.container.textContent).toContain("receiving file 8");
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 8 });
-  });
 });
 
-describe("a film played on a device that casts (§9 Q3)", () => {
+describe("a film played on a device that casts (D364 §3, §4)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
-    noteSending(tabStorage(), false);
   });
 
-  it("goes on to the receiver, the device staying its remote", async () => {
-    noteSending(tabStorage(), true);
-    const heard: Heard[] = [];
+  /** The Play page's film 8, from 30 s, on a device whose live connection says what it sends. */
+  async function playOn(
+    heard: Heard[],
+    sending: Readonly<Record<string, unknown>> | undefined,
+    shouldPlayHere = false,
+  ): Promise<ReturnType<typeof servedBy>> {
     const services = servedBy(
-      {
-        "GET /me/casts": [200, { casts: [{ castId: 3, isSender: true, receiverDeviceId: 2 }] }],
-        "POST /me/casts": [201, { castId: 4, isSender: true }],
-      },
+      { "POST /me/casts/9/play": [200, { castId: 9, isSender: true }] },
       heard,
       "token",
     );
+    const server = fakeTogetherServer();
     mounted = await mount(
       withServices(
-        <PlayOrSendOn fileId={8}>
-          <p>playing here</p>
-        </PlayOrSendOn>,
-        services,
+        <LiveProvider>
+          <PlayOrSendOn fileId={8} atMs={30_000} shouldPlayHere={shouldPlayHere}>
+            <p>playing here</p>
+          </PlayOrSendOn>
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
       ),
     );
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
-      toDeviceId: 2,
+    await server.accept();
+    await server.say(sending === undefined ? { type: "sending" } : { type: "sending", sending });
+    return services;
+  }
+
+  it("goes on to the receiver, from where it was to start, the device staying its remote", async () => {
+    const heard: Heard[] = [];
+    const services = await playOn(heard, { ...sendingToTheTv, isAccepted: true });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({
       fileId: 8,
+      positionMs: 30_000,
     });
     expect(services.navigation.route()).toEqual({ screen: "casting" });
-    expect(mounted.container.textContent).not.toContain("playing here");
+    expect(mounted?.container.textContent).not.toContain("playing here");
   });
 
-  it("plays here once the server says the device casts no more, and asks nothing where it never cast", async () => {
-    noteSending(tabStorage(), true);
-    const heard: Heard[] = [];
-    mounted = await mount(
-      withServices(
-        <PlayOrSendOn fileId={8}>
-          <p>playing here</p>
-        </PlayOrSendOn>,
-        servedBy({ "GET /me/casts": [200, { casts: [] }] }, heard, "token"),
-      ),
-    );
-    expect(mounted.container.textContent).toContain("playing here");
-    expect(isNotedSending(tabStorage())).toBe(false);
-    mounted.unmount();
-    heard.length = 0;
-    mounted = await mount(
-      withServices(
-        <PlayOrSendOn fileId={8}>
-          <p>playing here</p>
-        </PlayOrSendOn>,
-        servedBy({}, heard, "token"),
-      ),
-    );
-    expect(mounted.container.textContent).toContain("playing here");
-    expect(heard).toEqual([]);
+  it("plays here where the device casts nothing, its receiver has not said Use, or the remote said to play here", async () => {
+    for (const [sending, shouldPlayHere] of [
+      [undefined, false],
+      [sendingToTheTv, false],
+      [{ ...sendingToTheTv, isAccepted: true }, true],
+    ] as const) {
+      const heard: Heard[] = [];
+      await playOn(heard, sending, shouldPlayHere);
+      expect(mounted?.container.textContent).toContain("playing here");
+      expect(heard).toEqual([]);
+      mounted?.unmount();
+      mounted = undefined;
+    }
+  });
+
+  it("plays here once the server has not said what the device sends within a few seconds", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const server = fakeTogetherServer();
+      mounted = await mount(
+        withServices(
+          <LiveProvider>
+            <PlayOrSendOn fileId={8} shouldPlayHere={false}>
+              <p>playing here</p>
+            </PlayOrSendOn>
+          </LiveProvider>,
+          { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket },
+        ),
+      );
+      expect(mounted.container.textContent).not.toContain("playing here");
+      await act(async () => {
+        vi.advanceTimersByTime(sendingKnownWithinMs);
+        await Promise.resolve();
+      });
+      expect(mounted.container.textContent).toContain("playing here");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

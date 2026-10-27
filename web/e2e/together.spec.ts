@@ -188,3 +188,45 @@ test(
     await joining.context.close();
   },
 );
+
+/** Where the page's film stands, in seconds. */
+async function playedTo(page: Page): Promise<number> {
+  return await page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime);
+}
+
+test(
+  "the film plays on for the group as the host leaves it for the session's page, whose Stop ends it (D364 §15)",
+  { tag: oneBrowserTag },
+  async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+    try {
+      const host = await hostContext.newPage();
+      const guest = await guestContext.newPage();
+      await signIn(host);
+      const link = await startSessionWithLink(host);
+      await guest.goto(link);
+      await join(guest, link);
+      await hostPlays(host, warmUpFilm);
+      await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+      // No Watch Together in the top bar: its blue sign in the tray leads to the session's page.
+      await expect(host.locator(".app-shell__watching a[href='/watch-together']")).toHaveCount(0);
+      const sign = host.locator(".status-tray a[href='/watch-together']");
+      await expect(sign).toHaveClass(/status-tray__button--on/u);
+      await sign.click();
+      await expect(host.locator("video")).toHaveCount(0);
+      await expect(host.getByRole("link", { name: "Back to the film" })).toBeVisible();
+      // Leaving stops nothing: the guest's film goes on (D246 §5's stop on leaving withdrawn).
+      const before = await playedTo(guest);
+      await expect.poll(() => playedTo(guest), { timeout: 10_000 }).toBeGreaterThan(before + 1);
+      expect(await isPlaying(guest)).toBe(true);
+      // Stop, on the session's page, stops it for everyone.
+      await host.getByRole("button", { name: "Stop the film for everyone" }).click();
+      await expect.poll(() => isPlaying(guest), { timeout: 10_000 }).toBe(false);
+      await endSession(host);
+    } finally {
+      await hostContext.close();
+      await guestContext.close();
+    }
+  },
+);

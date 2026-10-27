@@ -172,6 +172,63 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().inFrontDeviceIds).toEqual([]);
   });
 
+  it("keeps the cast this device sends as it is told, and that it sends none (D364 §6)", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(connection.snapshot()).toMatchObject({ sending: undefined, isSendingKnown: false });
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({
+        type: "sending",
+        sending: {
+          castId: 7,
+          receiverDeviceId: 2,
+          receiverName: "Fire TV",
+          fileId: 3,
+          titleName: "Metropolis",
+          durationMs: 6_000_000,
+          isAccepted: true,
+        },
+      }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      isSendingKnown: true,
+      sending: {
+        castId: 7,
+        receiverDeviceId: 2,
+        receiverName: "Fire TV",
+        fileId: 3,
+        titleName: "Metropolis",
+        durationMs: 6_000_000,
+        isAccepted: true,
+      },
+    });
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "sending" }));
+    expect(connection.snapshot()).toMatchObject({ sending: undefined, isSendingKnown: true });
+  });
+
+  it("reads a receiver's credential for the session its person hosts (D364 §11)", () => {
+    expect(
+      parseLiveMessage(
+        JSON.stringify({
+          type: "receive",
+          receive: {
+            castId: 1,
+            membershipCredential: "c",
+            fileId: 0,
+            fromDeviceId: 3,
+            togetherCredential: "hosted",
+          },
+        }),
+      ),
+    ).toMatchObject({ receive: { fileId: 0, togetherCredential: "hosted" } });
+  });
+
   it("reads a cast with no position as one starting where the person left the film", () => {
     expect(
       parseLiveMessage(

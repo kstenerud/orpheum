@@ -11,7 +11,7 @@ import {
   castNoteShownMs,
   ControlledMode,
   doublePressWithinMs,
-  moveOnOrLeave,
+  moveOnOrReady,
 } from "./cast-receiver.tsx";
 import { playedMutedEvent } from "@orpheum/sdk";
 
@@ -299,18 +299,62 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("ends the cast at the film's end and goes back to the page it was on, the remote told", async () => {
-    const { server, video, heard, onLeave } = await receiver({
-      "POST /me/casts/9/end": [200, { positionMs: 600_000, isPlaying: false }],
+  it("waits ready for the next video at the film's end, the session going on (D364 §5)", async () => {
+    const { server, video, heard, onOver, onLeave } = await receiver({
+      "POST /me/casts/9/play": [200, { castId: 9, fileId: 0 }],
     });
     await server.say(welcome);
     await act(async () => {
       video.dispatchEvent(new Event("ended"));
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
-      reason: "filmEnded",
-    });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({});
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(onOver).not.toHaveBeenCalled();
+  });
+
+  it("leads its person's Watch Together session as their player while they host one, hearing the cast's end on its own (D364 §11)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({}, heard, "token");
+    const sockets = { cast: fakeTogetherServer(), hosted: fakeTogetherServer() };
+    let opened = 0;
+    const video = document.createElement("video");
+    document.body.append(video);
+    const onLeave = vi.fn();
+    mounted = await mount(
+      withServices(
+        <CastReceiver
+          receiving={{
+            cast: { ...cast, togetherCredential: "hosted" },
+            onOver: vi.fn(),
+            onLeave,
+          }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+        />,
+        {
+          ...services,
+          openTogetherSocket: (listeners) => {
+            opened += 1;
+            return opened === 1
+              ? sockets.cast.openSocket(listeners)
+              : sockets.hosted.openSocket(listeners);
+          },
+        },
+      ),
+    );
+    await sockets.cast.accept();
+    await sockets.hosted.accept();
+    expect(sockets.cast.heard[0]).toMatchObject({ credential: "receiver", role: "panel" });
+    expect(sockets.hosted.heard[0]).toMatchObject({ credential: "hosted", role: "video" });
+    await sockets.hosted.say(welcome);
+    expect(sockets.hosted.heard).toContainEqual(
+      expect.objectContaining({ command: "changeItem", fileId: 4, positionMs: 61_000 }),
+    );
+    expect(sockets.cast.heard.some((each) => each["type"] === "command")).toBe(false);
+    await sockets.cast.say({ type: "ended", reason: "stopped" });
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
@@ -333,33 +377,36 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
     const services = servedBy({ "POST /me/casts/9/next": [200, { castId: 9, fileId: 5 }] }, heard);
     const onLeave = vi.fn();
     await act(async () => {
-      moveOnOrLeave(services.api, { cast, onOver: vi.fn(), onLeave });
+      moveOnOrReady(services.api, { cast, onOver: vi.fn(), onLeave });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /me/casts/9/next"]);
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("ends the cast and goes back to the page it was on, the remote told, where it cannot move on", async () => {
-    const heard: Heard[] = [];
-    const services = servedBy(
-      {
-        "POST /me/casts/9/next": refusal(409, "conflict"),
-        "POST /me/casts/9/end": [200, { positionMs: 600_000, isPlaying: false }],
-      },
-      heard,
-    );
-    const onLeave = vi.fn();
-    await act(async () => {
-      moveOnOrLeave(services.api, { cast, onOver: vi.fn(), onLeave });
-      for (let turn = 0; turn < 5; turn += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-    });
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
-      reason: "filmEnded",
-    });
-    expect(onLeave).toHaveBeenCalledOnce();
+  it("waits ready for the next video where it cannot move on, and goes back to the page it was on where the cast is gone (D364 §5)", async () => {
+    for (const [played, isLeft] of [
+      [[200, { castId: 9, fileId: 0 }], false],
+      [refusal(404, "not_found"), true],
+    ] as const) {
+      const heard: Heard[] = [];
+      const services = servedBy(
+        { "POST /me/casts/9/next": refusal(409, "conflict"), "POST /me/casts/9/play": played },
+        heard,
+      );
+      const onLeave = vi.fn();
+      await act(async () => {
+        moveOnOrReady(services.api, { cast, onOver: vi.fn(), onLeave });
+        for (let turn = 0; turn < 5; turn += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      });
+      expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual(
+        {},
+      );
+      expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
+      expect(onLeave).toHaveBeenCalledTimes(isLeft ? 1 : 0);
+    }
   });
 });
 
@@ -607,6 +654,18 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     await fullScreenChanged();
     expect(onOver).toHaveBeenCalledOnce();
     expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toHaveLength(1);
+  });
+
+  it("keeps control where full screen ended as the page took its element away, the next video opening (D364 §3)", async () => {
+    const stage = document.createElement("div");
+    document.body.append(stage);
+    Object.defineProperty(document, "fullscreenElement", { value: stage, configurable: true });
+    const { server, onOver } = await receiving();
+    stage.remove(); // the last film's Play page, its stage full screen, gone for the next
+    isFullScreen(false);
+    await fullScreenChanged();
+    expect(onOver).not.toHaveBeenCalled();
+    expect(fullScreenNotes(server)).toEqual([]);
   });
 
   it("keeps control where the page itself left full screen, as Stop casting and the film's end do", async () => {

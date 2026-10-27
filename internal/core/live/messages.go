@@ -20,8 +20,12 @@ const (
 	// MessageDevices is the person's devices connected now, sent as the connection opens and each
 	// time the set changes.
 	MessageDevices MessageType = "devices"
-	// MessageReceive hands the device a cast to receive (§4).
+	// MessageReceive hands the device a cast to receive (§4), again each time what it plays changes
+	// (D364 §3).
 	MessageReceive MessageType = "receive"
+	// MessageSending tells the device the cast it sends, or with none that it sends none: as the
+	// connection opens, and each time the cast starts, changes or ends (D364 §6, §7).
+	MessageSending MessageType = "sending"
 	// MessagePong answers a ping, so the device knows its connection lives.
 	MessagePong MessageType = "pong"
 	// MessageSignedOut tells the device its sign-in ended, the device removed from another (D218 §4):
@@ -54,6 +58,8 @@ type Outbound struct {
 	InFrontDeviceIDs []int64 `json:"inFrontDeviceIds,omitempty"`
 	// Receive is a receive message's cast.
 	Receive *Receive `json:"receive,omitempty"`
+	// Sending is a sending message's cast; absent, the device sends none.
+	Sending *Sending `json:"sending,omitempty"`
 	// TMono is a pong's: its ping's.
 	TMono int64 `json:"tMono,omitempty"`
 }
@@ -71,6 +77,23 @@ type Receive struct {
 	PositionMs     *int64 `json:"positionMs,omitempty"`
 	FromDeviceID   int64  `json:"fromDeviceId"`
 	FromDeviceName string `json:"fromDeviceName"`
+	// IsAccepted is whether the receiver said Use to the cast already, asked once (D364 §2).
+	IsAccepted bool `json:"isAccepted,omitempty"`
+	// TogetherCredential is a credential for the Watch Together session the person hosts, if any,
+	// which the receiver plays as their player, so what they play plays for the group (D364 §11).
+	TogetherCredential string `json:"togetherCredential,omitempty"`
+}
+
+// Sending is the cast a device sends, as its pages show it: to which device, what it plays there
+// (FileID 0 for nothing, ready between videos, D364 §5), and whether its receiver said Use.
+type Sending struct {
+	CastID           int64  `json:"castId"`
+	ReceiverDeviceID int64  `json:"receiverDeviceId"`
+	ReceiverName     string `json:"receiverName"`
+	FileID           int64  `json:"fileId"`
+	TitleName        string `json:"titleName"`
+	DurationMs       int64  `json:"durationMs"`
+	IsAccepted       bool   `json:"isAccepted"`
 }
 
 // Sender takes the messages for one live connection: its socket's writer, which must never block.

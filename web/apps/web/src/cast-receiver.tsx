@@ -12,6 +12,7 @@ import {
   type Press,
   type TogetherConnection,
   type TogetherEndReason,
+  type TogetherSnapshot,
 } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
@@ -19,7 +20,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
-import { endCast, moveCastOn } from "./cast.ts";
+import { endCast, moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
@@ -77,13 +78,23 @@ export function PlaysAlong(props: {
 
 /**
  * Moves the cast this device receives on to the next episode, which the server hands it again
- * (live.tsx plays it), its remote following; where it cannot, the cast ends at its film's end and
- * the receiver goes back to the page it was on before the cast, the remote told (D337's §9 answers,
- * Q4; D338 §1; plans/up-next.md).
+ * (live.tsx plays it), its remote following (plans/up-next.md); where it cannot, waits ready for the
+ * next video (readyForTheNext).
  */
-export function moveOnOrLeave(api: Api, receiving: Receiving): void {
+export function moveOnOrReady(api: Api, receiving: Receiving): void {
   moveCastOn(api, receiving.cast.castId).catch(() => {
-    endCast(api, receiving.cast.castId, "filmEnded").catch(() => undefined);
+    readyForTheNext(api, receiving);
+  });
+}
+
+/**
+ * Has the cast this device receives play nothing, at its film's end with nothing after it: the
+ * server hands it again so, and the receiver waits full screen on its ready page for the next video
+ * the person plays (D364 §5), the session going on. A cast that cannot is over, and the receiver goes
+ * back to the page it was on before it (D338 §1).
+ */
+export function readyForTheNext(api: Api, receiving: Receiving): void {
+  playInCast(api, receiving.cast.castId, undefined).catch(() => {
     receiving.onLeave();
   });
 }
@@ -95,7 +106,7 @@ export interface Receiving {
   readonly onOver: () => void;
   /**
    * Told that receiving is over and the device goes back to the page it was on before the cast:
-   * casting stopped, or the film over with nothing after it (D338 §1).
+   * casting stopped (D364 §10, D338 §1).
    */
   readonly onLeave: () => void;
   /**
@@ -110,10 +121,12 @@ export interface Receiving {
  * cast's session of one, from where the sender stood, filling the window, with a television's player
  * controls over it (the Play page's composition) and a "Controlled from" line that fades; its own
  * controls and media keys go on working, and every change of theirs reaches the remote as the
- * session's. Back, or OK twice, leaves controlled mode, the film playing on here (D338 §6). The cast
- * stopped by the remote sends it back to the page it was on before (D338 §1); at the film's end it
+ * session's. While its person hosts Watch Together, its video leads that session instead, as their
+ * player, so what they play plays for the group, the cast's session told only how it ends (D364 §11).
+ * Back, or OK twice, leaves controlled mode, the film playing on here (D364 §9, D338 §6). The cast
+ * stopped by the remote sends it back to the page it was on before (D364 §10); at the film's end it
  * plays the next episode as the sender would (Up next, plans/up-next.md), and where none plays next
- * it goes back to that page too.
+ * it waits ready for the next video (D364 §5).
  */
 export function CastReceiver(props: {
   readonly receiving: Receiving;
@@ -124,42 +137,37 @@ export function CastReceiver(props: {
   readonly hasNext?: boolean;
 }): JSX.Element {
   const { api } = useServices();
-  const token = useToken();
   const { cast, onOver, onLeave } = props.receiving;
   const { video, fileId } = props;
-  const { connection, snapshot } = useTogether({
-    credential: cast.membershipCredential,
-    sessionToken: token,
-  });
+  const { connection, isWelcomed, snapshot } = useReceiversSessions(cast);
   useLeadingPlayer({
     connection,
-    isWelcomed: snapshot?.status === "connected",
+    isWelcomed,
     fileId,
     video,
     startPositionMs: props.startPositionMs,
     putOnAtMs: cast.positionMs,
   });
   useFillsTheWindow(video);
-  const isWelcomed = snapshot?.status === "connected";
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
     onOver,
     onLeave,
   });
   const hasNext = props.hasNext === true;
+  const { receiving } = props;
   useEffect(() => {
     if (hasNext) {
-      return undefined; // its Up next moves the cast on, or ends it, as the person's autoplay says
+      return undefined; // its Up next moves the cast on, or waits ready, as the person's autoplay says
     }
     const atTheEnd = (): void => {
-      endCast(api, cast.castId, "filmEnded").catch(() => undefined);
-      onLeave();
+      readyForTheNext(api, receiving);
     };
     video?.addEventListener("ended", atTheEnd);
     return () => {
       video?.removeEventListener("ended", atTheEnd);
     };
-  }, [api, cast.castId, onLeave, video, hasNext]);
+  }, [api, receiving, video, hasNext]);
   const takeBack = useCallback(() => {
     endCast(api, cast.castId, "takenBack").catch(() => undefined);
     onOver();
@@ -177,11 +185,38 @@ export function CastReceiver(props: {
 }
 
 /**
- * Ends receiving as the cast ends: stopped by the remote, or its film over, the receiver goes back to
- * the page it was on (D338 §1); a cast replacing it is received already; any other end leaves an
- * ordinary player.
+ * The sessions a cast's receiver is in: the cast's own, which says how it ends, and the one its video
+ * leads, the cast's or, while its person hosts Watch Together, that session, as their player (D364
+ * §11), the cast's then joined as a panel, playing nothing. Gives the led session's connection and
+ * whether it is welcomed, and the cast's own snapshot.
  */
-function useEndsAsTheCastDoes(
+function useReceiversSessions(cast: CastToReceive): {
+  readonly connection: TogetherConnection | undefined;
+  readonly isWelcomed: boolean;
+  readonly snapshot: TogetherSnapshot | undefined;
+} {
+  const token = useToken();
+  const isLeadingHosted = cast.togetherCredential !== undefined;
+  const castSession = useTogether({
+    credential: cast.membershipCredential,
+    sessionToken: token,
+    role: isLeadingHosted ? "panel" : undefined,
+  });
+  const hosted = useTogether({ credential: cast.togetherCredential, sessionToken: token });
+  const led = isLeadingHosted ? hosted : castSession;
+  return {
+    connection: led.connection,
+    isWelcomed: led.snapshot?.status === "connected",
+    snapshot: castSession.snapshot,
+  };
+}
+
+/**
+ * Ends receiving as the cast ends: stopped on the sender, the receiver goes back to the page it was on
+ * before the session (D364 §10, D338 §1); a cast replacing it is received already; any other end
+ * leaves what shows as it is, an ordinary player (onOver).
+ */
+export function useEndsAsTheCastDoes(
   endReason: TogetherEndReason | undefined,
   ways: Pick<Receiving, "onOver" | "onLeave">,
 ): void {
@@ -190,7 +225,7 @@ function useEndsAsTheCastDoes(
     if (endReason === undefined || endReason === "replaced") {
       return;
     }
-    if (endReason === "stopped" || endReason === "filmEnded") {
+    if (endReason === "stopped") {
       onLeave();
     } else {
       onOver();
@@ -572,7 +607,10 @@ function useOnce(call: () => void): RefObject<() => void> {
 /**
  * Takes control back where the browser leaves full screen and the page did not ask it to
  * (isFullScreenLeaveAsked): a Fire TV's Back in full screen, which Silk keeps from the page, and a desktop's
- * Escape. The log is told first, as the press that asked for full screen was (D358 §2).
+ * Escape. The log is told first, as the press that asked for full screen was (D358 §2). Full screen
+ * left because the page took its element away, the last video's stage as the next one opens (D364
+ * §3), is no one's leaving: the receiver took control back as the second film of a session started
+ * (the cast test, 2026-10-27).
  */
 function useFullScreenLeftLeaves(
   takeBackRef: RefObject<() => void>,
@@ -583,9 +621,15 @@ function useFullScreenLeftLeaves(
     connectionRef.current = connection;
   });
   useEffect(() => {
+    let shown = document.fullscreenElement;
     const changed = (): void => {
-      if (document.fullscreenElement instanceof Element || isFullScreenLeaveAsked(document)) {
+      const wasShown = shown;
+      shown = document.fullscreenElement;
+      if (shown instanceof Element || isFullScreenLeaveAsked(document)) {
         return;
+      }
+      if (wasShown instanceof Element && !wasShown.isConnected) {
+        return; // the page took it away
       }
       connectionRef.current?.note({ kind: "fullScreen", why: "left" });
       takeBackRef.current();

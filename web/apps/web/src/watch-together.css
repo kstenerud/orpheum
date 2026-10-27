@@ -27,7 +27,7 @@
   margin-block-start: 0;
 }
 
-/* The session's controls, on the screen or in the status tray's pop-up: each part apart (D281 §5). */
+/* The session's controls, on its page: each part apart (D281 §5). */
 .watch-together__controls {
   display: grid;
   gap: var(--space-4);
@@ -103,4 +103,21 @@
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   border-radius: var(--radius-card);
   background: var(--color-surface);
+}
+
+/* What plays for the group, on the session's page (together-plays.tsx, D364 §15). */
+.together-plays {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.together-plays h2 {
+  margin: 0;
+}
+
+.together-plays__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
 }

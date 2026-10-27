@@ -8,7 +8,11 @@
 export const enStatus = {
   status: {
     tray: "What is on",
-    together: "Watch Together is on: its controls",
+    together: "Watch Together",
+    togetherOn: "Watch Together is on: its controls",
+    cast: "Cast to a device",
+    castingReady: "Casting to {{name}}, ready: its remote",
+    castingFilm: "Casting {{film}} to {{name}}: its remote",
     close: "Close",
     needsAttention: "Something needs your attention",
   },

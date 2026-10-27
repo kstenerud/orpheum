@@ -73,6 +73,9 @@ type TogetherDetailsOutput struct {
 		Links     []TogetherLinkBody   `json:"links"`
 		Members   []TogetherMemberBody `json:"members"`
 		FileID    int64                `doc:"What plays; absent while nothing does" json:"fileId,omitempty"`
+		// TitleName and DurationMs are what plays, for the remote on the session's page (D364 §15).
+		TitleName  string `doc:"The name of what plays; absent while nothing does" json:"titleName,omitempty"`
+		DurationMs int64  `doc:"How long what plays lasts, in ms; absent when unknown" json:"durationMs,omitempty"`
 		// NextRights are what a new link starts with: the last one's, every right for the first.
 		NextRights TogetherRightsBody `json:"nextRights"`
 	}
@@ -269,6 +272,13 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	}
 	output := &TogetherDetailsOutput{}
 	output.Body.SessionID, output.Body.FileID = details.SessionID, details.Group.FileID
+	if details.Group.FileID != 0 {
+		// What plays is the host's, in a library they reach; one not read now leaves its name out.
+		work, workErr := dependencies.Browser.WorkOfFile(ctx, principal.Reach, details.Group.FileID)
+		if workErr == nil {
+			output.Body.TitleName, output.Body.DurationMs = work.Name, work.DurationMs
+		}
+	}
 	output.Body.NextRights = TogetherRightsBody(details.NextRights)
 	output.Body.Links = make([]TogetherLinkBody, 0, len(details.Links))
 	for _, each := range details.Links {

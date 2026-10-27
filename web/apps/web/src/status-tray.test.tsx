@@ -4,18 +4,25 @@
 import "./i18n.ts";
 
 import { act } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "vitest";
 
+import { tabStorage } from "./browser-storage.ts";
+import { knownDetailsOf } from "./hosted-details.ts";
+import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { StatusTray } from "./status-tray.tsx";
-import { click, mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import { fakeTogetherServer } from "./test-together.ts";
+import { forgetMembership, keepMembership } from "./together-storage.ts";
 
 let mounted: Mounted | undefined;
 
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 const nothingWrong = {
@@ -26,91 +33,134 @@ const nothingWrong = {
   matchCount: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
+const hostedSession = {
+  sessionId: 7,
+  nextRights: { canPlayPause: true, canSeek: true },
+  links: [],
+  members: [{ id: 1, name: "Karl", isHost: true, devices: [] }],
+};
 
-it("shows nothing to someone who neither hosts nor runs the server", async () => {
+/** The tray's sign named label: a link, white (off) or blue (on), and where it leads. */
+function sign(label: string): { readonly isOn: boolean; readonly href: string | null } | undefined {
+  const found = mounted?.container.querySelector(`.status-tray a[aria-label="${label}"]`);
+  return found === null || found === undefined
+    ? undefined
+    : {
+        isOn: found.classList.contains("status-tray__button--on"),
+        href: found.getAttribute("href"),
+      };
+}
+
+it("always shows Cast's sign, white, leading to the devices to cast to, and Watch Together's to one who may host (D364 §12, §13)", async () => {
   mounted = await mount(
-    withServices(<StatusTray isHostingTogether={false} isAdmin={false} />, servedBy({})),
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, servedBy({})),
   );
-  expect(mounted.container.querySelector(".status-tray")).toBeNull();
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting" });
+  expect(sign("Watch Together")).toBeUndefined();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether />, servedBy({})),
+  );
+  expect(sign("Watch Together")).toEqual({ isOn: false, href: "/watch-together" });
 });
 
-it("shows the host Watch Together is on, and opens its controls over the screen without leaving it (D280)", async () => {
-  const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+it("has Cast's sign on a film's Play page take the film to the casting page, for a cast to start with (D364 §1)", async () => {
+  const services = servedBy({});
+  services.navigation.go({ screen: "play", fileId: 9 });
   mounted = await mount(
-    withServices(<StatusTray isHostingTogether isAdmin={false} />, servedBy({})),
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, services),
   );
-  const sign = mounted.container.querySelector<HTMLButtonElement>(
-    '[aria-label="Watch Together is on: its controls"]',
-  );
-  expect(sign).not.toBeNull();
-  expect(mounted.container.querySelector("dialog")).toBeNull();
-  await click(sign);
-  expect(mounted.container.querySelector("dialog")?.textContent).toContain("Watch Together");
-  expect(sign?.getAttribute("aria-expanded")).toBe("true");
-  // A modal drop-down: the page takes no press while it is open (the owner, 2026-10-11).
-  expect(showModal).toHaveBeenCalled();
-  // Escape, which the browser tells a modal as cancel, shuts it.
-  await act(async () => {
-    mounted?.container
-      .querySelector("dialog")
-      ?.dispatchEvent(new Event("cancel", { cancelable: true }));
-    await Promise.resolve();
-  });
-  expect(mounted.container.querySelector("dialog")).toBeNull();
-  // A press outside it, on its backdrop, shuts it; one inside does not.
-  await click(sign);
-  const panel = mounted.container.querySelector("dialog");
-  panel!.getBoundingClientRect = () => new DOMRect(100, 50, 300, 400);
-  await act(async () => {
-    panel?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 200, clientY: 100 }));
-    await Promise.resolve();
-  });
-  expect(mounted.container.querySelector("dialog")).not.toBeNull();
-  await act(async () => {
-    panel?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 20, clientY: 600 }));
-    await Promise.resolve();
-  });
-  expect(mounted.container.querySelector("dialog")).toBeNull();
-  showModal.mockRestore();
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting?file=9" });
 });
 
-it("shows the session's controls the moment they open, having asked for them as the sign appeared (the owner, 2026-10-12)", async () => {
+it("turns Watch Together's sign blue for the host, leading to the session's page, and for a signed-in guest, to theirs (D364 §13, §14)", async () => {
   window.sessionStorage.setItem(
     "orpheum.together.host",
     JSON.stringify({ sessionId: 7, credential: "host-credential" }),
   );
-  const members = [{ id: 1, name: "Karl", isHost: true, devices: [] }];
-  const session = {
-    sessionId: 7,
-    nextRights: { canPlayPause: true, canSeek: true },
-    links: [],
-    members,
-  };
   mounted = await mount(
     withServices(
-      <StatusTray isHostingTogether isAdmin={false} />,
-      servedBy({ "GET /together/7": [200, session] }),
+      <StatusTray isAdmin={false} canHostWatchTogether />,
+      servedBy({ "GET /together/7": [200, hostedSession] }),
     ),
   );
-  const sign = mounted.container.querySelector<HTMLButtonElement>(
-    '[aria-label="Watch Together is on: its controls"]',
-  );
-  // The controls' code, asked for as the sign appeared, is here by the time a person presses it.
-  await act(async () => {
-    await vi.dynamicImportSettled();
+  expect(sign("Watch Together is on: its controls")).toEqual({
+    isOn: true,
+    href: "/watch-together",
   });
-  // Opened, before the server answers again: what it asked for as the sign appeared shows at once.
-  act(() => {
-    sign?.click();
-  });
-  expect(mounted.container.querySelector("dialog")?.textContent).toContain("Your session is on.");
+  mounted.unmount();
   window.sessionStorage.clear();
+  window.localStorage.setItem(
+    "orpheum.together.viewer",
+    JSON.stringify({ sessionId: 8, credential: "guest-credential" }),
+  );
+  // A role that may not host still sees the session it is in, and returns to it by the sign.
+  mounted = await mount(
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, servedBy({})),
+  );
+  expect(sign("Watch Together is on: its controls")).toEqual({ isOn: true, href: "/together" });
+  window.localStorage.clear();
+});
+
+it("has the hosted session's details at hand as the sign shows, so its page shows them at once (the owner, 2026-10-12)", async () => {
+  window.sessionStorage.setItem(
+    "orpheum.together.host",
+    JSON.stringify({ sessionId: 17, credential: "host-credential" }),
+  );
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin={false} canHostWatchTogether />,
+      servedBy({ "GET /together/17": [200, { ...hostedSession, sessionId: 17 }] }, heard),
+    ),
+  );
+  expect(heard.map((each) => each.methodAndPath)).toContain("GET /together/17");
+  expect(knownDetailsOf(17)?.sessionId).toBe(17);
+  window.sessionStorage.clear();
+});
+
+it("turns Cast's sign blue while this device casts, naming the receiver and what plays, and leads to Watch Together's page while that is on too (D364 §7, §13)", async () => {
+  const server = fakeTogetherServer();
+  const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <StatusTray isAdmin={false} canHostWatchTogether />
+      </LiveProvider>,
+      services,
+    ),
+  );
+  await server.accept();
+  const casting = {
+    castId: 5,
+    receiverDeviceId: 2,
+    receiverName: "Fire TV",
+    fileId: 3,
+    titleName: "Metropolis",
+    durationMs: 0,
+    isAccepted: true,
+  };
+  await server.say({ type: "sending", sending: casting });
+  expect(sign("Casting Metropolis to Fire TV: its remote")).toEqual({ isOn: true, href: "/casting" });
+  await server.say({ type: "sending", sending: { ...casting, fileId: 0, titleName: "" } });
+  expect(sign("Casting to Fire TV, ready: its remote")).toEqual({ isOn: true, href: "/casting" });
+  await act(async () => {
+    keepMembership(tabStorage(), "host", { sessionId: 7, credential: "host-credential" });
+    await Promise.resolve();
+  });
+  expect(sign("Casting to Fire TV, ready: its remote")?.href).toBe("/watch-together");
+  await act(async () => {
+    forgetMembership(tabStorage(), "host");
+    await Promise.resolve();
+  });
+  await server.say({ type: "sending" });
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting" });
 });
 
 it("shows an admin the yellow sign when something needs them, leading to the page of it, and not otherwise", async () => {
   mounted = await mount(
     withServices(
-      <StatusTray isHostingTogether={false} isAdmin />,
+      <StatusTray isAdmin canHostWatchTogether={false} />,
       servedBy({ "GET /needs-attention": [200, somethingWrong] }),
     ),
   );
@@ -120,7 +170,7 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
   mounted.unmount();
   mounted = await mount(
     withServices(
-      <StatusTray isHostingTogether={false} isAdmin />,
+      <StatusTray isAdmin canHostWatchTogether={false} />,
       servedBy({ "GET /needs-attention": [200, nothingWrong] }),
     ),
   );
@@ -146,7 +196,7 @@ it("tells an admin of a series whose episodes were likely read wrongly, leading 
   };
   mounted = await mount(
     withServices(
-      <StatusTray isHostingTogether={false} isAdmin />,
+      <StatusTray isAdmin canHostWatchTogether={false} />,
       servedBy({ "GET /needs-attention": [200, readWrongly] }),
     ),
   );

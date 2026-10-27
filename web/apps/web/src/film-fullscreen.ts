@@ -12,7 +12,7 @@ export const fillsWindowClass = "film-player__stage--fills-window";
  * counts as refused.
  */
 export function fillTheScreen(stage: HTMLElement, document: Document): void {
-  if (document.fullscreenElement instanceof Element) {
+  if (document.fullscreenElement instanceof Element || pagesAskedFullScreen.has(document)) {
     return;
   }
   const fillWindow = (): void => {
@@ -43,6 +43,28 @@ export function toggleFullScreen(stage: Element | null | undefined, page: Docume
   }
   if (stage instanceof HTMLElement) {
     fillTheScreen(stage, page);
+  }
+}
+
+/** The pages that asked for themselves full screen, until the browser answers (askPageFullScreen). */
+const pagesAskedFullScreen = new WeakSet<Document>();
+
+/**
+ * Asks for the whole page full screen, from a press, and answers whether the browser put it there.
+ * Until it answers no player's stage asks for its own (fillTheScreen): a cast's receiver asked as its
+ * Use was pressed, the Play page opening at once, and the stage, asked a moment later, became the
+ * full-screen element, which the next video's Play page took away, leaving full screen (D364 §3, §5;
+ * the cast test, 2026-10-27). The page held full screen across every video of the session.
+ */
+export async function askPageFullScreen(page: Document): Promise<boolean> {
+  pagesAskedFullScreen.add(page);
+  try {
+    await page.documentElement.requestFullscreen();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    pagesAskedFullScreen.delete(page);
   }
 }
 

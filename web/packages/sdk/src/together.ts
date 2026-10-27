@@ -126,13 +126,13 @@ export type TogetherEndReason =
   | "uploadFull"
   /**
    * A cast's ends (D337): its receiver took control back, another cast replaced it, its remote
-   * stopped it, or its film ended; or, asked whether to play it, the receiver said Not now or nothing
-   * for a minute (D358 §3, §4).
+   * stopped it, or its receiver was gone for two minutes (D364 §6); or, asked whether to play it,
+   * the receiver said Not now or nothing for a minute (D358 §3, §4).
    */
   | "takenBack"
   | "replaced"
   | "stopped"
-  | "filmEnded"
+  | "receiverGone"
   | "declined"
   | "unanswered";
 
@@ -346,7 +346,7 @@ const endReasons: readonly TogetherEndReason[] = [
   "takenBack",
   "replaced",
   "stopped",
-  "filmEnded",
+  "receiverGone",
   "declined",
   "unanswered",
 ];

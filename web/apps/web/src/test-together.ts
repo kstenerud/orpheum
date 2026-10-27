@@ -77,3 +77,25 @@ export function fakeTogetherServer(): FakeTogetherServer {
     },
   };
 }
+
+/**
+ * Two fake servers behind one opener: the page's live connection, the first socket it opens, and a
+ * cast's or a session's, every socket after (D337, D364).
+ */
+export function liveAndSession(): {
+  readonly live: FakeTogetherServer;
+  readonly session: FakeTogetherServer;
+  readonly openSocket: FakeTogetherServer["openSocket"];
+} {
+  const live = fakeTogetherServer();
+  const session = fakeTogetherServer();
+  let opened = 0;
+  return {
+    live,
+    session,
+    openSocket: (listeners) => {
+      opened += 1;
+      return opened === 1 ? live.openSocket(listeners) : session.openSocket(listeners);
+    },
+  };
+}
