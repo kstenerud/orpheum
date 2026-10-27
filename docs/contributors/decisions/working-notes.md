@@ -23168,3 +23168,54 @@ second file, shown twice
     file's library becomes a coverage of its place, and nothing a person did is lost.
 
 **Status:** Decided 2026-10-27.
+
+## D364 — Casting is a session with a device: while it lasts, whatever the person plays plays there, and the sending device shows it in the tray
+
+**Decided** (2026-10-27), by the project owner: "Rather than make it only for the current video, let's
+make it start a control session with the device. While this session is active, any video I play gets
+played on that device. This would end up behaving somewhat similarly to the watch together session.
+We should also have an icon in the status tray while casting is active so that they know. If the
+device takes back control, it behaves as now: continue with the currently playing video. If no video
+is playing, go back to the home screen." The owner then answered the open questions the same day: the
+receiver stays full screen between videos; a session is set up only from a top-bar item "Cast", as
+Watch Together is, and the receiver asks "‹Device› wants to use this device for playback"; Play goes
+to the receiver, the remote offering to play on this device instead; a session lasts until it is
+stopped or its receiver is gone; the receiver asks once; the tray icon is the sending device's alone.
+Until now a cast carried one film
+([D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back)),
+its receiver returning to its page when it ended
+([D338](#d338--a-cast-goes-to-the-devices-tab-in-front-its-receiver-keeps-a-televisions-controls-and-leaves-by-back-or-a-double-ok-and-stop-casting-returns-it-to-the-page-it-was-on)),
+and each cast asked the receiver first
+([D358](#d358--a-cast-asks-the-receiving-device-first-device-wants-to-play-film-here-whose-play-is-the-press-that-starts-it-with-sound-and-full-screen)).
+**Revises** D337 (a cast is a session, not a film), D338 (where the receiver goes) and D358 (one
+question per session); **keeps** D337 §1, §5's remote and split devices, §6 (the last cast wins) and
+§7 (the receiver's own controls), and D88 (casting is Watch Together with a group of one).
+
+1. **A session is started from the top bar's "Cast",** as Watch Together is: it lists the person's
+   other devices connected now (D337 §2), and choosing one starts the session. The Play page no
+   longer offers to cast. A video playing on the sending device when the session starts moves to the
+   receiver at its position.
+2. **The receiver asks once:** "‹Device› wants to use this device for playback", Use and Not now,
+   unanswered after a minute as D358 has it. Use is the press that turns the sound on and goes full
+   screen (D358 §2).
+3. **While the session lasts, whatever the person plays on the sending device plays on the
+   receiver:** a film, an episode, Resume, Next Up, the next episode played on by itself. The sending
+   device's Play page is the receiver's remote (D337 §5), and the person browses on it freely.
+4. **The remote offers "Play on this device instead"** for the video at hand: it plays there from the
+   receiver's position, and the session goes on for the next.
+5. **Between videos the receiver stays full screen** on a quiet "Ready, controlled from ‹Device›"
+   page, so the next video starts full screen and with sound, with no press on it.
+6. **The session lives in the core, not in the sending tab.** A sending device that sleeps, locks or
+   reloads finds the session again and shows it; the session ends only by Stop casting, by the
+   receiver taking control back, by another cast to the receiver (the last cast wins, D337 §6), or
+   when the receiver has been gone for two minutes, which the sending device is told.
+7. **The sending device shows a tray icon on every page** while the session lasts, naming the receiver
+   and what it plays; it opens the remote and Stop casting. The receiver shows none.
+8. **Taking control back on the receiver** (Back, Escape, a double OK or click, D338) ends the session:
+   a video playing goes on there as an ordinary player (D338 as the owner kept it); with none playing,
+   the receiver goes to its home page.
+9. **Stop casting on the sending device** ends the session and returns the receiver to the page it was
+   on before the session began (D338 §4); the sending device is offered "Play here from ‹time›" for a
+   video that was playing.
+
+**Status:** Decided 2026-10-27.
