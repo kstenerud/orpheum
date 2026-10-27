@@ -62,9 +62,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the sound still be refused, the first key, click or tap turns it on, and does nothing else. The
   page leads the cast's
   session of one from where the sender stood, fills the window and shows a television's player
-  controls and a fading *Controlled from* line; its controls, media keys and seeks stay its own;
-  Back (a Fire TV's history step too), or OK or a tap twice within 500 ms, leaves controlled mode,
-  the film playing on here and the remote told; stopped by the remote it goes back to the page it
+  controls, which a mouse's move, a click or a tap opens as well as a remote's keys, and a fading
+  *Controlled from* line; its controls, media keys and seeks stay its own;
+  Back (a Fire TV's history step too, and full screen left by the browser, not the page: a Fire
+  TV's Back or Escape in full screen, told to the log), or OK or a click or tap twice within 500 ms,
+  leaves controlled mode once, the film playing on here and the remote told; stopped by the remote it goes back to the page it
   was on before the cast, replaced it goes on; at the film's end it shows its Up next, which counts
   down by the person's autoplay and moves the cast on to the next episode in the same cast, handed
   to it again, else it goes back to that page too (plans/up-next.md). *Cast to another device*
@@ -72,10 +74,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   in front that one must be brought to the front, and is not offered while the tab hosts Watch
   Together; the remote (`/casting`) holds no player, commands the receiver, offers its film's *Up
   next*, follows the receiver to the next episode, and once the cast is over says why with *Play
-  here from*. `src/cast-to.test.tsx`, `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`,
-  `src/cast-return.test.ts`,
-  `src/cast-remote.test.tsx`; on
-  devices, VQ64–VQ66, VQ68, VQ71 and VQ76.
+  here from*, which opens the film where the cast stood (`/play/‹id›?at=‹ms›`), asked for with
+  cause castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
+  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-return.test.ts`,
+  `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`, `src/watching.test.ts`; on
+  devices, VQ64–VQ66, VQ68, VQ71, VQ76 and VQ77.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.

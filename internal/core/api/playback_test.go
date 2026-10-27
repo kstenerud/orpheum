@@ -416,3 +416,19 @@ func TestPlayback_APlaybackAskedForOnceItsFilmIsBackSaysSo(t *testing.T) {
 	harness.play(t, user, asked)
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"mediaBack"`)
 }
+
+// A cast's remote playing here from where its receiver stood asks saying so, and from where, which
+// the log keeps: a Play here mid-film played from 0:00, and its line said only cause=playPage
+// resumePositionMs=0 (staging, 2026-10-27).
+func TestPlayback_APlayHereFromACastsEndSaysSoAndFromWhere(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	asked := chrome(2)
+	asked["cause"] = "castOver"
+	asked["startsAtMs"] = 982680
+	harness.play(t, user, asked)
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"castOver"`,
+		`"pageStartsAtMs":982680`)
+}

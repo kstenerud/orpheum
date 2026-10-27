@@ -274,8 +274,9 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 }
 
 // A film played muted says whether its page had ever been pressed, the press that turned its sound on
-// says how it was made, and full screen entered or refused says by what: a cast's receiver on a Fire
-// TV played silent and out of full screen with nothing to say why (the owner, 2026-10-27). An unknown
+// says how it was made, and full screen entered or refused says by what, and left unasked says so: a
+// cast's receiver on a Fire TV played silent and out of full screen with nothing to say why, and its
+// Back left full screen alone, unseen by the page (the owner, 2026-10-27). An unknown
 // press, or one on a note that has none, is refused.
 func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 	t.Parallel()
@@ -288,6 +289,7 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 		{Kind: NoteUnmuted, PositionMs: 1140000, By: "key"},
 		{Kind: NoteFullScreen, Why: "refused"},
 		{Kind: NoteFullScreen, Why: "entered", By: "click"},
+		{Kind: NoteFullScreen, Why: "left"},
 		{Kind: NoteFullScreen, Why: "entered", By: "elbow"},
 		{Kind: NoteFullScreen, Why: "maybe"},
 		{Kind: NotePlayedMuted, PositionMs: 7, By: "tap"},
@@ -305,7 +307,7 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 	if unmuted := lineWith(t, logged, "unmutedTap"); !strings.Contains(unmuted, "by=key") {
 		t.Errorf("the log does not say a key turned the sound on:\n%s", logged)
 	}
-	for _, want := range []string{"answer=refused by=\"\"", "answer=entered by=click"} {
+	for _, want := range []string{"answer=refused by=\"\"", "answer=entered by=click", "answer=left by=\"\""} {
 		if !strings.Contains(logged, "logEvent=fullScreen "+want) {
 			t.Errorf("the log does not say full screen %s:\n%s", want, logged)
 		}

@@ -235,7 +235,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     );
   }
   if (route.screen === "play") {
-    return <Play key={route.fileId} fileId={route.fileId} />;
+    return <Play key={route.fileId} fileId={route.fileId} atMs={route.atMs} />;
   }
   if (route.screen === "browse") {
     return (

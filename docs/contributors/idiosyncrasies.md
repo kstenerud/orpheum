@@ -931,6 +931,29 @@ User-Agent (D263; the User-Agent is logged only).
   Settings > Advanced > Site settings > Media > Autoplay can block more (read 2026-10-27). iPhone
   Safari wants more still (above, Safari).
 
+### In full screen, a Fire TV's Back and a desktop's Escape leave full screen and never reach the page
+
+- **Technology:** the Fullscreen API in Silk on Fire TV, and in desktop Chrome and Firefox.
+- **Symptom:** a cast's receiver on a Fire TV, full screen after D358's Play, took two presses of
+  Back to take control back: the first only left full screen, and only the second reached the page
+  (the owner, staging, 2026-10-27).
+- **Cause:** the browser keeps the press that leaves full screen for itself. In full screen Silk
+  answers Back by leaving full screen, with no history step and no key for the page; a desktop
+  browser answers Escape the same way (Chrome hands a page Escape only under the Keyboard Lock API,
+  the person then holding Escape to leave). The page hears only `fullscreenchange`, with
+  `document.fullscreenElement` null.
+- **What we do:** a receiver takes full screen left unasked for leaving controlled mode, as Back
+  does (D338 §6), and tells the log `logEvent=fullScreen answer=left`. Its own leaving, Stop casting
+  or the film's end, and the player's Back, go through `leaveFullScreenAsked`
+  (`film-fullscreen.ts`), which marks the change as the page's until the browser's
+  `fullscreenchange` (`useFullScreenLeftLeaves`, `cast-receiver.tsx`). VQ77.
+- **Evidence:** [owner] staging 2026-10-27. **[web]** [firetv-key-bridge](https://github.com/xkazm04/firetv-key-bridge)
+  (Silk on Fire OS 8 passes the page Play/Pause alone, never Back);
+  [itch.io#1721](https://github.com/itchio/itch.io/issues/1721) (Escape in full screen is the
+  browser's, a page gets it only with keyboard lock, at the top level); [MDN,
+  fullscreenchange](https://developer.mozilla.org/docs/Web/API/Document/fullscreenchange_event)
+  (read 2026-10-27).
+
 
 ### Secure-context APIs are simply absent on plain HTTP off localhost
 

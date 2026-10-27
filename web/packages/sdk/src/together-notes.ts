@@ -60,7 +60,8 @@ export interface PlayerState {
  * - playedWithSound: a cast's receiver's film started with its sound on at positionMs, page the
  *   page's activation then (D358 §2);
  * - fullScreen: the player's stage was put full screen ("entered") or the browser refused
- *   ("refused"), by the press that asked, absent as the player opened;
+ *   ("refused"), by the press that asked, absent as the player opened; or the browser left it
+ *   unasked ("left"), a Fire TV's Back or Escape, which takes a cast's control back (D338 §6);
  * - diagnosis: what the player holds at positionMs as it moved itself over a gap ("movedItself"),
  *   stalled ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): its readyState, its
  *   picture's and sound's buffered ranges, its last error, how hls.js placed its first chunks and
@@ -127,8 +128,8 @@ export type PlayerNote =
     }
   | {
       readonly kind: "fullScreen";
-      readonly why: "entered" | "refused";
-      /** The press that asked; absent as the player opened. */
+      readonly why: "entered" | "refused" | "left";
+      /** The press that asked; absent as the player opened, and for "left". */
       readonly by?: Press;
     }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }

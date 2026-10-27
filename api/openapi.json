@@ -6595,7 +6595,8 @@
               "boostChosen",
               "playbackGone",
               "ownPictureGivenUp",
-              "mediaBack"
+              "mediaBack",
+              "castOver"
             ],
             "type": "string"
           },

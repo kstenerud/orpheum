@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
 import { endCast, moveCastOn } from "./cast.ts";
-import { fillsWindowClass } from "./film-fullscreen.ts";
+import { fillsWindowClass, isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -166,7 +166,11 @@ export function CastReceiver(props: {
   return (
     <>
       <SoundAtAnyPress video={video} connection={connection} />
-      <ControlledMode fromName={cast.fromDeviceName} onTakeBack={takeBack} />
+      <ControlledMode
+        fromName={cast.fromDeviceName}
+        onTakeBack={takeBack}
+        connection={connection}
+      />
     </>
   );
 }
@@ -414,15 +418,20 @@ const samePressWithinMs = 100;
  * The receiver's way out of controlled mode (D338 §6): Back, a remote's (a Fire TV's is a history
  * step, never a key: the page keeps an entry of its own to step back to) or a key's, and OK pressed
  * twice, or a tap twice, within doublePressWithinMs, leave it; one press of OK, a tap and every other
- * key are the receiver's own controls'. A "Controlled from" line, which fades after castNoteShownMs,
- * says who controls it and how to leave.
+ * key are the receiver's own controls'. Full screen left by the browser, not by the page, leaves it
+ * too, told to the log: in full screen a Fire TV's Back only leaves full screen, never reaching the
+ * page, and a desktop's Escape does the same, each meant as leaving (the owner, 2026-10-27: Back took
+ * two presses). A "Controlled from" line, which fades after castNoteShownMs, says who controls it and
+ * how to leave.
  */
 export function ControlledMode(props: {
   readonly fromName: string;
   readonly onTakeBack: () => void;
+  /** The cast's session, told that the browser left full screen unasked. */
+  readonly connection?: Pick<TogetherConnection, "note"> | undefined;
 }): JSX.Element {
   const { navigation } = useServices();
-  useLeavingPresses(navigation, props.onTakeBack);
+  useLeavingPresses(navigation, props.onTakeBack, props.connection);
   return (
     <div className="cast-receiver">
       <ControlledFrom name={props.fromName} />
@@ -451,14 +460,17 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
 
 /**
  * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
- * hears it, or as a step back from the receiver's own history entry, kept as it starts; and OK or a
- * tap twice within doublePressWithinMs, the second press taken from the page.
+ * hears it, or as a step back from the receiver's own history entry, kept as it starts; OK or a tap
+ * twice within doublePressWithinMs, the second press taken from the page; and full screen left
+ * unasked (useFullScreenLeftLeaves). Control is taken back once, however many of them come.
  */
-function useLeavingPresses(navigation: Navigation, onTakeBack: () => void): void {
-  const takeBackRef = useRef(onTakeBack);
-  useEffect(() => {
-    takeBackRef.current = onTakeBack;
-  });
+function useLeavingPresses(
+  navigation: Navigation,
+  onTakeBack: () => void,
+  connection: Pick<TogetherConnection, "note"> | undefined,
+): void {
+  const takeBackRef = useOnce(onTakeBack);
+  useFullScreenLeftLeaves(takeBackRef, connection);
   useEffect(() => {
     let lastPressAt = Number.NEGATIVE_INFINITY;
     let lastSelectAt = Number.NEGATIVE_INFINITY;
@@ -504,5 +516,48 @@ function useLeavingPresses(navigation: Navigation, onTakeBack: () => void): void
       window.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onBack);
     };
-  }, [navigation]);
+  }, [navigation, takeBackRef]);
+}
+
+/** What calls once the latest given call, however often it is called itself. */
+function useOnce(call: () => void): RefObject<() => void> {
+  const hasCalledRef = useRef(false);
+  const onceRef = useRef(call);
+  useEffect(() => {
+    onceRef.current = () => {
+      if (!hasCalledRef.current) {
+        hasCalledRef.current = true;
+        call();
+      }
+    };
+  });
+  return onceRef;
+}
+
+/**
+ * Takes control back where the browser leaves full screen and the page did not ask it to
+ * (isFullScreenLeaveAsked): a Fire TV's Back in full screen, which Silk keeps from the page, and a desktop's
+ * Escape. The log is told first, as the press that asked for full screen was (D358 §2).
+ */
+function useFullScreenLeftLeaves(
+  takeBackRef: RefObject<() => void>,
+  connection: Pick<TogetherConnection, "note"> | undefined,
+): void {
+  const connectionRef = useRef(connection);
+  useEffect(() => {
+    connectionRef.current = connection;
+  });
+  useEffect(() => {
+    const changed = (): void => {
+      if (document.fullscreenElement instanceof Element || isFullScreenLeaveAsked(document)) {
+        return;
+      }
+      connectionRef.current?.note({ kind: "fullScreen", why: "left" });
+      takeBackRef.current();
+    };
+    document.addEventListener("fullscreenchange", changed);
+    return () => {
+      document.removeEventListener("fullscreenchange", changed);
+    };
+  }, [takeBackRef]);
 }
