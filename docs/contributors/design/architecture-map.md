@@ -179,7 +179,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | --- | --- | --- | --- | --- |
 | user, role, role_library, invitation, invitation_link, user_deny, device, grant, locator, realm_key | persistent.db | T1 | yes | — |
 | setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
-| play_position, play_event, play_span, purged_watching, progress_hide, preference, favourite, user_rating, watchlist, tag, item_tag | persistent.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
+| play_position, play_event, play_span, purged_watching, progress_hide, title_watched, preference, favourite, user_rating, watchlist, tag, item_tag | persistent.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
 | field_override, edition (user-made), edition_text, group_text, extra_relation (asserted), collection (user) | persistent.db | T1 | yes | edition_text and group_text have no writer yet |
 | library, library_root | persistent.db | T1 (the admin's) | yes | — |
 | item, title, version, item_provider_id, collection_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |

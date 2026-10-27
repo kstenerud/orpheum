@@ -56,6 +56,8 @@
   --color-video-scrim: rgb(0 0 0 / 85%);
   --color-video-card: rgb(0 0 0 / 80%);
   --color-video-control: rgb(255 255 255 / 12%);
+  /* The check of what a person watched, white on the shade below (D370 §2: less intrusive than a colour). */
+  --color-watched: #ffffff;
   /* A small shade over a poster's art, under a cue or a progress bar, so it reads on any art. */
   --color-art-shade: rgb(0 0 0 / 55%);
   /* What dims the page behind a modal dialog; a drop-down dims it less, its screen kept in view. */

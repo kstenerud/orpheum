@@ -244,13 +244,18 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	for span := range refPlaySpans {
 		fileID := 1 + filler.random.Int64N(filler.fileID)
 		start := filler.now - int64(span)*3_600_000
+		// A third of what was watched was finished, past 90% of the file's 5,400,000 ms: watched (D370).
+		positionMs := 1_800_000
+		if span%3 == 0 {
+			positionMs = 5_300_000
+		}
 		filler.exec(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at,
 			device_id) VALUES (?, ?, 0, 1800000, ?, ?, ?)`,
 			1+span%2, fileID, start, start+1_800_000, deviceOfPerson(span))
 		filler.exec(`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, device_id)
-			VALUES (?, ?, 1800000, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT (user_id, file_id) DO UPDATE SET report_seq = excluded.report_seq`,
-			1+span%2, fileID, span, start, deviceOfPerson(span))
+			1+span%2, fileID, positionMs, span, start, deviceOfPerson(span))
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -575,16 +580,18 @@ func checkPageBudgets(t *testing.T, database *Database) {
 			})
 			return err //nolint:wrapcheck // a test
 		},
+		// D370: a page's films' watched marks, read by their keys; D185 section 2 measured the same
+		// rollup computed from the plays at 0.84 ms.
+		"a page of films' watched marks": func() error {
+			_, err := queries.ListTitlesWatched(ctx, sqlcgen.ListTitlesWatchedParams{TitleIdsJSON: filmIDs, UserID: 1})
+			return err //nolint:wrapcheck // a test
+		},
+		// A page of series' episodes with a file, and how many of them the person watched (D370 section 5).
 		"a page of series' progress": func() error {
 			counted := sqlcgen.CountOrderingMembersParams{
-				OrderingsJSON: orderings, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+				UserID: 1, OrderingsJSON: orderings, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
 			}
-			if _, err := queries.CountOrderingMembers(ctx, counted); err != nil {
-				return err //nolint:wrapcheck // a test
-			}
-			_, err := queries.ListOrderingMemberPositions(ctx, sqlcgen.ListOrderingMemberPositionsParams{
-				OrderingsJSON: orderings, UserID: 1,
-			})
+			_, err := queries.CountOrderingMembers(ctx, counted)
 			return err //nolint:wrapcheck // a test
 		},
 		"a series' episodes": func() error {

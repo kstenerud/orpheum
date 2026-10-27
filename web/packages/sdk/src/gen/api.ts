@@ -278,6 +278,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collections/{id}/seasons/{season}/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark every episode of a season with a file watched by hand (D370) */
+        put: operations["markSeasonWatched"];
+        post?: never;
+        /** Mark every episode of a season with a file unwatched by hand (D370) */
+        delete: operations["markSeasonUnwatched"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{id}/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark every episode of a series with a file, in the ordering the person watches it in, watched by hand (D370) */
+        put: operations["markSeriesWatched"];
+        post?: never;
+        /** Mark every episode of a series with a file, in the ordering the person watches it in, unwatched by hand (D370) */
+        delete: operations["markSeriesUnwatched"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/config": {
         parameters: {
             query?: never;
@@ -808,6 +844,24 @@ export interface paths {
         /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357) */
         post: operations["postItemRescan"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a film, episode or other video watched by hand: it leaves Continue Watching and plays next from its start (D370) */
+        put: operations["markTitleWatched"];
+        post?: never;
+        /** Mark a film, episode or other video unwatched by hand: as never watched (D370) */
+        delete: operations["markTitleUnwatched"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2224,6 +2278,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370) */
+        put: operations["restoreWatched"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2481,6 +2552,8 @@ export interface components {
             identificationState?: string;
             /** @description Whether its match is a guess no person confirmed (D301) */
             isGuessed?: boolean;
+            /** @description Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370) */
+            isWatched?: boolean;
             /** @enum {string} */
             kind: "series";
             name: string;
@@ -2739,13 +2812,15 @@ export interface components {
             episodeCount?: number;
             /**
              * Format: int64
-             * @description How many of those episodes the person finished; absent when none, and for a film
+             * @description How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film
              */
             finishedEpisodeCount?: number;
             /** Format: int64 */
             id: number;
             identificationState: string;
             isGuessed?: boolean;
+            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
+            isWatched?: boolean;
             /**
              * @description What it is: a film, a series, or an other video (D349)
              * @enum {string}
@@ -2776,6 +2851,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             identificationState: string;
+            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
+            isWatched?: boolean;
             name: string;
             /** Format: int64 */
             runtimeMs?: number;
@@ -3051,6 +3128,8 @@ export interface components {
             fileName?: string;
             /** Format: int64 */
             id: number;
+            /** @description Whether the person watched it before, and watches it again (D370) */
+            isWatched?: boolean;
             name: string;
             /** Format: int64 */
             positionMs: number;
@@ -3153,6 +3232,8 @@ export interface components {
             identificationState: string;
             /** @description Whether its match is a guess no person confirmed (D301) */
             isGuessed?: boolean;
+            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
+            isWatched?: boolean;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "other";
             name: string;
@@ -4164,6 +4245,9 @@ export interface components {
         RescanStartedOutputBody: {
             isStarted: boolean;
         };
+        RestoreWatchedInputBody: {
+            states: components["schemas"]["WatchedStateBody"][] | null;
+        };
         RetiredOutputBody: {
             /** Format: int64 */
             cancelledJobCount: number;
@@ -4265,6 +4349,8 @@ export interface components {
         SeasonBody: {
             /** Format: int64 */
             episodeCount: number;
+            /** @description Whether the person watched every one of its episodes with a file (D370) */
+            isWatched?: boolean;
             /** @description The ordering's name for it (Disc 2); absent where it names none, as aired names no season */
             name?: string;
             /**
@@ -4888,6 +4974,24 @@ export interface components {
             rootPath: string;
             /** Format: int64 */
             waitingAt: number;
+        };
+        WatchedMarkOutputBody: {
+            /** @description Each title's mark as it stood before; PUT /watched with them undoes the mark */
+            previous: components["schemas"]["WatchedStateBody"][] | null;
+        };
+        WatchedStateBody: {
+            /**
+             * Format: int64
+             * @description When the person last marked it by hand, in Unix milliseconds; absent for never
+             */
+            markedAt?: number;
+            /** Format: int64 */
+            titleId: number;
+            /**
+             * Format: int64
+             * @description When it became watched, in Unix milliseconds; absent while it was not
+             */
+            watchedAt?: number;
         };
         WatchStatsBody: {
             /**
@@ -5630,6 +5734,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeasonOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markSeasonWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                /** @description 0 for the specials and the episodes with no season */
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markSeasonUnwatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                /** @description 0 for the specials and the episodes with no season */
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markSeriesWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markSeriesUnwatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
                 };
             };
             /** @description Error */
@@ -6867,6 +7111,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RescanStartedOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markTitleWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markTitleUnwatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
                 };
             };
             /** @description Error */
@@ -10246,6 +10558,40 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PersonsRoleInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreWatchedInputBody"];
             };
         };
         responses: {

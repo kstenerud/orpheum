@@ -23,6 +23,7 @@ type InProgressBody struct {
 	Episode      *EpisodePlaceBody `json:"episode,omitempty"`
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
+	IsWatched   bool             `doc:"Whether the person watched it before, and watches it again (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 }
 
 // HomeOutput is the home screen (D188): Continue Watching first. Next Up comes after M3.
@@ -53,6 +54,8 @@ func (server *Server) registerHome() {
 		OperationID: "unhideProgress", Method: http.MethodDelete, Path: "/items/{id}/hide",
 		Summary: "Undo hiding a work", Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.unhideProgress)
+	// Marked watched by hand, a work leaves Continue Watching too (D370 §4).
+	server.registerWatched()
 }
 
 func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationHeader }) (*HomeOutput, error) {
@@ -76,6 +79,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 			ID: row.ID, Name: row.Name, Year: row.Year, PosterSha256: row.PosterSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
+			IsWatched: row.IsWatched,
 		})
 	}
 	return output, nil

@@ -10,6 +10,7 @@ import { StillReadingIcon, StillReadingNote } from "./still-reading.tsx";
 import { UncertainMatchIcon, UncertainMatchNote } from "./uncertain-match.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
 import { UnplayableSign } from "./unplayable-sign.tsx";
+import { WatchedIcon, WatchedNote } from "./watched-mark.tsx";
 
 /** What a status cue reads of a film, series or episode. */
 export interface CueSubject {
@@ -17,6 +18,8 @@ export interface CueSubject {
   readonly unavailable?: Parameters<typeof unavailableText>[1] | undefined;
   /** Whether its match is a guess no person confirmed (D301 §4). */
   readonly isGuessed?: boolean | undefined;
+  /** Whether its person watched it: a video by playing or by hand, a series or season every episode (D370). */
+  readonly isWatched?: boolean | undefined;
 }
 
 /**
@@ -74,6 +77,16 @@ function StillReadingCueIcon(): JSX.Element {
   );
 }
 
+/** A watched video's or series' icon over a poster: the white check (D370 §2). */
+function WatchedCueIcon(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <PosterCueIcon label={t("watched.watched")}>
+      <WatchedIcon />
+    </PosterCueIcon>
+  );
+}
+
 /** A subject's cannot-play note: the warning sign, and why, as the reader needs it (D241 §3). */
 function CannotPlayNote(props: { readonly subject: CueSubject }): JSX.Element | null {
   const { t } = useTranslation();
@@ -110,6 +123,14 @@ export const statusCues: readonly StatusCue[] = [
     isShown: isStillReading,
     icon: StillReadingCueIcon,
     note: StillReadingNote,
+  },
+  {
+    // The least urgent, no problem and no activity: last (D370 §2). Never on an extra, which the
+    // server never says is watched.
+    name: "watched",
+    isShown: (subject) => subject.isWatched === true,
+    icon: WatchedCueIcon,
+    note: WatchedNote,
   },
 ];
 

@@ -390,15 +390,16 @@ ORDER BY file.id;
 -- where its probe knows it: where the person is in the sequence, for its Next Up (D160) and the
 -- members a look at its page raises (D324 section 3). Each member's group, a series' season, 0 for
 -- the specials and those with none, which a look at one season keeps to, and its number in it and
--- name, which its Next Up shows. A member's files come as its page lists them, so the first is the
--- one its page plays first.
+-- name, which its Next Up shows; and when the person watched it, NULL while they have not, and last
+-- marked it by hand (D370). A member's files come as its page lists them, so the first is the one its
+-- page plays first.
 SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  play_position.position_ms, play_position.position_read_at
+  play_position.position_ms, play_position.position_read_at, title_watched.watched_at, title_watched.marked_at
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
@@ -407,6 +408,7 @@ JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing I
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
+LEFT JOIN title_watched ON title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = position.title_id
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
@@ -417,10 +419,15 @@ ORDER BY position.sort_order, version.id, file_filing.part_index, file.id;
 
 -- name: CountOrderingMembers :many
 -- How many members each of some series' orderings has with a live file, as
--- ListOrderingMemberFilesWithPositions lists them: a series' episodes in the ordering its person
--- watches it in, which its progress counts. Each ordering is named [collection id, name]; the
--- page's orderings drive, in this order, by CROSS JOIN.
-SELECT ordering.collection_id, count(*) AS member_count
+-- ListOrderingMemberFilesWithPositions lists them, and how many of them a person watched (D370
+-- section 5): a series' episodes in the ordering its person watches it in, which its progress counts.
+-- Each ordering is named [collection id, name]; the page's orderings drive, in this order, by CROSS
+-- JOIN, and each member's mark is read by its key.
+SELECT ordering.collection_id, count(*) AS member_count,
+  CAST(sum(EXISTS (
+    SELECT 1 FROM title_watched WHERE title_watched.user_id = sqlc.arg(user_id)
+      AND title_watched.title_id = position.title_id AND title_watched.watched_at IS NOT NULL
+  )) AS INTEGER) AS watched_count
 FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
 CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
   AND ordering.name = json_extract(named.value, '$[1]')
@@ -435,24 +442,6 @@ WHERE EXISTS (
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 )
 GROUP BY ordering.collection_id;
-
--- name: ListOrderingMemberPositions :many
--- A person's positions in the live files of each of some series' orderings' members, as
--- ListOrderingMemberFilesWithPositions has them, with each file's length where its probe knows it:
--- which members they finished, for the series' progress. Each ordering is named [collection id, name];
--- the page's orderings drive, in this order, by CROSS JOIN, each member's files then their positions.
-SELECT ordering.collection_id, position.title_id, play_position.position_ms,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms
-FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
-CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
-  AND ordering.name = json_extract(named.value, '$[1]')
-CROSS JOIN position ON position.ordering_id = ordering.id
-CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-CROSS JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
-CROSS JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
-CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file.id;
 
 -- name: ListOtherByName :many
 -- Other videos by name in the locale (D349), as films by name are.

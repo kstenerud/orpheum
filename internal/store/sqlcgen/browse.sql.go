@@ -36,8 +36,12 @@ func (q *Queries) CountEpisodesNotInOrdering(ctx context.Context, arg CountEpiso
 }
 
 const countOrderingMembers = `-- name: CountOrderingMembers :many
-SELECT ordering.collection_id, count(*) AS member_count
-FROM json_each(CAST(?1 AS TEXT)) AS named
+SELECT ordering.collection_id, count(*) AS member_count,
+  CAST(sum(EXISTS (
+    SELECT 1 FROM title_watched WHERE title_watched.user_id = ?1
+      AND title_watched.title_id = position.title_id AND title_watched.watched_at IS NOT NULL
+  )) AS INTEGER) AS watched_count
+FROM json_each(CAST(?2 AS TEXT)) AS named
 CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
   AND ordering.name = json_extract(named.value, '$[1]')
 CROSS JOIN position ON position.ordering_id = ordering.id
@@ -47,13 +51,14 @@ WHERE EXISTS (
   CROSS JOIN version_library ON version_library.version_id = version.id AND version_library.file_id = file_filing.file_id
   WHERE version.title_id = position.title_id AND version.removed_at IS NULL
     AND file_filing.filing IN ('listed', 'unidentified')
-    AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+    AND (CAST(?3 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 )
 GROUP BY ordering.collection_id
 `
 
 type CountOrderingMembersParams struct {
+	UserID         int64
 	OrderingsJSON  string
 	IsEveryLibrary int64
 	LibraryIdsJSON string
@@ -62,14 +67,21 @@ type CountOrderingMembersParams struct {
 type CountOrderingMembersRow struct {
 	CollectionID int64
 	MemberCount  int64
+	WatchedCount int64
 }
 
 // How many members each of some series' orderings has with a live file, as
-// ListOrderingMemberFilesWithPositions lists them: a series' episodes in the ordering its person
-// watches it in, which its progress counts. Each ordering is named [collection id, name]; the
-// page's orderings drive, in this order, by CROSS JOIN.
+// ListOrderingMemberFilesWithPositions lists them, and how many of them a person watched (D370
+// section 5): a series' episodes in the ordering its person watches it in, which its progress counts.
+// Each ordering is named [collection id, name]; the page's orderings drive, in this order, by CROSS
+// JOIN, and each member's mark is read by its key.
 func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMembersParams) ([]CountOrderingMembersRow, error) {
-	rows, err := q.db.QueryContext(ctx, countOrderingMembers, arg.OrderingsJSON, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	rows, err := q.db.QueryContext(ctx, countOrderingMembers,
+		arg.UserID,
+		arg.OrderingsJSON,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +89,7 @@ func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMem
 	items := []CountOrderingMembersRow{}
 	for rows.Next() {
 		var i CountOrderingMembersRow
-		if err := rows.Scan(&i.CollectionID, &i.MemberCount); err != nil {
+		if err := rows.Scan(&i.CollectionID, &i.MemberCount, &i.WatchedCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -835,7 +847,7 @@ SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS
   file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  play_position.position_ms, play_position.position_read_at
+  play_position.position_ms, play_position.position_read_at, title_watched.watched_at, title_watched.marked_at
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
@@ -844,6 +856,7 @@ JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing I
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
+LEFT JOIN title_watched ON title_watched.user_id = ?1 AND title_watched.title_id = position.title_id
 WHERE ordering.collection_id = ?2 AND ordering.name = ?3
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
@@ -870,6 +883,8 @@ type ListOrderingMemberFilesWithPositionsRow struct {
 	DurationMs     int64
 	PositionMs     *int64
 	PositionReadAt *int64
+	WatchedAt      *int64
+	MarkedAt       *int64
 }
 
 // A collection's members in one of its named orderings (D159; 'aired' for a series today), each
@@ -877,8 +892,9 @@ type ListOrderingMemberFilesWithPositionsRow struct {
 // where its probe knows it: where the person is in the sequence, for its Next Up (D160) and the
 // members a look at its page raises (D324 section 3). Each member's group, a series' season, 0 for
 // the specials and those with none, which a look at one season keeps to, and its number in it and
-// name, which its Next Up shows. A member's files come as its page lists them, so the first is the
-// one its page plays first.
+// name, which its Next Up shows; and when the person watched it, NULL while they have not, and last
+// marked it by hand (D370). A member's files come as its page lists them, so the first is the one its
+// page plays first.
 func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg ListOrderingMemberFilesWithPositionsParams) ([]ListOrderingMemberFilesWithPositionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listOrderingMemberFilesWithPositions,
 		arg.UserID,
@@ -903,65 +919,8 @@ func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg 
 			&i.DurationMs,
 			&i.PositionMs,
 			&i.PositionReadAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOrderingMemberPositions = `-- name: ListOrderingMemberPositions :many
-SELECT ordering.collection_id, position.title_id, play_position.position_ms,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms
-FROM json_each(CAST(?1 AS TEXT)) AS named
-CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
-  AND ordering.name = json_extract(named.value, '$[1]')
-CROSS JOIN position ON position.ordering_id = ordering.id
-CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-CROSS JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
-CROSS JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
-CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
-`
-
-type ListOrderingMemberPositionsParams struct {
-	OrderingsJSON string
-	UserID        int64
-}
-
-type ListOrderingMemberPositionsRow struct {
-	CollectionID int64
-	TitleID      int64
-	PositionMs   int64
-	DurationMs   int64
-}
-
-// A person's positions in the live files of each of some series' orderings' members, as
-// ListOrderingMemberFilesWithPositions has them, with each file's length where its probe knows it:
-// which members they finished, for the series' progress. Each ordering is named [collection id, name];
-// the page's orderings drive, in this order, by CROSS JOIN, each member's files then their positions.
-func (q *Queries) ListOrderingMemberPositions(ctx context.Context, arg ListOrderingMemberPositionsParams) ([]ListOrderingMemberPositionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOrderingMemberPositions, arg.OrderingsJSON, arg.UserID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListOrderingMemberPositionsRow{}
-	for rows.Next() {
-		var i ListOrderingMemberPositionsRow
-		if err := rows.Scan(
-			&i.CollectionID,
-			&i.TitleID,
-			&i.PositionMs,
-			&i.DurationMs,
+			&i.WatchedAt,
+			&i.MarkedAt,
 		); err != nil {
 			return nil, err
 		}

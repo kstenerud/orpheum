@@ -25,6 +25,8 @@ export const enGallery = {
     stillReading: "Still being read",
     cannotPlayAndGuessed: "Cannot play, match guessed",
     stillReadingAndGuessed: "Still being read, match guessed",
+    watched: "Watched",
+    guessedAndWatched: "Match guessed, watched",
     notes: "On a title's page",
     icons: "The icons alone",
     buttons: "Buttons",

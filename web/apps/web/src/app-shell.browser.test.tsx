@@ -146,6 +146,9 @@ describe("the shell, laid out by a real browser", () => {
       [".still-reading-icon__disc", "fill", "rgb(124, 200, 255)"],
       [".still-reading-icon__glass", "stroke", "rgb(4, 38, 61)"],
       [".still-reading-icon__sand", "fill", "rgb(4, 38, 61)"],
+      // The watched check, white on the tray's patch (D370 §2).
+      [".watched-icon__tick", "stroke", "rgb(255, 255, 255)"],
+      [".watched-icon__tick", "fill", "none"],
     ];
     await drawn(<UiGallery />, ({ container }) => {
       for (const [selector, paint, colour] of cues) {
@@ -158,7 +161,7 @@ describe("the shell, laid out by a real browser", () => {
       }
       const icons = [...container.querySelectorAll(".ui-gallery__icons svg")].filter(
         (icon) =>
-          !/warning-icon|uncertain-match-icon|still-reading-icon/u.test(
+          !/warning-icon|uncertain-match-icon|still-reading-icon|watched-icon/u.test(
             icon.getAttribute("class") ?? "",
           ),
       );

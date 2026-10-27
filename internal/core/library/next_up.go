@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -27,10 +28,12 @@ type Member struct {
 	NumberInGroup int64
 	Name          string
 	FileIDs       []int64
-	// IsPartway is whether its person is partway through one of its files, and IsFinished whether
-	// they finished one; WatchedAt is when they last watched one, 0 for never.
+	// IsPartway is whether its person is partway through one of its files, since they last marked it
+	// by hand, and IsFinished whether they watched it, by playing or by hand (D370); WatchedAt is when
+	// they last watched one, 0 for never, and FinishedAt when it became watched or they last marked it
+	// so, 0 while it is not: a rewatch begun since does not move it (D370 §5).
 	IsPartway, IsFinished bool
-	WatchedAt             int64
+	WatchedAt, FinishedAt int64
 	// PartwayFileID is the file they are partway through, the latest watched of several, and
 	// PartwayAtMs where in it; 0 when they are partway through none.
 	PartwayFileID, PartwayAtMs int64
@@ -49,12 +52,18 @@ func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, threshold
 		}
 		last := &members[len(members)-1]
 		last.FileIDs = append(last.FileIDs, row.FileID)
+		if row.WatchedAt != nil {
+			// Watched, by playing or by hand, whatever its positions say now (D370 §5).
+			last.IsFinished = true
+			last.FinishedAt = max(*row.WatchedAt, ptr.ValueOrZero(row.MarkedAt))
+			last.WatchedAt = max(last.WatchedAt, last.FinishedAt)
+		}
 		if row.PositionMs == nil {
 			continue
 		}
-		readAt := int64(0)
-		if row.PositionReadAt != nil {
-			readAt = *row.PositionReadAt
+		readAt := ptr.ValueOrZero(row.PositionReadAt)
+		if IsBeforeMark(readAt, row.MarkedAt) {
+			continue // marked by hand since: a fresh start (D370 §4)
 		}
 		if thresholds.IsPartwayThrough(*row.PositionMs, row.DurationMs) {
 			last.IsPartway = true
@@ -62,7 +71,6 @@ func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, threshold
 				last.PartwayFileID, last.PartwayAtMs, last.partwayWatchedAt = row.FileID, *row.PositionMs, readAt
 			}
 		}
-		last.IsFinished = last.IsFinished || thresholds.IsFinished(*row.PositionMs, row.DurationMs)
 		last.WatchedAt = max(last.WatchedAt, readAt)
 	}
 	return members
@@ -70,7 +78,8 @@ func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, threshold
 
 // MembersAhead are the count members from the person's place in the ordering, the first of them its
 // Next Up (D160; D324 §3, the owner, 2026-10-21): the one they are partway through, the latest
-// watched when several are; else the one after the last they finished, the latest finished; else
+// watched when several are; else the one after the last they finished, the latest finished, the
+// later in the ordering of several finished at once, as a season marked by hand is (D370 §4); else
 // the first. None when the last is finished.
 func MembersAhead(members []Member, count int) []Member {
 	start, partwayAt, finishedAt := 0, int64(-1), int64(-1)
@@ -78,8 +87,8 @@ func MembersAhead(members []Member, count int) []Member {
 		switch {
 		case each.IsPartway && each.WatchedAt > partwayAt:
 			start, partwayAt = index, each.WatchedAt
-		case partwayAt < 0 && each.IsFinished && each.WatchedAt > finishedAt:
-			start, finishedAt = index+1, each.WatchedAt
+		case partwayAt < 0 && each.IsFinished && each.FinishedAt >= finishedAt:
+			start, finishedAt = index+1, each.FinishedAt
 		}
 	}
 	if start >= len(members) {

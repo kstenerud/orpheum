@@ -285,9 +285,24 @@
 //
 //   - A list's entry shows how far its person is through it, in a constant number of statements
 //     for its page: a film where Continue Watching would resume it, by the same rule (resumesAt);
-//     a series how many of its episodes with a file they finished, of how many, in the ordering
-//     they watch it in, by Next Up's threshold. TestBrowse_AListShowsHowFarThePersonIsThroughEach
-//     (internal/core/api).
+//     a series how many of its episodes with a file they watched, of how many, in the ordering
+//     they watch it in. TestBrowse_AListShowsHowFarThePersonIsThroughEach (internal/core/api).
+//
+//   - Whether a person watched a title is read from its kept mark, never from where they are now
+//     (D370 §1, §5): a list's film, other video and series, a title's page, a season and its
+//     episodes, Continue Watching's rewatch, a series' progress and Next Up all read it, so a finished
+//     film or episode started again stays watched; a series or season is watched once every episode
+//     with a file is (§3). A position watched at or before the title's last mark by hand counts for
+//     nothing: not partway, not where it resumes (§4, IsBeforeMark).
+//     TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt,
+//     TestWatched_RestartingAFinishedEpisodeKeepsTheSeriesWhereItWas,
+//     TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs,
+//     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api),
+//     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds. What a person may mark by hand is
+//     answered here: a film, episode or other video they reach, never an extra (TitleToMark), and a
+//     series' or a season's episodes with a file in the ordering they watch it in, present now
+//     (EpisodesToMark). TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture,
+//     TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark (internal/core/api).
 //
 //   - A search is folded and routed by internal/core/textindex and answered by the index that
 //     can (D48). TestSearch_EveryRouteFindsWhatItShould.
@@ -317,13 +332,14 @@
 //   - Continue Watching shows each film or episode once, ordered by its latest watching, at its
 //     most recent position partway through by the resume thresholds, naming the file when more
 //     than one is partway; an extra never, and a work hidden since its last watching not at all
-//     (play-state.md, D162, D188). Enforced by
+//     (play-state.md, D162, D188), nor a position from before its last mark by hand (D370 §4). Enforced by
 //     TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough and
 //     TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack.
 //
 //   - Next Up is a query over a collection's named ordering, never over "a series" (D159, D160): the
 //     member its person is partway through, the latest watched of several; else the one after the
-//     latest finished; else the first; none past the last, by the resume thresholds. One rule,
+//     latest watched to its finish or marked so, the later in the ordering of several marked at once
+//     (D370); else the first; none past the last, by the resume thresholds. One rule,
 //     MembersAhead, serves the series' page's next episode and what interest raises (D324 §3).
 //     TestMembersAhead_StartAtThePersonsPlaceInTheOrdering,
 //     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup,
@@ -388,6 +404,8 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
 //     lists.go, lists_other.go, lists_released.go: each list's reads, either way (D366);
+//     watched.go: whether a person watched titles, a mark's fresh start, and what they may mark by
+//     hand (D370);
 //     home.go: Continue Watching and the resume thresholds;
 //     next_up.go: a collection's members as a person stands in them, their Next Up, and what plays
 //     after a file (UpNext);

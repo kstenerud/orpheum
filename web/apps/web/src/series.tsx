@@ -3,7 +3,7 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { useCallback, useId, type JSX } from "react";
+import { useCallback, useId, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -27,6 +27,7 @@ import { useItemsInView } from "./items-in-view.ts";
 import { groupName, orderingAired, placeCode } from "./episode-place.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { useRequest } from "./use-request.ts";
+import { MarkWatched, WatchedRowMark } from "./watched-mark.tsx";
 
 /** A series with its seasons, as the server sends it; each season's episodes are read apart. */
 export type SeriesDetail = components["schemas"]["CollectionOutputBody"];
@@ -58,9 +59,12 @@ export function SeriesView(props: {
   readonly onMatchCorrected?: () => void;
   /** Told the person chose another ordering: the page reads the series again, at its top. */
   readonly onOrderingChosen?: () => void;
+  /** Told its episodes were marked watched or unwatched by hand (D370 §4): the page reads it again. */
+  readonly onWatchedChanged?: () => void;
 }): JSX.Element {
   const { series } = props;
   const seasons = series.seasons ?? [];
+  const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
   return (
     <article className="series">
       <div className="series__head">
@@ -80,14 +84,85 @@ export function SeriesView(props: {
           {props.season === undefined ? (
             <OrderingChoice series={series} onChosen={props.onOrderingChosen} />
           ) : null}
+          {props.season === undefined ? (
+            <SeriesMark series={series} onChanged={onWatchedChanged} />
+          ) : null}
           {props.onMatchCorrected === undefined ? null : (
             <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
           )}
           <FilingReportButton itemId={series.id} />
         </div>
       </div>
-      <SeriesSeasons series={series} season={props.season} />
+      <SeriesSeasons
+        series={series}
+        season={props.season}
+        marks={marks}
+        onWatchedChanged={onWatchedChanged}
+      />
     </article>
+  );
+}
+
+/**
+ * How many marks by hand a series' page has made, and what it is told of each: a mark changes the
+ * episodes' rows too, so each reads the season's episodes again (D370 §4). Undefined is no marking.
+ */
+function useMarksCounted(
+  onWatchedChanged: (() => void) | undefined,
+): readonly [number, (() => void) | undefined] {
+  const [marks, setMarks] = useState(0);
+  if (onWatchedChanged === undefined) {
+    return [marks, undefined];
+  }
+  return [
+    marks,
+    (): void => {
+      setMarks((count) => count + 1);
+      onWatchedChanged();
+    },
+  ];
+}
+
+/** A whole series' Mark as watched, on its top page (D370 §4). */
+function SeriesMark(props: {
+  readonly series: SeriesDetail;
+  readonly onChanged: (() => void) | undefined;
+}): JSX.Element | null {
+  const { series, onChanged } = props;
+  return onChanged === undefined ? null : (
+    <MarkWatched
+      target={{ kind: "series", id: series.id, name: series.name }}
+      isWatched={series.isWatched === true}
+      onChanged={onChanged}
+    />
+  );
+}
+
+/**
+ * A season's Mark as watched, on its page (D370 §4); none for a series of one season, marked whole
+ * from its head.
+ */
+function SeasonMark(props: {
+  readonly series: SeriesDetail;
+  readonly season: Season;
+  readonly onChanged: (() => void) | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { series, season, onChanged } = props;
+  if ((series.seasons ?? []).length === 1 || onChanged === undefined) {
+    return null;
+  }
+  return (
+    <MarkWatched
+      target={{
+        kind: "season",
+        id: series.id,
+        season: season.seasonNumber,
+        name: seasonName(t, series, season),
+      }}
+      isWatched={season.isWatched === true}
+      onChanged={onChanged}
+    />
   );
 }
 
@@ -98,6 +173,9 @@ export function SeriesView(props: {
 function SeriesSeasons(props: {
   readonly series: SeriesDetail;
   readonly season: number | undefined;
+  /** How many marks by hand the page has made, by which its episodes are read again. */
+  readonly marks: number;
+  readonly onWatchedChanged: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { series } = props;
@@ -119,7 +197,8 @@ function SeriesSeasons(props: {
             </Link>
           )}
           <h2 id={`season-${String(shown.seasonNumber)}`}>{seasonName(t, series, shown)}</h2>
-          <SeasonEpisodes seriesId={series.id} season={shown.seasonNumber} />
+          <SeasonMark series={series} season={shown} onChanged={props.onWatchedChanged} />
+          <SeasonEpisodes key={props.marks} seriesId={series.id} season={shown.seasonNumber} />
         </section>
       )}
       {isTop && (series.notInOrderingCount ?? 0) > 0 ? (
@@ -238,7 +317,10 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
   return t("ordering.option", { label, kind, count: ordering.episodeCount });
 }
 
-/** A series' seasons, each with its first episode's still and how many episodes it has. */
+/**
+ * A series' seasons, each with its first episode's still and how many episodes it has, and the
+ * check once its person watched every one (D370 §3).
+ */
 function SeasonList(props: {
   readonly series: SeriesDetail;
   readonly seasons: readonly Season[];
@@ -261,6 +343,7 @@ function SeasonList(props: {
             <span className="series__absent">
               {t("title.episodeCount", { count: season.episodeCount })}
             </span>
+            {season.isWatched === true ? <WatchedRowMark /> : null}
           </Link>
         </li>
       ))}
@@ -363,7 +446,10 @@ export function SeasonView(props: {
   );
 }
 
-/** One season's episodes, each with its still, those not on disk or unavailable said so. */
+/**
+ * One season's episodes, each with its still, those not on disk or unavailable said so, and the
+ * check on each its person watched (D370 §2).
+ */
 function EpisodeList(props: {
   readonly episodes: readonly Episode[];
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
@@ -402,6 +488,7 @@ function EpisodeList(props: {
             {episode.unavailable === undefined ? null : (
               <span className="series__absent">{unavailableText(t, episode.unavailable)}</span>
             )}
+            {episode.isWatched === true ? <WatchedRowMark /> : null}
           </Link>
         </li>
       ))}
@@ -457,6 +544,7 @@ export function Series(props: {
             season={props.season}
             onMatchCorrected={reload}
             onOrderingChosen={reload}
+            onWatchedChanged={reload}
           />
         )}
       />

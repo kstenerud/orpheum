@@ -38,7 +38,9 @@ type InProgress struct {
 // ContinueWatching is what the person stopped in the middle of (play-state.md): each work once,
 // most recent watching first, at its most recent position that is past in_progress_after_percent and not
 // past finished_after_percent of its file's length. A file of unknown length counts at any
-// position. A work hidden since its last watching is left out (D188); extras never appear (D162).
+// position. A work hidden since its last watching is left out (D188), and a position watched before
+// its work was last marked by hand does not count (D370 §4); extras never appear (D162). A work its
+// person watched before, rewatched, says so (D370 §1).
 func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reach auth.Reach) ([]InProgress, error) {
 	thresholds, err := ReadResumeThresholds(ctx, browser.settings)
 	if err != nil {
@@ -61,6 +63,9 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 	partwayFileCountByTitle := map[int64]int{}
 	latestWatchedAt := map[int64]int64{} // a title's most recent watching, in any file
 	for _, row := range rows {
+		if IsBeforeMark(row.PositionReadAt, row.MarkedAt) {
+			continue // marked by hand since: a fresh start (D370 §4)
+		}
 		if _, seen := latestWatchedAt[row.TitleID]; !seen {
 			latestWatchedAt[row.TitleID] = row.PositionReadAt
 		}
@@ -90,19 +95,28 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 	slices.SortStableFunc(inProgress, func(first, second InProgress) int {
 		return cmp.Compare(latestWatchedAt[second.ID], latestWatchedAt[first.ID])
 	})
-	return browser.withPostersAndFileNames(ctx, reach, inProgress, partwayFileCountByTitle)
+	return browser.withPostersAndFileNames(ctx, reach, userID, inProgress, partwayFileCountByTitle)
 }
 
-// withPostersAndFileNames gives each row its poster, and drops the file's name where the work has only
-// one file partway through.
+// withPostersAndFileNames gives each row its poster and whether userID watched it before, and drops the
+// file's name where the work has only one file partway through.
 func (browser *Browser) withPostersAndFileNames(
-	ctx context.Context, reach auth.Reach, rows []InProgress, partwayFileCountByTitle map[int64]int,
+	ctx context.Context, reach auth.Reach, userID int64, rows []InProgress, partwayFileCountByTitle map[int64]int,
 ) ([]InProgress, error) {
 	entries := make([]Entry, 0, len(rows))
+	ids := make([]int64, 0, len(rows))
 	for index := range rows {
 		if partwayFileCountByTitle[rows[index].ID] < 2 {
 			rows[index].FileName = ""
 		}
+		ids = append(ids, rows[index].ID)
+	}
+	watched, err := browser.WatchedTitles(ctx, userID, ids)
+	if err != nil {
+		return nil, err
+	}
+	for index := range rows {
+		rows[index].IsWatched = watched[rows[index].ID]
 		entries = append(entries, rows[index].Entry)
 	}
 	posterPage, err := browser.finishPage(ctx, reach, Page{Entries: entries})
@@ -143,8 +157,9 @@ func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresh
 	return ResumeThresholds{inProgressAfterPercent: minimum, finishedAfterPercent: finished}, nil
 }
 
-// IsFinished is whether a position is past the file's finishing threshold: watched, as Continue
-// Watching takes it. A file of unknown length is never finished by its position.
+// IsFinished is whether a position is past the file's finishing threshold: a play that reaches it
+// makes the file's title watched (D370 §1). A file of unknown length is never finished by its
+// position, only by playing to its end.
 func (thresholds ResumeThresholds) IsFinished(positionMs, durationMs int64) bool {
 	return durationMs > 0 && positionMs*100 > thresholds.finishedAfterPercent*durationMs
 }

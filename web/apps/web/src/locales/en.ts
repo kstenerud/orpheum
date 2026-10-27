@@ -12,6 +12,7 @@ import { enLab } from "./en-lab.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
+import { enWatched } from "./en-watched.ts";
 import { enOrderings } from "./en-orderings.ts";
 
 /**
@@ -29,6 +30,7 @@ export const en = {
   ...enStatus,
   ...enGallery,
   ...enWarning,
+  ...enWatched,
   ...enOrderings,
   ...enLab,
   waits: {

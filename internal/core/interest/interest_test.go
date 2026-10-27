@@ -285,8 +285,7 @@ func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
 	t.Parallel()
 	database := seriesOfSix(t)
 	// Season 2's first episode finished: the series' Next Up is 24.
-	storetest.ExecRaw(t, database.Path(), `INSERT INTO play_position (user_id, file_id, position_ms, position_read_at,
-		 report_seq, updated_at) VALUES (1, 230, 1000, 5, 1, 1)`)
+	librarytest.Watch(t, database, librarytest.WatchSpec{FileID: 230, PositionMs: 1000, ReadAt: 5})
 	now := clocktest.NewFake(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}
@@ -337,25 +336,34 @@ func (reads *readsAsked) ReadWhenViewed(_ context.Context, titleID int64) error 
 func TestRaiser_ALookAtASeriesRaisesItsNextUpAlone(t *testing.T) {
 	t.Parallel()
 	for _, each := range []struct {
-		name      string
-		positions string
-		want      jobs.Interested
+		name    string
+		watched []librarytest.WatchSpec
+		want    jobs.Interested
 	}{
-		{"nothing watched: the first", "", jobs.Interested{ItemIDs: []int64{20, 21}, FileIDs: []int64{210}}},
+		{"nothing watched: the first", nil, jobs.Interested{ItemIDs: []int64{20, 21}, FileIDs: []int64{210}}},
 		{
-			"partway: it, though a later one is finished", "(1, 220, 500, 9, 1, 1), (1, 240, 1000, 3, 1, 1)",
+			"partway: it, though a later one is finished",
+			[]librarytest.WatchSpec{
+				{FileID: 220, PositionMs: 500, ReadAt: 9}, {FileID: 240, PositionMs: 1000, ReadAt: 3},
+			},
 			jobs.Interested{ItemIDs: []int64{20, 22}, FileIDs: []int64{220}},
 		},
 		{
-			"finished: the one after", "(1, 210, 1000, 3, 1, 1), (1, 220, 1000, 4, 1, 1)",
+			"finished: the one after",
+			[]librarytest.WatchSpec{
+				{FileID: 210, PositionMs: 1000, ReadAt: 3}, {FileID: 220, PositionMs: 1000, ReadAt: 4},
+			},
 			jobs.Interested{ItemIDs: []int64{20, 23}, FileIDs: []int64{230}},
 		},
-		{"the last finished: the series alone", "(1, 260, 1000, 3, 1, 1)", jobs.Interested{ItemIDs: []int64{20}}},
+		{
+			"the last finished: the series alone",
+			[]librarytest.WatchSpec{{FileID: 260, PositionMs: 1000, ReadAt: 3}},
+			jobs.Interested{ItemIDs: []int64{20}},
+		},
 	} {
 		database := seriesOfSix(t)
-		if each.positions != "" {
-			storetest.ExecRaw(t, database.Path(), `INSERT INTO play_position (user_id, file_id, position_ms,
-				 position_read_at, report_seq, updated_at) VALUES `+each.positions)
+		for _, watched := range each.watched {
+			librarytest.Watch(t, database, watched)
 		}
 		now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
 		register := NewRegister(now)
@@ -433,9 +441,8 @@ func TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn(t *testing.
 		`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES
 		 (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 26, 2, 1, 20001)`,
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
-		`INSERT INTO play_position (user_id, file_id, position_ms, position_read_at, report_seq, updated_at)
-		 VALUES (1, 230, 1000, 5, 1, 1)`)
+		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+	librarytest.Watch(t, database, librarytest.WatchSpec{FileID: 230, PositionMs: 1000, ReadAt: 5})
 	now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}

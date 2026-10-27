@@ -47,7 +47,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		15
+schema_step		16
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_listing	3700 3700 1850 2 1
 stream	sqlite_autoindex_stream_1	55400 4 1
@@ -58,6 +58,7 @@ title	title_film_found	3500 3500 3500
 title	title_film_released	3500 47
 title	title_other_found	0 0 0
 title	title_waiting	0 0
+title_watched	title_watched	977 489 1
 user		2
 user	user_live_name	2 1
 version	version_title	13850 1

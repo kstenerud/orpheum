@@ -879,3 +879,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did
   not finish" for its sound, and the core's no run of it queued again every few seconds.
   (`internal/node/chunks/arguments.go`, `internal/core/chunks/job.go`, `failures.go`)
+- [ ] **VQ89** — D370, the watched check and marking by hand, on staging. Passes when: on a computer,
+  a phone and the Fire TV, a film played past 90% shows a white check as the last icon of its poster's
+  tray in Films, in its library and on Home's rows, readable over pale and busy art and never fading or
+  greying the poster; a series whose every episode is watched shows the check on its poster, a partly
+  watched one its progress bar and no check; a season's row and each watched episode's row on the
+  series' page show the check; a screen reader (VoiceOver on the phone) reads "Watched" after the
+  title's name. On the Fire TV with its remote alone, a season's page offers *Mark as watched*, reached
+  by the arrows and pressed with OK: every episode's row shows the check at once, the season's row and
+  the series' progress follow, and *Undo* puts each back as it was; on a film's page *Mark as watched*
+  takes it out of Continue Watching and its next Play starts from the beginning, and *Mark as
+  unwatched* leaves it as never watched. Restarting a finished film and stopping early leaves its check,
+  and a series' Next Up does not step back. (`web/apps/web/src/watched-mark.tsx`, `status-cues.tsx`,
+  `series.tsx`, `title.tsx`; `internal/core/playback/watched.go`, `internal/core/library/watched.go`)

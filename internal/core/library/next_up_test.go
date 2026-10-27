@@ -39,19 +39,26 @@ func TestMembersAhead_StartAtThePersonsPlaceInTheOrdering(t *testing.T) {
 	}{
 		{"nothing watched: the first", nil, []int64{1, 2, 3}},
 		{"two finished: after the latest finished", map[int64]Member{
-			1: {IsFinished: true, WatchedAt: 10}, 2: {IsFinished: true, WatchedAt: 20},
+			1: {IsFinished: true, FinishedAt: 10}, 2: {IsFinished: true, FinishedAt: 20},
 		}, []int64{3, 4, 5}},
 		{"finished out of order: after the latest in time", map[int64]Member{
-			4: {IsFinished: true, WatchedAt: 10}, 2: {IsFinished: true, WatchedAt: 20},
+			4: {IsFinished: true, FinishedAt: 10}, 2: {IsFinished: true, FinishedAt: 20},
 		}, []int64{3, 4, 5}},
+		{"a finished one begun again, short of partway: after the latest finished", map[int64]Member{
+			1: {IsFinished: true, FinishedAt: 10, WatchedAt: 30}, 2: {IsFinished: true, FinishedAt: 20},
+		}, []int64{3, 4, 5}},
+		{"several finished at once, as a season marked: after the last of them", map[int64]Member{
+			1: {IsFinished: true, FinishedAt: 10}, 2: {IsFinished: true, FinishedAt: 10},
+			3: {IsFinished: true, FinishedAt: 10},
+		}, []int64{4, 5, 6}},
 		{"partway: it, though a later one is finished", map[int64]Member{
-			2: {IsPartway: true, WatchedAt: 5}, 4: {IsFinished: true, WatchedAt: 30},
+			2: {IsPartway: true, WatchedAt: 5}, 4: {IsFinished: true, FinishedAt: 30},
 		}, []int64{2, 3, 4}},
 		{"two partway: the latest watched", map[int64]Member{
 			2: {IsPartway: true, WatchedAt: 50}, 5: {IsPartway: true, WatchedAt: 10},
 		}, []int64{2, 3, 4}},
-		{"near the end: what is left", map[int64]Member{5: {IsFinished: true, WatchedAt: 1}}, []int64{6}},
-		{"the last finished: none", map[int64]Member{6: {IsFinished: true, WatchedAt: 1}}, nil},
+		{"near the end: what is left", map[int64]Member{5: {IsFinished: true, FinishedAt: 1}}, []int64{6}},
+		{"the last finished: none", map[int64]Member{6: {IsFinished: true, FinishedAt: 1}}, nil},
 	} {
 		if got := ids(MembersAhead(series(each.at), 3)); !slices.Equal(got, each.want) {
 			t.Errorf("%s: members %v; want %v", each.name, got, each.want)
@@ -88,17 +95,17 @@ func TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup(t *testing.T) {
 	}{
 		{"nothing watched: the season's first", 2, nil, []int64{3, 4, 5}},
 		{"the season before finished: the season's first", 2, map[int64]Member{
-			2: {IsFinished: true, WatchedAt: 10},
+			2: {IsFinished: true, FinishedAt: 10},
 		}, []int64{3, 4, 5}},
 		{"partway in it: that episode", 2, map[int64]Member{4: {IsPartway: true, WatchedAt: 10}}, []int64{4, 5, 6}},
 		{"its place, though later partway in another", 2, map[int64]Member{
-			3: {IsFinished: true, WatchedAt: 10}, 1: {IsPartway: true, WatchedAt: 20},
+			3: {IsFinished: true, FinishedAt: 10}, 1: {IsPartway: true, WatchedAt: 20},
 		}, []int64{4, 5, 6}},
 		{"its last finished: its first again", 2, map[int64]Member{
-			6: {IsFinished: true, WatchedAt: 1},
+			6: {IsFinished: true, FinishedAt: 1},
 		}, []int64{3, 4, 5}},
 		{"a short season: its episodes alone", 1, map[int64]Member{
-			2: {IsFinished: true, WatchedAt: 1},
+			2: {IsFinished: true, FinishedAt: 1},
 		}, []int64{1, 2}},
 		{"a season with no episodes: none", 3, nil, nil},
 	} {
@@ -109,9 +116,10 @@ func TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup(t *testing.T) {
 }
 
 // A collection's files, in its ordering, make its members, each in its group with its number and
-// name, each partway or finished by its person's position against the in-progress and finished
-// settings, watched when they last watched it, and partway through the file they watched latest of
-// those they are partway through, at its position.
+// name, each partway by its person's position against the in-progress and finished settings, finished
+// when they watched it, by playing or by hand, whatever their position says now (D370 §5), watched when
+// they last watched it, and partway through the file they watched latest of those they are partway
+// through, at its position; a position from before their last mark by hand counts for nothing (§4).
 func TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds(t *testing.T) {
 	t.Parallel()
 	thresholds, err := ReadResumeThresholds(t.Context(), settingstest.Seeded(t, storetest.OpenMigrated(t)))
@@ -122,7 +130,7 @@ func TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds(t *testing.T) {
 	rows := []sqlcgen.ListOrderingMemberFilesWithPositionsRow{
 		{
 			TitleID: 1, GroupNumber: 1, NumberInGroup: 1, Name: "Pilot", FileID: 10, DurationMs: 1000,
-			PositionMs: position(950), PositionReadAt: position(7),
+			PositionMs: position(950), PositionReadAt: position(7), WatchedAt: position(7),
 		},
 		{
 			TitleID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 20, DurationMs: 1000, PositionMs: position(500),
@@ -137,21 +145,46 @@ func TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds(t *testing.T) {
 			TitleID: 3, GroupNumber: 2, NumberInGroup: 1, FileID: 30, DurationMs: 1000, PositionMs: position(10),
 			PositionReadAt: position(3),
 		},
+		// Past the threshold, but never watched to it: an unattended play, so not finished.
+		{
+			TitleID: 4, GroupNumber: 2, NumberInGroup: 2, FileID: 40, DurationMs: 1000, PositionMs: position(950),
+			PositionReadAt: position(4),
+		},
+		// Marked watched by hand at 8, partway at 6 before it: finished, and partway through nothing.
+		{
+			TitleID: 5, GroupNumber: 2, NumberInGroup: 3, FileID: 50, DurationMs: 1000, PositionMs: position(500),
+			PositionReadAt: position(6), WatchedAt: position(8), MarkedAt: position(8),
+		},
+		// Watched at 2, begun again at 12 and a third in: finished, partway in its rewatch.
+		{
+			TitleID: 6, GroupNumber: 2, NumberInGroup: 4, FileID: 60, DurationMs: 1000, PositionMs: position(300),
+			PositionReadAt: position(12), WatchedAt: position(2),
+		},
 	}
 	got := MembersOf(rows, thresholds)
 	want := []Member{
-		{TitleID: 1, Group: 1, NumberInGroup: 1, Name: "Pilot", FileIDs: []int64{10}, IsFinished: true, WatchedAt: 7},
+		{
+			TitleID: 1, Group: 1, NumberInGroup: 1, Name: "Pilot", FileIDs: []int64{10}, IsFinished: true, WatchedAt: 7,
+			FinishedAt: 7,
+		},
 		{
 			TitleID: 2, Group: 1, NumberInGroup: 2, FileIDs: []int64{20, 21, 22}, IsPartway: true, WatchedAt: 11,
 			PartwayFileID: 21, PartwayAtMs: 400,
 		},
 		{TitleID: 3, Group: 2, NumberInGroup: 1, FileIDs: []int64{30}, WatchedAt: 3},
+		{TitleID: 4, Group: 2, NumberInGroup: 2, FileIDs: []int64{40}, WatchedAt: 4},
+		{TitleID: 5, Group: 2, NumberInGroup: 3, FileIDs: []int64{50}, IsFinished: true, WatchedAt: 8, FinishedAt: 8},
+		{
+			TitleID: 6, Group: 2, NumberInGroup: 4, FileIDs: []int64{60}, IsPartway: true, IsFinished: true,
+			WatchedAt: 12, FinishedAt: 2, PartwayFileID: 60, PartwayAtMs: 300,
+		},
 	}
 	if !slices.EqualFunc(got, want, func(first, second Member) bool {
 		return first.TitleID == second.TitleID && first.Group == second.Group &&
 			first.NumberInGroup == second.NumberInGroup && first.Name == second.Name &&
 			slices.Equal(first.FileIDs, second.FileIDs) && first.IsPartway == second.IsPartway &&
 			first.IsFinished == second.IsFinished && first.WatchedAt == second.WatchedAt &&
+			first.FinishedAt == second.FinishedAt &&
 			first.PartwayFileID == second.PartwayFileID && first.PartwayAtMs == second.PartwayAtMs
 	}) {
 		t.Errorf("members %+v; want %+v", got, want)

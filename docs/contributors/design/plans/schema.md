@@ -998,6 +998,14 @@ CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE R
 CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+-- Whether a person watched a title (D370, step 0062): set by a play to its finish and by hand, never
+-- read from where they are now. A mark by hand is a fresh start for where it resumes.
+CREATE TABLE title_watched (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  title_id INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  watched_at INTEGER,  -- NULL while it is not watched
+  marked_at INTEGER,   -- the last mark by hand, either way; NULL for never
+  CHECK (watched_at IS NOT NULL OR marked_at IS NOT NULL),
+  PRIMARY KEY (user_id, title_id)) WITHOUT ROWID, STRICT;
 
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
@@ -1387,6 +1395,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `subtitle_text` | persistent.db | `internal/core/subtitles` | |
 | `tag` | persistent.db | none yet | |
 | `title` | persistent.db | `internal/core/identify` | |
+| `title_watched` | persistent.db | `internal/core/playback` | whether each person watched each title, set by a play to its finish and by hand (D370) |
 | `unavailable_place` | persistent.db | `internal/core/library` | only its `availability.go` (D328) |
 | `user` | persistent.db | `internal/core/auth` | |
 | `user_deny` | persistent.db | none yet | |
@@ -1416,7 +1425,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
-| Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); all deleted with the person who watched (`ForgetWatchingOf`) |
+| Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 

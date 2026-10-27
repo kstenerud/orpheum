@@ -27,6 +27,8 @@ type TitleDetail struct {
 	Art      Art
 	// Unreadable is why none of its files can be read now, or nil when one can (D241 §3).
 	Unreadable *Unreadable
+	// IsWatched is whether its person watched it, by playing or by hand (D370 §1).
+	IsWatched bool
 }
 
 // Version is one of a title's versions: its files in part order (D155).
@@ -84,6 +86,11 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if why, isUnreadable := unreadable[titleID]; isUnreadable {
 		detail.Unreadable = &why
 	}
+	watched, err := watchedTitles(ctx, queries, userID, []int64{titleID})
+	if err != nil {
+		return TitleDetail{}, err
+	}
+	detail.IsWatched = watched[titleID]
 	return detail, nil
 }
 
@@ -135,6 +142,9 @@ type SeriesDetail struct {
 	Art     Art
 	// Unreadable is why none of the series' files can be read now, or nil when one can (D241 §3).
 	Unreadable *Unreadable
+	// IsWatched is whether its person watched every one of its episodes with a file, one at least, in
+	// the ordering they watch it in (D370 §3).
+	IsWatched bool
 }
 
 // SeasonSummary is one season of a series, a group of the ordering it is shown in: its number,
@@ -147,6 +157,9 @@ type SeasonSummary struct {
 	Name         string
 	EpisodeCount int64
 	StillSha256  string
+	// IsWatched is whether its person watched every one of its episodes with a file, one at least
+	// (D370 §3).
+	IsWatched bool
 }
 
 // Series is a series' detail, its seasons summed up in the ordering userID watches it in; one in a
@@ -180,7 +193,15 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 	if err != nil {
 		return SeriesDetail{}, err
 	}
-	detail.Seasons = seasonsOf(episodes, stills, ordering == OrderingAired)
+	watched, err := watchedTitles(ctx, queries, userID, ids)
+	if err != nil {
+		return SeriesDetail{}, err
+	}
+	detail.Seasons = seasonsOf(episodes, stills, watched, ordering == OrderingAired)
+	detail.IsWatched = len(detail.Seasons) > 0
+	for _, season := range detail.Seasons {
+		detail.IsWatched = detail.IsWatched && season.IsWatched
+	}
 	err = browser.withOrderings(ctx, &detail)
 	if err != nil {
 		return SeriesDetail{}, err
@@ -215,12 +236,14 @@ func (browser *Browser) reachedSeries(
 
 // seasonsOf sums a series' episodes, in an ordering's order, up by its groups, in order: in aired,
 // numbered seasons in order, then the specials; in another, whose group 0 is a part like the rest
-// (a TMDB episode group's first), by number alone.
+// (a TMDB episode group's first), by number alone. A season is watched once every episode of it with
+// a file is, one at least (D370 §3).
 func seasonsOf(
-	episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]string, isAired bool,
+	episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]string, watched map[int64]bool, isAired bool,
 ) []SeasonSummary {
 	byNumber := map[int64]*SeasonSummary{}
 	var numbers []int64
+	unwatched := map[int64]bool{} // a season with an episode with a file its person has not watched
 	for _, episode := range episodes {
 		number := ptr.ValueOrZero(episode.GroupNumber)
 		season, isSeen := byNumber[number]
@@ -228,6 +251,12 @@ func seasonsOf(
 			season = &SeasonSummary{Number: number}
 			byNumber[number] = season
 			numbers = append(numbers, number)
+		}
+		if episode.Available {
+			season.IsWatched = !unwatched[number]
+			if !watched[episode.TitleID] {
+				season.IsWatched, unwatched[number] = false, true
+			}
 		}
 		season.EpisodeCount++
 		if season.StillSha256 == "" {
@@ -267,7 +296,9 @@ type SeasonPage struct {
 	Episodes               []sqlcgen.ListSeasonEpisodeDetailsRow
 	StillSha256ByEpisodeID map[int64]string
 	UnreadableByEpisodeID  map[int64]Unreadable
-	NextCursor             string
+	// IsWatchedByEpisodeID are those its person watched (D370 §2).
+	IsWatchedByEpisodeID map[int64]bool
+	NextCursor           string
 }
 
 // Season is a page of one season's episodes; a series reach does not reach is ErrNoItem, and a
@@ -357,6 +388,9 @@ func (browser *Browser) episodePage(
 		return SeasonPage{}, err
 	}
 	if page.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, reach, ids, false); err != nil {
+		return SeasonPage{}, err
+	}
+	if page.IsWatchedByEpisodeID, err = watchedTitles(ctx, queries, query.UserID, ids); err != nil {
 		return SeasonPage{}, err
 	}
 	return page, nil

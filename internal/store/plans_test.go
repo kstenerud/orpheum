@@ -423,6 +423,7 @@ func weakSearchesAllowed() map[string]string {
 		"ListLiveFilesByNode":            node + "the System page's files of a node",
 		"DeletePlaySpansOfUser":          person + "their removal",
 		"DeletePlayPositionsOfUser":      person + "their removal",
+		"DeleteTitlesWatchedOfUser":      person + "their removal",
 		"GetWatchStats":                  person + "their watching's totals",
 	}
 }

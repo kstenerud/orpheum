@@ -93,6 +93,32 @@ func (q *Queries) DeletePurgedWatchingOfUser(ctx context.Context, userID int64) 
 	return err
 }
 
+const deleteTitlesWatched = `-- name: DeleteTitlesWatched :exec
+DELETE FROM title_watched
+WHERE user_id = ?1
+  AND title_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
+`
+
+type DeleteTitlesWatchedParams struct {
+	UserID       int64
+	TitleIdsJSON string
+}
+
+// An undo forgets the marks of titles that had none before a mark by hand.
+func (q *Queries) DeleteTitlesWatched(ctx context.Context, arg DeleteTitlesWatchedParams) error {
+	_, err := q.db.ExecContext(ctx, deleteTitlesWatched, arg.UserID, arg.TitleIdsJSON)
+	return err
+}
+
+const deleteTitlesWatchedOfUser = `-- name: DeleteTitlesWatchedOfUser :exec
+DELETE FROM title_watched WHERE user_id = ?1
+`
+
+func (q *Queries) DeleteTitlesWatchedOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteTitlesWatchedOfUser, userID)
+	return err
+}
+
 const foldWatchingOfPurgedFiles = `-- name: FoldWatchingOfPurgedFiles :exec
 
 INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
@@ -132,11 +158,33 @@ func (q *Queries) FoldWatchingOfPurgedFiles(ctx context.Context, fileIdsJson str
 	return err
 }
 
+const getFileDuration = `-- name: GetFileDuration :one
+
+SELECT duration_ms FROM file_probe WHERE file_id = ?1
+`
+
+// Whether a person has watched a title (D370): kept per person and per title, set by playing one of
+// its files to its finish and by hand, and a mark by hand a fresh start for where it resumes.
+// How long a file plays, where its probe knows it: whether a position finished it (D370 section 1).
+func (q *Queries) GetFileDuration(ctx context.Context, fileID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFileDuration, fileID)
+	var duration_ms int64
+	err := row.Scan(&duration_ms)
+	return duration_ms, err
+}
+
 const getPlayPosition = `-- name: GetPlayPosition :one
 
-SELECT position_ms, report_seq, device_id, updated_at, position_read_at
+SELECT play_position.position_ms, play_position.report_seq, play_position.device_id, play_position.updated_at,
+  play_position.position_read_at,
+  CAST(coalesce((
+    SELECT max(title_watched.marked_at) FROM file_filing
+    CROSS JOIN version ON version.id = file_filing.version_id
+    CROSS JOIN title_watched ON title_watched.user_id = play_position.user_id
+      AND title_watched.title_id = version.title_id
+    WHERE file_filing.file_id = play_position.file_id), 0) AS INTEGER) AS marked_at
 FROM play_position
-WHERE user_id = ?1 AND file_id = ?2
+WHERE play_position.user_id = ?1 AND play_position.file_id = ?2
 `
 
 type GetPlayPositionParams struct {
@@ -150,11 +198,14 @@ type GetPlayPositionRow struct {
 	DeviceID       *int64
 	UpdatedAt      int64
 	PositionReadAt int64
+	MarkedAt       int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Play state (schema.md; play-state.md, D165, D217 section 7): the guarded position, the log of
 // state changes, and the watched spans.
+// A person's position in a file, and the latest of their marks by hand of the titles it is filed as,
+// 0 for none: a position watched at or before it is not where the file resumes (D370 section 4).
 func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams) (GetPlayPositionRow, error) {
 	row := q.db.QueryRowContext(ctx, getPlayPosition, arg.UserID, arg.FileID)
 	var i GetPlayPositionRow
@@ -164,6 +215,7 @@ func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams
 		&i.DeviceID,
 		&i.UpdatedAt,
 		&i.PositionReadAt,
+		&i.MarkedAt,
 	)
 	return i, err
 }
@@ -357,7 +409,7 @@ SELECT play_position.file_id, play_position.position_ms, play_position.position_
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
     ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
-  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at
+  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at, title_watched.marked_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN file_filing ON file_filing.file_id = file.id
@@ -366,6 +418,7 @@ JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode',
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
+LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = title.id
 WHERE play_position.user_id = ?3
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
@@ -394,11 +447,13 @@ type ListRecentPlayPositionsRow struct {
 	Year           *int64
 	Name           *string
 	HiddenAt       *int64
+	MarkedAt       *int64
 }
 
 // A person's positions in live files of live films, episodes and other videos (D349), most recent
 // watching first, with each file's length where its probe knows it and when its work was last hidden:
-// what Continue Watching is chosen from. Extras are left out (D162). A position is the file's, at
+// what Continue Watching is chosen from, with when the person last marked its title by hand, before
+// which a position does not count (D370 section 4). Extras are left out (D162). A position is the file's, at
 // whichever place it was played (D363 section 10): it shows with each title a library the person
 // reaches lists the file in, named by the first of its places they reach (section 8).
 func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPlayPositionsParams) ([]ListRecentPlayPositionsRow, error) {
@@ -426,6 +481,7 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 			&i.Year,
 			&i.Name,
 			&i.HiddenAt,
+			&i.MarkedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -444,13 +500,14 @@ const listTitlesPlayPositions = `-- name: ListTitlesPlayPositions :many
 SELECT version.title_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  progress_hide.hidden_at
+  progress_hide.hidden_at, title_watched.marked_at
 FROM json_each(CAST(?1 AS TEXT)) AS listed
 CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
+LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = version.title_id
 ORDER BY play_position.position_read_at DESC
 `
 
@@ -465,6 +522,7 @@ type ListTitlesPlayPositionsRow struct {
 	PositionReadAt int64
 	DurationMs     int64
 	HiddenAt       *int64
+	MarkedAt       *int64
 }
 
 // A person's positions in the live files of some titles, most recent watching first, with each
@@ -485,7 +543,51 @@ func (q *Queries) ListTitlesPlayPositions(ctx context.Context, arg ListTitlesPla
 			&i.PositionReadAt,
 			&i.DurationMs,
 			&i.HiddenAt,
+			&i.MarkedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitlesWatched = `-- name: ListTitlesWatched :many
+SELECT title_watched.title_id, title_watched.watched_at, title_watched.marked_at
+FROM json_each(CAST(?1 AS TEXT)) AS listed
+CROSS JOIN title_watched ON title_watched.user_id = ?2 AND title_watched.title_id = listed.value
+ORDER BY title_watched.title_id
+`
+
+type ListTitlesWatchedParams struct {
+	TitleIdsJSON string
+	UserID       int64
+}
+
+type ListTitlesWatchedRow struct {
+	TitleID   int64
+	WatchedAt *int64
+	MarkedAt  *int64
+}
+
+// A person's marks of some titles, those that have one: when each became watched, NULL while it is
+// not, and when they last marked it by hand. The titles drive, by CROSS JOIN.
+func (q *Queries) ListTitlesWatched(ctx context.Context, arg ListTitlesWatchedParams) ([]ListTitlesWatchedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesWatched, arg.TitleIdsJSON, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitlesWatchedRow{}
+	for rows.Next() {
+		var i ListTitlesWatchedRow
+		if err := rows.Scan(&i.TitleID, &i.WatchedAt, &i.MarkedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -539,6 +641,82 @@ func (q *Queries) ListWatchedLiveFiles(ctx context.Context) ([]ListWatchedLiveFi
 		return nil, err
 	}
 	return items, nil
+}
+
+const markTitlesUnwatched = `-- name: MarkTitlesUnwatched :exec
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(?1 AS INTEGER), title.id, NULL, CAST(?2 AS INTEGER)
+FROM json_each(CAST(?3 AS TEXT)) AS marked
+CROSS JOIN title ON title.id = marked.value AND title.kind IN ('movie', 'episode', 'other')
+WHERE true
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = NULL, marked_at = excluded.marked_at
+WHERE title_watched.watched_at IS NOT NULL OR title_watched.marked_at IS NOT excluded.marked_at
+`
+
+type MarkTitlesUnwatchedParams struct {
+	UserID       int64
+	MarkedAt     int64
+	TitleIdsJSON string
+}
+
+// A person marks titles unwatched by hand (D370 section 4): as never watched, the positions watched
+// before it no longer where they resume.
+// Only when it changes something (D303, DL9).
+func (q *Queries) MarkTitlesUnwatched(ctx context.Context, arg MarkTitlesUnwatchedParams) error {
+	_, err := q.db.ExecContext(ctx, markTitlesUnwatched, arg.UserID, arg.MarkedAt, arg.TitleIdsJSON)
+	return err
+}
+
+const markTitlesWatched = `-- name: MarkTitlesWatched :exec
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(?1 AS INTEGER), title.id, CAST(?2 AS INTEGER),
+  CAST(?2 AS INTEGER)
+FROM json_each(CAST(?3 AS TEXT)) AS marked
+CROSS JOIN title ON title.id = marked.value AND title.kind IN ('movie', 'episode', 'other')
+WHERE true
+ON CONFLICT (user_id, title_id) DO UPDATE SET
+  watched_at = coalesce(title_watched.watched_at, excluded.watched_at), marked_at = excluded.marked_at
+WHERE title_watched.watched_at IS NULL OR title_watched.marked_at IS NOT excluded.marked_at
+`
+
+type MarkTitlesWatchedParams struct {
+	UserID       int64
+	MarkedAt     int64
+	TitleIdsJSON string
+}
+
+// A person marks titles watched by hand (D370 section 4): watched from now unless they were already,
+// and marked now, so the positions watched before it are no longer where they resume.
+// Only when it changes something (D303, DL9).
+func (q *Queries) MarkTitlesWatched(ctx context.Context, arg MarkTitlesWatchedParams) error {
+	_, err := q.db.ExecContext(ctx, markTitlesWatched, arg.UserID, arg.MarkedAt, arg.TitleIdsJSON)
+	return err
+}
+
+const markWatchedByPlay = `-- name: MarkWatchedByPlay :exec
+INSERT INTO title_watched (user_id, title_id, watched_at)
+SELECT DISTINCT CAST(?1 AS INTEGER), version.title_id, CAST(?2 AS INTEGER)
+FROM file_filing
+CROSS JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
+CROSS JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
+WHERE file_filing.file_id = ?3
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = excluded.watched_at
+WHERE title_watched.watched_at IS NULL
+  AND (title_watched.marked_at IS NULL OR title_watched.marked_at < excluded.watched_at)
+`
+
+type MarkWatchedByPlayParams struct {
+	UserID    int64
+	WatchedAt int64
+	FileID    int64
+}
+
+// A person played a file to its finish (D370 section 1): each film, episode or other video it is filed
+// as becomes watched, unless it already is, or a mark by hand came after the watching.
+// Only when it changes something (D303, DL9), and never over a later mark by hand.
+func (q *Queries) MarkWatchedByPlay(ctx context.Context, arg MarkWatchedByPlayParams) error {
+	_, err := q.db.ExecContext(ctx, markWatchedByPlay, arg.UserID, arg.WatchedAt, arg.FileID)
+	return err
 }
 
 const movePlayEventsToFile = `-- name: MovePlayEventsToFile :exec
@@ -624,6 +802,30 @@ type MovePlaySpansToFileParams struct {
 
 func (q *Queries) MovePlaySpansToFile(ctx context.Context, arg MovePlaySpansToFileParams) error {
 	_, err := q.db.ExecContext(ctx, movePlaySpansToFile, arg.ToFile, arg.FromFile)
+	return err
+}
+
+const restoreTitlesWatched = `-- name: RestoreTitlesWatched :exec
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(?1 AS INTEGER), title.id, json_extract(restored.value, '$[1]'),
+  json_extract(restored.value, '$[2]')
+FROM json_each(CAST(?2 AS TEXT)) AS restored
+CROSS JOIN title ON title.id = json_extract(restored.value, '$[0]') AND title.kind IN ('movie', 'episode', 'other')
+WHERE json_extract(restored.value, '$[1]') IS NOT NULL OR json_extract(restored.value, '$[2]') IS NOT NULL
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = excluded.watched_at, marked_at = excluded.marked_at
+WHERE title_watched.watched_at IS NOT excluded.watched_at OR title_watched.marked_at IS NOT excluded.marked_at
+`
+
+type RestoreTitlesWatchedParams struct {
+	UserID     int64
+	StatesJSON string
+}
+
+// An undo puts titles' marks back as they were before a mark by hand (D370 section 4): each named
+// [title id, watched_at, marked_at], one of the two times at least.
+// Only when it changes something (D303, DL9).
+func (q *Queries) RestoreTitlesWatched(ctx context.Context, arg RestoreTitlesWatchedParams) error {
+	_, err := q.db.ExecContext(ctx, restoreTitlesWatched, arg.UserID, arg.StatesJSON)
 	return err
 }
 
