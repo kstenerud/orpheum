@@ -23358,3 +23358,33 @@ source's day is of another; All libraries offers no sort by release date, an oth
 none; Home's choice stands apart from Films and Series', so a library left out of Films is still on
 Home; Home has no Next Up row yet, so its rows are Continue Watching and the newest films and series.
 Not seen on a device yet (VQ83).
+
+## D367 — Up goes a level up from any page to its parent, Back goes back the way the person came
+
+**Decided** (2026-10-27), by the project owner: "the general rule is: You can drill down to get to a
+playback item, and use 'up' to go back up. Back goes back the way you came, like a browser." It came
+from Continue Watching: Back from a film started on Home returns to Home, as it should, but nothing
+went a level up for the item; and of where a film goes up to, its own page (the owner's choice of
+option 1). Until now the Play page went up only when nothing of the app was behind it (its Back, the
+Play page's `playUp`, built the same day) and other pages had Back alone.
+
+1. **Back is the browser's back**: the way the person came, Home after Continue Watching, the list a
+   tile was chosen from, as each history step was; a remote's Back the same. Nothing changes it.
+2. **Up goes to the page's parent, on every page that has one,** a control of its own beside Back,
+   reachable by a remote as any control is:
+   - playing an episode → its series at its season (the person's ordering, as the Play page's
+     `playUp` has it); a film or an extra → the film's page; an other video → its library's list, at
+     its folder where it was browsed by folder;
+   - a season → its series; a series' or a film's page → the library it is listed in; an other library's
+     folder → the folder above it, its top → the library;
+   - a library → Libraries; Libraries, Home, Films, Series and the account's and admin's top pages have
+     no parent and show no Up.
+3. **The library Up leads to is the one the person came through,** when the page was reached from a
+   library; else, for an item two libraries reach (D363), the first of the person's libraries that
+   lists it, by name.
+4. **Up is a step in the history like any other**, so Back after Up returns to the page Up was pressed
+   on.
+5. **The Play page's Back with nothing behind it keeps going up** (as built 2026-10-27), to the same
+   target as its Up.
+
+**Status:** Decided 2026-10-27.
