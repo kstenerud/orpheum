@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The player's bar (player-controls.tsx): its buttons in a row, what the page adds pushing full
+   screen to the row's end, the timeline under them. */
+.player-controls {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.player-controls__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.player-controls__aside {
+  margin-inline-start: auto;
+  font-size: var(--font-size-small);
+}
+
+/* Mute and the volume beside it, kept together as the row wraps. */
+.player-controls__sound {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.player-controls__sound .volume-range {
+  width: 6rem;
+  accent-color: var(--color-accent);
+}

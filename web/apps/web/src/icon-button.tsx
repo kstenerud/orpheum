@@ -17,14 +17,14 @@ export function IconButton(props: {
   /** The icon, an `Icon` drawing. */
   readonly icon: ReactNode;
   readonly onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-  readonly ref?: Ref<HTMLButtonElement>;
+  readonly ref?: Ref<HTMLButtonElement> | undefined;
   /** Whether it is drawn over a film: round, on --color-video-control, in --color-on-video. */
-  readonly isOverVideo?: boolean;
+  readonly isOverVideo?: boolean | undefined;
   /** Whether what it opens is open, for a button that opens a panel. */
-  readonly isExpanded?: boolean;
-  readonly isDisabled?: boolean;
+  readonly isExpanded?: boolean | undefined;
+  readonly isDisabled?: boolean | undefined;
   /** The class of where it is drawn, which may colour it; never its size. */
-  readonly className?: string;
+  readonly className?: string | undefined;
 }): JSX.Element {
   const { ref, label, icon, onClick, isOverVideo, isExpanded, isDisabled, className } = props;
   const classes = ["icon-button"];

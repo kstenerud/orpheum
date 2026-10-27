@@ -17,10 +17,10 @@ import { useTranslation } from "react-i18next";
 import { tabStorage } from "./browser-storage.ts";
 import { endCast, listMyCasts, moveCastOn, noteSending, type Cast } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
-import { seekStepMs } from "./player-commands.ts";
+import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { clockText, Timeline } from "./timeline.tsx";
+import { clockText } from "./timeline.tsx";
 import { useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { monotonicMs, useTogether } from "./use-together.ts";
@@ -218,7 +218,11 @@ function usePositionNow(snapshot: TogetherSnapshot | undefined): number | undefi
   return expectedGroupPositionMs(snapshot, Math.max(nowMs, snapshot.groupReceivedAtMs));
 }
 
-/** The remote's play and pause, its steps back and forward, and its timeline. */
+/**
+ * The remote's bar (D369 §1): play and pause, its steps back and forward and its timeline, the
+ * player's own, commanding the receiver; a drag along the timeline is sent once it has rested
+ * (scrubPauseWindowMs), as a leading player's drag is one seek.
+ */
 function RemoteControls(props: {
   readonly snapshot: TogetherSnapshot | undefined;
   readonly connection: TogetherConnection | undefined;
@@ -226,58 +230,47 @@ function RemoteControls(props: {
   readonly durationMs: number;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { connection, positionMs, durationMs } = props;
   const state = props.snapshot?.group?.state;
-  const isReady = props.snapshot?.status === "connected" && positionMs !== undefined;
-  const send = (command: GroupCommand): void => {
-    connection?.command(command);
-  };
-  const seekTo = (atMs: number): void => {
-    const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
-    send({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
-  };
   return (
     <>
       <output>{stateText(t, state)}</output>
-      <div className="cast-remote__buttons">
-        <button
-          type="button"
-          disabled={!isReady}
-          onClick={() => {
-            send({ command: state === "Playing" ? "pause" : "play" });
-          }}
-        >
-          {t(state === "Playing" ? "cast.pause" : "cast.play")}
-        </button>
-        <button
-          type="button"
-          disabled={!isReady}
-          onClick={() => {
-            seekTo((positionMs ?? 0) - seekStepMs);
-          }}
-        >
-          {t("cast.back")}
-        </button>
-        <button
-          type="button"
-          disabled={!isReady}
-          onClick={() => {
-            seekTo((positionMs ?? 0) + seekStepMs);
-          }}
-        >
-          {t("cast.forward")}
-        </button>
-      </div>
-      <Timeline
-        label={t("cast.timeline")}
-        atMs={positionMs ?? 0}
-        durationMs={durationMs}
-        isDisabled={!isReady}
+      <PlayerControls
+        source={remoteSource(props)}
+        controls={["play", "steps", "timeline"]}
         settleMs={scrubPauseWindowMs}
-        onSeek={seekTo}
       />
     </>
   );
+}
+
+/**
+ * A cast's receiver as the remote's bar plays it: where its film stands, as the receiver last said
+ * and the clock has moved it on, and its commands sent to it over the cast's session.
+ */
+function remoteSource(remote: {
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly connection: TogetherConnection | undefined;
+  readonly positionMs: number | undefined;
+  readonly durationMs: number;
+}): PlayerSource {
+  const { connection, positionMs, durationMs } = remote;
+  const isPlaying = remote.snapshot?.group?.state === "Playing";
+  const send = (command: GroupCommand): void => {
+    connection?.command(command);
+  };
+  return {
+    atMs: positionMs ?? 0,
+    durationMs,
+    isPaused: !isPlaying,
+    isReady: remote.snapshot?.status === "connected" && positionMs !== undefined,
+    playOrPause: () => {
+      send({ command: isPlaying ? "pause" : "play" });
+    },
+    seekTo: (atMs) => {
+      const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
+      send({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
+    },
+  };
 }
 
 /**

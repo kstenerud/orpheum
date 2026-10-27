@@ -9,6 +9,7 @@ import { Casting } from "./cast-remote.tsx";
 import { Play } from "./play.tsx";
 import {
   bodyField,
+  buttonNamed,
   buttonWithText,
   click,
   mount,
@@ -74,9 +75,9 @@ describe("the remote of a cast (D337 §5)", () => {
     expect(mounted.container.textContent).toContain("Metropolis");
     expect(mounted.container.textContent).toContain("Playing on Fire TV");
     expect(mounted.container.textContent).toContain("1:01 / 10:00");
-    await click(buttonWithText(mounted.container, "Play"));
+    await click(buttonNamed(mounted.container, "Play"));
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
-    await click(buttonWithText(mounted.container, "Forward 10 s"));
+    await click(buttonNamed(mounted.container, "Forward 10 s"));
     expect(server.heard.at(-1)).toMatchObject({
       type: "command",
       command: "seek",
