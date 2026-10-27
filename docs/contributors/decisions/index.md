@@ -371,6 +371,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D363](working-notes.md#d363--libraries-may-overlap-a-file-is-found-once-at-every-place-it-is-and-each-list-shows-an-item-once-however-a-person-reaches-it) Libraries may overlap: a file is found once, at every place it is, and each list shows an item once however a person reaches it
 - [D364](working-notes.md#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray) Casting is a session with a device: while it lasts, whatever the person plays plays there, and the sending device shows it in the tray
 - [D365](working-notes.md#d365--among-a-films-candidates-the-one-whose-runtime-fits-the-file-is-preferred-a-year-either-side-of-the-names-then-the-most-voted) Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
+- [D366](working-notes.md#d366--every-sort-runs-either-way-films-and-series-also-sort-by-release-date-and-each-person-chooses-which-libraries-fill-their-home) Every sort runs either way, films and series also sort by release date, and each person chooses which libraries fill their Home
 
 ## Archived
 
