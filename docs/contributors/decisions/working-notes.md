@@ -22772,6 +22772,9 @@ playback at the hand-off"); keeps
 2. **Play is the press.** In Play's own handler the receiver asks for full screen and opens the
    film, which plays with sound by the activation the press gave the page. What each did is logged
    on the server: the sound allowed or refused, full screen entered or refused, and by what press.
+   A desktop browser goes full screen too (the owner, 2026-10-27: "if we now have the confirmation
+   prompt, making even a desktop browser go fullscreen seems fine since it's a deliberate user action
+   to accept the cast"); no decision before held a desktop receiver out of full screen.
 3. **Not now declines.** The sender is told the cast was declined, shows "‹Device› declined", and
    keeps playing: it hands its playback off only once the receiver has pressed Play, never as it
    casts.
