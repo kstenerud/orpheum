@@ -29,7 +29,8 @@ test(
     await openFilmOnItsLadder(page, warmUpFilm);
     await page.getByRole("link", { name: "Play" }).click();
     await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
-    await expect(page.locator(".play__tracks")).toContainText(onTheLadder);
+    // Its ladder's top plays the warm-up's own AAC sound, copied (D368 §1), where it was the light track.
+    await expect(page.locator(".play__tracks")).toContainText("AAC stereo, 128 kb/s (original)");
 
     // Its page fills the player's first buffer before Play is pressed (D260 §3).
     await openFilmOnItsLadder(page, timingFilm(browserName));

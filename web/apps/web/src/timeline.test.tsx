@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { enter, fire, mount, settleUntil, type Mounted } from "./test-dom.tsx";
@@ -16,6 +17,18 @@ function touchAt(type: "touchstart" | "touchmove", clientX: number): Event {
 /** Moves a range to value as a drag does: its value set, then its input event. */
 async function dragTo(range: HTMLInputElement, value: number): Promise<void> {
   await enter(range, String(value));
+}
+
+/**
+ * Drags the slider to value at once, waiting for nothing: two such drags fall well inside a settle,
+ * where dragTo's wait for the page to go quiet took longer than settleMs on a loaded machine and the
+ * seek came between them (a flaky make check, 2026-10-27).
+ */
+function dragNow(range: HTMLInputElement, value: number): void {
+  act(() => {
+    Reflect.set(HTMLInputElement.prototype, "value", String(value), range);
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 }
 
 describe("a film's timeline (D369 §1)", () => {
@@ -73,8 +86,8 @@ describe("a film's timeline (D369 §1)", () => {
         onSeek={(ms) => seeks.push(ms)}
       />,
     );
-    await dragTo(range, 120_000);
-    await dragTo(range, 180_000);
+    dragNow(range, 120_000);
+    dragNow(range, 180_000);
     expect(seeks).toEqual([]);
     expect(mounted?.container.textContent).toBe("3:00 / 10:00");
     await settleUntil(() => seeks.length > 0);

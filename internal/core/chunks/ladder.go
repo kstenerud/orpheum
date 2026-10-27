@@ -41,7 +41,8 @@ func (service *Service) StartOnLadder(
 
 // heldByUpload is the place among the offered pictures, highest first, a start the link put at
 // chosen takes within the playback's StartAtMostKbps, its average with its sound's: chosen or lower,
-// the lowest when none is within it; chosen with no bound (D286 §5).
+// the lowest when none is within it; chosen with no bound (D286 §5). The top's own sound, copied,
+// counts at its rate (D368 §3); the switch between the two sounds is heard on devices, VQ86.
 func (film cutFilm) heldByUpload(offered offer, playback Playback, chosen int) int {
 	atMostKbps := playback.StartAtMostKbps
 	if atMostKbps <= 0 {

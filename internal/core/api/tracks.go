@@ -51,7 +51,8 @@ type FileSoundBody struct {
 	ChannelCount    int    `json:"channelCount"`
 }
 
-// soundTrackBodies are sounds as the API says them; nil for none.
+// soundTrackBodies are sounds as the API says them; nil for none. The top's copied sound says it is
+// the original (D368 §1), as the tracks note shows it; heard on devices, VQ86.
 func soundTrackBodies(sounds []playback.SoundTrack) []SoundTrackBody {
 	var bodies []SoundTrackBody
 	for _, sound := range sounds {

@@ -117,7 +117,9 @@ const trays: readonly {
 
 /** A tray sign's classes, off or on, as the tray draws them (status-tray.tsx). */
 function traySignClass(isOn: boolean): string {
-  return `status-tray__button status-tray__button--${isOn ? "on" : "off"}`;
+  return isOn
+    ? "status-tray__button status-tray__button--on"
+    : "status-tray__button status-tray__button--off";
 }
 
 /**

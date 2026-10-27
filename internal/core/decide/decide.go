@@ -128,6 +128,7 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
+	// The same test decides which sound a ladder's top copies (D368 §1); heard on devices, VQ86.
 	if audio, present := playedAudio(input); present && !PlaysAsItIs(audio, input.PlayableFormats) {
 		reasons = append(reasons, ReasonAudioCodec)
 	}
