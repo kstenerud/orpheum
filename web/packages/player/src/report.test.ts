@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import Hls from "hls.js";
 
-import { diagnose, type DiagnosedHls } from "./diagnosis.ts";
+import { diagnose, samplesNoter, type DiagnosedHls } from "./diagnosis.ts";
 import { bufferedTextMost, PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
 import { settled } from "./test-timing.ts";
 
@@ -210,6 +210,36 @@ describe("reporting play state", () => {
     expect(stall?.steps).toBe("level 2"); // where the player stood, the server's length at most
     expect(stall?.videoBuffered?.length).toBeLessThanOrEqual(bufferedTextMost);
     expect(stall?.videoBuffered?.endsWith("590.00-595.00")).toBe(true);
+  });
+
+  it("sends the steadiness level with every report once the player has one, 0 too (D352 Q2)", async () => {
+    const { reporter, sent, setNow } = fakeReporter();
+    const player: { steadiness: number | undefined } = { steadiness: undefined };
+    reporter.reportSteadinessWith(() => player.steadiness);
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    expect(sent[0]).not.toHaveProperty("steadiness"); // no chunked player
+    player.steadiness = 2;
+    reporter.flush(10_000);
+    await settled();
+    player.steadiness = 0;
+    reporter.flush(20_000);
+    await settled();
+    expect(sent.slice(1).map((report) => report.steadiness)).toEqual([2, 0]);
+  });
+
+  it("tells a stall the link's last samples apart from its steps (D352 §5)", async () => {
+    const { reporter, sent } = fakeReporter();
+    const hls = { on: () => undefined } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { readyState: 1, paused: false, error: null });
+    diagnose(hls, video);
+    samplesNoter(video)("samples 4 812345B 1203ms fb340ms");
+    reporter.recordStall(61_500, video);
+    await settled();
+    const [stall] = sent[0]?.stalls ?? [];
+    expect(stall?.linkSamples).toBe("samples 4 812345B 1203ms fb340ms");
+    expect(stall).not.toHaveProperty("steps"); // the samples are no step
   });
 
   it("tells each quality its device cannot play at once, once, and again after a report that failed (D266)", async () => {

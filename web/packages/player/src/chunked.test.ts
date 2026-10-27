@@ -16,6 +16,7 @@ import {
   chunkLoadPolicy,
   ceilingHeader,
   chunkedHlsConfig,
+  choosingOptionsOf,
   paceHeader,
   playerFoundUnplayableEvent,
   sendUnplayable,
@@ -25,6 +26,7 @@ import {
   unplayableOf,
 } from "./chunked.ts";
 import { markSeeks, soughtHeader } from "./hls.ts";
+import { steadinessOf } from "./steadiness.ts";
 import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
 /** Three qualities, as hls.js reads them from the playlist. */
@@ -269,5 +271,20 @@ describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
     stop();
     expect(listeners.size).toBe(0);
     vi.useRealTimers();
+  });
+});
+
+describe("the steadiness a chunked playback starts at (D352 Q2)", () => {
+  it("is the one its offer says, and the controller's level is kept for the video's reports", () => {
+    const video = new EventTarget() as HTMLVideoElement;
+    const options = choosingOptionsOf(video, {
+      startAtBps: 1_992_000,
+      monotonicMs: () => 0,
+      startSteadiness: 2,
+    });
+    expect(options.startSteadiness).toBe(2);
+    expect(steadinessOf(video)).toBeUndefined();
+    options.noteSteadiness?.(1);
+    expect(steadinessOf(video)).toBe(1);
   });
 });

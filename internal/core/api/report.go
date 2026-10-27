@@ -31,6 +31,10 @@ type ReportInput struct {
 		// does not keep; LinkKbps is its link's speed as it measured it, 0 when it has not.
 		Stalls   []StallBody `json:"stalls,omitempty" required:"false"`
 		LinkKbps int64       `json:"linkKbps,omitempty" minimum:"0" required:"false"`
+		// Steadiness is the steadiness level a chunked player stands at (D352 §3), which the core
+		// keeps beside the speed for its next playback on this network (D352 Q2); absent from a
+		// player with none.
+		Steadiness *int `json:"steadiness,omitempty" maximum:"3" minimum:"0" required:"false"`
 		// Startup is how long the playback took to start, sent once, with the report after its
 		// first frame: what makes a slow start show in the log.
 		Startup *StartupBody `json:"startup,omitempty" required:"false"`
@@ -66,6 +70,8 @@ type SeekBody struct {
 	// each with why: a player that dropped to 360p after a jump on a 77 Mb/s link said nothing of
 	// why (the owner's Firefox on nas.example, 2026-10-20).
 	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
+	// LinkSamples are the link's last samples when the seek was ready (LinkSamplesBody).
+	LinkSamples string `json:"linkSamples,omitempty" maxLength:"300" required:"false"`
 }
 
 // StandstillBody is what a video showed when, asked to play and not waiting, it had kept its
@@ -159,6 +165,10 @@ type StallBody struct {
 	// own picture given up at 0:00, stood with nothing loaded and asked for nothing more, and no
 	// report said where its player had stopped (the owner's test, 2026-10-18).
 	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
+	// LinkSamples are the chunked player's last samples of its link, each its quality, bytes, time
+	// to arrive and wait for its first byte (D352 §5), in a field of their own so the steps' 400
+	// characters are not shared with them and the log can be searched for them.
+	LinkSamples string `json:"linkSamples,omitempty" maxLength:"300" required:"false"`
 }
 
 // EventBody is one change of play state.
@@ -219,16 +229,19 @@ type LadderBody struct {
 	// LinkSharePercent is the share of a measured link a quality may take, by which the server chose
 	// this one and the player chooses its own: link_share_for_quality_percent (D247 §6).
 	LinkSharePercent int64 `json:"linkSharePercent"`
+	// Steadiness is the steadiness level the player starts at (D352 §3): the one its last playback on
+	// this network ended at, relaxed by the time since; 0 for none remembered (D352 Q2).
+	Steadiness int `json:"steadiness" maximum:"3" minimum:"0"`
 }
 
-// lowerQualityBody is a lower quality offered to the playback a media token names, by its chunks'
-// master playlist, and whether it is ready.
-func ladderBody(token string, offer chunks.Offer, isReady bool) *LadderBody {
+// ladderBody is a place on a film's ladder offered to the playback a media token names, by its
+// chunks' master playlist, whether it is ready, and the steadiness level its player starts at.
+func ladderBody(token string, offer chunks.Offer, isReady bool, steadiness int) *LadderBody {
 	return &LadderBody{
 		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 		QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
 		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
-		LinkSharePercent: offer.LinkSharePercent,
+		LinkSharePercent: offer.LinkSharePercent, Steadiness: steadiness,
 	}
 }
 
@@ -245,7 +258,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	report := playback.Report{
 		ReportSeq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
 		PositionReadMonoMs: input.Body.PositionReadMonoMs, LinkKbps: input.Body.LinkKbps,
-		ClientAddress: input.clientAddress,
+		Steadiness: input.Body.Steadiness, ClientAddress: input.clientAddress,
 	}
 	for _, stall := range input.Body.Stalls {
 		report.Stalls = append(report.Stalls, playback.Stall{PositionMs: stall.PositionMs})
@@ -282,7 +295,8 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
 	}
 	if offer := answer.LowerQuality; offer != nil {
-		output.Body.LowerQuality = ladderBody(input.Token, *offer, answer.IsLowerQualityReady)
+		output.Body.LowerQuality = ladderBody(
+			input.Token, *offer, answer.IsLowerQualityReady, answer.LowerQualitySteadiness)
 	}
 	return output, nil
 }
@@ -382,6 +396,9 @@ func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []S
 		if seek.Steps != "" {
 			attributes = append(attributes, "steps", seek.Steps)
 		}
+		if seek.LinkSamples != "" {
+			attributes = append(attributes, "linkSamples", seek.LinkSamples)
+		}
 		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
 	}
 }
@@ -419,8 +436,9 @@ func stallDiagnosis(stalls []StallBody) []any {
 	audioBuffered := make([]string, 0, len(stalls))
 	lastErrors := make([]string, 0, len(stalls))
 	steps := make([]string, 0, len(stalls))
+	samples := make([]string, 0, len(stalls))
 	for _, stall := range stalls {
-		steps = append(steps, stall.Steps)
+		steps, samples = append(steps, stall.Steps), append(samples, stall.LinkSamples)
 		readyStates, paused = append(readyStates, stall.ReadyState), append(paused, stall.IsPaused)
 		videoBuffered = append(videoBuffered, stall.VideoBuffered)
 		audioBuffered = append(audioBuffered, stall.AudioBuffered)
@@ -429,7 +447,7 @@ func stallDiagnosis(stalls []StallBody) []any {
 	return []any{
 		"stallReadyStates", readyStates, "stallsPaused", paused,
 		"stallVideoBuffered", videoBuffered, "stallAudioBuffered", audioBuffered, "stallLastErrors", lastErrors,
-		"stallSteps", steps,
+		"stallSteps", steps, "stallLinkSamples", samples,
 	}
 }
 

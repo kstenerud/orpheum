@@ -162,6 +162,7 @@ describe("the dialogue boost over the original (D336 §3)", () => {
         isReady: false,
         filmPictureKbps: 4000,
         linkSharePercent: 70,
+        steadiness: 0,
       },
       tracks: {
         ...plain.tracks,
@@ -259,6 +260,7 @@ describe("the dialogue boost on a film's ladder", () => {
         isReady: false,
         filmPictureKbps: 4000,
         linkSharePercent: 70,
+        steadiness: 0,
       },
       preferences: { ...plain.preferences, isDialogueBoostOn },
       tracks: {

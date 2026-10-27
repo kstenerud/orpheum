@@ -270,7 +270,8 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
 		"notDirectReasons", reasons,
 		"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
-		"startsOnLadderKbps", startsOnLadderKbps(started), "notOnLadderBecause", started.NotOnLadderBecause)...)
+		"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
+		"notOnLadderBecause", started.NotOnLadderBecause)...)
 }
 
 // startsOnLadderKbps is the rate of the picture on its film's ladder a playback starts at, 0 when it
@@ -299,7 +300,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
 	if started.OnLadder != nil {
 		// Its player waits for the chunks it asks for itself: a start does not say whether they are made.
-		output.Body.OnLadder = ladderBody(started.Token, *started.OnLadder, false)
+		output.Body.OnLadder = ladderBody(started.Token, *started.OnLadder, false, started.Steadiness)
 		// A film converted plays from its ladder, the one way to convert it (D344 §1).
 		if started.Decision.Delivery == decide.HLS {
 			output.Body.URL = output.Body.OnLadder.URL

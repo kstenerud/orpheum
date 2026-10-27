@@ -138,7 +138,7 @@ export function estimateText(estimate: LinkEstimate): string {
 /**
  * The samples in a line, oldest first, each its quality, bytes, time to arrive and wait for its
  * first byte: "samples 4 812345B 1203ms fb340ms, 4 ..."; "" for none. Kept short, as it rides in a
- * report's steps, which the server takes up to 400 characters of.
+ * stall's and a seek's linkSamples, which the server takes up to 300 characters of.
  */
 export function samplesText(samples: readonly LinkSample[]): string {
   if (samples.length === 0) {

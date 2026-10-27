@@ -185,6 +185,9 @@ type Started struct {
 	// "noQualityOffered" or "noLadder"; empty when it does. A film played as its decision says, with
 	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
 	NotOnLadderBecause string
+	// Steadiness is the steadiness level its player starts on the ladder at: the one its last
+	// playback on the request's network ended at, relaxed by the time since (D352 Q2); 0 for none.
+	Steadiness int
 	// Tracks are what the playback may play and what the file holds, which its player names.
 	Tracks Tracks
 }
@@ -248,6 +251,9 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	service.keepStart(&playback, started.OnLadder)
+	started.Steadiness = service.speeds.steadiness(
+		speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)},
+		service.clock.Now(), service.timingNow().speedFreshFor)
 	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)

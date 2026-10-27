@@ -27,6 +27,7 @@ const onLadder = {
   isReady: true,
   filmPictureKbps: 4000,
   linkSharePercent: 70,
+  steadiness: 0,
 };
 
 describe("the original file, chosen over the ladder (web-client.md: playback is never a black box)", () => {

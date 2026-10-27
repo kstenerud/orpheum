@@ -14,6 +14,7 @@ import {
   type PlaybackFailure,
 } from "./failure.ts";
 import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
+import type { ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import {
   failOnFatal,
@@ -29,6 +30,7 @@ import {
   type HlsPlayback,
 } from "./hls.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
+import { steadinessNoter } from "./steadiness.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 
 /**
@@ -367,21 +369,24 @@ export function shareForQualityOf(linkSharePercent: number | undefined): number 
 }
 
 /**
- * The bitrate controller of video's chunked playback (D265): starting within startAtBps, giving way
- * to live voice and to its group, telling the page of a quality unplayable here (D266), and keeping
- * each of its choices, with why, among the video's steps.
+ * What the bitrate controller of video's chunked playback chooses by (D265): starting within
+ * startAtBps at the steadiness level its offer says (D352 Q2), giving way to live voice and to its
+ * group, telling the page of a quality unplayable here (D266), and keeping each of its choices, with
+ * why, among the video's steps, and its steadiness level for its play reports.
  */
-function abrOf(
+export function choosingOptionsOf(
   video: HTMLVideoElement,
   options: {
     readonly startAtBps: number;
     readonly monotonicMs: () => number;
     readonly linkSharePercent?: number | undefined;
+    readonly startSteadiness?: number | undefined;
   },
-): OrpheumAbr {
-  return orpheumAbr({
+): ChoosingOptions {
+  return {
     startAtBps: options.startAtBps,
     shareForQuality: shareForQualityOf(options.linkSharePercent),
+    startSteadiness: options.startSteadiness,
     monotonicMs: options.monotonicMs,
     isVoiceLive,
     isInAGroup: isFollowingAGroup,
@@ -389,7 +394,8 @@ function abrOf(
     onUnplayable: sendUnplayable(video),
     noteStep: stepNoter(video),
     noteSamples: samplesNoter(video),
-  });
+    noteSteadiness: steadinessNoter(video),
+  };
 }
 
 /**
@@ -408,6 +414,11 @@ export function playChunked(
      * (link_share_for_quality_percent); the starting 70% when absent or 0.
      */
     readonly linkSharePercent?: number | undefined;
+    /**
+     * The steadiness level it starts at, as the playback's offer says: the one its device last
+     * ended at on its network (D352 Q2); 0 when absent.
+     */
+    readonly startSteadiness?: number | undefined;
     /** Where in the film it starts: where the player was when it stalled. */
     readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;
@@ -425,7 +436,7 @@ export function playChunked(
   if (withoutHlsJs !== undefined) {
     return withoutHlsJs;
   }
-  const abr = abrOf(video, options);
+  const abr = orpheumAbr(choosingOptionsOf(video, options));
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const hls = new Hls({

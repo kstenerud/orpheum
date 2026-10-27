@@ -44,6 +44,9 @@ type Report struct {
 	Stalls []Stall
 	// LinkKbps is the link's speed as the player measured it, zero when it has not (D247 §1).
 	LinkKbps int64
+	// Steadiness is the steadiness level a chunked player stands at (D352 §3), kept beside the speed
+	// for its next playback on the network (D352 Q2); nil from a player that has none.
+	Steadiness *int
 	// ClientAddress is the address the report came from, whose network the speed is kept by (D257).
 	ClientAddress string
 	// IsOwnPictureUnplayable is whether the player gave up the film's own picture as one its device
@@ -63,6 +66,9 @@ type Answer struct {
 	// LowerQuality is the lower quality the playback's first stall started, in every answer from
 	// then on (D253 §1); nil before it stalled, or for a film that offers none.
 	LowerQuality *chunks.Offer
+	// LowerQualitySteadiness is the steadiness level the player starts LowerQuality at: the one it
+	// last reported on its network (D352 Q2).
+	LowerQualitySteadiness int
 	// IsLowerQualityReady is whether LowerQuality is made from where the player is, ready to move
 	// to: the player then decides whether it still needs it (D253 §2).
 	IsLowerQualityReady bool
@@ -167,17 +173,23 @@ func (service *Service) Report(
 	if !isNew {
 		return answer, nil
 	}
-	// The speed it measured on real video is the one its next playback on this network starts by
-	// (D257 §1).
-	service.speeds.remember(speedKey{
+	// The speed it measured on real video, and the steadiness level it stands at, are the ones its
+	// next playback on this network starts by (D257 §1, D352 Q2).
+	link := speedKey{
 		player: playerOf(playback.deviceID, playback.sessionKey), network: clientnet.Of(report.ClientAddress),
-	}, report.LinkKbps, now, service.timingNow().speedFreshFor)
+	}
+	freshFor := service.timingNow().speedFreshFor
+	service.speeds.remember(link, report.LinkKbps, now, freshFor)
+	if report.Steadiness != nil {
+		service.speeds.rememberSteadiness(link, *report.Steadiness, now, freshFor)
+	}
 	service.keepLink(token, report.LinkKbps, now)
 	offer, isOffered, err := service.offerFor(ctx, token, playback, report)
 	if err != nil || !isOffered {
 		return answer, err
 	}
 	answer.LowerQuality = &offer
+	answer.LowerQualitySteadiness = service.speeds.steadiness(link, now, freshFor)
 	answer.IsLowerQualityReady, err = service.chunks.IsReadyAt(
 		ctx, chunksPlaybackOf(playback), offer, report.PositionMs)
 	if err != nil {

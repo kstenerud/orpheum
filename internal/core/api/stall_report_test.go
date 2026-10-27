@@ -188,6 +188,33 @@ func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
 	}
 }
 
+// The link's last samples a stall and a seek carry are logged in fields of their own, apart from
+// the player's steps, so they never share the steps' 400 characters and the log can be searched for
+// them (D352 §5).
+func TestReport_TheLinksSamplesAreLoggedApartFromTheSteps(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	const samples = "samples 4 812345B 1203ms fb340ms, 4 790000B 1100ms fb320ms"
+	body := reportBody(1, 4_000, 0)
+	body["stalls"] = []any{map[string]any{"positionMs": 4_000, "steps": "frag 2/31 aborted", "linkSamples": samples}}
+	body["seeks"] = []map[string]any{{
+		"fromPositionMs": 2_759_000, "toPositionMs": 1_461_000, "readyAfterMs": 6900,
+		"steps": "ceiling 4 to 0", "linkSamples": samples,
+	}}
+	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{`"stallLinkSamples":["` + samples + `"]`, `"linkSamples":"` + samples + `"`} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}
+
 // A report carrying where the player, asked to play, kept its position is logged with what its video
 // showed: a phone's Brave stood at 0:00 "playing", and the log said only that it started (the owner's
 // friend, 2026-10-12).

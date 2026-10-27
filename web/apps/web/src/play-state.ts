@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
-  diagnosisOf,
   eventContextOf,
   PlayReporter,
   playerFoundUnplayableEvent,
@@ -9,6 +8,7 @@ import {
   reportEveryMs,
   seekTo,
   skippedByOf,
+  steadinessOf,
   unplayableOf,
   watchMediaSession,
   watchStalls,
@@ -30,6 +30,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { soundOf } from "./startup-sound.ts";
+import { stepsOf } from "./steps-of.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
 import { useServices, type PathMoves } from "./services.tsx";
@@ -483,19 +484,6 @@ export function whenOwnPictureGivenUp(
 }
 
 /**
- * The player's last steps, its quality's choices among them with why, for a seek's report, as read
- * reads them, the player's diagnosis; none when it kept none. A player that dropped from the twin to
- * 360p after a jump on a 77 Mb/s link said nothing of why (the owner's Firefox on nas.example, 2026-10-20).
- */
-export function stepsOf(
-  video: HTMLVideoElement,
-  read: (video: HTMLVideoElement) => { readonly steps?: string } | undefined = diagnosisOf,
-): { readonly steps?: string } {
-  const steps = read(video)?.steps ?? "";
-  return steps === "" ? {} : { steps };
-}
-
-/**
  * Reports each quality the video's player gives up as one its device cannot play, at once (D266).
  * Returns the stopping.
  */
@@ -601,6 +589,7 @@ function startReporting(
   }, reportSeqCounter(mediaToken));
   const loss = watchForLoss(video, listener, () => videoEvents.lastPositionMs());
   reporter.measureLinkWith(playback.readLinkKbps);
+  reporter.reportSteadinessWith(() => steadinessOf(video));
   const page = watchPage(video, reporter, playback.pathMoves);
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
   const stopWatching = watchForReport(video, reporter, movingDown);
@@ -788,6 +777,7 @@ export function useStallReports(
       movingDown.answered(answer.lowerQuality);
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
+    reporter.reportSteadinessWith(() => steadinessOf(video));
     const stopWatching = watchForReport(video, reporter, movingDown);
     return () => {
       movingDown.stop();

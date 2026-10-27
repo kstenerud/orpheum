@@ -20,6 +20,7 @@ const offer: LadderOffer = {
   isReady: false,
   filmPictureKbps: 9_900,
   linkSharePercent: 70,
+  steadiness: 0,
 };
 const ready: LadderOffer = { ...offer, isReady: true };
 
@@ -115,6 +116,16 @@ describe("where a chunked player starts on an offer", () => {
       startAtBps: 1_896_000,
       linkSharePercent: 80,
       startPositionS: 95,
+      startSteadiness: 0,
+    });
+  });
+
+  it("starts at the steadiness level the offer says its device last ended at (D352 Q2)", () => {
+    expect(startOn({ ...offer, steadiness: 2 }, 0)).toEqual({
+      startAtBps: 1_896_000,
+      linkSharePercent: 70,
+      startPositionS: 0,
+      startSteadiness: 2,
     });
   });
 });

@@ -9,7 +9,11 @@
 // # Invariants
 //
 //   - A link speed a player measured is kept by player, a device or a deviceless session, and by
-//     network, an IPv6 /64 or an IPv4 address, for a day (D257). A film cut into chunks starts on
+//     network, an IPv6 /64 or an IPv4 address, for a day (D257), in memory, and beside it the
+//     steadiness level its chunked player last reported, which every ladder offer hands back
+//     relaxed by one for each hour since (D352 Q2), by TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime
+//     and TestPlayback_ADeviceStartsAtTheSteadinessItsLastPlaybackOnTheNetworkReported
+//     (internal/core/api). A film cut into chunks starts on
 //     its ladder, at the top, or where its player's speed on its network calls for, and no prepared
 //     copy is made for it; its stalls start nothing (D260). A film not cut yet within
 //     play_ladder_wait_ms is cut on time where its device cannot play it as it is, keeping that grid,
