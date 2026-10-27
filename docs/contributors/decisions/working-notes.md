@@ -23388,3 +23388,63 @@ Play page's `playUp`, built the same day) and other pages had Back alone.
    target as its Up.
 
 **Status:** Decided 2026-10-27.
+
+## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
+
+**Decided** (2026-10-27), by the project owner. A film played at home in Chrome on the Mac from nas.example,
+at the top of its ladder (its own picture, copied), showed its sound as "AAC stereo, 96 kb/s
+(transcoded from AAC stereo)": every quality of a film cut into chunks shares one sound track made at
+`chunk_sound_kbps`
+([D247 §6](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)'s
+amendment, set for an airplane's 0.6 Mb/s link), so even a film's own picture plays with a re-encoded
+sound, and a 5.1 film is folded down to stereo. That breaks
+[D336 §1](#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound)'s
+"the sound plays as it is by default" on the ladder. The owner agreed the lead's proposal ("yes").
+**Revises** D247 §6's amendment (one sound track for every quality).
+
+1. **The top quality, the film's own picture, plays the film's own sound, copied**, every channel,
+   wherever the device can play it as it is (D336 §1: its playable formats); a device that cannot
+   gets the sound D336 §2 makes for it. The copy is cut at the chunks' boundaries as the picture is.
+2. **The lower qualities keep the light stereo track** at `chunk_sound_kbps`, as now: they are for a
+   link that cannot carry more.
+3. **Each quality names its sound in the master playlist** (an HLS audio group per quality), so the
+   player switches sound with picture when it changes quality. Whether that switch is heard (a
+   blip) is checked on the owner's devices.
+4. **A feature that needs sound made** (the dialogue boost, night mode; D336 §2–§3) plays its made mix at
+   every quality, as now.
+5. **The play's log line says what was sent:** a chunked play no longer says `delivery=direct`; it
+   names the ladder, the quality it started on and the sound it started with.
+
+**Status:** Decided 2026-10-27.
+
+## D369 — Every device plays with the app's own player controls, built from one standard set of player widgets
+
+**Decided** (2026-10-27), by the project owner. On a computer the Play page used the browser's own video
+controls: Space pressed whatever control a click had focused, and the arrows could not reach them (the
+owner: "When I use arrow keys to navigate, it only outlines the whole video playback … I have no way to
+get at the other overlay controls from the keyboard"); offered the app's own controls on computers too,
+or the browser's kept, the owner chose the app's own ("go with option 1"). The UI widget audit
+([ui-widgets-audit-2026-10-27.md](../design/research/ui-widgets-audit-2026-10-27.md)) found the player's
+controls drawn separately by the TV overlay, the cast remote, Up next and Watch Together, with two
+timelines and three ways into full screen, and proposed one set, the player's first; the owner agreed
+its answers ([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+**Revises**
+[D338](#d338--a-cast-goes-to-the-devices-tab-in-front-its-receiver-keeps-a-televisions-controls-and-leaves-by-back-or-a-double-ok-and-stop-casting-returns-it-to-the-page-it-was-on)
+§5 in part: the television's controls become every device's.
+
+1. **One set of player widgets:** colour tokens for what is drawn over a video; an icon button, one
+   size (2.75rem, the status tray's too: the owner, "let's try sizing them the same as the others and
+   see how that feels"); a `Timeline` in milliseconds, touched anywhere on a phone, its arrows
+   commands on a TV; and one `PlayerControls` bar fed by the video it plays, or by a remote connection
+   (a cast's remote, Watch Together's page). Each icon is drawn by `Icon`, none as a text character.
+2. **Every device plays with that bar,** computers included, the browser's own video controls off: play
+   and pause, the timeline, full screen, sound, subtitles, volume, as the TV overlay has them, reachable
+   by the arrows and Tab, a mouse showing the bar and stillness hiding it. Space plays and pauses
+   wherever focus is in the player (as built 2026-10-27).
+3. **Play is a button like every other**, its colour the page's most important (the owner).
+4. **A test holds each widget as the icon test holds `Icon`:** no range input outside `Timeline`, no
+   player button drawn outside the set.
+5. **The rest of the audit's set** (choosers replacing native selects, problem and loading lines,
+   panels, every top-bar pop-up modal) follows in later batches as the owner orders them.
+
+**Status:** Decided 2026-10-27.

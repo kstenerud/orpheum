@@ -1,41 +1,22 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Done 2026-10-27:** the batch of D360–D362, D361's pages, the Play page's Back: accepted, on nas.example.
+2. **Done 2026-10-27:** the overlap batch (D363, D365, D366, icons, player fixes): check-pr passed, on nas.example.
    `ssh prod-nas` (192.168.1.250): runs an earlier commit (bundle, branch sandbox-main), root /tank/media.
-   **This batch (owner 2026-10-27: "go ahead with the next batch"), on staging as it lands:**
-   - Done: D363 overlap and copies (owner accepted its Test-Weakened; VQ80 passed, VQ81 mostly), D365
-     runtime matching (Crowd fixed), the rescan's hour-long wait, the player fixes (VQ78 passed; VQ79
-     owes the new device name), the MPEG-TS seek, readthrough's formats.
-   - Icon component done; D366 done (staging, step 0061; VQ83 passed). Brave on
-     the Mac: all fine (owner, 2026-10-27). Every agent of the batch is in: check-pr runs.
-   - check-pr passed (778 s); nas.example deployed 2026-10-27 19:36 (steps 0060, 0061 ran; 22 play positions
-     kept; VQ82 the owner's look at Continue Watching). Inventory done (design/plans/inventory-2026-10-27.md, 132
-     items): the owner orders it. It is the inventory of every
-     decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
-     D160) for the owner to choose from (owner: "once the overlap batch is done"), with EVERYTHING queued
-     beside it, the next batch's items included: the owner decides what happens when (owner 2026-10-27).
-     The next batch below is a proposal until then.
-   **Next batch (filed 2026-10-27):**
-   - D364, casting as a session (top-bar Cast, ask once, tray icon on the sender, the remote a page of its
-     own, one place for controls beside Watch Together); `CastIcon` in status-tray.tsx is the owner's icon.
-   - Our own player controls on computers too, replacing Chrome's, reachable by arrows (owner chose).
-   - From VQ81: a play whose file is gone at one place (renamed, deleted) answers 404 instead of trying
-     the person's next reached place; a vanished library folder is not marked unavailable when its scan's
-     listing is refused ("no such file"), still "complete".
-   - The ladder's top rung plays the film's own sound, copied (5.1 where the device plays it), lower rungs the
-     chunk_sound_kbps stereo (owner 2026-10-27: nas.example's Chrome play heard "AAC stereo 96 kb/s, transcoded
-     from AAC stereo" at the top rung); HLS audio groups per variant; test a switch's blip on devices. And
-     the play line's `delivery=direct` on a chunked play says what was sent (startsOnLadderKbps was set).
-   - A person's library choices move to a Configure dialog on each library's browse page (owner 2026-10-27):
-     "show in Films/Series" (films and series libraries) and "show on Home", the account page's two lists
-     gone (one way to do it); a ModalDialog, reachable by remote.
-   - D367, Up and Back everywhere (owner 2026-10-27: drill down to play, Up to go back up, Back like a
-     browser): every page with a parent offers Up (episode→season, film→its page, other video→its library
-     at its folder, season→series, title→its library, folder→folder above, library→Libraries).
-   **TS widget audit (owner 2026-10-27: "can it happen now?" yes):** the read-only audit runs now (agent;
-   report to design/research/ui-widgets-audit-2026-10-27.md), so D364 and our own controls build on the
-   standard set; the consolidation waits for the owner's choice.
+   Owed by the owner: VQ82 (Continue Watching on nas.example), VQ84 (Fire TV's new name), VQ81's disk case.
+   **This batch (owner 2026-10-27: "go with your proposed batch", from inventory-2026-10-27.md):**
+   - Phase 1, agents: (a) VQ81's two bugs (a gone file falls back to the person's next reached place; a
+     vanished library folder is marked unavailable); (b) D368, the top rung's own sound + the play line's
+     delivery field; (c) D369, the standard player widgets, then our own controls on every device.
+   - Phase 2, after (c): D364 casting as a session, revised first by the owner's answers (no top-bar items;
+     the two tray icons white, blue when on; the on/off table; Watch Together's page holds the controls;
+     leaving the film no longer stops it; no mini player); D367 revised (Up never adds history: back to the
+     nearest parent behind, else replace; one series page with a season picker preselecting the season
+     left; a trail on computers and phones, "‹ Parent" on TVs); the library Configure dialog.
+   - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
+     words, the warning sign's page, the uncertain match: queued, not this batch).
+   - End: one check-pr, the owner's go, nas.example.
+   **Queued for the owner to order later:** the rest of inventory-2026-10-27.md (132 items).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
