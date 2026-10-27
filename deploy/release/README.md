@@ -73,10 +73,9 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    fetch --tags` brings new ones). It builds the image `orpheum:v0.1.0` (the first build takes
    several minutes), writes `/srv/orpheum/values.toml`, and stops.
 3. Fill in `values.toml`: the values marked "fill in" are staging's (`.staging/values.toml` in the
-   sandbox), and `[media] roots`, one for each folder a library will be: a library takes whole
-   roots, so `["/tank/media/video"]` would make one library of everything under it. For example
-   `["/tank/media/video/movies", "/tank/media/video/shows"]`, and a root for each series folder that
-   sits beside `shows/` rather than in it. Leave out `[node] name` and the node is named after the
+   sandbox), and `[media] roots`: the folders the node may read, a library's folders chosen
+   beneath them by browsing on the Libraries page (D359). One root over all the media is enough:
+   nas.example's is `["/tank/media/video"]`, everything its container mounts. Leave out `[node] name` and the node is named after the
    container. `[lan] address` is this machine's address at home, which `build.sh` fills in; check it,
    and keep it fixed with a reservation in the router. It is required: its network is the only one an
    admin administers from. A core with a discovery has it named there, so
