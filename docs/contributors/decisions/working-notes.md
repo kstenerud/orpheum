@@ -23473,3 +23473,33 @@ icon buttons keep their own (both named in `player-widgets.test.ts` as waiting),
 - 3: web/apps/web/src/player-widgets.browser.test.tsx ("is a submit button's size and shape, in the accent")
 - 4: web/apps/web/src/player-widgets.test.ts
 - 5: not built here: the later batches, as the owner orders them
+
+## D370 — A video a person has watched shows a white check in its poster's tray, and a person can mark it watched or unwatched on its page
+
+**Decided** (2026-10-27), by the project owner: "do we have a way to show that a video has been watched?
+… I'm imagining a checkmark (in the icon tray)"; on the research
+([watched-marks-2026-10-27.md](../design/research/watched-marks-2026-10-27.md)), whose four questions he
+answered as recommended, and: "Don't bother with any fading or greying for watched items. Just the
+checkmark, like everyone else does. Maybe a white checkmark is less intrusive and would stop people
+complaining?" (Plex's green corner checks drew "a sea of green check marks".) Until now nothing stored
+or showed watched: "finished" was read from the person's current position, so a finished film restarted
+and stopped early counted as unfinished again, and a series' progress and Next Up stepped back.
+
+1. **Watched is kept per person, per title**: a video becomes watched when its person plays it to the
+   finished threshold (`finished_after_percent`, 90%) or to its end, on any copy of it (D363); and when
+   marked so by hand. Unattended plays and files of unknown length never make it watched. It stays
+   watched when played again: a rewatch shows the check and its progress bar.
+2. **The mark is a white check in the poster's tray of status cues** (D301 §4), the last of its icons,
+   drawn by `Icon` in white, read aloud "Watched". Nothing fades or greys the poster. It shows on films,
+   series, episodes' rows and other videos, never on extras.
+3. **A series or a season shows the check once every episode in it is watched**; until then its existing
+   progress bar says how far along it is. No unwatched counts.
+4. **Marking by hand is on the title's, season's and series' pages, not the poster** (the tray's icons are
+   never controls): "Mark as watched" and "Mark as unwatched", for one video, a season or a whole series,
+   with Undo rather than a question. Marked watched, a video leaves Continue Watching and plays next from
+   its start; marked unwatched, it is as never watched.
+5. **Continue Watching, Next Up and a series' progress read watched**, not the current position alone,
+   so restarting a finished film no longer unfinishes it.
+6. **No switch to hide the marks yet**; it waits until someone asks.
+
+**Status:** Decided 2026-10-27.

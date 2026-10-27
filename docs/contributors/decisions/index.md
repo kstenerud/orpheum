@@ -375,6 +375,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D367](working-notes.md#d367--up-goes-a-level-up-from-any-page-to-its-parent-back-goes-back-the-way-the-person-came) Up goes a level up from any page to its parent, Back goes back the way the person came
 - [D368](working-notes.md#d368--on-a-films-ladder-the-top-quality-plays-the-films-own-sound-copied-the-lower-qualities-keep-the-light-stereo-track) On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 - [D369](working-notes.md#d369--every-device-plays-with-the-apps-own-player-controls-built-from-one-standard-set-of-player-widgets) Every device plays with the app's own player controls, built from one standard set of player widgets
+- [D370](working-notes.md#d370--a-video-a-person-has-watched-shows-a-white-check-in-its-posters-tray-and-a-person-can-mark-it-watched-or-unwatched-on-its-page) A video a person has watched shows a white check in its poster's tray, and a person can mark it watched or unwatched on its page
 
 ## Archived
 

@@ -16,8 +16,9 @@
    - Folded in (owner 2026-10-27, serious): (d) the Fire TV still named "Chrome on Android" (VQ84 failed;
      its sign-in was through the discovery's page); no way to sign out on the Fire TV; a device removed
      elsewhere keeps showing its page until touched (should clear at once); and then lands on the core's
-     sign-in, not the discovery's. (e) Watched marks: research now (watched-marks-2026-10-27.md); built in
-     this batch unless it needs the owner, else next batch. The owner sleeps: the batch runs overnight.
+     sign-in, not the discovery's. (e) Watched marks: D370 (owner agreed the
+     defaults; a white check, no fading). (f) RealMedia cook sound never cut right (file 15102 on nas.example;
+     never record that library's names). D369 merged and on staging. The owner sleeps: runs overnight.
    - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
      words, the warning sign's page, the uncertain match: queued, not this batch).
    - End: one check-pr, the owner's go, nas.example.
