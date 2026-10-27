@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -25,8 +26,14 @@ HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", 
             "ORPHEUM_HOOKS_IGNORE_CHECK_PR": "1"}
 
 
+# Where a hook keeps its agents' records while these tests run: never the repository's own
+# (.claude/hooks/agents.py); the subagent tests' "a1" was written there (2026-10-27).
+AGENTS_STATE = tempfile.mkdtemp()
+
+
 def run_hook(name: str, event: dict, **env: str) -> dict:
-    named = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"], "CLAUDE_PROJECT_DIR": str(ROOT)}
+    named = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"], "CLAUDE_PROJECT_DIR": str(ROOT),
+             "ORPHEUM_AGENTS_STATE_DIR": AGENTS_STATE}
     done = subprocess.run(
         [sys.executable, str(HOOKS / name)],
         input=json.dumps(event), capture_output=True, text=True, check=True,

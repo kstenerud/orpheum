@@ -108,13 +108,16 @@ describe("a cast asked about before it plays (D358)", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     const heard: Heard[] = [];
     const { answers } = await asked(heard);
+    // The fake clock also moves with real time (shouldAdvanceTime): a millisecond short of the minute,
+    // a loaded machine's real milliseconds carried it over and the prompt had closed (2026-10-27).
+    const shortOfTheMinuteMs = 5000;
     await act(async () => {
-      vi.advanceTimersByTime(castAnswerWithinMs - 1);
+      vi.advanceTimersByTime(castAnswerWithinMs - shortOfTheMinuteMs);
       await Promise.resolve();
     });
     expect(answers).toEqual([]);
     await act(async () => {
-      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(shortOfTheMinuteMs);
       await Promise.resolve();
     });
     // The end is told and then answered through a few promises: one tick was enough alone and not
