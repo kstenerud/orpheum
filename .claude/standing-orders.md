@@ -1,9 +1,10 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now: this batch is on staging (quick deploy), waiting for the owner to say they are happy.**
+2. **Now: the owner is happy with this batch (2026-10-27): full check-pr, then deploy nas.example, then the next.**
    D360 RealMedia + constant lists, the container sweep, D361 library pages, one scan per root path, D362
-   frame stills, the Play page's Back (up to its film, series season or library when nothing is behind it),
+   frame stills, the Play page's Back (up to its film, series season or library when nothing is behind it;
+   owner saw it go to the film page on a redeploy),
    the browse bar fixes, three posters a row on phones. VQ76 and VQ77 passed (owner 2026-10-27).
    **Gate before the next batch (owner 2026-10-27):** when this batch is done AND the owner says they are
    happy with it, deploy nas.example (production-on-nas-lan runbook; `make deploy DIR=/srv/orpheum` from main,
@@ -32,10 +33,13 @@
    (one chunk for the whole film) fails to make its first copied chunk ("no init or no fragments"); affects
    .ts generally, not new. And readthrough's hasIndexReader doesn't know qt, f4v, 3g2 (reads them through
    early; order only).
-   **Next batch, also (owner, VQ77 2026-10-27):** on Chrome's cast receiver (the Mac) neither a click on the
-   video nor Space pauses it; only the on-screen pause button does. Likely: Space is "select", which pauses
-   only with focus on the video (player-commands.ts), and the receiver's click shows controls. Check the
-   ordinary Play page too; if it has it, it is serious and joins the current batch.
+   **Next batch, also (owner 2026-10-27): Space pauses, wherever focus is in the player.** Chrome's cast
+   receiver: neither a click on the video nor Space pauses (only the pause button). Ordinary Chrome: a click
+   pauses, but after the full-screen button Space toggles full screen (focus stays on it). Likely fix: the
+   Play page takes Space as play/pause itself (as YouTube does); check the receiver's click too.
+   **Next batch, also (owner 2026-10-27, Fire TV):** the TV player's overlay (tv-controls.tsx) gets a button
+   that makes it full screen: out of full screen, nothing offers it. And Left/Right with the scrub bar
+   focused don't seek, though tv-controls.tsx says they do (a bug against its own design; find why).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
