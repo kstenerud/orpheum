@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A film's timeline (timeline.tsx): the slider across, the times at its end. */
+.timeline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* As tall as a touch target, the page not scrolling under a finger on it. */
+.timeline__range {
+  width: 100%;
+  min-height: var(--size-control);
+  margin: 0;
+  accent-color: var(--color-accent);
+  touch-action: none;
+}
+
+.timeline__times {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}

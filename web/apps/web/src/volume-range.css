@@ -2,7 +2,7 @@
 
 /* A slider a finger finds: as tall as a touch target, the page not scrolling under it. */
 .volume-range {
-  min-height: 44px;
+  min-height: var(--size-control);
   touch-action: none;
   vertical-align: middle;
 }

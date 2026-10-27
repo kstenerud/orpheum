@@ -14,6 +14,7 @@ import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
 import { PauseIcon, PlayIcon } from "./player-icons.tsx";
+import { Timeline } from "./timeline.tsx";
 
 /**
  * How long the overlay stays after the last press while the film plays, in milliseconds: a TV
@@ -96,6 +97,7 @@ function seekOfArrow(command: Command): number | undefined {
  * player's controls do, so a cast's receiver on a computer keeps its controls (D338 §5).
  */
 export function TvControls(props: FilmParts): JSX.Element {
+  const { t } = useTranslation();
   const { videoRef } = props;
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
@@ -141,19 +143,26 @@ export function TvControls(props: FilmParts): JSX.Element {
         <EndsAt leftMs={stand.durationMs === 0 ? undefined : stand.durationMs - stand.atMs} />
         <FullScreenButton />
       </div>
-      <ScrubBar
-        scrubRef={scrubRef}
+      <Timeline
+        inputRef={scrubRef}
+        label={t("tvControls.where")}
         atMs={stand.atMs}
         durationMs={stand.durationMs}
-        onSeekTo={(ms) => {
-          const video = videoRef.current;
-          if (video !== null) {
-            seekTo(video, ms);
-          }
+        hasArrowsAsCommands
+        onSeek={(ms) => {
+          seekVideo(videoRef, ms);
         }}
       />
     </div>
   );
+}
+
+/** Moves the video in videoRef to atMs, where there is one. */
+function seekVideo(videoRef: RefObject<HTMLVideoElement | null>, atMs: number): void {
+  const video = videoRef.current;
+  if (video !== null) {
+    seekTo(video, atMs);
+  }
 }
 
 /** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
@@ -204,56 +213,6 @@ function PlayButton(props: {
       }}
     />
   );
-}
-
-/**
- * The scrub bar, a control a remote moves to, whose Left and Right are commands the overlay answers
- * by seeking (arrowsAreCommandsAttribute), its own steps prevented with the key, and the film's
- * times. A range keeps its arrows from the input layer by default, and its own keydown's
- * preventDefault had the layer leave them alone too, so they did nothing (the owner's Fire TV,
- * 2026-10-27).
- */
-function ScrubBar(props: {
-  readonly scrubRef: RefObject<HTMLInputElement | null>;
-  readonly atMs: number;
-  readonly durationMs: number;
-  readonly onSeekTo: (ms: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { scrubRef, atMs, durationMs, onSeekTo } = props;
-  return (
-    <div className="tv-controls__scrub-row">
-      <input
-        ref={scrubRef}
-        type="range"
-        className="tv-controls__scrub"
-        min={0}
-        max={Math.max(Math.round(durationMs / 1000), 1)}
-        step={seekStepMs / 1000}
-        value={Math.round(atMs / 1000)}
-        aria-label={t("tvControls.where")}
-        aria-valuetext={clockText(atMs)}
-        data-focus-arrows-are-commands=""
-        onChange={(event) => {
-          onSeekTo(Number(event.currentTarget.value) * 1000);
-        }}
-      />
-      <span className="tv-controls__time">
-        {clockText(atMs)} / {clockText(durationMs)}
-      </span>
-    </div>
-  );
-}
-
-/** A length of film as a player shows it: m:ss under an hour, h:mm:ss from one. */
-export function clockText(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const rest = String(seconds % 60).padStart(2, "0");
-  return hours === 0
-    ? `${String(minutes)}:${rest}`
-    : `${String(hours)}:${String(minutes).padStart(2, "0")}:${rest}`;
 }
 
 /** When the film ends if it plays on from now, as the viewer's clock says it. */

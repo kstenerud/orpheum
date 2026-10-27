@@ -20,7 +20,7 @@ import { placeCode } from "./episode-place.ts";
 import { seekStepMs } from "./player-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { clockText } from "./tv-controls.tsx";
+import { clockText, Timeline } from "./timeline.tsx";
 import { useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { monotonicMs, useTogether } from "./use-together.ts";
@@ -269,64 +269,13 @@ function RemoteControls(props: {
         </button>
       </div>
       <Timeline
-        positionMs={positionMs ?? 0}
+        label={t("cast.timeline")}
+        atMs={positionMs ?? 0}
         durationMs={durationMs}
-        isReady={isReady}
+        isDisabled={!isReady}
+        settleMs={scrubPauseWindowMs}
         onSeek={seekTo}
       />
-    </>
-  );
-}
-
-/**
- * The cast's timeline: where the film stands, and a drag along it, sent once the drag has rested
- * for a moment, as a leading player's drag is one seek (scrubPauseWindowMs).
- */
-function Timeline(props: {
-  readonly positionMs: number;
-  readonly durationMs: number;
-  readonly isReady: boolean;
-  readonly onSeek: (atMs: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const [draftMs, setDraftMs] = useState<number | undefined>(undefined);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(
-    () => () => {
-      clearTimeout(timerRef.current);
-    },
-    [],
-  );
-  const { onSeek } = props;
-  const shownMs = draftMs ?? props.positionMs;
-  return (
-    <>
-      {props.durationMs > 0 ? (
-        <input
-          type="range"
-          className="cast-remote__timeline"
-          aria-label={t("cast.timeline")}
-          min={0}
-          max={props.durationMs}
-          step={1000}
-          value={Math.min(shownMs, props.durationMs)}
-          disabled={!props.isReady}
-          onChange={(event) => {
-            const atMs = Number(event.currentTarget.value);
-            setDraftMs(atMs);
-            clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => {
-              setDraftMs(undefined);
-              onSeek(atMs);
-            }, scrubPauseWindowMs);
-          }}
-        />
-      ) : null}
-      <span className="cast-remote__time">
-        {props.durationMs > 0
-          ? `${clockText(shownMs)} / ${clockText(props.durationMs)}`
-          : clockText(shownMs)}
-      </span>
     </>
   );
 }

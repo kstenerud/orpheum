@@ -35,24 +35,6 @@
   font-size: var(--font-size-small);
 }
 
-.tv-controls__scrub-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.tv-controls__scrub {
-  width: 100%;
-  margin-block: var(--space-2);
-  accent-color: var(--color-accent);
-}
-
-.tv-controls__time {
-  font-size: var(--font-size-small);
-  font-variant-numeric: tabular-nums;
-}
-
 /* The stage full screen, as a television's player opens, or filling the window where the browser
    refused full screen (film-fullscreen.ts): the film fills it, black around it. */
 .film-player__stage--fills-window {
