@@ -25,8 +25,9 @@
      chunk_sound_kbps stereo (owner 2026-10-27: nas.example's Chrome play heard "AAC stereo 96 kb/s, transcoded
      from AAC stereo" at the top rung); HLS audio groups per variant; test a switch's blip on devices. And
      the play line's `delivery=direct` on a chunked play says what was sent (startsOnLadderKbps was set).
-   **After the icons, D364 and our own controls (owner 2026-10-27):** a DRY audit of the TS code toward a
-   standard set of UI widgets, findings first, then the consolidation.
+   **TS widget audit (owner 2026-10-27: "can it happen now?" yes):** the read-only audit runs now (agent;
+   report to design/research/ui-widgets-audit-2026-10-27.md), so D364 and our own controls build on the
+   standard set; the consolidation waits for the owner's choice.
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
