@@ -1,11 +1,11 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now: this batch is built (main an earlier commit + the lead's UI fixes, committing).** D360 RealMedia + constant
-   lists, the container sweep, D361 library pages, one scan per root path, D362 frame stills, the Play page's
-   Back, the browse bar fixes, three posters a row on phones. Then: full staging deploy (node protocol 50),
-   verify, and wait for the owner to say they are happy. Waiting on the owner: VQ76, VQ77; stray "lead
-   matcher check" devices.
+2. **Now: this batch is on staging (full deploy, node protocol 50), waiting for the owner to say
+   they are happy.** D360 RealMedia + constant lists, the container sweep, D361 library pages, one scan per
+   root path, D362 frame stills (seen working: ~0.2 s a still, no errors), the Play page's Back, the browse
+   bar fixes, three posters a row on phones. Waiting on the owner too: VQ76, VQ77; stray "lead matcher
+   check" devices.
    **Gate before the next batch (owner 2026-10-27):** when this batch is done AND the owner says they are
    happy with it, deploy nas.example (production-on-nas-lan runbook; `make deploy DIR=/srv/orpheum` from main,
    untagged) and run one full check-pr first. Do not start the next batch until nas.example is deployed. SSH works
@@ -29,6 +29,9 @@
    **After the overlap batch (owner 2026-10-27):** an inventory of every decided-but-unbuilt feature (decisions'
    status lines, `make handoff`, plans, code-debt, the owner's filed asks; collections' UI among them, D160)
    for the owner to choose from. Collections are "later" until then.
+   **Next batch, also (owner 2026-10-27):** a library's setting for whether its items show on the home page.
+   Settle with the owner: admin-wide per library, or per person (D349 §8 already lets a person leave a library
+   out of the aggregated Films/Series view).
    **Next batch (filed 2026-10-27):** a Fire TV is named "Chrome on Android" (Silk's agent says "Android …
    like Chrome"; staging device 33): name it "Silk on Fire TV" (AFT model codes, as tv-device.ts knows).
    **Next batch, also (found 2026-10-27, container sweep):** an H.264 MPEG-TS whose only keyframe is its first
