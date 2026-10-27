@@ -13,6 +13,7 @@ import "./base.css";
 import "./i18n.ts";
 
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
 import { PosterGrid, type Entry } from "./browse.tsx";
@@ -174,6 +175,41 @@ describe("the shell, laid out by a real browser", () => {
           const { fill, stroke } = getComputedStyle(shape);
           expect([fill, stroke], icon.getAttribute("class") ?? "").toContain(words);
         }
+      }
+    });
+  });
+
+  it("keeps every place of the open menu on the screen of a Fire TV's Silk, Sign out the last", async () => {
+    // Silk's page on a Fire TV is 960 by 480 below its address bar: an admin's full menu ran past its
+    // bottom, Sign out with it, out of the remote's sight (the owner's Fire TV, 2026-10-27).
+    await page.viewport(960, 480);
+    const shell = (
+      <AppShell
+        isAdmin={true}
+        canHostWatchTogether={true}
+        currentScreen="films"
+        onSignOut={() => undefined}
+        signedInAs={{ name: "owner", deviceName: "Silk on Fire TV" }}
+        showsDeveloperPages={true}
+        showsDeviceTests={true}
+        onSwitchHousehold={() => undefined}
+      >
+        <p>screen</p>
+      </AppShell>
+    );
+    await drawn(shell, ({ container }) => {
+      const menu = container.querySelector("details");
+      if (menu === null) {
+        throw new Error("the shell draws no menu");
+      }
+      menu.open = true;
+      const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
+      expect(places.at(-1)?.textContent).toBe("Sign out");
+      for (const place of places) {
+        place.focus();
+        const box = boxOf(place);
+        expect(box.top, place.textContent).toBeGreaterThanOrEqual(0);
+        expect(box.bottom, place.textContent).toBeLessThanOrEqual(window.innerHeight);
       }
     });
   });

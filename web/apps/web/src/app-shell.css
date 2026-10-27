@@ -192,13 +192,21 @@
   height: 1.5rem;
 }
 
-/* What a menu holds: a raised list under its name, at the window's end. */
+/*
+ * What a menu holds: a raised list under its name, at the window's end. No taller than the screen
+ * below the banner, scrolling within itself where its places need more: under the sticky banner a
+ * longer list ran past the screen's bottom, which no scroll of the page reaches, and on a Fire TV's
+ * 480 pixels an admin's Sign out was out of sight (the owner, 2026-10-27).
+ */
 .app-shell__menu > ul {
   position: absolute;
   inset-block-start: 100%;
   inset-inline-end: 0;
   z-index: 2;
   display: grid;
+  max-block-size: calc(100svh - var(--banner-height, 3.75rem) - var(--space-2));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   min-width: 13rem;
   padding: var(--space-2);
   border: 1px solid var(--color-border);
