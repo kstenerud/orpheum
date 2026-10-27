@@ -203,6 +203,22 @@ export function voiceCeiling(levels: readonly ChoiceLevel[], linkBps: number | u
     : highestWithin(levels, levels.length - 1, voiceLinkShare * linkBps);
 }
 
+/**
+ * How long, in ms, a loaded chunk took to arrive: from its answer's first byte, its head, to its
+ * last; at least 1. This, not the time from asking, is what its bytes measure the link over: the
+ * wait for the first byte is the request's, queued behind others on a WebRTC connection, opening a
+ * channel, the core finding or making the chunk, and none of it the link carrying bytes (D247 §9:
+ * the speed measured while chunks download). hls.js's own sample runs from the ask to the chunk
+ * parsed, less its estimate of that wait, which weights a long wait as an outlier and leaves most
+ * of it in. The Unknown' first chunk of its own picture, made and on disk, measured a path that
+ * had carried 12.5 Mb/s at 1008 kb/s, its page having opened two more WebRTC connections in the
+ * seconds before, as it does only while its requests crowd the ones it has; that one sample took
+ * the player to the lowest quality (the owner, on staging, 2026-10-26).
+ */
+export function arrivalMs(loading: { readonly first: number; readonly end: number }): number {
+  return Math.max(1, loading.end - loading.first);
+}
+
 /** How a chunk loaded, as a measurement of the link reads it. */
 export interface LoadedChunk {
   /** From asking to its last byte, and from its first byte to its last, in ms. */

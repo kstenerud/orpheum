@@ -264,7 +264,9 @@ describe("choosing a chunked playback's quality (D265)", () => {
     link.estimateBps = 5_000_000;
     load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 });
     choosing.nextLevel();
-    expect(steps).toEqual(["ceiling 3 to 2: link 5000 kb/s, 0.0 s ahead"]);
+    expect(steps).toEqual([
+      "ceiling 3 to 2: link 5000 kb/s, 0.0 s ahead; last measured by a chunk of 3: 6400000 B in 9950 ms, its first byte 50 ms after its ask",
+    ]);
     const chunk = chunkAt(2);
     choosing.loading(chunk);
     chunk.stats.loaded = 100_000;

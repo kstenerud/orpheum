@@ -15,6 +15,7 @@ import {
 import type Hls from "hls.js";
 
 import {
+  arrivalMs,
   giveUpFor,
   isLoadedWhereItStands,
   isUnplayable,
@@ -122,6 +123,20 @@ export class Choosing<Chunk extends FollowedChunk> {
   #forced: number | undefined;
   #lastChosen = -1;
   #hasMeasured = false;
+  /**
+   * The last chunk that measured the link: its quality, its bytes, how long after its ask its first
+   * byte came, and how long they took to arrive from there, each step down by the link noting it.
+   * A step down on one sample of 1008 kb/s said nothing of the chunk, so nothing told a wait for
+   * its first byte from a slow link (the owner, on staging, 2026-10-26).
+   */
+  #lastMeasured:
+    | {
+        readonly level: number;
+        readonly bytes: number;
+        readonly firstByteMs: number;
+        readonly arrivedMs: number;
+      }
+    | undefined;
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
   #still: StillAt | undefined;
   /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
@@ -177,7 +192,14 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#lower(steady, () => {
       const link =
         linkBps === undefined ? "unmeasured" : `${String(Math.round(linkBps / 1000))} kb/s`;
-      return `link ${link}, ${this.#bufferAheadS().toFixed(1)} s ahead`;
+      const last = this.#lastMeasured;
+      const measuredBy =
+        last === undefined
+          ? ""
+          : `; last measured by a chunk of ${String(last.level)}: ${String(last.bytes)} B` +
+            ` in ${String(Math.round(last.arrivedMs))} ms` +
+            `, its first byte ${String(Math.round(last.firstByteMs))} ms after its ask`;
+      return `link ${link}, ${this.#bufferAheadS().toFixed(1)} s ahead${measuredBy}`;
     });
     const level = this.#options.isVoiceLive()
       ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
@@ -295,12 +317,20 @@ export class Choosing<Chunk extends FollowedChunk> {
     const { loading, loaded } = chunk.stats;
     const isCounted = measuresTheLink({
       loadMs: loading.end - loading.start,
-      arrivingMs: loading.end - loading.first,
+      arrivingMs: arrivalMs(loading),
       bytes: loaded,
       paceBps: this.#paces.get(chunk),
       isFromCache: this.#options.fromCache(chunk.url),
     });
     this.#hasMeasured ||= isCounted;
+    if (isCounted) {
+      this.#lastMeasured = {
+        level: chunk.level,
+        bytes: loaded,
+        firstByteMs: Math.max(0, loading.first - loading.start),
+        arrivedMs: arrivalMs(loading),
+      };
+    }
     return isCounted;
   }
 
@@ -686,9 +716,15 @@ class OrpheumAbrController extends AbrController {
     }
   }
 
-  protected override onFragBuffered(event: Events.FRAG_BUFFERED, data: FragBufferedData): void {
-    if (isPicture(data.frag) && this.choosing.measures(data.frag)) {
-      super.onFragBuffered(event, data); // its sample of the link
+  /**
+   * A chunk of picture that measures the link is sampled over the time its bytes took to arrive
+   * (arrivalMs), not hls.js's from the ask to the chunk parsed, which counts the wait for the first
+   * byte as the link's.
+   */
+  protected override onFragBuffered(_event: Events.FRAG_BUFFERED, data: FragBufferedData): void {
+    const { frag } = data;
+    if (isPicture(frag) && !frag.stats.aborted && this.choosing.measures(frag)) {
+      this.bwEstimator.sample(arrivalMs(frag.stats.loading), frag.stats.loaded);
     }
   }
 
