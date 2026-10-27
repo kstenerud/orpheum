@@ -6,6 +6,8 @@
    recommended; agent running, touches orpheum-connect too, re-pin connect after main moves). Then ONE make
    check, commit, deploy staging (check for live playbacks first). Verified on staging 2026-10-27: hairpins
    named `hairpinned_ipv4`. yoloAI UDP bug report: /yoloai/files/yoloai-bug-udp-ports.md.
+   **Next batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
+   series libraries). Staging's "Crowd" (2022) is left wrongly matched on purpose: verify D357 on it.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
 
