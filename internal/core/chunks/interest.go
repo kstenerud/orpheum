@@ -50,9 +50,10 @@ type stoppedRun struct {
 	RunSpan
 	dir     string
 	storeID int64
-	// interests are what each player wanting its stream wanted as it stopped (describeInterests); nil
+	// interests are what each player wanting its stream wanted as it stopped (describeInterests), and
+	// filmInterests what every player of its film wanted of each stream (describeFilmInterests); nil
 	// for a run not stopped for want of one.
-	interests []string
+	interests, filmInterests []string
 	// jumps are how it was judged against each player that jumped away from it (D353).
 	jumps []jumpJudgement
 }
@@ -108,7 +109,7 @@ func (stopped stoppedRun) attributes(cancelled int) []any {
 		"madeThrough", stopped.MadeThrough, "cancelledJobs", cancelled,
 	}
 	if stopped.interests != nil {
-		attributes = append(attributes, "streamInterests", stopped.interests)
+		attributes = append(attributes, "streamInterests", stopped.interests, "filmInterests", stopped.filmInterests)
 	}
 	return attributes
 }
@@ -120,17 +121,31 @@ func (stopped stoppedRun) attributes(cancelled int) []any {
 func describeInterests(stream string, interests []Interest, keptAheadMs int64) []string {
 	described := []string{}
 	for _, interest := range interests {
-		if interest.StreamName != stream {
-			continue
+		if interest.StreamName == stream {
+			described = append(described, interest.describe(keptAheadMs))
 		}
-		if interest.IsStopped {
-			described = append(described, fmt.Sprintf("stopped at %d ms, keeping to %d ms",
-				interest.PositionMs, interest.PositionMs+keptAheadMs))
-			continue
-		}
-		described = append(described, fmt.Sprintf("playing from %d ms", interest.PositionMs))
 	}
 	return described
+}
+
+// describeFilmInterests says, for a log, what every player of a film wants of each of its streams,
+// each from its own position (D355): a stream's run judged from where its player is beside where the
+// player's other stream is, so a picture loaded ahead of its sound reads as such.
+func describeFilmInterests(interests []Interest, keptAheadMs int64) []string {
+	described := make([]string, 0, len(interests))
+	for _, interest := range interests {
+		described = append(described, interest.StreamName+": "+interest.describe(keptAheadMs))
+	}
+	return described
+}
+
+// describe says where the interest wants its stream from: where it plays from, or where it stopped
+// and the film it keeps ahead.
+func (interest Interest) describe(keptAheadMs int64) string {
+	if interest.IsStopped {
+		return fmt.Sprintf("stopped at %d ms, keeping to %d ms", interest.PositionMs, interest.PositionMs+keptAheadMs)
+	}
+	return fmt.Sprintf("playing from %d ms", interest.PositionMs)
 }
 
 // cutQueuedAhead forgets a run of the store still waiting in the queue that begins within
@@ -183,7 +198,7 @@ func (tracker *runTracker) cutUnwanted(
 			stopped = append(stopped, stoppedRun{
 				RunSpan: RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough},
 				dir:     dir, storeID: known.storeID, interests: describeInterests(stream, interests, keptAheadMs),
-				jumps: jumps,
+				filmInterests: describeFilmInterests(interests, keptAheadMs), jumps: jumps,
 			})
 			tracker.cancelLocked(known, first)
 		}

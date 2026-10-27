@@ -39,10 +39,6 @@ type storeRuns struct {
 	// grid is what its chunks are cut on, by which its players' interests are read (D309); nil until
 	// a player asks for it.
 	grid *Grid
-	// lastAsked is the chunk a player last asked for of it, hasAsked whether one has: its own stream's
-	// player waits there, and a run making near it is not one it jumped away from (D353).
-	lastAsked int
-	hasAsked  bool
 	// startupMs is its last run's time from being given to its node to its first chunk made, the cost
 	// of starting another, and hasStartup whether a run whose start the core saw has made one (D353).
 	startupMs  int64

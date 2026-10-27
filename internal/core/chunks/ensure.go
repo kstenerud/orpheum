@@ -127,9 +127,9 @@ func (service *Service) plannedNone(ctx context.Context, asked ensuring, dir str
 }
 
 // logUnwantedAsk says, at debug, a player's ask for a chunk not made nor on its way that planned no
-// run, as no player wants one from there, and what the players of its stream want: an init asked for
-// from where its playback last reported, behind where its player jumped, is answered "ask again"
-// until the jump's chunk starts the run (the owner's The Unknown, 2026-10-26).
+// run, as no player wants one from there, and what the players of its stream and of its film want:
+// an init asked for from where its playback last reported, behind where its player jumped, is
+// answered "ask again" until the jump's chunk starts the run (the owner's The Unknown, 2026-10-26).
 func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream Stream, wanted int) {
 	interests, _ := service.interestsOf(fileOfStore(dir))
 	keptAhead, err := service.settings.Duration(ctx, settings.ChunkKeptAheadSeconds)
@@ -137,7 +137,8 @@ func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream S
 		keptAhead = 0 // the log says the positions all the same
 	}
 	service.logger.DebugContext(ctx, "planned no run of chunks: no player wants one from there", "storeDir", dir,
-		"wantedChunk", wanted, "streamInterests", describeInterests(stream.Name(), interests, keptAhead.Milliseconds()))
+		"wantedChunk", wanted, "streamInterests", describeInterests(stream.Name(), interests, keptAhead.Milliseconds()),
+		"filmInterests", describeFilmInterests(interests, keptAhead.Milliseconds()))
 }
 
 // ask is a player's ask for chunk wanted of the store: an evicted store refuses it when it is neither

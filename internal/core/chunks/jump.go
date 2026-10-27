@@ -19,11 +19,11 @@ import (
 const unmeasuredJumpGapMs = 24_000
 
 // jumpFloorChunks is how many chunks past the one a run makes next a player may want without stopping
-// it, however fast the run starts again: a player's picture and sound, loaded apart, each move its one
-// position, and hls.js loads its sound at most one fragment past the picture it is loading
-// (audio-stream-controller.ts, "up to one fragment ahead of main"), so a run is never stopped by its
-// own player's next asks, the restart loop the minute before D353 kept off. Two chunks, one for that
-// fragment and one of slack; a constant, as it follows hls.js, not the server.
+// it, however fast the run starts again, so a run is never stopped by its own stream's next asks, the
+// restart loop the minute before D353 kept off: a chunk a player was served is known made at once,
+// and the run's progress, which says what it makes next, follows on the node's next word, so a
+// player's next ask may read a chunk past it (D355 §4). Two chunks, one for that and one of slack; a
+// constant, as it follows how the node's word arrives, not a judgement an admin could make.
 const jumpFloorChunks = 2
 
 // wantRules are what a run's wantedness is read by (isWantedLocked): how far a stopped player keeps
@@ -72,19 +72,15 @@ func (judged jumpJudgement) attributes() []any {
 // judgeJumpLocked is how the run is judged against unmade, the first chunk a player needs that is not
 // made, and whether the player jumped away from it (D353): unmade is past what the run makes next by
 // more than the threshold, the run's speed times its store's last start where both are measured,
-// unmeasuredJumpGapMs where not, and never under jumpFloorChunks; and its store's last chunk asked
-// for is not within jumpFloorChunks of what the run makes, the player of its own stream waiting there.
-// Locked by its caller.
+// unmeasuredJumpGapMs where not, and never under jumpFloorChunks. The player's position is its own
+// stream's (D355), so a picture loaded ahead of a late sound never moves the sound's player away
+// from the sound's run. Locked by its caller.
 func (known *storeRuns) judgeJumpLocked(grid Grid, each *run, unmade int, rules wantRules) (jumpJudgement, bool) {
 	making := max(each.first, each.madeThrough+1)
 	if making >= unmade || making > grid.lastChunk() {
 		return jumpJudgement{}, false
 	}
 	floorMs := grid.endMs(min(making+jumpFloorChunks-1, grid.lastChunk())) - grid.StartsMs[making]
-	if known.hasAsked && known.lastAsked <= grid.lastChunk() &&
-		grid.StartsMs[known.lastAsked]-grid.StartsMs[making] <= floorMs {
-		return jumpJudgement{}, false
-	}
 	judged := jumpJudgement{
 		making: making, needed: unmade, gapMs: grid.StartsMs[unmade] - grid.StartsMs[making],
 		startupMs: known.startupMs, thresholdMs: unmeasuredJumpGapMs,
@@ -97,13 +93,4 @@ func (known *storeRuns) judgeJumpLocked(grid Grid, each *run, unmade int, rules 
 	}
 	judged.thresholdMs = max(judged.thresholdMs, floorMs)
 	return judged, judged.gapMs > judged.thresholdMs
-}
-
-// asked records that a player asked for chunk n of the store, which its own stream waits for: a run
-// making within jumpFloorChunks of it is not one that player jumped away from (judgeJumpLocked).
-func (tracker *runTracker) asked(dir string, n int) {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	known := tracker.storeLocked(dir)
-	known.lastAsked, known.hasAsked = n, true
 }

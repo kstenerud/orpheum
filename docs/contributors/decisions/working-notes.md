@@ -20635,6 +20635,8 @@ between a core and its discovery stable but says nothing of the one between a cl
 
 ## D309 — A player says which quality it wants and from where, and a run no player wants stops
 
+> **§1 amended by [D355](#d355--a-playbacks-picture-and-sound-are-each-wanted-from-a-position-of-their-own-moved-by-their-own-asks-and-together-by-a-seek-a-pause-a-resume-and-the-start)** (2026-10-27): a playback's picture and sound are each wanted from a position of their own, moved by their own asks; its word, a seek, a pause, a resume and its start move both.
+
 **Decided** (2026-10-17), by the project owner, after Wings on nas.example stopped for minutes after a
 small seek. The node was making four runs: two of 720p, left from before the player moved to 360p,
 and two of 360p. One 720p run measured just under 1.1x, so the newest run, a 360p one 3.5 s old that
@@ -22458,7 +22460,9 @@ is waited for; one that started in 1 s is not).
 **Open question for the owner:** §4's second half, the store's last ask, is the agent's: the two
 chunks alone did not cover a picture loaded ahead of a late sound. The cleaner answer is a position
 per stream in the playback (each stream's own asks move its own, a seek or a pause moves both), which
-changes D309 §1's one position; is that wanted instead?
+changes D309 §1's one position; is that wanted instead? *(Answered 2026-10-27: yes. §4 amended by
+[D355](#d355--a-playbacks-picture-and-sound-are-each-wanted-from-a-position-of-their-own-moved-by-their-own-asks-and-together-by-a-seek-a-pause-a-resume-and-the-start): each stream has its own position, and §4's second half, the store's last
+ask, is removed; the two chunks stay.)*
 
 **Proven by:**
 - 1: TestStopUnwanted_AJumpAheadOfAMeasuredRunWaitsWhileWaitingCostsLessThanRestarting, TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn, TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere
@@ -22525,5 +22529,55 @@ these reports to show a house's LAN pair losing races it could have won.
 - 3: TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse, TestHairpinWarning_LapsesAWeekAfterTheLastHairpin
 - 4: TestIsDirectPath_CountsNoRelayedOrFailedPath, TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses
 - 5: TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs, TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress, TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels, web/apps/web/src/path-choice.test.ts, web/apps/web/src/kept-path.test.ts, web/packages/sdk/src/rtc-pairs.test.ts, web/packages/sdk/src/direct-path.test.ts, web/packages/sdk/src/rtc-transport.test.ts
+
+**Status:** Decided 2026-10-27.
+
+## D355 — A playback's picture and sound are each wanted from a position of their own, moved by their own asks, and together by a seek, a pause, a resume and the start
+
+**Decided** (2026-10-27), by the project owner, answering D353's open question. A playback had one
+position (D309 §1), which the picture's and the sound's chunk asks each moved; hls.js loads the
+picture up to its buffer, about 30 s, ahead of a late sound, so the position jumped back and forth
+between them, and the sound's run was judged from where the picture was. D353 §4 guarded the run with
+its store's last ask. It amends D309 §1 and D353 §4.
+
+1. **Each stream of a playback has its own position.** Its picture's and its sound's chunk asks each
+   move only their own stream's position. Subtitles have no runs of chunks (internal/core/subtitles
+   serves each track whole), so they have none.
+2. **A seek, a pause, a resume and the start move every stream's position together:** the player's
+   word (`PUT /playback/{token}/interest`, said as it seeks, pauses and plays again), a picture's
+   chunk asked for where a seek took the player (`Orpheum-Sought`, D284 §2), as hls.js asks for the
+   seek's sound only once the picture's first chunk has come and the sound is made alongside it from
+   there, and its start on its ladder. A picture asked for while its player said it is paused moves
+   nothing, as before.
+3. **Interest is judged per stream from that stream's own position**: whether a run is wanted, a
+   run planned for an ask, a stop for want of a player and D353's jump rule each read only the
+   interests in the run's own stream, as internal/core/chunks already did; the playback now gives
+   each its own position.
+4. **D353 §4's second half, a run making within two chunks of its store's last ask is never one its
+   player jumped away from, is removed.** Its case, a picture loaded ahead of a late sound moving the
+   sound's position past its run, cannot happen: the picture's ask moves the picture alone. The guard
+   was also wrong where it outlived the ask: the store's last ask, kept per store and not per player,
+   kept a run its player had sought away from by its word until its first ask where it landed, and
+   kept a run for a player that had left. The two-chunk floor of §4's first half stays: a chunk
+   served is known made at once, and the run's progress, which says what it makes next, follows on
+   the node's next word, so a player's next ask may read a chunk past what the run makes.
+5. **The position a playback resumes from is neither stream's.** It is where its player reports it
+   plays (the play report's position, D217 §7, D165), kept and stored as before: a stream's position
+   is where its loading is, up to the buffer ahead of what was watched, and the picture's, the
+   earliest's or any stream's would resume the person past what they saw. An init asked for is still
+   made from the reported position.
+6. **The logs of interest say each stream's position**: a run stopped as no player wants it, and an
+   ask that planned no run, say where every player of the film wants each stream from, beside what
+   the players of the run's own stream want.
+
+**Values:** none new.
+
+**Proven by:**
+- 1: TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth, TestInterestsIn_AreWhatEachPlayerLastAskedFor
+- 2: TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth, TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy, TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas
+- 3: TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs
+- 4: TestStopUnwanted_AWordOfASeekStopsTheRunItLeftThoughTheStoresLastAskWasNearIt, TestStopUnwanted_ARunIsNeverStoppedForAPlayerTwoChunksPastIt
+- 5: TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth, TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition
+- 6: TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted
 
 **Status:** Decided 2026-10-27.

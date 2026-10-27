@@ -389,3 +389,41 @@ func TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant(t *testing.T) {
 		}
 	}
 }
+
+// A run stopped as no player wants it, and an ask that planned no run, say where every player of the
+// film wants each stream from, each stream's position its own (D355 §5): the paused picture's run
+// beside the sound it plays from elsewhere.
+func TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	var logs bytes.Buffer
+	service.logger = slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	wanted.say(playingAt(picture, 3), playingAt(sound, 2))
+	askedFor(t, service, picture, 3)
+	service.runs.madeThrough(dir, 3, 6)
+	paused := playingAt(picture, 3)
+	paused.IsStopped = true
+	wanted.say(paused, playingAt(sound, 2))
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	init := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 40}
+	if err := service.Want(t.Context(), init); err != nil {
+		t.Fatal(err)
+	}
+	film := `"filmInterests":["` + picture.Name() + `: stopped at 30000 ms, keeping to 60000 ms","` +
+		sound.Name() + `: playing from 20000 ms"]`
+	for _, msg := range []string{
+		`"msg":"stopped a run of chunks no player wants"`,
+		`"msg":"planned no run of chunks: no player wants one from there"`,
+	} {
+		if !strings.Contains(logs.String(), msg) || strings.Count(logs.String(), film) != 2 {
+			t.Errorf("the log lacks %s with %s:\n%s", msg, film, logs.String())
+		}
+	}
+}
