@@ -159,6 +159,7 @@ relay_port_max = 49199
 configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true
+house_ipv6_networks = []
 
 [webrtc]
 udp_port = 0

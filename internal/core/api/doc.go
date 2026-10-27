@@ -71,7 +71,11 @@
 //     TestSignIn_AnAdminAdministersFromAnyOrigin,
 //     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt and
 //     TestIsDirectPath_CountsNoRelayedOrFailedPath. A hairpinned pair is never from home, its client's
-//     address a NAT's that many households may share (D354 §4).
+//     address a NAT's that many households may share (D354 §4). Nor is a house network the discovery is
+//     told, which only places the LAN name among its paths (D356 §7).
+//     TestMarkingHome_AHouseNetworkGrantsNoAdmin.
+//   - The System page is told the house's IPv6 networks, how each was had, and for a learnt one by
+//     which device and when (D356 §10). TestDiscoveryStatusBody_CarriesTheHouseNetworks.
 //   - Doctor warns while devices reach the server through the provider and back, naming the UDP port
 //     and the house's address a device at home could not reach (D354 §2).
 //     TestHairpinFinding_WarnsThatDevicesAtHomeReachTheServerThroughTheProvider.

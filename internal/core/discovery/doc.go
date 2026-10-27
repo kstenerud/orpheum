@@ -57,6 +57,19 @@
 //     TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin.
 //   - An offer the discovery passes on reaches rtcapi only when its proof holds under the key the
 //     core keeps for the hash it came under (A9). TestSignal_AnOfferWhoseProofDoesNotHoldIsRefusedBeforeRTCSeesIt.
+//   - An offer whose connection proves itself from home (rtcapi.ProvenAtHome) teaches the network the
+//     discovery saw it come from, a public IPv6 /64, as a house network, by the device that witnessed
+//     it and when; one from no such network teaches nothing; the log says whether the device's own
+//     IPv6 address in its offer agrees, and nothing acts on it (D356 §1, §2, Q5).
+//     TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork,
+//     TestHouseNetworks_AnOfferFromNoIPv6NetworkTeachesNothing.
+//   - The heartbeat carries the house networks, the learnt ones the most recently witnessed first, then
+//     those the admin named, at most four; a network newly learnt sends one at once (D356 §3, §6).
+//     TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst, TestHouseNetworks_ANewNetworkSendsAHeartbeatAtOnce.
+//   - A learnt network is kept HouseNetworkKeptFor after it was last witnessed, a fifth pushes out the
+//     least recently witnessed, and they are kept in discovery.json, which a Leave removes (D356 §4).
+//     TestHouseNetworks_ANetworkUnwitnessedForThirtyDaysIsDropped,
+//     TestHouseNetworks_AFifthPushesOutTheLeastRecent, TestHouseNetworks_SurviveARestartAndGoWithALeave.
 //   - An offer through the discovery reaches rtcapi only by Answerer.AnswerRelayed, which checks it
 //     itself first (the security audit's A2): the interface names no other way. Review, until the
 //     owner adds its TestArch_ claim.
@@ -70,5 +83,5 @@
 //
 //   - discovery.go: connecting, the loop, sessions and calls; renewal.go: one session renewal at a
 //     time; signal.go: the signalling connection; urls.go: which discovery addresses and client
-//     origins the core takes.
+//     origins the core takes; house_networks.go: the house's IPv6 networks (D356).
 package discovery

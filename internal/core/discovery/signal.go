@@ -239,7 +239,10 @@ func (service *Service) answerOffer(
 			Type: discoveryproto.SignalRefusal, OfferID: offer.OfferID, Reason: "the offer's proof does not hold",
 		}
 	}
-	answer, err := service.parts.Answerer.AnswerRelayed(ctx, rtcapi.Description{Type: "offer", SDP: offer.SDP})
+	// The connection proves itself from home once it connects, after this answer: the network its offer
+	// came from is learnt then, logged under the signalling's context, which outlives the answer.
+	answer, err := service.parts.Answerer.AnswerRelayed(ctx, rtcapi.Description{Type: "offer", SDP: offer.SDP},
+		func(proven rtcapi.ProvenAtHome) { service.learnHouseNetwork(context.WithoutCancel(ctx), offer, proven) })
 	if err != nil {
 		reason := "the core could not answer"
 		switch {

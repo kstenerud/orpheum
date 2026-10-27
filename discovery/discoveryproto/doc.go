@@ -8,7 +8,11 @@
 //
 //   - Types and constants, and only the few functions both sides must compute alike: the version
 //     signal's parsing (the protocol's §5), the address classes and an address's name label (§2.4,
-//     §2.7). Anything else is the caller's. Review.
+//     §2.7), and the house networks' match (§3.2; D356 §5). Anything else is the caller's. Review.
+//   - A house network is a public IPv6 /64 and nothing else, and a device is in the house's networks
+//     only by the first four of them; an IPv4 source names none. TestInHouseNetworks_ADeviceInAPublicSlash64IsAtHome,
+//     TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing,
+//     TestHouseNetworkOf_IsAPublicIPv6SourcesSlash64AndNothingElse.
 //   - One classing of addresses: a carrier-NAT, a DS-Lite and a documentation address are never
 //     public, whatever Go's netip calls them. TestIsPublic_CarrierNATDSLiteAndDocumentationAreNeverPublic.
 //   - One address has one name label, and no label holds "--" (C15).
@@ -31,5 +35,5 @@
 // # Where to change
 //
 //   - discoveryproto.go: the calls' bodies, the states and the signalling messages. version.go: the
-//     version signal. address.go: the address classes and labels.
+//     version signal. address.go: the address classes and labels. house.go: the house networks (D356).
 package discoveryproto

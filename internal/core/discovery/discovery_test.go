@@ -316,10 +316,13 @@ func TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine(t *testing.T) {
 	}
 }
 
-// answering answers the first offer it is given and refuses the rest, as a core at its limit does.
+// answering answers the first offer it is given and refuses the rest, as a core at its limit does;
+// proven is what it tells of the connection it answered, as rtcapi tells one that proved itself from
+// home, when set.
 type answering struct {
 	mutex   sync.Mutex
 	offered []string
+	proven  *rtcapi.ProvenAtHome
 }
 
 // taken are the offers rtcapi was given.
@@ -329,12 +332,19 @@ func (answerer *answering) taken() []string {
 	return append([]string{}, answerer.offered...)
 }
 
-func (answerer *answering) AnswerRelayed(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+func (answerer *answering) AnswerRelayed(
+	_ context.Context, offer rtcapi.Description, onProvenAtHome func(rtcapi.ProvenAtHome),
+) (rtcapi.Description, error) {
 	answerer.mutex.Lock()
 	defer answerer.mutex.Unlock()
 	answerer.offered = append(answerer.offered, offer.SDP)
 	if len(answerer.offered) > 1 {
 		return rtcapi.Description{}, rtcapi.ErrTooManyConnections
+	}
+	if answerer.proven != nil {
+		// As rtcapi does, once the connection the answer made connects, after the answer.
+		proven := *answerer.proven
+		defer onProvenAtHome(proven)
 	}
 	return rtcapi.Description{Type: "answer", SDP: "answer to " + offer.SDP}, nil
 }

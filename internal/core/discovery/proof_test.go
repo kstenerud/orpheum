@@ -138,7 +138,7 @@ type slowAnswering struct {
 }
 
 func (answerer *slowAnswering) AnswerRelayed(
-	ctx context.Context, offer rtcapi.Description,
+	ctx context.Context, offer rtcapi.Description, _ func(rtcapi.ProvenAtHome),
 ) (rtcapi.Description, error) {
 	answerer.mutex.Lock()
 	answerer.count++

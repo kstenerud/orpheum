@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -404,7 +405,7 @@ func TestHandler_AnswersAnyMinorOfItsMajorAndRefusesAnotherByName(t *testing.T) 
 func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
-	_, err := built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "an offer"}, "a-hash")
+	_, err := built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "an offer"}, "a-hash", netip.Prefix{})
 	if !errors.Is(err, ErrCoreNotConnected) {
 		t.Errorf("an offer with no core connected = %v; want ErrCoreNotConnected", err)
 	}
@@ -439,11 +440,11 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	}()
 	built.logs.AwaitLine(t, "the core's signalling connected")
 	answer, err := built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "an offer", Proof: "its proof"},
-		"a-hash")
+		"a-hash", netip.Prefix{})
 	if err != nil || answer.SDP != "answer to an offer under a-hash proven its proof" {
 		t.Errorf("the answer was %q, %v; want the offer passed with its hash and proof", answer.SDP, err)
 	}
-	_, err = built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "a second"}, "a-hash")
+	_, err = built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "a second"}, "a-hash", netip.Prefix{})
 	if !errors.Is(err, ErrRefused) ||
 		!strings.Contains(err.Error(), "too many connections") {
 		t.Errorf("a refused offer = %v; want ErrRefused with the core's reason", err)

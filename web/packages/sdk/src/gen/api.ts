@@ -2556,6 +2556,7 @@ export interface components {
             fingerprint: string;
             /** @description The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it */
             homeAddresses: string[] | null;
+            houseNetworks: components["schemas"]["HouseNetworkBody"][] | null;
             /** @description Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6) */
             isHomeAddressReady: boolean;
             /**
@@ -2898,6 +2899,22 @@ export interface components {
             /** @description Operating system and architecture, as Go names them */
             platform: string;
             release?: string;
+        };
+        HouseNetworkBody: {
+            /** @description A learnt network's: the address in the house of the device that last witnessed it */
+            device?: string;
+            /** @description A public IPv6 /64, "2a0f:1000:1:2::/64" */
+            network: string;
+            /**
+             * @description Learnt from a device that reached the server directly at home, or named in the config
+             * @enum {string}
+             */
+            source: "learnt" | "configured";
+            /**
+             * Format: int64
+             * @description Unix milliseconds a device last witnessed a learnt network; 0 for a configured one
+             */
+            witnessedAt: number;
         };
         ICEOutputBody: {
             iceServers: components["schemas"]["ICEServerBody"][] | null;

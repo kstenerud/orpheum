@@ -22,7 +22,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -297,31 +296,6 @@ func serverConfigKeys() []configKey {
 	}
 }
 
-// webRTCConfigKeys are the core's [webrtc] keys, in the order the file is written.
-func webRTCConfigKeys() []configKey {
-	return []configKey{
-		{
-			tableWebRTC, "udp_port", "0",
-			"the UDP port every WebRTC connection's host candidates share, published at the house's " +
-				"address on the same port, which the core then offers too (D300); 0 gives each connection " +
-				"ports of its own",
-		},
-		{
-			tableWebRTC, "stun_servers", "[]",
-			"the STUN servers WebRTC connections find the core's public addresses through, \"stun:host:port\": " +
-				"the core's own choice, never its discovery's, since an IPv6 address one finds names the " +
-				"house's network, from which an admin administers (the Plex-chain review's L3); none finds " +
-				"only the machine's own addresses",
-		},
-		{
-			tableWebRTC, "max_connections", strconv.Itoa(rtcapi.DefaultMaxConnections),
-			"the most WebRTC connections the core holds at once, of every network: a client opens up to four, " +
-				"so 64 holds 16 remote devices, Watch Together guests among them; an offer past it is refused " +
-				"(D348). Each network's share is the webrtc_connections_per_network setting",
-		},
-	}
-}
-
 // coreConfigKeys are the full config's keys for the core, in the order the file is written.
 func coreConfigKeys() []configKey {
 	return append(append(append(serverConfigKeys(), []configKey{
@@ -343,23 +317,7 @@ func coreConfigKeys() []configKey {
 		{tableTURN, keyListen, `":3478"`, "the UDP address and port the voice relay is served on (D243 §8)"},
 		{tableTURN, "relay_port_min", "49160", "the least UDP port relayed voice flows through (D243 §8)"},
 		{tableTURN, "relay_port_max", "49199", "the greatest UDP port relayed voice flows through (D243 §8)"},
-		{
-			tableDiscovery, "configured_addresses", "[]",
-			"public addresses that reach the core which the machine does not hold, \"address:port\": a " +
-				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
-		},
-		{
-			tableDiscovery, "lan_addresses", "[]",
-			"the house's addresses that reach the core which its interfaces do not show it, \"address:port\": " +
-				"in a container, the machine's address at home and its published HTTPS port; the discovery " +
-				"names them for devices at home",
-		},
-		{
-			tableDiscovery, "send_interface_addresses", "true",
-			"whether the core sends its discovery the addresses of the interfaces it sees; false in a " +
-				"container, whose interfaces nothing at home reaches",
-		},
-	}...), webRTCConfigKeys()...), []configKey{
+	}...), append(discoveryConfigKeys(), webRTCConfigKeys()...)...), []configKey{
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",

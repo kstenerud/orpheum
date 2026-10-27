@@ -22585,9 +22585,10 @@ its store's last ask. It amends D309 §1 and D353 §4.
 
 ## D356 — An IPv4-only core's devices at home are recognised by the house's IPv6 networks, which the core learns from devices that reached it directly in the house and tells its discovery
 
-**Proposed** (2026-10-27), on the owner's approval the same day of the direction in
-[local-path-2026-10-27.md](../design/research/local-path-2026-10-27.md) option D: *"the core tells the
-discovery the house's IPv6 network so an IPv4-only core can recognise devices at home"*. The evidence,
+**Decided** (2026-10-27), by the project owner, who approved the direction the same day in
+[local-path-2026-10-27.md](../design/research/local-path-2026-10-27.md) option D (*"the core tells the
+discovery the house's IPv6 network so an IPv4-only core can recognise devices at home"*), then agreed
+this proposal and answered its five questions as recommended (below). The evidence,
 the mechanisms weighed and how Plex, Jellyfin and Tailscale judge "local" are in
 [house-ipv6-2026-10-27.md](../design/research/house-ipv6-2026-10-27.md). A core whose heartbeat
 leaves over IPv4 behind DS-Lite or carrier NAT (staging; a host without IPv6; a Docker install on the
@@ -22651,7 +22652,12 @@ discovery protocol's §2.4 (the heartbeat) and §3.2 (the `lan` path).
     judged the device at home (`heartbeat`, `candidate`, `houseNetwork`, `ownIPv4`) or `none`; and a
     core whose heartbeat comes over a shared IPv4 with no house network is logged once as one whose
     devices at home cannot be recognised (local-path §4 item 6). The core's System page lists its
-    house networks, how each was had, and for a learnt one by which device and when.
+    house networks, how each was had, and for a learnt one by which device, named by its address in
+    the house (the client's end of the direct pair), and when.
+11. **The core logs whether the device's own address agrees** (Q5): when a network is learnt, its
+    line says whether the public IPv6 addresses the device's offer names are in it (`yes`), are all
+    elsewhere (`no`, a VPN's or a relay's sign), or are none (`unknown`, a browser hiding them), with
+    the /64s they are in. Nothing acts on it.
 
 **Rejected** (the research's §3): the install script reading the host's prefix and a STUN helper in
 the host's network (each works only where the host has IPv6, where Orpheum's compose already sends the
@@ -22659,34 +22665,44 @@ heartbeat over IPv6, and the first goes stale); listening for router advertiseme
 network and a raw socket, for the same case); the page's own word (D300 §3); a hairpin as evidence
 (D354 §4).
 
-**Questions for the owner:**
-- Q1: one proven connection teaches a network (proposed), or two, from two devices or on two days,
-  which halves the VPN case and delays a new prefix's first LAN name by as long?
-- Q2: keep §6's configured networks, a second way for one job kept only for houses with no WebRTC
-  LAN pair (staging today), or drop it and publish staging's UDP port instead?
-- Q3: 30 days and four networks (§4), constants, or settings?
-- Q4: the System page showing the house's public /64 to the admin (§10): their own network, but a
-  screenshot of the page then carries it.
-- Q5: should the core log, not gate on, whether the device's own IPv6 reflexive candidate agrees
-  with the discovery's network (the research's corroboration), to learn how often a VPN teaches?
+**The owner's answers** (2026-10-27, each as recommended):
+- Q1: **one proven connection teaches a network**, with no two-device or two-day rule: a new
+  prefix's first LAN name is not delayed, and a VPN's network is bounded by §4 and §8.
+- Q2: **keep the configured networks** (§6) as the fallback, for a house whose devices make no
+  direct WebRTC pair.
+- Q3: **30 days and four networks are constants** (`HouseNetworkKeptFor`,
+  `discoveryproto.MaxHouseNetworks`), not settings.
+- Q4: **the System page shows the house's public /64s** to the admin (§10).
+- Q5: **the core logs, without acting, whether the device's own IPv6 address in its offer agrees**
+  with the network the discovery saw (§11).
+
+**Values:** `HouseNetworkKeptFor` = 30 days and `discoveryproto.MaxHouseNetworks` = 4, constants
+(Q3); `discovery.house_ipv6_networks`, a config key, empty by default (§6).
 
 **Proven by:**
-- 1: TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork, TestHouseNetworks_ARelayedPunchedOrHairpinnedConnectionTeachesNothing
-- 2: TestSignal_AnOfferCarriesItsSourcesIPv6NetworkAndNoIPv4, TestRTCOffer_TheOffersNetworkIsKeptWithItsConnection
+- 1: TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself, TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing, TestAnswerRelayed_TellsAConnectionProvenAtHome, TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork
+- 2: TestSignal_AnOfferCarriesItsSourcesIPv6NetworkAndNoIPv4, TestHouseNetworkOf_IsAPublicIPv6SourcesSlash64AndNothingElse, TestHouseNetworks_AnOfferFromNoIPv6NetworkTeachesNothing
 - 3: TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst, TestHouseNetworks_ANewNetworkSendsAHeartbeatAtOnce
 - 4: TestHouseNetworks_ANetworkUnwitnessedForThirtyDaysIsDropped, TestHouseNetworks_AFifthPushesOutTheLeastRecent, TestHouseNetworks_SurviveARestartAndGoWithALeave
 - 5: TestInHouseNetworks_ADeviceInAPublicSlash64IsAtHome, TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing
-- 6: TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s, web/apps/web/src/system-discovery.test.tsx
+- 6: TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s, TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst, web/apps/web/src/system-discovery.test.tsx
 - 7: TestMarkingHome_AHouseNetworkGrantsNoAdmin
-- 8: TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks, TestHouseNetworks_ARelayedPunchedOrHairpinnedConnectionTeachesNothing
+- 8: TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks, TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing
 - 9: TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst
-- 10: web/apps/web/src/system-discovery.test.tsx
+- 10: TestDiscoveryStatusBody_CarriesTheHouseNetworks, web/apps/web/src/system-discovery.test.tsx
+- 11: TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork, TestOfferedIPv6Addresses_AreTheOffersPublicIPv6Candidates
 
-The paid service's side (its `isAtHome` calling §5's match, its offer's `clientNetwork`, its log
-line) is tested in orpheum-connect, which `make check-claims` cannot see; each point above names an
-Orpheum test, and the connect tests are named in its own plan when built.
+The paid service's side is tested in orpheum-connect, which `make check-claims` cannot see: its
+offer's `clientNetwork` (§2) by TestOffers_CarryTheIPv6NetworkTheyCameFromAndNoIPv4 and
+TestRegistry_EachCoreHasItsOwnConnection; its `isAtHome` calling §5's match by
+TestPaths_ADeviceInAHouseNetworkTheHeartbeatNamesIsAtHome; and its log lines (§10) by
+TestAtHomeBy_NamesWhatJudgedTheDeviceAtHome and
+TestWarnIfHomeUnrecognisable_LogsACoreOverASharedIPv4OnceWhileItStaysSo.
 
-**Status:** Proposed, not built.
+**Build note** (2026-10-27): the core, `discovery/discoveryproto`, `discovery/single` and the System
+page are done here, and the paid service's side in orpheum-connect; not yet on staging or nas.example.
+
+**Status:** Decided 2026-10-27.
 
 ## D357 — A rescan re-runs the matcher on everything a person did not set: per item, per library, and for all of them
 

@@ -43,6 +43,13 @@
 //   - A request over WebRTC carries the core's own public IPv6 /64s on its connection, from its host
 //     and STUN-found candidates alone, never a private, link-local, relayed or client address (D297
 //     §6). TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd.
+//   - A connection a discovery's offer made is told to its answerer as proven at home (AnswerRelayed's
+//     onProvenAtHome) only when its selected pair is direct, the core's end a host candidate, and the
+//     client's end in the home networks or the core's own public IPv6 networks; a relayed, punched or
+//     hairpinned one, or a direct one from anywhere else, never is (D356 §1, D354 §4).
+//     TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself,
+//     TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing,
+//     TestAnswerRelayed_TellsAConnectionProvenAtHome.
 //   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
 //     house's address at it, so a device in the house reaches it directly (D300 §1).
 //     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.
@@ -85,6 +92,7 @@
 //
 //   - rtcapi.go: offers, connections and their bounds; relayed.go: the core's own check of an offer
 //     a discovery passed on; path.go: the paths connections take; local_path.go: the hairpin warning;
+//     proven_home.go: a connection proven at home (D356);
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket.
 package rtcapi

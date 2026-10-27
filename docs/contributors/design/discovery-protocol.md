@@ -344,6 +344,14 @@ the signalling connection.
   DS-Lite or carrier NAT it is an IPv4-only device's route (D292, the bring-up plan's item 21, from
   coherence §1.3; N11).
 - `lan` addresses are published unprobed; they matter only at home (§3.2).
+- `houseNetworks` (D356 §3; built 2026-10-27): the house's public IPv6 /64s, at most four, the most
+  recently witnessed first, each `{"network": "2a0f:1000:…::/64", "source": "learnt" | "configured"}`.
+  A `learnt` one is the network an offer came from (`clientNetwork`, §2.5) whose connection the core
+  proved direct from home (D300 §3), kept 30 days after it was last witnessed; a `configured` one the
+  admin named (`discovery.house_ipv6_networks`). A network newly learnt sends a heartbeat at once.
+  They let a core whose heartbeat leaves over a carrier's shared IPv4 have its devices at home
+  recognised (§3.2); they are kept as the heartbeat is, never published and never returned to a
+  client (D356 §9).
 - `turn`: a TURN server the owner runs, passed to the core's clients; the owner's relay, never the
   paid service's. Its credentials are **time-limited** (the TURN REST pattern: a username of
   `<expiry>:<id>`, a password that is an HMAC under a secret the core and the TURN server share),
@@ -384,9 +392,12 @@ at a time.
 1. A client posts up to four SDP offers with its locator (§3.1), or the bootstrap token `/locate`
    gave it, and with each offer **its proof** (below).
 2. The discovery checks the locator, as a first filter, and forwards
-   `{"type": "offer", "offerId", "sdp", "locatorHash", "proof"}` (text messages, one JSON object
-   each, at most 64 KiB; several offers to a message, so a client's connections need one round trip,
-   C6) [I: the shape is the build's].
+   `{"type": "offer", "offerId", "sdp", "locatorHash", "proof", "clientNetwork"}` (text messages,
+   one JSON object each, at most 64 KiB; several offers to a message, so a client's connections need
+   one round trip, C6) [I: the shape is the build's]. `clientNetwork` is the offer request's source
+   as the discovery saw it (`CF-Connecting-IP` behind Cloudflare), as its /64, only when it is a
+   public IPv6 address (`discoveryproto.HouseNetworkOf`); none over IPv4. The core learns it as a
+   house network once the connection proves itself from home (§2.4; D356 §1, §2).
 3. **The core checks the offer itself** (D290 §6, D292 §4; A2, A9) before `rtcapi` sees it, and
    refuses it otherwise:
    - **the proof**: an HMAC over the offer's DTLS fingerprint, keyed by a value the core holds and
@@ -815,9 +826,12 @@ owner's TURN (§2.4); there is no `owner` field (D290 §13).
   paths worked (§3.3 item 7). It names the client's own address back to it, nothing of the core's.
 
 **The `lan` path is returned only when the device seems to be at home** (D290 §2, U1, S11): the
-request's source shares the core's IPv6 /64, or equals the core's public IPv4 when that address was
-probed and is the core's own, never a shared carrier-NAT or DS-Lite address (G5, U2-8) [I], or the
-device remembers the LAN as the path that won on this network (C5). Chrome asks permission for any
+request's source shares the core's IPv6 /64, or is in one of the heartbeat's `houseNetworks` (§2.4;
+D356 §5, by `discoveryproto.IsInHouseNetworks`, which counts only public IPv6 /64s and the first
+four), or equals the core's public IPv4 when that address was probed and is the core's own, never a
+shared carrier-NAT or DS-Lite address (G5, U2-8) [I], or the device remembers the LAN as the path
+that won on this network (C5). A house network places the LAN name among the paths and grants
+nothing else: the core alone judges home, from the path a request took (D356 §7). Chrome asks permission for any
 request from a public page to a name that resolves to a private address **[V, U1]**, so a LAN name
 raced on every first visit would put the prompt in front of every guest, and a "Block" sticks for
 the whole `app.` origin, every household's. Where the browser can say whether the permission is

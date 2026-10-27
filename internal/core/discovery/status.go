@@ -52,6 +52,10 @@ type Status struct {
 	// until it is, a browser at home reaches the core the long way, which gives no admin (D297 §6).
 	HomeAddresses      []string
 	IsHomeAddressReady bool
+	// HouseNetworks are the house's public IPv6 /64s as the next heartbeat tells them: learnt from
+	// devices proven at home, the most recently witnessed first, then those the admin named (D356 §3,
+	// §10); none while the core is enrolled with no discovery.
+	HouseNetworks []HouseNetwork
 	// Fingerprint is the identity key's, which the core's links carry (proof.Fingerprint), and
 	// FingerprintText the same as a person reads and compares it, in safe32 groups
 	// (proof.FingerprintText).

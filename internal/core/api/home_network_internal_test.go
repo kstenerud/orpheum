@@ -9,9 +9,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
@@ -60,6 +63,48 @@ func TestDiscoveryStatusBody_CarriesTheHomeAddressesAndWhetherTheyAreReady(t *te
 	}
 	if none := discoveryStatusBody(discovery.Status{}); none.HomeAddresses == nil || len(none.HomeAddresses) != 0 {
 		t.Errorf("with none, the body's home addresses = %#v; want an empty list, never null", none.HomeAddresses)
+	}
+}
+
+// The System page is told the house's networks, how each was had, and for a learnt one by which
+// device and when (D356 §10); none is an empty list.
+func TestDiscoveryStatusBody_CarriesTheHouseNetworks(t *testing.T) {
+	t.Parallel()
+	witnessed := time.UnixMilli(1_800_000_000_000)
+	body := discoveryStatusBody(discovery.Status{HouseNetworks: []discovery.HouseNetwork{
+		{
+			Network: netip.MustParsePrefix("2a0f:1000:1:2::/64"), Source: discoveryproto.HouseNetworkLearnt,
+			Device: netip.MustParseAddr("192.168.1.30"), WitnessedAt: witnessed,
+		},
+		{Network: netip.MustParsePrefix("2a0f:3000:9:8::/64"), Source: discoveryproto.HouseNetworkConfigured},
+	}})
+	want := []HouseNetworkBody{
+		{Network: "2a0f:1000:1:2::/64", Source: "learnt", Device: "192.168.1.30", WitnessedAt: 1_800_000_000_000},
+		{Network: "2a0f:3000:9:8::/64", Source: "configured"},
+	}
+	if !slices.Equal(body.HouseNetworks, want) {
+		t.Errorf("the body's house networks = %+v; want %+v", body.HouseNetworks, want)
+	}
+	if none := discoveryStatusBody(discovery.Status{}); none.HouseNetworks == nil || len(none.HouseNetworks) != 0 {
+		t.Errorf("with none, the body's house networks = %#v; want an empty list, never null", none.HouseNetworks)
+	}
+}
+
+// A house network grants nothing but the LAN name's place among a discovery's paths: a request from
+// an address in one is from home only when that address is in a home network itself (D356 §7, D297 §6).
+func TestMarkingHome_AHouseNetworkGrantsNoAdmin(t *testing.T) {
+	t.Parallel()
+	server := NewServer(slog.New(slog.DiscardHandler))
+	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	var marked bool
+	handler := server.markingHome(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		marked = isFromHome(request.Context())
+	}))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	request.RemoteAddr = "[2a0f:1000:1:2::30]:40000" // in the house network the discovery was told
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+	if marked {
+		t.Error("a request from the house's learnt IPv6 network is from home; want away")
 	}
 }
 
