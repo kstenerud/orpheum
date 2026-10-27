@@ -33,6 +33,10 @@ const (
 	ArtBackdrop = "backdrop"
 	ArtLogo     = "logo"
 	ArtStill    = "still"
+
+	// ArtSourceFrame is the source of a frame still the node took from an item's own video: the last
+	// resort of a film, an episode or an other video nothing else gives a picture (D362).
+	ArtSourceFrame = "frame"
 )
 
 // MetadataSourceTMDB is a library that takes its data from TMDB only; the others take NFO files

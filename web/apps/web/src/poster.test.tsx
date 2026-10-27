@@ -10,6 +10,40 @@ import { BackgroundChangesContext, type Ask, type Poller } from "./polling.ts";
 import { Poster, Still, WideArt } from "./poster.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 
+describe("a film or series with no poster but a still (the owner, 2026-10-27; D362 §2)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("shows the still in the top of the poster's blank, the blank's mark and its name below it", async () => {
+    mounted = await mount(<Poster sourceSha256={undefined} stillSha256="5711" />);
+    const blank = mounted.container.querySelector(".poster--blank.poster--with-still");
+    const still = blank?.querySelector("img.poster__still");
+    expect(still?.getAttribute("src")).toBe("/api/v1/bytes/art/5711/landscape-s.webp");
+    expect(blank?.firstElementChild).toBe(still);
+    expect(blank?.querySelector(".poster__clapperboard")).not.toBeNull();
+    expect(blank?.querySelector(".poster__caption")?.textContent).toBe("No poster");
+  });
+
+  it("shows the poster alone once it has one", async () => {
+    mounted = await mount(<Poster sourceSha256="ab12" stillSha256="5711" />);
+    const images = mounted.container.querySelectorAll("img");
+    expect(images).toHaveLength(1);
+    expect(images[0]?.getAttribute("src")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
+    expect(mounted.container.querySelector(".poster--blank")).toBeNull();
+  });
+
+  it("shows the plain blank where it has no still either", async () => {
+    mounted = await mount(<Poster sourceSha256={undefined} />);
+    expect(
+      mounted.container.querySelector(".poster--blank:not(.poster--with-still)"),
+    ).not.toBeNull();
+    expect(mounted.container.querySelector("img")).toBeNull();
+  });
+});
+
 describe("a poster's or a still's image that does not load (the owner, Fire TV, 2026-10-25)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {

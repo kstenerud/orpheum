@@ -306,6 +306,13 @@
 //     never as Next Up (episode-orderings.md §4, §7 Q4). Enforced by
 //     TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas (internal/core/api).
 //
+//   - An item shows any image of a kind before a frame still of its video, which stands in only where
+//     no other is; an other video's 16:9 picture is its still, else its backdrop, else its frame still;
+//     a film or series with no poster shows, in its poster's place, its backdrop, else a film's frame
+//     still or a series' first episode's still, read anew with each page (D349 §3, D362 §2). Enforced
+//     by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs and
+//     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives.
+//
 //   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).

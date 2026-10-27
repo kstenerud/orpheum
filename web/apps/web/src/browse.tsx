@@ -3,7 +3,7 @@
 import "./browse.css";
 
 import type { components } from "@orpheum/sdk";
-import { memo, useCallback, useRef, useState, type JSX, type RefObject } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -24,6 +24,7 @@ import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useItemsInView } from "./items-in-view.ts";
+import { useTilesInView } from "./tile-interest.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
@@ -53,15 +54,15 @@ export function PosterGrid(props: {
   /** Watches each poster, by its place, for the list to know which are in view (usePages). */
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
+  // The tiles in view say so, which raises the work their pictures need (D362 §4).
+  const watchAt = useTilesInView(
+    useMemo(() => props.entries.map(entryId), [props.entries]),
+    props.watchItemAt,
+  );
   return (
     <ul className="poster-grid" data-focus-container="">
       {props.entries.map((entry, index) => (
-        <GridPoster
-          key={entry.id}
-          kind={props.kind}
-          entry={entry}
-          watch={props.watchItemAt?.(index)}
-        />
+        <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={watchAt(index)} />
       ))}
     </ul>
   );
@@ -98,6 +99,7 @@ export function EntryPoster(props: {
     <PosterCard
       to={itemRoute(kind, entry.id)}
       posterSha256={entry.posterSha256}
+      noPosterStillSha256={entry.noPosterStillSha256}
       art={
         entry.kind === "other" ? (
           <Still sourceSha256={entry.landscapeSha256} className="poster-card__tile" />
@@ -231,7 +233,7 @@ export function SortChoice(props: {
   );
 }
 
-/** An entry's id, by which a list shows an entry read twice once. */
+/** An entry's id, by which a list shows an entry read twice once, and its tile says it is in view. */
 const entryId = (entry: Entry): number => entry.id;
 
 /** One list in one order, read a page at a time, moved to a letter as the alphabet rail asks. */

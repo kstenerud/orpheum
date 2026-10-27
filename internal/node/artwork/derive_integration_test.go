@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -145,5 +147,72 @@ func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 	})
 	if bomb.Refusal == "" || len(bomb.Images) != 0 {
 		t.Errorf("6 megapixels against a 1 megapixel limit: refused %q, %d images", bomb.Refusal, len(bomb.Images))
+	}
+}
+
+// generateVideo writes a video with the pinned FFmpeg into the test's directory: the filter graph's
+// picture, as H.264 in Matroska, with a title tag the still must not carry.
+func generateVideo(t *testing.T, runner *execx.Runner, name, graph string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{Write: []string{filepath.Dir(path)}}, []string{
+		"-v", "error", "-filter_complex", graph, "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+		"-metadata", "title=SECRET-TITLE", "-f", "matroska", path,
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// averageLuma is an encoded image's mean brightness, 0 to 255: FFmpeg scales it to one gray pixel.
+func averageLuma(t *testing.T, runner *execx.Runner, encoded []byte) byte {
+	t.Helper()
+	pixel, err := runner.RunInput(t.Context(), execx.FFmpeg, confine.Access{}, append(append([]string{"-v", "error"},
+		execx.PipeInput()...), "-vf", "scale=1:1:flags=area,format=gray", "-f", "rawvideo", "pipe:1"), encoded, 16)
+	if err != nil || len(pixel) != 1 {
+		t.Fatalf("the image's brightness: %v, %d bytes", err, len(pixel))
+	}
+	return pixel[0]
+}
+
+// A video's still, taken at a tenth of it inside a black lead-in, skips the black for the picture
+// after it, and is re-encoded as any image is: our own WebP at the landscape sizes the frame is large
+// enough for, with none of the video's metadata. A video black throughout has no frame (D362 §1, §5).
+func TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP(t *testing.T) {
+	t.Parallel()
+	deriver, runner := newDeriver(t)
+	video := generateVideo(t, runner, "lead-in.mkv", "color=c=black:s=1280x720:r=25:d=4[b];"+
+		"testsrc2=s=1280x720:r=25:d=8[p];[b][p]concat=n=2:v=1:a=0[v]")
+	// 10% of its 12 s is 1.2 s: 2.8 s of black before the picture.
+	still, err := deriver.Still(t.Context(), execx.Film{Path: video}, 0, 1200*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := deriver.Derive(t.Context(), nodeproto.Artwork{
+		SourceImage: still, Shape: nodeproto.ShapeLandscape, MaxSourcePixels: 40_000_000, WebPQuality: 82,
+		SizeNames: []nodeproto.ArtSizeName{nodeproto.LandscapeS, nodeproto.LandscapeM, nodeproto.LandscapeL},
+	})
+	if result.Refusal != "" || result.SourceWidth != 1280 || result.SourceHeight != 720 {
+		t.Fatalf("the still re-encoded: refused %q, %d×%d; want its 1280×720 frame", result.Refusal,
+			result.SourceWidth, result.SourceHeight)
+	}
+	small := imageOf(result, nodeproto.LandscapeS)
+	if width, height, codec := dimensionsOf(t, deriver, small); width != 480 || height != 270 || codec != "webp" {
+		t.Errorf("landscape-s: %d×%d %s, want 480×270 webp", width, height, codec)
+	}
+	if luma := averageLuma(t, runner, small); luma <= 32 {
+		t.Errorf("the still's brightness is %d of 255: a black frame of the lead-in, not the picture after it", luma)
+	}
+	if imageOf(result, nodeproto.LandscapeL) != nil {
+		t.Error("landscape-l was made from a 1280×720 frame: an upscale")
+	}
+	if bytes.Contains(still, []byte("SECRET-TITLE")) || bytes.Contains(small, []byte("SECRET-TITLE")) {
+		t.Error("the still carries the video's metadata")
+	}
+	black := generateVideo(t, runner, "black.mkv", "color=c=black:s=640x360:r=25:d=6[v]")
+	if still, err := deriver.Still(t.Context(), execx.Film{Path: black}, 0, 600*time.Millisecond); !errors.Is(err,
+		ErrNoFrame) {
+		t.Errorf("a video black throughout: %d bytes, %v; want ErrNoFrame", len(still), err)
 	}
 }

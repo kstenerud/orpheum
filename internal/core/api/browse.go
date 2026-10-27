@@ -28,6 +28,9 @@ type EntryBody struct {
 	PosterSha256 string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 	// LandscapeSha256 is an other video's 16:9 picture: its still, else its backdrop (D349).
 	LandscapeSha256 string `doc:"An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"landscapeSha256,omitempty"` //nolint:lll // one struct tag
+	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture shown in the top of
+	// its poster's place (D362).
+	NoPosterStillSha256 string `doc:"A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
 	// Recorded is when an other video was recorded, and where that came from; absent for the rest.
 	Recorded *RecordedBody `json:"recorded,omitempty"`
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
@@ -59,7 +62,8 @@ func entryBody(entry library.Entry, nodeName func(nodeID int64) string) EntryBod
 		ID: entry.ID, Kind: entry.Kind, Name: entry.Name, Year: entry.Year,
 		IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed, LibraryID: entry.LibraryID,
 		AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256, LandscapeSha256: entry.LandscapeSha256,
-		Recorded: recordedBody(entry.Other), Unavailable: unavailableBody(entry.Unreadable, nodeName),
+		NoPosterStillSha256: entry.NoPosterStillSha256,
+		Recorded:            recordedBody(entry.Other), Unavailable: unavailableBody(entry.Unreadable, nodeName),
 		WatchedPercent: entry.WatchedPercent, EpisodeCount: entry.EpisodeCount,
 		FinishedEpisodeCount: entry.FinishedEpisodeCount,
 	}

@@ -186,7 +186,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		activeScanner = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
-		Scanner: activeScanner, Artworker: deriver,
+		Scanner: activeScanner, Artworker: deriver, StillTaker: deriver,
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,

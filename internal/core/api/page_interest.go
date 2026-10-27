@@ -20,8 +20,27 @@ type PageInterestInput struct {
 	Season int64 `default:"-1" doc:"The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own" minimum:"-1" query:"season"` //nolint:lll // one struct tag
 }
 
+// TilesInterestInput names the films, series and videos whose tiles a list shows in view.
+type TilesInterestInput struct {
+	AuthorizationHeader
+	Body struct {
+		ItemIDs []int64 `doc:"The items whose tiles are in view" json:"itemIds" maxItems:"200"`
+	}
+}
+
 func (server *Server) registerPageInterest() {
 	tags := []string{tagBrowse}
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "putTilesInterest", Method: http.MethodPut, Path: "/tiles/interest",
+		DefaultStatus: http.StatusNoContent, Tags: tags,
+		Summary: "Say this session shows the tiles of these films, series and videos in view, which raises the " +
+			"work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
+	}, server.putTilesInterest)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "deleteTilesInterest", Method: http.MethodDelete, Path: "/tiles/interest",
+		DefaultStatus: http.StatusNoContent, Tags: tags,
+		Summary: "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
+	}, server.deleteTilesInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putInterest", Method: http.MethodPut, Path: "/interest/{id}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
@@ -94,6 +113,33 @@ func (server *Server) putInterest(ctx context.Context, input *PageInterestInput)
 		return nil, server.identifyError(ctx, "reach an item", err)
 	}
 	dependencies.Interest.Look(principal.SessionKey, principal.UserID, input.ID, input.Season)
+	return &struct{}{}, nil
+}
+
+// putTilesInterest answers PUT /tiles/interest: the session shows the tiles of the items it names,
+// those it reaches; an item it does not reach raises nothing.
+func (server *Server) putTilesInterest(ctx context.Context, input *TilesInterestInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	reached := make([]int64, 0, len(input.Body.ItemIDs))
+	for _, itemID := range input.Body.ItemIDs {
+		if dependencies.Browser.ReachItem(ctx, principal.Reach, itemID) == nil {
+			reached = append(reached, itemID)
+		}
+	}
+	dependencies.Interest.SeeTiles(principal.SessionKey, principal.UserID, reached)
+	return &struct{}{}, nil
+}
+
+// deleteTilesInterest answers DELETE /tiles/interest: the session shows no list's tiles.
+func (server *Server) deleteTilesInterest(ctx context.Context, input *AuthorizationHeader) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	dependencies.Interest.LeaveTiles(principal.SessionKey)
 	return &struct{}{}, nil
 }
 

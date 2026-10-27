@@ -1563,6 +1563,10 @@
           "name": {
             "type": "string"
           },
+          "noPosterStillSha256": {
+            "description": "A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          },
           "posterSha256": {
             "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
             "type": "string"
@@ -7376,6 +7380,27 @@
           "waiting",
           "unread",
           "queue"
+        ],
+        "type": "object"
+      },
+      "TilesInterestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "itemIds": {
+            "description": "The items whose tiles are in view",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 200,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "itemIds"
         ],
         "type": "object"
       },
@@ -14674,6 +14699,84 @@
         "summary": "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
         "tags": [
           "Running it"
+        ]
+      }
+    },
+    "/tiles/interest": {
+      "delete": {
+        "operationId": "deleteTilesInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
+        "tags": [
+          "Browse"
+        ]
+      },
+      "put": {
+        "operationId": "putTilesInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TilesInterestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
+        "tags": [
+          "Browse"
         ]
       }
     },

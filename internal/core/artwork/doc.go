@@ -108,9 +108,25 @@
 //   - The core decodes only its own WebP, under the pixel limit, to cut JPEG, and keeps what it
 //     cut. TestServe_AJPEGIsCutFromTheWebPOfItsSizeAndKept (integration tier).
 //
+//   - A frame still is the last resort (D362 §2, §3): after a pass, one is queued, at the
+//     background's priority, for each film with no poster or backdrop, episode with no still and other
+//     video with neither, once every other source was tried: not awaiting a match, a fetch or a
+//     season's listing, not ambiguous or failed, and no image its sources name of those kinds still to
+//     come. TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture,
+//     TestTake_AnEpisodeAndAnOtherVideoGetAFrameStillWhenNothingElseShowsThem.
+//
+//   - A frame still's job gives the node the video by its root and payload hash, its picture stream
+//     and a tenth of its length, and keeps the still as the item's still; it takes none where the item
+//     has come to show a picture of its kind, and a video with no picture or no frame is held as one
+//     with no frame, never asked again until it changes; a failure is asked again once a scan has seen
+//     the video since (D362 §1, §5). TestHandle_AFrameStillIsTakenFromTheVideoAndKeptAsTheItemsStill,
+//     TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone,
+//     TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo.
+//
 // # Read before changing
 //
 //   - D212: the whole design; D99 as D212 §5 narrows it.
+//   - D362: a still of a video's frames, the last resort, and when it is planned.
 //   - principles §22: clean at the boundary.
 //   - docs/contributors/design/plans/artwork.md.
 //
@@ -124,4 +140,6 @@
 //     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.
 //   - handoff.go: the make_artwork_sizes job, fetching what each image needs and giving every one
 //     still wanted to a node in one command, answered once for all (Assignee).
+//   - frames.go: the frame stills: which videos are owed one after a pass, the video and place a job
+//     gives the node, and keeping what it answers (D362).
 package artwork

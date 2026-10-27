@@ -31,7 +31,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 		return err
 	}
 	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
-	if !known && args.ArtworkSource != SourceLocal {
+	if !known && args.ArtworkSource != SourceLocal && args.ArtworkSource != SourceFrame {
 		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
 			args.ArtworkSource)))
 	}
@@ -133,6 +133,9 @@ func (service *Service) imageToFetch(ctx context.Context, fetcher Fetcher, want 
 	if err != nil || held {
 		return gathered{}, err
 	}
+	if want.source == SourceFrame {
+		return service.frameToTake(ctx, want)
+	}
 	image := &nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
 	if want.source == SourceLocal {
@@ -171,6 +174,11 @@ func (service *Service) sizesToMake(
 			nodeID, err := service.anyNode(ctx)
 			return gathered{image: image, nodeID: nodeID, isFromBase: true}, err
 		}
+	}
+	if want.source == SourceFrame {
+		// A still is not taken again for a size its base is too small for: the frame it was taken
+		// from is all there is of it (D362 §1).
+		return gathered{}, service.noteCannotMake(ctx, args.SourceSha256, args.SizeNames)
 	}
 	if want.source == SourceLocal {
 		image.SourceSha256 = ""
@@ -232,9 +240,12 @@ func (service *Service) takeAnswer(
 		}
 		want := wantedImage{job: job, itemID: job.ItemID, source: args.ArtworkSource, ref: args.Refs[index]}
 		image := sent.Images[sentIndex]
-		if len(args.SizeNames) > 0 {
+		switch {
+		case len(args.SizeNames) > 0:
 			errs = append(errs, service.takeCut(ctx, image, args, !isFromBase, made))
-		} else {
+		case image.Video != nil:
+			errs = append(errs, service.keepStill(ctx, want, image, made))
+		default:
 			errs = append(errs, service.keep(ctx, want, cmp.Or(image.SourceSha256, made.SourceSha256), made))
 		}
 	}

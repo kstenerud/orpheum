@@ -85,8 +85,12 @@ type askedRead struct {
 	titleID       int64
 }
 
-// page is what a look shows: a film's or series' page, or one season's of a series.
-type page struct{ itemID, season int64 }
+// page is what a look shows: a film's or series' page, or one season's of a series, or the tiles of
+// a session's list, named by its session.
+type page struct {
+	itemID, season int64
+	tilesOf        string
+}
 
 // ErrMissingPart is a raiser built without one of its parts.
 var ErrMissingPart = errors.New("the raiser is missing a part")
@@ -130,7 +134,7 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 	asked := map[askedRead]bool{}
 	var stillLooked jobs.Interested
 	for _, look := range raiser.parts.Register.Looks(lapse) {
-		shown := page{itemID: look.ItemID, season: look.Season}
+		shown := page{itemID: look.ItemID, season: look.Season, tilesOf: look.tilesOf}
 		if _, isRaised := looked[shown]; isRaised {
 			continue // another session's look at it, which began earlier
 		}
@@ -169,7 +173,7 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 func (raiser *Raiser) askForReads(ctx context.Context, look Look, titleIDs []int64, asked map[askedRead]bool) {
 	for _, titleID := range titleIDs {
 		key := askedRead{
-			shown: page{itemID: look.ItemID, season: look.Season}, userID: look.UserID,
+			shown: page{itemID: look.ItemID, season: look.Season, tilesOf: look.tilesOf}, userID: look.UserID,
 			since: look.Since.UnixNano(), titleID: titleID,
 		}
 		asked[key] = true
@@ -253,8 +257,14 @@ func isRoomOnANode(destination jobs.Destination) bool {
 // have read: a film's or episode's own jobs and its live files', whose page asks for their read
 // itself; a series' own, and its Next Up's and its files', whose read it asks for, as that
 // episode's page would; a season's, the series' own and the next episodes' of the season, from its
-// person's place in it, and it asks for the read of every one of its episodes.
+// person's place in it, and it asks for the read of every one of its episodes; a list's tiles, the
+// items they show (D362 §4).
 func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, []int64, error) {
+	if look.tilesOf != "" {
+		// A list's tiles in view raise the work of the items they show, their pictures', and ask for
+		// no read: a tile shows no file (D362 §4).
+		return jobs.Interested{ItemIDs: slices.Clone(look.Tiles)}, nil, nil
+	}
 	itemID := look.ItemID
 	queries := raiser.parts.Database.Read()
 	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))

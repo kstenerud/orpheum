@@ -39,7 +39,10 @@ func (services *Services) openArtwork(ctx context.Context, parts Parts) error {
 
 // foundImages is what a pass or a match found of items' images, as the artwork service takes it.
 func foundImages(report identify.Report) artwork.Found {
-	found := artwork.Found{Rematched: itemImages(report.Rematched), Named: itemImages(report.NamedImages)}
+	found := artwork.Found{
+		Rematched: itemImages(report.Rematched), Named: itemImages(report.NamedImages),
+		AwaitingMatch: report.AwaitingMatch, AwaitingListings: report.AwaitingListings,
+	}
 	if report.BesideTheMedia != nil {
 		found.BesideTheMedia = &artwork.LocalImages{LibraryID: report.BesideTheMedia.LibraryID}
 		for _, image := range report.BesideTheMedia.Images {
