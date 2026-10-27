@@ -162,6 +162,42 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	}
 }
 
+// A sound interleaved in super-blocks, as RealMedia's cook is, decodes from ten seconds before its
+// lead-in, past the super-blocks FFmpeg loses where its seek lands, and one within ten seconds of the
+// film's start is read from it unsought, as a seek to the start loses the first (idiosyncrasies.md).
+func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *testing.T) {
+	t.Parallel()
+	sound := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	sound.SoundLeadInMs, sound.IsSoundInterleaved = 88_839, true
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "78.839" ||
+		!strings.HasPrefix(filter, "atrim=start=10.000,asetpts=PTS-STARTPTS,") {
+		t.Errorf("the sound decodes from %s filtered by %q; want from 78.839, dropping ten seconds", start, filter)
+	}
+	sound.SoundLeadInMs, sound.FirstChunk, sound.BoundsMs = 0, 0, []int64{0, 3_236, 6_400}
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "6.400" ||
+		!strings.HasPrefix(valueOf(arguments, "-filter:a"), "atrim=start=0.000,") {
+		t.Errorf("the film's first chunks' sound reads %v; want it read from the start unsought", arguments)
+	}
+	sound.BoundsMs = []int64{8_000, 11_000}
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if slices.Contains(arguments, "-ss") || !strings.HasPrefix(valueOf(arguments, "-filter:a"), "atrim=start=8.000,") {
+		t.Errorf("a sound eight seconds in reads %v; want it read from the start unsought, dropping 8 s", arguments)
+	}
+	// A sound copied takes no interleaved path, said or not: it seeks to its run's start (D368).
+	copied := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	copied.FirstChunk, copied.BoundsMs, copied.IsSoundInterleaved = 0, []int64{0, 3_236}, true
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	if start := valueOf(arguments, "-ss"); start != "0.000" {
+		t.Errorf("a sound copied seeks to %q; want its run's start, 0.000, as any copy", start)
+	}
+}
+
 // A sound starting less than two seconds into the film decodes from its start, and drops only what
 // comes before its run.
 func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {

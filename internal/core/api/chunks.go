@@ -281,6 +281,11 @@ func (server *Server) chunksError(ctx context.Context, action string, err error)
 		return newError(http.StatusNotFound, CodeNotFound, "no such stream of this playback's chunks")
 	case errors.Is(err, chunks.ErrCannotBeCut):
 		return newError(http.StatusNotFound, CodeNotFound, "this film cannot be cut into chunks")
+	case errors.Is(err, chunks.ErrCannotBeMade):
+		// Asking again would fail the same way: the player stops, as for a film that cannot be
+		// converted at all, and the core's log has FFmpeg's word.
+		return newError(http.StatusUnprocessableEntity, CodeCannotConvert,
+			"this film cannot be converted here: the server failed on it the same way each time it tried")
 	case errors.Is(err, chunks.ErrNoRoomToMake):
 		// 429, which nothing else on a chunk's path answers: the player stops, and says why (D250 §6).
 		return newError(http.StatusTooManyRequests, CodeNoRoomToMake,

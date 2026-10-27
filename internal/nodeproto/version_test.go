@@ -117,6 +117,9 @@ var wireShapeByVersion = map[int]string{
 	// 53 adds a run of a sound copied as it is, the stream kind soundCopied (D368 §1), which a node of
 	// 52 would refuse; the fields are unchanged.
 	53: "815a96b4107015bd0d07faa379797253ecc4f36a6159835564917143b3b3d5f6",
+	// 54 has a sound run of a track interleaved in super-blocks, RealMedia's cook among them, say so,
+	// IsSoundInterleaved: a node of 53 would seek it as any sound and lose the super-block it landed in.
+	54: "21f884879f1076300f6d154b67d2f4d87ad53ba855386b799e7338ed68d96c38",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -154,6 +154,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		if args.FirstChunk > 0 {
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
+		command.IsSoundInterleaved = isSoundInterleaved(film.probe, track.AudioTrackIndex)
 	case nodeproto.StreamSoundCopied:
 		track, err := copiedTrack(film, stream)
 		if err != nil {
@@ -172,6 +173,22 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		}
 	}
 	return command, nil
+}
+
+// isSoundInterleaved is whether a film's audio track, by its place among them, is interleaved in
+// super-blocks, which FFmpeg loses the one of that a seek lands in (idiosyncrasies.md): a RealMedia
+// film's cook, ATRAC3, SIPR or RealAudio 28.8, by the demuxer's names (libavformat/rmdec.c: genr,
+// Int4 and sipr). RealAudio 14.4 is not interleaved.
+func isSoundInterleaved(probe nodeproto.Probe, audioTrackIndex int) bool {
+	tracks := decide.AudioStreams(probe)
+	if !slices.Contains(probe.Format.FormatNames, "rm") || audioTrackIndex < 0 || audioTrackIndex >= len(tracks) {
+		return false
+	}
+	switch tracks[audioTrackIndex].Codec {
+	case "cook", "atrac3", "sipr", "ra_288":
+		return true
+	}
+	return false
 }
 
 // seekMovedEarlierMs is how much earlier FFmpeg moves an input seek into a file it does not seek by
@@ -350,6 +367,7 @@ func (service *Service) takeEnd(
 		service.runs.forget(command.StoreDir, command.FirstChunk)
 		return nil
 	case nodeproto.RunFailed:
+		service.recordFailure(ctx, command.StoreDir, max(report.LastChunk+1, command.FirstChunk), report.Failure)
 		return jobs.MarkPermanent(errors.New(report.Failure))
 	case nodeproto.RunStalled:
 		return nodes.FFmpegStallOutcome(job, nodeID, what, ptr.ValueOrZero(report.Stall),

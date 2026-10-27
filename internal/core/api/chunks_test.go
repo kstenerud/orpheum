@@ -407,6 +407,21 @@ func TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode(t *testing.T) {
 	}
 }
 
+// A chunk whose runs FFmpeg failed on the same way each time is answered 422 cannot_convert, which
+// the player does not ask again after, not 425 for as long as it waits (file 15102 on nas.example,
+// 2026-10-27); FFmpeg's word, which may name the film, stays in the core's log.
+func TestChunks_AChunkThatCannotBeMadeIsRefusedForGood(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	err := harness.server.ChunksError(t.Context(), "have a chunk made", fmt.Errorf("1/chunks-sound0-96k-raw/x "+
+		"chunk 0: %w: raw 00000.mp4 holds less", chunks.ErrCannotBeMade))
+	var refused *api.Error
+	if !errors.As(err, &refused) || refused.GetStatus() != http.StatusUnprocessableEntity ||
+		refused.ErrorBody.Error.Code != api.CodeCannotConvert || strings.Contains(err.Error(), "raw 00000") {
+		t.Errorf("a chunk that cannot be made = %v; want 422 %s, without FFmpeg's word", err, api.CodeCannotConvert)
+	}
+}
+
 func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

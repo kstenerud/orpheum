@@ -38,7 +38,8 @@ const (
 	CodePreparing        Code = "preparing"
 	CodePrepareFailed    Code = "prepare_failed"
 	// CodeCannotConvert is a play of a file its device cannot play as it is that cannot be cut into
-	// chunks either: it has no picture, or neither a known length nor keyframes (D344 §5).
+	// chunks either: it has no picture, or neither a known length nor keyframes (D344 §5); or a chunk
+	// whose runs FFmpeg failed on the same way each time (chunks.ErrCannotBeMade).
 	CodeCannotConvert Code = "cannot_convert"
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.

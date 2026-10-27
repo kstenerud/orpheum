@@ -3,10 +3,12 @@
 package chunks
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -270,6 +272,76 @@ func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testi
 	if sent == nil || sent.PictureSeekMs != 15_000 || !sent.IsPictureSeekBeforeKeyframe {
 		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 15 s, midway back to the "+
 			"keyframe before, said to be before the run's keyframe", sent)
+	}
+}
+
+// A store whose runs FFmpeg failed at the same chunk twice is not asked of its node again: the
+// player asking is told the film cannot be made, and why is logged once; a single failure is tried
+// again. A sound whose every run failed alike was queued again every 4.4 s for as long as its player
+// waited (file 15102 on nas.example, 2026-10-27).
+func TestEnsure_AChunkWhoseRunsFailedTwiceIsNotMadeAgain(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	var logs bytes.Buffer
+	service.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	failure := nodeproto.MakeChunksReport{
+		State: nodeproto.RunFailed, LastChunk: -1, Failure: "raw 00000.mp4 holds less",
+	}
+	for attempt := range 2 {
+		ensured(t, service, picture, 0)
+		fixture.queue.mutex.Lock()
+		request := fixture.queue.requests[attempt]
+		fixture.queue.mutex.Unlock()
+		job := jobs.Job{
+			ID: int64(20 + attempt), Kind: jobs.KindMakeChunks, Target: request.Target, ArgsJSON: request.ArgsJSON,
+			Priority: request.Priority,
+		}
+		ended := fixture.resolver.Start(t, service.HandleMakeChunks, job)
+		service.reported(t, testutil.Receive(t, fixture.node.sent, "the run's command"), failure)
+		ending := testutil.Receive(t, ended, "the run's job to end")
+		if !jobs.IsMarkedPermanent(ending) {
+			t.Fatalf("a failed run's job ended %v; want it failed for good", ending)
+		}
+		if err := service.RecordMakeChunksFailure(t.Context(), job, ending.Error()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := service.Ensure(t.Context(), 1, OnKeyframes, picture, 0)
+	if !errors.Is(err, ErrCannotBeMade) || !strings.Contains(err.Error(), "raw 00000.mp4 holds less") {
+		t.Errorf("a third ask was %v; want it refused, ErrCannotBeMade, with FFmpeg's word", err)
+	}
+	if runs := fixture.queue.runs(t, service); len(runs) != 2 {
+		t.Errorf("the runs queued were %+v; want the two that failed alone", runs)
+	}
+	if logged := logs.String(); strings.Count(logged, "level=WARN") != 1 ||
+		!strings.Contains(logged, "raw 00000.mp4 holds less") || !strings.Contains(logged, "chunk=0") {
+		t.Errorf("the log says %q; want one warning of the chunk given up on and why", logged)
+	}
+}
+
+// A RealMedia film's cook is interleaved in super-blocks, which FFmpeg loses the one of a seek lands
+// in, and the run says so; its RealAudio 14.4, not interleaved, is not (file 15102 on nas.example,
+// 2026-10-27; idiosyncrasies.md).
+func TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	librarytest.Probe(t, fixture.service.database, librarytest.ProbeSpec{
+		FileID: 1, DurationMs: filmMinutes * 60_000,
+		ProbeJSON: `{"format":{"formatNames":["rm"],"durationMs":1200000,"bitRateBps":400000},"streams":[` +
+			`{"kind":"video","codec":"rv40","video":{"width":424,"height":240}},` +
+			`{"streamIndex":1,"kind":"audio","codec":"cook","audio":{"channelCount":2}},` +
+			`{"streamIndex":2,"kind":"audio","codec":"ra_144","audio":{"channelCount":1}}]}`,
+	})
+	gridID := mustGrid(t, fixture.service).ID()
+	for index, want := range []bool{true, false} {
+		stream := "sound" + strconv.Itoa(index) + "-96k-raw"
+		fixture.start(t, int64(11+index), testRun{stream, gridID, runArgs{FirstChunk: 0, LastChunk: 3}})
+		sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
+		if sent == nil || sent.IsSoundInterleaved != want {
+			t.Errorf("the node was sent %+v for %s; want it said interleaved: %v", sent, stream, want)
+		}
 	}
 }
 

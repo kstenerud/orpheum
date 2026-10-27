@@ -874,3 +874,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   owner, 2026-10-27: no way to sign out on the TV; a removed TV kept its films until pressed; it
   landed on the server's sign-in.) (`web/apps/web/src/app-shell.css`, `live.tsx`,
   `loader-at-client-origin.tsx`, `loader-households.ts`, `internal/core/live/registry.go`)
+- [ ] **VQ88** — On nas.example in Chrome, play file 15102 (RealMedia, RealVideo 4 with cook sound) from
+  its start, then seek to about the middle and near the end. Passes when it plays with sound from the
+  start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did
+  not finish" for its sound, and the core's no run of it queued again every few seconds.
+  (`internal/node/chunks/arguments.go`, `internal/core/chunks/job.go`, `failures.go`)

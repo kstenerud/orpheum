@@ -43,6 +43,9 @@ type storeRuns struct {
 	// of starting another, and hasStartup whether a run whose start the core saw has made one (D353).
 	startupMs  int64
 	hasStartup bool
+	// failureByChunk is how often its runs failed at each chunk, FFmpeg failing on the source
+	// (failures.go); nil until one does.
+	failureByChunk map[int]*runFailure
 }
 
 // run is one run of a store's chunks, first through last, made in order.

@@ -58,6 +58,11 @@
 //     runs' chunks of a 5.1 AAC, a stereo AAC and a 5.1 AC-3 film are the film's packets bit for bit,
 //     each once, at their times, by TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes
 //     (integration tier).
+//   - A sound interleaved in super-blocks, as the core says RealMedia's cook is, decodes from ten
+//     seconds before its run, not two, and from the film's start without a seek: FFmpeg loses the
+//     super-block a seek lands in (idiosyncrasies.md). Enforced by
+//     TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart and, with the pinned
+//     FFmpeg, TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun.
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
 //     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
 //     finished. Enforced by TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds.
