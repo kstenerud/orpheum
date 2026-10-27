@@ -119,6 +119,30 @@ describe("the Libraries page (D349)", () => {
     expect(links[2]?.getAttribute("href")).toContain("library=all");
   });
 
+  it("names neither the library chooser nor the search on the page, only to a screen reader (the owner, 2026-10-27)", async () => {
+    mounted = await mountBrowse(
+      { library: 1 },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+      },
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const bar = mounted.container.querySelector(".browse__bar");
+    const fieldNames = [...(bar?.querySelectorAll(".library-browse__chooser-field") ?? [])].map(
+      (field) => field.textContent,
+    );
+    expect(fieldNames).not.toContain("Library");
+    expect(bar?.textContent).not.toContain("Search the library chosen, or every one");
+    expect(buttonWithText(mounted.container, "Alpha")?.getAttribute("aria-label")).toBe(
+      "Library: Alpha",
+    );
+    expect(bar?.querySelector("input[type=search]")?.getAttribute("aria-label")).toBe(
+      "Search the library chosen, or every one",
+    );
+  });
+
   it("picks the first library by name when none is chosen in the address (D349 §9.1 point 1)", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],

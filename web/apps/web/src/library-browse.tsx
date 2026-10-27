@@ -356,6 +356,7 @@ function LibraryBrowseBar(props: {
       <h1 id="browse-heading">{t("browse.libraries")}</h1>
       <RouteChooser
         fieldLabel={t("browse.library")}
+        isFieldLabelShown={false}
         current={resolved.currentLabel}
         options={libraryChoicesOf(state, props.libraryOptions, t)}
       />
@@ -379,9 +380,10 @@ function LibraryBrowseBar(props: {
         }}
       >
         <label>
-          {t("browse.searchLabel")}
           <input
             type="search"
+            aria-label={t("browse.searchLabel")}
+            placeholder={t("browse.searchSubmit")}
             value={props.typedQuery}
             onChange={(event) => {
               props.onTypedQueryChange(event.target.value);
@@ -436,6 +438,11 @@ function LibraryBrowseBody(props: {
  */
 function RouteChooser(props: {
   readonly fieldLabel: string;
+  /**
+   * Whether the field's name shows beside it; a screen reader hears it either way. The library
+   * chooser's does not: what it chooses is plain from its choices (the owner, 2026-10-27).
+   */
+  readonly isFieldLabelShown?: boolean;
   readonly current: string;
   readonly options: readonly Choice[];
 }): JSX.Element {
@@ -446,14 +453,18 @@ function RouteChooser(props: {
   }, []);
   return (
     <div className="library-browse__chooser">
-      <span className="library-browse__chooser-field" id={fieldId}>
-        {props.fieldLabel}
-      </span>
+      {props.isFieldLabelShown === false ? null : (
+        <span className="library-browse__chooser-field" id={fieldId}>
+          {props.fieldLabel}
+        </span>
+      )}
       <button
         type="button"
         className="library-browse__chooser-button"
         aria-expanded={isOpen}
-        aria-describedby={fieldId}
+        {...(props.isFieldLabelShown === false
+          ? { "aria-label": `${props.fieldLabel}: ${props.current}` }
+          : { "aria-describedby": fieldId })}
         onClick={() => {
           setIsOpen((wasOpen) => !wasOpen);
         }}

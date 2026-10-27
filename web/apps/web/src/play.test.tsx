@@ -92,7 +92,7 @@ describe("playing a file", () => {
       ),
     );
     expect(named).toMatch(
-      /^<h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="">/u,
+      /<\/button><h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="" data-focus-start="">/u,
     );
     const unnamed = renderToStaticMarkup(
       withServices(
@@ -100,6 +100,19 @@ describe("playing a file", () => {
       ),
     );
     expect(unnamed).not.toContain("play__title");
+  });
+
+  it("offers a Back to the list the film was chosen from, first on the page (the owner, 2026-10-27)", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={directDecision({ titleName: "Metropolis" })}
+          onDecideAgain={() => undefined}
+        />,
+      ),
+    );
+    expect(markup).toMatch(/^<button type="button" class="back-button">Back<\/button>/u);
   });
 
   it("says a film to convert that came with no ladder cannot be converted, rather than play it (D344)", () => {

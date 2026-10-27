@@ -67,7 +67,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(focusedTile()).toBe("Film 6");
   });
 
-  it("keeps the same margin left of the posters as right of them, the rail centred and whole there", async () => {
+  it("keeps the page's own margin left of the posters, the rail centred and whole in its gutter right of them", async () => {
     for (const [width, height] of [
       [960, 480],
       [1440, 1000],
@@ -79,9 +79,14 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       const cards = [...document.querySelectorAll(".poster-grid .poster-card__link")].map((each) =>
         each.getBoundingClientRect(),
       );
+      // The page's margin alone on the left: the gutter that mirrored the rail's is gone (the owner,
+      // 2026-10-27: with the rail there it is not missed, and a phone fitted two posters a row).
       const left = Math.min(...cards.map((card) => card.left));
-      const right = window.innerWidth - Math.max(...cards.map((card) => card.right));
-      expect(Math.abs(right - left)).toBeLessThanOrEqual(2);
+      const pageMargin =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--space-page"),
+        ) * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      expect(Math.abs(left - pageMargin)).toBeLessThanOrEqual(8);
       // The rail centred in the gutter right of the posters, and whole on the page, Z included.
       const rail = boxOf(".alphabet-rail");
       const postersRight = Math.max(...cards.map((card) => card.right));
@@ -91,6 +96,25 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       expect(boxOf(".alphabet-rail > li:last-child").bottom).toBeLessThanOrEqual(
         window.innerHeight,
       );
+    }
+  });
+
+  it("fits three posters a row on a phone, down to 360 pixels wide (the owner, 2026-10-27)", async () => {
+    for (const [width, height] of [
+      [412, 915],
+      [393, 852],
+      [360, 780],
+    ] as const) {
+      await page.viewport(width, height);
+      walking?.unmount();
+      walking = await mountApp(walkServices(filmsOnly));
+      await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+      const items = [...document.querySelectorAll<HTMLElement>(".poster-grid > li")];
+      const firstRowTop = items[0]?.getBoundingClientRect().top;
+      const across = items.filter(
+        (item) => item.getBoundingClientRect().top === firstRowTop,
+      ).length;
+      expect(across, `${String(width)} pixels wide`).toBe(3);
     }
   });
 

@@ -15,8 +15,9 @@
 
 /*
  * The films or the series, and, listed by name, their alphabet rail beside them (a prototype, the
- * owner, 2026-10-25): the rail in a gutter of its own on the right, centred there, as much kept on
- * the left, so the posters keep the same margin on both sides; it runs from under the sticky banner
+ * owner, 2026-10-25): the rail in a gutter of its own on the right, centred there; the left keeps
+ * the page's own margin, no wider (the owner, 2026-10-27: a phone fitted two posters a row, and with
+ * the rail there the mirrored gutter is not missed); it runs from under the sticky banner
  * (--banner-height, app-shell.tsx) to the bottom of what the browser shows (svh: Silk's address bar
  * takes part of the screen), a gap each end, and sticks there as the page scrolls. Its letters are
  * sized to fill it, never past its background (the owner's Fire TV: Y and Z ran off it), with as
@@ -39,7 +40,20 @@
   grid-template-columns: minmax(0, 1fr) var(--gutter);
   align-items: start;
   margin-inline-end: calc(-1 * var(--space-page));
-  padding-inline-start: calc(var(--gutter) - var(--space-page));
+}
+
+/* On a phone, three posters a row (the owner, 2026-10-27): the rail's gutter narrower, and posters
+   down to 88 pixels with an 8-pixel gap between columns, which fits three down to 360 pixels wide. */
+@media (max-width: 599px) {
+  .browse__layout {
+    --gutter: calc(var(--rail-width) + 2 * var(--space-2));
+  }
+
+  .browse__layout .poster-grid {
+    --size-poster-min: 5.5rem;
+
+    column-gap: var(--space-2);
+  }
 }
 
 /* The rail starts where it sticks, its gap under the banner, not the page's own top margin (space-4):
