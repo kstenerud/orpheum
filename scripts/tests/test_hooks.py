@@ -360,6 +360,7 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: running or None), \
                 mock.patch.object(on_stop, "already_passed", lambda: False), \
                 mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-code").touch()
             on_stop.main()
@@ -445,6 +446,7 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop, "already_passed", lambda: False), \
                 mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-docs").touch()
             on_stop.main()

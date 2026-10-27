@@ -4,12 +4,16 @@
 # ABOUTME: committed migrations, each with the sanctioned route instead.
 from __future__ import annotations
 
+import agents
 import hooklib
 from gate_paths import is_committed_migration, is_gate, is_generated, relative
 
 
 def main() -> None:
     event = hooklib.read_event()
+    if agents.is_agent_id(event.get("agent_id")):
+        # An agent editing is acting: its worktree is not a stopped agent's (agents.has_stopped).
+        agents.mark_active(str(event["agent_id"]))
     tool_input = event.get("tool_input") or {}
     path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
     if not path:

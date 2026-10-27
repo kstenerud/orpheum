@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Stop hook: if the turn changed files, run the gate (`make check`, or `make
-# ABOUTME: check-documentation` after a documentation-only turn) where the tools are; block on failure.
+# ABOUTME: Stop hook: removes stopped agents' merged worktrees, then, if the turn changed files, runs the
+# ABOUTME: gate (`make check`, or `make check-documentation` after docs alone) where the tools are; blocks on failure.
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -11,12 +12,18 @@ import sys
 
 import hooklib
 import run_gate
+import worktrees
 
 PENDING = hooklib.ROOT / ".claude" / ".cache"
 
 
 def main() -> None:
     hooklib.read_event()
+    # Every turn's end, whatever it changed: a stopped agent's worktree whose work main holds goes,
+    # with its branch (worktrees.py); one holding anything else stays, for `make handoff` to list.
+    # Never let the cleanup stand between the turn and its gate.
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        worktrees.clean(hooklib.ROOT)
     code = PENDING / "check-pending-code"
     docs = PENDING / "check-pending-docs"
     if code.exists():

@@ -14,12 +14,15 @@ the repository is not a write to a gate, and is let through (audit-2026-09-24 §
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
+import agents
 import hooklib
 from gate_paths import is_gate, relative
 
@@ -343,33 +346,34 @@ def main() -> None:
     command = str((event.get("tool_input") or {}).get("command") or "")
     if not command:
         return
+    refusals: list[str] = []
     cwd = Path(str(event.get("cwd") or hooklib.ROOT))
     adds = ADD_DEPENDENCY.search(shell_text(command)) or npm_adds_package(command)
     if adds and not hooklib.owner_allows("ORPHEUM_ALLOW_DEPS", event):
-        hooklib.deny(
+        refusals.append(
             "Adding a dependency is the owner's decision (AGENTS.md rule 3). Propose it: the "
             "name, the job it does, and why the standard library or an allowed package cannot. "
             "`npm ci` and `go mod download` are fine."
         )
     elif skips_hooks(command):
-        hooklib.deny("Git hooks are part of the gate; don't bypass or repoint them.")
+        refusals.append("Git hooks are part of the gate; don't bypass or repoint them.")
     elif runs_git_commit(command) and not hooks_installed(hooklib.ROOT):
         # A commit made after a failed `make check`, chained with `;`, went in because nothing ran
         # the gate at the commit: this clone had no hooks (the owner, 2026-10-08: "If you have to
         # remember to do the && properly, that's a process failure").
-        hooklib.deny(
+        refusals.append(
             "Git's hooks are not installed in this clone (core.hooksPath is not .githooks), so this "
             "commit would not run the gate. Run `make setup` first, then commit."
         )
     elif FORCE_PUSH.search(shell_text(command)):
-        hooklib.deny("No force-pushes. Add a commit that fixes the problem instead.")
+        refusals.append("No force-pushes. Add a commit that fixes the problem instead.")
     elif loads_the_machine(command) and (run := hooklib.check_pr_running()) is not None:
         # Edits made while check-pr ran, and tests run beside it, failed its runs again and again
         # though a written rule forbade them (the owner, 2026-10-20: "trying to remember will lead
         # to failures"). It runs in its own tree now, so edits are fine; tests and commits wait.
         import check_pr_snapshot  # noqa: PLC0415
 
-        hooklib.deny(
+        refusals.append(
             f"check-pr is running ({check_pr_snapshot.describe(run)}) in its own tree. This command "
             "runs tests, a lint or a commit, which beside it slow both and make tests flaky. Edit "
             "freely; test and commit when it ends (you are told). If it is stuck, find its processes "
@@ -378,11 +382,28 @@ def main() -> None:
     elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT", event):
         hits = gate_writes(command, cwd)
         if hits:
-            hooklib.deny(
+            refusals.append(
                 f"This command writes {', '.join(sorted(set(hits)))}, which is a gate "
                 "(scripts/gate_paths.py). Gates are the owner's to change; tell the owner what "
                 "to change and why."
             )
+
+    if refusals:
+        hooklib.deny(refusals[0])
+    elif agents.is_agent_id(event.get("agent_id")):
+        tag_for_its_agent(event, command)
+
+
+def tag_for_its_agent(event: dict, command: str) -> None:
+    """A subagent's command, rewritten to carry its agent's id, its stdin closed and, in the
+    background, a time limit (agents.wrapped); the agent recorded as acting, so neither its
+    processes nor its worktree are taken for a stopped agent's."""
+    agent_id = str(event["agent_id"])
+    agents.mark_active(agent_id)
+    tool_input = dict(event.get("tool_input") or {})
+    tool_input["command"] = agents.wrapped(command, agent_id,
+                                           is_background=bool(tool_input.get("run_in_background")))
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": tool_input}}, sys.stdout)
 
 
 if __name__ == "__main__":
