@@ -7,11 +7,25 @@ import { useTranslation } from "react-i18next";
 
 import { MenuIcon } from "./app-shell.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
+import { IconButton } from "./icon-button.tsx";
+import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
+import {
+  CloseIcon,
+  FullScreenIcon,
+  LeaveFullScreenIcon,
+  MutedIcon,
+  PauseIcon,
+  PlayIcon,
+  SeekBackIcon,
+  SeekForwardIcon,
+  SoundIcon,
+} from "./player-icons.tsx";
 import { Clapperboard } from "./poster.tsx";
 import { AboutIcon, ResetIcon } from "./server-settings.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
 import { CastIcon, TogetherIcon } from "./status-tray.tsx";
 import { StillReadingIcon } from "./still-reading.tsx";
+import { Timeline } from "./timeline.tsx";
 import { MicrophoneIcon } from "./together-voice.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
@@ -53,7 +67,7 @@ const states: readonly { readonly key: string; readonly subject: CueSubject }[] 
  * The client's own parts, drawn with made-up data, to see how they look before a library has them
  * (the owner, 2026-10-17: "a demo page … that shows the UI elements"): the banner's status tray
  * with each sign it can show, each status cue over posters pale, mid, dark and busy, the notes a
- * page says them with, the icons alone, and the buttons. It reads nothing from the server; the menu
+ * page says them with, the icons alone, the buttons and the player's widgets (D369 §1). It reads nothing from the server; the menu
  * leads to it while the admin has the pages for development on, and its address is /ui-gallery.
  */
 export function UiGallery(): JSX.Element {
@@ -76,6 +90,7 @@ export function UiGallery(): JSX.Element {
         ))}
       </section>
       <IconsAndButtons />
+      <PlayerWidgets />
     </article>
   );
 }
@@ -184,6 +199,17 @@ function IconsAndButtons(): JSX.Element {
             <Clapperboard />
           </span>
         </p>
+        <p className="ui-gallery__icons">
+          <PlayIcon />
+          <PauseIcon />
+          <SeekBackIcon />
+          <SeekForwardIcon />
+          <SoundIcon />
+          <MutedIcon />
+          <FullScreenIcon />
+          <LeaveFullScreenIcon />
+          <CloseIcon />
+        </p>
       </section>
       <section aria-labelledby="gallery-buttons">
         <h2 id="gallery-buttons">{t("gallery.buttons")}</h2>
@@ -201,5 +227,73 @@ function IconsAndButtons(): JSX.Element {
         />
       </section>
     </>
+  );
+}
+
+/**
+ * A film standing at 24:26 of 1:42:05, playing, for the player's widgets to show: it plays nothing
+ * and moves nowhere.
+ */
+const galleryFilm: PlayerSource = {
+  atMs: 1_466_000,
+  durationMs: 6_125_000,
+  isPaused: false,
+  isReady: true,
+  playOrPause: () => undefined,
+  seekTo: () => undefined,
+  sound: {
+    volume: 0.7,
+    isMuted: false,
+    canSetVolume: true,
+    setVolume: () => undefined,
+    setMuted: () => undefined,
+  },
+};
+
+/**
+ * The player's widgets (D369 §1), drawn by the components themselves: an icon button on the page
+ * and over a film, a timeline, and the player's bar as a computer shows it over a film and as a
+ * cast's remote shows it on its page.
+ */
+function PlayerWidgets(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="gallery-player">
+      <h2 id="gallery-player">{t("gallery.player")}</h2>
+      <p className="ui-gallery__buttons">
+        <IconButton
+          label={t("gallery.iconButton")}
+          icon={<CloseIcon />}
+          onClick={() => undefined}
+        />
+        <span className="ui-gallery__film ui-gallery__film--strip">
+          <IconButton
+            label={t("gallery.iconButtonOverVideo")}
+            icon={<PlayIcon />}
+            isOverVideo
+            onClick={() => undefined}
+          />
+        </span>
+      </p>
+      <h3>{t("gallery.timeline")}</h3>
+      <Timeline
+        label={t("gallery.timeline")}
+        atMs={galleryFilm.atMs}
+        durationMs={galleryFilm.durationMs}
+        onSeek={() => undefined}
+      />
+      <h3>{t("gallery.barOverFilm")}</h3>
+      <div className="ui-gallery__film">
+        <div className="ui-gallery__bar">
+          <PlayerControls
+            source={galleryFilm}
+            controls={["play", "fullScreen", "sound", "timeline"]}
+            isOverVideo
+          />
+        </div>
+      </div>
+      <h3>{t("gallery.barRemote")}</h3>
+      <PlayerControls source={galleryFilm} controls={["play", "steps", "timeline"]} />
+    </section>
   );
 }

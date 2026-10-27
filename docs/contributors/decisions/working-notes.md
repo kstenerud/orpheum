@@ -23447,4 +23447,29 @@ its answers ([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navi
 5. **The rest of the audit's set** (choosers replacing native selects, problem and loading lines,
    panels, every top-bar pop-up modal) follows in later batches as the owner orders them.
 
-**Status:** Decided 2026-10-27.
+**Status:** Decided 2026-10-27. Built 2026-10-27 in `web/apps/web/src`: the over-video tokens in
+`tokens.css` (`--color-on-video`, `--color-video-scrim`, `--color-video-card`,
+`--color-video-control`, beside `--color-video-background`), every raw colour outside the tokens and
+the gallery's posters replaced; `IconButton` (`icon-button.tsx`), one size of 2.75rem, the status
+tray's signs too, its icons in `player-icons.tsx` (play, pause, the 10 s steps, sound, muted, full
+screen, leave full screen, close); `Timeline` (`timeline.tsx`, with `ClockTimes` and `clockText`),
+its touch handling in `range-touch.ts`, shared with `VolumeRange`; `PlayerControls`
+(`player-controls.tsx`) fed by a `PlayerSource`, `useVideoSource` for a video here and the cast's
+session in `cast-remote.tsx`; the TV overlay (`tv-controls.tsx`) and the cast remote rebuilt on it;
+a computer's and a phone's controls in `page-controls.tsx`, the Play page's browser controls off
+(`play.tsx`, `up-next.tsx`); and `/ui-gallery` showing the set. As built, where the decision left it
+open: the subtitle, audio track, boost, levelling and sound offset controls stay under the film,
+where the page had them, reached from the bar by Down; the bar's mute and volume sit last in its
+row, since a slider keeps Left and Right for itself and nothing after it could be reached by an
+arrow; Down on the video goes into the bar, which lies over the video where no arrow's search from it
+looks; a tap shows the bar and does not pause; `VolumeRange` stays the slider for a volume, beside
+`Timeline`; Watch Together's viewer keeps the browser's controls and the settings rows' and Talk's
+icon buttons keep their own (both named in `player-widgets.test.ts` as waiting), for the batches of
+§5. Not seen on a device yet (VQ85).
+
+**Proven by:**
+- 1: web/apps/web/src/colour-tokens.test.ts, icon-button.test.tsx, timeline.test.tsx, player-controls.test.tsx, cast-remote.test.tsx, tv-controls.test.tsx, player-widgets.browser.test.tsx, ui-gallery.test.tsx; VQ85
+- 2: web/apps/web/src/page-controls.test.tsx, input-player.browser.test.tsx (the walk reaching every control, Space on the video and the bar), player-commands.test.tsx; VQ85
+- 3: web/apps/web/src/player-widgets.browser.test.tsx ("is a submit button's size and shape, in the accent")
+- 4: web/apps/web/src/player-widgets.test.ts
+- 5: not built here: the later batches, as the owner orders them

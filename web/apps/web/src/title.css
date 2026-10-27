@@ -93,11 +93,14 @@
   margin: var(--space-2) 0 0;
 }
 
+/* Play is a button like every other, filled in the accent as the page's most important (D369 §3):
+   a submit button's look (base.css), drawn on its link. */
 .title__play {
   display: inline-flex;
   align-items: center;
   min-height: var(--size-control);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-accent);
   border-radius: var(--radius-control);
   background: var(--color-accent);
   color: var(--color-on-accent);

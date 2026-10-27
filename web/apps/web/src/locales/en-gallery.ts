@@ -7,7 +7,7 @@
 export const enGallery = {
   gallery: {
     heading: "UI gallery",
-    what: "The client's parts with made-up data, to see how they look: the banner's status tray with each sign it shows, each status cue over pale, mid, dark and busy posters, the notes a page says them with, the icons alone, and the buttons. Nothing here reads the server.",
+    what: "The client's parts with made-up data, to see how they look: the banner's status tray with each sign it shows, each status cue over pale, mid, dark and busy posters, the notes a page says them with, the icons alone, the buttons and the player's widgets. Nothing here reads the server.",
     tone: {
       light: "Over a pale poster",
       medium: "Over a mid poster",
@@ -33,5 +33,11 @@ export const enGallery = {
     confirm: "Delete something",
     confirmConsequence: "Nothing is deleted: this is the gallery.",
     confirmYes: "Delete it",
+    player: "The player's widgets",
+    iconButton: "An icon button",
+    iconButtonOverVideo: "An icon button over a film",
+    timeline: "A film's timeline",
+    barOverFilm: "The player's bar over a film",
+    barRemote: "The player's bar on a cast's remote",
   },
 };
