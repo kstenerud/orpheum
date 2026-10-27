@@ -20,6 +20,10 @@ from collections.abc import Callable
 from revert_red_timings import kind_of
 
 _CLEAN: dict[tuple[str, str], bool] = {}
+# What a clean run that failed printed, its end: the failing test had to be found by reproducing the
+# load by hand when it was not kept (2026-10-26, process review F8).
+_FAILED_OUTPUT: dict[tuple[str, str], str] = {}
+KEPT_LINES = 20
 _LOCK = threading.Lock()
 
 
@@ -38,10 +42,22 @@ def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProce
         known = _CLEAN.get((tree, kind))
     if known is not None:
         return known
+    output = ""
     try:
-        passed = run().returncode == 0
+        done = run()
+        passed = done.returncode == 0
+        output = (done.stdout or "") + (done.stderr or "")
     except subprocess.TimeoutExpired:
         passed = False
+        output = "it ran past its timeout"
     with _LOCK:
         _CLEAN[(tree, kind)] = passed
+        if not passed:
+            _FAILED_OUTPUT[(tree, kind)] = "\n".join(output.strip().splitlines()[-KEPT_LINES:])
     return passed
+
+
+def clean_failure(tree: str, kind: str) -> str:
+    """The end of what the clean run of kind in tree printed when it failed, or "" when it passed."""
+    with _LOCK:
+        return _FAILED_OUTPUT.get((tree, kind), "")

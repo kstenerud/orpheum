@@ -294,6 +294,12 @@ func TestReferenceScale(t *testing.T) {
 	checkStepBudgets(t, database, append(steps, rebuildStep(t, database, "file", lastVersion(steps)+1)))
 	if *updateStatistics {
 		writeStatistics(t, database)
+	} else if fresh := statisticsText(t, database); fresh != persistentStatistics {
+		// The committed file is only ever what the generator writes (the owner, 2026-10-26: no
+		// hand-edits of generated data); a schema step that changes it is written again here.
+		t.Errorf("statistics/persistent.tsv is not what ANALYZE of the reference library writes; write "+
+			"it again with go test -tags integration -run TestReferenceScale ./internal/store "+
+			"-update-statistics\nfresh:\n%s", fresh)
 	}
 	checkQueryPlans(t, database)
 	checkPageBudgets(t, database)
@@ -310,6 +316,16 @@ var updateStatistics = flag.Bool("update-statistics", false,
 // not for a plain one (invitation, 2026-10-26), which the statistics test refuses as half a table,
 // and no row at all is what the planner has of an empty table anyway.
 func writeStatistics(t *testing.T, database *Database) {
+	t.Helper()
+	text := statisticsText(t, database)
+	if err := os.WriteFile(filepath.Join("statistics", "persistent.tsv"), []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("wrote statistics/persistent.tsv: %d bytes", len(text))
+}
+
+// statisticsText is what writeStatistics writes: the reference library's statistics, as the file holds them.
+func statisticsText(t *testing.T, database *Database) string {
 	t.Helper()
 	copyPath := filepath.Join(t.TempDir(), "analyzed.db")
 	if err := database.BackupInto(t.Context(), copyPath); err != nil {
@@ -355,10 +371,7 @@ func writeStatistics(t *testing.T, database *Database) {
 			fmt.Fprintf(&text, "%s\t%s\t%s\n", row.table, row.index, row.stat)
 		}
 	}
-	if err := os.WriteFile(filepath.Join("statistics", "persistent.tsv"), []byte(text.String()), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("wrote statistics/persistent.tsv: %d bytes", text.Len())
+	return text.String()
 }
 
 // checkStepBudgets migrates through the pending steps, timing each (migrations.md: under 10 s

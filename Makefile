@@ -46,6 +46,10 @@ export GOFLAGS := $(strip $(GOFLAGS) -trimpath)
 # web/e2e/test-timings.ts; the owner, 2026-10-20): it reads `go test -json` and prints go test's own text.
 GO_TIMINGS = $(PYTHON) scripts/go_test_timings.py
 
+# One gate at a time on the repository, every worktree's included: a second waits; a gate's own
+# sub-runs pass through (scripts/gate_lock.py; process review F17, 2026-10-27).
+GATE_LOCK = $(PYTHON) scripts/gate_lock.py
+
 .PHONY: help
 help: ## List the targets
 	@grep -E '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -60,7 +64,7 @@ CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 
 .PHONY: check
 check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@$(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
+	@$(GATE_LOCK) $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
 
 # The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
 # the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
@@ -226,7 +230,9 @@ web-test-browser:
 # One browser-mode run at a time on the machine: two gates' runs at once (check-pr's tree, revert-red's
 # worktrees, a sandbox's agents) pushed a walk's 72 round trips to the browser past its timeout
 # (test-weight.md §26). The wait shows as this step's own time (§7).
-BROWSER_MODE_LOCK ?= /tmp/orpheum-browser-mode.lock
+# In the repository's git directory, not /tmp, so it holds across the host and the development
+# container, which do not share /tmp (gate-throughput audit, 2026-10-26).
+BROWSER_MODE_LOCK ?= $(shell git rev-parse --path-format=absolute --git-common-dir)/browser-mode.lock
 web-test-browser-run: browsers
 	@flock $(BROWSER_MODE_LOCK) npm --prefix web run --silent test:browser
 
@@ -313,7 +319,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	    echo "make check-pr: a tier failed; every tier still ran, so each failure is above"; exit 1; }; \
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
-	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
+	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && $(PYTHON) scripts/check_pr_debt.py paid && { \
 	    took=$$(( $$(date +%s) - started )); \
 	    if [ "$$took" -gt $(CHECK_PR_BUDGET_S) ]; then \
 	      echo "make check-pr: passed in $${took} s, over its $(CHECK_PR_BUDGET_S) s budget: find the step that grew (standards/makefile.md)"; \
@@ -326,7 +332,8 @@ check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  $(PYTHON) scripts/check_pr_steps.py rerun --base "$$base" --jobs $(CHECK_JOBS) \
-	    --last $(PR_CODE_RED_STEP) --last $(PR_LAST_STEP) $(PR_STEPS)
+	    --last $(PR_CODE_RED_STEP) --last $(PR_LAST_STEP) $(PR_STEPS) && \
+	  $(PYTHON) scripts/check_pr_debt.py owe "$$base"
 
 .PHONY: check-pr-documentation
 check-pr-documentation: ## The branch gate for documentation alone, which check-pr runs instead for one: what reads the documents and the commits' quick checks, seconds; a pass marks HEAD as checked
@@ -361,25 +368,25 @@ web-lint-full: web-deps ## eslint without its cache: make check's cached lint ca
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190); ONLY="a b" probes only those paths
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" $(if $(ONLY),--only $(ONLY))
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" $(if $(ONLY),--only $(ONLY))
 
 .PHONY: check-revert-red-failed
 check-revert-red-failed: ## Revert-red on only the files its last run against BASE failed on; then run the full check
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
 
 .PHONY: check-revert-red-code check-revert-red-browser check-revert-red-code-failed check-revert-red-browser-failed
 check-revert-red-code: ## Revert-red on the code (Go, TypeScript, Python) with its cheap runs alone: check-pr's tier after the medium one
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --part code
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part code
 check-revert-red-browser: ## Revert-red's browser runs: the stylesheets, and the code check-revert-red-code left owing them; check-pr's last step
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --part browser
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part browser
 check-revert-red-code-failed: ## Revert-red on only the code files its last run against BASE failed on
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part code
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part code
 check-revert-red-browser-failed: ## Revert-red's browser runs on only the files its last run against BASE failed on
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part browser
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part browser
 
 .PHONY: check-commit-red
 check-commit-red: ## Revert-red on the last commit's code alone, against its parent: a minute's check after each commit, so a change no test notices is found while it is fresh (the owner, 2026-10-15)
-	@$(PYTHON) scripts/check_revert_red.py --base HEAD~1 --part code --unrecorded
+	@$(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base HEAD~1 --part code --unrecorded
 
 .PHONY: check-test-weakening
 check-test-weakening: ## No test got weaker, and no gate changed, without a trailer on a commit that touched it
@@ -425,7 +432,7 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	  base="$$(git rev-list -1 --before='$(SINCE)' HEAD)"; \
 	  if [ -z "$$base" ] || [ "$$base" = "$$(git rev-parse HEAD)" ]; then \
 	    echo "check-everything: no commit since $(SINCE), so revert-red has nothing to probe"; \
-	  else $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
+	  else $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
 	  if [ "$$failed" -ne 0 ]; then echo "make check-everything: FAILED; every step ran, so each failure is above"; exit 1; fi; \
 	  echo "make check-everything: everything passed"
 

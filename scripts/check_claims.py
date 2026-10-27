@@ -72,6 +72,16 @@ TS_ARCH_DEF = re.compile(r"""\b(?:it|test)\(\s*["'`](TestArch_[A-Za-z0-9_]+)""")
 DECISION_HEADING = re.compile(r"^## D(\d+) — ", re.M)
 CODE_DECISION = re.compile(r"(?<![\w/#.-])D(\d{1,4})(?![\w-])")
 TEST_VAR = re.compile(r"\bORPHEUM_TEST_[A-Z0-9_]+\b")
+# A decision built from this one on proves each numbered point (process review F11b, 2026-10-27): D349
+# was called built with two of its points unbuilt. The decisions before it are not asked again.
+FIRST_PROVEN_DECISION = 352
+VERIFICATION_QUEUE = "docs/contributors/verification-queue.md"
+DECISION_SECTION = re.compile(r"^## D(\d+) — .*?(?=^## D\d+ — |\Z)", re.M | re.S)
+DECISION_POINT = re.compile(r"^(\d+)\. \*\*", re.M)
+PROVEN_BY = re.compile(r"^\*\*Proven by:\*\*(.*?)(?=^\*\*[A-Z][\w ]*:\*\*|\Z)", re.M | re.S)
+PROOF_LINE = re.compile(r"^\s*[-*]?\s*(\d+):\s*(.+)$", re.M)
+TS_TEST_FILE = re.compile(r"[\w./-]+\.(?:test|spec)\.tsx?\b")
+VQ_ITEM = re.compile(r"\bVQ(\d+)\b")
 
 CODE_SUFFIXES = (".go", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
 GENERATED_PARTS = ("internal/store/sqlcgen/", "internal/store/cachegen/", "web/packages/sdk/src/gen/")
@@ -237,11 +247,45 @@ def read_text_files(root: Path, paths: list[str]) -> dict[str, str]:
     return files
 
 
+def check_decision_proofs(files: dict[str, str]) -> list[Problem]:
+    """A decision from FIRST_PROVEN_DECISION on whose status says built has a **Proven by:** block naming,
+    for each of its numbered points, a Go test, a TypeScript test file or a VQ item, each of which exists."""
+    defined = {name for path, text in files.items() if path.endswith("_test.go") for name in GO_TEST_DEF.findall(text)}
+    queued = set(VQ_ITEM.findall(files.get(VERIFICATION_QUEUE, "")))
+    problems: list[Problem] = []
+    for section in DECISION_SECTION.finditer(files.get(LIVE_LOG, "")):
+        number, text = int(section.group(1)), section.group(0)
+        status = re.search(r"^\*\*Status:\*\*(.*)$", text, re.M)
+        if number < FIRST_PROVEN_DECISION or status is None or "built" not in status.group(1) or "not built" in status.group(1):
+            continue
+        points = set(DECISION_POINT.findall(text))
+        proven = PROVEN_BY.search(text)
+        cited = {} if proven is None else {point: proof for point, proof in PROOF_LINE.findall(proven.group(1))}
+        for point in sorted(points, key=int):
+            proof = cited.get(point, "")
+            tests = CITED_TEST.findall(proof) + re.findall(r"\bTest[A-Z][A-Za-z0-9_]*", proof)
+            if not (tests or TS_TEST_FILE.search(proof) or VQ_ITEM.search(proof)):
+                problems.append(Problem(LIVE_LOG, f"D{number} is built, but its point {point} cites no test or VQ "
+                                                  "item under **Proven by:**"))
+                continue
+            for name in set(tests):
+                if name not in defined and not name.startswith("TestArch_"):
+                    problems.append(Problem(LIVE_LOG, f"D{number} point {point} cites `{name}`, which no test defines"))
+            for path in TS_TEST_FILE.findall(proof):
+                if not any(known.endswith(path) for known in files):
+                    problems.append(Problem(LIVE_LOG, f"D{number} point {point} cites {path}, which is not in the tree"))
+            for item in VQ_ITEM.findall(proof):
+                if item not in queued:
+                    problems.append(Problem(LIVE_LOG, f"D{number} point {point} cites VQ{item}, which the queue lacks"))
+    return problems
+
+
 def check(root: Path) -> list[Problem]:
     files = read_text_files(root, tracked(root))
     live, archived = decision_status(files.get(LIVE_LOG, ""), files.get(ARCHIVE_LOG, ""))
     return (check_arch(files) + check_code_decisions(files, live, archived) + check_test_vars(files)
-            + check_retired(files, retired_names(files.get(RETIRED_NAMES, ""))) + check_cited_tests(files))
+            + check_retired(files, retired_names(files.get(RETIRED_NAMES, ""))) + check_cited_tests(files)
+            + check_decision_proofs(files))
 
 
 def main() -> int:

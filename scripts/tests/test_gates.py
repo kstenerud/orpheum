@@ -230,7 +230,42 @@ class Claims(unittest.TestCase):
         self.assertIn("ORPHEUM_TEST_GPU", problems[0].message)
 
 
+class DecisionProofs(unittest.TestCase):
+    """A decision built from D352 on cites a test or VQ item for each numbered point (F11b)."""
+
+    def files(self, proof: str, number: int = 352, status: str = "Decided, and built (2026-10-27).") -> dict[str, str]:
+        decision = (f"## D{number} — A thing\n\n**Decided**.\n\n1. **One.** x\n2. **Two.** y\n\n"
+                    f"{proof}**Status:** {status}\n")
+        return {cc.LIVE_LOG: decision, "a/a_test.go": "func TestA_One(t *testing.T) {}\n",
+                "web/b.test.tsx": "", cc.VERIFICATION_QUEUE: "- [ ] **VQ9** — x\n"}
+
+    def test_a_built_decision_proves_each_point(self):
+        good = "**Proven by:**\n- 1: TestA_One\n- 2: web/b.test.tsx, VQ9\n\n"
+        self.assertEqual(cc.check_decision_proofs(self.files(good)), [])
+        missing = cc.check_decision_proofs(self.files("**Proven by:**\n- 1: TestA_One\n\n"))
+        self.assertEqual(len(missing), 1)
+        self.assertIn("point 2", missing[0].message)
+        unknown = cc.check_decision_proofs(self.files("**Proven by:**\n- 1: TestA_Gone\n- 2: VQ8\n\n"))
+        self.assertEqual(len(unknown), 2, unknown)
+
+    def test_earlier_and_unbuilt_decisions_are_not_asked(self):
+        self.assertEqual(cc.check_decision_proofs(self.files("", number=351)), [])
+        self.assertEqual(cc.check_decision_proofs(self.files("", status="Decided 2026-10-27; not built.")), [])
+
+
 class TestWeakening(unittest.TestCase):
+    def test_a_helper_moved_to_another_test_file_takes_its_checks_with_it(self):
+        """Process review F18: D351 moved a helper with two checks, which counted as lost."""
+        helper = 'func checkIt(t *testing.T, x int) {\n\tif x != 1 {\n\t\tt.Errorf("a")\n\t}\n\tif x != 2 {\n\t\tt.Errorf("b")\n\t}\n}\n'
+        test = 'func TestA(t *testing.T) {\n\tcheckIt(t, 1)\n}\n'
+        before, after = "package a\n" + helper + test, "package a\n" + test
+        moved_to = {tw.same_body_key("checkIt", helper): "b_test.go: 'checkIt'"}
+        weakened, moves = tw.compare_with_moves("a_test.go", before, after, {}, None, None, moved_to)
+        self.assertEqual(weakened, [], "its checks went with it")
+        self.assertIn("helper 'checkIt'", " ".join(moves))
+        weakened, _ = tw.compare_with_moves("a_test.go", before, after, {}, None, None, {})
+        self.assertTrue(any("assertions went from" in w.what for w in weakened), "deleted, it is still a loss")
+
     def test_removed_test_new_skip_and_fewer_assertions_are_found(self):
         before = ("func TestA(t *testing.T) { t.Fatal(\"x\") }\n"
                   "func TestB(t *testing.T) { t.Error(\"y\"); t.Error(\"z\") }\n")

@@ -149,6 +149,69 @@ class AgentWorktreeBase(unittest.TestCase):
         self.assertEqual(settings.get("worktree", {}).get("baseRef"), "head")
 
 
+class StandingOrdersAndDebts(unittest.TestCase):
+    """What the session is told without being asked to remember it (process review F2, F13)."""
+
+    def project(self):
+        import shutil
+        import tempfile
+        project = Path(tempfile.mkdtemp(prefix="hooks-orders-"))
+        self.addCleanup(shutil.rmtree, project)
+        shutil.copytree(ROOT / "scripts", project / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        subprocess.run(["git", "init", "-q", str(project)], check=True, env=os.environ | HERMETIC)
+        return project
+
+    def test_every_prompt_carries_the_standing_orders_when_there_are_some(self):
+        project = self.project()
+        self.assertEqual(run_hook("on_prompt.py", {}, CLAUDE_PROJECT_DIR=str(project)), {})
+        (project / ".claude").mkdir()
+        (project / ".claude" / "standing-orders.md").write_text("1. Finish the worktrees.\n")
+        said = run_hook("on_prompt.py", {}, CLAUDE_PROJECT_DIR=str(project))
+        self.assertIn("Finish the worktrees.", said["hookSpecificOutput"]["additionalContext"])
+
+    def test_an_owed_full_check_pr_is_shown_at_a_sessions_start_until_paid(self):
+        project = self.project()
+        def debt(*args: str) -> None:
+            subprocess.run([sys.executable, "scripts/check_pr_debt.py", *args], cwd=project, check=True,
+                           env=os.environ | HERMETIC)
+        self.assertEqual(run_hook("on_session_start.py", {}, CLAUDE_PROJECT_DIR=str(project)), {})
+        debt("owe", "0123456789abcdef")
+        said = run_hook("on_session_start.py", {}, CLAUDE_PROJECT_DIR=str(project))
+        self.assertIn("0123456789ab", said["hookSpecificOutput"]["additionalContext"])
+        debt("paid")
+        self.assertEqual(run_hook("on_session_start.py", {}, CLAUDE_PROJECT_DIR=str(project)), {})
+
+    def test_the_settings_register_both(self):
+        hooks = json.loads((ROOT / ".claude" / "settings.json").read_text())["hooks"]
+        self.assertIn("on_session_start.py", json.dumps(hooks["SessionStart"]))
+        self.assertIn("on_prompt.py", json.dumps(hooks["UserPromptSubmit"]))
+        self.assertIn("on_subagent_stop.py", json.dumps(hooks["SubagentStop"]))
+
+
+class SubagentStop(unittest.TestCase):
+    """An agent that stops to wait for its own background gate is told to wait in the foreground (F14)."""
+
+    def verdict(self, said: str, running: bool, active: bool = False) -> dict:
+        from unittest import mock
+        sys.path.insert(0, str(HOOKS))
+        import on_subagent_stop  # noqa: PLC0415
+        import io
+        out = io.StringIO()
+        event = {"last_assistant_message": said, "stop_hook_active": active}
+        with mock.patch.object(on_subagent_stop.hooklib, "read_event", lambda: event), \
+                mock.patch.object(on_subagent_stop, "gate_running", lambda: running), \
+                mock.patch.object(on_subagent_stop.sys, "stdout", out):
+            on_subagent_stop.main()
+        return json.loads(out.getvalue()) if out.getvalue() else {}
+
+    def test_waiting_on_a_running_gate_is_blocked_once(self):
+        said = "I'll wait for the background make check to finish."
+        self.assertEqual(self.verdict(said, running=True).get("decision"), "block")
+        self.assertEqual(self.verdict(said, running=False), {}, "nothing is running: let it stop")
+        self.assertEqual(self.verdict("Done; all gates passed.", running=True), {}, "it is not waiting")
+        self.assertEqual(self.verdict(said, running=True, active=True), {}, "told once already")
+
+
 class PreBash(unittest.TestCase):
     def bash(self, command: str, **env: str) -> str:
         return decision(run_hook("pre_bash.py", {"tool_name": "Bash",
@@ -295,6 +358,8 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
         with mock.patch.object(on_stop, "PENDING", pending), \
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: running or None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-code").touch()
             on_stop.main()
@@ -379,6 +444,7 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-docs").touch()
             on_stop.main()
@@ -402,11 +468,33 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop, "already_passed", lambda: True), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
                 mock.patch.object(on_stop.run_gate, "gate_command", lambda target, env: targets.append(target) or ["true"]):
             (pending / "check-pending-code").touch()
             on_stop.main()
         self.assertEqual(targets, [])
         self.assertFalse((pending / "check-pending-code").exists(), "the owed gate is paid")
+
+    def test_a_gate_running_defers_the_stop_hooks_gate_and_keeps_its_mark(self):
+        """The Stop hook never queues behind another gate (scripts/gate_lock.py, F17)."""
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        targets = []
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "gate_held", lambda: True), \
+                mock.patch.object(on_stop.run_gate, "gate_command", lambda target, env: targets.append(target) or ["true"]):
+            (pending / "check-pending-code").touch()
+            on_stop.main()
+        self.assertEqual(targets, [])
+        self.assertTrue((pending / "check-pending-code").exists(), "the gate is still owed")
 
 
 if __name__ == "__main__":

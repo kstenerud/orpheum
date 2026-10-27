@@ -64,6 +64,8 @@ from pathlib import Path
 import check_claims
 
 GO_TEST_FUNC = re.compile(r"^func (Test\w+|Fuzz\w+|Benchmark\w+)\(", re.M)
+# Any function or method of a Go test file: a helper is one that is not a test.
+GO_FUNC = re.compile(r"^func (?:\([^)]*\) )?(\w+)\(", re.M)
 TS_TEST_CASE = re.compile(r"""\b(?:it|test)\(\s*(["'`])(.+?)\1""")
 PY_TEST_FUNC = re.compile(r"^\s*def (test_\w+)\(", re.M)
 NEW_SKIP = re.compile(r"\bt\.Skip(?:Now|f)?\(|\.(?:skip|todo|only)\(")
@@ -111,6 +113,28 @@ def test_bodies(path: str, text: str) -> dict[str, str]:
     for m in TS_TEST_CASE.finditer(text):
         found[m.group(2)] = text[m.start():_bracket_end(text, text.index("(", m.start()), "(", ")")]
     return found
+
+
+def helper_bodies(path: str, text: str) -> dict[str, str]:
+    """Each helper in a Go or Python test file, by name, with its source: a function that is not a
+    test. A helper moved to another test file takes its checks with it (process review F18, 2026-10-26:
+    a helper's two checks moved with D351's assembly and counted as lost). TypeScript is not parsed."""
+    if path.endswith(".go"):
+        found = {}
+        for m in GO_FUNC.finditer(text):
+            if GO_TEST_FUNC.match(text, m.start()):
+                continue
+            brace = text.find("{", m.end())
+            found[m.group(1)] = text[m.start():_block_end(text, brace) if brace >= 0 else len(text)]
+        return found
+    if path.endswith(".py"):
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return {}
+        return {node.name: ast.get_source_segment(text, node) or node.name for node in tree.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("test_")}
+    return {}
 
 
 def _python_tests(text: str) -> dict[str, str]:
@@ -261,6 +285,7 @@ def compare_with_moves(path: str, before: str, after: str,
                        elsewhere: dict[str, str] | None = None,
                        renames: dict[str, tuple[str, str]] | None = None,
                        tests_in: Callable[[str], dict[str, str]] | None = None,
+                       helpers_elsewhere: dict[str, str] | None = None,
                        ) -> tuple[list[Weakening], list[str]]:
     """compare's weakenings, and the moves it did not count as removals, as sentences. `renames`
     are this file's Test-Renamed claims, old name to (the file it is now in, new name); `tests_in`
@@ -291,6 +316,12 @@ def compare_with_moves(path: str, before: str, after: str,
         moves.append(f"{path}: test {gone!r} is now {destination}, with the same body")
         if key not in here:
             moved_out += checks(path, before_tests[gone])
+    before_helpers, after_helpers = helper_bodies(path, before), helper_bodies(path, after)
+    for gone in sorted(set(before_helpers) - set(after_helpers)):
+        destination = (helpers_elsewhere or {}).get(same_body_key(gone, before_helpers[gone]))
+        if destination is not None:
+            moves.append(f"{path}: helper {gone!r} is now {destination}, with the same body")
+            moved_out += checks(path, before_helpers[gone])
     before_skips, after_skips = skips(path, before), skips(path, after)
     if after_skips > before_skips:
         found.append(Weakening(path, f"{after_skips - before_skips} new skip/only/todo"))
@@ -366,10 +397,14 @@ def weakenings(base: str, head: str, moves: list[str] | None = None) -> list[Wea
     are_live = gate_paths.migrations_are_live(Path.cwd(), head)
     rows = changed(base, head)
     elsewhere: dict[str, str] = {}
+    helpers_elsewhere: dict[str, str] = {}
     for status, path in rows:
         if TEST_FILE.search(path) and status != "D":
-            for name, body in test_bodies(path, git("show", f"{head}:{path}")).items():
+            text = git("show", f"{head}:{path}")
+            for name, body in test_bodies(path, text).items():
                 elsewhere.setdefault(same_body_key(name, body), f"{path}: {name!r}")
+            for name, body in helper_bodies(path, text).items():
+                helpers_elsewhere.setdefault(same_body_key(name, body), f"{path}: {name!r}")
     for status, path in rows:
         if GOLDEN.search(path):
             weakened = golden_weakening(status, path, are_live)
@@ -385,7 +420,7 @@ def weakenings(base: str, head: str, moves: list[str] | None = None) -> list[Wea
         before = git("show", f"{base}:{path}")
         after = "" if status == "D" else git("show", f"{head}:{path}")
         weakened, moved = compare_with_moves(path, before, after, elsewhere, renamed_tests(base, head, path),
-                                             lambda other: tests_at(head, other))
+                                             lambda other: tests_at(head, other), helpers_elsewhere)
         found += weakened
         if moves is not None:
             moves += moved

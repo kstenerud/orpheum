@@ -33,6 +33,7 @@ import sys
 import time
 from pathlib import Path
 
+import gate_lock
 import revert_red_trees
 
 # Where every suite keeps its timings (web/e2e/test-timings.ts), made in the working tree if it is not
@@ -107,7 +108,8 @@ def main(argv: list[str]) -> int:
         print("check_pr_snapshot.py: not in a git repository with a commit", file=sys.stderr)
         return 2
     folder.mkdir(parents=True, exist_ok=True)
-    with open(folder / "lock", "a", encoding="utf-8") as lock:
+    # The repository's one gate lock first (gate_lock.py), then check-pr's own, which the hooks read.
+    with gate_lock.holding(source) as gate_env, open(folder / "lock", "a", encoding="utf-8") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -123,7 +125,7 @@ def main(argv: list[str]) -> int:
         print(f"check-pr: checking {head[:12]} in its own tree, {tree}, set up in "
               f"{time.monotonic() - began:.0f} s (not in check-pr's own time); the working tree is free to "
               "edit, and tests and commits wait for it (the hooks refuse them until it ends).", flush=True)
-        env = {name: value for name, value in os.environ.items() if name not in MAKE_STATE}
+        env = {name: value for name, value in gate_env.items() if name not in MAKE_STATE}
         env[IN_TREE] = str(tree)
         done = subprocess.run(["make", "--no-print-directory", "-C", str(tree), *argv], env=env,
                               pass_fds=(lock.fileno(),), check=False)
