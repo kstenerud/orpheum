@@ -7,8 +7,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
-import { redeem, startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
-import { createSession } from "./session.ts";
+import {
+  leaveWhenSignedOut,
+  redeem,
+  startAtClient,
+  type AtClientOrigin,
+} from "./loader-at-client-origin.tsx";
+import { corePrefix, createSession } from "./session.ts";
 import {
   codeParts,
   joinParts,
@@ -117,6 +122,41 @@ describe("the loader at its own origin (D308)", () => {
     expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
   });
 
+  it("goes no more to a household its own client origin says was signed out of, and offers the discovery's sign-in", async () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    const shown = startAtLoaderOrigin(
+      loaderAt(
+        { search: "?signedout=k7xq2", referrer: "https://k7xq2.client.example/" },
+        storage,
+        went,
+      ),
+    );
+    expect(went).toEqual([]);
+    // Kept for the warning a realm sign-in gives when it finds another core for the realm (D312 §2).
+    expect(households(storage).map((each) => [each.coreId, each.isSignedOut])).toEqual([
+      ["k7xq2", true],
+    ]);
+    mounted = await mount(shown ?? <p>nothing</p>);
+    expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+    // Signed in again, it is gone to again.
+    rememberHousehold(storage, household);
+    const again: string[] = [];
+    expect(startAtLoaderOrigin(loaderAt({}, storage, again))).toBeUndefined();
+    expect(again).toEqual(["https://k7xq2.client.example/"]);
+  });
+
+  it("goes on to a household another page says was signed out of", () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    startAtLoaderOrigin(
+      loaderAt({ search: "?signedout=k7xq2", referrer: "https://evil.example/" }, storage, went),
+    );
+    expect(went).toEqual(["https://k7xq2.client.example/"]);
+  });
+
   it("keeps a household another page says is gone", () => {
     const storage = memoryStorage();
     rememberHousehold(storage, household);
@@ -209,6 +249,50 @@ describe("the loader at a core's client origin (D308)", () => {
     expect(startAtClient(clientAt(`#m3dz9.a-secret.${fingerprint}`, memoryStorage(), []))).toEqual({
       kind: "none",
     });
+  });
+});
+
+describe("signing out at a core's client origin (D308)", () => {
+  /** A session at the client origin, signed in. */
+  function signedIn(): ReturnType<typeof createSession> {
+    const session = createSession(memoryStorage(), corePrefix("k7xq2"));
+    session.signIn("token");
+    return session;
+  }
+
+  it("goes to the discovery's page, saying so, once a realm's household signs out or is signed out", () => {
+    for (const end of ["signOut", "signOutBecause"] as const) {
+      const session = signedIn();
+      const went: string[] = [];
+      leaveWhenSignedOut(session, {
+        core: { coreId: "k7xq2", fingerprint, realm: "nas" },
+        loaderOrigin: config.loaderOrigin,
+        go: (to) => {
+          went.push(to);
+        },
+      });
+      expect(went).toEqual([]);
+      if (end === "signOut") {
+        session.signOut();
+      } else {
+        session.signOutBecause("removed");
+      }
+      expect(went).toEqual(["https://app.example/?signedout=k7xq2"]);
+    }
+  });
+
+  it("stays at the core's own sign-in for a household reached by a link alone", () => {
+    const session = signedIn();
+    const went: string[] = [];
+    leaveWhenSignedOut(session, {
+      core: { coreId: "k7xq2", fingerprint, realm: undefined },
+      loaderOrigin: config.loaderOrigin,
+      go: (to) => {
+        went.push(to);
+      },
+    });
+    session.signOut();
+    expect(went).toEqual([]);
   });
 });
 

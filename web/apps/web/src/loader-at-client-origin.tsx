@@ -19,6 +19,7 @@ import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import {
   heldWith,
   readHandOffFragment,
+  whenSignedOut,
   type KeptCore,
   type Reaching,
   type Start,
@@ -28,7 +29,7 @@ import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
-import { goneAddress, switchAddress } from "./loader-households.ts";
+import { goneAddress, signedOutAddress, switchAddress } from "./loader-households.ts";
 import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
@@ -111,6 +112,31 @@ function goBy(address: string): void {
   link.referrerPolicy = "origin";
   document.body.append(link);
   link.click();
+}
+
+/**
+ * Goes, by go, to the discovery's page once the session at this origin ends, signed out here or by
+ * its device's removal, for a core reached through a realm, whose person signs in at the discovery
+ * (D297): there the household is no longer gone to and the discovery's sign-in is offered. Left
+ * here, the page showed the core's own sign-in, a stranger's to a person who never met it (the
+ * owner's Fire TV, 2026-10-27). A core reached by a link alone keeps its own sign-in, the only one
+ * its person has. Returns what stops the watch.
+ */
+export function leaveWhenSignedOut(
+  session: Session,
+  to: {
+    readonly core: KeptCore;
+    readonly loaderOrigin: string;
+    readonly go: (address: string) => void;
+  },
+): () => void {
+  const { core, loaderOrigin, go } = to;
+  if (core.realm === undefined) {
+    return () => undefined;
+  }
+  return whenSignedOut(session, () => {
+    go(signedOutAddress(loaderOrigin, core.coreId));
+  });
 }
 
 /** The loader's interface over a kept path, for the client to take. */
@@ -211,6 +237,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           tellWorker: at.tellWorker,
         });
         at.unmount();
+        leaveWhenSignedOut(session, { core, loaderOrigin: at.loaderOrigin, go: goBy });
         run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {
         kept.close();
