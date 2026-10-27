@@ -22997,4 +22997,8 @@ D359 §3); only where each is changes.
 - 4: web/apps/web/src/library-pages.test.tsx, web/apps/web/src/screen-refusals.test.tsx
 - 5: web/apps/web/src/router.test.ts, web/apps/web/src/app.test.tsx
 
-**Status:** Decided 2026-10-27.
+**Status:** Decided 2026-10-27. Built 2026-10-27: the list in
+`web/apps/web/src/libraries.tsx`, a library's page in `web/apps/web/src/library-manage.tsx`, the
+dialog (`FolderBrowser`) in `web/apps/web/src/folder-picker.tsx`, focus given back in
+`web/apps/web/src/modal-dialog.tsx`, the page creating one in `web/apps/web/src/create-library.tsx`,
+and the routes in `web/apps/web/src/router.ts`.
