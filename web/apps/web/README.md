@@ -168,11 +168,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   series, other videos, Continue Watching's rewatches and a season's and an episode's rows, never on
   an extra, and nothing fades or greys what it marks; a series or season once its person watched every
   episode. A title's page says it beside the check, among its status notes. `src/status-cues.test.tsx`,
-  `src/watched-mark.test.tsx`, `src/ui-gallery.test.tsx`; on devices, VQ87.
+  `src/watched-mark.test.tsx`, `src/ui-gallery.test.tsx`; on devices, VQ89.
 - **A person marks a video, a season or a whole series watched or unwatched on its page** (D370 §4):
   *Mark as watched*, or *Mark as unwatched* once it is, a button like any other that a remote reaches,
   never a control on a poster; it changes at once and offers Undo, which puts every mark back as it
-  was, never a question. `src/watched-mark.test.tsx`; on devices, VQ87.
+  was, never a question. `src/watched-mark.test.tsx`; on devices, VQ89.
 - **A series is shown in the ordering its person chose** (D159 §1, episode-orderings.md §4): a series
   with more than one offers them on its top page, aired first, each by its label with its kind and
   how many episodes it holds; a choice is kept on the server and goes to the series' top page, where
