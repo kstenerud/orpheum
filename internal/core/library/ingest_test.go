@@ -507,3 +507,17 @@ func TestReadRules_ReadTheOlderContainersByDefault(t *testing.T) {
 		}
 	}
 }
+
+// A scan reads no extension also used by what is no film, nor a container none of whose films was
+// proven to play (D360 §4): a tracker's music (.mod), protected iTunes sound (.m4p), PostScript
+// (.ps), data (.dat), Flash (.swf), Ogg's sound (.ogg), playlists (.asx), elementary MPEG streams
+// with no container's timing (.m2v, .m1v), and AMV, whose files FFmpeg writes without a length.
+func TestReadRules_ReadNoExtensionOfWhatIsNoFilmOrIsUnproven(t *testing.T) {
+	t.Parallel()
+	rules := scanRules()
+	for _, extension := range []string{"mod", "m4p", "ps", "dat", "swf", "ogg", "asx", "m2v", "m1v", "amv"} {
+		if rules.VideoExtensions[extension] {
+			t.Errorf("a scan reads .%s files as videos", extension)
+		}
+	}
+}

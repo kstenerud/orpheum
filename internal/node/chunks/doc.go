@@ -22,6 +22,9 @@
 //     TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd,
 //     TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts and
 //     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds.
+//   - A raw file holds its run's one stream, never a timecode track the MP4 muxer would add for a
+//     picture carrying a timecode, as an MXF's or a camera's MOV does (D360).
+//     TestArguments_WriteNoTimecodeTrackBesideTheStream.
 //   - Each chunk is put in its store whole, as FFmpeg finishes it, at its time in the film plus
 //     TimelineOffsetMs: a picture's shown at its bound, a sound's after the run's samples before
 //     it less the encoder's priming; a lead-in and what FFmpeg wrote past the run are dropped.

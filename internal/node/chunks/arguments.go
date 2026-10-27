@@ -128,7 +128,9 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		"-segment_start_number", strconv.Itoa(firstRawNumber(command)),
 		"-segment_list", filepath.Join(rawPath, rawListName), "-segment_list_type", "csv",
 		"-segment_format", "mp4",
-		"-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof:use_editlist=0",
+		// write_tmcd=0: the MP4 muxer adds a timecode track for a picture carrying a timecode, as an
+		// MXF's or a camera's MOV does, and a raw file must hold the one track (D360).
+		"-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof:use_editlist=0:write_tmcd=0",
 		filepath.Join(rawPath, "%05d.mp4"),
 	)
 }
