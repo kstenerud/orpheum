@@ -47,7 +47,7 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if err != nil {
 		return "", err
 	}
-	switch chosen, how := settleMatch(query, candidates, false); how {
+	switch chosen, how := settleMatch(query, candidates, false, nil); how {
 	case clearly:
 		return OutcomeMatched, matcher.acceptSeries(ctx, provider, series, chosen.ID, identificationIdentified)
 	case byGuess:

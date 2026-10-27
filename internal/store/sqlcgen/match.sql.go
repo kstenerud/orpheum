@@ -255,7 +255,9 @@ func (q *Queries) ListItemProviderIDs(ctx context.Context, itemID int64) ([]List
 }
 
 const listLiveFilesOfTitle = `-- name: ListLiveFilesOfTitle :many
-SELECT file.id, file.path
+SELECT file.id, file.path,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
 FROM file
 JOIN version ON version.id = file.version_id
 WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -263,12 +265,14 @@ ORDER BY file.path
 `
 
 type ListLiveFilesOfTitleRow struct {
-	ID   int64
-	Path string
+	ID         int64
+	Path       string
+	DurationMs int64
 }
 
 // A title's live files: live files of its live versions, as ListTitleFiles and
-// CountLiveFilesOfTitle count them.
+// CountLiveFilesOfTitle count them; and how long each plays, 0 before it is probed, which a film's
+// candidates' runtimes are fitted against (D365 section 1).
 func (q *Queries) ListLiveFilesOfTitle(ctx context.Context, titleID int64) ([]ListLiveFilesOfTitleRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveFilesOfTitle, titleID)
 	if err != nil {
@@ -278,7 +282,7 @@ func (q *Queries) ListLiveFilesOfTitle(ctx context.Context, titleID int64) ([]Li
 	items := []ListLiveFilesOfTitleRow{}
 	for rows.Next() {
 		var i ListLiveFilesOfTitleRow
-		if err := rows.Scan(&i.ID, &i.Path); err != nil {
+		if err := rows.Scan(&i.ID, &i.Path, &i.DurationMs); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

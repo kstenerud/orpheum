@@ -106,7 +106,22 @@
 //     candidates and is marked until a person chooses, whose choice clears it and drops a series'
 //     season listings, so its episodes are the chosen series' (D301).
 //     TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne,
-//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. With none of the file's
+//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. A film's candidates are
+//     ranked otherwise (settle_film.go, D365): a year in its name admits a year either side; those
+//     whose runtime fits one of its files' lengths, within the larger of 3 minutes and 3% of it,
+//     come first, then those of unknown runtime, then those it contradicts; within each, the named
+//     year before a year off, then the most voted, or with no year the oldest; several all a year
+//     off, none fitting, stay a person's choice.
+//     TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
+//     TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts,
+//     TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst,
+//     TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest. Each admitted candidate's runtime is
+//     read from its details where several are admitted and a file's length is known, kept with the
+//     candidates in cache.db and not fetched again while kept; the one taken is stored from the
+//     details read; and the log says each one's year, runtime, votes and fit, and the one taken
+//     (runtimes.go, D365 §4, §5). TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
+//     TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain,
+//     TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged. With none of the file's
 //     name, a work under another name is guessed: the one candidate of the file's year, or with no
 //     year the older of the one or two found (D307 §1). TestMatch_AWorkUnderAnotherNameIsGuessed.
 //     Anything else unsettled is ambiguous with its results kept, never guessed.
@@ -264,6 +279,7 @@
 //   - D182: metadata is a stack of layers; re-derivation reads only stored input.
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
+//   - D365: a film's candidates ranked by how their runtimes fit its files, then year, then votes.
 //   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
 //   - D335: what should have been fetched and was not is filled in by the sweeps; a refetch that
 //     replaces is a person's act.
@@ -285,7 +301,8 @@
 //     it found, for the artwork service; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch_metadata job's handler; settle.go: how a search's
-//     candidates settle a match, by which rule; match_series.go: a series' match
+//     candidates settle a match, by which rule, and settle_film.go a film's (D365); runtimes.go:
+//     reading a film's candidates' runtimes, and the log of how they settled it; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh, the
 //     rolling refresh, and the fetch sweeps (first matches, requests, rechecks). orderings.go: a
 //     series' episode groups as orderings, fetched and derived; missing.go: the sweep that fills in

@@ -117,6 +117,9 @@ type Candidate struct {
 	// Votes are how many people rated the work at the provider: what settles two works of one name
 	// in one year (D301).
 	Votes int
+	// RuntimeMs is the work's runtime, which its details give and a search's results do not: read
+	// for a film's candidates its name admits, to fit them to its files (D365 §4); 0 when unknown.
+	RuntimeMs int64
 }
 
 // Metadata is what a provider says about a work.
