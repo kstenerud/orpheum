@@ -11,6 +11,9 @@ import { useResource } from "./use-resource.ts";
 /** A library, as the server sends it. */
 type LibraryBody = components["schemas"]["LibraryBody"];
 
+/** A person's own choices, as the server sends them. */
+type MyPreferencesBody = components["schemas"]["MyPreferencesBody"];
+
 /**
  * The person's own choice of which libraries Films and Series gather (D349 §8, the owner:
  * *"The user can exclude a library from that aggregated view"*): every `movies` or `shows`
@@ -21,23 +24,65 @@ type LibraryBody = components["schemas"]["LibraryBody"];
  */
 export function LeftOutLibrariesSetting(): JSX.Element | null {
   const { t } = useTranslation();
+  return (
+    <LeaveOutSetting
+      field="leftOutLibraryIds"
+      headingId="left-out-libraries-heading"
+      heading={t("account.librariesHeading")}
+      text={t("account.librariesText")}
+      isOffered={(library) => library.kind !== "other"}
+    />
+  );
+}
+
+/**
+ * The person's own choice of which libraries fill their Home (D366 §5, the owner: *"whether a
+ * library's items show up on the home page … It's a choice each person makes"*): every library they
+ * reach is on it, until they leave it out here; one left out adds nothing to any row of Home and
+ * stays in Films, Series and the Libraries page. Kept on their account (`leftOutOfHomeLibraryIds`).
+ */
+export function LeftOutOfHomeSetting(): JSX.Element | null {
+  const { t } = useTranslation();
+  return (
+    <LeaveOutSetting
+      field="leftOutOfHomeLibraryIds"
+      headingId="left-out-of-home-heading"
+      heading={t("account.homeLibrariesHeading")}
+      text={t("account.homeLibrariesText")}
+      isOffered={() => true}
+    />
+  );
+}
+
+/**
+ * One choice of libraries to leave out of a place: a checkbox for each library offered, checked
+ * while it is in, kept in the person's own field of `/me/preferences`.
+ */
+function LeaveOutSetting(props: {
+  readonly field: "leftOutLibraryIds" | "leftOutOfHomeLibraryIds";
+  readonly headingId: string;
+  readonly heading: string;
+  readonly text: string;
+  readonly isOffered: (library: LibraryBody) => boolean;
+}): JSX.Element | null {
+  const { t } = useTranslation();
   const { api } = useServices();
   const [libraries] = useResource(
     "account-libraries",
     async () => dataOrThrow(await api.GET("/libraries")).libraries ?? [],
   );
-  const [preferences, reload] = useResource("my-preferences-left-out", async () =>
+  const [preferences, reload] = useResource(`my-preferences-${props.field}`, async () =>
     dataOrThrow(await api.GET("/me/preferences")),
   );
   const [problem, setProblem] = useState<string | undefined>(undefined);
   if (libraries.state !== "loaded" || preferences.state !== "loaded") {
     return null;
   }
-  const aggregated = libraries.value.filter((library) => library.kind !== "other");
-  if (aggregated.length === 0) {
+  const offered = libraries.value.filter(props.isOffered);
+  if (offered.length === 0) {
     return null;
   }
-  const leftOut = new Set(preferences.value.leftOutLibraryIds ?? []);
+  const leftOut = new Set(leftOutOf(preferences.value, props.field));
   const setIncluded = (libraryId: number, isIncluded: boolean): void => {
     const next = new Set(leftOut);
     if (isIncluded) {
@@ -47,18 +92,18 @@ export function LeftOutLibrariesSetting(): JSX.Element | null {
     }
     setProblem(undefined);
     api
-      .PUT("/me/preferences", { body: { leftOutLibraryIds: [...next] } })
+      .PUT("/me/preferences", { body: { [props.field]: [...next] } })
       .then(throwIfRefused)
       .then(reload, (cause: unknown) => {
         setProblem(problemText(t, cause));
       });
   };
   return (
-    <section aria-labelledby="left-out-libraries-heading">
-      <h2 id="left-out-libraries-heading">{t("account.librariesHeading")}</h2>
-      <p>{t("account.librariesText")}</p>
+    <section aria-labelledby={props.headingId}>
+      <h2 id={props.headingId}>{props.heading}</h2>
+      <p>{props.text}</p>
       <ul>
-        {aggregated.map((library) => (
+        {offered.map((library) => (
           <LibraryChoice
             key={library.id}
             library={library}
@@ -72,7 +117,19 @@ export function LeftOutLibrariesSetting(): JSX.Element | null {
   );
 }
 
-/** One library's checkbox: checked while it is gathered into Films and Series. */
+/** The libraries a person's choices leave out of the place field names. */
+function leftOutOf(
+  preferences: MyPreferencesBody,
+  field: "leftOutLibraryIds" | "leftOutOfHomeLibraryIds",
+): readonly number[] {
+  return (
+    (field === "leftOutLibraryIds"
+      ? preferences.leftOutLibraryIds
+      : preferences.leftOutOfHomeLibraryIds) ?? []
+  );
+}
+
+/** One library's checkbox: checked while it is in. */
 function LibraryChoice(props: {
   readonly library: LibraryBody;
   readonly isIncluded: boolean;

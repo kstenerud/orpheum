@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Home } from "./home.tsx";
-import { mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** A film or series as a list sends it. */
@@ -52,6 +52,24 @@ describe("home (the owner, 2026-10-25)", () => {
     // A film partway shows how far in, in every list, as the server says it.
     expect(cards[0]?.querySelector("progress")?.getAttribute("value")).toBe("25");
     expect(cards[1]?.querySelector("progress")).toBeNull();
+  });
+
+  it("asks its newest rows of the libraries the person keeps on Home (D366 §5)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [entry(8, "Nosferatu")], nextCursor: "" }],
+      },
+      heard,
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, services));
+    const rows = heard.filter((each) => each.methodAndPath === "GET /titles");
+    expect(rows.map((each) => new URLSearchParams(each.query).get("home"))).toEqual([
+      "true",
+      "true",
+    ]);
   });
 
   it("leaves out a row with nothing in it", async () => {

@@ -28,9 +28,12 @@ type NFO struct {
 	Plot          string
 	Tagline       string
 	Year          int
-	RuntimeMs     int64
-	Season        int
-	Episode       int
+	// ReleaseDate is its premiered (else aired) date as the file gives it, ISO 8601; "" for none
+	// (D366 §1).
+	ReleaseDate string
+	RuntimeMs   int64
+	Season      int
+	Episode     int
 	// ProviderIDs are the ids it names, by provider: "tmdb", "imdb", "tvdb".
 	ProviderIDs map[string]string
 	// LockedFields are the fields a person locked, in our field names ("name", "overview", ...);
@@ -97,7 +100,8 @@ func ParseNFO(body []byte) (NFO, error) {
 		SortTitle: cleanNFOText(document.SortTitle),
 		Plot:      textindex.Prose(firstNonBlank(document.Plot, document.Outline)),
 		Tagline:   cleanNFOText(document.Tagline), Year: yearOf(document), RuntimeMs: runtimeMsOf(document.Runtime),
-		Season: parseNonNegativeInt(document.Season), Episode: parseNonNegativeInt(document.Episode),
+		ReleaseDate: cleanNFOText(firstNonBlank(document.Premiered, document.Aired)),
+		Season:      parseNonNegativeInt(document.Season), Episode: parseNonNegativeInt(document.Episode),
 		ProviderIDs: providerIDsOf(document),
 	}
 	nfo.LockedFields = lockedOf(document, nfo)

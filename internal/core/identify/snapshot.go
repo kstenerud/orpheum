@@ -153,8 +153,8 @@ func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, 
 			MetadataSource: show.MetadataSource, Name: show.Name,
 		}
 		snap.seriesValues[show.ID] = sqlcgen.UpdateSeriesResolvedParams{
-			Year: show.Year, FollowedSource: show.FollowedSource, IdentificationState: show.IdentificationState,
-			ID: show.ID,
+			Year: show.Year, ReleasedOn: show.ReleasedOn, FollowedSource: show.FollowedSource,
+			IdentificationState: show.IdentificationState, ID: show.ID,
 		}
 		snap.seriesPlaces[show.ID] = nil
 	}
@@ -376,6 +376,7 @@ func (filer *libraryFiler) resolveTitleValues(
 	if isHeld {
 		resolved := held
 		resolved.Kind, resolved.Year, resolved.RuntimeMs = values.Kind, values.Year, values.RuntimeMs
+		resolved.ReleasedOn = values.ReleasedOn
 		resolved.FollowedSource, resolved.FollowedSourceID = values.FollowedSource, values.FollowedSourceID
 		if held.IdentificationState != identificationConfirmed {
 			resolved.IdentificationState = values.IdentificationState
@@ -401,6 +402,7 @@ func (filer *libraryFiler) resolveTitleValues(
 // isSameTitleValues is whether two of a title's rows hold the same values.
 func isSameTitleValues(first, second sqlcgen.ListLibraryTitlesForPassRow) bool {
 	return first.ID == second.ID && first.Kind == second.Kind && ptr.Equal(first.Year, second.Year) &&
+		ptr.Equal(first.ReleasedOn, second.ReleasedOn) &&
 		ptr.Equal(first.RuntimeMs, second.RuntimeMs) && first.IdentificationState == second.IdentificationState &&
 		ptr.Equal(first.FollowedSource, second.FollowedSource) &&
 		ptr.Equal(first.FollowedSourceID, second.FollowedSourceID)
@@ -518,7 +520,8 @@ func (filer *libraryFiler) resolveSeriesValues(ctx context.Context, values sqlcg
 		case identificationIdentified, identificationAmbiguous, identificationConfirmed:
 			resolved.IdentificationState = held.IdentificationState
 		}
-		if ptr.Equal(held.Year, resolved.Year) && ptr.Equal(held.FollowedSource, resolved.FollowedSource) &&
+		if ptr.Equal(held.Year, resolved.Year) && ptr.Equal(held.ReleasedOn, resolved.ReleasedOn) &&
+			ptr.Equal(held.FollowedSource, resolved.FollowedSource) &&
 			ptr.Equal(held.IdentificationState, resolved.IdentificationState) {
 			return nil
 		}

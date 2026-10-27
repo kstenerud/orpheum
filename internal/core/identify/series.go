@@ -21,6 +21,7 @@ import (
 type seriesSpec struct {
 	name         string
 	year         int
+	releaseDate  string // its first air date, ISO 8601, as its tvshow.nfo gives it (D366 §1)
 	overview     string
 	ids          map[string]string
 	lockedFields []string
@@ -36,6 +37,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 		spec.year = nfo.Year
 	}
 	spec.overview, spec.lockedFields, spec.hasNFO = nfo.Plot, nfo.LockedFields, true
+	spec.releaseDate = nfo.ReleaseDate
 	if spec.ids == nil {
 		spec.ids = map[string]string{}
 	}
@@ -306,8 +308,8 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64) //nolint:errcheck // zero when unset
 	err = filer.resolveSeriesValues(ctx, sqlcgen.UpdateSeriesResolvedParams{
-		Year: ptr.NilIfZero(year), FollowedSource: ptr.NilIfZero(source), IdentificationState: &identification,
-		ID: seriesID,
+		Year: ptr.NilIfZero(year), ReleasedOn: releasedOn(year, own.releaseDate), FollowedSource: ptr.NilIfZero(source),
+		IdentificationState: &identification, ID: seriesID,
 	})
 	if err != nil {
 		return err
@@ -333,9 +335,12 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 
 // seriesSourceValues is what a series is, as its source says.
 type seriesSourceValues struct {
-	values  map[string]string
-	source  string
-	artwork []ImageRef
+	values map[string]string
+	// releaseDate is its first air date as its source gives it, which its resolved year dates where
+	// they disagree (D366 §1).
+	releaseDate string
+	source      string
+	artwork     []ImageRef
 }
 
 // seriesValues are a series' own values and their source: a person's chosen match over all;
@@ -357,7 +362,7 @@ func (filer *libraryFiler) seriesValues(
 		if source == "" && seriesMatchRow.FollowedSource != nil && *seriesMatchRow.FollowedSource == sourceNone {
 			source = sourceNone // its provider found nothing
 		}
-		return seriesSourceValues{values: values, source: source}, nil
+		return seriesSourceValues{values: values, releaseDate: spec.releaseDate, source: source}, nil
 	}
 	bodyGzip, err := filer.ownResponse(ctx, seriesID, provider.Name())
 	if err != nil {
@@ -373,7 +378,9 @@ func (filer *libraryFiler) seriesValues(
 	}
 	values[fieldName], values[fieldYear], values[fieldOverview] = metadata.Name, strconv.Itoa(metadata.Year),
 		metadata.Overview
-	return seriesSourceValues{values: values, source: provider.Name(), artwork: metadata.Artwork}, nil
+	return seriesSourceValues{
+		values: values, releaseDate: metadata.ReleaseDate, source: provider.Name(), artwork: metadata.Artwork,
+	}, nil
 }
 
 // recordSeriesIDs keeps the ids a series' folders and tvshow.nfo name, and its tvshow.nfo's

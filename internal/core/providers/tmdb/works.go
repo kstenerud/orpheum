@@ -187,7 +187,8 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,
 		Overview: work.Overview, Tagline: work.Tagline, Year: summary.Year,
-		RuntimeMs: runtimeMinutes * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
+		ReleaseDate: firstNonEmpty(work.ReleaseDate, work.FirstAirDate),
+		RuntimeMs:   runtimeMinutes * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
 		SeasonNumbers: seasons,
 	}, nil
 }

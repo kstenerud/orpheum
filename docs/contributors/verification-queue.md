@@ -801,3 +801,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
   and watched marks are as they were. (`internal/store/migrations/0060_…`)
+- [ ] **VQ83** — On staging and on the Fire TV stick, D366: on the Libraries page of a films library,
+  the sort chooser offers *Name, A–Z* and *Z–A*, *Newest* and *Oldest released*, *Newest* and *Oldest
+  added*, each reachable by the remote. Passes when *Name, Z–A* lists Z first, its address keeps
+  `order=descending` across a reload and Back, its alphabet rail runs Z to A and a letter moves the
+  list to that letter's first title in that order; *Newest released* lists the newest film first and
+  those with no date last, also in *Oldest released*, after a pass has read each film's day (its NFO's
+  `premiered` or TMDB's release date); and, on the person's own settings, leaving a library out of
+  *Libraries on Home* takes its titles off Home's rows (Continue Watching, the new films and series)
+  while Films and the Libraries page keep them. (`web/apps/web/src/library-browse.tsx`,
+  `alphabet-rail.tsx`, `left-out-libraries.tsx`, `internal/core/library/lists_released.go`)

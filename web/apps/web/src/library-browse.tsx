@@ -23,9 +23,18 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
-import type { LibrarySort, Route } from "./router.ts";
+import type { LibrarySort, Route, SortOrder } from "./router.ts";
 import { QueryResults } from "./search.tsx";
 import { useServices } from "./services.tsx";
+import {
+  isByName,
+  isSameChoice,
+  orderOf,
+  orderQuery,
+  sortChoiceLabel,
+  sortChoicesOf,
+  type SortChoice,
+} from "./sort-choices.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
@@ -55,22 +64,19 @@ function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
   return "any";
 }
 
-/** The sorts a kind offers, the first its default (D349 §9.1: an other library's by recorded date). */
+/**
+ * The sorts a kind offers, the first its default (D349 §9.1: an other library's by recorded date);
+ * films and series by release date too, not every kind together (D366 §1).
+ */
 function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort[]] {
-  return kind === "other" ? ["recorded", "name", "file_name", "added"] : ["name", "added"];
-}
-
-/** A sort's name in the person's words. */
-function sortLabel(t: TFunction, sort: LibrarySort): string {
-  switch (sort) {
-    case "name":
-      return t("browse.byName");
-    case "added":
-      return t("browse.byAdded");
-    case "recorded":
-      return t("browse.byRecorded");
-    case "file_name":
-      return t("browse.byFileName");
+  switch (kind) {
+    case "other":
+      return ["recorded", "name", "file_name", "added"];
+    case "movie":
+    case "series":
+      return ["name", "released", "added"];
+    case "any":
+      return ["name", "added"];
   }
 }
 
@@ -85,6 +91,8 @@ interface BrowseState {
   readonly view: "folders" | undefined;
   readonly folder: string | undefined;
   readonly sort: LibrarySort | undefined;
+  /** The way the sort runs; undefined for its own (D366 §2). */
+  readonly order?: SortOrder | undefined;
   readonly query: string;
 }
 
@@ -97,6 +105,7 @@ function routeFor(state: BrowseState, overrides: Partial<BrowseState>): Route {
     ...(next.view === undefined ? {} : { view: next.view }),
     ...(next.folder === undefined ? {} : { folder: next.folder }),
     ...(next.sort === undefined ? {} : { sort: next.sort }),
+    ...(next.order === undefined ? {} : { order: next.order }),
     ...(next.query === "" ? {} : { query: next.query }),
   };
 }
@@ -105,6 +114,8 @@ function routeFor(state: BrowseState, overrides: Partial<BrowseState>): Route {
 interface ResolvedBrowse {
   readonly kind: TitlesKind;
   readonly sort: LibrarySort;
+  /** The way the sort runs: the address's, or the sort's own. */
+  readonly order: SortOrder;
   readonly sortOptions: readonly LibrarySort[];
   readonly showsFolders: boolean;
   readonly view: "all" | "folders";
@@ -140,9 +151,11 @@ function resolveBrowse(
   const kind: TitlesKind = state.library === "all" ? "any" : titlesKindOf(chosen?.kind);
   const sortOptions = sortOptionsFor(kind);
   const showsFolders = kind === "other";
+  const sort = resolvedSortOf(state, sortOptions);
   return {
     kind,
-    sort: resolvedSortOf(state, sortOptions),
+    sort,
+    order: orderOf(sort, sort === state.sort ? state.order : undefined),
     sortOptions,
     showsFolders,
     view: showsFolders && state.view === "folders" ? "folders" : "all",
@@ -240,11 +253,8 @@ function LibraryBrowseLayout(props: {
   const [typedQuery, setTypedQuery] = useState(state.query);
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
-  useResetJumpOnChange(`${String(state.library)}/${resolved.sort}`, clearJump);
-  const showsRail =
-    state.query === "" &&
-    resolved.view === "all" &&
-    (resolved.sort === "name" || resolved.sort === "file_name");
+  useResetJumpOnChange(`${String(state.library)}/${resolved.sort}/${resolved.order}`, clearJump);
+  const showsRail = state.query === "" && resolved.view === "all" && isByName(resolved.sort);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -270,6 +280,7 @@ function LibraryBrowseLayout(props: {
           kind={resolved.kind}
           library={resolved.libraryId}
           sort={resolved.sort === "file_name" ? "file_name" : "name"}
+          isZToA={resolved.order === "descending"}
           onLetter={onLetter}
         />
       ) : null}
@@ -300,25 +311,35 @@ function libraryChoicesOf(
         view: undefined,
         folder: undefined,
         sort: undefined,
+        order: undefined,
       }),
       isCurrent: state.library === library.id,
     })),
     {
       key: "all",
       label: t("browse.allLibraries"),
-      to: routeFor(state, { library: "all", view: undefined, folder: undefined, sort: undefined }),
+      to: routeFor(state, {
+        library: "all",
+        view: undefined,
+        folder: undefined,
+        sort: undefined,
+        order: undefined,
+      }),
       isCurrent: state.library === "all",
     },
   ];
 }
 
-/** The sort chooser's choices: what the resolved library (or All libraries) offers. */
-function sortChoicesOf(state: BrowseState, resolved: ResolvedBrowse, t: TFunction): Choice[] {
-  return resolved.sortOptions.map((option) => ({
-    key: option,
-    label: sortLabel(t, option),
-    to: routeFor(state, { sort: option }),
-    isCurrent: resolved.sort === option,
+/**
+ * The sort chooser's choices: each sort the resolved library (or All libraries) offers, its own way
+ * and the other (D366 §2); the address names the way only when it is not the sort's own.
+ */
+function sortChoicesOfPage(state: BrowseState, resolved: ResolvedBrowse, t: TFunction): Choice[] {
+  return sortChoicesOf(resolved.sortOptions).map((choice) => ({
+    key: `${choice.sort}/${choice.order}`,
+    label: sortChoiceLabel(t, choice),
+    to: routeFor(state, { sort: choice.sort, order: orderQuery(choice).order }),
+    isCurrent: isSameChoice(choice, resolved),
   }));
 }
 
@@ -369,8 +390,8 @@ function LibraryBrowseBar(props: {
       ) : null}
       <RouteChooser
         fieldLabel={t("browse.sort")}
-        current={sortLabel(t, resolved.sort)}
-        options={sortChoicesOf(state, resolved, t)}
+        current={sortChoiceLabel(t, resolved)}
+        options={sortChoicesOfPage(state, resolved, t)}
       />
       <form
         role="search"
@@ -410,20 +431,20 @@ function LibraryBrowseBody(props: {
   if (resolved.view === "folders" && resolved.libraryId !== undefined) {
     return (
       <FolderView
-        key={`${String(resolved.libraryId)}/${resolved.sort}/${state.folder ?? ""}`}
+        key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.folder ?? ""}`}
         libraryId={resolved.libraryId}
         folder={state.folder}
-        sort={resolved.sort}
+        choice={resolved}
         folderRoute={(folder) => routeFor(state, { folder })}
       />
     );
   }
   return (
     <LibraryGrid
-      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}`}
+      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}`}
       kind={resolved.kind}
       library={resolved.libraryId}
-      sort={resolved.sort}
+      choice={resolved}
       jump={props.jump}
       listRef={props.listRef}
     />
@@ -501,10 +522,11 @@ function LibraryLetters(props: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
   readonly sort: "name" | "file_name";
+  readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
   const letters = useAlphabetRailLetters(props.kind, props.library, props.sort);
-  return <AlphabetRail onLetter={props.onLetter} letters={letters} />;
+  return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
 
 /** An entry's id, by which a list shows an entry read twice once. */
@@ -518,18 +540,20 @@ const entryId = (entry: Entry): number => entry.id;
 function LibraryGrid(props: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
-  readonly sort: LibrarySort;
+  readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { kind, library, sort } = props;
+  const { kind, library } = props;
+  const { sort, order } = props.choice;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
       const query = {
         kind,
         sort,
+        ...orderQuery({ sort, order }),
         limit: entriesPerPage,
         ...(library === undefined ? {} : { library }),
         ...(cursor === "" ? {} : { cursor }),
@@ -537,15 +561,16 @@ function LibraryGrid(props: {
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, library, sort],
+    [api, kind, library, sort, order],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
   useLetterJump({
     kind,
     sort: sort === "file_name" ? "file_name" : "name",
+    isZToA: order === "descending",
     library,
-    jump: sort === "name" || sort === "file_name" ? props.jump : undefined,
+    jump: isByName(sort) ? props.jump : undefined,
     pages,
     listRef: props.listRef,
   });
@@ -603,20 +628,26 @@ function Subfolders(props: {
 function FolderView(props: {
   readonly libraryId: number;
   readonly folder: string | undefined;
-  readonly sort: LibrarySort;
+  readonly choice: SortChoice;
   readonly folderRoute: (folder: string | undefined) => Route;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { libraryId, folder, sort } = props;
+  const { libraryId, folder, choice } = props;
+  // An other library's folder has no release date to sort by; its sorts never offer one.
+  const sort = choice.sort === "released" ? "recorded" : choice.sort;
   const [result] = useResource(
-    `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}`,
+    `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}/${choice.order}`,
     async () =>
       dataOrThrow(
         await api.GET("/libraries/{id}/folders", {
           params: {
             path: { id: libraryId },
-            query: { sort, ...(folder === undefined ? {} : { folder }) },
+            query: {
+              sort,
+              ...orderQuery(choice),
+              ...(folder === undefined ? {} : { folder }),
+            },
           },
         }),
       ),

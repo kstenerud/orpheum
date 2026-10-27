@@ -313,16 +313,19 @@ func (q *Queries) SetSeriesMatch(ctx context.Context, arg SetSeriesMatchParams) 
 }
 
 const updateSeriesResolved = `-- name: UpdateSeriesResolved :exec
-UPDATE collection SET year = ?1, followed_source = ?2,
-  identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?3 END
-WHERE id = ?4 AND kind = 'series'
+UPDATE collection SET year = ?1, released_on = ?2,
+  followed_source = ?3,
+  identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?4 END
+WHERE id = ?5 AND kind = 'series'
   -- Only when it changes something (D303, DL9).
-  AND (year, followed_source, identification_state) IS NOT (?1, ?2,
-    CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?3 END)
+  AND (year, released_on, followed_source, identification_state) IS NOT (?1, ?2,
+    ?3,
+    CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?4 END)
 `
 
 type UpdateSeriesResolvedParams struct {
 	Year                *int64
+	ReleasedOn          *int64
 	FollowedSource      *string
 	IdentificationState *string
 	ID                  int64
@@ -332,6 +335,7 @@ type UpdateSeriesResolvedParams struct {
 func (q *Queries) UpdateSeriesResolved(ctx context.Context, arg UpdateSeriesResolvedParams) error {
 	_, err := q.db.ExecContext(ctx, updateSeriesResolved,
 		arg.Year,
+		arg.ReleasedOn,
 		arg.FollowedSource,
 		arg.IdentificationState,
 		arg.ID,

@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import type { TFunction } from "i18next";
+
+import type { LibrarySort, SortOrder } from "./router.ts";
+
+/** A list's order as a person chooses it: a sort, and the way it runs (D366 §2). */
+export interface SortChoice {
+  readonly sort: LibrarySort;
+  readonly order: SortOrder;
+}
+
+/** Whether a sort is by a name, a title's or its file's: the alphabet rail's (D349 §9). */
+export function isByName(sort: LibrarySort): boolean {
+  return sort === "name" || sort === "file_name";
+}
+
+/** The way a sort runs unless the person turns it: A to Z by a name, newest first by a date. */
+export function defaultOrderOf(sort: LibrarySort): SortOrder {
+  return isByName(sort) ? "ascending" : "descending";
+}
+
+/** A sort's order as asked for, its own default when none is: what GET /titles is asked. */
+export function orderOf(sort: LibrarySort, order: SortOrder | undefined): SortOrder {
+  return order ?? defaultOrderOf(sort);
+}
+
+/**
+ * The order GET /titles is sent: none for the sort's own way, so a list run its own way asks as it
+ * always has, the other way named.
+ */
+export function orderQuery(choice: SortChoice): { readonly order?: SortOrder } {
+  return choice.order === defaultOrderOf(choice.sort) ? {} : { order: choice.order };
+}
+
+/** Every way each sort runs, its own way first and then the other, as the chooser offers them. */
+export function sortChoicesOf(sorts: readonly LibrarySort[]): SortChoice[] {
+  return sorts.flatMap((sort) => {
+    const own = defaultOrderOf(sort);
+    return [
+      { sort, order: own },
+      { sort, order: own === "ascending" ? "descending" : "ascending" },
+    ];
+  });
+}
+
+/** Whether two choices are the same sort run the same way. */
+export function isSameChoice(first: SortChoice, second: SortChoice): boolean {
+  return first.sort === second.sort && first.order === second.order;
+}
+
+/** A sort and the way it runs in the person's words: "Name, A–Z", "Newest added". */
+export function sortChoiceLabel(t: TFunction, choice: SortChoice): string {
+  return choice.order === "ascending"
+    ? ascendingLabel(t, choice.sort)
+    : descendingLabel(t, choice.sort);
+}
+
+/** A sort's words run ascending: A to Z, or oldest first. */
+function ascendingLabel(t: TFunction, sort: LibrarySort): string {
+  switch (sort) {
+    case "name":
+      return t("browse.byNameAToZ");
+    case "file_name":
+      return t("browse.byFileNameAToZ");
+    case "added":
+      return t("browse.byAddedOldest");
+    case "recorded":
+      return t("browse.byRecordedOldest");
+    case "released":
+      return t("browse.byReleasedOldest");
+  }
+}
+
+/** A sort's words run descending: Z to A, or newest first. */
+function descendingLabel(t: TFunction, sort: LibrarySort): string {
+  switch (sort) {
+    case "name":
+      return t("browse.byNameZToA");
+    case "file_name":
+      return t("browse.byFileNameZToA");
+    case "added":
+      return t("browse.byAddedNewest");
+    case "recorded":
+      return t("browse.byRecordedNewest");
+    case "released":
+      return t("browse.byReleasedNewest");
+  }
+}

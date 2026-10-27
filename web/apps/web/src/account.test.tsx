@@ -252,9 +252,13 @@ describe("the libraries a person leaves out of Films and Series (D349 §8)", () 
       ),
     );
     await settleUntil(() => mounted?.container.textContent.includes("Kids' films") === true);
-    expect(mounted.container.textContent).not.toContain("Home movies");
+    // Home's own choice (D366 §5) offers every library; Films and Series' section, these alone.
+    const section = mounted.container.querySelector(
+      'section[aria-labelledby="left-out-libraries-heading"]',
+    );
+    expect(section?.textContent).not.toContain("Home movies");
     const boxes = [
-      ...mounted.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+      ...(section?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []),
     ].filter((box) => box.closest("li") !== null);
     const filmsBox = boxes.find((box) => box.closest("li")?.textContent === "Films");
     const kidsBox = boxes.find((box) => box.closest("li")?.textContent === "Kids' films");
@@ -271,5 +275,54 @@ describe("the libraries a person leaves out of Films and Series (D349 §8)", () 
   it("is shown to no one who reaches no library Films or Series gather", async () => {
     const page = await accountOf(true);
     expect(page.textContent).not.toContain("Films and Series libraries");
+  });
+
+  it("offers every library on Home, an other library too, each checked until left out of Home (D366 §5)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <Account />,
+        servedBy(
+          {
+            "GET /me/devices": [200, { devices: [] }],
+            "GET /me": [
+              200,
+              { id: 1, name: "owner", role: "user", isAdmin: false, canManageAccount: true },
+            ],
+            "GET /me/own-link": refusal(404, "not_found"),
+            "GET /me/preferences": [
+              200,
+              {
+                isDialogueBoostOn: false,
+                isLevellingOn: true,
+                isAutoplayOn: true,
+                leftOutLibraryIds: [2],
+                leftOutOfHomeLibraryIds: [3],
+              },
+            ],
+            "GET /libraries": [200, { libraries }],
+            "PUT /me/preferences": [204, {}],
+          },
+          heard,
+        ),
+      ),
+    );
+    await settleUntil(() => mounted?.container.textContent.includes("Libraries on Home") === true);
+    const section = mounted.container.querySelector(
+      'section[aria-labelledby="left-out-of-home-heading"]',
+    );
+    const boxes = [
+      ...(section?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []),
+    ];
+    const checked = boxes.map(
+      (box) => `${box.closest("li")?.textContent ?? ""}:${String(box.checked)}`,
+    );
+    expect(checked).toEqual(["Films:true", "Kids' films:true", "Home movies:false"]);
+    await click(boxes[0]);
+    await settleUntil(() =>
+      heard.some((request) => request.methodAndPath === "PUT /me/preferences"),
+    );
+    const put = heard.find((request) => request.methodAndPath === "PUT /me/preferences");
+    expect(put?.body).toEqual({ leftOutOfHomeLibraryIds: [3, 1] });
   });
 });

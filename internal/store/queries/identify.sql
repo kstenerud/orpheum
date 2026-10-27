@@ -184,13 +184,13 @@ VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc
 -- keys are listed by.
 UPDATE title SET
   kind = sqlc.arg(kind),
-  year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), followed_source = sqlc.arg(followed_source),
-  followed_source_id = sqlc.arg(followed_source_id),
+  year = sqlc.arg(year), released_on = sqlc.arg(released_on), runtime_ms = sqlc.arg(runtime_ms),
+  followed_source = sqlc.arg(followed_source), followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id)
   -- Only when it changes something (D303, DL9).
-  AND (kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
-    IS NOT (sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source),
+  AND (kind, year, released_on, runtime_ms, followed_source, followed_source_id, identification_state)
+    IS NOT (sqlc.arg(kind), sqlc.arg(year), sqlc.arg(released_on), sqlc.arg(runtime_ms), sqlc.arg(followed_source),
       sqlc.arg(followed_source_id),
       CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END);
 
@@ -387,8 +387,8 @@ WHERE library_place.library_id = sqlc.arg(library_id);
 
 -- name: ListLibraryTitlesForPass :many
 -- The library's live titles, with the values a pass resolves.
-SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source,
-  title.followed_source_id
+SELECT title.id, title.kind, title.year, title.released_on, title.runtime_ms, title.identification_state,
+  title.followed_source, title.followed_source_id
 FROM item
 JOIN title ON title.id = item.id
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'title';
@@ -428,9 +428,9 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL 
 
 -- name: ListLibrarySeriesForPass :many
 -- The library's live series, with their aired ordering when they have one and their match.
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id,
-  collection.identification_state, item.filing_library_id, library.metadata_source, item_text.name,
-  ordering.id AS aired_ordering_id
+SELECT collection.id, collection.year, collection.released_on, collection.followed_source,
+  collection.followed_source_id, collection.identification_state, item.filing_library_id, library.metadata_source,
+  item_text.name, ordering.id AS aired_ordering_id
 FROM item
 CROSS JOIN collection ON collection.id = item.id AND collection.kind = 'series'
 CROSS JOIN library ON library.id = item.filing_library_id

@@ -28,6 +28,7 @@ type FolderQuery struct {
 	LibraryID int64
 	Path      string
 	Sort      string // SortRecorded, SortName, SortFileName or SortAdded
+	Order     string // OrderAscending, OrderDescending, or OrderDefault for the sort's own (D366 §2)
 	Reach     auth.Reach
 	UserID    int64
 }
@@ -83,6 +84,10 @@ func (browser *Browser) Folder(ctx context.Context, query FolderQuery) (Folder, 
 	}
 	if sortErr := browser.sortPlaced(ctx, here, query.Sort); sortErr != nil {
 		return Folder{}, sortErr
+	}
+	if (ListQuery{Sort: query.Sort, Order: query.Order}).isReversed() {
+		// The other way from the sort's own: Z to A, or oldest first (D366 §2).
+		slices.Reverse(here)
 	}
 	page := Page{Entries: make([]Entry, 0, len(here))}
 	for _, video := range here {

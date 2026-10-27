@@ -30,11 +30,13 @@ WHERE id = sqlc.arg(id) AND kind = 'series' AND followed_source IS NULL;
 
 -- name: UpdateSeriesResolved :exec
 -- A pass's resolution of a series' own fields; its match is the matcher's and a person's.
-UPDATE collection SET year = sqlc.arg(year), followed_source = sqlc.arg(followed_source),
+UPDATE collection SET year = sqlc.arg(year), released_on = sqlc.arg(released_on),
+  followed_source = sqlc.arg(followed_source),
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series'
   -- Only when it changes something (D303, DL9).
-  AND (year, followed_source, identification_state) IS NOT (sqlc.arg(year), sqlc.arg(followed_source),
+  AND (year, released_on, followed_source, identification_state) IS NOT (sqlc.arg(year), sqlc.arg(released_on),
+    sqlc.arg(followed_source),
     CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END);
 
 -- name: ListLiveSeriesEpisodeSources :many

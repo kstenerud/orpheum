@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -42,10 +43,21 @@ const (
 	// alone (D349 §4).
 	SortRecorded = "recorded"
 	SortFileName = "file_name"
+	// SortReleased is newest released first: a film's release date, a series' first air date, those
+	// with none last; films' and series' alone (D366 §1).
+	SortReleased = "released"
+)
+
+// The ways a list runs (D366 §2): a sort's own default, by name A to Z and by date newest first,
+// or either way asked for.
+const (
+	OrderDefault    = ""
+	OrderAscending  = "ascending"
+	OrderDescending = "descending"
 )
 
 // ErrNoSuchSort is an order the list does not come in: by recorded date or file name, but for
-// other videos.
+// other videos; by release date, but for films and series.
 var ErrNoSuchSort = errors.New("the list does not come in that order")
 
 // BrowseSettings is what the browser reads from the settings: the locale lists sort in (D47), and
@@ -134,8 +146,13 @@ type Page struct {
 
 // ListQuery asks for one page of a list, of the libraries Reach reaches (D243 §4).
 type ListQuery struct {
-	Kind   string // ListFilms, ListSeries, ListOther or ListAny
-	Sort   string // SortName or SortAdded; for ListOther SortRecorded or SortFileName too
+	Kind string // ListFilms, ListSeries, ListOther or ListAny
+	// Sort is SortName or SortAdded; for ListOther SortRecorded or SortFileName too, for ListFilms
+	// and ListSeries SortReleased.
+	Sort string
+	// Order is the way it runs: OrderAscending, OrderDescending, or OrderDefault for the sort's own
+	// (isDescending).
+	Order  string
 	Cursor string
 	// From is a name a list by name or by file name starts at, its first title sorted at or after it
 	// in the sort_locale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
@@ -148,9 +165,39 @@ type ListQuery struct {
 	UserID int64
 }
 
+// isDescending is whether the list runs Z to A or newest first: as asked, or by its sort's own
+// default, A to Z by name or file name and newest first by date (D366 §2).
+func (query ListQuery) isDescending() bool {
+	if query.Order == OrderDefault {
+		return !isByName(query.Sort)
+	}
+	return query.Order == OrderDescending
+}
+
+// isReversed is whether the list runs the other way from its sort's own: Z to A, or oldest first.
+func (query ListQuery) isReversed() bool {
+	return query.isDescending() == isByName(query.Sort)
+}
+
+// isByName is whether a sort is by a name, the title's or its file's: the alphabet rail's.
+func isByName(sort string) bool {
+	return sort == SortName || sort == SortFileName
+}
+
+// isSortOfKind is whether a list of kind comes in sort's order.
+func isSortOfKind(kind, sort string) bool {
+	switch sort {
+	case SortRecorded, SortFileName:
+		return kind == ListOther
+	case SortReleased:
+		return kind == ListFilms || kind == ListSeries
+	}
+	return true
+}
+
 // List is one page of films, series or other videos, only those with a live file.
 func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error) {
-	if (query.Sort == SortRecorded || query.Sort == SortFileName) && query.Kind != ListOther {
+	if !isSortOfKind(query.Kind, query.Sort) {
 		return Page{}, fmt.Errorf("%s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
 	}
 	keyed, err := browser.listKeyed(ctx, query)
@@ -202,10 +249,15 @@ func (browser *Browser) listKeyed(ctx context.Context, query ListQuery) ([]keyed
 		}
 		keyed = append(keyed, ofKind...)
 	}
-	isNewestFirst := query.Sort == SortAdded || query.Sort == SortRecorded
+	isDescending := query.isDescending()
 	slices.SortFunc(keyed, func(first, second keyedEntry) int {
+		if query.Sort == SortReleased {
+			if byDating := compareDating(first, second); byDating != 0 {
+				return byDating
+			}
+		}
 		order := cmp.Or(bytes.Compare(first.key, second.key), cmp.Compare(first.entry.ID, second.entry.ID))
-		if isNewestFirst {
+		if isDescending {
 			return -order
 		}
 		return order
@@ -222,53 +274,84 @@ func (browser *Browser) startOf(ctx context.Context, query ListQuery) (listPosit
 	if err != nil {
 		return listPosition{}, err
 	}
-	isByName := query.Sort == SortName || query.Sort == SortFileName
+	isNamed := isByName(query.Sort)
 	switch {
-	case query.Cursor != "" && !isByName && len(key) != keyLength(query.Sort):
+	case query.Cursor != "" && !isNamed && len(key) != keyLength(query.Sort):
 		return listPosition{}, ErrBadCursor
 	case query.Cursor != "":
 		return listPosition{key: key, id: id}, nil
-	case query.From != "" && isByName:
+	case query.From != "" && isNamed:
 		sorter, sorterErr := browser.sorter(ctx)
 		if sorterErr != nil {
 			return listPosition{}, sorterErr
 		}
-		// Every title whose key is the name's or after it: no item's id is below zero.
+		// A to Z, every title whose key is the name's or after it: no item's id is below zero. Z to
+		// A, every title whose key is before it: the name is where the list's titles end (D366 §4).
 		return listPosition{key: sorter.Key(query.From), id: -1}, nil
-	case isByName:
+	case isNamed && query.isDescending():
+		return listPosition{key: afterEveryName, id: math.MaxInt64}, nil
+	case isNamed:
 		return listPosition{key: []byte{}, id: 0}, nil
 	}
-	// Newest first starts before everything.
-	start := make([]byte, 0, keyLength(query.Sort))
-	for range keyLength(query.Sort) / 8 {
-		start = binary.BigEndian.AppendUint64(start, uint64(1)<<62)
-	}
-	return listPosition{key: start, id: int64(1) << 62}, nil
+	return dateListStart(query.Sort, query.isDescending()), nil
 }
 
-// keyLength is how long a newest-first list's key is: a found time and a file's time, or a
-// recorded time.
+// afterEveryName is a key after every name's, where a list Z to A starts: no collation key's first
+// weight begins with 0xFF.
+var afterEveryName = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF} //nolint:gochecknoglobals // a constant
+
+// dateListStart is where a list by date starts: before everything, newest first or oldest first.
+func dateListStart(sort string, isDescending bool) listPosition {
+	edge := int64(math.MinInt64)
+	if isDescending {
+		edge = math.MaxInt64
+	}
+	if sort == SortReleased {
+		return listPosition{key: releasedKey(&edge), id: edge}
+	}
+	times := make([]int64, timesInKey(sort))
+	for index := range times {
+		times[index] = edge
+	}
+	return listPosition{key: timeKey(times...), id: edge}
+}
+
+// timesInKey is how many times a list by date's key holds: a found time and its file's time, a
+// recorded time, or a release day.
+func timesInKey(sort string) int {
+	if sort == SortAdded {
+		return 2
+	}
+	return 1
+}
+
+// keyLength is how long a list by date's key is: its times, eight bytes each, and by release date
+// a byte before them that says whether it is dated.
 func keyLength(sort string) int {
-	if sort == SortRecorded {
-		return 8
+	if sort == SortReleased {
+		return 1 + 8
 	}
-	return 16
+	return 8 * timesInKey(sort)
 }
 
-// timeKey is a newest-first list's key: its times, each eight bytes, big-endian.
+// timeKey is a list by date's key: its times, each eight bytes, big-endian, with the sign bit
+// flipped so the bytes compare as the times do, a time before 1970 among them.
 func timeKey(times ...int64) []byte {
 	key := make([]byte, 0, 8*len(times))
 	for _, at := range times {
-		key = binary.BigEndian.AppendUint64(key, uint64(at)) //nolint:gosec // a time
+		key = binary.BigEndian.AppendUint64(key, uint64(at)^signBit) //nolint:gosec // a time, every bit kept
 	}
 	return key
 }
 
-// keyTimes are a newest-first list's key's times.
+// signBit is an int64's sign bit, flipped in a time's key.
+const signBit = uint64(1) << 63
+
+// keyTimes are a list by date's key's times.
 func keyTimes(key []byte) (first, second int64) {
-	first = int64(binary.BigEndian.Uint64(key[:8])) //nolint:gosec // a time we encoded
+	first = int64(binary.BigEndian.Uint64(key[:8]) ^ signBit) //nolint:gosec // a time we encoded
 	if len(key) >= 16 {
-		second = int64(binary.BigEndian.Uint64(key[8:16])) //nolint:gosec // a time we encoded
+		second = int64(binary.BigEndian.Uint64(key[8:16]) ^ signBit) //nolint:gosec // a time we encoded
 	}
 	return first, second
 }

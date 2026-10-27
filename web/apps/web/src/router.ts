@@ -12,10 +12,21 @@ export const labPages = ["device", "input", "remote", "extend", "cast"] as const
 /** One of the device lab's probes. */
 export type LabPage = (typeof labPages)[number];
 
-/** The order a library's list comes in (D349 §9.1): recorded and file_name, an other library's. */
-export type LibrarySort = "name" | "added" | "recorded" | "file_name";
+/**
+ * The order a library's list comes in (D349 §9.1): recorded and file_name, an other library's;
+ * released, a film's release date or a series' first air date, films' and series' (D366 §1).
+ */
+export type LibrarySort = "name" | "added" | "recorded" | "file_name" | "released";
 
-const librarySorts: readonly LibrarySort[] = ["name", "added", "recorded", "file_name"];
+const librarySorts: readonly LibrarySort[] = ["name", "added", "recorded", "file_name", "released"];
+
+/**
+ * The way a sort runs (D366 §2): ascending, A to Z or oldest first; descending, Z to A or newest
+ * first. A route without one runs its sort's own way, A to Z by a name and newest first by a date.
+ */
+export type SortOrder = "ascending" | "descending";
+
+const sortOrders: readonly SortOrder[] = ["ascending", "descending"];
 
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
@@ -43,6 +54,7 @@ export type Route =
       readonly view?: "folders";
       readonly folder?: string;
       readonly sort?: LibrarySort;
+      readonly order?: SortOrder;
       readonly query?: string;
     }
   | { readonly screen: "identify" }
@@ -173,6 +185,7 @@ function browseRoute(search: URLSearchParams): Route {
   const view = search.get("view") === "folders" ? "folders" : undefined;
   const folder = search.get("folder") ?? undefined;
   const sort = librarySorts.find((candidate) => candidate === search.get("sort"));
+  const order = sortOrders.find((candidate) => candidate === search.get("order"));
   const query = search.get("query") ?? "";
   return {
     screen: "browse",
@@ -180,6 +193,7 @@ function browseRoute(search: URLSearchParams): Route {
     ...(view === undefined ? {} : { view }),
     ...(folder === undefined ? {} : { folder }),
     ...(sort === undefined ? {} : { sort }),
+    ...(order === undefined ? {} : { order }),
     ...(query === "" ? {} : { query }),
   };
 }
@@ -234,6 +248,9 @@ function browseRouteHref(route: Route & { readonly screen: "browse" }): string {
   }
   if (route.sort !== undefined) {
     query.set("sort", route.sort);
+  }
+  if (route.order !== undefined) {
+    query.set("order", route.order);
   }
   if (route.query !== undefined && route.query !== "") {
     query.set("query", route.query);

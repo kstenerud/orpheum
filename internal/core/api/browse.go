@@ -108,11 +108,13 @@ func artBody(art library.Art) ArtBody {
 // reaches or of one (D349).
 type TitlesInput struct {
 	AuthorizationHeader
-	Kind    string `doc:"movie, series or other; any: every kind, every library's" enum:"movie,series,other,any" query:"kind" required:"true"`                                                                                                                                                                                                                                                                              //nolint:lll // one struct tag
-	Sort    string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only" enum:"name,added,recorded,file_name" query:"sort" required:"true"` //nolint:lll // one struct tag
-	Library int64  `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                //nolint:lll // one struct tag
+	Kind    string `doc:"movie, series or other; any: every kind, every library's" enum:"movie,series,other,any" query:"kind" required:"true"`                                                                                                                                                                                                                                                                                                                                                                                                                 //nolint:lll // one struct tag
+	Sort    string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,file_name,released" query:"sort" required:"true"` //nolint:lll // one struct tag
+	Order   string `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                          //nolint:lll // one struct tag
+	Library int64  `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                   //nolint:lll // one struct tag
+	IsHome  bool   `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                              //nolint:lll // one struct tag
 	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
-	From    string `doc:"A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does" maxLength:"100" query:"from"` //nolint:lll // one struct tag
+	From    string `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles" maxLength:"100" query:"from"` //nolint:lll // one struct tag
 	Limit   int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
@@ -361,13 +363,18 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.from",
 			"from starts a list by name, in place of its first page: it takes no cursor")
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, input.Kind, input.Library)
+	if input.IsHome && input.Library != 0 {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.home",
+			"a row of Home is of every library the person keeps on it, not of one library")
+	}
+	reach, err := server.listReach(ctx, dependencies, principal,
+		listOf{kind: input.Kind, libraryID: input.Library, isHome: input.IsHome})
 	if err != nil {
 		return nil, err
 	}
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
-		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, From: input.From, Limit: input.Limit,
-		Reach: reach, UserID: principal.UserID,
+		Kind: input.Kind, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
+		Limit: input.Limit, Reach: reach, UserID: principal.UserID,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)

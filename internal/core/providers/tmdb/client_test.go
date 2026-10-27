@@ -144,7 +144,8 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if film.ID != "9019" || film.Name != "Metropolis" || film.Year != 1995 || film.RuntimeMs != 170*60_000 ||
+	if film.ID != "9019" || film.Name != "Metropolis" || film.Year != 1995 || film.ReleaseDate != "1995-12-15" ||
+		film.RuntimeMs != 170*60_000 ||
 		film.OriginalLang != "en" || film.Tagline == "" ||
 		!maps.Equal(film.IDs, map[string]string{"tmdb": "9019", "imdb": "tt0234567"}) ||
 		!slices.Equal(film.Artwork, []identify.ImageRef{
@@ -272,7 +273,8 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	}
 	series, err := client.Parse(identify.KindSeries, body)
 	wantIDs := map[string]string{"tmdb": "7615", "imdb": "tt0900460", "tvdb": "78871"}
-	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.RuntimeMs != 0 ||
+	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.ReleaseDate != "1999-03-28" ||
+		series.RuntimeMs != 0 ||
 		!maps.Equal(series.IDs, wantIDs) || !slices.Equal(series.SeasonNumbers, []int{0, 1, 2}) {
 		t.Errorf("Parse = %+v, %v", series, err)
 	}

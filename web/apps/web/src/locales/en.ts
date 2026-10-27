@@ -213,6 +213,9 @@ export const en = {
     librariesHeading: "Films and Series libraries",
     librariesText:
       "Films and Series gather every library below. Leave one out to keep its titles off those pages; it stays on the Libraries page.",
+    homeLibrariesHeading: "Libraries on Home",
+    homeLibrariesText:
+      "Home shows what you are watching and what is new from every library below. Leave one out to keep it off Home; it stays in Films, Series and the Libraries page.",
   },
   activate: {
     heading: "Activate a device",
@@ -281,10 +284,16 @@ export const en = {
     series: "Series",
     libraries: "Libraries",
     sort: "Sort",
-    byName: "By name",
-    byAdded: "Newest first",
-    byRecorded: "Newest recorded",
-    byFileName: "By file name",
+    byNameAToZ: "Name, A–Z",
+    byNameZToA: "Name, Z–A",
+    byFileNameAToZ: "File name, A–Z",
+    byFileNameZToA: "File name, Z–A",
+    byAddedNewest: "Newest added",
+    byAddedOldest: "Oldest added",
+    byRecordedNewest: "Newest recorded",
+    byRecordedOldest: "Oldest recorded",
+    byReleasedNewest: "Newest released",
+    byReleasedOldest: "Oldest released",
     alphabet: "Jump to a letter",
     empty: "Nothing here yet. Once a library is scanned, what it holds shows here.",
     noLibrary:
