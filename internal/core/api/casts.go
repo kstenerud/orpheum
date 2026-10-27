@@ -118,7 +118,7 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 		return nil, castError(live.ErrNoCast)
 	}
 	cast := casts[index]
-	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.UserID, cast.FileID)
+	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.Reach, principal.UserID, cast.FileID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what plays after a cast's film", err)
 	}
@@ -128,7 +128,7 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 	if err = dependencies.Browser.ReachFile(ctx, principal.Reach, next.FileID); err != nil {
 		return nil, server.playbackError(ctx, "reach a file", err)
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, next.FileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, next.FileID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
@@ -163,7 +163,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if err != nil {
 		return nil, err
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, input.Body.FileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, input.Body.FileID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}

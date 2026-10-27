@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -110,17 +111,28 @@ func MembersAheadInGroup(members []Member, group int64, count int) []Member {
 	return inGroup[:min(len(inGroup), count)]
 }
 
-// ReadMembers are collectionID's members in its ordering as userID stands in them, by
-// in_progress_after_percent and finished_after_percent.
+// Viewer is a person as a read answers them: who they are, and the libraries they reach.
+type Viewer struct {
+	UserID int64
+	Reach  auth.Reach
+}
+
+// ReadMembers are collectionID's members in its ordering as viewer stands in them, by
+// in_progress_after_percent and finished_after_percent: each with the files of it a library the viewer
+// reaches lists, and none it lists no file of (D363 §8).
 func ReadMembers(
-	ctx context.Context, queries *sqlcgen.Queries, config IntSettings, collectionID, userID int64, ordering string,
+	ctx context.Context, queries *sqlcgen.Queries, config IntSettings, viewer Viewer, collectionID int64,
+	ordering string,
 ) ([]Member, error) {
+	reach, userID := viewer.Reach, viewer.UserID
 	thresholds, err := ReadResumeThresholds(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	rows, err := queries.ListOrderingMemberFilesWithPositions(ctx, sqlcgen.ListOrderingMemberFilesWithPositionsParams{
 		CollectionID: collectionID, UserID: userID, OrderingName: ordering,
+		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list collection %d's members in its %s ordering: %w", collectionID, ordering, err)
@@ -139,12 +151,13 @@ type NextUp struct {
 	Unreadable *Unreadable
 }
 
-// NextUp is userID's Next Up in collectionID's ordering, MembersAhead's first; false when there is
-// none, every member finished or none with a live file.
-func (browser *Browser) NextUp(ctx context.Context, userID, collectionID int64, ordering string) (
+// NextUp is userID's Next Up in collectionID's ordering, MembersAhead's first, of what reach reaches;
+// false when there is none, every member finished or none with a live file.
+func (browser *Browser) NextUp(ctx context.Context, reach auth.Reach, userID, collectionID int64, ordering string) (
 	NextUp, bool, error,
 ) {
-	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, collectionID, userID, ordering)
+	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, Viewer{UserID: userID, Reach: reach},
+		collectionID, ordering)
 	if err != nil {
 		return NextUp{}, false, err
 	}
@@ -152,16 +165,16 @@ func (browser *Browser) NextUp(ctx context.Context, userID, collectionID int64, 
 	if len(ahead) == 0 {
 		return NextUp{}, false, nil
 	}
-	next, err := browser.nextUpOf(ctx, collectionID, ordering, ahead[0])
+	next, err := browser.nextUpOf(ctx, reach, collectionID, ordering, ahead[0])
 	return next, err == nil, err
 }
 
 // nextUpOf is member of collectionID's ordering as its page offers to play it: the file its Play
 // plays, the one its person is partway through, else its first; its group's name; and why none of
 // its files can be read now.
-func (browser *Browser) nextUpOf(ctx context.Context, collectionID int64, ordering string, member Member) (
-	NextUp, error,
-) {
+func (browser *Browser) nextUpOf(
+	ctx context.Context, reach auth.Reach, collectionID int64, ordering string, member Member,
+) (NextUp, error) {
 	names, err := groupNames(ctx, browser.database.Read(), collectionID, ordering)
 	if err != nil {
 		return NextUp{}, err
@@ -170,7 +183,7 @@ func (browser *Browser) nextUpOf(ctx context.Context, collectionID int64, orderi
 	if next.IsPartway {
 		next.FileID = next.PartwayFileID
 	}
-	unreadable, err := browser.unreadableItems(ctx, []int64{next.TitleID}, false)
+	unreadable, err := browser.unreadableItems(ctx, reach, []int64{next.TitleID}, false)
 	if err != nil {
 		return NextUp{}, err
 	}
@@ -191,10 +204,10 @@ type UpNext struct {
 	StillSha256 string
 }
 
-// UpNext is what plays after fileID for userID; false for a file of no series, one its person's
-// ordering leaves out, and its last. ErrNoFile for a file there is not.
-func (browser *Browser) UpNext(ctx context.Context, userID, fileID int64) (UpNext, bool, error) {
-	work, err := browser.WorkOfFile(ctx, fileID)
+// UpNext is what plays after fileID for userID, of what reach reaches; false for a file of no series,
+// one its person's ordering leaves out, and its last. ErrNoFile for a file there is not.
+func (browser *Browser) UpNext(ctx context.Context, reach auth.Reach, userID, fileID int64) (UpNext, bool, error) {
+	work, err := browser.WorkOfFile(ctx, reach, fileID)
 	if err != nil || work.TitleID == 0 {
 		return UpNext{}, false, err
 	}
@@ -202,8 +215,8 @@ func (browser *Browser) UpNext(ctx context.Context, userID, fileID int64) (UpNex
 	if err != nil || place == nil {
 		return UpNext{}, false, err
 	}
-	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, place.CollectionID, userID,
-		place.Ordering)
+	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, Viewer{UserID: userID, Reach: reach},
+		place.CollectionID, place.Ordering)
 	if err != nil {
 		return UpNext{}, false, err
 	}
@@ -211,7 +224,7 @@ func (browser *Browser) UpNext(ctx context.Context, userID, fileID int64) (UpNex
 	if at < 0 || at+1 >= len(members) {
 		return UpNext{}, false, nil
 	}
-	next, err := browser.nextUpOf(ctx, place.CollectionID, place.Ordering, members[at+1])
+	next, err := browser.nextUpOf(ctx, reach, place.CollectionID, place.Ordering, members[at+1])
 	if err != nil {
 		return UpNext{}, false, err
 	}

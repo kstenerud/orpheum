@@ -184,21 +184,100 @@ func (q *Queries) ListStreamIDsOfFiles(ctx context.Context, fileIDListJson strin
 	return items, nil
 }
 
-const listTitlesWithoutLiveFiles = `-- name: ListTitlesWithoutLiveFiles :many
+const listTitlesNoLibraryLists = `-- name: ListTitlesNoLibraryLists :many
 SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
-WHERE item.library_id = ?1 AND item.removed_at IS NULL
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
   AND NOT EXISTS (
-    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL
   )
 ORDER BY title.id
 `
 
-// A library's live titles with no live file left: after a retire, their work goes with their files.
-func (q *Queries) ListTitlesWithoutLiveFiles(ctx context.Context, libraryID *int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesWithoutLiveFiles, libraryID)
+// The live titles a library's pass files that no library lists any more: after a retire, their work
+// goes, and their data waits for the storage budgets to need its room (D363 section 10).
+func (q *Queries) ListTitlesNoLibraryLists(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesNoLibraryLists, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitlesOfFileNoLibraryLists = `-- name: ListTitlesOfFileNoLibraryLists :many
+SELECT DISTINCT version.title_id
+FROM file_filing
+CROSS JOIN version ON version.id = file_filing.version_id
+WHERE file_filing.file_id = ?1
+  AND NOT EXISTS (
+    SELECT 1 FROM version AS listed CROSS JOIN version_library ON version_library.version_id = listed.id
+    WHERE listed.title_id = version.title_id AND listed.removed_at IS NULL
+  )
+ORDER BY version.title_id
+`
+
+// The titles a file is in, of each kind, that no library lists any more: after an admin said it is
+// gone, their work goes with its.
+func (q *Queries) ListTitlesOfFileNoLibraryLists(ctx context.Context, fileID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesOfFileNoLibraryLists, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var title_id int64
+		if err := rows.Scan(&title_id); err != nil {
+			return nil, err
+		}
+		items = append(items, title_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUncoveredFilesUnder = `-- name: ListUncoveredFilesUnder :many
+SELECT place.id
+FROM file AS place
+WHERE place.node_id = ?1 AND place.removed_at IS NULL
+  AND place.reported_path_raw > CAST(?2 AS BLOB) AND place.reported_path_raw < CAST(?3 AS BLOB)
+  AND NOT EXISTS (SELECT 1 FROM place_library WHERE place_library.place_id = place.id)
+ORDER BY place.id
+`
+
+type ListUncoveredFilesUnderParams struct {
+	NodeID int64
+	After  []byte
+	Before []byte
+}
+
+// The live places under a folder on a node (ListLiveFilesUnder's range) that no live library's live
+// folder covers: what a retired folder or a deleted library leaves to no one, kept with its history,
+// whose work goes (D363 section 10).
+func (q *Queries) ListUncoveredFilesUnder(ctx context.Context, arg ListUncoveredFilesUnderParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listUncoveredFilesUnder, arg.NodeID, arg.After, arg.Before)
 	if err != nil {
 		return nil, err
 	}
@@ -373,78 +452,6 @@ func (q *Queries) RetireRootsOfLibrary(ctx context.Context, arg RetireRootsOfLib
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const tombstoneItemsOfLibrary = `-- name: TombstoneItemsOfLibrary :many
-UPDATE item SET removed_at = ?1
-WHERE library_id = ?2 AND removed_at IS NULL
-RETURNING id
-`
-
-type TombstoneItemsOfLibraryParams struct {
-	RemovedAt *int64
-	LibraryID *int64
-}
-
-// A deleted library's films, series and episodes, tombstoned and hidden with their history: a
-// film or series of it that reappears in another library comes back (D208 section 2, D231
-// section 7). A tombstone with no merged_into is one of these.
-func (q *Queries) TombstoneItemsOfLibrary(ctx context.Context, arg TombstoneItemsOfLibraryParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, tombstoneItemsOfLibrary, arg.RemovedAt, arg.LibraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const tombstoneLiveFilesOfLibrary = `-- name: TombstoneLiveFilesOfLibrary :many
-UPDATE file SET removed_at = ?1
-WHERE library_id = ?2 AND removed_at IS NULL
-RETURNING id
-`
-
-type TombstoneLiveFilesOfLibraryParams struct {
-	RemovedAt *int64
-	LibraryID int64
-}
-
-// A deleted library's live files.
-func (q *Queries) TombstoneLiveFilesOfLibrary(ctx context.Context, arg TombstoneLiveFilesOfLibraryParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, tombstoneLiveFilesOfLibrary, arg.RemovedAt, arg.LibraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

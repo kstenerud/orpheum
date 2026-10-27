@@ -94,8 +94,8 @@ func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
 	server, token, filmFileID := playableFilm(t, shelved)
 	database := openDatabase(t, shelved.config)
 	storetest.ExecRaw(t, database.Path(), "UPDATE file SET payload_hash = NULL WHERE path LIKE '%.mkv'")
-	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.title_id FROM file JOIN version ON "+
-		"version.id = file.version_id WHERE file.id = "+strconv.FormatInt(filmFileID, 10))
+	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.title_id FROM file_filing JOIN version ON "+
+		"version.id = file_filing.version_id WHERE file_filing.file_id = "+strconv.FormatInt(filmFileID, 10))
 	if len(titles) != 1 {
 		t.Fatalf("the film's title: %v", titles)
 	}

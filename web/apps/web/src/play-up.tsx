@@ -30,7 +30,7 @@ function UpByTheRemote(props: { readonly up: Route }): null {
  * The page above a Play page, the one it plays from (the owner, 2026-10-27: "Would it be better to
  * go back to the non-fullscreen page?"): a film's or an extra's own page, an episode's series where
  * it is in the person's ordering, an other video's library's list; home where the server does not
- * say what it plays.
+ * say what it plays, or names no library of the person's over an other video's file (D363 §6).
  */
 export function playUp(plays: PlaybackDecision["plays"]): Route {
   if (plays === undefined) {
@@ -39,7 +39,10 @@ export function playUp(plays: PlaybackDecision["plays"]): Route {
   if (plays.episode !== undefined) {
     return episodeUp(plays.episode);
   }
-  return plays.kind === "other"
-    ? { screen: "browse", library: plays.libraryId }
-    : itemRoute(plays.kind, plays.titleId);
+  if (plays.kind !== "other") {
+    return itemRoute(plays.kind, plays.titleId);
+  }
+  return plays.libraryId === undefined
+    ? { screen: "home" }
+    : { screen: "browse", library: plays.libraryId };
 }

@@ -23,7 +23,6 @@ func TestFilingReport_IsMarkdownOnTheServersDiskThatTheAdminReadsBack(t *testing
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"UPDATE file SET path = '/m/Brass Arena/Brass Arena - S01E01 - Pilot.mkv' WHERE id = 2")
 	made := harness.do(t, http.MethodPost, "/items/20/filing-report", admin, nil)
 	var report api.FilingReportBody

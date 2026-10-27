@@ -27,12 +27,6 @@ ORDER BY library_root.library_id, library_root.root_path;
 -- A library deleted by an admin (D231 section 7).
 UPDATE library SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
--- name: TombstoneLiveFilesOfLibrary :many
--- A deleted library's live files.
-UPDATE file SET removed_at = sqlc.arg(removed_at)
-WHERE library_id = sqlc.arg(library_id) AND removed_at IS NULL
-RETURNING id;
-
 -- name: ListStreamIDsOfFiles :many
 -- The streams of files a retire tombstoned, whose extraction jobs it cancels; the ids are a JSON
 -- array.
@@ -51,25 +45,29 @@ ORDER BY id;
 -- The disks mounted inside a root, whose destinations a retire forgets.
 SELECT mount_path FROM root_mount WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path) ORDER BY mount_path;
 
--- name: ListTitlesWithoutLiveFiles :many
--- A library's live titles with no live file left: after a retire, their work goes with their files.
+-- name: ListTitlesNoLibraryLists :many
+-- The live titles a library's pass files that no library lists any more: after a retire, their work
+-- goes, and their data waits for the storage budgets to need its room (D363 section 10).
 SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
-WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND NOT EXISTS (
-    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL
   )
 ORDER BY title.id;
 
--- name: TombstoneItemsOfLibrary :many
--- A deleted library's films, series and episodes, tombstoned and hidden with their history: a
--- film or series of it that reappears in another library comes back (D208 section 2, D231
--- section 7). A tombstone with no merged_into is one of these.
-UPDATE item SET removed_at = sqlc.arg(removed_at)
-WHERE library_id = sqlc.arg(library_id) AND removed_at IS NULL
-RETURNING id;
+-- name: ListUncoveredFilesUnder :many
+-- The live places under a folder on a node (ListLiveFilesUnder's range) that no live library's live
+-- folder covers: what a retired folder or a deleted library leaves to no one, kept with its history,
+-- whose work goes (D363 section 10).
+SELECT place.id
+FROM file AS place
+WHERE place.node_id = sqlc.arg(node_id) AND place.removed_at IS NULL
+  AND place.reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND place.reported_path_raw < CAST(sqlc.arg(before) AS BLOB)
+  AND NOT EXISTS (SELECT 1 FROM place_library WHERE place_library.place_id = place.id)
+ORDER BY place.id;
 
 -- name: RemoveNode :execrows
 -- A node an admin retired (D231 section 7): it is gone, and its name, should it say hello again,
@@ -98,3 +96,16 @@ DELETE FROM root_mount WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.ar
 
 -- name: ForgetRootScan :exec
 DELETE FROM root_scan WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
+
+-- name: ListTitlesOfFileNoLibraryLists :many
+-- The titles a file is in, of each kind, that no library lists any more: after an admin said it is
+-- gone, their work goes with its.
+SELECT DISTINCT version.title_id
+FROM file_filing
+CROSS JOIN version ON version.id = file_filing.version_id
+WHERE file_filing.file_id = sqlc.arg(file_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM version AS listed CROSS JOIN version_library ON version_library.version_id = listed.id
+    WHERE listed.title_id = version.title_id AND listed.removed_at IS NULL
+  )
+ORDER BY version.title_id;

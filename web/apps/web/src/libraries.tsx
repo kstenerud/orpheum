@@ -25,7 +25,6 @@ export type Library = components["schemas"]["LibraryBody"];
 const kindKeys = {
   movies: "libraries.summaryMovies",
   shows: "libraries.summaryShows",
-  mixed: "libraries.summaryMixed",
   other: "libraries.summaryOther",
 } as const;
 
@@ -47,7 +46,7 @@ export function RescanProgress(props: {
   );
 }
 
-/** Whether a library is rescanned whole: one of films or of series, never mixed or other (D357 §1). */
+/** Whether a library is rescanned whole: one of films or of series, never other (D357 §1). */
 export function isRescannable(library: Pick<Library, "kind">): boolean {
   return library.kind === "movies" || library.kind === "shows";
 }

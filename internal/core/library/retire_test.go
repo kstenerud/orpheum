@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // withDisk is thirty films in the root, and two more on disk1, mounted inside it, when it is.
@@ -44,22 +45,27 @@ func newRetiringAdmin(world *harness) retiringAdmin {
 	return retiringAdmin{Admin: admin, nodes: nodes, work: work, libraryID: libraries[0].ID}
 }
 
-func TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItNoMore(t *testing.T) {
+// D363 §10: a folder taken out of its library leaves what no other library covers to no one, kept
+// with its history and found as it was by a library that covers it again; its work goes, its disks and
+// state are forgotten, and it is scanned no more (D231 §7).
+func TestRetireRoot_LeavesItsFilesToNoLibraryCancelsTheirWorkForgetsItsDisksAndScansItNoMore(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	admin := newRetiringAdmin(world)
 	work, libraryID := admin.work, admin.libraryID
 	world.scan(withDisk(true), true)
 	world.scan(withDisk(false), true)
+	before := world.liveFilesByPath()
 	if _, err := admin.RetireRoot(t.Context(), libraryID, "local", "/elsewhere"); !errors.Is(err, ErrNoSuchRoot) {
 		t.Errorf("retiring a root the library lacks: %v, want ErrNoSuchRoot", err)
 	}
 	retired, err := admin.RetireRoot(t.Context(), libraryID, "local", root)
-	if err != nil || retired.TombstonedFileCount != 32 {
-		t.Fatalf("RetireRoot = %+v, %v; want all 32 files, the missing disk's too, removed", retired, err)
+	if err != nil || retired.TombstonedFileCount != 0 || retired.UncoveredFileCount != 32 {
+		t.Fatalf("RetireRoot = %+v, %v; want all 32 files, the missing disk's too, left to no library, none removed",
+			retired, err)
 	}
-	if live := len(world.liveFilesByPath()); live != 0 {
-		t.Errorf("%d live files after the root was retired, want none", live)
+	if live := len(world.liveFilesByPath()); live != 32 {
+		t.Errorf("%d live files after the root was retired, want the 32 kept", live)
 	}
 	if len(work.cancelled) != 1 || len(work.cancelled[0].FileIDs) != 32 || len(work.cancelled[0].StreamIDs) == 0 {
 		t.Fatalf("the work cancelled: %+v; want the 32 files' and their streams'", work.cancelled)
@@ -74,12 +80,31 @@ func TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItN
 	if err != nil || len(libraries) != 1 || len(libraries[0].Roots) != 0 {
 		t.Errorf("libraries after the retire: %+v, %v; want the library with no roots", libraries, err)
 	}
-	world.scan(withDisk(true), true)
-	if live := len(world.liveFilesByPath()); live != 0 {
-		t.Errorf("%d live files after a scan of the retired root, want none: it is scanned no more", live)
+	world.scan(filmRecords(1), true)
+	if live := len(world.liveFilesByPath()); live != 32 {
+		t.Errorf("%d live files after a scan of the retired root, want the 32 as they were: it is scanned no more",
+			live)
 	}
 	if _, err := admin.RetireRoot(t.Context(), libraryID, "local", root); !errors.Is(err, ErrNoSuchRoot) {
 		t.Errorf("retiring it again: %v, want ErrNoSuchRoot", err)
+	}
+	checkCoveredAgainAsItWas(t, world, admin, before)
+}
+
+// checkCoveredAgainAsItWas adds the retired root to the library again and scans it: each file it held
+// is the file it was (D363 §10).
+func checkCoveredAgainAsItWas(
+	t *testing.T, world *harness, admin retiringAdmin, before map[string]sqlcgen.ListLiveFilesByNodeRow,
+) {
+	t.Helper()
+	if err := admin.AddRoot(t.Context(), admin.libraryID, "local", root); err != nil {
+		t.Fatal(err)
+	}
+	world.scan(withDisk(true), true)
+	for path, file := range world.liveFilesByPath() {
+		if was, isKnown := before[path]; isKnown && was.ID != file.ID {
+			t.Errorf("%s is file %d covered again, want %d as it was", path, file.ID, was.ID)
+		}
 	}
 }
 
@@ -116,15 +141,20 @@ func TestRetireNode_RetiresItsRootsCancelsItsWorkAndForgetsIt(t *testing.T) {
 	}
 }
 
-func TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork(t *testing.T) {
+// D363 §10: deleting a library deletes no file and no item: what no other library covers is kept, its
+// work cancelled, and the library and its folders are gone (D231 §7).
+func TestDelete_RemovesTheLibraryAndItsRootsKeepsItsFilesAndCancelsTheirWork(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	admin := newRetiringAdmin(world)
 	work, libraryID := admin.work, admin.libraryID
 	world.scan(filmRecords(3), true)
 	retired, err := admin.Delete(t.Context(), libraryID)
-	if err != nil || retired.TombstonedFileCount != 3 {
-		t.Fatalf("Delete = %+v, %v; want its 3 files removed", retired, err)
+	if err != nil || retired.TombstonedFileCount != 0 || retired.UncoveredFileCount != 3 {
+		t.Fatalf("Delete = %+v, %v; want its 3 files left to no library, none removed", retired, err)
+	}
+	if live := len(world.liveFilesByPath()); live != 3 {
+		t.Errorf("%d live files after the delete, want the 3 kept", live)
 	}
 	if libraries, err := admin.List(t.Context(), auth.EveryLibrary()); err != nil || len(libraries) != 0 {
 		t.Errorf("libraries after the delete: %+v, %v; want none", libraries, err)
@@ -133,9 +163,10 @@ func TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork(t *testing.T)
 	if got := work.cancelled[0].Destinations; !slices.Equal(got, wantDestinations) {
 		t.Errorf("destinations forgotten: %v, want its root's", got)
 	}
-	world.scan(filmRecords(3), true)
-	if live := len(world.liveFilesByPath()); live != 0 {
-		t.Errorf("%d live files after a scan of a deleted library's root, want none", live)
+	world.scan(filmRecords(1), true)
+	if live := len(world.liveFilesByPath()); live != 3 {
+		t.Errorf("%d live files after a scan of a deleted library's root, want the 3 as they were: no library's "+
+			"folder is at it", live)
 	}
 	if _, err := admin.Delete(t.Context(), libraryID); !errors.Is(err, ErrNoLibrary) {
 		t.Errorf("deleting it again: %v, want ErrNoLibrary", err)

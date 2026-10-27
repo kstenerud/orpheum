@@ -63,7 +63,7 @@ func (reports *FilingReports) Report(ctx context.Context, itemID int64) (FilingR
 	if len(files) == 0 {
 		return FilingReport{}, fmt.Errorf("item %d: %w", itemID, ErrNothingToReport)
 	}
-	libraryID, err := queries.GetLibraryOfItem(ctx, itemID)
+	libraryID, err := queries.GetFilingLibraryOfItem(ctx, itemID)
 	if err != nil || libraryID == nil {
 		return FilingReport{}, fmt.Errorf("find item %d's library: %w", itemID, errors.Join(err, ErrNothingToReport))
 	}

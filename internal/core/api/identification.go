@@ -23,7 +23,6 @@ const tagIdentification = "Identification"
 // ItemBody is one title or series in a list.
 type ItemBody struct {
 	ID                  int64             `json:"id"`
-	LibraryID           int64             `json:"libraryId"`
 	Kind                string            `enum:"movie,episode,extra,series" json:"kind"`
 	Name                string            `json:"name"`
 	Year                int64             `json:"year,omitempty"`
@@ -192,7 +191,7 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 	output.Body.Items = make([]ItemBody, 0, len(items))
 	for _, item := range items {
 		body := ItemBody{
-			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
+			ID: item.ID, Kind: item.Kind, Name: item.Name, Year: item.Year,
 			IdentificationState: item.IdentificationState,
 			FollowedSource:      item.FollowedSource, FollowedSourceID: item.FollowedSourceID,
 			RefreshRequestedAt: unixMillisOrZero(item.RefreshRequestedAt),

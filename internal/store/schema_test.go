@@ -68,18 +68,22 @@ func TestSchema_TheTextIndexesAreRewrittenOnlyOnChange(t *testing.T) {
 	}
 }
 
-// Each index for a path a query takes serves it: a removed payload by library, a library's files by
-// path, the errored files, a title's series, a device's grants, every version of a title, and the
-// titles waiting for a person (D303, DL1, DL4).
+// Each index for a path a query takes serves it: a removed payload by node, a folder's places by the
+// range of their bytes, the errored files, a version's files, a file's copies, a node's library
+// folders, a title's series, a device's grants, every version of a title, and the titles waiting for
+// a person (D303, DL1, DL4; D363).
 func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	for query, index := range map[string]string{
-		"SELECT id FROM file WHERE library_id = 1 AND payload_hash = x'00' AND removed_at IS NOT NULL " +
+		"SELECT id FROM file WHERE node_id = 1 AND payload_hash = x'00' AND removed_at IS NOT NULL " +
 			"ORDER BY removed_at DESC LIMIT 1": "file_removed_payload",
-		"SELECT id FROM file WHERE library_id = 1 AND removed_at IS NULL ORDER BY path": "file_library",
+		"SELECT id FROM file WHERE node_id = 1 AND removed_at IS NULL " +
+			"AND reported_path_raw > x'2f6d2f' AND reported_path_raw < x'2f6d30'": "file_live_path",
 		"SELECT id FROM file WHERE filing = 'errored' AND removed_at IS NULL " +
-			"ORDER BY library_id, path": "file_errored",
+			"ORDER BY node_id, path": "file_errored",
+		"SELECT file_id FROM file_filing WHERE version_id = 1":               "file_filing_version",
+		"SELECT id FROM file WHERE copy_of = 1":                              "file_copy",
 		"SELECT collection_id FROM collection_member WHERE member_title = 1": "collection_member_title",
 		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:              "grant_device",
 		"UPDATE version SET title_id = 2 WHERE title_id = 1":                 "version_title",

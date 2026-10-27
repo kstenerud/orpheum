@@ -79,7 +79,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film (2001).mp4", SizeBytes: 10,
 		PayloadHash: []byte{0x0a, 0x0b}, Filing: "listed",
@@ -106,7 +106,7 @@ func (harness testHarness) fileFilmAsTitle(t *testing.T, name string) {
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 1, TitleID: 10})
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE file SET version_id = 1 WHERE id = 1",
+		"UPDATE file_filing SET version_id = 1 WHERE file_id = 1",
 		fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, '%s')", name))
 }
 

@@ -19,7 +19,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -100,29 +99,24 @@ type storedFiling struct {
 	reason string
 }
 
-// acceptanceRun serves a mixed library over root with the node start gives it, until the core
+// acceptanceRun serves a films library over root with the node start gives it, until the core
 // has identified the library, and returns every live file's filing by its path under root.
 func acceptanceRun(
 	t *testing.T, config Config, root string, start func(captured capturedLog) func(ctx context.Context) error,
 ) map[string]storedFiling {
 	t.Helper()
 	nodeID := enrolNodeWithLibrary(t, config, root,
-		libraryShape{name: "Everything", kind: "mixed", metadataSource: "nfo"})
+		libraryShape{name: "Everything", kind: "movies", metadataSource: "nfo"})
 	const identified = "identified a library"
 	captured := newCapturedLog(identified)
 	server := startServing(t, config, captured, identified, start(captured))
 	if stopped := server.stop(); stopped != nil {
 		t.Errorf("serve returned %v", stopped)
 	}
-	files, err := openDatabase(t, config).Read().ListLiveFilesByNode(t.Context(), nodeID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	filings := map[string]storedFiling{}
-	for _, file := range files {
-		raw := string(file.ReportedPathRaw)
-		filings[strings.TrimPrefix(raw, root+"/")] = storedFiling{
-			filing: file.Filing, reason: ptr.ValueOrZero(file.FilingReason),
+	for _, file := range liveFilingsOfNode(t, config, nodeID) {
+		filings[strings.TrimPrefix(file.reportedPathRaw, root+"/")] = storedFiling{
+			filing: file.filing, reason: file.reason,
 		}
 	}
 	return filings

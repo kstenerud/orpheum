@@ -50,6 +50,10 @@ const (
 	// KindRenewCertificate obtains or renews the server's HTTPS certificate; it names no target
 	// (D243 §6).
 	KindRenewCertificate Kind = "renew_certificate"
+	// KindHashWholeFile reads a file whole for the SHA-256 of its every byte, D116's whole-file pass,
+	// to confirm a file found at a second place is a copy of one found before it; its target is the file
+	// (D363 §2).
+	KindHashWholeFile Kind = "hash_whole_file"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -57,13 +61,13 @@ const (
 func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindExtractSubtitle, KindConvertFetchedSubtitle,
-		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate,
+		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate, KindHashWholeFile,
 	}
 }
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a file
 // for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for read_through, a chunk store for make_chunks, a scan for scan
+// convert_fetched_subtitle, a file for read_through and hash_whole_file, a chunk store for make_chunks, a scan for scan
 // and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
 // at a time, since every such job of a kind is one target. Enqueue refuses any other target with ErrNotOneTarget.

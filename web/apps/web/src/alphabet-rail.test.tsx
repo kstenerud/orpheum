@@ -26,7 +26,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 
 /** A film called name, by its id. */
 function film(id: number, name: string): Entry {
-  return { id, name, kind: "movie", identificationState: "identified", libraryId: 1, addedAt: id };
+  return { id, name, kind: "movie", identificationState: "identified", addedAt: id };
 }
 
 /** A page of the films list, with the cursor of the next, "" on the last. */

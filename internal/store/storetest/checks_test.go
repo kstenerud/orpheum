@@ -71,8 +71,9 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 		"INSERT INTO item (id, kind, added_at, removed_at) VALUES (7, 'title', 1, 2)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
-		"INSERT INTO file (library_id, node_id, path, filing, version_id, first_seen_at, last_seen_at) "+
-			"VALUES (1, 1, '/m/f.mkv', 'listed', 5, 1, 1)")
+		"INSERT INTO file (id, node_id, path, filing, first_seen_at, last_seen_at) "+
+			"VALUES (1, 1, '/m/f.mkv', 'video', 1, 1)",
+		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movies', 'listed', 5)")
 	for _, cleanup := range slices.Backward(recording.cleanups) {
 		cleanup()
 	}

@@ -168,7 +168,7 @@ func (fake *fakeFFmpeg) readWhole(size int64, block int32) []byte {
 		if got.kind != typeData || int64(len(body)) != min(int64(block), size-offset) {
 			fake.t.Fatalf("DATA for %d: type %d, %d bytes", offset, got.kind, len(body))
 		}
-		read.Write(body)
+		_, _ = read.Write(body) // a bytes.Buffer's Write never fails
 		if next := offset + 2*int64(block); next < size {
 			ask(next)
 		}

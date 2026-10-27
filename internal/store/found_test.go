@@ -15,9 +15,10 @@ func foundShelf(t *testing.T, database *Database) {
 	t.Helper()
 	execRaw(t, database,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Everything', 'mixed', 'nfo', 'manual', 0, 1)`,
+		 VALUES (1, 'Everything', 'movies', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES (1, 'title', 1, 4), (2, 'title', 1, 3),
+		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/')`,
+		`INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (1, 'title', 1, 4), (2, 'title', 1, 3),
 		 (3, 'title', 1, 2), (4, 'title', 1, 1), (10, 'collection', 1, 9), (11, 'title', 1, 9), (12, 'title', 1, 9),
 		 (20, 'collection', 1, 1), (21, 'title', 1, 1)`,
 		`INSERT INTO title (id, kind, identification_state) VALUES (1, 'movie', 'identified'),
@@ -31,11 +32,17 @@ func foundShelf(t *testing.T, database *Database) {
 		 (11, 11, 1), (12, 12, 1), (21, 21, 1)`,
 		// The first scan, at 100, found films 1 to 3 and the series' first episode; the second, at 200,
 		// film 4, whose file is older than any, and the other series' episode.
-		`INSERT INTO file (id, library_id, node_id, path, modified_at, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES
-		 (1, 1, 1, '/m/1.mkv', 30, 'listed', 1, 100, 100), (2, 1, 1, '/m/2.mkv', 50, 'listed', 2, 100, 100),
-		 (3, 1, 1, '/m/3.mkv', 50, 'listed', 3, 100, 100), (4, 1, 1, '/m/4.mkv', 5, 'listed', 4, 200, 200),
-		 (11, 1, 1, '/s/1.mkv', 70, 'listed', 11, 100, 100), (21, 1, 1, '/t/1.mkv', 1, 'listed', 21, 200, 200)`)
+		`INSERT INTO file (id, node_id, path, reported_path_raw, modified_at, filing, first_seen_at, last_seen_at)
+		 VALUES
+		 (1, 1, '/m/1.mkv', CAST('/m/1.mkv' AS BLOB), 30, 'video', 100, 100),
+		 (2, 1, '/m/2.mkv', CAST('/m/2.mkv' AS BLOB), 50, 'video', 100, 100),
+		 (3, 1, '/m/3.mkv', CAST('/m/3.mkv' AS BLOB), 50, 'video', 100, 100),
+		 (4, 1, '/m/4.mkv', CAST('/m/4.mkv' AS BLOB), 5, 'video', 200, 200),
+		 (11, 1, '/s/1.mkv', CAST('/s/1.mkv' AS BLOB), 70, 'video', 100, 100),
+		 (21, 1, '/t/1.mkv', CAST('/t/1.mkv' AS BLOB), 1, 'video', 200, 200)`,
+		`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES
+		 (1, 'movies', 'listed', 1), (2, 'movies', 'listed', 2), (3, 'movies', 'listed', 3),
+		 (4, 'movies', 'listed', 4), (11, 'movies', 'listed', 11), (21, 'movies', 'listed', 21)`)
 }
 
 // newestFilms is every page of the films newest first, two to a page, as ids.
@@ -94,8 +101,9 @@ func TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime(t *testi
 	// A second version found later does not make a film new again; its first file gone, it is as new
 	// as the one it has left.
 	execRaw(t, database, `INSERT INTO version (id, title_id, created_at) VALUES (5, 1, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, modified_at, filing, version_id, first_seen_at,
-		 last_seen_at) VALUES (5, 1, 1, '/m/1-4k.mkv', 60, 'listed', 5, 300, 300)`)
+		`INSERT INTO file (id, node_id, path, reported_path_raw, modified_at, filing, first_seen_at, last_seen_at)
+		 VALUES (5, 1, '/m/1-4k.mkv', CAST('/m/1-4k.mkv' AS BLOB), 60, 'video', 300, 300)`,
+		`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (5, 'movies', 'listed', 5)`)
 	if got, want := newestFilms(t, database), "[4 3 2 1]"; got != want {
 		t.Errorf("with film 1's second version found later = %s; want %s", got, want)
 	}
@@ -114,9 +122,10 @@ func TestFound_ASeriesIsAsNewAsItsNewestEpisode(t *testing.T) {
 	if got, want := newestSeries(t, database), "[20 10]"; got != want {
 		t.Errorf("series newest first = %s; want %s", got, want)
 	}
-	execRaw(t, database, `INSERT INTO file (id, library_id, node_id, path, modified_at, filing, first_seen_at,
-		 last_seen_at) VALUES (12, 1, 1, '/s/2.mkv', 2, 'listed', 300, 300)`,
-		`UPDATE file SET version_id = 12 WHERE id = 12`)
+	execRaw(t, database, `INSERT INTO file (id, node_id, path, reported_path_raw, modified_at, filing, first_seen_at,
+		 last_seen_at) VALUES (12, 1, '/s/2.mkv', CAST('/s/2.mkv' AS BLOB), 2, 'video', 300, 300)`,
+		`INSERT INTO file_filing (file_id, library_kind, filing) VALUES (12, 'movies', 'listed')`,
+		`UPDATE file_filing SET version_id = 12 WHERE file_id = 12`)
 	if got, want := newestSeries(t, database), "[10 20]"; got != want {
 		t.Errorf("with series 10's second episode found by a later scan = %s; want %s", got, want)
 	}
@@ -132,7 +141,7 @@ func TestFound_ASeriesIsAsNewAsItsNewestEpisode(t *testing.T) {
 	}
 	// What a write sets again as it was changes nothing derived (D303, DL9).
 	if changes := writerChangesOf(t.Context(), t, database,
-		"UPDATE file SET modified_at = modified_at, version_id = version_id"); changes != 7 {
+		"UPDATE file SET modified_at = modified_at"); changes != 7 {
 		t.Errorf("setting the files as they were changed %d rows; want the 7 files alone", changes)
 	}
 }

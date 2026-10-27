@@ -61,13 +61,9 @@ func playableFilmLogged(
 	config, configPath, nodeID := shelved.config, shelved.configPath, shelved.nodeID
 	server = serveWithNode(t, config, captured, filmIdentified)
 	token = signedInOwner(t, server, configPath)
-	files, err := openDatabase(t, config).Read().ListLiveFilesByNode(t.Context(), nodeID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, file := range files {
-		if strings.HasSuffix(file.Path, ".mkv") {
-			filmFileID = file.ID
+	for _, file := range liveFilingsOfNode(t, config, nodeID) {
+		if strings.HasSuffix(file.path, ".mkv") {
+			filmFileID = file.id
 		}
 	}
 	return server, token, filmFileID

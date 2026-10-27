@@ -4,42 +4,47 @@ package library
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// ReachFile is nil when reach reaches the file's library, and ErrNoFile otherwise, as for a file
-// that does not exist: a library a person may not reach is absent from every answer (D243 §4).
+// ReachFile is nil when a library reach reaches covers a place of the file, and ErrNoFile otherwise,
+// as for a file that does not exist: a library a person may not reach, and a place none they reach
+// covers, is absent from every answer (D243 §4, D363 §8).
 func ReachFile(ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, fileID int64) error {
 	if reach.IsEveryLibrary() {
 		return nil
 	}
-	libraryID, err := store.OrNotFound(queries.GetLibraryOfFile(ctx, fileID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(&libraryID)) {
-		return fmt.Errorf("file %d: %w", fileID, ErrNoFile)
-	}
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	isReached, err := queries.IsFileReached(ctx, sqlcgen.IsFileReachedParams{
+		FileID: fileID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
-		return fmt.Errorf("read file %d's library: %w", fileID, err)
+		return fmt.Errorf("read who reaches file %d: %w", fileID, err)
+	}
+	if isReached == 0 {
+		return fmt.Errorf("file %d: %w", fileID, ErrNoFile)
 	}
 	return nil
 }
 
-// ReachItem is nil when reach reaches the item's library, and ErrNoItem otherwise, as for an item
-// that does not exist (D243 §4).
+// ReachItem is nil when a library reach reaches lists the item, and ErrNoItem otherwise, as for an
+// item that does not exist (D243 §4, D363 §8).
 func ReachItem(ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, itemID int64) error {
 	if reach.IsEveryLibrary() {
 		return nil
 	}
-	libraryID, err := store.OrNotFound(queries.GetLibraryOfItem(ctx, itemID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(libraryID)) {
-		return fmt.Errorf("item %d: %w", itemID, ErrNoItem)
-	}
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	isReached, err := queries.IsItemReached(ctx, sqlcgen.IsItemReachedParams{
+		ItemID: itemID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
-		return fmt.Errorf("read item %d's library: %w", itemID, err)
+		return fmt.Errorf("read who reaches item %d: %w", itemID, err)
+	}
+	if isReached == 0 {
+		return fmt.Errorf("item %d: %w", itemID, ErrNoItem)
 	}
 	return nil
 }
@@ -68,5 +73,5 @@ func (browser *Browser) ReachArt(ctx context.Context, reach auth.Reach, sourceSh
 	if err != nil {
 		return false, fmt.Errorf("read who reaches an image: %w", err)
 	}
-	return isReached, nil
+	return isReached == 1, nil
 }

@@ -33,3 +33,27 @@ func FoldWatchingOfPurgedFiles(ctx context.Context, queries *sqlcgen.Queries, fi
 	}
 	return nil
 }
+
+// MoveWatchingToCopysFile moves what was watched of a file confirmed to be a copy of another onto that
+// file, in the copy's confirmation (library.CopyFold, D363 §2): every span and event, and each person's
+// position, the later of theirs in the two where they have one in both.
+func MoveWatchingToCopysFile(ctx context.Context, queries *sqlcgen.Queries, fromFileID, toFileID int64) error {
+	err := queries.MovePlayPositionsToFile(ctx, sqlcgen.MovePlayPositionsToFileParams{
+		ToFile: toFileID, FromFile: fromFileID,
+	})
+	if err == nil {
+		err = queries.DeletePlayPositionsOfFile(ctx, fromFileID)
+	}
+	if err == nil {
+		err = queries.MovePlayEventsToFile(ctx,
+			sqlcgen.MovePlayEventsToFileParams{ToFile: toFileID, FromFile: fromFileID})
+	}
+	if err == nil {
+		err = queries.MovePlaySpansToFile(ctx,
+			sqlcgen.MovePlaySpansToFileParams{ToFile: toFileID, FromFile: fromFileID})
+	}
+	if err != nil {
+		return fmt.Errorf("move what was watched of file %d to file %d: %w", fromFileID, toFileID, err)
+	}
+	return nil
+}

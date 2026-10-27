@@ -684,7 +684,7 @@ func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
 	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1),
 		listedDirectory("Metropolis"), listedFile("Metropolis/Metropolis.mkv", 5, 1))
 	heat := bench.liveFilesByPath()[root+"/Metropolis/Metropolis.mkv"]
-	if err := bench.scans.ReadNow(ctx, heat.LibraryID, bench.nodeID, heat.ReportedPathRaw); err != nil {
+	if err := bench.scans.ReadNow(ctx, bench.nodeID, heat.ReportedPathRaw); err != nil {
 		t.Fatal(err)
 	}
 	raised := bench.jobs.last(t, jobs.KindExamine)
@@ -699,7 +699,7 @@ func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
 
 	idle := newScanBench(t) // no scan in progress holds the file
 	stray := []byte(root + "/Elsewhere/Nosferatu.mkv")
-	if err = idle.scans.ReadNow(ctx, heat.LibraryID, idle.nodeID, stray); err != nil {
+	if err = idle.scans.ReadNow(ctx, idle.nodeID, stray); err != nil {
 		t.Fatal(err)
 	}
 	scans, err := idle.cache.Read().ListScans(ctx)

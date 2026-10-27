@@ -126,7 +126,7 @@ CREATE TABLE device_reader_limit (                          -- class A
 CREATE TABLE library (                                     -- class A
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   name             TEXT NOT NULL,
-  kind             TEXT NOT NULL CHECK (kind IN ('movies','shows','mixed','other')),  -- other: step 0059 (D349)
+  kind             TEXT NOT NULL CHECK (kind IN ('movies','shows','other')),  -- other: step 0059 (D349); mixed removed: 0060 (D363)
   -- the three questions asked at creation (D184), never defaulted:
   metadata_source  TEXT NOT NULL CHECK (metadata_source IN ('nfo_then_tmdb','tmdb','nfo')),
   change_detection TEXT NOT NULL CHECK (change_detection IN ('watch','interval','manual')),
@@ -228,15 +228,17 @@ permissions are the boundary ([D193](../../decisions/working-notes.md)); a remot
 
 ## Files: every observation, its identity and its filing
 
-One row per observed path, **whatever its filing** — listed, extra, skipped, errored,
-unidentified — so the admin view is this table with no filter
+One row per observed path, **whatever its filing** — a video, a copy, attached, skipped,
+errored — so the admin view is this table with no filter
 ([D163](../../decisions/working-notes.md)), and an unidentified file is already a playable row
-(obligation #2).
+(obligation #2). Since step 0060 (D363) a row is a **place**, a node and a path: no library owns it
+(the libraries whose live folders cover the path do, the view `place_library`, and `library_place`
+from the folder's side), a confirmed copy's row names the file it is a copy of (`copy_of`), and how
+each kind of library files a video is `file_filing`, keyed by file and kind.
 
 ```sql
 CREATE TABLE file (                                        -- class I (identity columns) + O
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  library_id    INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form
   reported_path_raw        BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211); 0027: was reported_path_bytes
@@ -250,25 +252,40 @@ CREATE TABLE file (                                        -- class I (identity 
   is_identity_confirmed INTEGER NOT NULL DEFAULT 1
                   CHECK (is_identity_confirmed IN (0, 1)),   -- D179: 0 after a rebuild, until re-seen
   filing        TEXT NOT NULL CHECK (filing IN
-                  ('listed','extra','attached','skipped','errored','unidentified')),
+                  ('video','copy','attached','skipped','errored')),   -- 0060: a video's kind is file_filing's
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
   sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo','subtitle','image')),  -- 0023: an attached file's kind
   error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
-  version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
-  part_index    INTEGER,                 -- order within a multi-part Version
-  attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
-  identified_from_path TEXT,             -- the path its identification was read from
+  attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video, at its place
+  copy_of       INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- 0060: the file a copy is, at another place
   first_seen_at    INTEGER NOT NULL,
   last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
 CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
 -- D303 (step 0045): the paths queries take that none served.
-CREATE INDEX file_removed_payload ON file(library_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
-CREATE INDEX file_library ON file(library_id, path) WHERE removed_at IS NULL;
-CREATE INDEX file_errored ON file(library_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
+CREATE INDEX file_removed_payload ON file(node_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
+CREATE INDEX file_errored ON file(filing, node_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
-CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
+CREATE INDEX file_copy ON file(copy_of) WHERE copy_of IS NOT NULL;
+
+-- 0060 (D363 §5, §6): how each kind of library files a video, one row a kind.
+CREATE TABLE file_filing (
+  file_id       INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
+  library_kind  TEXT NOT NULL CHECK (library_kind IN ('movies','shows','other')),
+  filing        TEXT NOT NULL CHECK (filing IN ('listed','extra','unidentified')),
+  filing_reason TEXT,
+  version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
+  part_index    INTEGER,                 -- order within a multi-part Version
+  identified_from_path TEXT,             -- the path its identification was read from
+  PRIMARY KEY (file_id, library_kind)
+);
+
+-- 0060 (D363 §2, D116): a file's every byte hashed, for a likely copy and its file.
+CREATE TABLE whole_file_hash (
+  file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
+  sha256      BLOB, size_bytes INTEGER, modified_at INTEGER, failure TEXT, hashed_at INTEGER NOT NULL
+);
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
 
 -- D303 (M8, step 0047): what is wide and rarely read sits beside the file, so the row a scan stamps
@@ -388,13 +405,13 @@ share one id space ([D186](../../decisions/working-notes.md)), and every table b
 CREATE TABLE item (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('title','collection','person')),
-  library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
+  filing_library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,  -- 0060: the library whose pass files it (D363)
   origin_server      TEXT,                      -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
   added_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
-CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
+CREATE INDEX item_filing_library ON item(filing_library_id, kind) WHERE removed_at IS NULL;
 CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)
@@ -1325,7 +1342,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `fetched_subtitle` | persistent.db | `internal/core/subtitles` | |
 | `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | persistent.db | `internal/core/identify` | |
-| `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
+| `file` | persistent.db | `internal/core/library` | one row per place a file is found at: a confirmed copy's row names the file it is a copy of (D363 §2) |
+| `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
 | `grant` | persistent.db | `internal/core/auth` | |
@@ -1375,6 +1393,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `user_rating` | persistent.db | none yet | |
 | `version` | persistent.db | `internal/core/identify` | |
 | `watchlist` | persistent.db | none yet | |
+| `whole_file_hash` | persistent.db | `internal/core/library` | the SHA-256 of a file's every byte, D116's whole-file comparison, for a likely copy and the file it may be a copy of (D363 §2) |
 | `art_served` | cache.db | `internal/core/artwork` | |
 | `chunk_store` | cache.db | `internal/core/chunks` | made on a store's first run; its make_chunks jobs target it (D247 §10) |
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |

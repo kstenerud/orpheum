@@ -50,7 +50,7 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		}))
 	if err == nil {
 		err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
+			SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
 			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
 			FilingReason: &reason, SeenAt: batch.nowMs, ID: existing.ID,
 		})
@@ -63,7 +63,7 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		return err
 	}
 	id, err := batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
+		NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
 		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
 		SidecarKind: &kind, FilingReason: &reason, SeenAt: batch.nowMs,
 	})
@@ -91,11 +91,14 @@ func (batch *ingestBatch) keepNFO(ctx context.Context, id int64, located string,
 // attachSidecars points each sidecar under the root at the video it belongs to: the video in
 // its folder whose name it extends ("Film (2020).es.srt", "Film (2020).nfo" for
 // "Film (2020).mkv"), or, for a "movie.nfo", the folder's only video. A sidecar that belongs to
-// no single video — a tvshow.nfo, a season's — is attached to none. A subtitle's track is kept
-// beside its video's own (keepSidecarTrack).
+// no single video — a tvshow.nfo, a season's — is attached to none. A video there may be a copy of
+// a file found first elsewhere, and what lies beside it is its place's: attached to the copy, its
+// subtitle a track of the file it is a copy of (D363 §3). A subtitle's track is kept beside its
+// video's own (keepSidecarTrack).
 func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) error {
+	after, before := PathRange(scan.root)
 	files, err := batch.queries.ListLiveFilesForAttaching(ctx, sqlcgen.ListLiveFilesForAttachingParams{
-		NodeID: batch.nodeID, LibraryID: scan.libraryID,
+		NodeID: batch.nodeID, After: after, Before: before,
 	})
 	if err != nil {
 		return fmt.Errorf("list the files under %s: %w", scan.root, err)

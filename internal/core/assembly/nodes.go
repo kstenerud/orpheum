@@ -14,6 +14,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/waits"
@@ -83,6 +85,22 @@ func (services *Services) openNodeWork(parts Parts) {
 	services.scanSchedule = library.NewScanSchedule(
 		parts.Database, services.Scans, parts.Settings, parts.Clock, parts.Logger)
 	services.nodes.SetChanges(services.scanSchedule)
+	services.copies = openCopies(services, parts)
+}
+
+// openCopies is the confirmation of the files found at a second place: what other packages hold of a
+// copy moves onto its file, and the libraries that cover it owe a pass (D363 §2).
+func openCopies(services *Services, parts Parts) *library.Copies {
+	pass := services.pass
+	return library.NewCopies(library.CopiesParts{
+		Database: parts.Database, Jobs: services.Queue, Assigner: services.Exchanges, Nodes: services.nodes,
+		Work: services.Queue, RetireVersion: identify.RetireVersionInto,
+		Folds: []library.CopyFold{
+			playback.MoveWatchingToCopysFile, preferences.MoveChoicesToCopysFile, subtitles.MoveFetchedToCopysFile,
+		},
+		Passes: func(_ context.Context, libraryID int64) { pass.OwePass(libraryID) },
+		Clock:  parts.Clock, Logger: parts.Logger,
+	})
 }
 
 // newIngester is the ingest, which hands each scanned library to identification and brings back the
@@ -103,7 +121,7 @@ func newIngester(services *Services, parts Parts) *library.Ingester {
 	})
 	// A row stored unread whose read finds a file stored before gives up the title the pass made
 	// from its path (D304 §5).
-	ingester.SetOnUnreadRetired(identify.RetireUnreadFile)
+	ingester.SetVersionRetirer(identify.RetireVersionInto)
 	askForAPassOnNewFiles(ingester, pass)
 	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {
 		for _, path := range paths {

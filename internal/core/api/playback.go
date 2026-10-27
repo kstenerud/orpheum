@@ -11,6 +11,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -138,7 +139,7 @@ type StartPlaybackOutputBody struct {
 type PlaysBody struct {
 	TitleID   int64             `json:"titleId"`
 	Kind      string            `enum:"movie,episode,extra,other" json:"kind"`
-	LibraryID int64             `doc:"The library its file lives in" json:"libraryId"`
+	LibraryID int64             `doc:"A library its person reaches that covers its file's place, which a person goes back up to; absent for none" json:"libraryId,omitempty"` //nolint:lll // one struct tag
 	Episode   *EpisodePlaceBody `doc:"An episode's series and place; absent for any other" json:"episode,omitempty"`
 }
 
@@ -256,7 +257,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	output, work, err := server.namedOutput(ctx, dependencies, input.Body.FileID, started)
+	output, work, err := server.namedOutput(ctx, dependencies, principal.Reach, input.Body.FileID, started)
 	if err != nil {
 		return nil, err
 	}
@@ -269,9 +270,9 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 // namedOutput is a playback started, as the API says it, with the name of the title it plays, and
 // what the file is.
 func (server *Server) namedOutput(
-	ctx context.Context, dependencies *Dependencies, fileID int64, started playback.Started,
+	ctx context.Context, dependencies *Dependencies, reach auth.Reach, fileID int64, started playback.Started,
 ) (*StartPlaybackOutput, library.FileWork, error) {
-	work, err := dependencies.Browser.WorkOfFile(ctx, fileID)
+	work, err := dependencies.Browser.WorkOfFile(ctx, reach, fileID)
 	if err != nil {
 		return nil, library.FileWork{}, server.libraryError(ctx, "read what a playback plays", err)
 	}

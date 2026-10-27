@@ -30,7 +30,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 function library(
   id: number,
   name: string,
-  kind: "movies" | "shows" | "mixed" | "other" = "movies",
+  kind: "movies" | "shows" | "other" = "movies",
 ): Record<string, unknown> {
   return {
     id,

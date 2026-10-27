@@ -50,6 +50,7 @@ type Result struct {
 	Artwork     *ArtworkBatchResult `json:"artwork,omitempty"`
 	Listing     *Listing            `json:"listing,omitempty"`
 	Examined    *Examined           `json:"examined,omitempty"`
+	WholeHash   *WholeHash          `json:"wholeHash,omitempty"`
 }
 
 // Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.
@@ -65,6 +66,8 @@ func (result Result) Stall() *Stall {
 		return result.Listing.Stall
 	case result.Examined != nil:
 		return result.Examined.Stall
+	case result.WholeHash != nil:
+		return result.WholeHash.Stall
 	}
 	return nil
 }

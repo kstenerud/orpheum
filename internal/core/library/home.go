@@ -75,7 +75,6 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 		inProgress = append(inProgress, InProgress{
 			Entry: Entry{
 				ID: row.TitleID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				LibraryID: ptr.ValueOrZero(row.LibraryID),
 			},
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
@@ -91,13 +90,13 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 	slices.SortStableFunc(inProgress, func(first, second InProgress) int {
 		return cmp.Compare(latestWatchedAt[second.ID], latestWatchedAt[first.ID])
 	})
-	return browser.withPostersAndFileNames(ctx, inProgress, partwayFileCountByTitle)
+	return browser.withPostersAndFileNames(ctx, reach, inProgress, partwayFileCountByTitle)
 }
 
 // withPostersAndFileNames gives each row its poster, and drops the file's name where the work has only
 // one file partway through.
 func (browser *Browser) withPostersAndFileNames(
-	ctx context.Context, rows []InProgress, partwayFileCountByTitle map[int64]int,
+	ctx context.Context, reach auth.Reach, rows []InProgress, partwayFileCountByTitle map[int64]int,
 ) ([]InProgress, error) {
 	entries := make([]Entry, 0, len(rows))
 	for index := range rows {
@@ -106,7 +105,7 @@ func (browser *Browser) withPostersAndFileNames(
 		}
 		entries = append(entries, rows[index].Entry)
 	}
-	posterPage, err := browser.finishPage(ctx, Page{Entries: entries})
+	posterPage, err := browser.finishPage(ctx, reach, Page{Entries: entries})
 	if err != nil {
 		return nil, err
 	}

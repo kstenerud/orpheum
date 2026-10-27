@@ -40,7 +40,7 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 		return err // every track's text was kept since the job was queued
 	}
 	file := library.Located{
-		Subject: fmt.Sprintf("file %d", job.FileID), LibraryID: stream.LibraryID, NodeID: stream.NodeID,
+		Subject: fmt.Sprintf("file %d", job.FileID), NodeID: stream.NodeID,
 		ReportedPathRaw: stream.ReportedPathRaw, PayloadHash: stream.PayloadHash,
 	}
 	if parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, file); parked != nil {

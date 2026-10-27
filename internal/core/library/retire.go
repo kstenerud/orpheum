@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -23,41 +25,41 @@ type RetiredWorkCanceller interface {
 	CancelRetired(ctx context.Context, work jobs.RetiredWork) (int, error)
 }
 
-// DeletedLibraryTitles hides a deleted library's films, series and episodes, returning their
-// ids: identification's, which writes the titles.
-type DeletedLibraryTitles interface {
-	HideTitlesOfDeletedLibrary(ctx context.Context, libraryID int64) ([]int64, error)
-}
-
-// Retirement is what a retire asks of the packages that own what it does not: the job queue,
-// which cancels the work, and identification, which hides a deleted library's titles.
+// Retirement is what a retire asks of the packages that own what it does not: the job queue, which
+// cancels the work.
 type Retirement struct {
-	Work   RetiredWorkCanceller
-	Titles DeletedLibraryTitles
+	Work RetiredWorkCanceller
 }
 
-// Retired is what a retire action did: how many live files became tombstones, and how many jobs
-// of theirs, and of their titles, were cancelled.
+// Retired is what a retire action did: how many live places became tombstones, how many no library
+// covers any more, kept with their history (D363 §10), and how many jobs of theirs, and of their
+// titles, were cancelled.
 type Retired struct {
 	TombstonedFileCount int
+	UncoveredFileCount  int
 	CancelledJobCount   int
 }
 
 // retiring gathers, inside a retire's transaction, what it took out of the library.
 type retiring struct {
 	queries *sqlcgen.Queries
+	logger  *slog.Logger
 	nowMs   int64
-	fileIDs []int64
-	itemIDs []int64
-	// libraryIDs are the libraries whose titles may have lost their last live file.
+	// fileIDs are the places whose work goes: tombstoned, or no library's any more.
+	fileIDs         []int64
+	tombstonedCount int
+	uncoveredCount  int
+	itemIDs         []int64
+	// libraryIDs are the libraries whose titles may be listed by no library any more.
 	libraryIDs   []int64
 	destinations []jobs.Destination
 }
 
-// RetireRoot is the admin saying a root of a library is gone for good (D231 §7, S22): it is
-// scanned no more, its files and those on the disks mounted inside it become tombstones, their
-// history staying on their titles (D173), and the work of those files, and of titles left with
-// no live file, is cancelled. Offline never ends without this (D41).
+// RetireRoot is the admin taking a folder out of a library, one that is gone for good among them (D231
+// §7, S22): the library scans it no more. A place under it that no other library's folder covers is
+// kept, live, with its history, its data reapable as the budgets need room, and found as it was by a
+// library that covers it again (D363 §10); its work, and that of titles no library lists any more, is
+// cancelled. Offline never ends without this, or a scan that finds it (D41).
 func (admin *Admin) RetireRoot(ctx context.Context, libraryID int64, nodeName, path string) (Retired, error) {
 	root, err := admin.findRoot(ctx, libraryID, nodeName, path)
 	if err != nil {
@@ -67,13 +69,14 @@ func (admin *Admin) RetireRoot(ctx context.Context, libraryID int64, nodeName, p
 		if rootErr := retire.root(ctx, libraryID, root.NodeID, path); rootErr != nil {
 			return rootErr
 		}
-		return retire.titlesLeftWithoutFiles(ctx)
+		return retire.titlesNoLibraryLists(ctx)
 	})
 }
 
-// RetireNode is the admin saying a node is gone for good (D231 §7, S23): its roots, in every
-// library, are retired, its work and that of its prepared directory cancelled, and the node
-// service removes it, so its name, should it say hello again, enrols a new node.
+// RetireNode is the admin saying a node is gone for good (D231 §7, S23): its folders, in every
+// library, are retired, every place on it is tombstoned, a file found first there moving to its copy
+// elsewhere (D363 §2), its work and that of its prepared directory cancelled, and the node service
+// removes it, so its name, should it say hello again, enrols a new node.
 func (admin *Admin) RetireNode(ctx context.Context, nodeName string) (Retired, error) {
 	node, err := store.OrNotFound(admin.database.Read().GetLiveNodeByName(ctx, nodeName))
 	if errors.Is(err, store.ErrNotFound) {
@@ -92,9 +95,12 @@ func (admin *Admin) RetireNode(ctx context.Context, nodeName string) (Retired, e
 				return rootErr
 			}
 		}
+		if placesErr := retire.placesOfNode(ctx, node.ID); placesErr != nil {
+			return placesErr
+		}
 		retire.destinations = append(retire.destinations,
 			jobs.NodeDestination(node.ID), jobs.PreparedDirectoryDestination(node.ID))
-		return retire.titlesLeftWithoutFiles(ctx)
+		return retire.titlesNoLibraryLists(ctx)
 	})
 	if err != nil {
 		return Retired{}, err
@@ -105,20 +111,15 @@ func (admin *Admin) RetireNode(ctx context.Context, nodeName string) (Retired, e
 	return retired, nil
 }
 
-// Delete is the admin deleting a library (D231 §7, S24): its films, series and episodes are
-// hidden with their history, so a film of it that reappears in another library brings its title
-// back (D208 §2); its roots are retired and its files become tombstones. Each person's watch
-// history stays. Its work is cancelled.
+// Delete is the admin deleting a library (D231 §7, S24): its folders are retired as RetireRoot retires
+// one, and it is gone. It deletes no item and no file: what no other library covers is kept, with every
+// person's progress, its data reapable as the budgets need room, and a library that covers it again
+// finds it as it was (D363 §10). The work of what no library covers is cancelled.
 func (admin *Admin) Delete(ctx context.Context, libraryID int64) (Retired, error) {
 	if _, err := admin.libraryRoots(ctx, libraryID); err != nil {
 		return Retired{}, err
 	}
-	hiddenItemIDs, err := admin.retirement.Titles.HideTitlesOfDeletedLibrary(ctx, libraryID)
-	if err != nil {
-		return Retired{}, err
-	}
 	return admin.retire(ctx, func(retire *retiring) error {
-		retire.itemIDs = append(retire.itemIDs, hiddenItemIDs...)
 		removed, removeErr := retire.queries.RemoveLibrary(ctx, sqlcgen.RemoveLibraryParams{
 			RemovedAt: &retire.nowMs, ID: libraryID,
 		})
@@ -135,32 +136,27 @@ func (admin *Admin) Delete(ctx context.Context, libraryID int64) (Retired, error
 			return fmt.Errorf("retire library %d's roots: %w", libraryID, rootsErr)
 		}
 		for _, root := range roots {
-			if forgetErr := retire.forgetRootAndMounts(ctx, root.NodeID, root.RootPath); forgetErr != nil {
-				return forgetErr
+			if leftErr := retire.leftUncovered(ctx, root.NodeID, root.RootPath); leftErr != nil {
+				return leftErr
 			}
 		}
-		fileIDs, tombstoneErr := retire.queries.TombstoneLiveFilesOfLibrary(ctx,
-			sqlcgen.TombstoneLiveFilesOfLibraryParams{RemovedAt: &retire.nowMs, LibraryID: libraryID})
-		if tombstoneErr != nil {
-			return fmt.Errorf("tombstone library %d's files: %w", libraryID, tombstoneErr)
-		}
-		retire.fileIDs = append(retire.fileIDs, fileIDs...)
-		return nil
+		retire.libraryIDs = append(retire.libraryIDs, libraryID)
+		return retire.titlesNoLibraryLists(ctx)
 	})
 }
 
 // retire runs a retire's changes in one transaction, then cancels the work of what it took out.
 func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) error) (Retired, error) {
 	var work jobs.RetiredWork
-	tombstonedFileCount := 0
+	var done retiring
 	err := admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		retire := &retiring{queries: queries, nowMs: admin.clock.Now().UnixMilli()}
+		retire := &retiring{queries: queries, logger: admin.log(), nowMs: admin.clock.Now().UnixMilli()}
 		if changeErr := change(retire); changeErr != nil {
 			return changeErr
 		}
 		var workErr error
 		work, workErr = retire.work(ctx)
-		tombstonedFileCount = len(retire.fileIDs)
+		done = *retire
 		return workErr
 	})
 	if err != nil {
@@ -171,34 +167,15 @@ func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) er
 	if err != nil {
 		return Retired{}, fmt.Errorf("cancel the retired work: %w", err)
 	}
-	return Retired{TombstonedFileCount: tombstonedFileCount, CancelledJobCount: cancelled}, nil
+	return Retired{
+		TombstonedFileCount: done.tombstonedCount, UncoveredFileCount: done.uncoveredCount,
+		CancelledJobCount: cancelled,
+	}, nil
 }
 
-// root retires one root of a library on a node and tombstones the live files it holds: those
-// under it, and not under a deeper root of the library (RootHolding).
+// root retires one folder of a library on a node: what no library covers any more under it is left
+// to no one (leftUncovered).
 func (retire *retiring) root(ctx context.Context, libraryID, nodeID int64, rootPath string) error {
-	rootPaths, err := retire.queries.ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: libraryID, NodeID: nodeID,
-	})
-	if err != nil {
-		return fmt.Errorf("list library %d's roots: %w", libraryID, err)
-	}
-	files, err := retire.queries.ListLiveFilesOfLibraryOnNode(ctx, sqlcgen.ListLiveFilesOfLibraryOnNodeParams{
-		NodeID: nodeID, LibraryID: libraryID,
-	})
-	if err != nil {
-		return fmt.Errorf("list the files under %s: %w", rootPath, err)
-	}
-	for _, file := range files {
-		if holding, _, found := RootHolding(file.ReportedPathRaw, rootPaths); !found || holding != rootPath {
-			continue
-		}
-		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &retire.nowMs, ID: file.ID}
-		if tombstoneErr := retire.queries.TombstoneFile(ctx, tombstone); tombstoneErr != nil {
-			return fmt.Errorf("tombstone file %d: %w", file.ID, tombstoneErr)
-		}
-		retire.fileIDs = append(retire.fileIDs, file.ID)
-	}
 	retiredCount, err := retire.queries.RetireLibraryRoot(ctx, sqlcgen.RetireLibraryRootParams{
 		RetiredAt: &retire.nowMs, LibraryID: libraryID, NodeID: nodeID, RootPath: rootPath,
 	})
@@ -209,7 +186,69 @@ func (retire *retiring) root(ctx context.Context, libraryID, nodeID int64, rootP
 		return fmt.Errorf("%s: %w", rootPath, ErrNoSuchRoot)
 	}
 	retire.libraryIDs = append(retire.libraryIDs, libraryID)
-	return retire.forgetRootAndMounts(ctx, nodeID, rootPath)
+	return retire.leftUncovered(ctx, nodeID, rootPath)
+}
+
+// leftUncovered counts the places under a retired folder that no live library's live folder covers
+// any more, kept with their history, and adds them to those whose work goes (D363 §10). When no live
+// folder is at its path any more, it is no scan's root: its state, its disks and its places'
+// availability are forgotten, and their destinations with them.
+func (retire *retiring) leftUncovered(ctx context.Context, nodeID int64, rootPath string) error {
+	after, before := PathRange(rootPath)
+	uncovered, err := retire.queries.ListUncoveredFilesUnder(ctx, sqlcgen.ListUncoveredFilesUnderParams{
+		NodeID: nodeID, After: after, Before: before,
+	})
+	if err != nil {
+		return fmt.Errorf("list the places under %s no library covers: %w", rootPath, err)
+	}
+	retire.fileIDs = append(retire.fileIDs, uncovered...)
+	retire.uncoveredCount += len(uncovered)
+	if len(uncovered) > 0 {
+		retire.logger.InfoContext(ctx, "a library's folder was retired; what no library covers any more is kept",
+			"nodeId", nodeID, "rootPath", rootPath, "uncoveredFileCount", len(uncovered))
+	}
+	folders, err := retire.queries.ListLiveRootPathsOnNode(ctx, nodeID)
+	if err != nil {
+		return fmt.Errorf("list node %d's library folders: %w", nodeID, err)
+	}
+	if slices.Contains(folders, rootPath) {
+		return nil // another library's folder is at it: still a scan's root
+	}
+	return retire.forgetScanRoot(ctx, nodeID, rootPath)
+}
+
+// forgetScanRoot forgets a folder that is no scan's root any more: its destinations, and those of the
+// disks mounted inside it, its state, its disks and its places' availability.
+func (retire *retiring) forgetScanRoot(ctx context.Context, nodeID int64, rootPath string) error {
+	if err := retire.forgetRootAndMounts(ctx, nodeID, rootPath); err != nil {
+		return err
+	}
+	return forgetRootState(ctx, retire.queries, nodeID, rootPath)
+}
+
+// placesOfNode tombstones every live place on a node that is gone: a file found first there moves to
+// a copy of it elsewhere, when it has one (removePlace).
+func (retire *retiring) placesOfNode(ctx context.Context, nodeID int64) error {
+	places, err := retire.queries.ListLiveFilesByNode(ctx, nodeID)
+	if err != nil {
+		return fmt.Errorf("list node %d's files: %w", nodeID, err)
+	}
+	for _, isCopies := range []bool{true, false} {
+		for _, place := range places {
+			if (place.CopyOf != nil) != isCopies {
+				continue
+			}
+			isGone, removeErr := removePlace(ctx, retire.queries, retire.logger, place.ID, retire.nowMs)
+			if removeErr != nil {
+				return removeErr
+			}
+			retire.tombstonedCount++
+			if isGone {
+				retire.fileIDs = append(retire.fileIDs, place.ID)
+			}
+		}
+	}
+	return nil
 }
 
 // forgetRootAndMounts adds a retired root's destination, and those of the disks mounted inside
@@ -228,13 +267,13 @@ func (retire *retiring) forgetRootAndMounts(ctx context.Context, nodeID int64, r
 	return nil
 }
 
-// titlesLeftWithoutFiles adds the titles of the retired roots' libraries that no live file is
-// left to: their fetches and artwork go with their files.
-func (retire *retiring) titlesLeftWithoutFiles(ctx context.Context) error {
+// titlesNoLibraryLists adds the titles the retired folders' libraries filed that no library lists any
+// more: their fetches and artwork go with their files' work (D363 §10).
+func (retire *retiring) titlesNoLibraryLists(ctx context.Context) error {
 	for _, libraryID := range retire.libraryIDs {
-		titleIDs, err := retire.queries.ListTitlesWithoutLiveFiles(ctx, &libraryID)
+		titleIDs, err := retire.queries.ListTitlesNoLibraryLists(ctx, &libraryID)
 		if err != nil {
-			return fmt.Errorf("list library %d's titles with no live file: %w", libraryID, err)
+			return fmt.Errorf("list library %d's titles no library lists: %w", libraryID, err)
 		}
 		retire.itemIDs = append(retire.itemIDs, titleIDs...)
 	}

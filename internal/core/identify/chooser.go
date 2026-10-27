@@ -70,7 +70,6 @@ func NewChooser(matcher *Matcher, pass *Pass) *Chooser {
 // ItemSummary is one title or series in a list.
 type ItemSummary struct {
 	ID                  int64
-	LibraryID           int64
 	Kind                string // a title's kind, or "series"
 	Name                string
 	Year                int64
@@ -128,7 +127,7 @@ func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identificat
 	items := make([]ItemSummary, 0, len(titles)+len(series))
 	for _, row := range titles {
 		items = append(items, ItemSummary{
-			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
+			ID: row.ID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: row.IdentificationState,
 			FollowedSource:     ptr.ValueOrZero(row.FollowedSource),
 			FollowedSourceID:   ptr.ValueOrZero(row.FollowedSourceID),
@@ -138,7 +137,7 @@ func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identificat
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
-			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
+			ID: row.ID, Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: ptr.ValueOrZero(row.IdentificationState),
 			FollowedSource:     ptr.ValueOrZero(row.FollowedSource),
 			FollowedSourceID:   ptr.ValueOrZero(row.FollowedSourceID),
@@ -198,9 +197,9 @@ func (item target) metadataSource() string {
 
 func (item target) libraryID() *int64 {
 	if item.isSeries {
-		return item.series.LibraryID
+		return item.series.FilingLibraryID
 	}
-	return item.title.LibraryID
+	return item.title.FilingLibraryID
 }
 
 // Candidates are a film's or series' kept search results, best first. When none are kept, as

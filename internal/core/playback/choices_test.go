@@ -24,7 +24,7 @@ func TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved(t *testing.T) {
 	service := &Service{database: database, clock: fakeClock, preferences: preferences.NewService(database, fakeClock)}
 	userID := storetest.InsertUser(t, database, "alice", "admin")
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
 	librarytest.File(t, database, librarytest.FileSpec{
 		ID: 2, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film.mkv", SizeBytes: 10,
 		PayloadHash: []byte{0x0c, 0x0d}, Filing: "listed",

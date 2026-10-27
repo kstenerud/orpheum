@@ -17,7 +17,7 @@ import (
 // filing written again as it was (D303, DL9; the access audit's A2).
 func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "mixed", "nfo")
+	lib := newTestLibrary(t, "movies", "nfo")
 	lib.scan(
 		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", `<movie><title>Metropolis</title><year>1995</year></movie>`),
 		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),

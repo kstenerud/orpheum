@@ -43,23 +43,35 @@ WHERE user_id = sqlc.arg(user_id) AND file_id = sqlc.arg(file_id)
 ORDER BY happened_at, id;
 
 -- name: ListRecentPlayPositions :many
--- A person's positions in live files of live films, episodes and other videos (D349), most recent watching first,
--- with each file's length where its probe knows it and when its work was last hidden: what
--- Continue Watching is chosen from. Extras are left out (D162).
+-- A person's positions in live files of live films, episodes and other videos (D349), most recent
+-- watching first, with each file's length where its probe knows it and when its work was last hidden:
+-- what Continue Watching is chosen from. Extras are left out (D162). A position is the file's, at
+-- whichever place it was played (D363 section 10): it shows with each title a library the person
+-- reaches lists the file in, named by the first of its places they reach (section 8).
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms, file.path,
-  title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
+    AS duration_ms,
+  CAST((
+    SELECT place.path FROM version_library CROSS JOIN file AS place ON place.id = version_library.place_id
+    WHERE version_library.version_id = version.id AND version_library.file_id = file.id
+      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+    ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
+  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.file_id = file.id
+JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
 WHERE play_position.user_id = sqlc.arg(user_id)
-  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  AND EXISTS (
+    SELECT 1 FROM version_library WHERE version_library.version_id = version.id
+      AND version_library.file_id = file.id
+      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
 ORDER BY play_position.position_read_at DESC
 LIMIT sqlc.arg(max_rows);
 
@@ -73,7 +85,8 @@ SELECT version.title_id, play_position.position_ms, play_position.position_read_
   progress_hide.hidden_at
 FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS listed
 CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
-CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+CROSS JOIN file_filing ON file_filing.version_id = version.id
+CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file.id
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
 ORDER BY play_position.position_read_at DESC;
@@ -103,12 +116,13 @@ DELETE FROM play_position WHERE user_id = sqlc.arg(user_id);
 DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id);
 
 -- A removed file deleted past its keeping leaves what was watched of it on its version (D306
--- section 8): how often each person finished it and how long they watched, added to what earlier
--- deleted files of the version left.
+-- section 8), a film's or an episode's before an other video's (D363 section 5): how often each person
+-- finished it and how long they watched, added to what earlier deleted files of the version left.
 
 -- name: FoldWatchingOfPurgedFiles :exec
 INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
-SELECT watching.user_id, file.version_id, sum(watching.completed), sum(watching.watched_ms), max(watching.happened_at)
+SELECT watching.user_id, primary_filing.version_id, sum(watching.completed), sum(watching.watched_ms),
+  max(watching.happened_at)
 FROM (
   SELECT play_span.user_id, play_span.file_id, 0 AS completed,
     play_span.ended_at - play_span.started_at AS watched_ms, play_span.ended_at AS happened_at
@@ -121,8 +135,11 @@ FROM (
     AND play_event.file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)))
 ) AS watching
 JOIN file ON file.id = watching.file_id
-WHERE file.version_id IS NOT NULL
-GROUP BY watching.user_id, file.version_id
+JOIN file_filing AS primary_filing ON primary_filing.file_id = file.id AND primary_filing.version_id = (
+    SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+    ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
+WHERE primary_filing.version_id IS NOT NULL
+GROUP BY watching.user_id, primary_filing.version_id
 ON CONFLICT (user_id, version_id) DO UPDATE SET
   completed_count = purged_watching.completed_count + excluded.completed_count,
   watched_ms = purged_watching.watched_ms + excluded.watched_ms,
@@ -151,7 +168,29 @@ DELETE FROM purged_watching WHERE user_id = sqlc.arg(user_id);
 SELECT DISTINCT play_position.file_id, title.id AS title_id
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.file_id = file.id
+JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 ORDER BY play_position.file_id;
+
+-- A file confirmed to be a copy of another (D363 section 2) is that file's place: what anyone watched
+-- of it is the file's, a person's position the later of the two.
+
+-- name: MovePlayPositionsToFile :exec
+INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id, updated_at, position_read_at)
+SELECT user_id, sqlc.arg(to_file), position_ms, report_seq, device_id, updated_at, position_read_at
+FROM play_position WHERE play_position.file_id = sqlc.arg(from_file)
+ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms, report_seq = excluded.report_seq,
+  device_id = excluded.device_id, updated_at = excluded.updated_at, position_read_at = excluded.position_read_at
+-- Only when it changes something (D303, DL9): the copy's position was the later.
+WHERE excluded.position_read_at > play_position.position_read_at;
+
+-- name: DeletePlayPositionsOfFile :exec
+DELETE FROM play_position WHERE file_id = sqlc.arg(file_id);
+
+-- name: MovePlayEventsToFile :exec
+UPDATE play_event SET file_id = sqlc.arg(to_file) WHERE file_id = sqlc.arg(from_file);
+
+-- name: MovePlaySpansToFile :exec
+UPDATE play_span SET file_id = sqlc.arg(to_file) WHERE file_id = sqlc.arg(from_file);

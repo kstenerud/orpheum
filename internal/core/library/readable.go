@@ -9,6 +9,7 @@ import (
 	"maps"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -119,18 +120,18 @@ func (readability *Readability) node(ctx context.Context, nodeID int64) (nodeRea
 }
 
 // finishPage gives a page's entries their posters, and says of each whether its files can be read
-// now: a series by its episodes', every other kind by its own.
-func (browser *Browser) finishPage(ctx context.Context, page Page) (Page, error) {
+// now at a place reach reaches: a series by its episodes', every other kind by its own.
+func (browser *Browser) finishPage(ctx context.Context, reach auth.Reach, page Page) (Page, error) {
 	page, err := browser.withPosters(ctx, page)
 	if err != nil {
 		return Page{}, err
 	}
 	seriesIDs, titleIDs := idsBySeries(page.Entries)
-	unreadable, err := browser.unreadableItems(ctx, seriesIDs, true)
+	unreadable, err := browser.unreadableItems(ctx, reach, seriesIDs, true)
 	if err != nil {
 		return Page{}, err
 	}
-	unreadableTitles, err := browser.unreadableItems(ctx, titleIDs, false)
+	unreadableTitles, err := browser.unreadableItems(ctx, reach, titleIDs, false)
 	if err != nil {
 		return Page{}, err
 	}
@@ -159,7 +160,7 @@ func idsBySeries(entries []Entry) (seriesIDs, titleIDs []int64) {
 // unreadableItems is, for each of itemIDs with live files none of which can be read now, why its
 // first cannot (D241 §3): titles by their own files, series by their episodes'. An item with a file
 // that can be read, or with none, is not in it.
-func (browser *Browser) unreadableItems(ctx context.Context, itemIDs []int64, isSeries bool) (
+func (browser *Browser) unreadableItems(ctx context.Context, reach auth.Reach, itemIDs []int64, isSeries bool) (
 	map[int64]Unreadable, error,
 ) {
 	unreadable := map[int64]Unreadable{}
@@ -171,15 +172,20 @@ func (browser *Browser) unreadableItems(ctx context.Context, itemIDs []int64, is
 		return nil, fmt.Errorf("encode %d item ids: %w", len(itemIDs), err)
 	}
 	queries := browser.database.Read()
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	var locations []sqlcgen.ListLiveFileLocationsOfTitlesRow
 	if isSeries {
-		rows, listErr := queries.ListLiveFileLocationsOfSeries(ctx, string(encoded))
+		rows, listErr := queries.ListLiveFileLocationsOfSeries(ctx, sqlcgen.ListLiveFileLocationsOfSeriesParams{
+			ItemIDListJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		})
 		err = listErr
 		for _, row := range rows {
 			locations = append(locations, sqlcgen.ListLiveFileLocationsOfTitlesRow(row))
 		}
 	} else {
-		locations, err = queries.ListLiveFileLocationsOfTitles(ctx, string(encoded))
+		locations, err = queries.ListLiveFileLocationsOfTitles(ctx, sqlcgen.ListLiveFileLocationsOfTitlesParams{
+			ItemIDListJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		})
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read where %d items' files are: %w", len(itemIDs), err)

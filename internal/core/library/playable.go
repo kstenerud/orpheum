@@ -6,10 +6,13 @@ import (
 	"cmp"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -44,36 +47,102 @@ func ProbeOf(stored *string) (nodeproto.Probe, error) {
 	return DecodeProbe(*stored)
 }
 
-// Located is where a file's bytes are: its library, its node, the path its node reported, and its
-// payload hash. Subject names what was located, "file 12" or "stream 40", for an error.
+// Located is where a file's bytes are read from: a place of it (D363 §2), its node and the path its
+// node reported, and its payload hash. Subject names what was located, "file 12" or "stream 40", for
+// an error.
 type Located struct {
 	Subject         string
-	LibraryID       int64
 	NodeID          int64
 	ReportedPathRaw []byte
 	PayloadHash     []byte
+	// LibraryIDs are the live libraries that cover the place, of those its reader reaches: who may go
+	// on reading it (D363 §8). PlaceToRead's alone; empty from LocatedOf.
+	LibraryIDs []int64
 }
 
-// LocatedOf is where a playable file's bytes are.
+// LocatedOf is where a playable file's bytes are at its first place.
 func LocatedOf(file sqlcgen.GetPlayableFileRow) Located {
 	return Located{
-		Subject: fmt.Sprintf("file %d", file.ID), LibraryID: file.LibraryID, NodeID: file.NodeID,
+		Subject: fmt.Sprintf("file %d", file.ID), NodeID: file.NodeID,
 		ReportedPathRaw: file.ReportedPathRaw, PayloadHash: file.PayloadHash,
 	}
 }
 
-// BytesFileOf names a file on its node's byte socket: the library root it is under, its path
-// relative to that root, and its payload hash.
-func BytesFileOf(ctx context.Context, queries *sqlcgen.Queries, file Located) (nodeproto.BytesFile, error) {
-	roots, err := queries.ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: file.LibraryID, NodeID: file.NodeID,
-	})
+// PlaceToRead is where a playable file is read from (D363 §8): of its live places that a library reach
+// reaches covers, every one for a reach of every library, the first that can be read now, its first
+// place before its copies; else the first of them, whose being unreadable says why. A disk that stops
+// answering so falls back to another of the places reach reaches, and to none other. A file at no
+// place reach reaches is ErrNoFile. Work no one person asked for, a run of chunks or a measurement,
+// reads with every library's reach: the bytes of a copy are the file's, and whether a person may play
+// is judged by their own places.
+func PlaceToRead(
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, reach auth.Reach,
+	file sqlcgen.GetPlayableFileRow,
+) (Located, error) {
+	return placeToRead(ctx, queries, connections, reach, file, 0)
+}
+
+// PlaceOnNodeToRead is PlaceToRead among the file's places on one node: work whose output stays on its
+// node, a run of chunks in that node's store, falls back only to a copy beside it.
+func PlaceOnNodeToRead(
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, file sqlcgen.GetPlayableFileRow,
+	nodeID int64,
+) (Located, error) {
+	return placeToRead(ctx, queries, connections, auth.EveryLibrary(), file, nodeID)
+}
+
+// placeToRead is PlaceToRead, of the places on nodeID alone when it is not 0.
+func placeToRead(
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, reach auth.Reach,
+	file sqlcgen.GetPlayableFileRow, nodeID int64,
+) (Located, error) {
+	rows, err := queries.ListPlacesOfFile(ctx, file.ID)
 	if err != nil {
-		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
+		return Located{}, fmt.Errorf("list the places of file %d: %w", file.ID, err)
+	}
+	var reached []Located
+	for _, row := range rows {
+		var covering []int64
+		if err := json.Unmarshal([]byte(row.LibraryIdsJSON), &covering); err != nil {
+			return Located{}, fmt.Errorf("read the libraries covering place %d: %w", row.PlaceID, err)
+		}
+		reachedThere := slices.DeleteFunc(covering, func(libraryID int64) bool { return !reach.Reaches(&libraryID) })
+		if (!reach.IsEveryLibrary() && len(reachedThere) == 0) || (nodeID != 0 && row.NodeID != nodeID) {
+			continue
+		}
+		reached = append(reached, Located{
+			Subject: fmt.Sprintf("file %d", file.ID), NodeID: row.NodeID, ReportedPathRaw: row.ReportedPathRaw,
+			PayloadHash: file.PayloadHash, LibraryIDs: reachedThere,
+		})
+	}
+	if len(reached) == 0 {
+		return Located{}, fmt.Errorf("file %d at no place its reader reaches: %w", file.ID, ErrNoFile)
+	}
+	if len(reached) == 1 || connections == nil {
+		return reached[0], nil
+	}
+	for _, place := range reached {
+		_, isUnreadable, readErr := UnreadableFile(ctx, queries, connections, place.NodeID, place.ReportedPathRaw)
+		if readErr != nil {
+			return Located{}, readErr
+		}
+		if !isUnreadable {
+			return place, nil
+		}
+	}
+	return reached[0], nil
+}
+
+// BytesFileOf names a file on its node's byte socket: the deepest live library folder on the node it
+// is under, its path relative to that folder, and its payload hash.
+func BytesFileOf(ctx context.Context, queries *sqlcgen.Queries, file Located) (nodeproto.BytesFile, error) {
+	roots, err := queries.ListLiveRootPathsOnNode(ctx, file.NodeID)
+	if err != nil {
+		return nodeproto.BytesFile{}, fmt.Errorf("read node %d's library folders: %w", file.NodeID, err)
 	}
 	root, relative, found := RootHolding(file.ReportedPathRaw, roots)
 	if !found {
-		return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.Subject)
+		return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under no library's folder", ErrNoFile, file.Subject)
 	}
 	return nodeproto.BytesFile{RootPath: root, Path: relative, PayloadHash: hex.EncodeToString(file.PayloadHash)}, nil
 }

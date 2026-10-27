@@ -149,7 +149,7 @@ func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, 
 		}
 		snap.seriesMatch[show.ID] = sqlcgen.GetSeriesForMatchRow{
 			ID: show.ID, Year: show.Year, FollowedSource: show.FollowedSource, FollowedSourceID: show.FollowedSourceID,
-			IdentificationState: show.IdentificationState, LibraryID: show.LibraryID,
+			IdentificationState: show.IdentificationState, FilingLibraryID: show.FilingLibraryID,
 			MetadataSource: show.MetadataSource, Name: show.Name,
 		}
 		snap.seriesValues[show.ID] = sqlcgen.UpdateSeriesResolvedParams{
@@ -437,7 +437,8 @@ func (filer *libraryFiler) fileAs(ctx context.Context, file sqlcgen.ListIdentify
 		(file.FilingReason == nil) == (reason == "") {
 		return nil
 	}
-	return library.FileAs(ctx, filer.queries, file.ID, filing, reason) //nolint:wrapcheck // its caller says which file
+	//nolint:wrapcheck // its caller says which file
+	return library.FileAs(ctx, filer.queries, file.ID, filer.library.Kind, filing, reason)
 }
 
 // nfoBody is an NFO file's body.

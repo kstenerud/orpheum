@@ -36,10 +36,12 @@ type Version struct {
 	Files     []FileDetail
 }
 
-// FileDetail is one file of a version, with its streams.
+// FileDetail is one file of a version, with its streams, at the places its person reaches: Path is the
+// first of them, and Paths each, in the order they were found (D363 §8). An admin reaches every place.
 type FileDetail struct {
 	ID        int64
 	Path      string
+	Paths     []string
 	SizeBytes *int64
 	Streams   []sqlcgen.ListStreamsOfVideoFileRow
 }
@@ -49,17 +51,24 @@ type FileDetail struct {
 func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, titleID int64) (TitleDetail, error) {
 	queries := browser.database.Read()
 	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(title.LibraryID)) {
+	if errors.Is(err, store.ErrNotFound) {
 		return TitleDetail{}, fmt.Errorf("title %d: %w", titleID, ErrNoItem)
 	}
 	if err != nil {
 		return TitleDetail{}, fmt.Errorf("read title %d: %w", titleID, err)
 	}
+	if reachErr := ReachItem(ctx, queries, reach, titleID); reachErr != nil {
+		return TitleDetail{}, reachErr
+	}
 	detail := TitleDetail{GetTitleDetailRow: title}
-	if detail.Versions, err = browser.versions(ctx, titleID); err != nil {
+	if detail.Versions, err = browser.versions(ctx, reach, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	if detail.Extras, err = queries.ListTitleExtras(ctx, titleID); err != nil {
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	detail.Extras, err = queries.ListTitleExtras(ctx, sqlcgen.ListTitleExtrasParams{
+		OwnerTitle: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
+	if err != nil {
 		return TitleDetail{}, fmt.Errorf("list title %d's extras: %w", titleID, err)
 	}
 	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
@@ -68,7 +77,7 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if detail.Episode, err = browser.EpisodePlaceOf(ctx, userID, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	unreadable, err := browser.unreadableItems(ctx, []int64{titleID}, false)
+	unreadable, err := browser.unreadableItems(ctx, reach, []int64{titleID}, false)
 	if err != nil {
 		return TitleDetail{}, err
 	}
@@ -78,24 +87,33 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	return detail, nil
 }
 
-func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version, error) {
+// versions are a title's versions and their files at the places reach reaches, each file once with
+// every such place; a version none of whose files it reaches is not among them (D363 §8).
+func (browser *Browser) versions(ctx context.Context, reach auth.Reach, titleID int64) ([]Version, error) {
 	queries := browser.database.Read()
-	files, err := queries.ListTitleFiles(ctx, titleID)
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	places, err := queries.ListTitleFiles(ctx, sqlcgen.ListTitleFilesParams{
+		TitleID: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list title %d's files: %w", titleID, err)
 	}
 	versions := []Version{}
-	for _, file := range files {
-		if len(versions) == 0 || versions[len(versions)-1].ID != file.VersionID {
-			versions = append(versions, Version{ID: file.VersionID, EditionID: file.EditionID})
-		}
-		streams, err := queries.ListStreamsOfVideoFile(ctx, file.FileID)
-		if err != nil {
-			return nil, fmt.Errorf("list file %d's streams: %w", file.FileID, err)
+	for _, place := range places {
+		if len(versions) == 0 || versions[len(versions)-1].ID != place.VersionID {
+			versions = append(versions, Version{ID: place.VersionID, EditionID: place.EditionID})
 		}
 		last := &versions[len(versions)-1]
+		if count := len(last.Files); count > 0 && last.Files[count-1].ID == place.FileID {
+			last.Files[count-1].Paths = append(last.Files[count-1].Paths, place.Path)
+			continue
+		}
+		streams, err := queries.ListStreamsOfVideoFile(ctx, place.FileID)
+		if err != nil {
+			return nil, fmt.Errorf("list file %d's streams: %w", place.FileID, err)
+		}
 		last.Files = append(last.Files, FileDetail{
-			ID: file.FileID, Path: file.Path, SizeBytes: file.SizeBytes,
+			ID: place.FileID, Path: place.Path, Paths: []string{place.Path}, SizeBytes: place.SizeBytes,
 			Streams: streams,
 		})
 	}
@@ -143,8 +161,9 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 	if err != nil {
 		return SeriesDetail{}, err
 	}
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	episodes, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
-		CollectionID: seriesID, OrderingName: ordering,
+		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON, CollectionID: seriesID, OrderingName: ordering,
 	})
 	if err != nil {
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes in its %s ordering: %w", seriesID, ordering, err)
@@ -166,7 +185,7 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 	if err != nil {
 		return SeriesDetail{}, err
 	}
-	unreadable, err := browser.unreadableItems(ctx, []int64{seriesID}, true)
+	unreadable, err := browser.unreadableItems(ctx, reach, []int64{seriesID}, true)
 	if err != nil {
 		return SeriesDetail{}, err
 	}
@@ -180,12 +199,16 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 func (browser *Browser) reachedSeries(
 	ctx context.Context, reach auth.Reach, seriesID int64,
 ) (sqlcgen.GetSeriesDetailRow, error) {
-	series, err := store.OrNotFound(browser.database.Read().GetSeriesDetail(ctx, seriesID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(series.LibraryID)) {
+	queries := browser.database.Read()
+	series, err := store.OrNotFound(queries.GetSeriesDetail(ctx, seriesID))
+	if errors.Is(err, store.ErrNotFound) {
 		return sqlcgen.GetSeriesDetailRow{}, fmt.Errorf("series %d: %w", seriesID, ErrNoItem)
 	}
 	if err != nil {
 		return sqlcgen.GetSeriesDetailRow{}, fmt.Errorf("read series %d: %w", seriesID, err)
+	}
+	if err := ReachItem(ctx, queries, reach, seriesID); err != nil {
+		return sqlcgen.GetSeriesDetailRow{}, err
 	}
 	return series, nil
 }
@@ -253,7 +276,9 @@ func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query Seas
 	return browser.episodePage(ctx, reach, query, func(
 		queries *sqlcgen.Queries, ordering string, after float64,
 	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error) {
+		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 			CollectionID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
 			MaxRows: query.Limit + 1,
 		})
@@ -275,7 +300,9 @@ func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, que
 		if ordering == OrderingAired {
 			return nil, nil
 		}
+		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		rows, err := queries.ListEpisodesNotInOrdering(ctx, sqlcgen.ListEpisodesNotInOrderingParams{
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 			CollectionID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after, MaxRows: query.Limit + 1,
 		})
 		if err != nil {
@@ -329,14 +356,15 @@ func (browser *Browser) episodePage(
 	if page.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
 		return SeasonPage{}, err
 	}
-	if page.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, ids, false); err != nil {
+	if page.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, reach, ids, false); err != nil {
 		return SeasonPage{}, err
 	}
 	return page, nil
 }
 
 // FileWork is what a file is, as now playing names it: its title, when one is filed, by id, kind
-// and name, its path, the library it lives in, and how long it plays, 0 before it is probed.
+// and name, its first place's path, a library reach reaches that covers it, which a person goes back
+// up to, 0 for none, and how long it plays, 0 before it is probed.
 type FileWork struct {
 	TitleID int64
 	// TitleKind is its title's kind (TitleKindMovie and the rest); "" for a file filed as no title.
@@ -347,17 +375,30 @@ type FileWork struct {
 	DurationMs int64
 }
 
-// WorkOfFile is what a file is; library.ErrNoFile for one there is not.
-func (browser *Browser) WorkOfFile(ctx context.Context, fileID int64) (FileWork, error) {
-	row, err := store.OrNotFound(browser.database.Read().GetTitleOfFile(ctx, fileID))
+// WorkOfFile is what a file is, the library named one reach reaches; library.ErrNoFile for one there
+// is not.
+func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID int64) (FileWork, error) {
+	queries := browser.database.Read()
+	row, err := store.OrNotFound(queries.GetTitleOfFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return FileWork{}, fmt.Errorf("file %d: %w", fileID, ErrNoFile)
 	}
 	if err != nil {
 		return FileWork{}, fmt.Errorf("read what file %d is: %w", fileID, err)
 	}
-	return FileWork{
+	libraryIDs, err := queries.ListLibrariesOfFile(ctx, fileID)
+	if err != nil {
+		return FileWork{}, fmt.Errorf("read the libraries of file %d: %w", fileID, err)
+	}
+	work := FileWork{
 		TitleID: ptr.ValueOrZero(row.TitleID), TitleKind: ptr.ValueOrZero(row.TitleKind),
-		Name: ptr.ValueOrZero(row.Name), Path: row.Path, LibraryID: row.LibraryID, DurationMs: row.DurationMs,
-	}, nil
+		Name: ptr.ValueOrZero(row.Name), Path: row.Path, DurationMs: row.DurationMs,
+	}
+	for _, libraryID := range libraryIDs {
+		if reach.Reaches(&libraryID) {
+			work.LibraryID = libraryID
+			break
+		}
+	}
+	return work, nil
 }

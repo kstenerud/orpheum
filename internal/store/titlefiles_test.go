@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -18,12 +19,16 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)",
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
+		"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (10, 'title', 1, 1)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
 		"INSERT INTO version (id, title_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
-		 VALUES (1, 1, 1, '/m/kept.mkv', 10, 'listed', 1, 1, 1), (2, 1, 1, '/m/removed.mkv', 10, 'listed', 2, 1, 1)`)
+		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, filing, first_seen_at, last_seen_at)
+		 VALUES (1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 10, 'video', 1, 1),
+		        (2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 10, 'video', 1, 1)`,
+		`INSERT INTO file_filing (file_id, library_kind, filing, version_id)
+		 VALUES (1, 'movies', 'listed', 1), (2, 'movies', 'listed', 2)`)
 	queries := database.Read()
 	ctx := t.Context()
 
@@ -47,7 +52,7 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		t.Errorf("CountLiveFilesOfTitle = %d, want 1: the removed version's file is not the title's", count)
 	}
 
-	detail, err := queries.ListTitleFiles(ctx, 10)
+	detail, err := queries.ListTitleFiles(ctx, sqlcgen.ListTitleFilesParams{TitleID: 10, IsEveryLibrary: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

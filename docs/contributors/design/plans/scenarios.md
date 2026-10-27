@@ -316,9 +316,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   3. Offline never ends without the admin (D41); the System page shows "offline since", with a
      reminder after a week.
 - **Status:** **holds**, the weekly reminder included (G7; P39 resolved as a banner)
-  (`TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`, the
+  (`TestScenario_S22_ARetiredRootsFilesAreLeftToNoLibraryItsWorkIsCancelledAndItsHistoryStays`, the
   jobs rebuild's Phase 3): the System page says since when a root or disk is offline, and the
-  admin's retire tombstones its files, cancels their work and forgets the root. G9 **closed**
+  admin's retire cancels its files' work and forgets the root; since D363 §10 its files are left to
+  no library rather than tombstoned, kept until a library covers them again or a budget reaps them. G9 **closed**
   2026-09-30: a refused image beside the media is owed again once a scan has seen its file since.
   G6 **closed** 2026-09-30 (the jobs rebuild's Phase 2): work reading a
   file under a missing root or disk parks on it, a local image included, and the loudness sweep
@@ -356,8 +357,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Today:** there is no delete-library action. Its jobs would run until they failed.
 - **Design:** answer 2 (a library is deleted and its jobs cancelled). **Still open: what a
   deleted library's Titles become.**
-- **Status:** **holds** (`TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`,
-  the jobs rebuild's Phase 3): its work is cancelled and its titles hidden with their history; a
+- **Status:** **holds** (`TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesListedByNoLibraryWithTheirHistory`,
+  the jobs rebuild's Phase 3): its work is cancelled and its titles, since D363 §10, listed by no
+  library, deleted by nothing and kept with their history; a
   film of it that reappears elsewhere brings its title back
   (`TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack`,
   `TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack`), and so does a
@@ -768,7 +770,7 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   principle. **Built 2026-09-30** (cmd/orpheum).
 - S22, an offline root parks its jobs and the sweeps queue nothing, and its retire follow-up.
   The follow-up **built 2026-09-30** (internal/core/api) as
-  `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`; the
+  `TestScenario_S22_ARetiredRootsFilesAreLeftToNoLibraryItsWorkIsCancelledAndItsHistoryStays`; the
   parking half was not written as a scenario test, and holds by Phase 2's (S22's status).
 - S26, a node's hello returns its running jobs without cost, and S27, a reconnected node is sent
   only live commands: not written as scenario tests; each holds by the tests its status names.

@@ -191,7 +191,8 @@ order (D138), within the set the owner allows (D149 §5).
 - **Roles** are untouched: a role lists libraries (D243 §4), and the chooser and the top bar show
   only what the reach holds. The kids' role simply never sees the Home movies entry unless given it.
 - **Identify** (admin) never lists `other` titles: there is nothing to match.
-- **A mixed library** contributes to Films and Series as today and appears in both choosers.
+- **A mixed library** contributes to Films and Series as today and appears in both choosers. (D363
+  removed the mixed kind: a films library and a series library may now cover the same folders.)
 
 ## 7. Phased steps
 
@@ -289,8 +290,8 @@ recommend otherwise, this section holds.
   name.
 - **Its address holds what it shows** (`/browse?library=3&view=folders&folder=…&sort=…&query=…`),
   so the top bar's link opens it at its start and Back returns to where it was (Q2).
-- **What a library offers.** A film library lists its films, a series library its series, a mixed
-  one both, *All libraries* everything, each by name or newest first. An other library lists its
+- **What a library offers.** A film library lists its films, a series library its series (a mixed
+  one both, until D363 removed that kind), *All libraries* everything, each by name or newest first. An other library lists its
   videos by recorded date (newest first, the default), by name, by file name or newest added, with
   a View of *All* or *Folders* (Q5); no genre.
 - **The alphabet rail** shows only while the sort is by name or by file name, follows that order,

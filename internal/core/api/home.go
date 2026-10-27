@@ -15,7 +15,6 @@ type InProgressBody struct {
 	ID           int64             `json:"id"`
 	Name         string            `json:"name"`
 	Year         int64             `json:"year,omitempty"`
-	LibraryID    int64             `json:"libraryId"`
 	PosterSha256 string            `json:"posterSha256,omitempty"`
 	FileID       int64             `json:"fileId"`
 	PositionMs   int64             `json:"positionMs"`
@@ -70,7 +69,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, row := range rows {
 		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
-			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterSha256: row.PosterSha256,
+			ID: row.ID, Name: row.Name, Year: row.Year, PosterSha256: row.PosterSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
 		})

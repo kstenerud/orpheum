@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -16,7 +17,7 @@ import (
 // of its file Continue Watching would resume it at, by the same rule; a series how many of its
 // episodes they finished, of how many it has, in the ordering they watch it in, the members Next Up
 // reads with the same thresholds. A constant number of statements, in one read, whatever the page.
-func (browser *Browser) withProgress(ctx context.Context, userID int64, page Page) (Page, error) {
+func (browser *Browser) withProgress(ctx context.Context, reach auth.Reach, userID int64, page Page) (Page, error) {
 	if len(page.Entries) == 0 {
 		return page, nil
 	}
@@ -35,7 +36,9 @@ func (browser *Browser) withProgress(ctx context.Context, userID int64, page Pag
 	seriesIDs, titleIDs := idsBySeries(page.Entries)
 	err = browser.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
 		if len(series) > 0 {
-			if seriesErr := seriesProgress(ctx, queries, thresholds, userID, seriesIDs, series); seriesErr != nil {
+			viewer := Viewer{UserID: userID, Reach: reach}
+			seriesErr := seriesProgress(ctx, queries, thresholds, viewer, seriesIDs, series)
+			if seriesErr != nil {
 				return seriesErr
 			}
 		}
@@ -95,13 +98,14 @@ func filmsProgress(
 	return nil
 }
 
-// seriesProgress sets each series' EpisodeCount and FinishedEpisodeCount, in the ordering userID
-// watches it in (ViewingOrderings): its members with a live file, and those of them with a file
-// they finished, as Next Up counts a member finished (MembersOf).
+// seriesProgress sets each series' EpisodeCount and FinishedEpisodeCount, in the ordering its viewer
+// watches it in (ViewingOrderings): its members with a file at a place they reach, and those of them
+// with a file they finished, as Next Up counts a member finished (MembersOf).
 func seriesProgress(
-	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, userID int64, ids []int64,
-	entries []Entry,
+	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, viewer Viewer,
+	ids []int64, entries []Entry,
 ) error {
+	reach, userID := viewer.Reach, viewer.UserID
 	orderings, err := ViewingOrderings(ctx, queries, userID, ids)
 	if err != nil {
 		return err
@@ -114,7 +118,10 @@ func seriesProgress(
 	if err != nil {
 		return fmt.Errorf("encode %d series' orderings: %w", len(ids), err)
 	}
-	counts, err := queries.CountOrderingMembers(ctx, string(encoded))
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	counts, err := queries.CountOrderingMembers(ctx, sqlcgen.CountOrderingMembersParams{
+		OrderingsJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return fmt.Errorf("count the episodes of %d series: %w", len(ids), err)
 	}

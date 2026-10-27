@@ -234,9 +234,9 @@ D231 §3, §4, §7, §9; F1.
   warning sign (D280's revision): `GET /needs-attention` counts what is offline, waiting or unread,
   and the sign shows while any is. Tests: `TestNeedsAttention_CountsTheFoldersAndDisksOffline`
   (internal/core/api), `src/status-tray.test.tsx` and `src/app.test.tsx` (web).
-- Tests: `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`,
+- Tests: `TestScenario_S22_ARetiredRootsFilesAreLeftToNoLibraryItsWorkIsCancelledAndItsHistoryStays`,
   `TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled`,
-  `TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`
+  `TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesListedByNoLibraryWithTheirHistory`
   (internal/core/api); `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges` (internal/core/jobs);
   `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming` (cmd/orpheum);
   `TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory` (internal/archtest).

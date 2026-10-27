@@ -20,6 +20,16 @@ func (q *Queries) DeleteFetchedSubtitle(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteFetchedSubtitlesOfFile = `-- name: DeleteFetchedSubtitlesOfFile :exec
+DELETE FROM fetched_subtitle WHERE video_file = ?1
+`
+
+// What was fetched for a copy that its file had fetched too.
+func (q *Queries) DeleteFetchedSubtitlesOfFile(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFetchedSubtitlesOfFile, fileID)
+	return err
+}
+
 const deleteFetchedSubtitlesOfPurgedFiles = `-- name: DeleteFetchedSubtitlesOfPurgedFiles :exec
 DELETE FROM fetched_subtitle
 WHERE video_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
@@ -161,4 +171,25 @@ func (q *Queries) ListFetchedSubtitlesOfVideo(ctx context.Context, videoFile int
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveFetchedSubtitlesToFile = `-- name: MoveFetchedSubtitlesToFile :exec
+UPDATE fetched_subtitle SET video_file = ?1
+WHERE fetched_subtitle.video_file = ?2
+  AND NOT EXISTS (
+    SELECT 1 FROM fetched_subtitle AS kept
+    WHERE kept.video_file = ?1 AND kept.provider = fetched_subtitle.provider
+      AND kept.provider_file_id = fetched_subtitle.provider_file_id)
+`
+
+type MoveFetchedSubtitlesToFileParams struct {
+	ToFile   int64
+	FromFile int64
+}
+
+// The subtitles fetched for a file confirmed to be a copy of another (D363 section 2): the other's,
+// one fetched for both from one provider's file kept once.
+func (q *Queries) MoveFetchedSubtitlesToFile(ctx context.Context, arg MoveFetchedSubtitlesToFileParams) error {
+	_, err := q.db.ExecContext(ctx, moveFetchedSubtitlesToFile, arg.ToFile, arg.FromFile)
+	return err
 }

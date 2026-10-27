@@ -512,6 +512,8 @@ func (agent *Agent) workFor(
 		return agent.listWork(nodeCtx, nodeID, held, *command.List), true
 	case command.Type == nodeproto.CommandExamine && command.Examine != nil:
 		return agent.examineWork(nodeCtx, nodeID, held, *command.Examine), true
+	case command.Type == nodeproto.CommandHashWhole && command.HashWhole != nil:
+		return agent.hashWholeWork(nodeCtx, nodeID, held, *command.HashWhole), true
 	}
 	return heldWork{}, false
 }

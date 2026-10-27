@@ -56,6 +56,8 @@ type Work struct {
 	List *List `json:"list,omitempty"`
 	// Examine is set for CommandExamine.
 	Examine *Examine `json:"examine,omitempty"`
+	// HashWhole is set for CommandHashWhole.
+	HashWhole *HashWhole `json:"hashWhole,omitempty"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none
@@ -89,6 +91,8 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return work.ReadThrough.Video, true
 	case work.MakeChunks != nil:
 		return work.MakeChunks.Video, true
+	case work.HashWhole != nil:
+		return work.HashWhole.File, true
 	case work.List != nil:
 		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
 	case work.Examine != nil && len(work.Examine.Files) > 0:
@@ -137,7 +141,8 @@ func (work Work) Slot() Slot {
 	switch {
 	case work.ExtractSubtitle != nil:
 		return SlotExtract
-	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly():
+	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly(), work.HashWhole != nil:
+		// A whole-file hash reads a whole video too, as a read-through does (D116, D363 §2).
 		return SlotReadThrough
 	case work.MakeChunks != nil && work.MakeChunks.Stream.Kind == StreamQuality:
 		return SlotEncode

@@ -98,19 +98,25 @@ func (batch *ingestBatch) keepSidecarTrack(
 		return nil
 	}
 	track := sidecarTrackOf(sidecar.Path, video.Path)
+	// Beside a copy, the track is the file's, whose tracks a play offers; the sidecar stays the copy's
+	// place's, and only who reaches that place is offered it (D363 §3).
+	videoFileID := video.ID
+	if video.CopyOf != nil {
+		videoFileID = *video.CopyOf
+	}
 	codec := ptr.NilIfZero(track.codec)
 	containerLanguage, languageTag := ptr.NilIfZero(track.containerLanguage), ptr.NilIfZero(track.languageTag)
 	if !hasTrack {
 		err = batch.queries.InsertSidecarStream(ctx, sqlcgen.InsertSidecarStreamParams{
-			BytesFile: sidecar.ID, VideoFile: video.ID, Codec: codec, ContainerLanguage: containerLanguage,
+			BytesFile: sidecar.ID, VideoFile: videoFileID, Codec: codec, ContainerLanguage: containerLanguage,
 			Language:         languageTag,
 			DispositionFlags: track.disposition,
 		})
-	} else if existing.VideoFile != video.ID || !samePointee(existing.Codec, codec) ||
+	} else if existing.VideoFile != videoFileID || !samePointee(existing.Codec, codec) ||
 		!samePointee(existing.ContainerLanguage, containerLanguage) || !samePointee(existing.Language, languageTag) ||
 		existing.DispositionFlags != track.disposition {
 		err = batch.queries.UpdateSidecarStream(ctx, sqlcgen.UpdateSidecarStreamParams{
-			VideoFile: video.ID, Codec: codec, ContainerLanguage: containerLanguage, Language: languageTag,
+			VideoFile: videoFileID, Codec: codec, ContainerLanguage: containerLanguage, Language: languageTag,
 			DispositionFlags: track.disposition,
 			ID:               existing.ID,
 		})

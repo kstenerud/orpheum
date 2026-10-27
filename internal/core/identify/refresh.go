@@ -151,7 +151,8 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 	}
 	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.IdentificationState)
 	if errors.Is(err, ErrNoMatch) {
-		return OutcomeKept, matcher.keepGoneCopy(ctx, title.LibraryID, goneResponsePart{itemID, provider.Name(), ""})
+		gone := goneResponsePart{itemID, provider.Name(), ""}
+		return OutcomeKept, matcher.keepGoneCopy(ctx, title.FilingLibraryID, gone)
 	}
 	if err != nil {
 		return "", err

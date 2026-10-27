@@ -123,7 +123,10 @@
 //     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
 //     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
 //   - Every step has a test on its rows, until a fold takes it into the baseline (D228): step 0049
-//     in TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus.
+//     in TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus; step 0060 (D363), which carries a
+//     production database's files to places and coverage and refuses a mixed library loudly, in
+//     TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage and
+//     TestMigrate_Step0060RefusesAMixedLibrary.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

@@ -27,6 +27,15 @@ func (q *Queries) DeletePlayEventsOfUser(ctx context.Context, userID int64) erro
 	return err
 }
 
+const deletePlayPositionsOfFile = `-- name: DeletePlayPositionsOfFile :exec
+DELETE FROM play_position WHERE file_id = ?1
+`
+
+func (q *Queries) DeletePlayPositionsOfFile(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePlayPositionsOfFile, fileID)
+	return err
+}
+
 const deletePlayPositionsOfPurgedFiles = `-- name: DeletePlayPositionsOfPurgedFiles :exec
 DELETE FROM play_position WHERE file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
 `
@@ -87,7 +96,8 @@ func (q *Queries) DeletePurgedWatchingOfUser(ctx context.Context, userID int64) 
 const foldWatchingOfPurgedFiles = `-- name: FoldWatchingOfPurgedFiles :exec
 
 INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
-SELECT watching.user_id, file.version_id, sum(watching.completed), sum(watching.watched_ms), max(watching.happened_at)
+SELECT watching.user_id, primary_filing.version_id, sum(watching.completed), sum(watching.watched_ms),
+  max(watching.happened_at)
 FROM (
   SELECT play_span.user_id, play_span.file_id, 0 AS completed,
     play_span.ended_at - play_span.started_at AS watched_ms, play_span.ended_at AS happened_at
@@ -100,8 +110,11 @@ FROM (
     AND play_event.file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
 ) AS watching
 JOIN file ON file.id = watching.file_id
-WHERE file.version_id IS NOT NULL
-GROUP BY watching.user_id, file.version_id
+JOIN file_filing AS primary_filing ON primary_filing.file_id = file.id AND primary_filing.version_id = (
+    SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+    ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
+WHERE primary_filing.version_id IS NOT NULL
+GROUP BY watching.user_id, primary_filing.version_id
 ON CONFLICT (user_id, version_id) DO UPDATE SET
   completed_count = purged_watching.completed_count + excluded.completed_count,
   watched_ms = purged_watching.watched_ms + excluded.watched_ms,
@@ -111,8 +124,8 @@ WHERE excluded.completed_count > 0 OR excluded.watched_ms > 0
 `
 
 // A removed file deleted past its keeping leaves what was watched of it on its version (D306
-// section 8): how often each person finished it and how long they watched, added to what earlier
-// deleted files of the version left.
+// section 8), a film's or an episode's before an other video's (D363 section 5): how often each person
+// finished it and how long they watched, added to what earlier deleted files of the version left.
 // Only when it adds something (D303, DL9).
 func (q *Queries) FoldWatchingOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
 	_, err := q.db.ExecContext(ctx, foldWatchingOfPurgedFiles, fileIdsJson)
@@ -337,26 +350,36 @@ func (q *Queries) ListPlaySpansOfFile(ctx context.Context, arg ListPlaySpansOfFi
 const listRecentPlayPositions = `-- name: ListRecentPlayPositions :many
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms, file.path,
-  title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
+    AS duration_ms,
+  CAST((
+    SELECT place.path FROM version_library CROSS JOIN file AS place ON place.id = version_library.place_id
+    WHERE version_library.version_id = version.id AND version_library.file_id = file.id
+      AND (CAST(?1 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+    ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
+  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.file_id = file.id
+JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
-WHERE play_position.user_id = ?1
-  AND (CAST(?2 AS INTEGER) = 1
-    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+WHERE play_position.user_id = ?3
+  AND EXISTS (
+    SELECT 1 FROM version_library WHERE version_library.version_id = version.id
+      AND version_library.file_id = file.id
+      AND (CAST(?1 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))))
 ORDER BY play_position.position_read_at DESC
 LIMIT ?4
 `
 
 type ListRecentPlayPositionsParams struct {
-	UserID         int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	UserID         int64
 	MaxRows        int64
 }
 
@@ -369,19 +392,20 @@ type ListRecentPlayPositionsRow struct {
 	TitleID        int64
 	Kind           string
 	Year           *int64
-	LibraryID      *int64
 	Name           *string
 	HiddenAt       *int64
 }
 
-// A person's positions in live files of live films, episodes and other videos (D349), most recent watching first,
-// with each file's length where its probe knows it and when its work was last hidden: what
-// Continue Watching is chosen from. Extras are left out (D162).
+// A person's positions in live files of live films, episodes and other videos (D349), most recent
+// watching first, with each file's length where its probe knows it and when its work was last hidden:
+// what Continue Watching is chosen from. Extras are left out (D162). A position is the file's, at
+// whichever place it was played (D363 section 10): it shows with each title a library the person
+// reaches lists the file in, named by the first of its places they reach (section 8).
 func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPlayPositionsParams) ([]ListRecentPlayPositionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listRecentPlayPositions,
-		arg.UserID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.UserID,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -400,7 +424,6 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 			&i.TitleID,
 			&i.Kind,
 			&i.Year,
-			&i.LibraryID,
 			&i.Name,
 			&i.HiddenAt,
 		); err != nil {
@@ -424,7 +447,8 @@ SELECT version.title_id, play_position.position_ms, play_position.position_read_
   progress_hide.hidden_at
 FROM json_each(CAST(?1 AS TEXT)) AS listed
 CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
-CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+CROSS JOIN file_filing ON file_filing.version_id = version.id
+CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
 ORDER BY play_position.position_read_at DESC
@@ -479,7 +503,8 @@ const listWatchedLiveFiles = `-- name: ListWatchedLiveFiles :many
 SELECT DISTINCT play_position.file_id, title.id AS title_id
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.file_id = file.id
+JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 ORDER BY play_position.file_id
@@ -516,6 +541,20 @@ func (q *Queries) ListWatchedLiveFiles(ctx context.Context) ([]ListWatchedLiveFi
 	return items, nil
 }
 
+const movePlayEventsToFile = `-- name: MovePlayEventsToFile :exec
+UPDATE play_event SET file_id = ?1 WHERE file_id = ?2
+`
+
+type MovePlayEventsToFileParams struct {
+	ToFile   int64
+	FromFile int64
+}
+
+func (q *Queries) MovePlayEventsToFile(ctx context.Context, arg MovePlayEventsToFileParams) error {
+	_, err := q.db.ExecContext(ctx, movePlayEventsToFile, arg.ToFile, arg.FromFile)
+	return err
+}
+
 const movePlayPosition = `-- name: MovePlayPosition :exec
 INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id, updated_at, position_read_at)
 VALUES (?1, ?2, ?3, ?4, ?5,
@@ -548,6 +587,43 @@ func (q *Queries) MovePlayPosition(ctx context.Context, arg MovePlayPositionPara
 		arg.UpdatedAt,
 		arg.PositionReadAt,
 	)
+	return err
+}
+
+const movePlayPositionsToFile = `-- name: MovePlayPositionsToFile :exec
+
+INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id, updated_at, position_read_at)
+SELECT user_id, ?1, position_ms, report_seq, device_id, updated_at, position_read_at
+FROM play_position WHERE play_position.file_id = ?2
+ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms, report_seq = excluded.report_seq,
+  device_id = excluded.device_id, updated_at = excluded.updated_at, position_read_at = excluded.position_read_at
+WHERE excluded.position_read_at > play_position.position_read_at
+`
+
+type MovePlayPositionsToFileParams struct {
+	ToFile   int64
+	FromFile int64
+}
+
+// A file confirmed to be a copy of another (D363 section 2) is that file's place: what anyone watched
+// of it is the file's, a person's position the later of the two.
+// Only when it changes something (D303, DL9): the copy's position was the later.
+func (q *Queries) MovePlayPositionsToFile(ctx context.Context, arg MovePlayPositionsToFileParams) error {
+	_, err := q.db.ExecContext(ctx, movePlayPositionsToFile, arg.ToFile, arg.FromFile)
+	return err
+}
+
+const movePlaySpansToFile = `-- name: MovePlaySpansToFile :exec
+UPDATE play_span SET file_id = ?1 WHERE file_id = ?2
+`
+
+type MovePlaySpansToFileParams struct {
+	ToFile   int64
+	FromFile int64
+}
+
+func (q *Queries) MovePlaySpansToFile(ctx context.Context, arg MovePlaySpansToFileParams) error {
+	_, err := q.db.ExecContext(ctx, movePlaySpansToFile, arg.ToFile, arg.FromFile)
 	return err
 }
 

@@ -44,8 +44,10 @@ func (filer *libraryFiler) load(ctx context.Context, libraryID int64) error {
 
 // loadNFOs reads the NFO files the library's source takes. A library asked for "TMDB only,
 // ignore NFO files" reads none, not even their ids or locked fields (D183 §2); they stay filed
-// as sidecars, so changing the library's source finds them.
+// as sidecars, so changing the library's source finds them. A video found at more than one place is
+// described by the NFO beside its first place, before one beside a copy (D363 §9).
 func (filer *libraryFiler) loadNFOs(ctx context.Context) error {
+	besideACopy := map[int64]bool{} // the videos whose NFO so far is one beside a copy
 	for _, file := range filer.files {
 		isNFO := ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarNFO)
 		if file.Filing != library.FilingAttached || !isNFO {
@@ -63,7 +65,11 @@ func (filer *libraryFiler) loadNFOs(ctx context.Context) error {
 		case nfo.Kind == "tvshow":
 			filer.showNFOs[path.Dir(file.Path)] = nfo
 		case file.AttachedToFile != nil:
-			filer.nfoByVideo[*file.AttachedToFile] = nfo
+			video := *file.AttachedToFile
+			if _, isHeld := filer.nfoByVideo[video]; isHeld && file.IsBesideACopy == 1 && !besideACopy[video] {
+				break // the first place's NFO speaks for the file
+			}
+			filer.nfoByVideo[video], besideACopy[video] = nfo, file.IsBesideACopy == 1
 		}
 		stem := strings.TrimSuffix(path.Base(file.Path), path.Ext(file.Path))
 		folder := path.Dir(file.Path)

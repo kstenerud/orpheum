@@ -61,7 +61,8 @@ func TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots(t *testing.T) {
 }
 
 // A library is made over a folder inside a node's root, and a folder is added to it, which is
-// scanned; one another folder covers, or outside every root, is refused (D359 §1, §3).
+// scanned; one beneath a folder of the same library, or outside every root, is refused (D359 §1,
+// §3); another library may cover the same folders (D363 §1).
 func TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -71,10 +72,6 @@ func TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary(t *testing.T) {
 	if created.status != http.StatusCreated {
 		t.Fatalf("POST /libraries over a folder inside a root = %d %s", created.status, created.body)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries", admin, map[string]any{
-		"name": "Films", "kind": "movies", "metadataSource": "tmdb", "changeDetection": "manual",
-		"isWritable": false, "nodeName": "local", "rootPaths": []string{"/media/video"},
-	}), http.StatusUnprocessableEntity, "body.rootPaths")
 	added := harness.do(t, http.MethodPost, "/libraries/1/roots", admin,
 		map[string]any{"nodeName": "local", "path": "/media/video/anime"})
 	if added.status != http.StatusAccepted {
@@ -86,6 +83,14 @@ func TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary(t *testing.T) {
 	for _, refused := range []string{"/media/video/shows/Dark", "/etc"} {
 		wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries/1/roots", admin,
 			map[string]any{"nodeName": "local", "path": refused}), http.StatusUnprocessableEntity, "body.path")
+	}
+	overlapping := harness.do(t, http.MethodPost, "/libraries", admin, map[string]any{
+		"name": "Films", "kind": "movies", "metadataSource": "tmdb", "changeDetection": "manual",
+		"isWritable": false, "nodeName": "local", "rootPaths": []string{"/media/video"},
+	})
+	if overlapping.status != http.StatusCreated {
+		t.Errorf("POST /libraries over the folder the first library's are in = %d %s; want it made",
+			overlapping.status, overlapping.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/9/roots", admin,
 		map[string]any{"nodeName": "local", "path": "/media/music"}), http.StatusNotFound, api.CodeNotFound)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -36,7 +37,7 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	if err := batch.concludeMoves(ctx, scan); err != nil {
 		return err
 	}
-	batch.endedLibraryIDs = append(batch.endedLibraryIDs, scan.libraryID)
+	batch.noteLibrariesEnded(scan.libraryIDs)
 	if scan.isScoped() {
 		if err := batch.checkScopeMayJudge(ctx, scan, complete); err != nil {
 			return err
@@ -60,11 +61,10 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 		sawNone := judged.liveFileCount > 0 && judged.seenFileCount == 0
 		return batch.recordNotComplete(ctx, scan, outcomeWithheld, judged.withheldReason, sawNone)
 	}
-	for _, gone := range judged.unseenFileIDs {
-		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: gone}
-		if tombstoneErr := batch.queries.TombstoneFile(ctx, tombstone); tombstoneErr != nil {
-			return fmt.Errorf("tombstone file %d: %w", gone, tombstoneErr)
-		}
+	// A file's first place gone while a copy of it lives leaves the file at the copy's (D363 §2).
+	removeErr := removePlaces(ctx, batch.queries, batch.ingester.logger, judged.unseenFileIDs, batch.nowMs)
+	if removeErr != nil {
+		return removeErr
 	}
 	if mountsErr := batch.recordMounts(ctx, scan, judged.missingMounts); mountsErr != nil {
 		return mountsErr
@@ -73,6 +73,15 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 		return attachErr
 	}
 	return batch.recordComplete(ctx, scan)
+}
+
+// noteLibrariesEnded notes that a scan of the libraries named ended, each once, for their passes.
+func (batch *ingestBatch) noteLibrariesEnded(libraryIDs []int64) {
+	for _, libraryID := range libraryIDs {
+		if !slices.Contains(batch.endedLibraryIDs, libraryID) {
+			batch.endedLibraryIDs = append(batch.endedLibraryIDs, libraryID)
+		}
+	}
 }
 
 // judgedRemovals are what a scan would remove: the live files it covers and did not see, the disks
@@ -241,8 +250,9 @@ func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, mis
 // is judged against the whole root, so a deleted folder is not most of what its scan looked at
 // (D208 §3, D272 §9).
 func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) (rootFiles, error) {
-	files, err := batch.queries.ListLiveFilesOfLibraryOnNode(ctx, sqlcgen.ListLiveFilesOfLibraryOnNodeParams{
-		NodeID: batch.nodeID, LibraryID: scan.libraryID,
+	after, before := PathRange(scan.root)
+	files, err := batch.queries.ListLiveFilesUnder(ctx, sqlcgen.ListLiveFilesUnderParams{
+		NodeID: batch.nodeID, After: after, Before: before,
 	})
 	if err != nil {
 		return rootFiles{}, fmt.Errorf("list the files under %s: %w", scan.root, err)
@@ -374,7 +384,7 @@ func (batch *ingestBatch) concludeMoves(ctx context.Context, scan *scanState) er
 		if movedFrom != 0 {
 			err = batch.retireUnread(ctx, move.unreadID, movedFrom)
 			if err == nil {
-				err = batch.updateObservedFile(ctx, scan, movedFrom, move.seenFile)
+				err = batch.updateObservedFile(ctx, movedFrom, move.seenFile)
 			}
 		} else {
 			err = batch.insertOrFill(ctx, scan, move.seenFile, move.unreadID)

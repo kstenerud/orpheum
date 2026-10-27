@@ -10,8 +10,13 @@ VALUES (
 RETURNING id;
 
 -- name: InsertLibraryRoot :exec
+-- A library's folder, or one it had and retired, live again: a library that covers it again finds
+-- what it held as it was (D363 section 10).
 INSERT INTO library_root (library_id, node_id, root_path)
-VALUES (sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path));
+VALUES (sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path))
+ON CONFLICT (library_id, node_id, root_path) DO UPDATE SET retired_at = NULL
+-- Only when it changes something (D303, DL9).
+WHERE library_root.retired_at IS NOT NULL;
 
 -- name: GetLiveLibraryByName :one
 SELECT id, name, kind
@@ -32,13 +37,27 @@ FROM library
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListLibraryRootStates :many
--- A library's roots with their node and the last scan's outcome: whether the files are
--- available, and a withheld scan's reason (D208).
-SELECT library_root.root_path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
-  root_state.last_scan_at, root_state.withheld_reason
+-- A library's roots with their node, the root of the scan that reads each, the outermost live library
+-- folder on its node at or above it, of whichever library (D363 section 2), and that scan's last
+-- outcome: whether the files are available, and a withheld scan's reason (D208).
+SELECT library_root.root_path, library_root.node_id, node.name AS node_name,
+  CAST(coalesce((
+    SELECT outer_root.root_path FROM library_root AS outer_root
+    JOIN library ON library.id = outer_root.library_id AND library.removed_at IS NULL
+    WHERE outer_root.node_id = library_root.node_id AND outer_root.retired_at IS NULL
+      AND (outer_root.root_path = library_root.root_path OR outer_root.root_path = '/'
+        OR substr(library_root.root_path, 1, length(outer_root.root_path) + 1) = outer_root.root_path || '/')
+    ORDER BY length(outer_root.root_path) LIMIT 1), library_root.root_path) AS TEXT) AS scan_root_path,
+  root_state.last_scan_outcome, root_state.last_scan_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
-LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = (
+  SELECT outer_root.root_path FROM library_root AS outer_root
+  JOIN library ON library.id = outer_root.library_id AND library.removed_at IS NULL
+  WHERE outer_root.node_id = library_root.node_id AND outer_root.retired_at IS NULL
+    AND (outer_root.root_path = library_root.root_path OR outer_root.root_path = '/'
+      OR substr(library_root.root_path, 1, length(outer_root.root_path) + 1) = outer_root.root_path || '/')
+  ORDER BY length(outer_root.root_path) LIMIT 1)
 WHERE library_root.library_id = sqlc.arg(library_id) AND library_root.retired_at IS NULL
 ORDER BY library_root.root_path;
 
@@ -60,20 +79,35 @@ WHERE library_root.retired_at IS NULL AND library.change_detection IN ('watch', 
 ORDER BY library_root.node_id, library_root.root_path;
 
 -- name: CountLibraryFilings :many
--- How many live files a library has in each filing: the scanner view's summary (D163).
-SELECT filing, count(*) AS files
-FROM file
-WHERE library_id = sqlc.arg(library_id) AND removed_at IS NULL
-GROUP BY filing
-ORDER BY filing;
+-- How many live places a library's folders cover in each filing: the scanner view's summary (D163). A
+-- video is filed as the library's kind filed it, and unidentified until it has (D363 section 5).
+SELECT CAST(CASE WHEN library_place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
+  ELSE library_place.filing END AS TEXT) AS filing, count(*) AS files
+FROM library_place
+LEFT JOIN file_filing ON file_filing.file_id = library_place.place_id
+  AND file_filing.library_kind = library_place.library_kind
+WHERE library_place.library_id = sqlc.arg(library_id)
+GROUP BY 1
+ORDER BY 1;
 
 -- name: ListFilesPage :many
--- What the scanner saw (D163): live files by id after a cursor, optionally of one library and
--- one filing.
-SELECT id, library_id, path, filing, filing_reason, error_detail_json, size_bytes, first_seen_at, last_seen_at
-FROM file
-WHERE removed_at IS NULL AND id > sqlc.arg(after_id)
-  AND (library_id = sqlc.narg(library_id) OR sqlc.narg(library_id) IS NULL)
-  AND (filing = sqlc.narg(filing) OR sqlc.narg(filing) IS NULL)
-ORDER BY id
+-- What the scanner saw (D163): live places by id after a cursor, each with the first live library that
+-- covers it, optionally of one library and one filing. A video is filed as that library's kind filed
+-- it, and unidentified until it has (D363 section 5); a copy is filed a copy.
+SELECT place.id, CAST(coalesce(covering.id, 0) AS INTEGER) AS library_id, place.path,
+  CAST(CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
+    ELSE place.filing END AS TEXT) AS filing,
+  coalesce(file_filing.filing_reason, place.filing_reason) AS filing_reason,
+  place.error_detail_json, place.size_bytes, place.first_seen_at, place.last_seen_at
+FROM file AS place
+LEFT JOIN library AS covering ON covering.id = (
+  SELECT first.library_id FROM place_library AS first
+  WHERE first.place_id = place.id AND (first.library_id = sqlc.narg(library_id) OR sqlc.narg(library_id) IS NULL)
+  ORDER BY first.library_id LIMIT 1)
+LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind
+WHERE place.removed_at IS NULL AND place.id > sqlc.arg(after_id)
+  AND (covering.id IS NOT NULL OR sqlc.narg(library_id) IS NULL)
+  AND (CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE place.filing END
+    = sqlc.narg(filing) OR sqlc.narg(filing) IS NULL)
+ORDER BY place.id
 LIMIT sqlc.arg(max_rows);

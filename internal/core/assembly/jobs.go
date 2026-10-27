@@ -102,6 +102,12 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 			jobs.KindExamine, services.Scans.HandleExamine, services.Scans.RecordExamineFailure, nil, 1,
 			derivedByAScanRequest(), services.Scans.ExamineAssignee,
 		},
+		{
+			// A whole read that gave up keeps nothing, so the next sweep asks again (D363 §2).
+			jobs.KindHashWholeFile, services.copies.HandleHashWhole, nil, nil, 1,
+			[]string{sweepCopies},
+			services.copies.Assignee,
+		},
 		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
 		{jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1, []string{sweepCertificate}, nil},
 	}
@@ -160,6 +166,7 @@ const (
 	sweepPasses           = "identification passes"
 	sweepOwedPasses       = "identification passes owed"
 	sweepReadThroughs     = "read-throughs"
+	sweepCopies           = "copies found at a second place"
 	sweepScheduledBackup  = "the scheduled backup"
 	sweepCertificate      = "the certificate's renewal"
 	sweepScheduledScans   = "the scheduled scans"
@@ -259,6 +266,7 @@ const scheduledBackupCheckEvery = 5 * time.Minute
 func sweepsAfterAPass() []string {
 	return []string{
 		sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs, sweepRescans,
+		sweepCopies,
 	}
 }
 
@@ -341,5 +349,8 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 			Name: sweepReadThroughs, Derive: services.ReadThrough.QueueReadThroughs,
 			Every: every(settings.ReadThroughSweepEveryHours),
 		},
+		// The copies a scan found are settled after the pass that follows it, and hourly with the
+		// read-throughs, which read whole files too (D363 §2).
+		{Name: sweepCopies, Derive: services.copies.QueueCopyChecks, Every: every(settings.ReadThroughSweepEveryHours)},
 	}
 }

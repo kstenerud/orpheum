@@ -481,7 +481,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	// In a TMDB-only library, TMDB's poster replaces it once fetched (D215 §1).
 	storetest.ExecRaw(t, bench.database.Path(),
 		fmt.Sprintf("UPDATE library SET metadata_source = 'tmdb' WHERE id = %d", libraryID),
-		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
+		fmt.Sprintf("UPDATE item SET filing_library_id = %d WHERE id = %d", libraryID, bench.itemID))
 	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIDListJSON: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: library.ArtPoster,
 	})

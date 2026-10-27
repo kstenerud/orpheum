@@ -9,26 +9,28 @@ collection_member	sqlite_autoindex_collection_member_2	10000 50 50
 device		4
 device	device_owner	4 2
 file	file_attached	17350 5
+file	file_copy	0 0
 file	file_errored	0 0 0 0
-file	file_library	17350 8675 1
 file	file_live_path	17350 17350 1
 file	file_payload	17350 2
 file	file_removed_at	0 0
 file	file_removed_payload	0 0 0 0
-file	file_version	13850 1
+file_filing	file_filing_version	13850 1
+file_filing	sqlite_autoindex_file_filing_1	13850 1 1
 file_probe		13850
 grant	grant	40 1
 grant	grant_device	40 10
 grant	grant_locate_hash	0 0
 grant	grant_parent	40 40
 grant	grant_user	8 4
-item	item_library	13700 6850 4567
+item	item_filing_library	13700 6850 4567
 item	sqlite_autoindex_item_1	13700 1 1
 item_provider_id	item_provider_id	7400 2 1 1
 item_provider_id	item_provider_lookup	7400 3700 1
 item_text	item_text_original	13700 1
 item_text	sqlite_autoindex_item_text_1	13700 1 1
 library		2
+library_root	library_root_node	2 2 1
 library_root	sqlite_autoindex_library_root_1	2 1 1 1
 node		1
 ordering	sqlite_autoindex_ordering_1	200 1 1
@@ -44,7 +46,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		13
+schema_step		14
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_listing	3700 3700 1850 2 1
 stream	sqlite_autoindex_stream_1	55400 4 1

@@ -25,7 +25,6 @@ const nothing = (): void => undefined;
 const heat: ContinueWatchingRow = {
   id: 10,
   name: "Metropolis",
-  libraryId: 1,
   fileId: 3,
   positionMs: 500_000,
   durationMs: 1_000_000,

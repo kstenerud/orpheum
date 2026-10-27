@@ -66,13 +66,8 @@ type fakeWork struct {
 	cancelled []jobs.RetiredWork
 }
 
-// noTitles is identification with no titles to hide.
-type noTitles struct{}
-
-func (noTitles) HideTitlesOfDeletedLibrary(context.Context, int64) ([]int64, error) { return nil, nil }
-
 // retirementOf is what a retire asks of other packages, with work as the job queue.
-func retirementOf(work *fakeWork) Retirement { return Retirement{Work: work, Titles: noTitles{}} }
+func retirementOf(work *fakeWork) Retirement { return Retirement{Work: work} }
 
 func (work *fakeWork) CancelRetired(_ context.Context, retired jobs.RetiredWork) (int, error) {
 	work.cancelled = append(work.cancelled, retired)

@@ -52,7 +52,10 @@
 //     size of each shape are never evicted, and past the ceiling what they need is reported with
 //     the ceiling to set (D212 §7). TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize,
 //     TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace,
-//     TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling.
+//     TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling. A live item no library lists, its
+//     library deleted, keeps its images under the ceiling however long it waits, and over it they go
+//     next after a removed item's, every size (D363 §10).
+//     TestSweep_AnItemNoLibraryListsKeepsItsImagesUntilTheCeilingNeedsThem.
 //
 //   - When an image was served is kept to the day, in memory, and written in a batch, never on
 //     the request path. TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack.

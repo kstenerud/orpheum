@@ -113,6 +113,9 @@
 //   - A frame still is taken of the video the core named, so checked and served, at the stream and
 //     place the command says; the still is hashed and re-encoded as an image beside the media is,
 //     and a video with no frame says so (D362). TestAgent_TakesAStillFromTheVideoTheCoreNamedAndReEncodesIt.
+//   - A whole-file hash reads only the file the core named, so checked, through, in the node's own
+//     process, and answers the SHA-256 of its every byte with its size and time; one changed since is
+//     refused (D363 §2, D116). TestAgent_ReadsAFileWholeForTheHashOfItsEveryByte.
 //   - A file a command names is checked against its payload hash through the node's one
 //     namedfile.Hashes (Workers.Hashes), which the byte socket shares: a film opened unchanged by
 //     run after run is hashed once. TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares.

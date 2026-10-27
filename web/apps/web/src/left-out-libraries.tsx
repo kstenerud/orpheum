@@ -13,8 +13,8 @@ type LibraryBody = components["schemas"]["LibraryBody"];
 
 /**
  * The person's own choice of which libraries Films and Series gather (D349 §8, the owner:
- * *"The user can exclude a library from that aggregated view"*): every `movies`, `shows` or
- * `mixed` library the person reaches is in those pages, until they leave it out here; a library
+ * *"The user can exclude a library from that aggregated view"*): every `movies` or `shows`
+ * library the person reaches is in those pages, until they leave it out here; a library
  * left out still has its own place on the Libraries page. Kept on their account
  * (`leftOutLibraryIds`, `GET`/`PUT /me/preferences`); nothing shown where they reach no such
  * library, since there is then nothing to choose between.

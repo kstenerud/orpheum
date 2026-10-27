@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
@@ -97,7 +98,8 @@ func (server *Server) nowPlayingBody(
 	for _, reason := range playing.Decision.NotDirectReasons {
 		body.NotDirectReasons = append(body.NotDirectReasons, string(reason))
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, playing.FileID)
+	// The admin's now playing, who reaches every library.
+	work, err := dependencies.Browser.WorkOfFile(ctx, auth.EveryLibrary(), playing.FileID)
 	if err != nil {
 		return body, server.libraryError(ctx, "read what a playback plays", err)
 	}

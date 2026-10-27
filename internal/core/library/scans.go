@@ -21,7 +21,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // ScanJobs are where a scan's jobs are queued: jobs.Queue.
@@ -142,11 +141,22 @@ type scanAsk struct {
 	isNodesHello bool
 }
 
-// request is RequestUnder, the mutex held.
+// request is RequestUnder, the mutex held. The folder asked for is scanned within the outermost live
+// library folder on its node at or above it, of whichever library, its scan's root: a place two
+// libraries' folders cover is scanned once (D363 §1, §2).
 func (scans *Scans) request(ctx context.Context, ask scanAsk) error {
+	folders, err := scans.ingester.database.Read().ListLiveRootPathsOnNode(ctx, ask.nodeID)
+	if err != nil {
+		return fmt.Errorf("list node %d's library folders: %w", ask.nodeID, err)
+	}
+	if root, scope := scanRootOf(ask.root, ask.scope, folders); root != ask.root {
+		scans.logger.DebugContext(ctx, "a folder inside another library folder is scanned within it",
+			"nodeId", ask.nodeID, "folder", ask.root, "askedScopePath", ask.scope, "rootPath", root, "scopePath", scope)
+		ask.root, ask.scope = root, scope
+	}
 	var scanID int64
 	var joined *cachegen.Scan
-	err := scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	err = scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, insertErr := store.OrNotFound(queries.InsertScan(ctx, cachegen.InsertScanParams{
 			NodeID: ask.nodeID, RootPath: ask.root, Priority: ask.priority, StartedAt: scans.clock.Now().UnixMilli(),
 			ScopePath: ask.scope,
@@ -240,7 +250,7 @@ func listingReason(root string) string {
 // to play it (D304 §4): the batch of the scan in progress that holds it is raised to a person's
 // priority, as a request merging into a queued job raises it; with no such batch, a scan of the
 // file's folder is asked for at that priority.
-func (scans *Scans) ReadNow(ctx context.Context, libraryID, nodeID int64, reportedPath []byte) error {
+func (scans *Scans) ReadNow(ctx context.Context, nodeID int64, reportedPath []byte) error {
 	inProgress, err := scans.cache.Read().ListScans(ctx)
 	if err != nil {
 		return fmt.Errorf("list the scans in progress: %w", err)
@@ -275,11 +285,9 @@ func (scans *Scans) ReadNow(ctx context.Context, libraryID, nodeID int64, report
 		}
 		return nil
 	}
-	roots, err := scans.ingester.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: libraryID, NodeID: nodeID,
-	})
+	roots, err := scans.ingester.database.Read().ListLiveRootPathsOnNode(ctx, nodeID)
 	if err != nil {
-		return fmt.Errorf("list library %d's roots: %w", libraryID, err)
+		return fmt.Errorf("list node %d's library folders: %w", nodeID, err)
 	}
 	for _, root := range roots {
 		if relative, under := RelativeToRoot(reportedPath, root); under {

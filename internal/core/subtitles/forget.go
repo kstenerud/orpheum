@@ -19,3 +19,19 @@ func ForgetSubtitlesOfPurgedFiles(ctx context.Context, queries *sqlcgen.Queries,
 	}
 	return nil
 }
+
+// MoveFetchedToCopysFile moves the subtitles fetched for a file confirmed to be a copy of another onto
+// that file, one fetched for both from one provider's file kept once, in the copy's confirmation
+// (library.CopyFold, D363 §2).
+func MoveFetchedToCopysFile(ctx context.Context, queries *sqlcgen.Queries, fromFileID, toFileID int64) error {
+	err := queries.MoveFetchedSubtitlesToFile(ctx, sqlcgen.MoveFetchedSubtitlesToFileParams{
+		ToFile: toFileID, FromFile: fromFileID,
+	})
+	if err == nil {
+		err = queries.DeleteFetchedSubtitlesOfFile(ctx, fromFileID)
+	}
+	if err != nil {
+		return fmt.Errorf("move the subtitles fetched for file %d to file %d: %w", fromFileID, toFileID, err)
+	}
+	return nil
+}

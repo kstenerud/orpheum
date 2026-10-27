@@ -146,7 +146,7 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
 	librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
 	librarytest.Title(t, database, librarytest.TitleSpec{ID: 20, Library: libraryID})
 	librarytest.Version(t, database, librarytest.VersionSpec{ID: 1, TitleID: 10})
@@ -210,7 +210,7 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
 	librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
 	librarytest.Version(t, database, librarytest.VersionSpec{ID: 1, TitleID: 10})
 	librarytest.File(t, database, librarytest.FileSpec{
@@ -254,7 +254,7 @@ func seriesOfSix(t *testing.T) *store.Database {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb"})
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb", Root: "/s"})
 	librarytest.Item(t, database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: libraryID})
 	for i, episodeID := range []int64{21, 22, 23, 24, 25, 26} {
 		librarytest.Title(t, database, librarytest.TitleSpec{ID: episodeID, Kind: "episode", Library: libraryID})

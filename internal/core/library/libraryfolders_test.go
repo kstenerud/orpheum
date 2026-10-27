@@ -5,6 +5,7 @@ package library
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"testing"
@@ -68,50 +69,62 @@ func TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch(t *testing.T)
 	}
 }
 
-// No library's folder is at, above or below another's on its node: a new library's and an added one
-// alike; a folder is added to a library and scanned (D359 §1, §3).
-func TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode(t *testing.T) {
+// Libraries may overlap: a library's folder may be at, above or below another library's (D363 §1).
+// Within one library, a folder beneath another of its folders adds nothing, refused as covered and
+// logged, and one above some of its folders takes their place; a new library's folders beneath others
+// of its own are left out. A folder added is scanned (D359 §3).
+func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t) // its library, Films, has /media/films
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{"/media"}}
+	logged := &testutil.Log{}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
-	for _, covered := range []string{"/media/films", "/media/films/Wing", "/media"} {
-		if _, err := admin.Create(t.Context(), showsRequest("local", covered)); !errors.Is(err, ErrRootCovered) {
-			t.Errorf("a new library over %s, at, below or above Films' /media/films: %v, want ErrRootCovered",
-				covered, err)
+	admin.UseLogger(slog.New(slog.NewTextHandler(logged, nil)))
+	for index, overlapping := range []string{"/media/films", "/media/films/Wing", "/media"} {
+		request := showsRequest("local", overlapping)
+		request.Name = fmt.Sprintf("Shows %d", index)
+		if _, err := admin.Create(t.Context(), request); err != nil {
+			t.Errorf("a new library over %s, at, below or above Films' /media/films: %v, want it made",
+				overlapping, err)
 		}
 	}
-	overlapping := showsRequest("local", "/media/video/shows", "/media/video/shows/Dark")
-	if _, err := admin.Create(t.Context(), overlapping); !errors.Is(err, ErrRootCovered) {
-		t.Errorf("a new library over a folder and one inside it: %v, want ErrRootCovered", err)
-	}
-	if len(nodes.scanned) != 0 {
-		t.Fatalf("refused requests asked for scans of %v", nodes.scanned)
-	}
-	shows, createErr := admin.Create(t.Context(), showsRequest("local", "/media/video/shows"))
+	nested := showsRequest("local", "/media/video/shows/Dark", "/media/video/shows")
+	shows, createErr := admin.Create(t.Context(), nested)
 	if createErr != nil {
 		t.Fatal(createErr)
 	}
-	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime"); err != nil {
+	logged.AwaitLine(t, "a new library's folder beneath another of its folders adds nothing",
+		"path=/media/video/shows/Dark")
+	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime/Nosferatu"); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"/media/video/shows", "/media/video/anime"}; !slices.Equal(nodes.scanned, want) {
-		t.Errorf("scans asked for of %v, want %v: the new library's folder, then the one added", nodes.scanned, want)
-	}
 	for path, want := range map[string]error{
-		"/media/video": ErrRootCovered, "/media/video/anime/Nosferatu": ErrRootCovered, "/srv": ErrNotANodeRoot,
+		"/media/video/shows": ErrRootCovered, "/media/video/shows/Dark": ErrRootCovered, "/srv": ErrNotANodeRoot,
 	} {
 		if err := admin.AddRoot(t.Context(), shows, "local", path); !errors.Is(err, want) {
 			t.Errorf("adding %s: %v, want %v", path, err, want)
 		}
+	}
+	logged.AwaitLine(t, "refused a library folder its library covers already", "path=/media/video/shows/Dark")
+	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime"); err != nil {
+		t.Fatal(err)
+	}
+	roots, err := admin.libraryRoots(t.Context(), shows)
+	var paths []string
+	for _, each := range roots {
+		paths = append(paths, each.RootPath)
+	}
+	if want := []string{"/media/video/anime", "/media/video/shows"}; err != nil || !slices.Equal(paths, want) {
+		t.Errorf("the library's folders are %v, %v; want %v: the parent took Nosferatu's place", paths, err, want)
 	}
 	if err := admin.AddRoot(t.Context(), shows+100, "local", "/media/music"); !errors.Is(err, ErrNoLibrary) {
 		t.Errorf("adding to a library that does not exist: %v, want ErrNoLibrary", err)
 	}
 }
 
-// A folder a repoint moves to may be inside a configured root, and inside the folder it moves from,
-// which covers nothing once it has moved; not one another library covers (D241 §6, D359 §3).
+// A folder a repoint moves to may be inside a configured root, inside the folder it moves from, which
+// covers nothing once it has moved, and inside another library's folder (D241 §6, D359 §3, D363 §1);
+// not inside or above another folder of its own library.
 func TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
@@ -125,15 +138,24 @@ func TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot(t *testing.T) {
 		t.Fatalf("List = %+v, %v", libraries, listErr)
 	}
 	libraryID := libraries[0].ID // Films
+	if err := admin.AddRoot(t.Context(), libraryID, "local", "/media/more"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := admin.RepointRoot(t.Context(), Repoint{
-		LibraryID: libraryID, NodeName: "local", Path: root, NewNodeName: "local", NewPath: "/media/shows/films",
+		LibraryID: libraryID, NodeName: "local", Path: root, NewNodeName: "local", NewPath: "/media/more/films",
 	}); !errors.Is(err, ErrRootCovered) {
-		t.Errorf("a repoint into Shows' folder: %v, want ErrRootCovered", err)
+		t.Errorf("a repoint into another of its library's folders: %v, want ErrRootCovered", err)
 	}
 	if _, err := admin.RepointRoot(t.Context(), Repoint{
 		LibraryID: libraryID, NodeName: "local", Path: root, NewNodeName: "local", NewPath: "/media/films/all",
 	}); err != nil {
 		t.Errorf("a repoint into a folder inside the one it moves from: %v, want it moved", err)
+	}
+	if _, err := admin.RepointRoot(t.Context(), Repoint{
+		LibraryID: libraryID, NodeName: "local", Path: "/media/films/all", NewNodeName: "local",
+		NewPath: "/media/shows/films",
+	}); err != nil {
+		t.Errorf("a repoint into Shows' folder: %v, want it moved: libraries may overlap", err)
 	}
 }
 

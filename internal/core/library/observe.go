@@ -43,7 +43,7 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		// Stored unread by its listing (D304 §1): what its read finds says whose row it becomes.
 		return batch.placeRead(ctx, scan, seenFile, existing.ID)
 	case err == nil && bytes.Equal(existing.PayloadHash, seenFile.hash):
-		return batch.updateObservedFile(ctx, scan, existing.ID, seenFile)
+		return batch.updateObservedFile(ctx, existing.ID, seenFile)
 	case err == nil:
 		// A different file at the path: the old row's history stays with it (D173).
 		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: existing.ID}
@@ -93,11 +93,11 @@ func (batch *ingestBatch) insertOrFill(
 	if unreadID == 0 {
 		return batch.insertFile(ctx, scan, seenFile)
 	}
-	batch.noteNewFile(scan.libraryID)
-	return batch.updateObservedFile(ctx, scan, unreadID, seenFile)
+	batch.noteNewFile(scan)
+	return batch.updateObservedFile(ctx, unreadID, seenFile)
 }
 
-// reviveOrInsert brings back the latest tombstone in the library with this payload, with its
+// reviveOrInsert brings back the latest tombstone on the node with this payload, with its
 // history, wherever the payload now is — a film deleted by mistake and copied back, a disk that
 // returned after its files were removed — or else adds a new file, or fills its unread row (D208
 // §4, D41).
@@ -106,7 +106,7 @@ func (batch *ingestBatch) reviveOrInsert(
 ) error {
 	tombstone, err := store.OrNotFound(batch.queries.GetLatestTombstoneByPayloadHash(ctx,
 		sqlcgen.GetLatestTombstoneByPayloadHashParams{
-			LibraryID: scan.libraryID, PayloadHash: seenFile.hash,
+			NodeID: batch.nodeID, PayloadHash: seenFile.hash,
 		}))
 	if errors.Is(err, store.ErrNotFound) {
 		return batch.insertOrFill(ctx, scan, seenFile, unreadID)
@@ -119,19 +119,19 @@ func (batch *ingestBatch) reviveOrInsert(
 	}
 	// At its new path first, while still a tombstone: brought back at its old path, which another
 	// file may hold now, it broke the one live file per path, and the scan failed whole.
-	if err := batch.updateObservedFile(ctx, scan, tombstone, seenFile); err != nil {
+	if err := batch.updateObservedFile(ctx, tombstone, seenFile); err != nil {
 		return err
 	}
 	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
 		return fmt.Errorf("revive file %d at %s: %w", tombstone, seenFile.path, err)
 	}
-	batch.noteNewFile(scan.libraryID)
+	batch.noteNewFile(scan)
 	return nil
 }
 
 // retireUnread retires the row a listing stored unread for a file its read found stored before,
-// moved or come back as fileID: the row is tombstoned, and what the pass filed it in is retired by
-// the package that writes it (D304 §5). None, 0, retires nothing.
+// moved or come back as fileID: the row is tombstoned, and what the pass filed it in is the stored
+// file's (retireFilingsInto; D304 §5). None, 0, retires nothing.
 func (batch *ingestBatch) retireUnread(ctx context.Context, unreadID, fileID int64) error {
 	if unreadID == 0 {
 		return nil
@@ -140,10 +140,7 @@ func (batch *ingestBatch) retireUnread(ctx context.Context, unreadID, fileID int
 	if err := batch.queries.TombstoneFile(ctx, tombstone); err != nil {
 		return fmt.Errorf("retire the unread file %d: %w", unreadID, err)
 	}
-	if batch.ingester.onUnreadRetired == nil {
-		return nil
-	}
-	return batch.ingester.onUnreadRetired(ctx, batch.queries, unreadID, fileID, batch.nowMs)
+	return retireFilingsInto(ctx, batch.queries, batch.ingester.retireVersion, unreadID, fileID, batch.nowMs)
 }
 
 // storedNumber is a device's or an inode's number as the file table keeps it: none for 0, which the
@@ -201,16 +198,16 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenFile observation) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
+		NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
-		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
+		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingVideo, FilingReason: &reason,
 		SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
 		FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
-	batch.noteNewFile(scan.libraryID)
+	batch.noteNewFile(scan)
 	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
 		return err
 	}
@@ -219,12 +216,10 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 
 // updateObservedFile records a file observed again, perhaps at a new path (a move), and re-derives its
 // streams from the new probe.
-func (batch *ingestBatch) updateObservedFile(
-	ctx context.Context, scan *scanState, id int64, seenFile observation,
-) error {
+func (batch *ingestBatch) updateObservedFile(ctx context.Context, id int64, seenFile observation) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	err := batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
+		Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes:  &observed.SizeBytes,
 		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
 		UnidentifiedReason: &reason, OpensubtitlesHash: seenFile.openSubtitlesHash,
@@ -276,7 +271,7 @@ func (batch *ingestBatch) recordFiling(
 		return err
 	}
 	_, err = batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
+		NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
 		Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs,
 	})
 	if err != nil {

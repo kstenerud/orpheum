@@ -68,8 +68,9 @@ func TestIngest_UnderARootNotInNFCOrOfSlashAScanMovesRemovesKeepsAndAttaches(t *
 		if _, found := after[textOf("Locked/e.mkv")]; !found {
 			t.Errorf("root %s: Locked/e.mkv was removed, want it kept where the scan could not read", rootPath)
 		}
+		rangeAfter, rangeBefore := PathRange(rootPath)
 		rows, err := world.database.Read().ListLiveFilesForAttaching(t.Context(),
-			sqlcgen.ListLiveFilesForAttachingParams{NodeID: world.nodeID, LibraryID: after[textOf("c.mkv")].LibraryID})
+			sqlcgen.ListLiveFilesForAttachingParams{NodeID: world.nodeID, After: rangeAfter, Before: rangeBefore})
 		if err != nil {
 			t.Fatal(err)
 		}

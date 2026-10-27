@@ -34,7 +34,6 @@ const films = [1, 2, 3, 4].map((id): Entry => ({
   kind: "movie",
   name: `Film ${String(id)}`,
   identificationState: "identified",
-  libraryId: 1,
   addedAt: 1,
 }));
 

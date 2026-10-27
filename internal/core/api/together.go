@@ -427,7 +427,7 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 		return nil, server.playbackError(ctx, "start a viewer's playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	named, _, err := server.namedOutput(ctx, dependencies, holder.OnlyFileID, started)
+	named, _, err := server.namedOutput(ctx, dependencies, holder.Reach, holder.OnlyFileID, started)
 	if err != nil {
 		return nil, err
 	}

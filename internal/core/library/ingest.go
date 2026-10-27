@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"path"
@@ -37,20 +36,14 @@ type Ingester struct {
 	onScanEnded  func(ctx context.Context, libraryID int64)
 	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
 	onNewFiles   func(ctx context.Context, libraryID int64)
-	// onUnreadRetired is told each row a listing stored unread whose read found a file stored
-	// before (SetOnUnreadRetired).
-	onUnreadRetired UnreadRetirer
+	// retireVersion retires the versions a row found to be another file leaves (SetVersionRetirer).
+	retireVersion VersionRetirer
 }
 
-// UnreadRetirer retires what the pass filed for a row a listing stored unread, unreadID, whose read
-// found it to be fileID, a file stored before that moved or came back: its version and the title
-// made from its path, which another package writes. It runs in the ingest's transaction.
-type UnreadRetirer func(ctx context.Context, queries *sqlcgen.Queries, unreadID, fileID, nowMs int64) error
-
-// SetOnUnreadRetired sets what retires an unread row's version and title (identify's
-// RetireUnreadFile); with none set, only the row is tombstoned.
-func (ingester *Ingester) SetOnUnreadRetired(retire UnreadRetirer) {
-	ingester.onUnreadRetired = retire
+// SetVersionRetirer sets what retires the version and title a row leaves when it is found to be
+// another file (identify's RetireVersionInto); with none set, only the row's filings go.
+func (ingester *Ingester) SetVersionRetirer(retire VersionRetirer) {
+	ingester.retireVersion = retire
 }
 
 // SetOnNewFiles sets what runs once a batch that stored a new file is committed, while its scan
@@ -81,15 +74,18 @@ type scanKey struct {
 	root   string
 }
 
-// scanState is one scan in progress: which root and library, when it began, the moves it has
-// not been able to conclude yet, and the regions it could not read.
+// scanState is one scan in progress: which root, the libraries whose folders it holds, when it began,
+// the moves it has not been able to conclude yet, and the regions it could not read.
 type scanState struct {
 	root string
 	// scope is what the scan lists, relative to root: wholeRoot, or "" for a scan whose records came
 	// whole (IngestScan), or a folder a watcher saw change (D272 §9).
-	scope              string
-	facts              rootFacts
-	libraryID          int64 // 0 when no library covers the root: its records are not stored
+	scope string
+	facts rootFacts
+	// libraryIDs are the live libraries with a live folder at or under the root, whose files the scan
+	// finds and hands on to identification (D363 §4); none when no library's folder is at the root,
+	// whose records are not stored.
+	libraryIDs         []int64
 	startedAt          int64
 	pendingMoves       []pendingMove
 	mounts             map[string]uint64 // mount boundaries this scan crossed, by path, with their device
@@ -194,19 +190,22 @@ type ingestBatch struct {
 	key             scanKey
 	nodeID          int64
 	nowMs           int64
-	endedLibraryIDs []int64 // libraries whose scan ended in this batch
+	endedLibraryIDs []int64 // libraries whose folders a scan that ended in this batch holds
 	// foundPaths are the roots, and the disks mounted inside them, that a complete scan in this
 	// batch found.
 	foundPaths []string
-	// newFilesLibraryIDs are the libraries the batch added a file to, or brought one back in from
-	// its tombstone, each once.
+	// newFilesLibraryIDs are the libraries whose folders a scan that added a file in the batch, or
+	// brought one back from its tombstone, holds, each once.
 	newFilesLibraryIDs []int64
 }
 
-// noteNewFile records that the batch added a file to a library, or brought one back.
-func (batch *ingestBatch) noteNewFile(libraryID int64) {
-	if !slices.Contains(batch.newFilesLibraryIDs, libraryID) {
-		batch.newFilesLibraryIDs = append(batch.newFilesLibraryIDs, libraryID)
+// noteNewFile records that the batch added a file under a scan's root, or brought one back: each
+// library with a folder there may cover it.
+func (batch *ingestBatch) noteNewFile(scan *scanState) {
+	for _, libraryID := range scan.libraryIDs {
+		if !slices.Contains(batch.newFilesLibraryIDs, libraryID) {
+			batch.newFilesLibraryIDs = append(batch.newFilesLibraryIDs, libraryID)
+		}
 	}
 }
 
@@ -246,35 +245,43 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Sca
 }
 
 // scanInProgress is the batch's scan in progress, or nil for a record outside one or under a root no
-// library covers.
+// library's folder is at.
 func (batch *ingestBatch) scanInProgress() *scanState {
 	scan := batch.ingester.scans[batch.key]
-	if scan == nil || scan.libraryID == 0 {
+	if scan == nil || len(scan.libraryIDs) == 0 {
 		return nil
 	}
 	return scan
 }
 
-// beginScan starts a scan of a root. A root no library covers is noted once and its records are
-// not stored: a file row belongs to a library (schema.md).
+// beginScan starts a scan of a root: a live library's live folder, which every library with a folder
+// at or under it shares (D363 §1, §2). A root no library's folder is at is noted once and its records
+// are not stored: a place is stored for the libraries that cover it.
 func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBegin) error {
 	if begin.RootPath != batch.key.root {
 		return fmt.Errorf("scan_begin names %s, but the scan is of %s", begin.RootPath, batch.key.root)
 	}
-	libraryID, err := store.OrNotFound(batch.queries.GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
+	libraries, err := batch.queries.ListLibrariesAtOrUnderRoot(ctx, sqlcgen.ListLibrariesAtOrUnderRootParams{
 		NodeID: batch.nodeID, RootPath: begin.RootPath,
-	}))
-	if errors.Is(err, store.ErrNotFound) {
-		batch.ingester.logger.WarnContext(ctx, "a node scanned a root no library covers; what it saw is not stored",
+	})
+	if err != nil {
+		return fmt.Errorf("list the libraries under %s: %w", begin.RootPath, err)
+	}
+	var libraryIDs []int64
+	isAtRoot := false
+	for _, library := range libraries {
+		libraryIDs = append(libraryIDs, library.LibraryID)
+		isAtRoot = isAtRoot || library.IsAtRoot == 1
+	}
+	if !isAtRoot {
+		batch.ingester.logger.WarnContext(ctx,
+			"a node scanned a root no library's folder is at; what it saw is not stored",
 			"nodeId", batch.nodeID, "rootPath", begin.RootPath)
 		batch.ingester.scans[batch.key] = &scanState{root: begin.RootPath}
 		return nil
 	}
-	if err != nil {
-		return err
-	}
 	batch.ingester.scans[batch.key] = &scanState{
-		root: begin.RootPath, libraryID: libraryID, startedAt: batch.nowMs,
+		root: begin.RootPath, libraryIDs: libraryIDs, startedAt: batch.nowMs,
 		facts:  rootFacts{FilesystemDevice: begin.FilesystemDevice, IsMountPoint: begin.IsMountPoint},
 		mounts: map[string]uint64{},
 	}

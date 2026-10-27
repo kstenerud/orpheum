@@ -20,7 +20,7 @@ var ErrNameTaken = errors.New("a library with that name already exists")
 // and never defaulted (D184), and the roots of one node it covers, as that node reports them.
 type NewLibrary struct {
 	Name            string
-	Kind            string // movies, shows, mixed or other
+	Kind            string // movies, shows or other
 	MetadataSource  string // nfo_then_tmdb, tmdb or nfo
 	ChangeDetection string // watch, interval or manual
 	CheckEveryHours *int64 // interval only
@@ -34,37 +34,46 @@ type NewLibrary struct {
 func Create(
 	ctx context.Context, database *store.Database, clockSource clock.Clock, newLibrary NewLibrary,
 ) (int64, error) {
-	newLibrary.Name = textindex.Line(newLibrary.Name) // a person's text is shown to others (D211 §2)
 	var id int64
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		err := refuseTakenName(ctx, queries, newLibrary.Name)
-		if err != nil {
-			return err
-		}
-		writable := int64(0)
-		if newLibrary.IsWritable {
-			writable = 1
-		}
-		id, err = queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
-			Name: newLibrary.Name, Kind: newLibrary.Kind, MetadataSource: newLibrary.MetadataSource,
-			ChangeDetection: newLibrary.ChangeDetection, CheckEveryHours: newLibrary.CheckEveryHours,
-			IsWritable: writable,
-			CreatedAt:  clockSource.Now().UnixMilli(),
-		})
-		if err != nil {
-			return fmt.Errorf("create library %q: %w", newLibrary.Name, err)
-		}
-		for _, root := range newLibrary.Roots {
-			err = queries.InsertLibraryRoot(ctx, sqlcgen.InsertLibraryRootParams{
-				LibraryID: id, NodeID: newLibrary.NodeID, Path: root,
-			})
-			if err != nil {
-				return fmt.Errorf("add root %s to library %q: %w", root, newLibrary.Name, err)
-			}
-		}
-		return nil
+		var err error
+		id, err = create(ctx, queries, clockSource, newLibrary)
+		return err
 	})
 	return id, err
+}
+
+// create is Create in the caller's transaction.
+func create(
+	ctx context.Context, queries *sqlcgen.Queries, clockSource clock.Clock, newLibrary NewLibrary,
+) (int64, error) {
+	newLibrary.Name = textindex.Line(newLibrary.Name) // a person's text is shown to others (D211 §2)
+	err := refuseTakenName(ctx, queries, newLibrary.Name)
+	if err != nil {
+		return 0, err
+	}
+	writable := int64(0)
+	if newLibrary.IsWritable {
+		writable = 1
+	}
+	id, err := queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
+		Name: newLibrary.Name, Kind: newLibrary.Kind, MetadataSource: newLibrary.MetadataSource,
+		ChangeDetection: newLibrary.ChangeDetection, CheckEveryHours: newLibrary.CheckEveryHours,
+		IsWritable: writable,
+		CreatedAt:  clockSource.Now().UnixMilli(),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("create library %q: %w", newLibrary.Name, err)
+	}
+	for _, root := range newLibrary.Roots {
+		err = queries.InsertLibraryRoot(ctx, sqlcgen.InsertLibraryRootParams{
+			LibraryID: id, NodeID: newLibrary.NodeID, Path: root,
+		})
+		if err != nil {
+			return 0, fmt.Errorf("add root %s to library %q: %w", root, newLibrary.Name, err)
+		}
+	}
+	return id, nil
 }
 
 // refuseTakenName refuses a name a live library has (ErrNameTaken); name is as Create stores it.

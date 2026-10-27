@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -34,6 +35,20 @@ func (bench *bench) show(t *testing.T, kind, sourceSha256Hex string, removedAt i
 		bench.itemID, kind, sourceSha256Hex[:4], sourceSha256Hex, removed))
 }
 
+// list makes the bench's item a film a library lists: a version whose file is under the library's
+// folder (D363 §4). An item no library lists is evicted before any listed one's sizes.
+func (bench *bench) list(t *testing.T) {
+	t.Helper()
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
+	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
+		"INSERT INTO title (id, identification_state) VALUES (%d, 'identified')", bench.itemID))
+	librarytest.Version(t, bench.database, librarytest.VersionSpec{ID: 1, TitleID: bench.itemID})
+	librarytest.File(t, bench.database, librarytest.FileSpec{
+		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", Filing: "listed", VersionID: 1,
+	})
+}
+
 // hold makes the bench hold files of the sizes given, in fractions of a GiB.
 func (bench *bench) hold(sourceSha256Hex string, sizesGiB map[string]float64) {
 	for name, size := range sizesGiB {
@@ -53,6 +68,7 @@ func (bench *bench) isHeld(sourceSha256Hex, name string) bool {
 func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
+	bench.list(t)
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
 	clock := bench.clock
 	poster, backdrop := sourceSha256HexOf("a"), sourceSha256HexOf("b")
@@ -122,9 +138,38 @@ func TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace(t 
 	}
 }
 
+// D363 §10: the images of an item no library lists, its library deleted, are kept however long it
+// waits while the cache is under its ceiling, so a library covering its file again finds it as it
+// was; over the ceiling they go first after a removed item's, even the poster wall's size.
+func TestSweep_AnItemNoLibraryListsKeepsItsImagesUntilTheCeilingNeedsThem(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
+	uncovered := sourceSha256HexOf("a")
+	bench.show(t, library.ArtPoster, uncovered, 0)
+	bench.hold(uncovered, map[string]float64{"portrait-s.webp": 0.01, "portrait-m.webp": 0.5})
+	bench.clock.Advance(365 * 24 * time.Hour)
+	if _, err := bench.service.Sweep(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !bench.isHeld(uncovered, "portrait-m.webp") || !bench.isHeld(uncovered, "portrait-s.webp") {
+		t.Fatal("under the ceiling a year on, an image of an item no library lists went; want it kept")
+	}
+	bench.hold(uncovered, map[string]float64{"portrait-m.webp": 1.2}) // past the ceiling alone
+	pressure, err := bench.service.Sweep(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bench.isHeld(uncovered, "portrait-m.webp") || pressure.IsHighWater {
+		t.Errorf("over the ceiling, the poster wall's size of an item no library lists stayed (pressure %+v); "+
+			"want it evicted, as a listed item's never is", pressure)
+	}
+}
+
 func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
+	bench.list(t)
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "2")
 	wall := sourceSha256HexOf("a")
 	bench.show(t, library.ArtPoster, wall, 0)
@@ -149,6 +194,7 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 func TestSweep_StopsAndRecommendsAsTheSettingsSay(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
+	bench.list(t)
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheSweepToPercent, "50")
 	for _, shown := range []string{"a", "b", "c", "d"} {
@@ -163,6 +209,7 @@ func TestSweep_StopsAndRecommendsAsTheSettingsSay(t *testing.T) {
 		t.Errorf("swept to half the ceiling, %d bytes are left; want one poster's 0.3 GiB", pressure.TotalBytes)
 	}
 	walled := newBench(t, fakeFetcher{})
+	walled.list(t)
 	settingstest.Set(t, walled.settings, settings.ArtworkCacheCeilingGiB, "2")
 	settingstest.Set(t, walled.settings, settings.ArtworkCacheRecommendedHeadroomPercent, "200")
 	wall := sourceSha256HexOf("a")

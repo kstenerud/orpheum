@@ -34,7 +34,6 @@ const inAired: SeriesDetail = {
   id: 20,
   kind: "series",
   name: "Glass Tide",
-  libraryId: 1,
   art: {},
   orderings: [aired, dvd],
   seasons: [
@@ -149,7 +148,6 @@ describe("an episode in the ordering its person chose (§7 Q8)", () => {
     kind: "episode",
     name: "Pilot",
     identificationState: "identified",
-    libraryId: 1,
     art: {},
     versions: [],
     extras: null,

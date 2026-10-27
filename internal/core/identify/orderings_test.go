@@ -73,7 +73,8 @@ func (lib *testLibrary) placesIn(seriesID int64, ordering string) (places, group
 	places = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT substr(file.path, length(file.path) - 9), position.group_number, position.number_in_group
 		 FROM ordering JOIN position ON position.ordering_id = ordering.id
-		 JOIN version ON version.title_id = position.title_id JOIN file ON file.version_id = version.id
+		 JOIN version ON version.title_id = position.title_id JOIN file_filing ON file_filing.version_id = version.id
+		 JOIN file ON file.id = file_filing.file_id
 		 WHERE ordering.collection_id = %d AND ordering.name = '%s' ORDER BY position.sort_order`, seriesID, ordering))
 	groupNames = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT group_text.group_number, group_text.name FROM ordering

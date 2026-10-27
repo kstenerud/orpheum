@@ -28,3 +28,19 @@ func ForgetPreferencesOfPurgedFiles(ctx context.Context, queries *sqlcgen.Querie
 	}
 	return nil
 }
+
+// MoveChoicesToCopysFile moves what each person chose in a file confirmed to be a copy of another onto
+// that file, where they chose nothing of it there, in the copy's confirmation (library.CopyFold, D363
+// §2); what they chose of it in both, the file's stays.
+func MoveChoicesToCopysFile(ctx context.Context, queries *sqlcgen.Queries, fromFileID, toFileID int64) error {
+	err := queries.MoveFilePreferencesToFile(ctx, sqlcgen.MoveFilePreferencesToFileParams{
+		ToFile: toFileID, FromFile: fromFileID,
+	})
+	if err == nil {
+		err = queries.DeleteFilePreferencesOfFile(ctx, fromFileID)
+	}
+	if err != nil {
+		return fmt.Errorf("move the choices made in file %d to file %d: %w", fromFileID, toFileID, err)
+	}
+	return nil
+}

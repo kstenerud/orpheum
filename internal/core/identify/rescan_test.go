@@ -296,14 +296,14 @@ func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
 	rescan.library()
 }
 
-// D357 §1: "Rescan everything" rescans each library of films or of series, and no mixed or other
-// one, which only their films' and series' own pages rescan.
+// D357 §1: "Rescan everything" rescans each library of films or of series, and no other one, whose
+// videos are never matched.
 func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	var want []int64
 	want = append(want, lib.libraryID)
-	for index, kind := range []string{"shows", "mixed", "other"} {
+	for index, kind := range []string{"shows", "other"} {
 		source := "tmdb"
 		if kind == "other" {
 			source = "nfo"

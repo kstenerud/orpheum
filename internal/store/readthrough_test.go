@@ -15,29 +15,32 @@ import (
 // TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline checks the sweep's
 // query: a live video whose bytes lack loudness though it has sound, or a timeline though it has a
 // picture, or have only what the file's index said of it, its keyframes without its bytes in each
-// second (D259 §2); never a cover alone, bytes with both, a skipped or removed file, or one without a
-// probe.
+// second (D259 §2); never a cover alone, bytes with both, a skipped or removed file, one without a
+// probe, or one no library's folder covers (D363 §10).
 func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	// 1 lacks both; 2 has its loudness and lacks its timeline; 3 has its loudness and only a cover;
 	// 4 has a picture alone; 5 is removed; 6 was skipped; 7 has both; 8 has a timeline and no sound; 9
-	// has a timeline read from its index, and no sound.
+	// has a timeline read from its index, and no sound; 10 lacks both, under no library's folder.
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, removed_at,
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
+		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing, removed_at,
 		 first_seen_at, last_seen_at) VALUES
-		 (1, 1, 1, '/m/1.mkv', 10, X'01', 'listed', NULL, 1, 1),
-		 (2, 1, 1, '/m/2.mkv', 10, X'02', 'extra', NULL, 1, 1),
-		 (3, 1, 1, '/m/3.mkv', 10, X'03', 'unidentified', NULL, 1, 1),
-		 (4, 1, 1, '/m/4.mkv', 10, X'04', 'listed', NULL, 1, 1),
-		 (5, 1, 1, '/m/5.mkv', 10, X'05', 'listed', 9, 1, 1),
-		 (6, 1, 1, '/m/6.mkv', 10, X'06', 'skipped', NULL, 1, 1),
-		 (7, 1, 1, '/m/7.mkv', 10, X'07', 'listed', NULL, 1, 1),
-		 (8, 1, 1, '/m/8.mkv', 10, X'08', 'listed', NULL, 1, 1),
-		 (9, 1, 1, '/m/9.mkv', 10, X'09', 'listed', NULL, 1, 1)`,
+		 (1, 1, '/m/1.mkv', 10, X'01', 'video', NULL, 1, 1),
+		 (2, 1, '/m/2.mkv', 10, X'02', 'video', NULL, 1, 1),
+		 (3, 1, '/m/3.mkv', 10, X'03', 'video', NULL, 1, 1),
+		 (4, 1, '/m/4.mkv', 10, X'04', 'video', NULL, 1, 1),
+		 (5, 1, '/m/5.mkv', 10, X'05', 'video', 9, 1, 1),
+		 (6, 1, '/m/6.mkv', 10, X'06', 'skipped', NULL, 1, 1),
+		 (7, 1, '/m/7.mkv', 10, X'07', 'video', NULL, 1, 1),
+		 (8, 1, '/m/8.mkv', 10, X'08', 'video', NULL, 1, 1),
+		 (9, 1, '/m/9.mkv', 10, X'09', 'video', NULL, 1, 1),
+		 (10, 1, '/x/10.mkv', 10, X'0a', 'video', NULL, 1, 1)`,
+		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
 		`INSERT INTO file_probe (file_id, probe_json) SELECT id, '{}' FROM file`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags) VALUES
 		 (1, 1, 0, 'video', 'h264', 0), (1, 1, 1, 'audio', 'aac', 0),
@@ -46,7 +49,7 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		 (4, 4, 0, 'video', 'h264', 1),
 		 (5, 5, 0, 'video', 'h264', 0), (6, 6, 0, 'video', 'h264', 0),
 		 (7, 7, 0, 'video', 'h264', 0), (7, 7, 1, 'audio', 'aac', 0), (8, 8, 0, 'video', 'h264', 0),
-		 (9, 9, 0, 'video', 'h264', 0)`,
+		 (9, 9, 0, 'video', 'h264', 0), (10, 10, 0, 'video', 'h264', 0), (10, 10, 1, 'audio', 'aac', 0)`,
 		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, measured_at)
 		 VALUES (X'02', 1, 'stereo', -20, 1), (X'03', 1, 'stereo', -20, 1), (X'07', 1, 'stereo', -20, 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json,
@@ -127,9 +130,11 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing,
-		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', 10, X'0c', 'listed', 1, 1)`,
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
+		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing,
+		 first_seen_at, last_seen_at) VALUES (1, 1, '/m/1.mkv', 10, X'0c', 'video', 1, 1)`,
+		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
 		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '{}')`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
 		 VALUES (1, 1, 0, 'video', 'h264', 0)`)

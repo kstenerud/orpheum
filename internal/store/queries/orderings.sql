@@ -69,7 +69,7 @@ WHERE ordering_id = sqlc.arg(ordering_id) AND group_number = sqlc.arg(group_numb
 -- in as they come and go.
 SELECT item.id AS collection_id
 FROM item
-WHERE item.library_id = sqlc.arg(library_id) AND item.kind = 'collection' AND item.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.kind = 'collection' AND item.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN provider_response ON provider_response.item_id = ordering.collection_id

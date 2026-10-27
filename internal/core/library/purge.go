@@ -89,6 +89,8 @@ func purgeFiles(
 		{"streams", queries.DeleteStreamsOfPurgedFiles},
 		{"probes", queries.DeleteProbesOfPurgedFiles},
 		{"NFOs", queries.DeleteNFOsOfPurgedFiles},
+		{"filings", queries.DeleteFilingsOfPurgedFiles},
+		{"whole-file hashes", queries.DeleteWholeHashesOfPurgedFiles},
 	} {
 		if err = step.deleteOf(ctx, fileIDsJSON); err != nil {
 			return 0, fmt.Errorf("delete the files' %s: %w", step.what, err)

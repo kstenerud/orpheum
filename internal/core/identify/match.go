@@ -417,17 +417,18 @@ func (matcher *Matcher) recordMatch(
 }
 
 // joinableTitle says whether a title the matched id names is one a title can join: another live
-// title of its library, or a deleted library's title of its kind, which comes back (D231 §7).
+// title of its library, or a title of its kind whose library lists none of its files any more, a
+// deleted library's, which comes back (D231 §7, D363 §10).
 func joinableTitle(
 	row sqlcgen.ListTitlesByProviderIDRow, title sqlcgen.GetTitleForMatchRow,
 ) (isJoinable, isDeletedLibrarys bool) {
-	if row.ID == title.ID || title.LibraryID == nil {
+	if row.ID == title.ID || title.FilingLibraryID == nil {
 		return false, false
 	}
-	if row.RemovedAt != nil {
+	if row.IsFiledByNone == 1 {
 		return row.Kind == title.Kind, true
 	}
-	return row.LibraryID != nil && *row.LibraryID == *title.LibraryID, false
+	return row.FilingLibraryID != nil && *row.FilingLibraryID == *title.FilingLibraryID, false
 }
 
 // joinExisting moves a title's versions into another live title of its library that already
@@ -448,7 +449,7 @@ func joinExisting(
 			continue
 		}
 		if isDeletedLibrarys {
-			back := sqlcgen.MoveItemToLibraryParams{LibraryID: title.LibraryID, ID: row.ID}
+			back := sqlcgen.MoveItemToLibraryParams{LibraryID: title.FilingLibraryID, ID: row.ID}
 			if moveErr := queries.MoveItemToLibrary(ctx, back); moveErr != nil {
 				return 0, fmt.Errorf("bring title %d back: %w", row.ID, moveErr)
 			}
@@ -594,7 +595,7 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 		reason = ""
 	}
 	for _, file := range files {
-		err := library.FileAs(ctx, queries, file.ID, filing, reason)
+		err := library.FileAs(ctx, queries, file.ID, file.LibraryKind, filing, reason)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
 		}

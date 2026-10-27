@@ -137,14 +137,15 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 	return batch.ingestRecord(ctx, record)
 }
 
-// readStored reads the files the scan's root's library holds on the node.
+// readStored reads the places under the scan's root on the node, whichever libraries cover them.
 func (listing *listingComparison) readStored(ctx context.Context) error {
 	scan, batch := listing.batch.scanInProgress(), listing.batch
 	if scan == nil {
 		return nil
 	}
+	after, before := PathRange(scan.root)
 	rows, err := batch.queries.ListFilesToCompare(ctx, sqlcgen.ListFilesToCompareParams{
-		NodeID: batch.nodeID, LibraryID: scan.libraryID,
+		NodeID: batch.nodeID, After: after, Before: before,
 	})
 	if err != nil {
 		return fmt.Errorf("list the files under %s: %w", scan.root, err)
@@ -203,16 +204,16 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 func (listing *listingComparison) storeUnread(ctx context.Context, video listedVideo) error {
 	reason := notIdentifiedYet
 	_, err := listing.batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: video.scan.libraryID, NodeID: listing.batch.nodeID, Path: video.located.text,
+		NodeID: listing.batch.nodeID, Path: video.located.text,
 		ReportedPathRaw: video.located.reportedBytes, SizeBytes: &video.listed.SizeBytes,
-		ModifiedAt: &video.listed.ModifiedAt, Filing: FilingUnidentified, FilingReason: &reason,
+		ModifiedAt: &video.listed.ModifiedAt, Filing: FilingVideo, FilingReason: &reason,
 		SeenAt:           listing.batch.nowMs,
 		FilesystemDevice: storedNumber(video.listed.FilesystemDevice), Inode: storedNumber(video.listed.Inode),
 	})
 	if err != nil {
 		return fmt.Errorf("store %s unread: %w", video.located.text, err)
 	}
-	listing.batch.noteNewFile(video.scan.libraryID)
+	listing.batch.noteNewFile(video.scan)
 	return nil
 }
 
@@ -268,7 +269,7 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 		if err != nil {
 			return fmt.Errorf("move file %d to %s: %w", stored.ID, video.located.text, err)
 		}
-		listing.batch.noteNewFile(video.scan.libraryID) // its pass identifies it again from its new path
+		listing.batch.noteNewFile(video.scan) // its pass identifies it again from its new path
 	}
 	listing.taken.ToExamine = slices.DeleteFunc(listing.taken.ToExamine, func(file nodeproto.ExamineFile) bool {
 		return file.Kind == nodeproto.ExamineVideo && moved[file.Path.Text]

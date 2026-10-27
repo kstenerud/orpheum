@@ -241,9 +241,9 @@ func (matcher *Matcher) recordSeriesAndRederive(
 			return fmt.Errorf("record series %d's match: %w", series.ID, err)
 		}
 	}
-	if series.LibraryID == nil {
+	if series.FilingLibraryID == nil {
 		return nil
 	}
-	matcher.pass.OwePass(*series.LibraryID)
+	matcher.pass.OwePass(*series.FilingLibraryID)
 	return nil
 }

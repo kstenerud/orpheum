@@ -8,12 +8,16 @@ import (
 )
 
 // What waits for a person's match is counted as "Needs a match" lists it: an ambiguous title or
-// series, or one a search found nothing for, with a live file; never an episode, a title not
-// searched yet, or one with no live file (D209; D303's count, the access audit's A7).
+// series, or one a search found nothing for, with a live file a library lists; never an episode, a
+// title not searched yet, or one with no live file (D209; D303's count, the access audit's A7; D363).
 func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
-	execRaw(t, database, "PRAGMA foreign_keys = OFF")
+	execRaw(t, database, "PRAGMA foreign_keys = OFF",
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/')")
 	title := func(id int, kind, state, source string, hasFile bool) {
 		t.Helper()
 		execRaw(t, database,
@@ -22,9 +26,12 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 				"VALUES (%d, '%s', '%s', %s)", id, kind, state, source),
 			fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 1)", id, id))
 		if hasFile {
-			execRaw(t, database, fmt.Sprintf("INSERT INTO file (library_id, node_id, path, filing, version_id, "+
-				"first_seen_at, last_seen_at, reported_path_raw) VALUES (1, 1, 'p%d', 'listed', %d, 1, 1, x'%02x')",
-				id, id, id))
+			execRaw(t, database, fmt.Sprintf("INSERT INTO file (id, node_id, path, filing, "+
+				"first_seen_at, last_seen_at, reported_path_raw) "+
+				"VALUES (%d, 1, '/p%d', 'video', 1, 1, CAST('/p%d' AS BLOB))",
+				id, id, id),
+				fmt.Sprintf("INSERT INTO file_filing (file_id, library_kind, filing, version_id) "+
+					"VALUES (%d, 'movies', 'listed', %d)", id, id))
 		}
 	}
 	title(1, "movie", "ambiguous", "NULL", true)        // counted
