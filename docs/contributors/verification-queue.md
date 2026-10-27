@@ -710,7 +710,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   report what is wrong when it does not: which clip, at what time, and whether seeking across a join
   works. A DVD title with angles or seamless branching is refused as interleaved, saying so.
   (`internal/node/disc`)
-- [ ] **VQ76** — Cast a film from a laptop (Firefox on the Mac) to a Fire TV stick in Silk, then to
+- [x] **VQ76** — Cast a film from a laptop (Firefox on the Mac) to a Fire TV stick in Silk, then to
   Chrome on Linux, each with an Orpheum tab in front that was not pressed since it loaded (D358).
   Passes when each receiver shows "‹Laptop› wants to play ‹Film› here" with Play focused, the
   laptop saying "Asking ‹device›…" and its film playing on; on the Fire TV the remote's OK on Play,
@@ -723,7 +723,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the page had been pressed), "Press OK to turn the sound on" shows over the film, and one OK (or
   any arrow) turns the sound on without pausing it (`logEvent=unmutedTap by=key`).
   (`web/apps/web/src/cast-asked.tsx`, `cast-to.tsx`, `cast-receiver.tsx`, `live.tsx`)
-- [ ] **VQ77** — As VQ76, a cast played full screen on the Fire TV, then on Chrome on Linux.
+  Passed 2026-10-27 (the owner, staging): the Fire TV asked, and OK on Play played with sound full
+  screen; cast from Firefox on Android to Chrome on the Mac, Not now and a minute unanswered each said
+  so on the phone; the log holds `playedWithSound`, `answer=entered` and the declined and unanswered
+  lines.
+- [x] **VQ77** — As VQ76, a cast played full screen on the Fire TV, then on Chrome on Linux.
   Passes when **one** Back on the Fire TV takes control back (full screen left, the film playing on
   there), the laptop saying it was taken back, and staging's core log shows
   `logEvent=fullScreen answer=left`; on Chrome, Escape does the same. Stop casting from the laptop,
@@ -736,3 +740,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   `a playback started` line says `cause=castOver pageStartsAtMs=982…`, its `play state changed
   kind=started positionMs=` near it. (`web/apps/web/src/cast-receiver.tsx`, `tv-controls.tsx`,
   `cast-remote.tsx`, `play.tsx`)
+  Passed 2026-10-27 (the owner, staging): Back on the Fire TV and Escape on Chrome took control
+  back, the film playing on; Stop casting and the film's end returned the receiver to the series page
+  it was on; a mouse move showed Chrome's controls; each side played on from the right place
+  (`cause=castOver pageStartsAtMs=763013` at 14:07). Seen beside it, filed for the next batch: on
+  Chrome's receiver neither a click on the video nor Space pauses it; only the pause button does.
