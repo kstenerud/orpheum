@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -164,6 +165,13 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 		wantError(t, harness.do(t, request.method, request.path, editor, request.body), http.StatusNotFound,
 			api.CodeNotFound)
 	}
+	// The tiles of a list it does not reach raise nothing (D362 §4).
+	tiles := harness.do(t, http.MethodPut, "/tiles/interest", editor, map[string][]int64{"itemIds": {30}})
+	if looks := harness.looks.Looks(time.Minute); tiles.status != http.StatusNoContent || len(looks) != 1 ||
+		len(looks[0].Tiles) != 0 {
+		t.Errorf("PUT /tiles/interest of a title not reached = %d, looks %+v; want its tiles shown as none",
+			tiles.status, looks)
+	}
 }
 
 // Every operation is one of three kinds, so a new one cannot serve a library's content unchecked:
@@ -181,7 +189,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest",
+		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest", "putTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"getNotInOrdering", "setSeriesPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
@@ -202,7 +210,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// The caller's own rows, which say nothing of what a library holds.
 		"unhideProgress", "getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
 		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
-		"getMyPreferences", "deleteInterest",
+		"getMyPreferences", "deleteInterest", "deleteTilesInterest",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
 		"postRTCOffer",

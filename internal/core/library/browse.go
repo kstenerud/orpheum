@@ -89,9 +89,13 @@ type Entry struct {
 	LibraryID    int64
 	AddedAt      int64
 	PosterSha256 string // its poster's hash; "" when it has none
-	// LandscapeSha256 is an other video's 16:9 picture, its still or else its backdrop; "" when it
-	// has none (D349 §3).
+	// LandscapeSha256 is an other video's 16:9 picture, its still or else its backdrop, a frame still
+	// of its video only when it has neither; "" when it has none (D349 §3, D362 §2).
 	LandscapeSha256 string
+	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture shown in the top of
+	// its poster's place: its backdrop, else a film's frame still or a series' first episode's still;
+	// "" when it has a poster or none of them (D362 §2).
+	NoPosterStillSha256 string
 	// Other is an other video's date and file name; nil for a film or a series.
 	Other *OtherFacts
 	// Unreadable is why none of its files can be read now, the first's, or nil when one can, or it

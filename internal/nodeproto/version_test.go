@@ -104,6 +104,10 @@ var wireShapeByVersion = map[int]string{
 	// WatchFolders, and a folder's watch in the status is its own, not its configured root's (D359's
 	// amendment of 2026-10-27).
 	49: "a64273941d3a9cbf33f8df156926b57359a3bcc8c640dba23d808f34e28e9f70",
+	// 50 has an artwork command name a video to take a frame still from, its picture stream and
+	// where, and its answer say the video has no frame that is not black (D362): a node of 49 would
+	// read no image.
+	50: "1d260c54ce86fb96af1f06e595f53bb362aba9c8104f367c7fb69c6536c57c33",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

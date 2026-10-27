@@ -3,10 +3,18 @@
 -- its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 
 -- name: ListLiveArtwork :many
-SELECT id, kind, source, source_ref, source_sha256, is_chosen, refused_at
+-- An item's images, stored or refused; a miss at its source that is not yet looked at again, as
+-- ListItemsDueRecheck finds it, is one still to be tried (D213 section 1).
+SELECT artwork.id, artwork.kind, artwork.source, artwork.source_ref, artwork.source_sha256, artwork.is_chosen,
+  artwork.refused_at, artwork.is_missing_at_source,
+  CAST(artwork.is_missing_at_source = 1 AND artwork.source_sha256 IS NULL AND NOT EXISTS (
+    SELECT 1 FROM artwork earlier
+    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind AND earlier.source = artwork.source
+      AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
+  ) AS INTEGER) AS is_recheck_owed
 FROM artwork
-WHERE item_id = sqlc.arg(item_id) AND removed_at IS NULL
-ORDER BY kind, is_chosen DESC, id DESC;
+WHERE artwork.item_id = sqlc.arg(item_id) AND artwork.removed_at IS NULL
+ORDER BY artwork.kind, artwork.is_chosen DESC, artwork.id DESC;
 
 -- name: InsertArtwork :one
 -- A stored image, with its hash; or one that could not be stored, with none, and when and why
@@ -31,16 +39,17 @@ ORDER BY id DESC
 LIMIT 1;
 
 -- name: ListShownArtwork :many
--- The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
--- choice first; then the source the item's library prefers, an image beside the media unless the
--- library takes TMDB only, D215; then the newest stored. The caller keeps each item's first row.
-SELECT artwork.item_id, artwork.source_sha256
+-- The images a page of items shows, of one kind; the ids are a JSON array. Per item, any image but
+-- a frame still before one, which stands in only where no other is, D362; then a person's choice;
+-- then the source the item's library prefers, an image beside the media unless the library takes
+-- TMDB only, D215; then the newest stored. The caller keeps each item's first row.
+SELECT artwork.item_id, artwork.source_sha256, artwork.source
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
-ORDER BY artwork.item_id, artwork.is_chosen DESC,
+ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
 
 -- name: RetryItemArtwork :exec
@@ -128,3 +137,100 @@ SELECT EXISTS (
     AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
       OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ) AS is_reached;
+
+-- name: ListFrameStillCandidates :many
+-- A library's films, episodes and other videos that show no picture of their kind, and whose every
+-- other source has been tried, each with its first live file that has been read: what a frame
+-- still may stand in for, D362. A film shows none with no poster and no backdrop, an episode with
+-- no still, an other video with neither. A film, or an episode's series, has been tried when its
+-- library reads NFO files alone, when it follows no source or its NFO, or when its source's answer
+-- is stored; never while it awaits its match, is ambiguous or its fetch failed. An other video is
+-- never matched. A frame still of the file's present bytes holds it: made, refused for having no
+-- frame, or refused since a scan last saw the file; one refused before is owed again, its row named
+-- for the caller to retire, as an image beside the media is (G9). The images its sources name are
+-- the caller's to weigh.
+SELECT title.id AS title_id, title.kind AS title_kind,
+  CAST(COALESCE((
+    SELECT member.collection_id FROM collection_member member
+    JOIN collection ON collection.id = member.collection_id AND collection.kind = 'series'
+    WHERE member.member_title = title.id LIMIT 1
+  ), 0) AS INTEGER) AS series_id,
+  file.id AS file_id, file.size_bytes, file.modified_at,
+  CAST(COALESCE((
+    SELECT stale.id FROM artwork stale
+    WHERE stale.item_id = title.id AND stale.source = 'frame' AND stale.removed_at IS NULL
+      AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
+      AND stale.source_sha256 IS NULL AND stale.is_missing_at_source = 0 AND stale.refused_at < file.last_seen_at
+    LIMIT 1
+  ), 0) AS INTEGER) AS stale_refusal_id
+FROM item
+JOIN library ON library.id = item.library_id
+CROSS JOIN title ON title.id = item.id
+JOIN file ON file.id = (
+  SELECT live.id FROM version CROSS JOIN file AS live ON live.version_id = version.id
+  WHERE version.title_id = title.id AND version.removed_at IS NULL AND live.removed_at IS NULL
+    AND live.payload_hash IS NOT NULL
+  ORDER BY live.path LIMIT 1
+)
+WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
+  AND title.kind IN ('movie', 'episode', 'other')
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork shown
+    WHERE shown.item_id = title.id AND shown.removed_at IS NULL AND shown.source_sha256 IS NOT NULL
+      AND shown.source != 'frame'
+      AND ((title.kind = 'movie' AND shown.kind IN ('poster', 'backdrop'))
+        OR (title.kind = 'episode' AND shown.kind = 'still')
+        OR (title.kind = 'other' AND shown.kind IN ('still', 'backdrop')))
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork held
+    WHERE held.item_id = title.id AND held.source = 'frame' AND held.removed_at IS NULL
+      AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
+      AND (held.source_sha256 IS NOT NULL OR held.is_missing_at_source = 1 OR held.refused_at >= file.last_seen_at)
+  )
+  AND (
+    title.kind = 'other'
+    OR (title.kind = 'movie' AND title.identification_state != 'ambiguous'
+      AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
+      AND (library.metadata_source = 'nfo' OR title.followed_source IN ('none', 'nfo')
+        OR EXISTS (
+          SELECT 1 FROM provider_response
+          WHERE provider_response.item_id = title.id AND provider_response.provider = title.followed_source
+            AND provider_response.part = ''
+        )))
+    OR (title.kind = 'episode' AND EXISTS (
+      SELECT 1 FROM collection_member member
+      JOIN collection series ON series.id = member.collection_id AND series.kind = 'series'
+      WHERE member.member_title = title.id AND series.identification_state != 'ambiguous'
+        AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = series.id)
+        AND (library.metadata_source = 'nfo' OR series.followed_source IN ('none', 'nfo')
+          OR EXISTS (
+            SELECT 1 FROM provider_response
+            WHERE provider_response.item_id = series.id AND provider_response.provider = series.followed_source
+              AND provider_response.part = ''
+          ))
+    ))
+  )
+ORDER BY title.id;
+
+-- name: ListFirstEpisodes :many
+-- Each series' first episode with a live file, of the first regular season in its aired ordering,
+-- else of the specials: the episode whose still a series with no poster shows, D362. The ids are a
+-- JSON array.
+SELECT ordering.collection_id AS series_id, CAST((
+  SELECT position.title_id FROM position
+  JOIN title ON title.id = position.title_id
+  WHERE position.ordering_id = ordering.id AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
+  ORDER BY position.group_number IS NULL, position.group_number = 0, position.group_number, position.sort_order
+  LIMIT 1
+) AS INTEGER) AS episode_id
+FROM ordering
+WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(sqlc.arg(series_id_list_json) AS TEXT)))
+  AND ordering.name = 'aired';
+
+-- name: GetTitleKind :one
+-- A title's kind: which pictures of it a frame still stands in for, D362.
+SELECT kind FROM title WHERE id = sqlc.arg(id);

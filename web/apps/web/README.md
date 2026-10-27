@@ -133,6 +133,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   background changes' schedule (D237), each time by a new address, until it loads or leaves the page,
   so art the server makes after the page was drawn shows with no reload (the owner, 2026-10-25).
   `src/poster.test.tsx`.
+- **A film or series with no poster shows its still in the top half of the poster's blank**, the
+  blank's own mark below it, and its poster alone once it has one (D362 §2). `src/poster.test.tsx`,
+  `src/browse.test.tsx`.
+- **A grid's tiles in view say so** (`PUT /tiles/interest`) once they settle, again while the tab is
+  visible, and that none is shown when the grid goes, so the work their pictures need comes first
+  (D362 §4, `src/tile-interest.ts`). `src/tile-interest.test.tsx`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,
   *Needs a match*, the libraries, the System page, the jobs and the home rows — after 2 s, backing
   off while nothing changes to 30 s, and keeps what it shows meanwhile (D237); the waits are the

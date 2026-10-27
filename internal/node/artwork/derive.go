@@ -16,6 +16,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
+// logErrorsOnly is FFmpeg's log level for every run here: its errors alone, which a failed run
+// returns.
+const logErrorsOnly = "error"
+
 // maxEncodedBytes bounds one encoded size: a 3840×2160 WebP is a few megabytes at most.
 const maxEncodedBytes = 32 << 20
 
@@ -66,7 +70,7 @@ func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, h
 	ctx, cancel := context.WithTimeout(ctx, deriver.perRunTimeout)
 	defer cancel()
 	output, runErr := deriver.runner.RunInput(ctx, execx.FFprobe, confine.Access{}, []string{
-		"-v", "error", "-protocol_whitelist", "pipe", "-select_streams", "v:0",
+		"-v", logErrorsOnly, "-protocol_whitelist", "pipe", "-select_streams", "v:0",
 		"-show_entries", "stream=width,height", "-of", "json", "pipe:0",
 	}, source, maxProbeBytes)
 	if runErr != nil {
@@ -92,7 +96,7 @@ func (deriver *Deriver) encode(ctx context.Context, source []byte, filter string
 	ctx, cancel := context.WithTimeout(ctx, deriver.perRunTimeout)
 	defer cancel()
 	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
-		append(append([]string{"-v", "error"}, execx.PipeInput()...),
+		append(append([]string{"-v", logErrorsOnly}, execx.PipeInput()...),
 			"-frames:v", "1", "-map_metadata", "-1", "-vf", filter,
 			"-c:v", "libwebp", "-lossless", "0", "-quality", strconv.Itoa(quality), "-f", "webp", "pipe:1"),
 		source, maxEncodedBytes)

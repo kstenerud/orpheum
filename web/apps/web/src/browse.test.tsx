@@ -66,6 +66,30 @@ describe("browse", () => {
     expect(markup).not.toContain("This may be identified incorrectly");
   });
 
+  it("shows a film's still in its poster's place while it has no poster (D362 §2)", () => {
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: {
+        nextCursor: "",
+        items: [
+          {
+            id: 12,
+            name: "Home Reel",
+            kind: "movie",
+            identificationState: "unidentified",
+            libraryId: 1,
+            addedAt: 1,
+            noPosterStillSha256: "5711",
+          },
+        ],
+      },
+    });
+    expect(markup).toContain(
+      '<img class="poster__still" src="/api/v1/bytes/art/5711/landscape-s.webp"',
+    );
+    expect(markup).toContain("No poster");
+  });
+
   it("puts an uncertain match's cue in its poster's tray, under a warning's (D301 §4)", () => {
     const markup = renderBrowseView({
       state: "loaded",

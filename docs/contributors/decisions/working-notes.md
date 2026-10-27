@@ -23029,3 +23029,80 @@ D359 §3); only where each is changes.
 dialog (`FolderBrowser`) in `web/apps/web/src/folder-picker.tsx`, focus given back in
 `web/apps/web/src/modal-dialog.tsx`, the page creating one in `web/apps/web/src/create-library.tsx`,
 and the routes in `web/apps/web/src/router.ts`.
+
+## D362 — A video that nothing gives a picture gets a still of its own frames, the last resort once every other source was tried, and the tiles in view raise its making
+
+**Decided** (2026-10-27), by the project owner: an other video's tile had a picture only from an
+image beside it or an NFO, and nothing took one from the video. *"Generated screenshots should only
+be made available as a last resort for films and series, and get overridden as soon as a real poster
+becomes available. Probably best to show using the same poster layout as the rest, with the
+screenshot in the top half of the poster space, and the 'no poster' logo lower down so that it's
+visible."* And: *"What I mean by last resort is that we've already tried all other methods. I don't
+want it pre-emptively generating screenshots just because IMDB hasn't been queried yet."* And:
+*"viewing a library signals interest in what's needed to display the tiles with images."* **Extends**
+[D212](#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade)
+with a source of its own, and
+[D324](#d324--work-follows-interest-what-is-played-comes-first-then-what-is-being-looked-at-then-everything-else-work-in-the-way-is-stopped-and-what-waits-says-how-long)
+§1's looks with a list's tiles; **amends**
+[D349](#d349--libraries-are-browsed-on-a-page-of-their-own-which-replaces-search-a-kind-other-holds-the-videos-that-are-never-identified-films-and-series-gather-every-library-of-theirs-but-those-a-person-leaves-out)
+§3's 16:9 tile, which a frame still fills last.
+
+1. **The node takes the still, and re-encodes it as any image.** It reads the video as every run
+   reads its film ([D330](#d330--ffmpeg-reads-its-input-through-the-node-over-a-protocol-of-our-own-patched-into-jellyfin-ffmpeg),
+   by the fdproxy protocol alone, or the file protocol alone where its FFmpeg lacks it), once it is
+   the file the core named (D100), from a tenth of its length, for at most 20 seconds: every picture
+   at least 95% black (luma 32 or under, blackframe's own threshold) is dropped, and FFmpeg's
+   `thumbnail` filter chooses the most representative of the next 100, so a fade or a black lead-in is
+   never the still. The frame, its pixels made square and at most 3840 a side, is one PNG of FFmpeg's
+   own with none of the video's metadata; the node hashes it, and re-encodes it as it does any image
+   (D212): our WebP, at the landscape sizes it is large enough for, cropped to 16:9. A size larger
+   than the base it made is not taken again: the frame is all there is of it. The node protocol is
+   version 50.
+2. **It is the last resort, and real artwork always wins.** A still is planned for a film with no
+   poster and no backdrop, an episode with no still, and an other video with neither, and only once
+   every other source was tried and gave none: its library reads NFO files alone, or it follows no
+   source (its search found nothing) or its NFO, or its source's answer is stored, and for an episode,
+   its series' answer and its season's listing; never while it awaits its match, is ambiguous (a
+   person's choice is owed), its fetch failed, or an image a source names of its kinds is still to
+   come: not yet fetched, or missing at its source and not yet looked at again
+   ([D213](#d213--a-good-netizen-a-dead-image-is-checked-once-more-refresh-rolls-per-provider-and-nothing-is-deleted-because-a-provider-dropped-it)
+   §1). An image refused for good was tried. An other video is never matched, and its pass has read
+   what is beside it. The job looks again before it runs, and takes no still where the item has come
+   to show a picture of its kind. The still is kept as the item's still, its source `frame`, and any
+   other image of a kind outranks it in what is shown, at the next read of the page, with no step of
+   anyone's. What shows:
+   - an other video keeps D349 §3's 16:9 tile: its still, else its backdrop, else its frame still;
+   - an episode's frame still is its still, where it has none of its own;
+   - a film or series with no poster keeps the 2:3 poster tile of every other: its still fills the
+     top half, the mark of a missing poster (the clapperboard and "No poster") below it. The still is
+     its backdrop, else a film's frame still, else, for a series, its first episode's still: the first
+     of its first regular season in its aired ordering, else of its specials, which a frame of that
+     episode gives where nothing else does. A series needs no still of its own.
+3. **Stills are made in the background.** Each pass over a library (a scan's, and the sweep's that
+   identifies every library again) queues a `make_artwork_sizes` job for each video it finds owed one,
+   at the background's priority, which runs in the node's artwork slot as every re-encode does, where
+   anything a person waits for, and every play, comes first (D324 §4).
+4. **The tiles in view raise their pictures' work, as a page looked at raises its own.** Every grid of
+   tiles, a library's, Films', Series', a folder's videos, says the items whose tiles are in view
+   (`PUT /tiles/interest`) once they settle for half a second, again every
+   interest_said_every_seconds while the tab is visible, and that it shows none when it goes
+   (`DELETE`), of the items its person reaches. The interest register keeps each session's tiles as a
+   look of its own beside its page, since the list was first shown however far it scrolls, and the
+   raiser raises it as it raises a page's: at a look's priority, the latest look first, its tiles
+   scrolled away from released. It raises the work of the items, their artwork's, and asks for no
+   file's read.
+5. **Each still is logged, and a video with no frame is kept so.** The node logs each still taken,
+   with its job, its video, where in it and how long it took, and each failure with why; the core logs
+   each still kept with its item. A video whose stretch is black throughout, or that has no picture
+   at all (which the core knows from its probe and never sends), is recorded as having no frame, and is
+   not asked again until the video changes, its size or its time. A still that failed is asked again
+   once a scan has seen its video since, as an image beside the media is (G9).
+
+**Proven by:**
+- 1: TestStill_FFmpegReadsOnlyTheFilmFromItsPlaceAndSkipsTheBlack, TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP, TestAgent_TakesAStillFromTheVideoTheCoreNamedAndReEncodesIt, TestHandle_AFrameStillIsTakenFromTheVideoAndKeptAsTheItemsStill
+- 2: TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture, TestTake_AnEpisodeAndAnOtherVideoGetAFrameStillWhenNothingElseShowsThem, TestFoundImages_HandsTheArtworkServiceEveryImageAPassFound, TestHandle_AFrameStillIsTakenFromTheVideoAndKeptAsTheItemsStill, TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone, TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs, TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives, TestEntryBody_SaysEveryPictureTheEntryShows, web/apps/web/src/poster.test.tsx, web/apps/web/src/browse.test.tsx
+- 3: TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture
+- 4: TestRegister_ASessionsTilesInViewAreALookBesideItsPage, TestRaiser_TilesInViewRaiseTheirItemsWork, TestInterest_ASessionSaysTheTilesItShowsAndLeavesThem, TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists, web/apps/web/src/tile-interest.test.tsx
+- 5: TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo, TestStill_NothingWrittenIsAVideoWithNoFrame, TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone, TestAgent_TakesAStillFromTheVideoTheCoreNamedAndReEncodesIt
+
+**Status:** Decided 2026-10-27.

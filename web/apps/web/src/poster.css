@@ -32,6 +32,26 @@
   opacity: 0.45;
 }
 
+/* No poster but a still (D362): the still fills the top half, the blank's mark below it. */
+.poster--with-still {
+  position: relative;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.poster__still {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 50%;
+  object-fit: cover;
+  background: var(--color-surface-raised);
+}
+
+.poster--with-still .poster__clapperboard {
+  width: 30%;
+}
+
 .poster__caption {
   font-size: var(--font-size-small);
   opacity: 0.8;

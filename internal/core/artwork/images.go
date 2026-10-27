@@ -66,10 +66,16 @@ type Found struct {
 	// Named are the images each item's provider names; with the images beside the media, what
 	// an item does not hold is fetched (D212).
 	Named []ItemImages
+	// AwaitingMatch are, from a pass, the films and series no source has answered for yet, and
+	// AwaitingListings the series with a season's listing still to fetch: their pictures may yet
+	// come, so none is given a frame still (D362 §2).
+	AwaitingMatch, AwaitingListings []int64
 }
 
 // Take holds what a pass or a match found: what is no longer named goes, and a job is queued for
-// each item with images it does not hold. It logs a failure; the next pass finds the same again.
+// each item with images it does not hold; after a pass, a frame still for each video whose every
+// other source of a picture was tried and gave none (D362). It logs a failure; the next pass finds
+// the same again.
 func (service *Service) Take(ctx context.Context, found Found) {
 	named := found.Named
 	if found.BesideTheMedia != nil {
@@ -89,6 +95,9 @@ func (service *Service) Take(ctx context.Context, found Found) {
 		return
 	}
 	service.queueOwed(ctx, owed)
+	if found.BesideTheMedia != nil {
+		service.planFrameStills(ctx, found.BesideTheMedia.LibraryID, found, named)
+	}
 }
 
 // localItemImages groups the images found beside the media by item, in item order, each named

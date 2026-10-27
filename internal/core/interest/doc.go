@@ -51,6 +51,10 @@
 //     2026-10-25); a look said again asks for none, as a read asked for while its scan lists asks for
 //     one more scan after it. Enforced by TestRaiser_ALookAtASeriesRaisesItsNextUpAlone and
 //     TestRaiser_ALookAtASeasonAsksForTheReadOfEachOfItsEpisodesOnce.
+//   - A list's tiles in view are a session's look of their own, beside its page, the same look as the
+//     list scrolls, and raise the work of the items they show, their pictures', and no file's read;
+//     tiles scrolled away from are released (D362 §4). Enforced by
+//     TestRegister_ASessionsTilesInViewAreALookBesideItsPage and TestRaiser_TilesInViewRaiseTheirItemsWork.
 //   - Interest never lowers a job: a play's stays a play's. Enforced in internal/core/jobs by
 //     TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
@@ -64,7 +68,8 @@
 //
 // # Where to change
 //
-//   - register.go: each session's look, said by PUT and DELETE /interest/{id} (api's page_interest.go).
+//   - register.go: each session's look, said by PUT and DELETE /interest/{id}, and its tiles in view,
+//     by PUT and DELETE /tiles/interest (api's page_interest.go).
 //   - raise.go: what a look, a playback and a watching raise, the reads a look asks for, and the
 //     loop that raises them.
 //   - internal/core/library's next_up.go: a collection's members ahead of its person, its Next Up

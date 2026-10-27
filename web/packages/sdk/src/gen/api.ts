@@ -1845,6 +1845,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tiles/interest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324) */
+        put: operations["putTilesInterest"];
+        post?: never;
+        /** Say this session shows no list's tiles, which lets their work fall back (D362, D324) */
+        delete: operations["deleteTilesInterest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles": {
         parameters: {
             query?: never;
@@ -2740,6 +2758,8 @@ export interface components {
             /** Format: int64 */
             libraryId: number;
             name: string;
+            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            noPosterStillSha256?: string;
             /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
             posterSha256?: string;
             recorded?: components["schemas"]["RecordedBody"];
@@ -4671,6 +4691,10 @@ export interface components {
             server: components["schemas"]["ServerBody"];
             unread: components["schemas"]["UnreadBody"][] | null;
             waiting: components["schemas"]["WaitingBody"][] | null;
+        };
+        TilesInterestInputBody: {
+            /** @description The items whose tiles are in view */
+            itemIds: number[] | null;
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -9284,6 +9308,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReachabilityOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    putTilesInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TilesInterestInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteTilesInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

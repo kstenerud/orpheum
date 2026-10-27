@@ -10,16 +10,21 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
-// Look is a session looking at a film's or series' page, or at one season's of a series: whose
-// session, since when, and when it last said so.
+// Look is a session looking at a film's or series' page, or at one season's of a series, or at a
+// list's tiles: whose session, since when, and when it last said so.
 type Look struct {
 	ItemID int64
 	// Season is the season of the series whose page it is, 0 for the specials; NoSeason for a
 	// film's page or a series' own.
 	Season int64
+	// Tiles, for a look at a list, are the films, series and videos whose tiles are in view, whose
+	// pictures' work the look raises (D362 §4); nil for a page's.
+	Tiles  []int64
 	UserID int64
 	Since  time.Time
 	SaidAt time.Time
+	// tilesOf is the session whose list a look at tiles is: each session's is a look of its own.
+	tilesOf string
 }
 
 // NoSeason is the season of a look at a film's page or a series' own, which shows no one season.
@@ -32,11 +37,14 @@ type Register struct {
 
 	mutex sync.Mutex
 	looks map[string]Look // guarded by mutex: by session key
+	// tiles are each session's look at a list's tiles, beside the page it shows: a series' page
+	// shows its seasons' tiles, and a library's page is a list of them.
+	tiles map[string]Look // guarded by mutex: by session key
 }
 
 // NewRegister returns an empty register.
 func NewRegister(clockSource clock.Clock) *Register {
-	return &Register{clock: clockSource, looks: map[string]Look{}}
+	return &Register{clock: clockSource, looks: map[string]Look{}, tiles: map[string]Look{}}
 }
 
 // Look says the session, userID's, shows itemID's page now, the page of its season when season is
@@ -63,18 +71,42 @@ func (register *Register) Leave(sessionKey string, itemID, season int64) {
 	}
 }
 
-// Looks are the looks said within lapse, the latest begun first; those past it are forgotten.
+// SeeTiles says the session, userID's, shows the tiles of itemIDs now, in place of those it showed
+// before: a list scrolled is the same look, since it began (D362 §4).
+func (register *Register) SeeTiles(sessionKey string, userID int64, itemIDs []int64) {
+	now := register.clock.Now()
+	register.mutex.Lock()
+	defer register.mutex.Unlock()
+	look, isLooking := register.tiles[sessionKey]
+	if !isLooking {
+		look = Look{Season: NoSeason, UserID: userID, Since: now, tilesOf: sessionKey}
+	}
+	look.Tiles, look.SaidAt = slices.Clone(itemIDs), now
+	register.tiles[sessionKey] = look
+}
+
+// LeaveTiles says the session shows no list's tiles now.
+func (register *Register) LeaveTiles(sessionKey string) {
+	register.mutex.Lock()
+	defer register.mutex.Unlock()
+	delete(register.tiles, sessionKey)
+}
+
+// Looks are the looks said within lapse, at pages and at tiles, the latest begun first; those past
+// it are forgotten.
 func (register *Register) Looks(lapse time.Duration) []Look {
 	since := register.clock.Now().Add(-lapse)
 	register.mutex.Lock()
 	defer register.mutex.Unlock()
-	looks := make([]Look, 0, len(register.looks))
-	for sessionKey, look := range register.looks {
-		if look.SaidAt.Before(since) {
-			delete(register.looks, sessionKey)
-			continue
+	looks := make([]Look, 0, len(register.looks)+len(register.tiles))
+	for _, said := range []map[string]Look{register.looks, register.tiles} {
+		for sessionKey, look := range said {
+			if look.SaidAt.Before(since) {
+				delete(said, sessionKey)
+				continue
+			}
+			looks = append(looks, look)
 		}
-		looks = append(looks, look)
 	}
 	slices.SortFunc(looks, func(first, second Look) int {
 		return second.Since.Compare(first.Since)

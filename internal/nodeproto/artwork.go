@@ -108,7 +108,14 @@ type Artwork struct {
 	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
 	// Path on the wire it is absolute: the node finds the root it is under.
 	AbsolutePath *Path `json:"absolutePath,omitempty"`
-	Shape        Shape `json:"shape"`
+	// Video, in place of SourceImage and AbsolutePath, is a video to take a frame still from
+	// (D362): the node reads it as it reads a film for any run (D330), checked to be the file
+	// named, and the image it re-encodes is the most representative frame of a stretch of the
+	// picture stream at FrameStreamIndex from FrameAtMs, black frames skipped.
+	Video            *BytesFile `json:"video,omitempty"`
+	FrameStreamIndex int        `json:"frameStreamIndex,omitempty"`
+	FrameAtMs        int64      `json:"frameAtMs,omitempty"`
+	Shape            Shape      `json:"shape"`
 	// SizeNames are the names to make; one larger than the source is not made.
 	SizeNames []ArtSizeName `json:"sizeNames"`
 	// MaxSourcePixels refuses a source larger than this before it is decoded: a decompression bomb.
@@ -131,9 +138,12 @@ type ArtworkResult struct {
 	SourceWidth  int        `json:"sourceWidth"`
 	SourceHeight int        `json:"sourceHeight"`
 	Images       []ArtImage `json:"images"`
-	// SourceSha256 is the SHA-256, in hex, of the file an AbsolutePath command named, as the node read it:
-	// what the core stores the sizes under.
+	// SourceSha256 is the SHA-256, in hex, of the file an AbsolutePath command named, as the node read it,
+	// or of the still it took from a Video: what the core stores the sizes under.
 	SourceSha256 string `json:"sourceSha256,omitempty"`
 	// Refusal says why no size was made: over the pixel limit, not an image, a failed encode.
 	Refusal string `json:"refusal,omitempty"`
+	// HasNoFrame, with Refusal, is a Video whose stretch holds no picture that is not black: the
+	// video's own answer, which the core keeps and does not ask again (D362 §5).
+	HasNoFrame bool `json:"hasNoFrame,omitempty"`
 }

@@ -13,13 +13,24 @@ import { useBackgroundChangesPoller } from "./polling.ts";
  * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: Copper Kettle's
  * seasons showed broken images while their art waited its turn). The card's own text names the item.
  * A blank for an image that did not load asks for it again (useArtShown), and shows it once made.
+ * A film or series with no poster but a still, its backdrop or a frame of its video, shows the still
+ * in the blank's top half, the blank's own mark below it (the owner, 2026-10-27; D362 §2); a poster
+ * shown takes its place.
  */
-export function Poster(props: { readonly sourceSha256: string | undefined }): JSX.Element {
+export function Poster(props: {
+  readonly sourceSha256: string | undefined;
+  readonly stillSha256?: string | undefined;
+}): JSX.Element {
   const { t } = useTranslation();
   const shown = useArtShown(props.sourceSha256, "portrait-m");
   if (shown.url === undefined) {
+    const hasStill = props.stillSha256 !== undefined;
     return (
-      <span className="poster poster--blank" aria-hidden="true">
+      <span
+        className={hasStill ? "poster poster--blank poster--with-still" : "poster poster--blank"}
+        aria-hidden="true"
+      >
+        {hasStill ? <Still sourceSha256={props.stillSha256} className="poster__still" /> : null}
         <Clapperboard />
         <span className="poster__caption">{t("common.noPoster")}</span>
       </span>
