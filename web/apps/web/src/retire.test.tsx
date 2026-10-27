@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
-import { Libraries } from "./libraries.tsx";
+import { LibraryPage } from "./library-manage.tsx";
 import { System, type SystemReport } from "./system.tsx";
 import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -99,12 +99,11 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
         [200, { libraries: [{ ...films, roots: [] }] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
-      "GET /config": [200, { settings: [] }],
       "POST /libraries/3/roots/retire": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
   );
-  mounted = await mount(withServices(<Libraries />, services));
+  mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const container = mounted.container;
   await click(buttonWithText(container, "This folder is gone for good…"));
   expect(container.textContent).toContain("it is never scanned again; what was watched is kept.");
@@ -129,17 +128,17 @@ it("deletes a library only once the admin confirms (D231 §7)", async () => {
         [200, { libraries: [] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
-      "GET /config": [200, { settings: [] }],
       "DELETE /libraries/3": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
   );
-  mounted = await mount(withServices(<Libraries />, services));
+  mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   await click(buttonWithText(mounted.container, "Delete the library…"));
   expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /libraries/3");
   await click(buttonWithText(mounted.container, "Delete it"));
   expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /libraries/3");
-  expect(mounted.container.textContent).toContain("No libraries yet.");
+  // Deleted from its own page, the admin is back at the list (D361 §2).
+  expect(services.navigation.route()).toEqual({ screen: "libraries" });
 });
 
 it("the System page says since when each folder and disk is offline, and retires a machine once confirmed (D41, D231 §7)", async () => {

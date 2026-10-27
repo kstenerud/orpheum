@@ -7,7 +7,8 @@ import type { components } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Identify } from "./identify.tsx";
-import { Libraries } from "./libraries.tsx";
+import { CreateLibraryPage } from "./create-library.tsx";
+import { LibraryPage } from "./library-manage.tsx";
 import { Settings } from "./settings.tsx";
 import {
   buttonWithText,
@@ -110,7 +111,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries": refusal(409, "conflict"),
     });
-    mounted = await mount(withServices(<Libraries />, services));
+    mounted = await mount(withServices(<CreateLibraryPage />, services));
     await submit(mounted.container.querySelector("form"));
     expectSays(conflict);
   });
@@ -123,7 +124,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "POST /libraries/3/scan": refusal(404, "not_found"),
       "POST /libraries/3/removals": refusal(409, "conflict"),
     });
-    mounted = await mount(withServices(<Libraries />, services));
+    mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
     await click(buttonWithText(mounted.container, "Scan now"));
     expectSays(notFound);
     await click(buttonWithText(mounted.container, "Remove what the last scan did not find"));
@@ -213,7 +214,7 @@ describe("a request that never reaches the server says so, rather than nothing",
       "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries/3/scan": unreachable,
     });
-    mounted = await mount(withServices(<Libraries />, services));
+    mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
     await click(buttonWithText(mounted.container, "Scan now"));
     expectSays(cannotReach);
   });
@@ -225,7 +226,7 @@ describe("a request that never reaches the server says so, rather than nothing",
       "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries": unreachable,
     });
-    mounted = await mount(withServices(<Libraries />, services));
+    mounted = await mount(withServices(<CreateLibraryPage />, services));
     await submit(mounted.container.querySelector("form"));
     expectSays(cannotReach);
   });

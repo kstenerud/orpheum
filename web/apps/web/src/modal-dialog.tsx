@@ -27,6 +27,21 @@ function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): v
   }
 }
 
+/**
+ * Gives focus back to what had it before the dialog opened, as it closes, while that is still on the
+ * page and focus is nowhere else: in the dialog going, or lost to the page with it. The browser gives
+ * it back itself only to a dialog closed while on the page, and the page closes one by removing it,
+ * so focus fell to the page's start, and a keyboard or a remote began again from there (D361 §3).
+ * Focus something else took meanwhile, as a page moved to, stays where it is.
+ */
+function giveFocusBack(dialog: HTMLDialogElement, focusedBefore: Element | null): void {
+  const now = document.activeElement;
+  const isLost = now === null || now === document.body || dialog.contains(now);
+  if (isLost && focusedBefore instanceof HTMLElement && focusedBefore.isConnected) {
+    focusedBefore.focus();
+  }
+}
+
 /** Closes the dialog on a remote's or a controller's Back, told to onClose as Escape's is. */
 function useBackCloses(
   ref: RefObject<HTMLDialogElement | null>,
@@ -48,7 +63,7 @@ const firstFieldSelector =
  * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
  * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
  * press, with focus held inside it until it closes, the arrows moving among its own controls alone
- * (focus-navigation.ts). Escape closes it, told to onClose, and goes no further, so a menu or pop-up
+ * (focus-navigation.ts), and given back to what had it before once it closes. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
  * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx).
  */
 export function ModalDialog(props: {
@@ -83,6 +98,7 @@ export function ModalDialog(props: {
     if (dialog === null) {
       return undefined;
     }
+    const focusedBefore = document.activeElement;
     openModal(dialog, toldRef.current.shouldFocusFirstField === true);
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
@@ -111,6 +127,7 @@ export function ModalDialog(props: {
       dialog.removeEventListener("keydown", keepEscape);
       dialog.removeEventListener("click", pressOutside);
       dialog.close();
+      giveFocusBack(dialog, focusedBefore);
     };
   }, []);
   useBackCloses(ref, toldRef);

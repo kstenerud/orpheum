@@ -31,7 +31,9 @@ import {
   WatchTogether,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
+import { CreateLibraryPage } from "./create-library.tsx";
 import { Libraries } from "./libraries.tsx";
+import { LibraryPage } from "./library-manage.tsx";
 import { LibraryBrowse } from "./library-browse.tsx";
 import { People } from "./people.tsx";
 import {
@@ -282,9 +284,6 @@ function adminScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "identify") {
     return <Identify />;
   }
-  if (route.screen === "libraries") {
-    return <Libraries />;
-  }
   if (route.screen === "settings") {
     return <Settings />;
   }
@@ -302,6 +301,23 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "person") {
     return <PersonPage key={route.userId} userId={route.userId} />;
+  }
+  return librariesScreen(route);
+}
+
+/**
+ * The admin's library screens (D361): the list, one library's page, creating one, and what the
+ * scanner saw of one.
+ */
+function librariesScreen(route: Route): JSX.Element | undefined {
+  if (route.screen === "libraries") {
+    return <Libraries />;
+  }
+  if (route.screen === "library") {
+    return <LibraryPage key={route.libraryId} libraryId={route.libraryId} />;
+  }
+  if (route.screen === "new-library") {
+    return <CreateLibraryPage />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />

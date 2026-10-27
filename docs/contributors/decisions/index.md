@@ -366,6 +366,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D358](working-notes.md#d358--a-cast-asks-the-receiving-device-first-device-wants-to-play-film-here-whose-play-is-the-press-that-starts-it-with-sound-and-full-screen) A cast asks the receiving device first: "‹Device› wants to play ‹Film› here", whose Play is the press that starts it with sound and full screen
 - [D359](working-notes.md#d359--a-librarys-folder-is-any-folder-beneath-one-of-its-nodes-configured-roots-chosen-by-browsing-the-nodes-folders) A library's folder is any folder beneath one of its node's configured roots, chosen by browsing the node's folders
 - [D360](working-notes.md#d360--the-extensions-a-scan-reads-are-the-codes-each-container-proven-to-play-and-realmedia-is-one) The extensions a scan reads are the code's, each container proven to play, and RealMedia is one
+- [D361](working-notes.md#d361--the-admins-libraries-are-a-list-each-library-managed-on-a-page-of-its-own-creating-one-is-a-page-too-and-the-folder-browser-is-a-modal-dialog) The admin's libraries are a list, each library managed on a page of its own, creating one is a page too, and the folder browser is a modal dialog
 
 ## Archived
 

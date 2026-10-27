@@ -24,6 +24,8 @@ describe("parseRoute and routeHref", () => {
       { screen: "browse", query: "glass runner & co" },
       { screen: "identify" },
       { screen: "libraries" },
+      { screen: "library", libraryId: 3 },
+      { screen: "new-library" },
       { screen: "files", libraryId: 3 },
       { screen: "about" },
       { screen: "this-device" },
@@ -52,6 +54,8 @@ describe("parseRoute and routeHref", () => {
       "/titles/12/extra",
       "/nowhere",
       "/libraries/1/other",
+      "/libraries/0",
+      "/libraries/newer",
     ]) {
       expect(parseRoute(pathname, "")).toEqual({ screen: "not-found" });
     }

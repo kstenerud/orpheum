@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { Libraries } from "./libraries.tsx";
+import { LibraryPage } from "./library-manage.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -46,17 +47,19 @@ it("rescans every library, or one, from the Libraries page, and says what starte
         ],
       ],
       "GET /nodes": [200, { nodes: [] }],
-      "GET /config": [200, { settings: [] }],
       "POST /libraries/rescan": [202, { startedCount: 1 }],
       "POST /libraries/3/rescan": [202, { isStarted: false }],
     },
     heard,
   );
   mounted = await mount(withServices(<Libraries />, services));
+  await click(buttonWithText(mounted.container, "Rescan everything"));
+  expect(mounted.container.textContent).toContain("Rescanning 1 libraries of films or series.");
+  expect(mounted.container.textContent).toContain("Rescanning… scanning first.");
+  // One library's own rescan is on its own page (D361 §2).
+  mounted.unmount();
+  mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const page = mounted.container;
-  await click(buttonWithText(page, "Rescan everything"));
-  expect(page.textContent).toContain("Rescanning 1 libraries of films or series.");
-  expect(page.textContent).toContain("Rescanning… scanning first.");
   await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain("A rescan of it is already running.");
   expect(posts(heard)).toEqual(["POST /libraries/rescan", "POST /libraries/3/rescan"]);

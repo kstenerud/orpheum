@@ -112,11 +112,21 @@ The web client: the browser and phone interface, served embedded by the core. MP
   check code; a typed one's check code is made of the key, the nonce the TV committed to and the
   core's. `loader-device-code.test.tsx`, `loader-pages.test.tsx`, `device-activation.test.tsx`, and
   the SDK's `device-code.test.ts`.
-- **An admin rescans from the Libraries page and from a film's or series' page** (D357): "Rescan
-  everything", and "Rescan" on a library of films or of series alone, never a mixed or other one,
-  whose card shows how far its rescan is, scanning first, then the films and series matched again;
-  and "Rescan this" beside "Identified incorrectly", for an admin alone. Each says whether it
-  started, or one already runs. `libraries.test.tsx`, `rescan.test.tsx`.
+- **An admin rescans from the Libraries pages and from a film's or series' page** (D357): "Rescan
+  everything" on the list, and "Rescan" on the own page of a library of films or of series alone,
+  never a mixed or other one; the list and the library's page show how far its rescan is, scanning
+  first, then the films and series matched again; and "Rescan this" beside "Identified incorrectly",
+  for an admin alone. Each says whether it started, or one already runs. `libraries.test.tsx`,
+  `rescan.test.tsx`, `library-pages.test.tsx`.
+- **The admin's libraries are a list, each with a page of its own, and creating one is a page too**
+  (D361): `/libraries` lists each library at a glance with "Manage this library"; `/libraries/<id>`
+  holds everything that changes it, deleting it (confirmed first) going back to the list;
+  `/libraries/new` creates one, replaced by the new library's page once made. The folder browser is
+  a modal dialog (`FolderBrowser`, over `modal-dialog.tsx`) wherever a folder is chosen: creating,
+  adding a folder, saying one moved. `src/library-pages.test.tsx`, `src/retire.test.tsx`,
+  `src/folder-picker.test.tsx`, `src/folder-picker.browser.test.tsx`, `src/router.test.ts`.
+- **A modal dialog gives focus back to what had it once it closes** (D361 §3): the browser does not
+  for a dialog the page removes (idiosyncrasies.md). `src/folder-picker.browser.test.tsx`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A poster or still whose image does not load shows its blank and asks for it again** on the
@@ -281,7 +291,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
   (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
-  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`; "Rescan everything", each library's "Rescan" and how far its rescan is, D357), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
+  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8), `watching.ts` (the film a tab watches: its page's warm-up
