@@ -3,35 +3,38 @@
 /* D304 §4: a title still being read, an hourglass on the status blue (the owner, 2026-10-17: the
    coral read poorly; the blue of the tray's signs). */
 
+/* Wherever it is drawn, its own region's colours: the mark and ring on the disc. */
 .still-reading-icon {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
+  color: var(--color-on-status);
+  --icon-ground: var(--color-status);
 }
 
 .still-reading-icon__ring {
-  fill: var(--color-on-status);
+  fill: currentColor;
 }
 
 .still-reading-icon__disc {
-  fill: var(--color-status);
+  fill: var(--icon-ground);
 }
 
 .still-reading-icon__caps {
   fill: none;
-  stroke: var(--color-on-status);
+  stroke: currentColor;
   stroke-width: 2.8;
   stroke-linecap: round;
 }
 
 .still-reading-icon__glass {
   fill: none;
-  stroke: var(--color-on-status);
+  stroke: currentColor;
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .still-reading-icon__sand {
-  fill: var(--color-on-status);
+  fill: currentColor;
 }

@@ -190,7 +190,6 @@
 .app-shell__menu-icon {
   width: 1.5rem;
   height: 1.5rem;
-  fill: currentColor;
 }
 
 /* What a menu holds: a raised list under its name, at the window's end. */

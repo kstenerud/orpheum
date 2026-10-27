@@ -6,6 +6,7 @@ import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "rea
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
+import { Icon } from "./icon.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
@@ -334,9 +335,9 @@ function RealmMark(props: { readonly realm: string }): JSX.Element {
 /** Three lines: the menu's mark, its name for a screen reader. */
 export function MenuIcon(): JSX.Element {
   return (
-    <svg className="app-shell__menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <Icon className="app-shell__menu-icon">
       <path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" />
-    </svg>
+    </Icon>
   );
 }
 

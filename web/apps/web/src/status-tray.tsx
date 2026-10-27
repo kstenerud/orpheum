@@ -5,6 +5,7 @@ import "./status-tray.css";
 import { createElement, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "./icon.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -42,7 +43,7 @@ export function StatusTray(props: {
  */
 export function TogetherIcon(): JSX.Element {
   return (
-    <svg className="status-tray__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <Icon className="status-tray__icon">
       <path
         fillRule="evenodd"
         d="M4 2h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm6 2.8v5.4l4.6-2.7z"
@@ -51,7 +52,7 @@ export function TogetherIcon(): JSX.Element {
       <circle cx="16.5" cy="17.3" r="2.3" />
       <path d="M3.2 23a4.3 3.6 0 0 1 8.6 0z" />
       <path d="M12.2 23a4.3 3.6 0 0 1 8.6 0z" />
-    </svg>
+    </Icon>
   );
 }
 
@@ -61,7 +62,7 @@ export function TogetherIcon(): JSX.Element {
  */
 export function CastIcon(): JSX.Element {
   return (
-    <svg className="status-tray__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <Icon className="status-tray__icon">
       <path
         fillRule="evenodd"
         d="M7 2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10.5a1 1 0 0 1-1-1v-1.4a3.1 3.1 0 0 0-3.1-3.1H6a1 1 0 0 1-1-1V4a2 2 0 0 1 2-2zM12.8 5.8v5.4l4.6-2.7z"
@@ -72,7 +73,7 @@ export function CastIcon(): JSX.Element {
         fillRule="evenodd"
         d="M2.6 11h3.8A1.6 1.6 0 0 1 8 12.6v8.8A1.6 1.6 0 0 1 6.4 23H2.6A1.6 1.6 0 0 1 1 21.4v-8.8A1.6 1.6 0 0 1 2.6 11zM3.3 20.4h2.4v1.1H3.3z"
       />
-    </svg>
+    </Icon>
   );
 }
 

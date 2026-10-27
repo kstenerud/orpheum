@@ -291,6 +291,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.
+- **Every icon is drawn by `Icon` and coloured by where it is drawn** (the owner, 2026-10-27):
+  `src/icon.tsx` writes each icon's SVG, the QR code's alone apart, as a scanner needs black on
+  white. Its marks are the text colour, `currentColor`; a two-tone cue's ground behind them is
+  `--icon-ground`; the region it is drawn in sets both, a status cue's its own class from its tokens.
+  `src/icon.test.tsx`; the cues' colours, `src/app-shell.browser.test.tsx`; each icon together at
+  `/ui-gallery`, `src/ui-gallery.test.tsx`.
 
 ## Read before changing
 

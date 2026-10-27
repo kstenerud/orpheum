@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Every icon in the text colour of where it is drawn; a two-tone icon's ground is --icon-ground. */
+.icon {
+  fill: currentColor;
+}

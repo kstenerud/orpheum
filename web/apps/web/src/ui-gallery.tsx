@@ -7,9 +7,12 @@ import { useTranslation } from "react-i18next";
 
 import { MenuIcon } from "./app-shell.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
+import { Clapperboard } from "./poster.tsx";
+import { AboutIcon, ResetIcon } from "./server-settings.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
-import { TogetherIcon } from "./status-tray.tsx";
+import { CastIcon, TogetherIcon } from "./status-tray.tsx";
 import { StillReadingIcon } from "./still-reading.tsx";
+import { MicrophoneIcon } from "./together-voice.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
 
@@ -155,7 +158,7 @@ function PostersOfTone(props: { readonly tone: (typeof tones)[number] }): JSX.El
   );
 }
 
-/** The icons alone, and the buttons. */
+/** The icons alone, every one the app draws, and the buttons. */
 function IconsAndButtons(): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -168,6 +171,18 @@ function IconsAndButtons(): JSX.Element {
           <UncertainMatchIcon isRinged={false} />
           <StillReadingIcon isRinged={true} />
           <StillReadingIcon isRinged={false} />
+        </p>
+        <p className="ui-gallery__icons">
+          <MenuIcon />
+          <TogetherIcon />
+          <CastIcon />
+          <MicrophoneIcon isOn={true} />
+          <MicrophoneIcon isOn={false} />
+          <AboutIcon />
+          <ResetIcon />
+          <span className="ui-gallery__blank-mark">
+            <Clapperboard />
+          </span>
         </p>
       </section>
       <section aria-labelledby="gallery-buttons">

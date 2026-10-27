@@ -39,7 +39,6 @@
 .status-tray__icon {
   width: 1.5rem;
   height: 1.5rem;
-  fill: currentColor;
 }
 
 .status-tray__button--warning .warning-icon {
