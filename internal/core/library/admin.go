@@ -42,8 +42,13 @@ type Nodes interface {
 	NodeConnections
 	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
 	RemoveNode(ctx context.Context, nodeID int64) error
-	// RootWatches are whether a node watches each of its roots, as its last status said (D272 §9).
+	// RootWatches are whether a node watches each library folder it was given, by folder, as its last
+	// status said (D272 §9).
 	RootWatches(nodeID int64) map[string]nodeproto.RootWatch
+	// WatchedFoldersChanged says the library folders the nodes watch may have changed: a library made,
+	// deleted or set to watch or not, or a folder added, moved or retired. Each connected node is told
+	// its folders at once (ScanSchedule.WatchedFolders).
+	WatchedFoldersChanged()
 }
 
 // ScanRequests are how an admin asks for a root's scan, or of a folder in it, and sees those in
@@ -143,6 +148,7 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 	if err != nil {
 		return 0, err
 	}
+	admin.watchedFoldersChanged()
 	for _, root := range library.Roots {
 		if err := admin.scans.Request(ctx, nodeID, root, jobs.PriorityPersonsRequest); err != nil {
 			return id, err
@@ -157,7 +163,7 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 func (admin *Admin) SetChangeDetection(
 	ctx context.Context, libraryID int64, changeDetection string, checkEveryHours *int64,
 ) error {
-	return admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		changed, err := queries.SetLibraryChangeDetection(ctx, sqlcgen.SetLibraryChangeDetectionParams{
 			ChangeDetection: changeDetection, CheckEveryHours: checkEveryHours, ID: libraryID,
 		})
@@ -169,6 +175,11 @@ func (admin *Admin) SetChangeDetection(
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	admin.watchedFoldersChanged() // a library that watches no more has its folders' watches stopped
+	return nil
 }
 
 // Summary is a library with its roots' states and its files counted by filing.

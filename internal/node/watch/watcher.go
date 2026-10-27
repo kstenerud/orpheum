@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -30,84 +31,140 @@ const changesBuffer = 64
 
 // Options are how the watcher holds what it sees.
 type Options struct {
-	// Quiet is how long a root must go without a change before its changes are noticed:
+	// Quiet is how long a folder must go without a change before its changes are noticed:
 	// node.watch_quiet_seconds.
 	Quiet time.Duration
-	// NetworkRoots are the roots on a network filesystem, which are not watched (D27).
-	NetworkRoots []string
+	// IsOnNetworkFilesystem says whether a folder is on a network filesystem, which is not watched
+	// (D27); nil says none is.
+	IsOnNetworkFilesystem func(path string) bool
 }
 
-// Watcher watches the node's roots for changes and notices, per root, the folder holding every change
-// once the root has gone quiet (D272 §9). It never scans: the core decides.
+// Watcher watches the library folders the core gives it (nodeproto.HelloReply.WatchFolders), each a
+// configured root or a folder inside one, and notices, per folder, the folder holding every change once
+// it has gone quiet (D272 §9). It watches nothing else: a configured root's folders that no library
+// uses are never walked. It never scans: the core decides.
 type Watcher struct {
-	roots      []string
-	mediaRoots map[string]*confine.MediaRoot
+	// configured are the node's configured roots, by path: a folder none holds is refused (D107).
+	configured map[string]*confine.MediaRoot
 	options    Options
 	clock      clock.Clock
 	logger     *slog.Logger
 	changes    chan nodeproto.Changed
 	seen       chan seenChange
+	// wanted carries the folders to watch, the latest set only, to the kernel layer.
+	wanted chan []string
 
 	mutex sync.Mutex
-	// states are each root's watch, as the kernel layer last set it. Guarded by mutex.
+	// folders are the folders to watch, in byte order; nil until Watch first names them. Guarded by
+	// mutex.
+	folders []string
+	// states are each folder's watch, as the kernel layer last set it. Guarded by mutex.
 	states map[string]nodeproto.RootWatch
 }
 
-// seenChange is a change the kernel layer saw: under folder, relative to root, or the whole root.
+// seenChange is a change the kernel layer saw: under folder, relative to root, a watched library
+// folder, or the whole of it.
 type seenChange struct {
 	root   string
 	folder string
 }
 
-// New returns a watcher of the node's roots.
+// New returns a watcher of folders inside the node's configured roots, watching none until Watch
+// names them.
 func New(roots []*confine.MediaRoot, options Options, clockSource clock.Clock, logger *slog.Logger) *Watcher {
-	states := make(map[string]nodeproto.RootWatch, len(roots))
-	paths := make([]string, 0, len(roots))
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	for _, root := range roots {
-		paths = append(paths, root.Path())
 		byPath[root.Path()] = root
-		states[root.Path()] = nodeproto.RootWatch{
-			RootPath: root.Path(), Cause: nodeproto.WatchCauseUnavailable,
-			Reason: "the watcher has not started",
-		}
 	}
 	return &Watcher{
-		roots: paths, mediaRoots: byPath, options: options, clock: clockSource, logger: logger,
+		configured: byPath, options: options, clock: clockSource, logger: logger,
 		changes: make(chan nodeproto.Changed, changesBuffer), seen: make(chan seenChange, changesBuffer),
-		states: states,
+		wanted: make(chan []string, 1), states: map[string]nodeproto.RootWatch{},
 	}
+}
+
+// Watch has the watcher watch folders, and only them: the core's word on which library folders it
+// watches (nodeproto.HelloReply.WatchFolders). A folder new to it is said not to be watched until the
+// kernel layer has started its watch, and one no longer named is stopped. It returns at once; the
+// same folders again change nothing.
+func (watcher *Watcher) Watch(folders []string) {
+	folders = slices.Compact(slices.Sorted(slices.Values(folders)))
+	if folders == nil {
+		folders = []string{}
+	}
+	watcher.mutex.Lock()
+	defer watcher.mutex.Unlock()
+	if watcher.folders != nil && slices.Equal(folders, watcher.folders) {
+		return
+	}
+	states := make(map[string]nodeproto.RootWatch, len(folders))
+	for _, folder := range folders {
+		state, isKnown := watcher.states[folder]
+		if !isKnown {
+			state = nodeproto.RootWatch{
+				RootPath: folder, Cause: nodeproto.WatchCauseUnavailable, Reason: "the watcher has not started",
+			}
+		}
+		states[folder] = state
+	}
+	watcher.folders, watcher.states = folders, states
+	select {
+	case <-watcher.wanted: // the kernel layer has not taken the last set: this one replaces it
+	default:
+	}
+	watcher.wanted <- folders
 }
 
 // Changes are the watcher's notices, for the agent to post (nodeproto.PathChanged).
 func (watcher *Watcher) Changes() <-chan nodeproto.Changed { return watcher.changes }
 
-// States are each root's watch, for the node's status.
+// States are each folder's watch, for the node's status.
 func (watcher *Watcher) States() []nodeproto.RootWatch {
 	watcher.mutex.Lock()
 	defer watcher.mutex.Unlock()
-	states := make([]nodeproto.RootWatch, 0, len(watcher.roots))
-	for _, root := range watcher.roots {
-		states = append(states, watcher.states[root])
+	states := make([]nodeproto.RootWatch, 0, len(watcher.folders))
+	for _, folder := range watcher.folders {
+		states = append(states, watcher.states[folder])
 	}
 	return states
 }
 
-// setState records a root's watch, and logs a change of it.
+// watchedFolders are the folders to watch, now.
+func (watcher *Watcher) watchedFolders() []string {
+	watcher.mutex.Lock()
+	defer watcher.mutex.Unlock()
+	return watcher.folders
+}
+
+// setState records a folder's watch, unless it is no longer one to watch, and warns of one not
+// watched.
 func (watcher *Watcher) setState(ctx context.Context, state nodeproto.RootWatch) {
 	watcher.mutex.Lock()
-	before := watcher.states[state.RootPath]
-	watcher.states[state.RootPath] = state
+	before, isWanted := watcher.states[state.RootPath]
+	if isWanted {
+		watcher.states[state.RootPath] = state
+	}
 	watcher.mutex.Unlock()
-	if before.IsWatching == state.IsWatching && before.Cause == state.Cause {
+	if !isWanted || state.IsWatching || (!before.IsWatching && before.Cause == state.Cause) {
 		return
 	}
-	if state.IsWatching {
-		watcher.logger.InfoContext(ctx, "watching a root for changes", "rootPath", state.RootPath)
-		return
-	}
-	watcher.logger.WarnContext(ctx, "not watching a root for changes; its periodic scan finds them",
+	watcher.logger.WarnContext(ctx, "not watching a library folder for changes; its periodic scan finds them",
 		"rootPath", state.RootPath, "cause", string(state.Cause), "reason", state.Reason)
+}
+
+// refuseEvery says of every folder it is given, until ctx ends, that it is not watched, and why: where
+// the kernel gives no watcher.
+func (watcher *Watcher) refuseEvery(ctx context.Context, cause nodeproto.WatchCause, reason string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case folders := <-watcher.wanted:
+			for _, folder := range folders {
+				watcher.setState(ctx, nodeproto.RootWatch{RootPath: folder, Cause: cause, Reason: reason})
+			}
+		}
+	}
 }
 
 // Run watches until ctx ends: the kernel layer reports what it sees, and the changes of each root
@@ -170,10 +227,17 @@ func (watcher *Watcher) fold(pending map[string]*pendingRoot, change seenChange)
 	held.folder, held.lastAt = widerFolder(held.folder, change.folder), now
 }
 
-// noticeDue notices every held root whose changes are due, in the order of the roots.
+// noticeDue notices every held folder whose changes are due, in the order of the folders; one no
+// longer watched is dropped.
 func (watcher *Watcher) noticeDue(ctx context.Context, pending map[string]*pendingRoot) {
 	now := watcher.clock.Now()
-	for _, root := range watcher.roots {
+	folders := watcher.watchedFolders()
+	for root := range pending {
+		if !slices.Contains(folders, root) {
+			delete(pending, root)
+		}
+	}
+	for _, root := range folders {
 		held, isHeld := pending[root]
 		if !isHeld || now.Before(watcher.dueAt(held)) {
 			continue

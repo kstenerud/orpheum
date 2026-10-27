@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -45,8 +46,10 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"devices":[{"key":`,
 		`"msg":"a node finished a scan"`,
 		`"listedCount":2,"examinedCount":1,"errorCount":0`,
-		// The node watches its root for changes (D272 §9).
-		`"msg":"watching a root for changes"`,
+		// The node watches its watched library's folder for changes, the folder and the one in it, as
+		// the core names it (D272 §9, D359's amendment of 2026-10-27).
+		`"msg":"started watching a library folder for changes"`,
+		`"watchCount":2`,
 		`"msg":"identified a library"`,
 	} {
 		if !strings.Contains(log, want) {
@@ -83,6 +86,7 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	t.Helper()
 	shelved := filmOnNode(t, metadataSource)
 	config, media, nodeID := shelved.config, shelved.media, shelved.nodeID
+	watchItsLibrary(t, config)
 	captured := newCapturedLog("ready", awaited)
 	server := serveWithNode(t, config, captured, awaited)
 	if stopped := server.stop(); stopped != nil {
@@ -222,6 +226,29 @@ func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape librar
 		t.Fatal(err)
 	}
 	return nodeID
+}
+
+// watchItsLibrary has the config's one library watch for changes, as an admin would set it, so its
+// node watches its folder (D272 §9).
+func watchItsLibrary(t *testing.T, config Config) {
+	t.Helper()
+	database := openDatabase(t, config)
+	libraries, err := database.Read().ListLibraries(t.Context())
+	if err != nil || len(libraries) != 1 {
+		t.Fatalf("the libraries are %+v, %v; want one", libraries, err)
+	}
+	err = database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		_, setErr := queries.SetLibraryChangeDetection(t.Context(), sqlcgen.SetLibraryChangeDetectionParams{
+			ChangeDetection: "watch", ID: libraries[0].ID,
+		})
+		return setErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func openDatabase(t *testing.T, config Config) *store.Database {

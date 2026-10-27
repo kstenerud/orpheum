@@ -41,13 +41,16 @@ func TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath(t *
 }
 
 // The folders a library had when they were the configured roots keep working once the configured
-// roots are their parents, a folder inside one watched as its root is (D272 §9, D359 §4).
-func TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs(t *testing.T) {
+// roots are their parents, each with its own watch, as its node's status says it, never the
+// configured root's (D272 §9, D359 §4 and its amendment of 2026-10-27).
+func TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t) // its library, Films, has /media/films, once a configured root
-	watch := nodeproto.RootWatch{RootPath: "/media", Cause: nodeproto.WatchCauseNetworkFilesystem}
+	rootsWatch := nodeproto.RootWatch{RootPath: "/media", Cause: nodeproto.WatchCauseNetworkFilesystem}
+	watch := nodeproto.RootWatch{RootPath: root, IsWatching: true}
 	nodes := &fakeNodes{
-		id: world.nodeID, roots: []string{"/media"}, watches: map[string]nodeproto.RootWatch{"/media": watch},
+		id: world.nodeID, roots: []string{"/media"},
+		watches: map[string]nodeproto.RootWatch{"/media": rootsWatch, root: watch},
 	}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
@@ -55,7 +58,13 @@ func TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs(t *test
 		t.Fatalf("List = %+v, %v; want Films over %s", libraries, err, root)
 	}
 	if got := libraries[0].Roots[0].Watch; got == nil || *got != watch {
-		t.Errorf("a folder inside /media is watched %+v; want /media's watch, %+v", got, watch)
+		t.Errorf("a folder inside /media is watched %+v; want its own watch, %+v", got, watch)
+	}
+	delete(nodes.watches, root)
+	libraries, err = admin.List(t.Context(), auth.EveryLibrary())
+	if err != nil || libraries[0].Roots[0].Watch != nil {
+		t.Errorf("a folder its node said nothing of is watched %+v, %v; want no watch, not /media's",
+			libraries[0].Roots[0].Watch, err)
 	}
 }
 
@@ -182,5 +191,81 @@ func TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait(t *testing.T) {
 	gone, err := admin.Folders(t.Context(), "local", "/media/video")
 	if err != nil || gone.State != nodeproto.ProbeNotAnswering {
 		t.Errorf("a share that has gone away: %+v, %v; want not answering", gone, err)
+	}
+}
+
+// A node watches each live folder of each live library on it that watches for changes, and nothing
+// else; every change of a library's folders, or of whether it watches, tells the nodes at once (D272
+// §9, D359's amendment of 2026-10-27).
+func TestScanSchedule_ANodeWatchesTheFoldersOfItsWatchedLibrariesAndEachChangeIsSaid(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t) // Films, over /media/films, which watches nothing
+	nodes := &fakeNodes{id: world.nodeID, roots: []string{"/media"}}
+	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
+	schedule := NewScanSchedule(world.database, &scheduledRequests{}, world.settings, world.clock,
+		slog.New(slog.DiscardHandler))
+	watched := func(t *testing.T, want ...string) {
+		t.Helper()
+		got, err := schedule.WatchedFolders(t.Context(), world.nodeID)
+		if err != nil || !slices.Equal(got, append([]string{}, want...)) {
+			t.Errorf("the node watches %v, %v; want %v", got, err, want)
+		}
+		if other, err := schedule.WatchedFolders(t.Context(), world.nodeID+1); err != nil || len(other) != 0 {
+			t.Errorf("another node watches %v, %v; want nothing", other, err)
+		}
+	}
+	said := func(t *testing.T, what string) {
+		t.Helper()
+		if nodes.watchedFoldersChanges != 1 {
+			t.Errorf("%s told the nodes %d times their folders changed; want once", what, nodes.watchedFoldersChanges)
+		}
+		nodes.watchedFoldersChanges = 0
+	}
+	watched(t)
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
+	if err != nil || len(libraries) != 1 {
+		t.Fatalf("List = %+v, %v; want Films", libraries, err)
+	}
+	films, shows := libraries[0].ID, int64(0)
+	ctx := t.Context()
+	for _, step := range []struct {
+		what   string
+		change func() error
+		want   []string
+	}{
+		{"a new library", func() error {
+			request := showsRequest("local", "/media/video/shows")
+			request.ChangeDetection = "watch"
+			var createErr error
+			shows, createErr = admin.Create(ctx, request)
+			return createErr
+		}, []string{"/media/video/shows"}},
+		{"a folder added", func() error {
+			return admin.AddRoot(ctx, shows, "local", "/media/video/anime")
+		}, []string{"/media/video/anime", "/media/video/shows"}},
+		{"a folder moved", func() error {
+			_, repointErr := admin.RepointRoot(ctx, Repoint{
+				LibraryID: shows, NodeName: "local", Path: "/media/video/anime", NewNodeName: "local",
+				NewPath: "/media/anime",
+			})
+			return repointErr
+		}, []string{"/media/anime", "/media/video/shows"}},
+		{"a folder retired", func() error {
+			_, retireErr := admin.RetireRoot(ctx, shows, "local", "/media/anime")
+			return retireErr
+		}, []string{"/media/video/shows"}},
+		{"a library set to watch", func() error {
+			return admin.SetChangeDetection(ctx, films, "watch", nil)
+		}, []string{root, "/media/video/shows"}},
+		{"a library deleted", func() error {
+			_, deleteErr := admin.Delete(ctx, shows)
+			return deleteErr
+		}, []string{root}},
+	} {
+		if changeErr := step.change(); changeErr != nil {
+			t.Fatalf("%s: %v", step.what, changeErr)
+		}
+		said(t, step.what)
+		watched(t, step.want...)
 	}
 }

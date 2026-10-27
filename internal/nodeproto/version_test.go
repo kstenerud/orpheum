@@ -100,6 +100,10 @@ var wireShapeByVersion = map[int]string{
 	// 48 adds the folders in a folder on the byte socket, FolderListing, and names a library folder
 	// inside a root as a command's root (D359): a node of 47 would refuse it.
 	48: "8b869c817d2f83afa184b486739a0b5d4efa856693582e0bead30daf2ec22981",
+	// 49 names the library folders the node watches in the hello's reply and each poll's answer,
+	// WatchFolders, and a folder's watch in the status is its own, not its configured root's (D359's
+	// amendment of 2026-10-27).
+	49: "a64273941d3a9cbf33f8df156926b57359a3bcc8c640dba23d808f34e28e9f70",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

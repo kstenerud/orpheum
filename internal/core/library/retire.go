@@ -166,6 +166,7 @@ func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) er
 	if err != nil {
 		return Retired{}, err
 	}
+	admin.watchedFoldersChanged() // a retired folder is watched no more
 	cancelled, err := admin.retirement.Work.CancelRetired(ctx, work)
 	if err != nil {
 		return Retired{}, fmt.Errorf("cancel the retired work: %w", err)

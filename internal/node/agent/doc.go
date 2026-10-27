@@ -154,8 +154,10 @@
 //   - The status carries the disk of each root and of the prepared directory, or why one could
 //     not be measured (D225). TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory.
 //   - Each session posts the watcher's notices, those held while there was none first, and the
-//     status says whether each root is watched (D272 §9).
-//     TestAgent_PostsTheWatchersNoticesAndSaysEachRootsWatchInItsStatus.
+//     status says whether each library folder is watched (D272 §9).
+//     TestAgent_PostsTheWatchersNoticesAndSaysEachRootsWatchInItsStatus. The watcher watches the
+//     library folders the core names in the hello's reply and each poll's answer (D359's amendment of
+//     2026-10-27). TestAgent_HasTheWatcherWatchTheLibraryFoldersTheCoreNames.
 //
 // # Read before changing
 //

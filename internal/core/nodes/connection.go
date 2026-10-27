@@ -31,7 +31,10 @@ type connectedNode struct {
 	// cannot have taken it (WillSend).
 	unsentSince map[string]time.Time
 	wake        chan struct{}
-	lastHeard   time.Time
+	// areWatchedFoldersChanged is whether the library folders it watches may have changed since a poll
+	// last answered it: the next answers at once, naming them (WatchedFoldersChanged).
+	areWatchedFoldersChanged bool
+	lastHeard                time.Time
 	// openPollCount is how many long-polls for its commands are open: while one is, it is
 	// connected however long ago it last spoke.
 	openPollCount int

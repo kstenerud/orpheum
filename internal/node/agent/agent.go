@@ -79,8 +79,9 @@ type Workers struct {
 	// Stuck is the work the node gave up on that has not ended, for its status (D233 §10):
 	// StuckOf the runner's. Nil has none.
 	Stuck func() []nodeproto.Stuck
-	// Watcher is what the node's watcher saw change under its roots, which a session posts, and each
-	// root's watch, which the status says (D272 §9); nil watches nothing.
+	// Watcher watches the library folders the core names in the hello's reply and each poll's answer;
+	// what it saw change in them a session posts, and each folder's watch the status says (D272 §9);
+	// nil watches nothing.
 	Watcher Watcher
 	// ReadStallWindow is how long a listing's or an examining's own reading may go without moving
 	// before the node answers it as stalled on its disk (D233 §10): ReadStallWindowFor the probe's
@@ -121,8 +122,11 @@ func ReadStallWindowFor(probeTimeout time.Duration) time.Duration {
 	return defaultReadStallWindow + probeTimeout
 }
 
-// Watcher is the node's watcher of its roots: watch.Watcher.
+// Watcher is the node's watcher of the library folders inside its roots: watch.Watcher.
 type Watcher interface {
+	// Watch has it watch these folders and no others, returning at once
+	// (nodeproto.HelloReply.WatchFolders).
+	Watch(folders []string)
 	Changes() <-chan nodeproto.Changed
 	States() []nodeproto.RootWatch
 }
@@ -273,6 +277,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	agent.evictUnfinished(ctx)
 	agent.work.setReaderLimits(reply.DeviceReaderLimits)
 	agent.takeTuning(ctx, reply.Tuning)
+	agent.watchFolders(reply.WatchFolders)
 	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -353,9 +358,10 @@ func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodepr
 
 // takeAnswersSettings takes what a poll's answer says of the core's settings and players beside its
 // commands: each device's readers (D240 §5), its tuning, and how strongly each chunk
-// store is kept (D309 §8). One it does not say leaves the last.
+// store is kept (D309 §8), and the library folders it watches. One it does not say leaves the last.
 func (agent *Agent) takeAnswersSettings(ctx context.Context, answer nodeproto.Commands) {
 	agent.takeTuning(ctx, answer.Tuning)
+	agent.watchFolders(answer.WatchFolders)
 	if answer.DeviceReaderLimits != nil {
 		agent.work.setReaderLimits(answer.DeviceReaderLimits)
 	}
@@ -375,6 +381,15 @@ func (agent *Agent) takeAnswersSettings(ctx context.Context, answer nodeproto.Co
 	agent.logger.InfoContext(ctx, "kept the chunk stores by the core's players", "inUse", byTier[nodeproto.KeepInUse],
 		"likely", byTier[nodeproto.KeepLikely], "maybe", byTier[nodeproto.KeepMaybe])
 	agent.storeTiers = answer.StoreTiers
+}
+
+// watchFolders has the watcher watch the library folders the core named, and no others; nil, said by
+// none, leaves its last (nodeproto.HelloReply.WatchFolders).
+func (agent *Agent) watchFolders(folders []string) {
+	if folders == nil || agent.workers.Watcher == nil {
+		return
+	}
+	agent.workers.Watcher.Watch(folders)
 }
 
 // pollCommands long-polls for commands. Work is held by the node; a cancel or a reprioritize is

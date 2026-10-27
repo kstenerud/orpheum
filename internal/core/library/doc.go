@@ -247,9 +247,14 @@
 //     TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath,
 //     TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode,
 //     TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot. A folder inside a configured root is
-//     listed, watched and told of its watcher's notices as the root's own was (D359 §4).
-//     TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs,
+//     listed and told of its watcher's notices as the root's own was (D359 §4), and shown with its own
+//     watch, never its configured root's. TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch,
 //     TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches.
+//
+//   - A node watches each live folder of each live library on it that watches for changes, and nothing
+//     else, and every change of them (a library made, deleted or set to watch or not, a folder added,
+//     moved or retired) tells the nodes at once (D359's amendment of 2026-10-27).
+//     TestScanSchedule_ANodeWatchesTheFoldersOfItsWatchedLibrariesAndEachChangeIsSaid.
 //
 //   - An admin's listing of a node's folders asks the node, for a folder a configured root holds, and
 //     waits for it no longer than folderListingWait, a share gone away answered not answering (D359

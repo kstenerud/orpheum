@@ -72,6 +72,9 @@ type Commands struct {
 	// Tuning is how the node behaves, as the core's settings say now: a change reaches the node with
 	// the next answer.
 	Tuning Tuning `json:"tuning"`
+	// WatchFolders are the library folders on the node its watcher watches, as the core's libraries
+	// stand now (HelloReply.WatchFolders): the core answers a waiting poll at once when they change.
+	WatchFolders []string `json:"watchFolders"`
 }
 
 // MediaFile is the file of the node's media a command reads, and whether it reads one: the device it

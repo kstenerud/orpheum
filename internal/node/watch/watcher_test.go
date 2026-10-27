@@ -4,6 +4,8 @@ package watch
 
 import (
 	"log/slog"
+	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 const quiet = 30 * time.Second
@@ -24,7 +27,9 @@ func newWatcher(t *testing.T, options Options, directories ...string) (*Watcher,
 	}
 	fake := clocktest.NewFake(time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC))
 	options.Quiet = quiet
-	return New(roots, options, fake, slog.New(slog.DiscardHandler)), fake
+	watcher := New(roots, options, fake, slog.New(slog.DiscardHandler))
+	watcher.Watch(directories)
+	return watcher, fake
 }
 
 // noticed is every notice waiting, without waiting for more.
@@ -79,6 +84,42 @@ func TestWatcher_NoticesAChangeThatNeverPausesAfterTheLongestHold(t *testing.T) 
 	if got := noticed(watcher); len(got) != 1 || got[0].Path != "Films/Copying" {
 		t.Errorf("a copy writing for %d quiet spells was noticed %v; want once, at the longest hold",
 			maxHoldQuietSpells, got)
+	}
+}
+
+// Each library folder the core names has a watch of its own in the status, said not started until the
+// kernel layer starts it; a folder no longer named leaves it, and so do its changes not yet noticed.
+func TestWatcher_SaysEachLibraryFoldersWatchAndOnlyTheFoldersItIsGiven(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	watcher, fake := newWatcher(t, Options{}, root)
+	testutil.Receive(t, watcher.wanted, "the roots the test named")
+	movies, shows := filepath.Join(root, "movies"), filepath.Join(root, "shows")
+	watcher.Watch([]string{shows, movies, shows})
+	states := watcher.States()
+	if len(states) != 2 || states[0].RootPath != movies || states[1].RootPath != shows {
+		t.Fatalf("the watches are %+v; want one for each library folder, by its path", states)
+	}
+	for _, state := range states {
+		if state.IsWatching || state.Cause != nodeproto.WatchCauseUnavailable || state.Reason == "" {
+			t.Errorf("before the kernel layer started, a watch is %+v; want not started, saying so", state)
+		}
+	}
+	if got := testutil.Receive(t, watcher.wanted, "the folders for the kernel layer"); !slices.Equal(got,
+		[]string{movies, shows}) {
+		t.Errorf("the kernel layer was given %v; want each library folder once", got)
+	}
+	pending := map[string]*pendingRoot{}
+	watcher.fold(pending, seenChange{root: movies, folder: "Metropolis"})
+	watcher.Watch([]string{shows})
+	watcher.setState(t.Context(), nodeproto.RootWatch{RootPath: movies, IsWatching: true})
+	if states := watcher.States(); len(states) != 1 || states[0].RootPath != shows {
+		t.Errorf("after a folder was retired the watches are %+v; want the other's alone", states)
+	}
+	fake.Advance(quiet)
+	watcher.noticeDue(t.Context(), pending)
+	if got := noticed(watcher); len(got) != 0 {
+		t.Errorf("a retired folder's change was noticed: %v", got)
 	}
 }
 

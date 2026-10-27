@@ -92,6 +92,9 @@ func (nodes *fakeNodes) RootWatches(int64) map[string]nodeproto.RootWatch {
 	}}
 }
 
+// WatchedFoldersChanged tells no node anything: the API's tests have none watching.
+func (*fakeNodes) WatchedFoldersChanged() {}
+
 func (nodes *fakeNodes) RemoveNode(ctx context.Context, nodeID int64) error {
 	if nodeID == 1 {
 		nodes.isAway.Store(true)

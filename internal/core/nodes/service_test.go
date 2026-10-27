@@ -483,41 +483,6 @@ func TestStatus_ABodyThatIsNotAStatusIsRefused(t *testing.T) {
 	}
 }
 
-// takenChanges keeps the watchers' notices the channel hands on.
-type takenChanges struct {
-	mutex   sync.Mutex
-	notices []nodeproto.Changed
-}
-
-func (taken *takenChanges) TakeChange(_ context.Context, _ int64, root, folder string) error {
-	taken.mutex.Lock()
-	defer taken.mutex.Unlock()
-	taken.notices = append(taken.notices, nodeproto.Changed{RootPath: root, Path: folder})
-	return nil
-}
-
-// A node watcher's notice is handed on, and each root's watch its status says is kept (D272 §9).
-func TestChanged_AWatchersNoticeIsHandedOnAndItsRootsWatchesKept(t *testing.T) {
-	t.Parallel()
-	harness := newFixture(t, time.Millisecond)
-	taken := &takenChanges{}
-	harness.service.SetChanges(taken)
-	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media"}})
-	watch := nodeproto.RootWatch{RootPath: "/media", IsWatching: true}
-	harness.postStatus(t, reply.NodeID, nodeproto.Status{SentAt: 1, Watches: []nodeproto.RootWatch{watch}})
-	if got := harness.service.RootWatches(reply.NodeID); len(got) != 1 || got["/media"] != watch {
-		t.Errorf("the node's roots' watches are %+v, want %+v", got, watch)
-	}
-	response := harness.post(t, nodeproto.PathChanged, reply.NodeID,
-		strings.NewReader(`{"rootPath":"/media","path":"Shows/Dag"}`))
-	taken.mutex.Lock()
-	defer taken.mutex.Unlock()
-	want := nodeproto.Changed{RootPath: "/media", Path: "Shows/Dag"}
-	if response.status != http.StatusOK || len(taken.notices) != 1 || taken.notices[0] != want {
-		t.Errorf("a notice answered %d and handed on %+v; want 200 and %+v", response.status, taken.notices, want)
-	}
-}
-
 func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)

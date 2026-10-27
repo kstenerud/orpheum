@@ -45,9 +45,13 @@ type ScanRequester interface {
 	BringBackRoot(ctx context.Context, nodeID int64, root string, device uint64, isMountPoint bool) (bool, error)
 }
 
-// ChangeTaker takes a node watcher's word that something changed under a root: library.ScanSchedule,
-// which scans the folder when the root's library is watched (D272 §9).
+// ChangeTaker says which library folders a node's watcher watches, and takes its word that something
+// changed under one: library.ScanSchedule, which scans the folder when its library is watched (D272
+// §9).
 type ChangeTaker interface {
+	// WatchedFolders are the folders the node watches, which its hello's reply and each poll's answer
+	// name (nodeproto.HelloReply.WatchFolders).
+	WatchedFolders(ctx context.Context, nodeID int64) ([]string, error)
 	TakeChange(ctx context.Context, nodeID int64, root, folder string) error
 }
 
