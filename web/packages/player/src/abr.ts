@@ -1,22 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
-  AbrController,
-  ErrorDetails,
-  Events,
-  PlaylistLevelType,
-  type Fragment,
-  type FragBufferedData,
-  type FragLoadedData,
-  type FragLoadingData,
-  type ErrorData,
-  type LevelLoadedData,
-} from "hls.js";
-import type Hls from "hls.js";
-
-import {
   arrivalMs,
   giveUpFor,
+  highestWithin,
+  linkShare,
   isLoadedWhereItStands,
   isUnplayable,
   keptOwnPicture,
@@ -31,16 +19,9 @@ import {
   voiceCeiling,
 } from "./abr-choice.ts";
 import type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
-import { tooEarlyStatus } from "./failure.ts";
+import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
+import { Steadiness } from "./steadiness.ts";
 import { nextCap } from "./step-up.ts";
-
-/** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
-const recovered = new WeakSet<object>();
-
-/** Whether a fatal error is one the player recovers from by itself, giving a quality up (D266). */
-export function isRecovered(data: object): boolean {
-  return recovered.has(data);
-}
 
 /** How far, in seconds, a video's position must move to be playing, not standing still. */
 const movedAtLeastS = 0.1;
@@ -52,35 +33,33 @@ export const lookAtChunkEveryMs = 500;
 export const lookForStepUpEveryMs = 10_000;
 
 /**
+ * How many chunks must have measured the link, and how long the playback must have played, before
+ * it stops starting (D352 §1): four are the fewest whose spread says anything, and by 20 s played
+ * the player has filled its first buffer, a dozen chunks or more, so a bad first sample has left the
+ * estimate's five.
+ */
+export const startingSamples = 4;
+export const startingPlayedMs = 20_000;
+
+/**
+ * How many chunks must have measured the link before it is reported, and so remembered for the
+ * device's next start (D257 §1): never a lone first sample (D352 §1).
+ */
+export const reportsLinkFromSamples = 2;
+
+/**
+ * How much faster than the clock a video's position may move between two looks and still count as
+ * played: more is a seek forward, not playing.
+ */
+const playsAtMostTimesTheClock = 2;
+
+/**
  * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
  * live: enough that a busy chunk still arrives well before it plays (D262 §2).
  */
 export const paceAboveQuality = 1.25;
 
-/** Whether hls.js's error is the core's 425 for a chunk, being made, which hls.js asks for again. */
-export function isBeingMade(data: Pick<ErrorData, "details" | "response">): boolean {
-  return data.details === ErrorDetails.FRAG_LOAD_ERROR && data.response?.code === tooEarlyStatus;
-}
-
 export type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
-
-/**
- * Builds hls's video's decoding anew (recoverMediaError), and starts its loading again from positionS
- * once the new media source is attached. hls.js restarts only a loader still stopped then, and a
- * chunk the detach aborted marks the picture's loader idle while detached (resetFragmentLoading, with
- * no chunk current): at 0:00 its loader then never loaded again, from where it had loaded to, the
- * video holding nothing (a Mac's Firefox giving up A Woman of Paris's own picture, the owner's test
- * on staging, 2026-10-18).
- */
-export function loadAgainFrom(
-  hls: Pick<Hls, "once" | "recoverMediaError" | "startLoad">,
-  positionS: number,
-): void {
-  hls.once(Events.MEDIA_ATTACHED, () => {
-    hls.startLoad(positionS);
-  });
-  hls.recoverMediaError();
-}
 
 /**
  * Where a video, asked to play, has stood still: since when with what it plays there loaded
@@ -96,7 +75,10 @@ interface StillAt {
 /**
  * Every choice of a chunked playback's quality (D265), by abr-choice.ts's rules: where it starts,
  * when a chunk on its way is given up, what the next chunk is of, the step-up, what voice leaves the
- * film, and which chunks measure the link. hls.js asks it through OrpheumAbr.
+ * film, and which chunks measure the link; each by its own estimate of the link, trusted as far as
+ * the evidence goes (D352): its first seconds latch nothing, it climbs as far as consistent samples
+ * carry, and it grows steadier when it swings or its link flakes. hls.js asks it through OrpheumAbr
+ * (abr-controller.ts).
  */
 export class Choosing<Chunk extends FollowedChunk> {
   readonly #hls: ChoosingHls;
@@ -122,21 +104,22 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
   #forced: number | undefined;
   #lastChosen = -1;
-  #hasMeasured = false;
   /**
-   * The last chunk that measured the link: its quality, its bytes, how long after its ask its first
-   * byte came, and how long they took to arrive from there, each step down by the link noting it.
-   * A step down on one sample of 1008 kb/s said nothing of the chunk, so nothing told a wait for
-   * its first byte from a slow link (the owner, on staging, 2026-10-26).
+   * The link as its last chunks measured it, which every choice reads (D352 §2): hls.js's estimate,
+   * weighted by each chunk's seconds, held one slow first sample of 1008 kb/s for minutes on a
+   * 12 Mb/s path (the owner, on staging, 2026-10-26).
    */
-  #lastMeasured:
-    | {
-        readonly level: number;
-        readonly bytes: number;
-        readonly firstByteMs: number;
-        readonly arrivedMs: number;
-      }
-    | undefined;
+  readonly #estimate = new LinkEstimate();
+  /** How steady the link has been, which sets the step-up's hold and headroom (D352 §3–§4). */
+  readonly #steadiness: Steadiness;
+  /**
+   * Whether the playback is starting: until startingSamples chunks measured the link and it played
+   * startingPlayedMs, a choice below the ceiling does not lower it (D352 §1).
+   */
+  #isStarting = true;
+  /** How long the video has played, in ms, and where it was at the last look. */
+  #playedMs = 0;
+  #lastPosition: { readonly positionS: number; readonly atMs: number } | undefined;
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
   #still: StillAt | undefined;
   /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
@@ -152,10 +135,13 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#options = options;
     this.#link = link;
     this.#changedAtMs = options.monotonicMs();
+    this.#steadiness = new Steadiness(options.monotonicMs());
     this.#timers = [
       setInterval(() => {
         this.#lookAtChunk();
         this.#lookAtPlaying();
+        this.#countPlayed();
+        this.#endStartingWhenDone();
       }, lookAtChunkEveryMs),
       setInterval(() => {
         this.#lookForStepUp();
@@ -189,18 +175,10 @@ export class Choosing<Chunk extends FollowedChunk> {
       bufferAheadS: this.#bufferAheadS(),
       shareForQuality: this.#options.shareForQuality,
     });
-    this.#lower(steady, () => {
-      const link =
-        linkBps === undefined ? "unmeasured" : `${String(Math.round(linkBps / 1000))} kb/s`;
-      const last = this.#lastMeasured;
-      const measuredBy =
-        last === undefined
-          ? ""
-          : `; last measured by a chunk of ${String(last.level)}: ${String(last.bytes)} B` +
-            ` in ${String(Math.round(last.arrivedMs))} ms` +
-            `, its first byte ${String(Math.round(last.firstByteMs))} ms after its ask`;
-      return `link ${link}, ${this.#bufferAheadS().toFixed(1)} s ahead${measuredBy}`;
-    });
+    // While starting, a choice below the ceiling is the next chunk's alone (D352 §1).
+    if (!this.#isStarting && this.#lower(steady, () => `link; ${this.#stateText()}`)) {
+      this.#noteSteadiness(this.#steadiness.steppedDown(this.#options.monotonicMs()));
+    }
     const level = this.#options.isVoiceLive()
       ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
       : steady;
@@ -322,16 +300,33 @@ export class Choosing<Chunk extends FollowedChunk> {
       paceBps: this.#paces.get(chunk),
       isFromCache: this.#options.fromCache(chunk.url),
     });
-    this.#hasMeasured ||= isCounted;
     if (isCounted) {
-      this.#lastMeasured = {
+      this.#sample({
         level: chunk.level,
         bytes: loaded,
         firstByteMs: Math.max(0, loading.first - loading.start),
         arrivedMs: arrivalMs(loading),
-      };
+      });
+      this.#endStartingWhenDone();
     }
     return isCounted;
+  }
+
+  /**
+   * The video stalled (D247 §2, watchStalls): a drop, which may make the playback steadier (D352
+   * §4), and, while starting, the one thing besides a chunk given up that lowers the ceiling, to
+   * what the link's estimate now chooses (§1).
+   */
+  stalled(): void {
+    const steady = steadyLevel({
+      levels: this.#hls.levels,
+      ceiling: this.#ceilingNow(),
+      linkBps: this.#linkBps(),
+      bufferAheadS: this.#bufferAheadS(),
+      shareForQuality: this.#options.shareForQuality,
+    });
+    this.#lower(steady, () => `a stall; ${this.#stateText()}`);
+    this.#noteSteadiness(this.#steadiness.dropped(this.#options.monotonicMs()));
   }
 
   /** The quality playing changed: the step-up holds from now. */
@@ -351,10 +346,25 @@ export class Choosing<Chunk extends FollowedChunk> {
       : undefined;
   }
 
-  /** The link as measured, in kbit/s; undefined before a chunk measured it. */
+  /**
+   * The link as reported, and remembered for the device's next start (D257 §1): its confident
+   * estimate, in kbit/s (D352 §1); undefined before reportsLinkFromSamples chunks measured it.
+   */
   linkKbps(): number | undefined {
-    const linkBps = this.#linkBps();
-    return linkBps === undefined ? undefined : linkBps / 1000;
+    const confidentBps = this.#estimate.confidentBps();
+    return confidentBps === undefined || this.#estimate.count() < reportsLinkFromSamples
+      ? undefined
+      : confidentBps / 1000;
+  }
+
+  /** The playback's steadiness level (D352 §3). */
+  steadiness(): number {
+    return this.#steadiness.level();
+  }
+
+  /** Whether the playback is still starting (D352 §1). */
+  isStarting(): boolean {
+    return this.#isStarting;
   }
 
   stop(): void {
@@ -390,19 +400,39 @@ export class Choosing<Chunk extends FollowedChunk> {
       linkBps: this.#linkBps(),
       bufferAheadS: this.#bufferAheadS(),
     });
-    if (chosen === undefined) {
-      return;
+    if (chosen !== undefined) {
+      this.#giveUp(chunk, { sinceMs, hasArrived }, chosen);
     }
+  }
+
+  /**
+   * Gives up a chunk on its way for chosen: what it showed of the link is a sample, hls.js's
+   * estimator fed it too, the ceiling lowers, and it is a drop (D265 §3, D352 §4).
+   */
+  #giveUp(
+    chunk: Chunk,
+    judged: { readonly sinceMs: number; readonly hasArrived: boolean },
+    chosen: number,
+  ): void {
+    const { loading, loaded } = chunk.stats;
     this.#onItsWay = undefined;
-    this.#link.measureGivenUp(
-      Math.max(1, this.#options.monotonicMs() - sinceMs),
-      Math.max(1, hasArrived ? loaded : 0),
-    );
-    this.#hasMeasured = true;
-    this.#lower(chosen, () => {
-      const loadingMs = this.#options.monotonicMs() - sinceMs;
-      return `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(loadingMs)} ms`;
+    const nowMs = this.#options.monotonicMs();
+    const givenUpMs = Math.max(1, nowMs - judged.sinceMs);
+    const givenUpBytes = Math.max(1, judged.hasArrived ? loaded : 0);
+    this.#link.measureGivenUp(givenUpMs, givenUpBytes);
+    this.#sample({
+      level: chunk.level,
+      bytes: givenUpBytes,
+      firstByteMs: judged.hasArrived ? loading.first - loading.start : givenUpMs,
+      arrivedMs: givenUpMs,
     });
+    this.#lower(
+      chosen,
+      () =>
+        `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(nowMs - judged.sinceMs)} ms;` +
+        ` ${this.#stateText()}`,
+    );
+    this.#noteSteadiness(this.#steadiness.dropped(nowMs));
     this.#lastChosen = chosen;
     this.#link.giveUp(chunk);
   }
@@ -495,24 +525,119 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#link.loadAgain(positionS);
   }
 
+  /**
+   * Relaxes the steadiness, then, once starting is over, steps the ceiling up as far as the
+   * confident estimate carries, at the steadiness's hold and headroom (D352 §2–§3); never to a
+   * quality found unplayable.
+   */
   #lookForStepUp(): void {
+    const nowMs = this.#options.monotonicMs();
+    this.#noteSteadiness(this.#steadiness.relax(nowMs));
     const ceiling = this.#ceiling;
-    if (ceiling === undefined) {
+    const confidentBps = this.#estimate.confidentBps();
+    if (ceiling === undefined || this.#isStarting || confidentBps === undefined) {
       return;
     }
     const raised = nextCap({
       levels: this.#hls.levels,
       cap: ceiling,
       playing: this.#hls.currentLevel,
-      estimateBps: this.#linkBps() ?? 0,
+      estimateBps: confidentBps,
       bufferedAheadMs: this.#bufferAheadS() * 1000,
-      sinceChangeMs: this.#options.monotonicMs() - this.#changedAtMs,
+      sinceChangeMs: nowMs - this.#changedAtMs,
+      holdMs: this.#steadiness.holdMs(),
+      headroom: this.#steadiness.headroom(),
+      isOneAtATime: this.#steadiness.climbsOneAtATime() || !this.#estimate.agrees(),
     });
-    if (raised !== ceiling && raised < (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)) {
-      this.#options.noteStep?.(`ceiling ${String(ceiling)} to ${String(raised)}: stepped up`);
-      this.#ceiling = raised;
+    const allowed = Math.min(raised, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
+    if (allowed > ceiling) {
+      this.#options.noteStep?.(
+        `ceiling ${String(ceiling)} to ${String(allowed)}: stepped up; ${this.#stateText()}`,
+      );
+      this.#ceiling = allowed;
+      this.#changedAtMs = nowMs;
+      this.#steadiness.steppedUp(nowMs);
+    }
+  }
+
+  /** Takes a chunk's measure of the link into the estimate, and tells the page its samples. */
+  #sample(sample: LinkSample): void {
+    this.#estimate.add(sample);
+    this.#options.noteSamples?.(samplesText(this.#estimate.samples()));
+  }
+
+  /**
+   * Counts how long the video has played since the last look: its position moving forward, while
+   * not paused, no faster than playsAtMostTimesTheClock (a seek forward is not played).
+   */
+  #countPlayed(): void {
+    const media = this.#hls.media;
+    const nowMs = this.#options.monotonicMs();
+    if (media === null) {
+      this.#lastPosition = undefined;
+      return;
+    }
+    const last = this.#lastPosition;
+    if (last !== undefined && !media.paused) {
+      const advanceMs = (media.currentTime - last.positionS) * 1000;
+      if (advanceMs > 0 && advanceMs <= (nowMs - last.atMs) * playsAtMostTimesTheClock) {
+        this.#playedMs += advanceMs;
+      }
+    }
+    this.#lastPosition = { positionS: media.currentTime, atMs: nowMs };
+  }
+
+  /**
+   * Ends starting once startingSamples chunks measured the link and the video played
+   * startingPlayedMs: the ceiling becomes the highest quality the confident estimate carries, by
+   * D265 §4's share, no higher than it was (D352 §1), and the end is noted with its samples.
+   */
+  #endStartingWhenDone(): void {
+    if (
+      !this.#isStarting ||
+      this.#estimate.count() < startingSamples ||
+      this.#playedMs < startingPlayedMs
+    ) {
+      return;
+    }
+    this.#isStarting = false;
+    const ceiling = this.#ceilingNow();
+    const carried = highestWithin(
+      this.#hls.levels,
+      ceiling,
+      linkShare(this.#bufferAheadS(), this.#options.shareForQuality) *
+        (this.#estimate.confidentBps() ?? 0),
+    );
+    const change =
+      carried < ceiling
+        ? `ceiling ${String(ceiling)} to ${String(carried)}`
+        : `ceiling ${String(ceiling)} kept`;
+    this.#options.noteStep?.(
+      `started, ${change}; ${this.#stateText()}; ${samplesText(this.#estimate.samples())}`,
+    );
+    if (carried < ceiling) {
+      this.#ceiling = carried;
       this.#changedAtMs = this.#options.monotonicMs();
     }
+  }
+
+  /** Notes a change of the steadiness level, if there was one (D352 §5). */
+  #noteSteadiness(change: string | undefined): void {
+    if (change !== undefined) {
+      this.#options.noteStep?.(change);
+    }
+  }
+
+  /**
+   * What a choice rests on, for its note (D352 §5): the confident estimate and its parts, what is
+   * loaded ahead, the steadiness level and the hold.
+   */
+  #stateText(): string {
+    return (
+      `${estimateText(this.#estimate)}, ${this.#bufferAheadS().toFixed(1)} s ahead,` +
+      ` steadiness ${String(this.#steadiness.level())},` +
+      ` hold ${String(this.#steadiness.holdMs() / 1000)} s`
+    );
   }
 
   /** The ceiling, the start until the levels are known and it is set from them. */
@@ -523,15 +648,15 @@ export class Choosing<Chunk extends FollowedChunk> {
     return this.#ceiling ?? 0;
   }
 
-  /** Lowers the ceiling to level, a step down; one at or above it changes nothing. */
-  #lower(level: number, why: () => string): void {
-    if (level < this.#ceilingNow()) {
-      this.#options.noteStep?.(
-        `ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${why()}`,
-      );
-      this.#ceiling = level;
-      this.#changedAtMs = this.#options.monotonicMs();
+  /** Lowers the ceiling to level, a step down, saying whether it did; one at or above it changes nothing. */
+  #lower(level: number, why: () => string): boolean {
+    if (level >= this.#ceilingNow()) {
+      return false;
     }
+    this.#options.noteStep?.(`ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${why()}`);
+    this.#ceiling = level;
+    this.#changedAtMs = this.#options.monotonicMs();
+    return true;
   }
 
   #clamped(level: number): number {
@@ -552,218 +677,12 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#serverCeilingKbps = kbps;
   }
 
+  /** The link's estimate, every choice's (D352 §2); undefined before a chunk measured it. */
   #linkBps(): number | undefined {
-    return this.#hasMeasured ? this.#link.estimateBps() : undefined;
+    return this.#estimate.estimateBps();
   }
 
   #bufferAheadS(): number {
     return this.#hls.mainForwardBufferInfo?.len ?? 0;
   }
-}
-
-/** Whether a chunk is one of picture, which alone measures the link and is chosen among. */
-function isPicture(frag: Fragment): boolean {
-  return frag.type === PlaylistLevelType.MAIN && frag.sn !== "initSegment";
-}
-
-/**
- * Each controller's listeners on hls.js, kept outside it: hls.js registers them from its own
- * constructor, before the controller's fields exist.
- */
-const listenersOf = new WeakMap<
-  OrpheumAbrController,
-  ReturnType<OrpheumAbrController["listeners"]>
->();
-
-/**
- * hls.js's own bitrate controller, keeping its estimator, which its other controllers read, with
- * every choice handed to a Choosing (D265). A chunk given up is aborted as hls.js's own controller
- * does, and hls.js loads again from where it was.
- */
-class OrpheumAbrController extends AbrController {
-  readonly choosing: Choosing<Fragment>;
-
-  constructor(hls: Hls, options: ChoosingOptions) {
-    super(hls);
-    // hls.js's own giving up of a chunk on its way is off: choosing's is the one (D265 §3, D323). It
-    // timed a chunk from its first ask, so one the core answered 425 while it made it looked stalled,
-    // and with little loaded ahead it switched down to the quality it reckoned would arrive in time,
-    // every quality waiting as long: from the twin to 360p on a 120 Mb/s link, mid-film (the owner's
-    // Firefox on nas.example, 2026-10-20). Its check runs from its own timer, read when each chunk loads.
-    Reflect.set(this, "_abandonRulesCheck", () => undefined);
-    this.choosing = new Choosing<Fragment>(hls, options, {
-      estimateBps: () => this.bwEstimator.getEstimate(),
-      measureGivenUp: (durationMs, bytes) => {
-        this.bwEstimator.sample(durationMs, bytes);
-      },
-      giveUp: (frag) => {
-        frag.abortRequests();
-        hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
-      },
-      loadAgain: (positionS) => {
-        // A new MediaSource, so the browser's decoding is built anew: dropping the buffer alone
-        // left Firefox on macOS stuck after Flow's HEVC, every lower quality frozen too, for two
-        // minutes (the owner's test, 2026-10-08).
-        loadAgainFrom(hls, positionS);
-      },
-    });
-  }
-
-  /** What it listens to: a picture chunk's loading, loading and buffering, and the quality switching. */
-  listeners(): {
-    readonly loading: (event: Events.FRAG_LOADING, data: FragLoadingData) => void;
-    readonly loaded: (event: Events.FRAG_LOADED, data: FragLoadedData) => void;
-    readonly buffered: (event: Events.FRAG_BUFFERED, data: FragBufferedData) => void;
-    readonly levelLoaded: (event: Events.LEVEL_LOADED, data: LevelLoadedData) => void;
-    readonly switched: () => void;
-    readonly error: (event: Events.ERROR, data: ErrorData) => void;
-  } {
-    return {
-      loading: (event, data) => {
-        this.onFragLoading(event, data);
-      },
-      loaded: (event, data) => {
-        this.onFragLoaded(event, data);
-      },
-      buffered: (event, data) => {
-        this.onFragBuffered(event, data);
-      },
-      // hls.js's own: the estimate's half-lives, and a timed-out chunk's sample.
-      levelLoaded: (event, data) => {
-        this.onLevelLoaded(event, data);
-      },
-      switched: () => {
-        this.choosing.switched();
-      },
-      error: (event, data) => {
-        this.onError(event, data);
-        this.passAHole(data);
-        const { frag } = data;
-        if (frag !== undefined && isPicture(frag) && isBeingMade(data)) {
-          this.choosing.beingMade(frag);
-        }
-        if (
-          data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&
-          frag !== undefined &&
-          isPicture(frag)
-        ) {
-          this.choosing.notHeld(frag.level);
-        }
-      },
-    };
-  }
-
-  /**
-   * At a hole hls.js could not step over, which it says is fatal, gives the quality up and loads
-   * again below it, rather than letting the playback end (D266): the error is marked recovered, so
-   * failOnFatal passes it by, and the giving up waits for hls.js to have finished with the error.
-   */
-  passAHole(data: ErrorData): void {
-    const choosing = this.choosing;
-    const media = this.hls.media;
-    if (
-      data.details !== ErrorDetails.BUFFER_SEEK_OVER_HOLE ||
-      !data.fatal ||
-      media === null ||
-      !choosing.canGiveUpAtAHole()
-    ) {
-      return;
-    }
-    recovered.add(data);
-    const positionS = media.currentTime;
-    setTimeout(() => {
-      choosing.giveUpAtAHole(positionS);
-      this.hls.startLoad(positionS);
-    }, 0);
-  }
-
-  protected override registerListeners(): void {
-    const { hls } = this;
-    const listeners = this.listeners();
-    listenersOf.set(this, listeners);
-    hls.on(Events.FRAG_LOADING, listeners.loading);
-    hls.on(Events.FRAG_LOADED, listeners.loaded);
-    hls.on(Events.FRAG_BUFFERED, listeners.buffered);
-    hls.on(Events.LEVEL_LOADED, listeners.levelLoaded);
-    hls.on(Events.LEVEL_SWITCHED, listeners.switched);
-    hls.on(Events.ERROR, listeners.error);
-  }
-
-  protected override unregisterListeners(): void {
-    const { hls } = this;
-    const listeners = listenersOf.get(this);
-    if (listeners === undefined) {
-      return;
-    }
-    hls.off(Events.FRAG_LOADING, listeners.loading);
-    hls.off(Events.FRAG_LOADED, listeners.loaded);
-    hls.off(Events.FRAG_BUFFERED, listeners.buffered);
-    hls.off(Events.LEVEL_LOADED, listeners.levelLoaded);
-    hls.off(Events.LEVEL_SWITCHED, listeners.switched);
-    hls.off(Events.ERROR, listeners.error);
-  }
-
-  protected override onFragLoading(_event: Events.FRAG_LOADING, data: FragLoadingData): void {
-    if (isPicture(data.frag)) {
-      this.choosing.loading(data.frag);
-    }
-  }
-
-  protected override onFragLoaded(event: Events.FRAG_LOADED, data: FragLoadedData): void {
-    super.onFragLoaded(event, data); // its time to first byte
-    if (isPicture(data.frag)) {
-      this.choosing.loaded(data.frag);
-    }
-  }
-
-  /**
-   * A chunk of picture that measures the link is sampled over the time its bytes took to arrive
-   * (arrivalMs), not hls.js's from the ask to the chunk parsed, which counts the wait for the first
-   * byte as the link's.
-   */
-  protected override onFragBuffered(_event: Events.FRAG_BUFFERED, data: FragBufferedData): void {
-    const { frag } = data;
-    if (isPicture(frag) && !frag.stats.aborted && this.choosing.measures(frag)) {
-      this.bwEstimator.sample(arrivalMs(frag.stats.loading), frag.stats.loaded);
-    }
-  }
-
-  override get firstAutoLevel(): number {
-    return this.choosing.firstLevel();
-  }
-
-  override get forcedAutoLevel(): number {
-    return this.choosing.forcedLevel();
-  }
-
-  override get nextAutoLevel(): number {
-    return this.choosing.nextLevel();
-  }
-
-  override set nextAutoLevel(level: number) {
-    this.choosing.setLevel(level);
-  }
-
-  override destroy(): void {
-    this.choosing.stop();
-    super.destroy();
-  }
-}
-
-/** A playback's bitrate controller, made for hls.js's config, and its choosing once hls.js made it. */
-export interface OrpheumAbr {
-  readonly controller: typeof AbrController;
-  readonly choosing: () => Choosing<Fragment> | undefined;
-}
-
-/** The bitrate controller of one chunked playback, choosing by options (D265). */
-export function orpheumAbr(options: ChoosingOptions): OrpheumAbr {
-  let made: Choosing<Fragment> | undefined;
-  class PlaybackAbrController extends OrpheumAbrController {
-    constructor(hls: Hls) {
-      super(hls, options);
-      made = this.choosing;
-    }
-  }
-  return { controller: PlaybackAbrController, choosing: () => made };
 }

@@ -53,6 +53,11 @@ export interface ChoosingOptions {
    * Firefox on nas.example, 2026-10-20).
    */
   readonly noteStep?: (step: string) => void;
+  /**
+   * Told the link's last samples in a line (samplesText) each time one is taken, for every stall's
+   * and seek's report (D352 §5).
+   */
+  readonly noteSamples?: (samples: string) => void;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
@@ -61,9 +66,11 @@ export interface ChoosingOptions {
   }) => void;
 }
 
-/** What choosing is given of the link: hls.js's estimate of it, and how to give a chunk up. */
+/**
+ * What choosing is given of the link: how to give a chunk up, and hls.js's estimator to feed, which
+ * its other controllers read; choosing chooses by its own estimate (D352 §2).
+ */
 export interface ChoosingLink<Chunk extends FollowedChunk> {
-  readonly estimateBps: () => number;
   readonly giveUp: (chunk: Chunk) => void;
   /**
    * Takes what a chunk given up showed of the link, bytes over durationMs, as a measure of it: the

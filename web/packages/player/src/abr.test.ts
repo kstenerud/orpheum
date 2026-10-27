@@ -4,155 +4,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } from "hls.js";
 
-import {
-  Choosing,
-  isBeingMade,
-  isRecovered,
-  lookAtChunkEveryMs,
-  lookForStepUpEveryMs,
-  orpheumAbr,
-  type ChoosingHls,
-  type FollowedChunk,
-  loadAgainFrom,
-} from "./abr.ts";
+import { lookAtChunkEveryMs, lookForStepUpEveryMs } from "./abr.ts";
 import { commonStartForMs } from "./abr-choice.ts";
+import { isBeingMade, isRecovered, loadAgainFrom, orpheumAbr } from "./abr-controller.ts";
 import { failOnFatal } from "./hls.ts";
-import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
+import { linkSamplesKept } from "./link-estimate.ts";
+import { holdBeforeStepUpMsAt } from "./steadiness.ts";
+import { stepUpBufferMs } from "./step-up.ts";
+import {
+  chunkAt,
+  choosingFrom,
+  levels,
+  load,
+  loadAt,
+  pastStarting,
+  scene,
+  useScene,
+  videoAt,
+  waitMs,
+} from "./test-choosing.ts";
 
-/** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
-const levels = [
-  { bitrate: 696_000, averageBitrate: 496_000 },
-  { bitrate: 1_896_000, averageBitrate: 1_296_000 },
-  { bitrate: 4_596_000, averageBitrate: 3_096_000 },
-  { bitrate: 36_208_176, averageBitrate: 5_117_192 },
-];
-
-/** A video at positionS, paused or not, at readyState, its picture and sound loaded there unless not. */
-function videoAt(
-  positionS: number,
-  state: { readonly isPaused: boolean; readonly readyState: number; readonly isLoaded?: boolean },
-): Pick<HTMLMediaElement, "buffered" | "currentTime" | "paused" | "readyState"> {
-  const ranges = (state.isLoaded ?? true) ? [[positionS - 5, positionS + 15]] : [];
-  return {
-    currentTime: positionS,
-    paused: state.isPaused,
-    readyState: state.readyState,
-    buffered: {
-      length: ranges.length,
-      start: (index) => ranges[index]?.[0] ?? 0,
-      end: (index) => ranges[index]?.[1] ?? 0,
-    },
-  };
-}
-
-/** A stand-in for hls.js as choosing reads it. */
-class FakeHls implements ChoosingHls {
-  levels: ChoosingHls["levels"] = levels;
-  currentLevel = -1;
-  loadLevel = -1;
-  readonly minAutoLevel = 0;
-  readonly maxAutoLevel = 3;
-  mainForwardBufferInfo = { len: 0 };
-  media: Pick<HTMLMediaElement, "buffered" | "currentTime" | "paused" | "readyState"> | null = null;
-}
-
-/** A chunk of picture at level, ten seconds long, asked for at 0, with nothing arrived yet. */
-function chunkAt(level: number): FollowedChunk & {
-  stats: { loaded: number; total: number; loading: { first: number; end: number } };
-} {
-  return {
-    url: `/c/${String(level)}.m4s`,
-    level,
-    duration: 10,
-    stats: { loaded: 0, total: 0, aborted: false, loading: { start: 0, first: 0, end: 0 } },
-  };
-}
-
-let nowMs = 0;
-let isVoiceLive = false;
-let isInAGroup = false;
-/** The chunks the browser says it took from its cache, by URL; any other it says nothing of. */
-let cachedUrls = new Set<string>();
-/** The steps the choosing noted, by each test's choosing. */
-let steps: string[] = [];
-
-/**
- * A playback's choosing, offered startAtBps and, where the test names one, the share of the link a
- * quality may take; the link estimated at what the test sets.
- */
-function choosingFrom(
-  startAtBps: number,
-  shareForQuality?: number,
-): {
-  hls: FakeHls;
-  choosing: Choosing<FollowedChunk>;
-  link: { estimateBps: number };
-  givenUp: FollowedChunk[];
-  loadsAgain: number[];
-  /** Where each load again was from, in seconds of the film. */
-  loadsAgainFromS: number[];
-  unplayable: { readonly qualityKbps: number; readonly positionMs: number }[];
-} {
-  const hls = new FakeHls();
-  const link = { estimateBps: 0 };
-  const givenUp: FollowedChunk[] = [];
-  const loadsAgain: number[] = [];
-  const loadsAgainFromS: number[] = [];
-  const unplayable: { readonly qualityKbps: number; readonly positionMs: number }[] = [];
-  const choosing = new Choosing<FollowedChunk>(
-    hls,
-    {
-      startAtBps,
-      shareForQuality,
-      monotonicMs: () => nowMs,
-      isVoiceLive: () => isVoiceLive,
-      isInAGroup: () => isInAGroup,
-      fromCache: (url) => (cachedUrls.has(url) ? true : undefined),
-      onUnplayable: (found) => unplayable.push(found),
-      noteStep: (step) => steps.push(step),
-    },
-    {
-      estimateBps: () => link.estimateBps,
-      giveUp: (chunk) => givenUp.push(chunk),
-      // As hls.js's estimator takes a sample: here it becomes the estimate outright.
-      measureGivenUp: (durationMs, bytes) => {
-        link.estimateBps = (bytes * 8 * 1000) / durationMs;
-      },
-      loadAgain: (positionS) => {
-        loadsAgain.push(nowMs);
-        loadsAgainFromS.push(positionS);
-      },
-    },
-  );
-  return { hls, choosing, link, givenUp, loadsAgain, loadsAgainFromS, unplayable };
-}
-
-/** Loads a chunk at level over the link: bytes in loadMs, its first after 50 ms. */
-function load(
-  choosing: Choosing<FollowedChunk>,
-  level: number,
-  arrival: { readonly bytes: number; readonly loadMs: number },
-): boolean {
-  const chunk = chunkAt(level);
-  choosing.loading(chunk);
-  chunk.stats.loaded = arrival.bytes;
-  chunk.stats.loading = { start: 0, first: Math.min(50, arrival.loadMs), end: arrival.loadMs };
-  choosing.loaded(chunk);
-  return choosing.measures(chunk);
-}
-
-beforeEach(() => {
-  vi.useFakeTimers();
-  nowMs = 0;
-  isVoiceLive = false;
-  isInAGroup = false;
-  cachedUrls = new Set<string>();
-  steps = [];
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
+useScene({ beforeEach, afterEach, vi });
 
 describe("choosing a chunked playback's quality (D265)", () => {
   it("starts at the highest quality within the speed it was offered, and stays until it measures", () => {
@@ -163,39 +35,19 @@ describe("choosing a chunked playback's quality (D265)", () => {
   });
 
   it("steps down to what the measured link carries, and stays down until the step-up", () => {
-    const { choosing, link } = choosingFrom(40_000_000);
-    link.estimateBps = 5_000_000;
-    expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 })).toBe(true);
-    expect(choosing.linkKbps()).toBe(5000);
+    const chosen = choosingFrom(40_000_000);
+    const { choosing } = chosen;
+    pastStarting(chosen, 3, 5);
+    expect(choosing.linkKbps()).toBeCloseTo(5000);
     expect(choosing.nextLevel()).toBe(2); // 70% of 5 Mb/s carries 720p, not the picture
-    link.estimateBps = 50_000_000;
+    loadAt(choosing, 2, { mbps: 50 });
     expect(choosing.nextLevel()).toBe(2); // the step-up's to raise, not the next look's
   });
 
   it("steps down within the share of the link its offer says (the constants sweep, 2026-10-20)", () => {
-    const { choosing, link } = choosingFrom(40_000_000, 0.5);
-    link.estimateBps = 5_000_000;
-    expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 })).toBe(true);
+    const { choosing } = choosingFrom(40_000_000, 0.5);
+    expect(loadAt(choosing, 3, { mbps: 5 })).toBe(true);
     expect(choosing.nextLevel()).toBe(1); // half of 5 Mb/s carries 480p, where 70% carries 720p
-  });
-
-  it("steps up one quality once the link has held well above it, and holds again after", () => {
-    const { hls, choosing, link } = choosingFrom(1_000_000);
-    hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
-    hls.currentLevel = 0;
-    load(choosing, 0, { bytes: 1_000_000, loadMs: 1000 });
-    link.estimateBps = 10_000_000;
-    nowMs = holdBeforeStepUpMs - lookForStepUpEveryMs;
-    vi.advanceTimersByTime(lookForStepUpEveryMs);
-    expect(choosing.nextLevel()).toBe(0); // not held long enough yet
-    nowMs = holdBeforeStepUpMs;
-    vi.advanceTimersByTime(lookForStepUpEveryMs);
-    expect(choosing.nextLevel()).toBe(1);
-    hls.currentLevel = 1;
-    choosing.switched();
-    nowMs += lookForStepUpEveryMs;
-    vi.advanceTimersByTime(lookForStepUpEveryMs);
-    expect(choosing.nextLevel()).toBe(1); // held again at the new quality
   });
 
   it("gives up a slow chunk on its way, playing or not, for the quality its speed carries", () => {
@@ -204,7 +56,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     const chunk = chunkAt(3);
     choosing.loading(chunk);
     chunk.stats.loaded = 750_000; // 1 Mb/s over six seconds
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(givenUp).toEqual([chunk]);
     expect(choosing.nextLevel()).toBe(0);
@@ -221,8 +73,8 @@ describe("choosing a chunked playback's quality (D265)", () => {
     // body counted loaded with its first byte, as hls.js counts it (the owner's Firefox, 2026-10-20).
     chunk.stats.loaded = 81;
     chunk.stats.loading = { start: 0, first: 20, end: 0 };
-    for (nowMs = 0; nowMs <= 6000; nowMs += 500) {
-      if (nowMs % 2000 === 0) {
+    for (scene.nowMs = 0; scene.nowMs <= 6000; scene.nowMs += 500) {
+      if (scene.nowMs % 2000 === 0) {
         choosing.beingMade(chunk);
       }
       vi.advanceTimersByTime(lookAtChunkEveryMs);
@@ -233,7 +85,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     // Made, it arrives slowly, and is judged as any chunk is from there.
     chunk.stats.loaded = 750_081;
     chunk.stats.loading = { start: 6000, first: 6100, end: 0 }; // hls.js times each ask afresh
-    nowMs = 12_000;
+    scene.nowMs = 12_000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(givenUp).toEqual([chunk]);
   });
@@ -259,27 +111,50 @@ describe("choosing a chunked playback's quality (D265)", () => {
     ).toBe(false);
   });
 
-  it("notes each change of its ceiling with why: the link, a chunk given up, a step up", () => {
-    const { hls, choosing, link } = choosingFrom(40_000_000);
-    link.estimateBps = 5_000_000;
-    load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 });
-    choosing.nextLevel();
-    expect(steps).toEqual([
-      "ceiling 3 to 2: link 5000 kb/s, 0.0 s ahead; last measured by a chunk of 3: 6400000 B in 9950 ms, its first byte 50 ms after its ask",
+  it("notes each change of its ceiling with why and what it rests on: starting's end, the link, a chunk given up, a step up (D352 §5)", () => {
+    const chosen = choosingFrom(40_000_000);
+    const { hls, choosing } = chosen;
+    pastStarting(chosen, 3, 5);
+    const sample = "3 625000B 1000ms fb50ms";
+    expect(scene.steps).toEqual([
+      "started, ceiling 3 to 2; confident 5000 kb/s (mean 5000, error 0%, 4 samples), 0.0 s ahead," +
+        ` steadiness 0, hold 30 s; samples ${[sample, sample, sample, sample].join(", ")}`,
     ]);
-    const chunk = chunkAt(2);
+    loadAt(choosing, 2, { mbps: 1, seconds: 2 }); // a slow chunk
+    choosing.nextLevel();
+    expect(scene.steps[1]).toBe(
+      "ceiling 2 to 1: link; confident 556 kb/s (mean 2778, error 400%, 5 samples), 0.0 s ahead," +
+        " steadiness 0, hold 30 s",
+    );
+    const chunk = chunkAt(1);
     choosing.loading(chunk);
     chunk.stats.loaded = 100_000;
-    link.estimateBps = 0;
-    nowMs = 6000;
-    vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(steps[1]).toMatch(/^ceiling 2 to 0: gave up a chunk of 2: 100000 B in 6000 ms$/u);
+    chunk.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
+    waitMs(6000);
+    expect(scene.steps[2]).toMatch(
+      /^ceiling 1 to 0: gave up a chunk of 1: 100000 B in 6000 ms; confident \d+ kb\/s \(mean \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
+    );
     hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
     hls.currentLevel = 0;
-    link.estimateBps = 50_000_000;
-    nowMs += holdBeforeStepUpMs;
-    vi.advanceTimersByTime(lookForStepUpEveryMs);
-    expect(steps[2]).toBe("ceiling 0 to 1: stepped up");
+    for (let index = 0; index < linkSamplesKept; index += 1) {
+      loadAt(choosing, 0, { mbps: 20 });
+    }
+    waitMs(holdBeforeStepUpMsAt[0] ?? 0);
+    expect(scene.steps[3]).toMatch(
+      /^ceiling 0 to 1: stepped up; confident \d+ kb\/s .*, 20\.0 s ahead, steadiness 0, hold 30 s$/u,
+    );
+  });
+
+  it("tells the page its last samples, each its quality, bytes, time to arrive and wait for its first byte (D352 §5)", () => {
+    const { choosing } = choosingFrom(40_000_000);
+    for (let index = 1; index <= linkSamplesKept + 1; index += 1) {
+      loadAt(choosing, 3, { mbps: index * 2 });
+    }
+    expect(scene.samplesNoted).toHaveLength(linkSamplesKept + 1);
+    expect(scene.samplesNoted.at(-1)).toBe(
+      "samples 3 500000B 1000ms fb50ms, 3 750000B 1000ms fb50ms, 3 1000000B 1000ms fb50ms," +
+        " 3 1250000B 1000ms fb50ms, 3 1500000B 1000ms fb50ms",
+    );
   });
 
   it("waits for a chunk that loaded before it was looked at", () => {
@@ -287,7 +162,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     const chunk = chunkAt(3);
     choosing.loading(chunk);
     choosing.loaded(chunk);
-    nowMs = 8000;
+    scene.nowMs = 8000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(givenUp).toEqual([]);
   });
@@ -300,14 +175,13 @@ describe("choosing a chunked playback's quality (D265)", () => {
 
   it("does not count a chunk the browser says came from its cache, however long it took", () => {
     const { choosing } = choosingFrom(40_000_000);
-    cachedUrls.add("/c/3.m4s");
+    scene.cachedUrls.add("/c/3.m4s");
     expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 2000 })).toBe(false);
     expect(load(choosing, 2, { bytes: 3_200_000, loadMs: 2000 })).toBe(true);
   });
 
   it("obeys a quality hls.js forces until a chunk of it loads, and its echo of a choice changes nothing", () => {
-    const { choosing, link } = choosingFrom(40_000_000);
-    link.estimateBps = 20_000_000;
+    const { choosing } = choosingFrom(40_000_000);
     choosing.setLevel(choosing.firstLevel()); // the echo
     expect(choosing.forcedLevel()).toBe(-1);
     choosing.setLevel(1); // a switch down after a load error
@@ -323,7 +197,6 @@ describe("a quality this device cannot play (D266)", () => {
   /** A video asked to play at positionS, its picture loading at level 3 on a fast link. */
   function standingAt(positionS: number): ReturnType<typeof choosingFrom> {
     const chosen = choosingFrom(40_000_000);
-    chosen.link.estimateBps = 30_000_000;
     chosen.hls.loadLevel = 3;
     chosen.hls.media = videoAt(positionS, { isPaused: false, readyState: 1 });
     chosen.choosing.firstLevel();
@@ -335,7 +208,7 @@ describe("a quality this device cannot play (D266)", () => {
     const { choosing, loadsAgain, loadsAgainFromS, unplayable } = standingAt(420.5);
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 420_500, isFilmsOwnPicture: false },
@@ -349,12 +222,12 @@ describe("a quality this device cannot play (D266)", () => {
     const { hls, choosing } = standingAt(420.5);
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     hls.media = videoAt(430, { isPaused: false, readyState: 4 });
     hls.currentLevel = 2;
     hls.mainForwardBufferInfo = { len: 60 };
-    nowMs = 1_000_000;
+    scene.nowMs = 1_000_000;
     vi.advanceTimersByTime(lookForStepUpEveryMs);
     expect(choosing.nextLevel()).toBe(2);
     choosing.setLevel(3);
@@ -364,7 +237,7 @@ describe("a quality this device cannot play (D266)", () => {
   it("is given up when the video, playing, stands still with its buffer full and no chunk coming", () => {
     const { hls, unplayable } = standingAt(0.05);
     hls.mainForwardBufferInfo = { len: 30 }; // an older phone's Chrome, its decoder unable to keep up
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 50, isFilmsOwnPicture: false }]);
   });
@@ -385,7 +258,7 @@ describe("a quality this device cannot play (D266)", () => {
     const { choosing, unplayable } = standingAt(416.9);
     choosing.notHeld(3);
     choosing.notHeld(3);
-    nowMs = 1000;
+    scene.nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 416_900, isFilmsOwnPicture: false },
@@ -398,7 +271,7 @@ describe("a quality this device cannot play (D266)", () => {
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     choosing.notHeld(3);
     choosing.notHeld(3);
-    nowMs = 1000;
+    scene.nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 445_300, isFilmsOwnPicture: false },
@@ -410,13 +283,13 @@ describe("a quality this device cannot play (D266)", () => {
     hls.media = videoAt(420.5, { isPaused: false, readyState: 1, isLoaded: false });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     hls.media = videoAt(420.5, { isPaused: false, readyState: 1 }); // the sound came
-    nowMs = 7000;
+    scene.nowMs = 7000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([]);
-    nowMs = 13_000;
+    scene.nowMs = 13_000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 420_500, isFilmsOwnPicture: false },
@@ -430,7 +303,7 @@ describe("a quality this device cannot play (D266)", () => {
     );
     choosing.notHeld(3);
     choosing.notHeld(3);
-    nowMs = 1000;
+    scene.nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 416_900, isFilmsOwnPicture: true },
@@ -443,7 +316,7 @@ describe("a quality this device cannot play (D266)", () => {
     hls.loadLevel = 2;
     choosing.notHeld(2);
     choosing.notHeld(2);
-    nowMs = 1000;
+    scene.nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toHaveLength(1);
     expect(choosing.forcedLevel()).toBe(-1);
@@ -455,7 +328,7 @@ describe("a quality this device cannot play (D266)", () => {
     hls.media = videoAt(303.98, { isPaused: true, readyState: 1 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 303_980, isFilmsOwnPicture: false },
@@ -465,34 +338,34 @@ describe("a quality this device cannot play (D266)", () => {
   it("is not given up while chunks are slow to come, while paused, while its sound is not there, or while the video plays", () => {
     const slow = standingAt(420.5);
     load(slow.choosing, 3, { bytes: 6_000_000, loadMs: 1000 }); // one chunk: the link may be why
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(slow.unplayable).toEqual([]);
 
-    nowMs = 0;
+    scene.nowMs = 0;
     const paused = standingAt(420.5);
     paused.hls.media = videoAt(420.5, { isPaused: true, readyState: 4 }); // its data there
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(paused.unplayable).toEqual([]);
 
-    nowMs = 0;
+    scene.nowMs = 0;
     const waitingForSound = standingAt(420.5);
     waitingForSound.hls.media = videoAt(420.5, { isPaused: false, readyState: 1, isLoaded: false }); // a seek's sound not yet come
     load(waitingForSound.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(waitingForSound.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(waitingForSound.unplayable).toEqual([]);
 
-    nowMs = 0;
+    scene.nowMs = 0;
     const playing = standingAt(420.5);
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     playing.hls.media = videoAt(423.5, { isPaused: false, readyState: 4 });
-    nowMs = 6000;
+    scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(playing.unplayable).toEqual([]);
   });
@@ -500,15 +373,14 @@ describe("a quality this device cannot play (D266)", () => {
 
 describe("the server's ceiling (D286 §5)", () => {
   it("keeps every choice at or under it, the step-up too, until it is lifted", () => {
-    const { hls, choosing, link } = choosingFrom(40_000_000);
-    link.estimateBps = 30_000_000;
+    const { hls, choosing } = choosingFrom(40_000_000);
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     expect(choosing.nextLevel()).toBe(3);
     choosing.obeyServer(1400); // 480p's 1296 with its sound
     expect(choosing.nextLevel()).toBe(1);
     hls.currentLevel = 1;
     hls.mainForwardBufferInfo = { len: 60 };
-    nowMs = 1_000_000;
+    scene.nowMs = 1_000_000;
     vi.advanceTimersByTime(lookForStepUpEveryMs);
     expect(choosing.nextLevel()).toBe(1);
     choosing.obeyServer(100); // under every quality: the lowest
@@ -523,15 +395,14 @@ describe("choosing while voice is live (D262 §2, D265 §6, §7)", () => {
     const { hls, choosing } = choosingFrom(40_000_000);
     hls.loadLevel = 2;
     expect(choosing.paceKbps()).toBeUndefined();
-    isVoiceLive = true;
+    scene.isVoiceLive = true;
     expect(choosing.paceKbps()).toBe(5745);
   });
 
   it("caps the film at half the link measured before voice, which its paced chunks do not lower", () => {
-    const { hls, choosing, link } = choosingFrom(40_000_000);
-    link.estimateBps = 3_000_000;
-    load(choosing, 1, { bytes: 1_600_000, loadMs: 1000 });
-    isVoiceLive = true;
+    const { hls, choosing } = choosingFrom(40_000_000);
+    loadAt(choosing, 1, { mbps: 3 });
+    scene.isVoiceLive = true;
     expect(choosing.nextLevel()).toBe(1); // 1.5 Mb/s carries 480p
     hls.loadLevel = 1;
     // Paced at 2.4 Mb/s, a chunk arrives at its pace: it measures the pace, not the link.
@@ -552,22 +423,19 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
   }
 
   it("keeps it while its link carries the picture's average, though voice would halve its share", () => {
-    const { choosing, link } = withOwnPicture();
-    link.estimateBps = 8_800_000;
-    load(choosing, 3, { bytes: 4_400_000, loadMs: 4000 });
-    isVoiceLive = true;
+    const { choosing } = withOwnPicture();
+    loadAt(choosing, 3, { mbps: 8.8, seconds: 4 });
+    scene.isVoiceLive = true;
     expect(choosing.nextLevel()).toBe(2); // alone, voice leaves it half: 720p
-    isInAGroup = true;
+    scene.isInAGroup = true;
     expect(choosing.nextLevel()).toBe(3); // in a group: the film's own picture
-    link.estimateBps = 4_000_000;
-    load(choosing, 3, { bytes: 2_000_000, loadMs: 4000 });
+    loadAt(choosing, 3, { mbps: 3.2, seconds: 4 }); // the estimate of both, 4.7 Mb/s, short of the picture's 5.1
     expect(choosing.nextLevel()).toBeLessThan(3); // a link too slow for it steps down
   });
   it("steps down from it once a chunk of it is given up, though no chunk measured the slower link", () => {
-    const { choosing, link, givenUp } = withOwnPicture();
-    link.estimateBps = 8_800_000;
-    load(choosing, 3, { bytes: 4_400_000, loadMs: 4000 });
-    isInAGroup = true;
+    const { choosing, givenUp } = withOwnPicture();
+    loadAt(choosing, 3, { mbps: 8.8, seconds: 4 });
+    scene.isInAGroup = true;
     expect(choosing.nextLevel()).toBe(3);
     // The link slows: the picture's next chunk crawls, and is given up before it ever loads, so
     // nothing loaded measures the link. Kept on the old measure, the group's choice took the picture
@@ -576,7 +444,7 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
     choosing.loading(crawling);
     crawling.stats.loaded = 750_000; // 1 Mb/s over six seconds
     crawling.stats.loading = { start: 0, first: 50, end: 0 };
-    nowMs += 6000;
+    scene.nowMs += 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(givenUp).toEqual([crawling]);
     expect(choosing.nextLevel()).toBeLessThan(3);
@@ -585,15 +453,14 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
 
 describe("a group's jump, which a device on an encoded quality starts on the common one (D286 §3)", () => {
   it("loads the common quality for its while after the jump, then chooses as it would", () => {
-    const { hls, choosing, link } = choosingFrom(40_000_000);
+    const { hls, choosing } = choosingFrom(40_000_000);
     const tall = levels.map((level, index) => ({ ...level, height: [432, 540, 720, 1080][index] }));
     Object.defineProperty(hls, "levels", { value: tall });
-    link.estimateBps = 1_000_000;
-    load(choosing, 0, { bytes: 500_000, loadMs: 4000 });
+    loadAt(choosing, 0, { mbps: 1, seconds: 4 });
     expect(choosing.nextLevel()).toBe(0); // a slow link: the lowest
     choosing.groupJumped();
     expect(choosing.nextLevel()).toBe(2); // the common 720p, which the others share
-    nowMs += commonStartForMs;
+    scene.nowMs += commonStartForMs;
     expect(choosing.nextLevel()).toBe(0); // then it settles as it would
   });
 });
@@ -614,7 +481,7 @@ describe("the bitrate controller inside hls.js (D265 §1)", () => {
   it("is what hls.js asks for its levels, and counts a chunk in its estimate only when it measures the link", () => {
     const abr = orpheumAbr({
       startAtBps: 0,
-      monotonicMs: () => nowMs,
+      monotonicMs: () => scene.nowMs,
       isVoiceLive: () => false,
       fromCache: () => undefined,
     });
@@ -640,7 +507,9 @@ describe("the bitrate controller inside hls.js (D265 §1)", () => {
       id: PlaylistLevelType.MAIN,
     });
     expect(hls.bandwidthEstimate).toBeGreaterThan(7_000_000);
-    expect(choosing?.linkKbps()).toBe(hls.bandwidthEstimate / 1000);
+    // hls.js's estimator is fed for its own readers; the controller reports its own, never from a
+    // lone first sample (D352 §1, §2).
+    expect(choosing?.linkKbps()).toBeUndefined();
     hls.destroy();
   });
 });
@@ -649,7 +518,7 @@ describe("a chunk on its way while the video plays (D265 §3, D323)", () => {
   it("is given up by choosing alone, never by hls.js's own check, which took a chunk being made for a stalled one", () => {
     const abr = orpheumAbr({
       startAtBps: 0,
-      monotonicMs: () => nowMs,
+      monotonicMs: () => scene.nowMs,
       isVoiceLive: () => false,
       fromCache: () => undefined,
     });
@@ -683,7 +552,7 @@ describe("a hole hls.js cannot step over (D266; the owner's group test, 2026-10-
   it("is recovered from by giving the quality up, so the playback is not failed", () => {
     const abr = orpheumAbr({
       startAtBps: 0,
-      monotonicMs: () => nowMs,
+      monotonicMs: () => scene.nowMs,
       isVoiceLive: () => false,
       fromCache: () => undefined,
     });

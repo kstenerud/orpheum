@@ -14,7 +14,7 @@ import {
 } from "@orpheum/sdk";
 import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 
-import { isRecovered } from "./abr.ts";
+import { isRecovered } from "./abr-controller.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
 
 /** A prepared rendition playing in a video element. */

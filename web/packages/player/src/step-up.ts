@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * How long a player stays at a quality before it may step up: the link must have held for minutes,
- * not seconds (D247 §9). Our choice, to be measured: Media3 waits for 10 s of buffer, Shaka 8 s
- * between switches (slow-links.md §2), and a stall costs far more than a softer picture.
+ * The speed, as a multiple of a quality's rate, that a step up to it needs at the steadiness levels
+ * 0 and 1 (D247 §9, D352 §3), and below which a stall at the lowest quality is beyond the link
+ * (D247 §8, beyondTheLink). Steadier levels ask more (steadiness.ts).
  */
-export const holdBeforeStepUpMs = 120_000;
-
-/** The speed, as a multiple of the next quality's rate, that a step up needs (D247 §9). */
 export const stepUpHeadroom = 1.5;
 
 /** How much must be loaded ahead before stepping up: a step up spends some of it loading anew. */
@@ -29,31 +26,47 @@ export interface StepUpState {
   readonly cap: number;
   /** The quality playing. */
   readonly playing: number;
-  /** The link's speed, bits a second, as hls.js measures each chunk's download. */
+  /** The link's confident estimate, bits a second (D352 §2, LinkEstimate). */
   readonly estimateBps: number;
   readonly bufferedAheadMs: number;
   /** How long it has been since the cap or the quality playing last changed. */
   readonly sinceChangeMs: number;
+  /** The hold before a step up, and the headroom it needs, at the playback's steadiness (D352 §3). */
+  readonly holdMs: number;
+  readonly headroom: number;
+  /** Whether it climbs one quality at a time: when its samples disagree, or its link has swung or flaked. */
+  readonly isOneAtATime: boolean;
 }
 
 /**
- * The highest quality the bitrate controller may choose next: one above the cap, once the player
- * has played at the cap for holdBeforeStepUpMs with stepUpBufferMs loaded ahead and a link
- * stepUpHeadroom times the next quality's rate; else the cap as it is. One quality at a time, never
- * past the top (D247 §9). Stepping down is the bitrate controller's own (abr.ts, D265 §3–§4), at
- * once, on its measurement.
+ * The highest quality the bitrate controller may choose next (D352 §2): once the player has played
+ * at the cap for holdMs with stepUpBufferMs loaded ahead, the highest quality whose average rate
+ * times headroom the confident estimate carries, or only the one above the cap when isOneAtATime;
+ * else the cap as it is, never past the top. Stepping down is the bitrate controller's own (abr.ts,
+ * D265 §3–§4), at once, on its measurement.
  */
 export function nextCap(state: StepUpState): number {
-  const above = state.cap + 1;
-  const next = state.levels[above];
+  const { levels, cap } = state;
   if (
-    next === undefined ||
-    state.playing < state.cap ||
-    state.sinceChangeMs < holdBeforeStepUpMs ||
-    state.bufferedAheadMs < stepUpBufferMs ||
-    state.estimateBps < stepUpHeadroom * next.averageBitrate
+    state.playing < cap ||
+    state.sinceChangeMs < state.holdMs ||
+    state.bufferedAheadMs < stepUpBufferMs
   ) {
-    return state.cap;
+    return cap;
   }
-  return above;
+  const isCarried = (index: number): boolean => {
+    const level = levels[index];
+    return level !== undefined && state.headroom * level.averageBitrate <= state.estimateBps;
+  };
+  if (!isCarried(cap + 1)) {
+    return cap;
+  }
+  if (state.isOneAtATime) {
+    return cap + 1;
+  }
+  let highest = cap + 1;
+  while (isCarried(highest + 1)) {
+    highest += 1;
+  }
+  return highest;
 }

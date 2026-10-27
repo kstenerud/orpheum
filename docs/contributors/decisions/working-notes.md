@@ -18088,6 +18088,8 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
+> **§9 amended by [D352](#d352--the-chunked-player-trusts-its-link-as-far-as-the-evidence-goes-its-first-seconds-latch-nothing-it-climbs-as-far-as-consistent-samples-carry-and-it-grows-steadier-when-it-swings-or-its-link-flakes)** (2026-10-27): the hold before a step up is 30 s on a steady link, doubling with each swing to 240 s, and the climb goes as far as consistent samples carry.
+
 > **§10 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a run goes on while a player says it wants its quality from where it plays, not while asks arrive.
 
 > **Revised by [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)** (2026-10-07): **a film that can be cut plays from its ladder from the start**, at its top unless its link is remembered slow; §2's original-first and stall-made version remain for a film not cut yet.
@@ -18836,6 +18838,8 @@ follower's own monotonic clock from the moment it arrived.
 **Status:** Decided 2026-10-07.
 
 ## D265 — The chunked player chooses its quality with a bitrate controller of its own, inside hls.js
+
+> **Amended by [D352](#d352--the-chunked-player-trusts-its-link-as-far-as-the-evidence-goes-its-first-seconds-latch-nothing-it-climbs-as-far-as-consistent-samples-carry-and-it-grows-steadier-when-it-swings-or-its-link-flakes)** (2026-10-27): every choice reads the controller's own estimate of the link, not hls.js's (§1), and the step-up (§5) climbs as far as consistent samples carry, at a hold and headroom set by how steady the link has been.
 
 > **Refined by [D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)** (2026-10-07): a quality whose video stands still while its chunks arrive is given up as one the device cannot play.
 
@@ -22262,14 +22266,15 @@ one-way rules); keeping the harnesses' own wiring beside production's.
 
 ## D352 — The chunked player trusts its link as far as the evidence goes: its first seconds latch nothing, it climbs as far as consistent samples carry, and it grows steadier when it swings or its link flakes
 
-**Proposed** (2026-10-27), by an agent, at the owner's direction after The Unknown sat on its
+**Decided** (2026-10-27), by the project owner, agreeing an agent's proposal and answering its
+questions as it recommended (below), made at the owner's direction after The Unknown sat on its
 lowest quality for minutes on staging (2026-10-26): *"We're going to have transient network issues in
 the real world, so we should be more adaptable to the changing environment, and more intelligent
 about how we recover from it (such as jumping multiple rungs when it's obvious that we can). We do,
 however, want to switch to a more conservative approach if it starts to feel like we've started
 thrashing (jump down too far, then jump up too far, repeat). Also, if network conditions keep flaking
 out, the network itself is too unreliable at higher rates and we're better off staying on a lower
-rung longer."* **Would amend** [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)
+rung longer."* **Amends** [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)
 §4–§5 and [D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §9. The research is [abr-adaptation-2026-10-27.md](../design/research/abr-adaptation-2026-10-27.md).
 
@@ -22297,7 +22302,9 @@ steady its link has been.
    first buffer, a dozen chunks or more, so a bad first sample has left §2's five; both are
    constants, to be measured. In the owner's report, the first chunk's 1008 kb/s would have chosen
    the lowest quality for the next chunk alone; the chunks after it, measuring 2.8–5.6 Mb/s, would have
-   chosen higher again within seconds.
+   chosen higher again within seconds. *As built (2026-10-27):* a stall is D247 §2's, as the
+   player counts it (`watchStalls`), a first load slow to play and a group's player falling behind
+   among them; it lowers the ceiling to what the estimate then chooses.
 2. **The step-up climbs as far as consistent samples carry.** The controller keeps the **last five
    chunks that measured the link**, each counted once whatever its length, and from them **the
    link's estimate**, their harmonic mean, which every choice of D265 §4 reads in place of hls.js's
@@ -22338,7 +22345,9 @@ steady its link has been.
    confident estimate (§2) already falls on a link whose samples vary, since its divisor is the
    largest recent error: a link whose chunks arrive at 4, 12, 3 and 11 Mb/s is targeted near its
    slowest, not its mean. A link that holds steady earns back its trust by §3's relaxing, and its
-   divisor shrinks as varying samples leave the five.
+   divisor shrinks as varying samples leave the five. *As built (2026-10-27):* one event raises
+   the level once, though it is both a swing and a second drop, and a climb swings once, at its
+   first step down or drop.
 5. **The log explains each choice.** Each change of the ceiling is noted (D265's steps, the play
    report) with why, the confident estimate and its parts (harmonic mean, error), how many samples
    it rests on, what is loaded ahead, the steadiness level and the hold; each change of the level
@@ -22358,36 +22367,38 @@ trusted. The share a quality may take stays the setting `link_share_for_quality_
 controller, the median, a probe, and a memory of the rung that failed (each with why in the
 research, §5); keeping one hold for every link (the owner's report).
 
-**Open questions for the owner:**
+**The owner's answers** (2026-10-27), each as recommended:
 
-- Q1. A hold of 30 s at level 0, against D247 §9's "a couple of minutes", which the owner chose for
-  a link recovering "with good confidence": is confidence now the samples' agreement (§2), or does
-  the owner want the long hold kept for the first climb of a playback?
-- Q2. Should a playback start at the steadiness level its device last ended at on that network,
-  remembered as D257 §1 remembers its speed, so a flaky Wi-Fi is not relearned every film?
-- Q3. §5's samples in the stall and seek reports add a field to the play report and a few hundred
-  bytes per report to the core's log: acceptable, or only while the admin's log level is debug
-  (D347)?
-- Q4. A Watch Together player that keeps the film's own picture (D286 §2) is outside the ceiling;
-  should a swing or a drop there raise its level too, or does the group's rule stay apart?
-- Q5. §2 has the controller choose by an estimate of its own, where D265 §1 kept hls.js's
-  estimator for every choice. hls.js's is still fed, and still what its other controllers read;
-  is replacing it for our choices acceptable, or should hls.js's estimator be configured instead
-  (shorter half-lives cannot undo its weighting by seconds, the research §1.4)?
-- Q6. The lowest qualities' chunks are the smallest, and a small chunk on a fresh or idle
-  connection measures lower than the link (Huang et al., IMC 2012, the research §2): a player at
-  the bottom can read its link slower than it is. Is a floor wanted, such as a chunk under 512 KB
-  counting half (Media3 waits for 512 KiB before it trusts its meter), or is the 128 KB rule
-  (D265 §7) enough until a measurement says otherwise?
+- Q1. *A hold of 30 s at level 0, against D247 §9's "a couple of minutes"?* Yes, 30 s at level 0:
+  confidence is now the samples' agreement (§2).
+- Q2. *Should a playback start at the steadiness level its device last ended at on that network,
+  remembered as D257 §1 remembers its speed?* Yes. **Owed:** D257 §1's network is the address the
+  core sees a request come from, which the player never learns; what the player knows, the path it
+  plays over (direct to an origin, or WebRTC) and the server, is no network (a phone on Wi-Fi and on
+  LTE both play over WebRTC), so remembering by it would take one network's steadiness for another's,
+  which D257 §1 rules out. Where it is remembered waits for the owner's choice (the build's report,
+  2026-10-27): beside the speed, in the core, reported with the play report and handed back with the
+  offer; or in the browser, keyed by a name of the network the core hands the player.
+- Q3. *§5's samples in the stall and seek reports?* Yes, always, not only at debug level. *As built
+  (2026-10-27):* they ride last in each report's steps, the server's 400 characters, which the core
+  already logs; a field of their own waits for a change of the report's API (code-debt.md).
+- Q4. *Should a swing or a drop of a Watch Together player raise its level?* Yes: swings and drops
+  count per viewer, each Watch Together player its own, the film's own picture kept or not.
+- Q5. *Is replacing hls.js's estimator for our choices acceptable?* Yes: the controller chooses by
+  its own estimate (§2); hls.js's is still fed, for hls.js's own readers.
+- Q6. *A floor for small chunks?* No, not for now: the 128 KB rule (D265 §7) stands, and each
+  sample's size is logged (§5) so the question can be revisited from data.
 
-**Proven by** (tests to be written; none exists yet):
-- 1: web/packages/player/src/abr-starting.test.ts ("a low first sample does not hold the playback low once its next chunks arrive fast"; "a chunk given up while starting lowers the ceiling")
-- 2: web/packages/player/src/link-estimate.test.ts (the confident estimate), web/packages/player/src/step-up.test.ts ("climbs to the highest quality consistent samples carry"; "climbs one quality when its samples disagree")
-- 3: web/packages/player/src/steadiness.test.ts ("a climb that falls back within twice its hold raises the level and doubles the hold"; "relaxes one level for each ten minutes without a swing or a drop")
-- 4: web/packages/player/src/steadiness.test.ts ("a second drop within ten minutes raises the level"), web/packages/player/src/link-estimate.test.ts ("a varying link is targeted near its slowest samples")
-- 5: web/packages/player/src/abr.test.ts (the notes), TestReport_LogsALinksLastSamples in internal/core/api
+**Proven by:**
+- 1: web/packages/player/src/abr-trust.test.ts ("a low first sample does not hold the playback low once its next chunks arrive fast"; "a chunk given up while starting lowers the ceiling"; "a stall while starting lowers the ceiling to what the estimate chooses"; "ends after four samples and 20 s played, the ceiling no higher than the start"; "reports its confident estimate as the link's speed, remembered for the device's next start"), web/packages/player/src/chunked.test.ts (a stall told to the controller)
+- 2: web/packages/player/src/link-estimate.test.ts (the estimate and the confident estimate), web/packages/player/src/step-up.test.ts ("climbs to the highest quality consistent samples carry"; "climbs one quality when its samples disagree"), web/packages/player/src/abr-trust.test.ts (the step-up in the controller), web/packages/player/src/abr-measure.test.ts (hls.js's estimator still fed)
+- 3: web/packages/player/src/steadiness.test.ts ("a climb that falls back within twice its hold raises the level and doubles the hold"; "relaxes one level for each ten minutes without a swing or a drop"), web/packages/player/src/abr-trust.test.ts ("a climb that falls back within twice its hold raises the level, and the next climb waits twice as long, one quality")
+- 4: web/packages/player/src/steadiness.test.ts ("a second drop within ten minutes raises the level"), web/packages/player/src/link-estimate.test.ts ("a varying link is targeted near its slowest samples"), web/packages/player/src/abr-trust.test.ts ("counts each Watch Together player's drops as its own")
+- 5: web/packages/player/src/abr.test.ts ("notes each change of its ceiling with why and what it rests on"; "tells the page its last samples"), web/packages/player/src/diagnosis.test.ts ("keeps the link's last samples after its choices")
 
-**Status:** Proposed, not built.
+**Status:** Built 2026-10-27, in the player (`web/packages/player/src`: `abr.ts`, `link-estimate.ts`,
+`steadiness.ts`, `step-up.ts`); Q2's remembered level is owed (above). Every value is a constant, to
+be measured on the acceptance's emulated links (D252, D263) and the owner's devices.
 
 ## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one
 

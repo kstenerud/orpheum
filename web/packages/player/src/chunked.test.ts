@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { LoaderContext } from "hls.js";
 
@@ -21,9 +21,11 @@ import {
   sendUnplayable,
   settledAtBps,
   shareForQualityOf,
+  tellStalls,
   unplayableOf,
 } from "./chunked.ts";
 import { markSeeks, soughtHeader } from "./hls.ts";
+import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
 /** Three qualities, as hls.js reads them from the playlist. */
 const levels = [
@@ -241,5 +243,31 @@ describe("the share of the link an offer says (the constants sweep, 2026-10-20)"
     expect(shareForQualityOf(80)).toBe(0.8);
     expect(shareForQualityOf(0)).toBeUndefined();
     expect(shareForQualityOf(undefined)).toBeUndefined();
+  });
+});
+
+describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
+  it("is told to the controller as the video stalls, and no more once stopped", () => {
+    vi.useFakeTimers();
+    const listeners = new Map<string, () => void>();
+    const video = {
+      currentTime: 12,
+      paused: false,
+      seeking: false,
+      readyState: 4,
+      addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
+      removeEventListener: (type: string) => listeners.delete(type),
+    };
+    let stalls = 0;
+    const stop = tellStalls(video as unknown as WatchedMedia, () => ({
+      stalled: () => (stalls += 1),
+    }));
+    listeners.get("playing")?.();
+    listeners.get("waiting")?.();
+    vi.advanceTimersByTime(stallAfterMs);
+    expect(stalls).toBe(1);
+    stop();
+    expect(listeners.size).toBe(0);
+    vi.useRealTimers();
   });
 });

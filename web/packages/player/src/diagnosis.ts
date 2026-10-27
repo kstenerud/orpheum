@@ -29,7 +29,8 @@ export interface PlaybackDiagnosis {
    * The player's last steps, oldest first: each quality it chose, each playlist and chunk it loaded,
    * aborted or failed, and its video detached and attached; "" before any. A Mac's Firefox, its
    * film's own picture given up at 0:00, stood with nothing loaded and asked for nothing more, and no
-   * report said where its player had stopped (the owner's test, 2026-10-18).
+   * report said where its player had stopped (the owner's test, 2026-10-18). Its own choices come
+   * after, and the link's last samples last (D352 §5).
    */
   readonly steps?: string;
 }
@@ -44,6 +45,8 @@ interface Kept {
   steps: string[];
   /** The player's own last choices of quality, with why, kept apart so the steps never push them out. */
   choices: string[];
+  /** The link's last samples in a line (samplesText), kept after the choices (D352 §5); "" before any. */
+  samples: string;
   /** The codecs each buffer took, by its track ("video avc1.64001f"), the latest for each. */
   codecs: Map<string, string>;
 }
@@ -254,6 +257,7 @@ function newKept(): Kept {
     mediaSourceState: "",
     steps: [],
     choices: [],
+    samples: "",
     codecs: new Map(),
   };
 }
@@ -285,6 +289,21 @@ export function stepNoter(video: object): (step: string) => void {
   };
 }
 
+/**
+ * What keeps the link's last samples in video's diagnosis, the latest line replacing the one before,
+ * for every stall's and seek's report with its steps (D352 §5): the owner's report of a film held at
+ * its lowest quality needed a day's reading of code to explain one sample (2026-10-26); nothing for
+ * a video not diagnosed.
+ */
+export function samplesNoter(video: object): (samples: string) => void {
+  return (samples) => {
+    const diagnosis = diagnoses.get(video);
+    if (diagnosis !== undefined) {
+      diagnosis.samples = samples;
+    }
+  };
+}
+
 /** The video's diagnosis, its element error over hls.js's; undefined for a video not diagnosed. */
 export function diagnosisOf(
   video: object & { readonly error?: MediaError | null },
@@ -303,8 +322,13 @@ export function diagnosisOf(
         : `media error ${String(elementError.code)}: ${elementError.message}`.slice(0, 200),
     mapping: diagnosis.mapping.join("; ").slice(0, mappingTextMost),
     mediaSourceState: diagnosis.mediaSourceState,
-    // The choices last, which the cut to stepsTextMost keeps: the steps around them are many.
-    steps: [...diagnosis.steps, ...diagnosis.choices.map((choice) => `chose ${choice}`)]
+    // The choices and the link's samples last, which the cut to stepsTextMost keeps: the steps
+    // around them are many.
+    steps: [
+      ...diagnosis.steps,
+      ...diagnosis.choices.map((choice) => `chose ${choice}`),
+      ...(diagnosis.samples === "" ? [] : [diagnosis.samples]),
+    ]
       .join("; ")
       .slice(-stepsTextMost),
   };

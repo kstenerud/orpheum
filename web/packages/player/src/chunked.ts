@@ -13,8 +13,8 @@ import {
   unreachableStatus,
   type PlaybackFailure,
 } from "./failure.ts";
-import { orpheumAbr, type OrpheumAbr } from "./abr.ts";
-import { diagnose, diagnosisOf, stepNoter } from "./diagnosis.ts";
+import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
+import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -28,6 +28,7 @@ import {
   tellOwnMoves,
   type HlsPlayback,
 } from "./hls.ts";
+import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 
 /**
@@ -300,6 +301,36 @@ function obeyGroup(
 }
 
 /**
+ * Tells the bitrate controller of each of video's stalls (watchStalls, D247 §2): a drop, which it
+ * weighs as a flaky link's sign and, while starting, lowers its ceiling for (D352 §1, §4). Returns
+ * the stopping.
+ */
+export function tellStalls(
+  video: WatchedMedia,
+  choosing: () => { readonly stalled: () => void } | undefined,
+): () => void {
+  return watchStalls(video, () => {
+    choosing()?.stalled();
+  });
+}
+
+/**
+ * What a chunked playback follows of its video once hls.js plays it: its group (obeyGroup), its
+ * sound's shift, and its stalls (tellStalls). Returns each stopping.
+ */
+function followGroupSoundAndStalls(
+  hls: Hls,
+  video: HTMLVideoElement,
+  by: { readonly abr: OrpheumAbr; readonly soundShift: SoundShift },
+): readonly (() => void)[] {
+  return [
+    obeyGroup(hls, video, by.abr),
+    by.soundShift.attach(hls, video),
+    tellStalls(video, by.abr.choosing),
+  ];
+}
+
+/**
  * Plays url with the element's own HLS where the page has no MSE, knowing nothing of its qualities,
  * or fails as unsupported where it has neither; undefined where hls.js plays it.
  */
@@ -357,6 +388,7 @@ function abrOf(
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     onUnplayable: sendUnplayable(video),
     noteStep: stepNoter(video),
+    noteSamples: samplesNoter(video),
   });
 }
 
@@ -413,8 +445,7 @@ export function playChunked(
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
-  const stopObeying = obeyGroup(hls, video, abr);
-  const stopShifting = soundShift.attach(hls, video);
+  const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
   const linkKbps = (): number | undefined => abr.choosing()?.linkKbps();
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -423,9 +454,9 @@ export function playChunked(
       hls.audioTrack = index;
     },
     destroy: () => {
-      stopObeying();
-      stopShifting();
-      seeks.stop();
+      for (const stop of stops) {
+        stop();
+      }
       hls.destroy();
     },
     playing: () => hls.levels[hls.currentLevel],
