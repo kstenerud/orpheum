@@ -33,7 +33,7 @@ type containerFilm struct {
 	reasons        []string
 }
 
-// realMedia's films: RealVideo with its keyframes four seconds apart, as RealVideo's are sparse, and
+// realMedia's films: RealVideo with its keyframes two seconds apart, as RealVideo's are sparse, and
 // RealAudio 1.0 (14.4K), the RealMedia codecs the pinned FFmpeg can write (the owner, 2026-10-27).
 func realMediaFilms() []containerFilm {
 	everyAxis := []string{"container", "video_codec", "audio_codec"}
@@ -41,17 +41,69 @@ func realMediaFilms() []containerFilm {
 		{
 			extension: "rm", picture: "320x240", sound: "8000", probedCodec: "rv20", profile: "h264",
 			reasons:  everyAxis,
-			encoding: []string{"-c:v", "rv20", "-g", "100", "-c:a", "real_144", "-ac", "1", "-f", "rm"},
+			encoding: []string{"-c:v", "rv20", "-g", "50", "-c:a", "real_144", "-ac", "1", "-f", "rm"},
 		},
 		{
 			extension: "rmvb", picture: "176x144", sound: "8000", probedCodec: "rv10", profile: "h264",
 			reasons:  everyAxis,
-			encoding: []string{"-c:v", "rv10", "-g", "100", "-c:a", "real_144", "-ac", "1", "-f", "rm"},
+			encoding: []string{"-c:v", "rv10", "-g", "50", "-c:a", "real_144", "-ac", "1", "-f", "rm"},
 		},
 	}
 }
 
-// writeContainerFilms writes each film, eight seconds long, into a folder of its own under media, its
+// sweptFilms are the containers people kept films in over the decades that D360 added, each in
+// codecs typical of it: Windows Media's, the disc and broadcast formats', the camcorders', the MP4
+// and Matroska relatives' and the older and rarer ones'. A picture with no audio is an IVF's or a
+// Y4M's, which hold none.
+func sweptFilms() []containerFilm {
+	everyAxis := []string{"container", "video_codec", "audio_codec"}
+	containerAndPicture := []string{"container", "video_codec"}
+	container := []string{"container"}
+	mpeg2With := func(extension, audio, muxer string) containerFilm {
+		return sweptFilm(extension, "mpeg2video", "h264", everyAxis,
+			"-c:v", "mpeg2video", "-c:a", audio, "-f", muxer)
+	}
+	digitalVideo := sweptFilm("dv", "dvvideo", "h264", everyAxis,
+		"-c:v", "dvvideo", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ac", "2", "-f", "dv")
+	digitalVideo.picture = "720x576" // DV is PAL's or NTSC's picture, nothing else
+	threeG2 := sweptFilm("3g2", "h263", "h264", containerAndPicture, "-c:v", "h263", "-c:a", "aac", "-f", "3g2")
+	threeG2.picture = "176x144" // H.263's QCIF
+	return []containerFilm{
+		sweptFilm("asf", "wmv2", "h264", everyAxis, "-c:v", "wmv2", "-c:a", "wmav2", "-f", "asf"),
+		sweptFilm("dvr-ms", "wmv1", "h264", everyAxis, "-c:v", "wmv1", "-c:a", "wmav1", "-f", "asf"),
+		mpeg2With("wtv", "mp2", "wtv"),
+		sweptFilm("ogm", "theora", "h264", everyAxis, "-c:v", "libtheora", "-c:a", "libvorbis", "-f", "ogg"),
+		mpeg2With("mxf", "pcm_s16le", "mxf"),
+		digitalVideo,
+		sweptFilm("nut", "mpeg4", "h264", everyAxis, "-c:v", "mpeg4", "-c:a", "mp3", "-f", "nut"),
+		sweptFilm("f4v", "h264", "remux", container, "-c:v", "libx264", "-c:a", "aac", "-f", "f4v"),
+		threeG2,
+		sweptFilm("mk3d", "h264", "", nil, "-c:v", "libx264", "-c:a", "aac", "-f", "matroska"),
+		sweptFilm("mpe", "mpeg1video", "h264", everyAxis, "-c:v", "mpeg1video", "-c:a", "mp2", "-f", "mpeg"),
+		mpeg2With("m2p", "mp2", "vob"),
+		mpeg2With("vro", "ac3", "vob"),
+		mpeg2With("evo", "ac3", "vob"),
+		sweptFilm("qt", "h264", "remux", container, "-c:v", "libx264", "-c:a", "aac", "-f", "mov"),
+		sweptFilm("ivf", "vp9", "h264", containerAndPicture, "-c:v", "libvpx-vp9", "-an", "-f", "ivf"),
+		sweptFilm("y4m", "rawvideo", "h264", containerAndPicture, "-pix_fmt", "yuv420p", "-an", "-f", "yuv4mpegpipe"),
+		sweptFilm("xvid", "mpeg4", "h264", everyAxis, "-c:v", "mpeg4", "-vtag", "XVID", "-c:a", "mp3", "-f", "avi"),
+		// A keyframe a second, as broadcasts have them.
+		sweptFilm("trp", "h264", "remux", container, "-c:v", "libx264", "-g", "25", "-c:a", "aac", "-f", "mpegts"),
+		mpeg2With("tp", "mp2", "mpegts"),
+		mpeg2With("m2t", "ac3", "mpegts"),
+		mpeg2With("tod", "ac3", "mpegts"),
+	}
+}
+
+// sweptFilm is a film of a small picture and a 48 kHz sound.
+func sweptFilm(extension, probedCodec, profile string, reasons []string, encoding ...string) containerFilm {
+	return containerFilm{
+		extension: extension, picture: "160x120", sound: "48000", encoding: encoding,
+		probedCodec: probedCodec, profile: profile, reasons: reasons,
+	}
+}
+
+// writeContainerFilms writes each film, four seconds long, into a folder of its own under media, its
 // tone a pitch of its own so no two films' payloads are the same, and returns each one's path.
 func writeContainerFilms(t *testing.T, media string, films []containerFilm) []string {
 	t.Helper()
@@ -63,8 +115,8 @@ func writeContainerFilms(t *testing.T, media string, films []containerFilm) []st
 			t.Fatal(err)
 		}
 		testutil.GenerateFilm(t, paths[index], append([]string{
-			"-f", "lavfi", "-i", "testsrc2=size=" + film.picture + ":rate=25:duration=8",
-			"-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=%d:sample_rate=%s:duration=8", 300+20*index, film.sound),
+			"-f", "lavfi", "-i", "testsrc2=size=" + film.picture + ":rate=25:duration=4",
+			"-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=%d:sample_rate=%s:duration=4", 300+20*index, film.sound),
 		}, film.encoding...)...)
 	}
 	return paths
@@ -76,7 +128,7 @@ func writeContainerFilms(t *testing.T, media string, films []containerFilm) []st
 // for when it plays as it is.
 func TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade(t *testing.T) {
 	ffmpegDir := testutil.FFmpegDirectory(t)
-	films := realMediaFilms()
+	films := append(realMediaFilms(), sweptFilms()...)
 	config, configPath := testConfig(t)
 	media := t.TempDir()
 	paths := writeContainerFilms(t, media, films)
@@ -85,6 +137,11 @@ func TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade(t *t
 	nodeID := enrolNodeWithLibrary(t, config, media,
 		libraryShape{name: "Films", kind: "movies", metadataSource: "nfo"})
 	captured := newCapturedLog("ready", filmIdentified)
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Log(captured.String())
+		}
+	})
 	server := startServing(t, config, captured, filmIdentified, func(ctx context.Context) error {
 		return runNodeWith(ctx, config, captured.logger, nodeSeams{statusEvery: time.Second})
 	})

@@ -16,7 +16,12 @@ func videoExtensions() map[string]bool {
 	return setOf(
 		"mkv", "mp4", "m4v", "avi", "divx", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob",
 		"flv", "ogv", "3gp",
-		"rm", "rmvb",
+		"rm", "rmvb", // RealMedia
+		"asf", "dvr-ms", "wtv", // Windows Media and Media Center's recordings
+		"ogm", "mxf", "dv", "nut", "ivf", "y4m", "xvid",
+		"f4v", "3g2", "qt", "mk3d", // MP4's and Matroska's relatives
+		"mpe", "m2p", "vro", "evo", // MPEG's program streams, DVD-VR's and HD DVD's
+		"trp", "tp", "m2t", "tod", // transport streams: broadcast recordings and camcorders
 	)
 }
 

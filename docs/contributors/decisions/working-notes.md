@@ -22944,6 +22944,30 @@ unmodified row, D201, and an admin who once edited the list keeps theirs for goo
    and cuts its chunks by FFmpeg, whatever the container. RealVideo's sparse keyframes are cut at
    as they come: a film with one every four seconds has four-second chunks.
 
+3. **Every container people kept films in that the pinned FFmpeg can write a film in is read,** each
+   proven by a film written in it, in codecs typical of it (the owner: "We should just add all of
+   the video types we can at this point (verifying that they work). Beta users will likely have
+   collections spanning decades."): Windows Media's `asf`, Media Center's `dvr-ms` (ASF) and `wtv`;
+   `ogm`, `mxf`, `dv`, `nut`, `ivf`, `y4m` and `xvid` (an AVI); MP4's relatives `f4v`, `3g2` and
+   `qt`, and Matroska's 3D `mk3d`; MPEG program streams `mpe`, `m2p`, DVD-VR's `vro` and HD DVD's
+   `evo`; and transport streams `trp`, `tp`, `m2t` and the camcorders' `tod`. Each is decided as its
+   codecs need, played as it is (`mk3d` with H.264 and AAC), its picture copied (`f4v`, `qt`, `trp`)
+   or encoded, and its first chunk made. Proving them found that a picture carrying a timecode, as an
+   MXF's or a camera's MOV does, had the MP4 muxer add a timecode track to each raw file, which the
+   node refused; the node now tells the muxer to write none.
+4. **Left out:**
+   - *Also used by what is no film:* `mod` (a camcorder's MPEG program stream, but also a tracker's
+     music), `m4p` (iTunes' protected sound, not video), `ps` (PostScript), `dat` (a VCD's MPEG, but
+     any data), `swf` (Flash's animations and programs), `ogg` (Ogg's sound; its video is `ogv`),
+     `asx` (a playlist).
+   - *Written by FFmpeg, but proven not to play:* `m2v` and `m1v`, elementary MPEG video, which
+     carry no container's timing, so the probe has no length and the film cannot be cut; and `amv`,
+     whose films FFmpeg's muxer writes without a length, so whether a real player's file plays waits
+     for a real sample.
+   - *Read by FFmpeg but not written, awaiting a real sample* (the owner will find test films; each
+     is added once one plays): Nullsoft's `nsv`, MythTV's `nuv`, TiVo's `ty`, RED's `r3d`, Bink's
+     `bik`, Smacker's `smk`, CCTV recorders' `dav` and `ifv`, and `vivo`.
+
 **Proven by:**
 - 1: TestReadRules_ReadTheOlderContainersByDefault (a stored row of either retired key changes
   nothing), TestRetiredKeys_AreNotInUseAndSayWhen
@@ -22953,6 +22977,9 @@ unmodified row, D201, and an admin who once edited the list keeps theirs for goo
   and their first chunks made),
   TestDecide_ARealMediaFilmIsEncodedOnItsLadder, TestDecide_SortsEachVideoStreamIntoOneMenuEntry,
   TestDecide_SortsEachAudioStreamIntoOneMenuEntry
+- 3: TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade (integration tier,
+  a film of each), TestArguments_WriteNoTimecodeTrackBesideTheStream
+- 4: TestReadRules_ReadNoExtensionOfWhatIsNoFilmOrIsUnproven
 
 ## D361 — The admin's libraries are a list, each library managed on a page of its own, creating one is a page too, and the folder browser is a modal dialog
 

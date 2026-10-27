@@ -72,6 +72,19 @@ func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 	}
 }
 
+// Every raw file holds its one stream: a picture carrying a timecode, as an MXF's or a camera's MOV
+// does, gets no timecode track beside it, which the MP4 muxer adds unless told not to (D360).
+func TestArguments_WriteNoTimecodeTrackBesideTheStream(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []nodeproto.ChunkStreamKind{nodeproto.StreamPicture, nodeproto.StreamQuality} {
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r",
+			run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480}), encode.EncoderX264)
+		if options := valueOf(arguments, "-segment_format_options"); !strings.Contains(options, "write_tmcd=0") {
+			t.Errorf("a %s run's raw files are written with %q; want no timecode track", kind, options)
+		}
+	}
+}
+
 // A copied HEVC picture is tagged hvc1, which Safari requires (cut-a §6).
 func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 	t.Parallel()
