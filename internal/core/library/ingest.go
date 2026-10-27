@@ -38,7 +38,12 @@ type Ingester struct {
 	onNewFiles   func(ctx context.Context, libraryID int64)
 	// retireVersion retires the versions a row found to be another file leaves (SetVersionRetirer).
 	retireVersion VersionRetirer
+	// absences are the places a read found its file not at, which a complete scan of them forgets.
+	absences *Absences
 }
+
+// Absences are the places a read found its file not at, until a complete scan of them.
+func (ingester *Ingester) Absences() *Absences { return ingester.absences }
 
 // SetVersionRetirer sets what retires the version and title a row leaves when it is found to be
 // another file (identify's RetireVersionInto); with none set, only the row's filings go.
@@ -119,7 +124,7 @@ func NewIngester(
 ) *Ingester {
 	return &Ingester{
 		database: database, clock: clockSource, settings: settingsService, logger: logger,
-		scans: map[scanKey]*scanState{},
+		scans: map[scanKey]*scanState{}, absences: NewAbsences(logger),
 	}
 }
 
@@ -167,6 +172,9 @@ func (ingester *Ingester) write(ctx context.Context, key scanKey, ingest func(ba
 		return err
 	}
 	nodeID := key.nodeID
+	for _, found := range foundPaths {
+		ingester.absences.forgetUnder(nodeID, found)
+	}
 	if ingester.onNewFiles != nil {
 		for _, libraryID := range newFilesLibraryIDs {
 			ingester.onNewFiles(ctx, libraryID)

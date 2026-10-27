@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -101,7 +102,7 @@ func TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem(t *testing.T) {
 	connections := &fakeNodes{id: world.nodeID}
 	placeOf := func(reach auth.Reach) string {
 		t.Helper()
-		located, err := PlaceToRead(t.Context(), world.database.Read(), connections, reach, file)
+		located, err := PlaceToRead(t.Context(), world.database.Read(), connections, nil, reach, file)
 		if err != nil {
 			t.Fatalf("the place to read for %+v: %v", reach, err)
 		}
@@ -113,8 +114,8 @@ func TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem(t *testing.T) {
 	if got := placeOf(auth.LibrariesOnly(backupID)); got != backupPlace {
 		t.Errorf("for Backup alone the place read is %s; want its copy", got)
 	}
-	if _, err := PlaceToRead(t.Context(), world.database.Read(), connections, auth.LibrariesOnly(99), file); !errors.Is(
-		err, ErrNoFile) {
+	if _, err := PlaceToRead(t.Context(), world.database.Read(), connections, nil, auth.LibrariesOnly(99),
+		file); !errors.Is(err, ErrNoFile) {
 		t.Errorf("for no library of the file's: %v; want ErrNoFile", err)
 	}
 	storetest.ExecRaw(t, world.database.Path(),
@@ -126,6 +127,55 @@ func TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem(t *testing.T) {
 	if got := placeOf(auth.LibrariesOnly(1)); got != root+"/Metropolis.mkv" {
 		t.Errorf("with the first place's disk gone, for Films alone the place read is %s; want its own, which "+
 			"says why it cannot be read, and never the copy it does not reach", got)
+	}
+}
+
+// D363 §8: a read that found the file not at a place, renamed or deleted there, has the reads after it
+// go to another place their reader reaches, and never to one they do not, until a complete scan of
+// the place sees the file there again. A play of a film renamed away at its first place answered 404
+// though its copy stood (staging, 2026-10-27, VQ81).
+func TestPlaceToRead_AfterAReadFindsTheFileNotAtAPlaceItReadsAnotherUntilAScanSeesItThere(t *testing.T) {
+	t.Parallel()
+	world := placedFilm(t)
+	file, err := world.database.Read().GetPlayableFile(t.Context(), world.fileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connections, absences := &fakeNodes{id: world.nodeID}, world.ingester.Absences()
+	placeOf := func(reach auth.Reach) string {
+		t.Helper()
+		located, err := PlaceToRead(t.Context(), world.database.Read(), connections, absences, reach, file)
+		if err != nil {
+			t.Fatalf("the place to read for %+v: %v", reach, err)
+		}
+		return string(located.ReportedPathRaw)
+	}
+	first := root + "/Metropolis.mkv"
+	absences.Note(t.Context(), world.nodeID, []byte(first), "no such file under the root")
+	if got := placeOf(auth.EveryLibrary()); got != backupPlace {
+		t.Errorf("with the file not found at its first place, the place read is %s; want the copy", got)
+	}
+	if got := placeOf(auth.LibrariesOnly(1)); got != first {
+		t.Errorf("for Films alone the place read is %s; want its own, never the copy it does not reach", got)
+	}
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat")}, true)
+	if got := placeOf(auth.EveryLibrary()); got != first {
+		t.Errorf("after a scan saw the file at its first place, the place read is %s; want the first again", got)
+	}
+}
+
+// A place a read found its file not at asks for a scan of its folder, in the background, which sees
+// the file there again or removes the place.
+func TestAbsences_APlaceNotedAsksForAScanOfItsFolder(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.ingester.Absences().Note(t.Context(), bench.nodeID, []byte(root+"/Metropolis/Metropolis.mkv"), "no such file")
+	scans, err := bench.cache.Read().ListScans(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scans) != 1 || scans[0].ScopePath != "Metropolis" || scans[0].Priority != jobs.PriorityBackground {
+		t.Errorf("a place noted asked for the scans %+v; want one of its folder, in the background", scans)
 	}
 }
 

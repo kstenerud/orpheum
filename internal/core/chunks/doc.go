@@ -185,7 +185,10 @@
 //     TestHandleMakeChunks_SendsTheRunOfTheFilmsPictureAndTakesItsChunksAsTheyAreMade,
 //     TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix,
 //     TestHandleMakeChunks_ARunOnAGridTheFilmNoLongerHasEndsForGood and
-//     TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays.
+//     TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays. A run refused because its film is not
+//     at the place it read is tried again at once at a copy beside it, which the runs after it read
+//     until a scan sees the film there again (D363 §8).
+//     TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesideIt.
 //
 //   - It reads the timelines and never writes them: internal/core/readthrough writes
 //     video_timeline. Enforced by TestArch_EachTableHasOneWritingPackage.

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -32,6 +33,8 @@ type fakeNodeBytes struct {
 	// asksBeforeFound is, by target, how many more asks for it are answered 404 before it is found:
 	// a chunk its node makes while the core waits for it. Guarded by mutex.
 	asksBeforeFound map[string]int
+	// asked are the targets asked for, in order. Guarded by mutex.
+	asked []string
 }
 
 func (fake *fakeNodeBytes) Do(
@@ -45,6 +48,7 @@ func (fake *fakeNodeBytes) Do(
 	if fake.stalledRoot != "" {
 		return nil, &nodes.StalledRootError{NodeID: nodeID, RootPath: fake.stalledRoot}
 	}
+	fake.asked = append(fake.asked, target)
 	recorder := httptest.NewRecorder()
 	contents, found := fake.files[target]
 	if fake.asksBeforeFound[target] > 0 {
@@ -218,6 +222,46 @@ func TestPlayback_AFileThatFitsPlaysDirectlyThroughTheCore(t *testing.T) {
 		ranged.header.Get("Content-Range") != "bytes 4-7/16" {
 		t.Errorf("a range = %d %q %q, want 206 \"film\"",
 			ranged.status, ranged.body, ranged.header.Get("Content-Range"))
+	}
+}
+
+// D363 §8: a direct read whose node has no file at the place read, renamed away there, reads the
+// copy at another place its holder reaches, and the reads after it go there first, until a scan
+// sees the file at its place again. It answered 404 though the copy stood (staging, 2026-10-27,
+// VQ81). With no place left that has it, the file is no longer there as it was.
+func TestPlayback_ADirectReadOfAFileGoneFromItsPlaceReadsItsCopy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	backup := librarytest.LibraryOn(t, harness.database, 1,
+		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/backup"})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		LibraryID: backup, NodeID: 1, Path: "/backup/Film (2001).mp4", Filing: "copy", CopyOf: 1, FirstSeenAt: 3,
+	})
+	first := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}.Target()
+	copied := nodeproto.BytesFile{RootPath: "/backup", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}.Target()
+	harness.nodeBytes.mutex.Lock()
+	delete(harness.nodeBytes.files, first) // renamed away
+	harness.nodeBytes.files[copied] = "the copy's bytes"
+	harness.nodeBytes.mutex.Unlock()
+	decided := harness.play(t, user, chrome(1))
+	for range 2 {
+		if read := harness.getBytePath(t, decided.URL, user, false, ""); read.status != http.StatusOK ||
+			read.body != "the copy's bytes" {
+			t.Errorf("a read of the film gone from its first place = %d %q; want the copy's bytes", read.status,
+				read.body)
+		}
+	}
+	harness.nodeBytes.mutex.Lock()
+	asked := slices.Clone(harness.nodeBytes.asked)
+	delete(harness.nodeBytes.files, copied)
+	harness.nodeBytes.mutex.Unlock()
+	if !slices.Equal(asked, []string{first, copied, copied}) {
+		t.Errorf("the node was asked for %q; want the first place once, then the copy each time", asked)
+	}
+	if read := harness.getBytePath(t, decided.URL, user, false, ""); read.status != http.StatusNotFound {
+		t.Errorf("a read of the film gone from both places = %d %q; want 404", read.status, read.body)
 	}
 }
 

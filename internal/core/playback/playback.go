@@ -68,6 +68,9 @@ type Parts struct {
 	// Roots asks a root's node whether it can be read now, and brings it back when it can (D327); nil
 	// asks none.
 	Roots RootProbes
+	// Absences are the places a read found a file not at, which a play reads from last (D363 §8); nil
+	// knows of none.
+	Absences *library.Absences
 }
 
 // RootProbes asks a root's node whether it can be read now, and brings it back when it can:
@@ -101,6 +104,7 @@ type Service struct {
 	offers      Offers
 	reads       FileReads
 	roots       RootProbes
+	absences    *library.Absences
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
 	// unplayablePictures are the films whose own picture each player gave up as unplayable.
@@ -125,7 +129,8 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, speeds: newLinkSpeeds(),
+		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, absences: parts.Absences,
+		speeds:             newLinkSpeeds(),
 		unplayablePictures: newUnplayablePictures(),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
@@ -206,7 +211,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	}
 	// It plays from a place the person reaches, the first that can be read now (D363 §8); nothing is
 	// queued for a file that cannot be read now at any: the person is told why at once (D241 §4).
-	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, holder.Reach, file)
+	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, service.absences, holder.Reach, file)
 	if err != nil {
 		return Started{}, err
 	}
@@ -506,11 +511,12 @@ func (service *Service) soundOffsetMs(ctx context.Context, userID, deviceID int6
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and
-// the type to serve them as.
+// the type to serve them as; and the place they are read at, the path its node reported.
 type Source struct {
 	NodeID      int64
 	Target      string
 	ContentType string
+	PlacePath   []byte
 }
 
 // DirectSource is where the bytes of the file a media token refers to are.
@@ -528,7 +534,7 @@ func (service *Service) DirectSource(ctx context.Context, token string, holder H
 		return Source{}, err
 	}
 	// From a place its holder reaches, the first that can be read now (D363 §8).
-	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, holder.Reach, file)
+	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, service.absences, holder.Reach, file)
 	if err != nil {
 		return Source{}, err
 	}
@@ -540,7 +546,17 @@ func (service *Service) DirectSource(ctx context.Context, token string, holder H
 	if err != nil {
 		return Source{}, err
 	}
-	return Source{NodeID: place.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format)}, nil
+	return Source{
+		NodeID: place.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format),
+		PlacePath: place.ReportedPathRaw,
+	}, nil
+}
+
+// NotThere is a direct playback's read of source that its node answered with no file there, or not
+// the one named, for why: the next DirectSource of the file is another place its holder reaches,
+// until a scan sees the file there again (D363 §8).
+func (service *Service) NotThere(ctx context.Context, source Source, why string) {
+	service.absences.Note(ctx, source.NodeID, source.PlacePath, why)
 }
 
 // Unreadable is why a file cannot be read now, or nil when it can (D241 §7); library.ErrNoFile for

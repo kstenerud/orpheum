@@ -71,31 +71,40 @@ func LocatedOf(file sqlcgen.GetPlayableFileRow) Located {
 // PlaceToRead is where a playable file is read from (D363 §8): of its live places that a library reach
 // reaches covers, every one for a reach of every library, the first that can be read now, its first
 // place before its copies; else the first of them, whose being unreadable says why. A disk that stops
-// answering so falls back to another of the places reach reaches, and to none other. A file at no
-// place reach reaches is ErrNoFile. Work no one person asked for, a run of chunks or a measurement,
-// reads with every library's reach: the bytes of a copy are the file's, and whether a person may play
-// is judged by their own places.
+// answering so falls back to another of the places reach reaches, and to none other; so does a place
+// at which a read found the file not there, among absences, until a scan sees it there again (nil
+// knows of none). A file at no place reach reaches is ErrNoFile. Work no one person asked for, a run
+// of chunks or a measurement, reads with every library's reach: the bytes of a copy are the file's,
+// and whether a person may play is judged by their own places.
 func PlaceToRead(
-	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, reach auth.Reach,
-	file sqlcgen.GetPlayableFileRow,
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, absences *Absences,
+	reach auth.Reach, file sqlcgen.GetPlayableFileRow,
 ) (Located, error) {
-	return placeToRead(ctx, queries, connections, reach, file, 0)
+	return placeToRead(ctx, queries, connections, absences, file, placesOf{reach: reach})
 }
 
 // PlaceOnNodeToRead is PlaceToRead among the file's places on one node: work whose output stays on its
 // node, a run of chunks in that node's store, falls back only to a copy beside it.
 func PlaceOnNodeToRead(
-	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, file sqlcgen.GetPlayableFileRow,
-	nodeID int64,
-) (Located, error) {
-	return placeToRead(ctx, queries, connections, auth.EveryLibrary(), file, nodeID)
-}
-
-// placeToRead is PlaceToRead, of the places on nodeID alone when it is not 0.
-func placeToRead(
-	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, reach auth.Reach,
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, absences *Absences,
 	file sqlcgen.GetPlayableFileRow, nodeID int64,
 ) (Located, error) {
+	return placeToRead(ctx, queries, connections, absences, file, placesOf{reach: auth.EveryLibrary(), nodeID: nodeID})
+}
+
+// placesOf are the places of a file a read may be from: those reach reaches, on nodeID alone when it
+// is not 0.
+type placesOf struct {
+	reach  auth.Reach
+	nodeID int64
+}
+
+// placeToRead is PlaceToRead, of the places among.
+func placeToRead(
+	ctx context.Context, queries *sqlcgen.Queries, connections NodeConnections, absences *Absences,
+	file sqlcgen.GetPlayableFileRow, among placesOf,
+) (Located, error) {
+	reach, nodeID := among.reach, among.nodeID
 	rows, err := queries.ListPlacesOfFile(ctx, file.ID)
 	if err != nil {
 		return Located{}, fmt.Errorf("list the places of file %d: %w", file.ID, err)
@@ -118,6 +127,14 @@ func placeToRead(
 	if len(reached) == 0 {
 		return Located{}, fmt.Errorf("file %d at no place its reader reaches: %w", file.ID, ErrNoFile)
 	}
+	// A place a read found the file not at is the last tried: its read says the file is not there.
+	present := slices.DeleteFunc(slices.Clone(reached), func(place Located) bool {
+		return absences.IsAbsent(place.NodeID, place.ReportedPathRaw)
+	})
+	if len(present) == 0 {
+		return reached[0], nil
+	}
+	reached = present
 	if len(reached) == 1 || connections == nil {
 		return reached[0], nil
 	}

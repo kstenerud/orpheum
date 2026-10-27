@@ -798,6 +798,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   answering is), so a play of the original's place answered 404 rather than reading the copy; and the
   vanished folder's scan was given up without marking the folder unavailable. Filed for the next
   batch. Owed: the owner's unplugged-disk case, on a disk.
+  Fixed 2026-10-27, to see again: with the original renamed away, a play by a person reaching both
+  places plays the copy (direct and from the ladder), the core log saying `a read found its file not
+  at this place` and a scan of its folder following, and a person reaching only the original's place
+  is still refused; with a library folder deleted, its scan lists it as unreadable (node log `a
+  library folder could not be opened`), the Libraries page shows the folder unavailable, its films
+  stay listed as unavailable, and they come back when the folder does and a scan reads it.
+  (`internal/core/api/playback.go`, `internal/core/chunks/job.go`, `internal/core/library/absent.go`,
+  `internal/node/agent/listing.go`)
 - [ ] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching

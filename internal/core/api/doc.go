@@ -29,6 +29,9 @@
 //     TestIdempotentAnswers_PastTheirTimeAreSweptOut.
 //   - Opens no file and walks no directory; files are internal/core/instancedir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
+//   - A direct read whose node has no file at the place read, or not the one named, goes on to the
+//     next place its holder reaches, which the reads after it go to first; with none left the file
+//     is no longer there (D363 §8). TestPlayback_ADirectReadOfAFileGoneFromItsPlaceReadsItsCopy.
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //   - Every JSON field on the wire is camelCase and every marshalled struct has explicit tags.

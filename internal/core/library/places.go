@@ -68,11 +68,19 @@ func (scans *Scans) ProbeAndBringBack(ctx context.Context, nodeID int64, root st
 
 // NewScans returns the scans.
 func NewScans(parts ScansParts) *Scans {
-	return &Scans{
+	scans := &Scans{
 		cache: parts.Cache, ingester: parts.Ingester, jobs: parts.Jobs, assigner: parts.Assigner,
 		settings: parts.Settings, clock: parts.Clock, logger: parts.Logger,
 		completions: map[int64]nodeproto.ScanComplete{},
 	}
+	if parts.Ingester == nil {
+		return scans
+	}
+	// A place a read found its file not at is scanned, which sees it there again or removes it.
+	parts.Ingester.absences.scanFolderOf = func(ctx context.Context, nodeID int64, reportedPath []byte) error {
+		return scans.requestFolderOf(ctx, nodeID, reportedPath, jobs.PriorityBackground)
+	}
+	return scans
 }
 
 // Request asks for a scan of a node's whole root at priority. One asked for while the root's scan

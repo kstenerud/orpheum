@@ -167,7 +167,7 @@ func (server *Server) relayChunkFile(
 	giveUpAt := askedAt.Add(time.Duration(hold) * time.Millisecond)
 	var wait *chunkWait
 	for {
-		answer, err := server.relay(ctx, dependencies, request, func() error { return errNotMadeYet })
+		answer, err := server.relay(ctx, dependencies, request, func(int) error { return errNotMadeYet })
 		if !errors.Is(err, errNotMadeYet) {
 			return server.relayed(ctx, dependencies, file, wait, answer, err)
 		}

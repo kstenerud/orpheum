@@ -145,7 +145,9 @@
 //   - A run of chunks, subtitle or read-through the node did not try (no worker for it, a file outside
 //     its roots or changed since the scan, a disk with no room) is answered as a refusal, apart
 //     from FFmpeg failing on the bytes, so the core can try a refusal again; a file changed since the
-//     scan is named so (nodeproto.RefusedChanged, S74).
+//     scan is named so (nodeproto.RefusedChanged, S74), and one not at its path at all too
+//     (nodeproto.RefusedGone, D363 §8).
+//     TestAgent_ARunOfAVideoGoneFromItsPathIsRefusedAsGone,
 //     TestAgent_ARunTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
 //     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //   - A run of chunks, subtitle or read-through whose FFmpeg the watchdog stopped is answered as a stall,

@@ -26,7 +26,7 @@ func (services *Services) openPlayback(parts Parts) {
 	services.chunks = chunks.NewService(chunks.Parts{
 		Database: database, Cache: parts.Cache, Settings: parts.Settings, Queue: queue, Nodes: services.nodes,
 		Exchanges: services.Exchanges, Loudness: levels, ReadThrough: services.ReadThrough, Logger: parts.Logger,
-		Clock: parts.Clock, Encoders: services.nodes,
+		Clock: parts.Clock, Encoders: services.nodes, Absences: services.ingester.Absences(),
 	})
 	var reads playback.FileReads = services.Scans
 	if parts.FileReads != nil {
@@ -36,7 +36,7 @@ func (services *Services) openPlayback(parts Parts) {
 		Database: database, Nodes: services.nodes, Settings: parts.Settings, Clock: parts.Clock,
 		Random: parts.Random, Subtitles: services.subtitles,
 		Preferences: services.API.Preferences, Loudness: levels, Chunks: services.chunks, Offers: services.chunks,
-		Reads: reads, Roots: services.Scans,
+		Reads: reads, Roots: services.Scans, Absences: services.ingester.Absences(),
 	})
 	// A run its node cannot make fast enough moves its players down a quality, before it is evicted
 	// (D286 §4, D309 §6).
