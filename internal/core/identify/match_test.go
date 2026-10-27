@@ -157,6 +157,28 @@ func TestMatch_ANameMatchedExactlyWinsOverOneMatchedWithAnArticleAside(t *testin
 	}
 }
 
+// The year the file or its NFO gives is the stronger cue: the exact name settles only among
+// candidates of the year, so the file's "Crowd" (2022) is "The Crowd" of 2022, not an
+// "Crowd" of 2021; fuzzier matches only once the year settles nothing (the owner, 2026-10-27).
+func TestMatch_TheYearIsAStrongerCueThanTheExactName(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "41", Name: "Crowd", OriginalName: "Crowd", Year: 2021}),
+		lib.provider.Add(identify.Metadata{
+			ID: "42", Name: "The Crowd", OriginalName: "The Crowd", Year: 2022,
+		}),
+	}
+	const rel = "Crowd (2022).mkv"
+	lib.scan(videoRecord(rel))
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
+		t.Fatalf("outcome %s, want matched", outcome)
+	}
+	if !slices.Contains(lib.provider.Calls, "fetch 42") {
+		t.Errorf("the 2022 film was not fetched as its match: %v", lib.provider.Calls)
+	}
+}
+
 // isGuessed is whether an item's match is marked a guess.
 func (lib *testLibrary) isGuessed(itemID int64) bool {
 	lib.t.Helper()
