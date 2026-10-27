@@ -137,7 +137,11 @@
 //     root or a node, or deletes a library, and its work is cancelled (D231 §7).
 //     TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays,
 //     TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled,
-//     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory.
+//     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory. An admin,
+//     and no one else, browses the folders inside a node's configured roots, makes a library over
+//     one and adds one to a library, which is scanned (D359).
+//     TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots,
+//     TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary.
 //   - Any signed-in user browses films and series, a title's detail, a series and search; a
 //     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
 //     A list or a search of one library is of one the user reaches (D349).

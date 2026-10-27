@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -78,22 +77,18 @@ func (admin *Admin) RepointRoot(ctx context.Context, repoint Repoint) (Repointed
 	if err != nil {
 		return Repointed{}, err
 	}
-	newNodeID, roots, connected := admin.nodes.ConnectedNodeRoots(ctx, repoint.NewNodeName)
-	if !connected {
-		return Repointed{}, fmt.Errorf("node %q: %w", repoint.NewNodeName, ErrNodeNotConnected)
+	newNodeID, err := admin.libraryFolderOn(ctx, repoint.NewNodeName, repoint.NewPath)
+	if err != nil {
+		return Repointed{}, err
 	}
-	if !slices.Contains(roots, repoint.NewPath) {
-		return Repointed{}, fmt.Errorf("%s on node %q: %w; it names %v", repoint.NewPath, repoint.NewNodeName,
-			ErrNotANodeRoot, roots)
+	// The folder moved away from covers nothing once it has moved.
+	except := ""
+	if newNodeID == root.NodeID {
+		except = repoint.Path
 	}
-	_, err = store.OrNotFound(admin.database.Read().GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
-		NodeID: newNodeID, RootPath: repoint.NewPath,
-	}))
-	switch {
-	case err == nil:
-		return Repointed{}, fmt.Errorf("%s on node %q: %w", repoint.NewPath, repoint.NewNodeName, ErrRootCovered)
-	case !errors.Is(err, store.ErrNotFound):
-		return Repointed{}, fmt.Errorf("read the library over %s: %w", repoint.NewPath, err)
+	coveredErr := admin.refuseCovered(ctx, newNodeID, repoint.NewNodeName, repoint.NewPath, except)
+	if coveredErr != nil {
+		return Repointed{}, coveredErr
 	}
 	var moved int
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {

@@ -33,3 +33,11 @@ func (server *Server) ProbeAsks(root string) int {
 	}
 	return 0
 }
+
+// ListingFoldersWith has the server list a folder's folders with list, as a test's disk does.
+func (server *Server) ListingFoldersWith(
+	list func(root *confine.MediaRoot, relative string) ([]string, error),
+) *Server {
+	server.subfolders = list
+	return server
+}

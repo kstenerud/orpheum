@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io/fs"
 	"net/http"
-	"path/filepath"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -16,43 +15,62 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// probes runs at most one probe of each root at a time, every ask meanwhile sharing its answer: a
-// probe of a share that is gone waits in the kernel, and each one more left waiting is one more
-// thread held, however soon it is asked again (D327 §2).
-type probes struct {
+// sharedReads runs at most one read of each place at a time, every ask meanwhile sharing its answer:
+// a read of a share that is gone waits in the kernel, and each one more left waiting is one more
+// thread held, however soon it is asked again (D327 §2). The probes and the folder listings
+// (D359 §2) each have their own.
+type sharedReads[Answer any] struct {
 	mutex   sync.Mutex
-	running map[string]*probeCall // guarded by mutex: by root
+	running map[string]*sharedRead[Answer] // guarded by mutex: by place
 }
 
-// probeCall is one probe running, its answer ready once done is closed.
-type probeCall struct {
+// sharedRead is one read running, its answer ready once done is closed.
+type sharedRead[Answer any] struct {
 	done   chan struct{}
-	answer nodeproto.PlaceProbe
-	// asks are how many asks share it; guarded by the probes' mutex.
+	answer Answer
+	// asks are how many asks share it; guarded by the sharedReads' mutex.
 	asks int
 }
 
-// join is the probe of root running, or one started by probe when none is.
-func (running *probes) join(root string, probe func() nodeproto.PlaceProbe) *probeCall {
+// join is the read of place running, or one started by read when none is.
+func (running *sharedReads[Answer]) join(place string, read func() Answer) *sharedRead[Answer] {
 	running.mutex.Lock()
 	defer running.mutex.Unlock()
-	if call, isRunning := running.running[root]; isRunning {
+	if call, isRunning := running.running[place]; isRunning {
 		call.asks++
 		return call
 	}
 	if running.running == nil {
-		running.running = map[string]*probeCall{}
+		running.running = map[string]*sharedRead[Answer]{}
 	}
-	call := &probeCall{done: make(chan struct{}), asks: 1}
-	running.running[root] = call
+	call := &sharedRead[Answer]{done: make(chan struct{}), asks: 1}
+	running.running[place] = call
 	go func() {
-		call.answer = probe()
+		call.answer = read()
 		running.mutex.Lock()
-		delete(running.running, root)
+		delete(running.running, place)
 		running.mutex.Unlock()
 		close(call.done)
 	}()
 	return call
+}
+
+// answerShared waits for a shared read's answer and writes it as JSON, unless the ask leaves first,
+// leaving the read running for the next ask to share.
+func answerShared[Answer any](writer http.ResponseWriter, request *http.Request, call *sharedRead[Answer]) {
+	select {
+	case <-call.done:
+	case <-request.Context().Done():
+		return
+	}
+	encoded, err := json.Marshal(call.answer)
+	if err != nil {
+		http.Error(writer, "the answer could not be written", http.StatusInternalServerError)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	// The node's own JSON, on its private socket, to the core: no page renders it.
+	_, _ = writer.Write(encoded) //nolint:errcheck // a core that hung up asks again
 }
 
 // serveProbe answers nodeproto.PathBytesProbe: whether a place, one of the node's roots or a
@@ -68,35 +86,13 @@ func (server *Server) serveProbe(writer http.ResponseWriter, request *http.Reque
 	}
 	ctx := context.WithoutCancel(request.Context())
 	call := server.probes.join(path, func() nodeproto.PlaceProbe { return server.probe(ctx, path, root, relative) })
-	select {
-	case <-call.done:
-	case <-request.Context().Done():
-		return
-	}
-	encoded, err := json.Marshal(call.answer)
-	if err != nil {
-		http.Error(writer, "the probe's answer could not be written", http.StatusInternalServerError)
-		return
-	}
-	writer.Header().Set("Content-Type", "application/json")
-	// The node's own JSON, on its private socket, to the core: no page renders it.
-	_, _ = writer.Write(encoded) //nolint:errcheck // a core that hung up asks again
+	answerShared(writer, request, call)
 }
 
-// placeOf is the root that holds path, and path relative to it; false when no root does.
+// placeOf is the root that holds path, and path relative to it; false when no root does, or path is
+// not clean (confine.Holding).
 func (server *Server) placeOf(path string) (*confine.MediaRoot, string, bool) {
-	if root, isRoot := server.roots[path]; isRoot {
-		return root, ".", true
-	}
-	if !filepath.IsAbs(path) {
-		return nil, "", false
-	}
-	for _, root := range server.roots {
-		if relative, isInside := root.RelativeIfInside(filepath.Clean(path)); isInside {
-			return root, relative, true
-		}
-	}
-	return nil, "", false
+	return confine.Holding(server.roots, path)
 }
 
 // probe measures a place's facts through the disk gate, keyed by its root: at once not answering

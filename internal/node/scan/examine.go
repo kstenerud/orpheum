@@ -162,7 +162,9 @@ func (walk *walk) probe(place location) (nodeproto.Probe, error) {
 		if err != nil {
 			return nodeproto.Probe{}, fmt.Errorf("%w: stat %s: %w", errProbe, place.relativePath, err)
 		}
-		opened := execx.OpenedFilm{File: file, Facts: facts, Disks: options.Disks, Root: place.mediaRoot.Path()}
+		opened := execx.OpenedFilm{
+			File: file, Facts: facts, Disks: options.Disks, Root: place.mediaRoot.ConfiguredPath(),
+		}
 		opened.Window, opened.IsDiscImage = options.FilmReadWindow, isDiscImage
 		if film, err = options.Films.FilmOf(walk.ctx, film.Path, opened, execx.ReadsIndex); err != nil {
 			return nodeproto.Probe{}, fmt.Errorf("%w: %w", errProbe, err)

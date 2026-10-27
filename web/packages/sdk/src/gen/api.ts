@@ -1001,6 +1001,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/libraries/{id}/roots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a folder to a library, and scan it (admin; D359) */
+        post: operations["postLibraryRoot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries/{id}/roots/repoint": {
         parameters: {
             query?: never;
@@ -1302,6 +1319,23 @@ export interface paths {
         };
         /** The nodes, and the roots each connected one configured, for a new library (admin) */
         get: operations["getNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nodes/{name}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The folders in a node's root or a folder inside it, to choose a library folder (admin; D359) */
+        get: operations["getNodeFolders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2216,6 +2250,12 @@ export interface components {
             deviceName: string;
             platform: string;
         };
+        AddLibraryRootInputBody: {
+            /** @description The node's configured name */
+            nodeName: string;
+            /** @description One of the node's configured roots, or a folder inside one */
+            path: string;
+        };
         AdminAwayInputBody: {
             /** @enum {string} */
             adminAway: "never" | "always";
@@ -2509,7 +2549,7 @@ export interface components {
             name: string;
             /** @description The node's configured name */
             nodeName: string;
-            /** @description Roots the node configured */
+            /** @description The node's configured roots, or folders inside them (D359) */
             rootPaths: string[] | null;
         };
         CreateRoleOutputBody: {
@@ -3580,6 +3620,15 @@ export interface components {
             /** Format: int64 */
             readerLimit: number;
         };
+        NodeFoldersOutputBody: {
+            /** @description Why it could not be listed, in the node's words */
+            failure?: string;
+            /** @description The names of the folders in it, in byte order: no link and no hidden folder */
+            folders: string[] | null;
+            path: string;
+            /** @enum {string} */
+            state: "readable" | "notAnswering" | "missing" | "failed";
+        };
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
         };
@@ -4036,7 +4085,7 @@ export interface components {
         RepointInputBody: {
             /** @description The node it is on now: the same, or another */
             newNodeName: string;
-            /** @description Where it is now: one of that node's configured roots */
+            /** @description Where it is now: one of that node's configured roots, or a folder inside one */
             newPath: string;
             /** @description The root's node */
             nodeName: string;
@@ -7215,6 +7264,42 @@ export interface operations {
             };
         };
     };
+    postLibraryRoot: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddLibraryRootInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     postLibraryRootRepoint: {
         parameters: {
             query?: never;
@@ -7909,6 +7994,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getNodeFolders: {
+        parameters: {
+            query: {
+                /** @description One of the node's configured roots, or a folder inside one, by a clean absolute path */
+                path: string;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeFoldersOutputBody"];
                 };
             };
             /** @description Error */

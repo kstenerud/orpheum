@@ -6,10 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
+	"log/slog"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -23,8 +25,9 @@ var (
 	// ErrNodeNotConnected is a node that has not said hello since the server started, so its
 	// roots are not known.
 	ErrNodeNotConnected = errors.New("the node has not connected since the server started")
-	// ErrNotANodeRoot is a root the node did not configure (D107).
-	ErrNotANodeRoot = errors.New("not one of the node's configured roots")
+	// ErrNotANodeRoot is a library folder that is neither a root the node configured nor a folder
+	// inside one by a clean path (D107, D359 §1).
+	ErrNotANodeRoot = errors.New("neither one of the node's configured roots nor a folder inside one")
 	// ErrNoSuchRoot is a root the library does not cover.
 	ErrNoSuchRoot = errors.New("the library has no such root")
 	// ErrNothingWithheld is a root whose removals are not waiting for the admin.
@@ -61,6 +64,13 @@ type Admin struct {
 	retirement Retirement
 	// settings are where it reads its settings (UseSettings); nil reads their starting values.
 	settings AdminSettings
+	// folderLister lists a node's folders (ListFoldersThrough); nil lists none (D359 §2).
+	folderLister FolderLister
+	// folderListingWait is how long a listing is waited on; zero is folderListingWait's, a test's
+	// shorter.
+	folderListingWait time.Duration
+	// logger is where it logs (UseLogger); nil logs nothing.
+	logger *slog.Logger
 }
 
 // NewAdmin returns the admin service; scans is how it asks for a scan, and retirement what a retire
@@ -104,16 +114,28 @@ type CreateRequest struct {
 	NodeName string
 }
 
-// Create adds a library over roots the node configured, then asks the node to scan them.
+// Create adds a library over folders of one node, each one of its configured roots or a folder inside
+// one, none covered by another library nor at, above or below another of them (D107, D359 §1), then
+// asks the node to scan them.
 func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, error) {
-	nodeID, roots, connected := admin.nodes.ConnectedNodeRoots(ctx, request.NodeName)
+	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, request.NodeName)
 	if !connected {
 		return 0, fmt.Errorf("node %q: %w", request.NodeName, ErrNodeNotConnected)
 	}
+	// A name taken is said before the folders are judged; Create asks again as it writes.
+	if err := refuseTakenName(ctx, admin.database.Read(), textindex.Line(request.Name)); err != nil {
+		return 0, err
+	}
 	for _, root := range request.Roots {
-		if !slices.Contains(roots, root) {
-			return 0, fmt.Errorf("%s on node %q: %w; it names %v", root, request.NodeName, ErrNotANodeRoot, roots)
+		if _, err := admin.libraryFolderOn(ctx, request.NodeName, root); err != nil {
+			return 0, err
 		}
+		if err := admin.refuseCovered(ctx, nodeID, request.NodeName, root, ""); err != nil {
+			return 0, err
+		}
+	}
+	if err := refuseOverlapping(request.NodeName, request.Roots); err != nil {
+		return 0, err
 	}
 	library := request.NewLibrary
 	library.NodeID = nodeID
@@ -192,7 +214,7 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 			if progress, isScanning := scanning[ScanRoot{NodeID: root.NodeID, RootPath: root.RootPath}]; isScanning {
 				roots[index].Scan = &progress
 			}
-			if watch, isSaid := admin.nodes.RootWatches(root.NodeID)[root.RootPath]; isSaid {
+			if watch, isSaid := watchOf(admin.nodes.RootWatches(root.NodeID), root.RootPath); isSaid {
 				roots[index].Watch = &watch
 			}
 		}

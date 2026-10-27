@@ -4,9 +4,44 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
+
+// errNotGiven is a root path no root the node was given holds (D107).
+var errNotGiven = errors.New("this node was not given the root")
+
+// mediaRootOf is the media root a command's root path names: one of the node's configured roots, or a
+// library folder inside one, reached without a link and opened as a root of its own, so nothing
+// outside it is read (D359 §1); done closes what it opened. A path no root holds, ".." among them, is
+// refused, whatever the core asks (D107).
+func (agent *Agent) mediaRootOf(rootPath string) (*confine.MediaRoot, func(), error) {
+	root, relative, isHeld := confine.Holding(agent.roots, rootPath)
+	if !isHeld {
+		return nil, nil, fmt.Errorf("%w %s", errNotGiven, rootPath)
+	}
+	if relative == "." {
+		return root, func() {}, nil
+	}
+	folder, err := root.Folder(relative)
+	if err != nil {
+		return nil, nil, fmt.Errorf("the library folder %s: %w", rootPath, err)
+	}
+	return folder, func() { _ = folder.Close() }, nil //nolint:errcheck // read-only
+}
+
+// gateRootOf is the configured root holding path, by which the disk gate keys a reading of it, so
+// one stuck share holds one reading however many library folders it holds; path itself when no
+// root holds it.
+func (agent *Agent) gateRootOf(path string) string {
+	if root, _, isHeld := confine.Holding(agent.roots, path); isHeld {
+		return root.Path()
+	}
+	return path
+}
 
 // listWork is a listing held until its device has a reader free, which posts what it found to the
 // core (D240 §2). Its start and end are logged with how long each wait took: where the minute a root
@@ -14,7 +49,7 @@ import (
 func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.List) heldWork {
 	heldAt := agent.clock.Now()
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, jobKind: "a listing", reading: command.RootPath,
+		attempt: held, jobKind: "a listing", reading: agent.gateRootOf(command.RootPath),
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			startedAt := agent.clock.Now()
 			agent.logger.InfoContext(ctx, "a listing started", "jobId", held.jobID, "rootPath", command.RootPath,
@@ -31,14 +66,16 @@ func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, co
 	})
 }
 
-// runList lists under one of the node's roots. A root the node was not given is refused, whatever
-// the core asks (D107); a listing stopped partway says so with its records, and never that it is
-// complete.
+// runList lists under one of the node's roots, or a library folder inside one. A root the node was
+// not given is refused, whatever the core asks (D107); a listing stopped partway says so with its
+// records, and never that it is complete.
 func (agent *Agent) runList(ctx context.Context, command nodeproto.List) nodeproto.Listing {
-	root, known := agent.roots[command.RootPath]
-	if !known {
-		return nodeproto.Listing{Refusal: "this node was not given the root " + command.RootPath}
+	root, done, err := agent.mediaRootOf(command.RootPath)
+	if err != nil {
+		agent.logger.WarnContext(ctx, "refused a listing", "rootPath", command.RootPath, "err", err)
+		return nodeproto.Listing{Refusal: err.Error()}
 	}
+	defer done()
 	records, err := agent.workers.Scanner.List(ctx, root, command)
 	if err != nil && ctx.Err() == nil {
 		agent.logger.WarnContext(ctx, "a listing ended early", "rootPath", root.Path(), "err", err)
@@ -53,16 +90,17 @@ func (agent *Agent) examineWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.Examine,
 ) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, jobKind: "an examining", reading: command.RootPath,
+		attempt: held, jobKind: "an examining", reading: agent.gateRootOf(command.RootPath),
 		stalledAnswer: func(stall nodeproto.Stall) nodeproto.Result {
 			return nodeproto.Result{Examined: &nodeproto.Examined{Stall: &stall}}
 		},
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
-			root, known := agent.roots[command.RootPath]
-			if !known {
-				refusal := "this node was not given the root " + command.RootPath
-				return nodeproto.Result{Examined: &nodeproto.Examined{Refusal: refusal}}, refusal
+			root, done, err := agent.mediaRootOf(command.RootPath)
+			if err != nil {
+				agent.logger.WarnContext(ctx, "refused an examining", "rootPath", command.RootPath, "err", err)
+				return nodeproto.Result{Examined: &nodeproto.Examined{Refusal: err.Error()}}, err.Error()
 			}
+			defer done()
 			between := func() error { return agent.work.waitWhilePaused(jobCtx, held.token) }
 			records, err := agent.workers.Scanner.Examine(jobCtx, root, command.Files, between)
 			if err != nil && jobCtx.Err() == nil {

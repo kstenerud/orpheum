@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { FolderPicker } from "./folder-picker.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
@@ -114,7 +115,10 @@ export function hasARoot(draft: NewLibrary): boolean {
   return (draft.rootPaths ?? []).length > 0;
 }
 
-/** Where the library's folders are: a connected node, and which of its configured roots. */
+/**
+ * Where the library's folders are: a connected node, and which of its configured roots or folders
+ * inside them (D359).
+ */
 function WhereItIs(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
@@ -151,21 +155,84 @@ function WhereItIs(props: {
         {chosenNode !== undefined && (chosenNode.rootPaths ?? []).length === 0 ? (
           <p>{t("libraries.noRootsYet", { name: chosenNode.name })}</p>
         ) : null}
-        {(chosenNode?.rootPaths ?? []).map((root) => (
-          <label key={root}>
-            <input
-              type="checkbox"
-              checked={roots.includes(root)}
-              onChange={(event) => {
-                setAnswer("rootPaths", withRootChosen(roots, root, event.target.checked));
-              }}
-            />
-            <code>{root}</code>
-          </label>
-        ))}
+        <FolderTicks
+          offered={foldersOffered(chosenNode?.rootPaths ?? [], roots)}
+          chosen={roots}
+          onChange={(chosen) => {
+            setAnswer("rootPaths", chosen);
+          }}
+        />
       </fieldset>
+      {chosenNode === undefined ? null : (
+        <BrowseInside
+          key={chosenNode.name}
+          node={chosenNode}
+          onChoose={(path) => {
+            setAnswer("rootPaths", withRootChosen(roots, path, true));
+          }}
+        />
+      )}
     </>
   );
+}
+
+/** The folders offered, each ticked when chosen, and ticked or unticked by a press. */
+function FolderTicks(props: {
+  readonly offered: readonly string[];
+  readonly chosen: readonly string[];
+  readonly onChange: (chosen: string[]) => void;
+}): JSX.Element {
+  return (
+    <>
+      {props.offered.map((folder) => (
+        <label key={folder}>
+          <input
+            type="checkbox"
+            checked={props.chosen.includes(folder)}
+            onChange={(event) => {
+              props.onChange(withRootChosen(props.chosen, folder, event.target.checked));
+            }}
+          />
+          <code>{folder}</code>
+        </label>
+      ))}
+    </>
+  );
+}
+
+/** Choosing a folder inside one of the node's configured roots (D359 §1); nothing while it has none. */
+function BrowseInside(props: {
+  readonly node: LibraryNode;
+  readonly onChoose: (path: string) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { node } = props;
+  const starts = (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path }));
+  if (starts.length === 0) {
+    return null;
+  }
+  return (
+    <fieldset>
+      <legend>{t("libraries.browseInside")}</legend>
+      <FolderPicker
+        starts={starts}
+        onChoose={(place) => {
+          props.onChoose(place.path);
+        }}
+      />
+    </fieldset>
+  );
+}
+
+/**
+ * The folders a new library's form offers to tick: the node's configured roots, then each folder
+ * chosen inside one (D359), ticked, so it can be unticked.
+ */
+export function foldersOffered(
+  configured: readonly string[],
+  chosen: readonly string[],
+): readonly string[] {
+  return [...configured, ...chosen.filter((folder) => !configured.includes(folder))];
 }
 
 /** One question with its answers, as radio buttons, each saying what it means (D184). */

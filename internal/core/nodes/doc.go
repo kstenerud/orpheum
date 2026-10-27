@@ -13,7 +13,12 @@
 //     library covers, and no other, when should_scan_on_node_hello says so: a folder is scanned only
 //     once it is in a library, which says what kind of thing it holds (the owner, 2026-10-02).
 //     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers,
-//     TestHello_ScansNothingWhenTheSettingSaysNot.
+//     TestHello_ScansNothingWhenTheSettingSaysNot. A library folder inside a root the hello or the
+//     status names is that root's: scanned at the hello, unavailable when the root is not named or its
+//     disk is not answering, and scanned again when the disk answers (D359 §4).
+//     TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere.
+//   - The folders in a folder on a node are asked of its byte socket, outside every queue (D359 §2).
+//     TestListFolders_AsksTheNodesByteSocket.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the
 //     encode and remux slots of every node that said one are added up for whoever runs work in them, and
 //     each node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).

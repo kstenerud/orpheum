@@ -29,7 +29,8 @@ func (agent *Agent) openFilm(ctx context.Context, named nodeproto.BytesFile) (fi
 	if err != nil {
 		return execx.Film{}, nil, err
 	}
-	path := agent.roots[named.RootPath].Path() + "/" + string(named.Path)
+	// The file opened, so its root path is a root's own or a library folder's real path inside one.
+	path := named.RootPath + "/" + string(named.Path)
 	isDiscImage := disc.IsImageName(string(named.Path))
 	if agent.workers.Films == nil {
 		readonly.Close(file)
@@ -41,7 +42,7 @@ func (agent *Agent) openFilm(ctx context.Context, named nodeproto.BytesFile) (fi
 	// A block of the film answers as an open does: a disk asleep spins up within the window.
 	window := cmp.Or(agent.workers.OpenStallWindow, defaultOpenStallWindow)
 	film, err = agent.workers.Films.FilmOf(ctx, path, execx.OpenedFilm{
-		File: file, Facts: facts, Disks: agent.diskGate, Root: named.RootPath, Window: window,
+		File: file, Facts: facts, Disks: agent.diskGate, Root: agent.gateRootOf(named.RootPath), Window: window,
 		IsDiscImage: isDiscImage,
 	}, execx.ReadsWholeFilm)
 	if err != nil {

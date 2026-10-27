@@ -35,6 +35,15 @@
 //     TestServeProbe_AnswersAPlaceInsideARoot,
 //     TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce,
 //     TestServeProbe_AsksWhileAProbeRunsShareIt.
+//   - The folders in a folder, a root or a folder inside one by a clean path, are its real folders, no
+//     link and no hidden one, for an admin choosing a library folder (D359 §2); a path no root holds
+//     is refused, and one whose share has gone away is not answering within the open window, never
+//     waited on, its asks shared as a probe's are.
+//     TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside,
+//     TestServeFolders_AShareThatHasGoneIsNotAnsweringWithinTheWindow. A file named under a library
+//     folder inside a root is served as one under the root, nothing climbing out of the folder, and
+//     its disk keyed by the root (D359 §4).
+//     TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
 //
@@ -49,5 +58,6 @@
 // # Where to change
 //
 //   - byteserver.go: the file route, the chunks' route (D217 §5, D247 §10), and the held results' route.
-//   - probe.go: the probe of a root (D327).
+//   - probe.go: the probe of a root (D327), and the sharing of a read among asks.
+//   - folders.go: the folders in a folder (D359 §2).
 package byteserver

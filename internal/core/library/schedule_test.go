@@ -164,6 +164,51 @@ func TestScanSchedule_AWatchersNoticeScansTheFolderOnlyForAWatchedLibrary(t *tes
 	}
 }
 
+// A watcher's notice under a configured root is scanned in each watched library folder inside it that
+// it touches: the folder changed, inside a library's, and a library's whole folder, inside the one
+// changed (D272 §9, D359 §4).
+func TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	for _, made := range []NewLibrary{
+		{Name: "Movies", ChangeDetection: "watch", Roots: []string{"/tank/video/movies"}},
+		{Name: "Shows", ChangeDetection: "watch", Roots: []string{"/tank/video/shows"}},
+	} {
+		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, each := range []struct {
+		folder     string
+		wantRoots  []string
+		wantScopes []string
+	}{
+		{"video/movies/Wing", []string{"/tank/video/movies"}, []string{"Wing"}},
+		{"video/movies", []string{"/tank/video/movies"}, []string{"."}},
+		{"video", []string{"/tank/video/movies", "/tank/video/shows"}, []string{".", "."}},
+		{".", []string{"/tank/video/movies", "/tank/video/shows"}, []string{".", "."}},
+		{"music", nil, nil},
+		{"video/moviesX", nil, nil},
+	} {
+		requests := &scheduledRequests{}
+		schedule := NewScanSchedule(world.database, requests, world.settings, world.clock,
+			slog.New(slog.DiscardHandler))
+		if err := schedule.TakeChange(t.Context(), world.nodeID, "/tank", each.folder); err != nil {
+			t.Fatal(err)
+		}
+		var roots []string
+		for _, asked := range requests.asked {
+			roots = append(roots, asked.RootPath)
+		}
+		slices.Sort(roots)
+		if !slices.Equal(roots, each.wantRoots) || !slices.Equal(requests.scopes, each.wantScopes) {
+			t.Errorf("a change at /tank/%s scanned %v, of %v; want %v, of %v", each.folder, roots, requests.scopes,
+				each.wantRoots, each.wantScopes)
+		}
+	}
+}
+
 // A library root that is unavailable, its disk or share not answering, is scanned again once
 // unavailable_root_rescan_seconds have passed since its last scan, until one reads it; one scanned
 // lately, one being scanned and one available are not; and it goes before the queue's own scans,

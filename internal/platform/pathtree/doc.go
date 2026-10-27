@@ -8,6 +8,9 @@
 //
 //   - A path is under a directory only at a separator: /media/films is not under /media/film, and
 //     everything is under /. TestIsAtOrUnder_CutsOnlyAtASeparator.
+//   - A library folder is held by the deepest directory it is at or under, and by none when its path
+//     is not clean: a "..", a "." or a doubled or trailing separator (D359 §1).
+//     TestDeepestHolding_IsTheDeepestDirectoryHoldingACleanPathAndNoneForAnother.
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
 //

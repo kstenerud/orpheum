@@ -6,12 +6,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -138,21 +141,51 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 }
 
 // TakeChange is a node watcher's word that something changed under folder, relative to a root of
-// the node's: the folder is scanned when a watched library covers the root, and the notice is
-// dropped otherwise, since only a watched library asked to be told (D272 §9).
+// the node's: what changed is scanned in each watched library folder it touches, the root's own or a
+// folder inside it (D359 §4): the folder, where the folder is inside the library's, and the library's
+// whole folder, where the library's is inside it. The notice is dropped where no watched library is,
+// since only a watched library asked to be told (D272 §9).
 func (schedule *ScanSchedule) TakeChange(ctx context.Context, nodeID int64, root, folder string) error {
 	rows, err := schedule.database.Read().ListCheckedRoots(ctx)
 	if err != nil {
 		return fmt.Errorf("list the roots libraries check: %w", err)
 	}
+	changed := root
+	if folder != wholeRoot {
+		changed = path.Join(root, folder)
+	}
+	asked := map[string]bool{}
 	for _, row := range rows {
-		if row.NodeID == nodeID && row.RootPath == root && row.ChangeDetection == "watch" {
-			schedule.logger.InfoContext(ctx, "a node's watcher saw a change; scanning the folder", "nodeId", nodeID,
-				"rootPath", root, "path", folder)
-			return schedule.scans.RequestUnder(ctx, nodeID, root, folder, jobs.PriorityBackground)
+		if row.NodeID != nodeID || row.ChangeDetection != "watch" || asked[row.RootPath] {
+			continue
+		}
+		scope, isTouched := scopeOfChange(row.RootPath, changed)
+		if !isTouched {
+			continue
+		}
+		asked[row.RootPath] = true
+		schedule.logger.InfoContext(ctx, "a node's watcher saw a change; scanning the folder", "nodeId", nodeID,
+			"rootPath", row.RootPath, "path", scope, "changedUnder", root, "changedFolder", folder)
+		if err := schedule.scans.RequestUnder(ctx, nodeID, row.RootPath, scope, jobs.PriorityBackground); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// scopeOfChange is the scope, relative to the library folder libraryFolder, that a change under the
+// absolute folder changed touches: the folder itself inside the library's, the library's whole folder
+// when the library's is inside it; false when neither holds the other.
+func scopeOfChange(libraryFolder, changed string) (string, bool) {
+	switch {
+	case changed == libraryFolder:
+		return wholeRoot, true
+	case pathtree.IsAtOrUnder(changed, libraryFolder):
+		return strings.TrimPrefix(changed, strings.TrimSuffix(libraryFolder, "/")+"/"), true
+	case pathtree.IsAtOrUnder(libraryFolder, changed):
+		return wholeRoot, true
+	}
+	return "", false
 }
 
 // dueRoots are the roots whose last scan is older than their libraries' interval, or that were

@@ -57,6 +57,92 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 	}
 }
 
+// A library folder inside a root is listed and examined as a root of its own: its scan begins at its
+// path, which the core compares, and names its files relative to it (D359 §1, §4).
+func TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Subtitler: fakeSubtitler{},
+		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{},
+	})
+	movies := libraryFolderTree(t, root.Path())
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
+		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: movies, Path: "."},
+	}}
+	listed := testutil.Receive(t, core.scans, "the folder's listing")
+	beganAt, paths := beganAtAndListed(listed.Listing)
+	if listed.Listing.Refusal != "" || beganAt != movies || !slices.Equal(paths, []string{"Wing", "Wing/Wing.mkv"}) {
+		t.Errorf("the folder's listing began at %q with %v (refusal %q); want it begun at %s with Wing's film "+
+			"alone, relative to it", beganAt, paths, listed.Listing.Refusal, movies)
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 2, Work: nodeproto.Work{
+		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{RootPath: movies, Files: []nodeproto.ExamineFile{
+			{Path: nodeproto.Path{Text: "Wing/Wing.mkv"}, Kind: nodeproto.ExamineVideo},
+		}},
+	}}
+	if examined := testutil.Receive(t, core.scans, "the folder's examining"); examined.Examined == nil ||
+		len(examined.Examined.Records) != 1 || examined.Examined.Records[0].Observed == nil {
+		t.Errorf("the folder's examining = %+v, want Wing.mkv observed", examined.Examined)
+	}
+}
+
+// libraryFolderTree makes video/movies/Wing/Wing.mkv, video/Dark.mkv and a link, films, to
+// video/movies, under root, and returns video/movies' path.
+func libraryFolderTree(t *testing.T, root string) string {
+	t.Helper()
+	movies := filepath.Join(root, "video", "movies")
+	if err := os.MkdirAll(filepath.Join(movies, "Wing"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for path, contents := range map[string]string{
+		filepath.Join(movies, "Wing", "Wing.mkv"): "alien", filepath.Join(root, "video", "Dark.mkv"): "dark",
+	} {
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(movies, filepath.Join(root, "films")); err != nil {
+		t.Fatal(err)
+	}
+	return movies
+}
+
+// beganAtAndListed are where a listing's scan began and the paths it listed.
+func beganAtAndListed(listing *nodeproto.Listing) (string, []string) {
+	if listing == nil {
+		return "", nil
+	}
+	beganAt, paths := "", []string{}
+	for _, record := range listing.Records {
+		if record.Listed != nil {
+			paths = append(paths, record.Listed.Path.Text)
+		}
+		if record.ScanBegin != nil {
+			beganAt = record.ScanBegin.RootPath
+		}
+	}
+	return beganAt, paths
+}
+
+// A library folder reached through a link, or a path climbing out of the root, is refused: a library
+// folder is named by its real path, and never widens a root (D107, D359 §1).
+func TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	movies := libraryFolderTree(t, root.Path())
+	for seq, refused := range []string{filepath.Join(root.Path(), "films"), movies + "/../../../etc"} {
+		core.commands <- nodeproto.Command{CommandSeq: int64(3 + seq), JobID: int64(3 + seq), Work: nodeproto.Work{
+			Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: refused, Path: "."},
+		}}
+		if answer := testutil.Receive(t, core.scans, "a refused listing"); answer.Listing == nil ||
+			answer.Listing.Refusal == "" || len(answer.Listing.Records) != 0 {
+			t.Errorf("listing %s = %+v, want it refused", refused, answer.Listing)
+		}
+	}
+}
+
 // A listing or an examining under a root the node was not given is refused, whatever the core asks
 // (D107).
 func TestAgent_RefusesToListOrExamineARootItWasNotGiven(t *testing.T) {

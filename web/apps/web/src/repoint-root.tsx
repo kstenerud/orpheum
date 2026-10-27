@@ -3,16 +3,19 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-/** A place a root can move to: one of a connected node's configured roots. */
-export interface Place {
-  readonly nodeName: string;
-  readonly path: string;
+import { FolderPicker, type Place } from "./folder-picker.tsx";
+
+export type { Place } from "./folder-picker.tsx";
+
+/** Whether two places are one: the same node and path. */
+function isSamePlace(a: Place, b: Place): boolean {
+  return a.nodeName === b.nodeName && a.path === b.path;
 }
 
 /**
  * Saying a root moved (D241 §6): the admin chooses where it is now, among the connected nodes'
- * roots, and confirms; the root and its files take the new path with their history, and the next
- * scan confirms each. The root's own place is not offered.
+ * roots, or a folder browsed to inside one (D359 §3), and confirms; the root and its files take the
+ * new path with their history, and the next scan confirms each. The root's own place is not offered.
  */
 export function RepointRoot(props: {
   readonly from: Place;
@@ -20,11 +23,11 @@ export function RepointRoot(props: {
   readonly onRepoint: (to: Place) => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const choices = props.places.filter(
-    (place) => place.nodeName !== props.from.nodeName || place.path !== props.from.path,
-  );
+  const [browsed, setBrowsed] = useState<Place | undefined>(undefined);
+  const offered = props.places.filter((place) => !isSamePlace(place, props.from));
+  const choices = browsed === undefined ? offered : [...offered, browsed];
   const [chosenIndex, setChosenIndex] = useState<number | undefined>(undefined);
-  if (choices.length === 0) {
+  if (props.places.length === 0) {
     return null;
   }
   if (chosenIndex === undefined) {
@@ -39,22 +42,39 @@ export function RepointRoot(props: {
       </button>
     );
   }
+  const close = (): void => {
+    setChosenIndex(undefined);
+    setBrowsed(undefined);
+  };
   return (
-    <RepointChoice
-      choices={choices}
-      chosenIndex={chosenIndex}
-      onChoose={setChosenIndex}
-      onConfirm={() => {
-        const to = choices[chosenIndex];
-        setChosenIndex(undefined);
-        if (to !== undefined) {
-          props.onRepoint(to);
-        }
-      }}
-      onKeep={() => {
-        setChosenIndex(undefined);
-      }}
-    />
+    <>
+      <RepointChoice
+        choices={choices}
+        chosenIndex={chosenIndex}
+        onChoose={setChosenIndex}
+        onConfirm={() => {
+          const to = choices[chosenIndex];
+          close();
+          if (to !== undefined) {
+            props.onRepoint(to);
+          }
+        }}
+        onKeep={close}
+      />
+      <fieldset>
+        <legend>{t("libraries.browseInside")}</legend>
+        <FolderPicker
+          starts={props.places}
+          onChoose={(place) => {
+            const known = offered.findIndex((each) => isSamePlace(each, place));
+            if (!isSamePlace(place, props.from)) {
+              setBrowsed(known === -1 ? place : undefined);
+              setChosenIndex(known === -1 ? offered.length : known);
+            }
+          }}
+        />
+      </fieldset>
+    </>
   );
 }
 

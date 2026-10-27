@@ -385,7 +385,7 @@ func serveBytes(
 		return nil, "", err
 	}
 	server := byteserver.New(roots, directory.root).ServingResults(shares.heldResults).
-		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes)
+		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes).LoggingTo(logger, clock.System{})
 	if directory.shelf != nil {
 		server.OnStoreServed(directory.shelf.MarkServed)
 	}

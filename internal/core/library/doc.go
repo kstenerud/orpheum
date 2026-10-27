@@ -240,8 +240,21 @@
 //   - A search is folded and routed by internal/core/textindex and answered by the index that
 //     can (D48). TestSearch_EveryRouteFindsWhatItShould.
 //
-//   - A library covers only roots its node configured, as the node's hello named them (D107);
-//     creating one scans it. TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt.
+//   - A library covers only roots its node configured, as the node's hello named them, or folders
+//     inside them by a clean path, and no library's folder is at, above or below another's on its
+//     node (D107, D359 §1); creating one, or adding a folder to one, scans it (D359 §3).
+//     TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt,
+//     TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath,
+//     TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode,
+//     TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot. A folder inside a configured root is
+//     listed, watched and told of its watcher's notices as the root's own was (D359 §4).
+//     TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs,
+//     TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches.
+//
+//   - An admin's listing of a node's folders asks the node, for a folder a configured root holds, and
+//     waits for it no longer than folderListingWait, a share gone away answered not answering (D359
+//     §2); each is logged at debug, a refused folder at warn (§5).
+//     TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait.
 //
 //   - Continue Watching shows each film or episode once, ordered by its latest watching, at its
 //     most recent position partway through by the resume thresholds, naming the file when more
@@ -323,4 +336,6 @@
 //     or a file (D231 §7, D241 §5); move.go: a root that moved, repointed (D241 §6);
 //     rescan_scans.go: the scans a rescan asks for, of a library or of the folders holding one
 //     film's or series' files, and whether they are over (D357 §2).
+//     libraryfolders.go: which folders a library may have, adding one, and listing a node's folders
+//     (D359).
 package library

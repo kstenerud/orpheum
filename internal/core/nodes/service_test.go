@@ -295,6 +295,42 @@ func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
 	}
 }
 
+// Library folders inside a root the hello names are its: a hello asks for their scans and leaves them
+// available, one no longer naming the root makes them unavailable; a status whose disk of the root is
+// not answering makes them unavailable, and one that answers again asks for their scans, which bring
+// them back (D241 §2, D233 §10, D359 §4). Staging's config changes its roots to their parents so.
+func TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/tank/media/video/movies"})
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Sync", Kind: "movies", MetadataSource: "nfo", Root: "/home/synctest/movies"})
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	hello := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/tank/media", "/home/synctest"}})
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/tank/media"}})
+	notAnswering := nodeproto.Disk{Path: "/tank/media", Failure: "its disk is not answering", IsNotAnswering: true}
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{notAnswering}})
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{{Path: "/tank/media", Device: 41}}})
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if want := []string{
+		"/tank/media/video/movies", "/home/synctest/movies", "/tank/media/video/movies", "/tank/media/video/movies",
+	}; !slices.Equal(scans.roots, want) {
+		t.Errorf("scans asked for %q; want both folders at the first hello, Films' at the second, and Films' "+
+			"once its disk answers again", scans.roots)
+	}
+	if !slices.Equal(scans.notNamed, []string{"/home/synctest/movies"}) {
+		t.Errorf("folders made unavailable for their root not named: %q; want /home/synctest/movies alone",
+			scans.notNamed)
+	}
+	if !slices.Equal(scans.stalled, []string{"/tank/media/video/movies"}) {
+		t.Errorf("folders made unavailable for their disk not answering: %q; want Films'", scans.stalled)
+	}
+}
+
 // recordingScans keeps the scans asked of it, and the roots made unavailable for a hello not naming
 // them or for their disk not answering.
 type recordingScans struct {

@@ -203,6 +203,10 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 		return nil, err
 	}
 	dependencies.NodeBytes = nodeBytes
+	// The node's folders, for an admin choosing a library folder, are listed on its byte socket (D359 §2).
+	if lister, isLister := nodeBytes.(library.FolderLister); isLister {
+		dependencies.Libraries.ListFoldersThrough(lister)
+	}
 	return services, nil
 }
 
@@ -311,6 +315,7 @@ func (services *Services) libraryAdmin(parts Parts) *library.Admin {
 	admin := library.NewAdmin(parts.Database, parts.Clock, services.nodes, scans,
 		library.Retirement{Work: services.Queue, Titles: services.pass})
 	admin.UseSettings(parts.Settings)
+	admin.UseLogger(parts.Logger)
 	return admin
 }
 

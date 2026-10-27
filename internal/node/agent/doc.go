@@ -35,7 +35,12 @@
 //     whole-film prepare left (D238 §2, D344 §1). TestAgent_EachHelloEvictsTheMakingsThatNeverFinished.
 //   - A root is listed or examined only if the node was configured with it, whatever the
 //     core asks (D107). TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
-//     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor.
+//     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor. A library folder inside a root is listed
+//     and examined as a root of its own, reached without a link, its readings keyed by the root, and
+//     a run reads a file named under it (D359 §1, §4).
+//     TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink,
+//     TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot,
+//     TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot.
 //   - A listing or an examining holds no slot, only its device's reader; an examining, which reads in
 //     the node's own process, waits between files while it is paused (D240 §5, §6).
 //     TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice,

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -18,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
@@ -42,10 +44,26 @@ type Server struct {
 	// disk that does not answer does.
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 	// probes are the probes of the roots running (D327).
-	probes probes
+	probes sharedReads[nodeproto.PlaceProbe]
 	// placeFacts reads the facts of a place inside a root, relative to it: (*confine.MediaRoot).FactsOf;
 	// a test's may block as a disk that does not answer does.
 	placeFacts func(root *confine.MediaRoot, relative string) (confine.Facts, error)
+	// folderListings are the listings of folders running, for an admin choosing a library folder
+	// (D359 §2).
+	folderListings sharedReads[nodeproto.FolderListing]
+	// subfolders lists the folders in a folder inside a root, relative to it:
+	// (*confine.MediaRoot).Subfolders; a test's may block as a disk that does not answer does.
+	subfolders func(root *confine.MediaRoot, relative string) ([]string, error)
+	// logger logs each folder listing, timed by clock; nil logs nothing (LoggingTo).
+	logger *slog.Logger
+	clock  clock.Clock
+}
+
+// LoggingTo has the server log to logger what an admin's folder listings asked and found, and how
+// long each took by clockSource (D359 §5).
+func (server *Server) LoggingTo(logger *slog.Logger, clockSource clock.Clock) *Server {
+	server.logger, server.clock = logger, clockSource
+	return server
 }
 
 // WatchingOpens has the server open each file through the node's disk gate, answering one that does
@@ -73,6 +91,7 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	server := &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
 	server.openFile = server.payloadHashes.OpenNamed
 	server.placeFacts = (*confine.MediaRoot).FactsOf
+	server.subfolders = (*confine.MediaRoot).Subfolders
 	return server
 }
 
@@ -103,6 +122,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathBytesChunks+"{name...}", server.serveStoreFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
+	mux.HandleFunc("GET "+nodeproto.PathBytesFolders, server.serveFolders)
 	return mux
 }
 
@@ -175,8 +195,14 @@ func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) 
 		file *os.File
 		info fs.FileInfo
 	}
+	// Keyed by the configured root holding a library folder, so one stuck share holds one reading
+	// (D359 §1).
+	gateRoot := named.RootPath
+	if root, _, isHeld := confine.Holding(server.roots, named.RootPath); isHeld {
+		gateRoot = root.Path()
+	}
 	operation := diskwatch.Operation{
-		Root: named.RootPath, Path: named.RootPath + "/" + string(named.Path), Window: server.openWindow,
+		Root: gateRoot, Path: named.RootPath + "/" + string(named.Path), Window: server.openWindow,
 	}
 	got, err := diskwatch.Run(ctx, server.disks, operation, func() (opened, error) {
 		file, info, openErr := server.openFile(server.roots, named)

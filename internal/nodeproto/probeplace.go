@@ -17,7 +17,7 @@ type ProbeRequest struct {
 
 // Target is the probe's path and query on the byte socket.
 func (request ProbeRequest) Target() string {
-	return PathBytesProbe + "?" + url.Values{"path": {request.Path}}.Encode()
+	return PathBytesProbe + "?" + url.Values{queryPath: {request.Path}}.Encode()
 }
 
 // ProbeState is what a probe found of a place.
