@@ -64,7 +64,9 @@ CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 
 .PHONY: check
 check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@$(GATE_LOCK) $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
+	@# Where the hooks run it: the gate's container when there is an engine (scripts/run_gate.py, F1).
+	@if $(PYTHON) scripts/run_gate.py --hops check; then exec $(PYTHON) scripts/in_dev_image.py check; \
+	  else $(GATE_LOCK) $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose; fi
 
 # The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
 # the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
@@ -288,7 +290,7 @@ CHECK_PR_BUDGET_S := 300
 
 .PHONY: check-pr
 check-pr: hooks browsers ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
+	@if ! $(PYTHON) scripts/run_gate.py --hops check-pr; then $(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE)); else exec $(PYTHON) scripts/in_dev_image.py check-pr $(if $(BASE),BASE=$(BASE)); fi
 
 # check-pr runs on HEAD in its own worktree, holding a lock the hooks read, so the working tree stays
 # free to edit and nothing tests beside it (scripts/check_pr_snapshot.py; the owner, 2026-10-20).

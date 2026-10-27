@@ -3,6 +3,7 @@
 # ABOUTME: its inputs, the container gets the mounts and ports it needs, and the image's pins agree.
 import os
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -243,6 +244,10 @@ class ExecArgs(unittest.TestCase):
         self.assertNotIn("--tty", self.exec_args(self.root, []))
         self.assertIn("--tty", self.exec_args(self.root, [], tty=True))
 
+    def test_the_gates_lock_crosses_over(self):
+        env = {"ORPHEUM_GATE_LOCK_HELD": "1", "HOME": "/home/k"}
+        self.assertEqual(pairs(self.exec_args(self.root, [], env=env), "--env"), ["ORPHEUM_GATE_LOCK_HELD"])
+
     def test_only_the_terminal_and_test_capabilities_cross_over(self):
         env = {"TERM": "xterm", "ORPHEUM_TEST_UNCONTROLLED": "mkvtoolnix", "HOME": "/home/k", "PATH": "/x"}
         self.assertEqual(pairs(self.exec_args(self.root, [], env=env), "--env"),
@@ -252,6 +257,31 @@ class ExecArgs(unittest.TestCase):
         """Vite refused devnas.example: the names it may answer to stayed outside (2026-10-01)."""
         env = {"ORPHEUM_DEV_ALLOWED_HOSTS": "devnas.example", "HOME": "/home/k"}
         self.assertEqual(pairs(self.exec_args(self.root, [], env=env), "--env"), ["ORPHEUM_DEV_ALLOWED_HOSTS"])
+
+
+
+class GateContainer(unittest.TestCase):
+    def setUp(self):
+        self.root = Path("/home/k/orpheum")
+        self.none = Path(tempfile.mkdtemp()) / "absent"
+
+    def test_the_gates_container_publishes_nothing_and_takes_none_of_the_dev_loops_settings(self):
+        """So a gate never replaces the dev loop's container, nor the dev loop the gate's (F1)."""
+        media = Path(tempfile.mkdtemp())
+        loop_env = {"ORPHEUM_DEV_MEDIA": str(media), "ORPHEUM_FFMPEG_LOCAL": str(media), "ORPHEUM_DEV_PUBLISH": "0.0.0.0"}
+        gate = launcher.run_args("docker", "orpheum-dev:abc", self.root, loop_env, self.none, self.none, gate=True)
+        self.assertEqual(pairs(gate, "--publish"), [])
+        self.assertFalse([m for m in pairs(gate, "--mount") if "readonly" in m and str(media.resolve()) in m])
+        plain = launcher.run_args("docker", "orpheum-dev:abc", self.root, {}, self.none, self.none, gate=True)
+        self.assertEqual(launcher.config_hash(gate), launcher.config_hash(plain),
+                         "the dev loop's settings do not change the gate's configuration")
+        self.assertNotEqual(launcher.container_name(self.root, gate=True), launcher.container_name(self.root))
+
+    def test_a_missing_image_is_not_built_where_building_is_forbidden(self):
+        from unittest import mock
+        with mock.patch.object(launcher, "quiet", lambda args: subprocess.CompletedProcess(args, 1, "", "")):
+            with self.assertRaises(launcher.ImageNeeded):
+                launcher.ensure_image("docker", REPO, 1000, 1000, may_build=False)
 
 
 if __name__ == "__main__":

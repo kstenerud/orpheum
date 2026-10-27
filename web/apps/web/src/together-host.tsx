@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
+import type { Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
@@ -116,17 +117,19 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
 const stopForEveryone: GroupCommand = { command: "stop" };
 
 /**
- * The host's command as they leave the player of fileId: stop, so every screen goes black (D246 §5),
- * unless they leave it for another film's player, as Up next and its autoplay move them on, when
- * nothing is sent and that player puts its film on for everyone: the group follows the host's player
- * into the next episode, its screens never going black between (D339).
+ * The host's command as they leave the player of fileId for goingTo: stop, so every screen goes black
+ * (D246 §5), unless they leave it for another film's player, as Up next and its autoplay move them on,
+ * when nothing is sent and that player puts its film on for everyone: the group follows the host's
+ * player into the next episode, its screens never going black between (D339 §3).
  */
+export function commandOnLeavingFor(goingTo: Route, fileId: number): GroupCommand | undefined {
+  return goingTo.screen === "play" && goingTo.fileId !== fileId ? undefined : stopForEveryone;
+}
+
+/** commandOnLeavingFor, asked of where the host is going as they leave. */
 function useCommandOnLeaving(fileId: number): () => GroupCommand | undefined {
   const { navigation } = useServices();
-  return useCallback(() => {
-    const goingTo = navigation.route();
-    return goingTo.screen === "play" && goingTo.fileId !== fileId ? undefined : stopForEveryone;
-  }, [navigation, fileId]);
+  return useCallback(() => commandOnLeavingFor(navigation.route(), fileId), [navigation, fileId]);
 }
 
 /** The host's player, leading the session it is connected to. */

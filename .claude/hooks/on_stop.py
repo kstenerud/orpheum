@@ -41,7 +41,9 @@ def main() -> None:
     except run_gate.NoWayToRun as missing:
         block(target, str(missing))
         return
-    done = subprocess.run(command, cwd=hooklib.ROOT, capture_output=True, text=True, check=False)
+    # Never build the image here: a build takes minutes past the hook's limit (./dev says to run it).
+    env = {**os.environ, "ORPHEUM_DEV_NO_BUILD": "1"}
+    done = subprocess.run(command, cwd=hooklib.ROOT, capture_output=True, text=True, check=False, env=env)
     if done.returncode == 0:
         code.unlink(missing_ok=True)
         docs.unlink(missing_ok=True)

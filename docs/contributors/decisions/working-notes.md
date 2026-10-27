@@ -21850,7 +21850,16 @@ as it names its roles.
    the player does (D246 §5): the next episode's player puts its film on for everyone, so every
    screen follows the host's player into it without going black between.
 
-**Status:** Decided; not built.
+**Proven by:**
+- 1: web/apps/web/src/up-next.test.tsx (the fixed lead: "shows within its lead of the end and on the end screen, and not before")
+- 2: web/apps/web/src/up-next.test.tsx (the three D339 tests), web/apps/web/src/still-watching.browser.test.tsx
+- 3: web/apps/web/src/together-host.test.ts
+
+**Status:** Decided, and built (2026-10-26, an earlier commit; point 3's test 2026-10-27). Point 1's move to the
+credits' start waits on credits detection, which nothing makes yet
+([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance),
+[media-segments.md](../design/plans/media-segments.md)); until then the fixed 30 s lead is the
+whole of it.
 
 ## D340 — A video's text subtitle tracks are extracted by one job from one read of it, and a failed track alone is tried again when next played
 
