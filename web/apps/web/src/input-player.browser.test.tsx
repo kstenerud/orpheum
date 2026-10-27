@@ -17,6 +17,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { focusTargetsIn } from "./focus-engine.ts";
 import { seekStepMs } from "./player-commands.ts";
+import { routeHref } from "./router.ts";
 import { directDecision } from "./test-fixtures.ts";
 import {
   filmDetail,
@@ -42,6 +43,7 @@ const filmToPlay: WalkAnswers = {
   "GET /items/103": filmDetail(103, "Film 3"),
   "POST /playback": directDecision({
     titleName: "Film 3",
+    plays: { titleId: 103, kind: "movie", libraryId: 1 },
     url: "/no-such-media",
     subtitles: [
       {
@@ -156,4 +158,49 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     await press("{Escape}");
     await expect.poll(() => document.activeElement?.classList.contains("title__play")).toBe(true);
   });
+});
+
+describe("a Play page opened with no page of this app behind it", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  // A Fire TV reloaded a playing film's page: no history behind it, no Back button on a television,
+  // and its remote's Back went nowhere (the owner, 2026-10-27). Back goes up to the film's page, the
+  // one it plays from ("Would it be better to go back to the non-fullscreen page?"), there as on a
+  // computer.
+  for (const [name, userAgent, isTelevision] of [
+    [
+      "a Fire TV's Silk",
+      "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36",
+      true,
+    ],
+    ["a computer's browser", navigator.userAgent, false],
+  ] as const) {
+    it(`goes up to the film's page by Back, on ${name}`, async () => {
+      vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(userAgent);
+      // Full screen refused, the player fills the window instead (film-fullscreen.ts): a browser in
+      // full screen takes Escape for its own leaving, which Firefox's does before the page hears it.
+      vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+      await page.viewport(960, 480);
+      const services = walkServices(filmToPlay, "/play/1030");
+      walking = await mountApp(services);
+      await theVideo();
+      // A television's player opens with its overlay showing, which its first Back hides
+      // (tv-controls.tsx); the next leaves the page.
+      const overlay = document.querySelector(".tv-controls");
+      expect(overlay !== null).toBe(isTelevision);
+      if (overlay !== null) {
+        await press("{Escape}");
+        await expect.poll(() => overlay.getAttribute("data-shown")).toBe("none");
+      }
+      await press("{Escape}");
+      await expect
+        .poll(() => routeHref(services.navigation.route()))
+        .toBe(routeHref({ screen: "title", itemId: 103 }));
+    });
+  }
 });

@@ -11,6 +11,7 @@ import {
   playbackFailureText,
 } from "./film-player.tsx";
 import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
+import { playUp } from "./play-up.tsx";
 import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
@@ -202,5 +203,54 @@ describe("where a player moving to a lower quality goes on from", () => {
     // Not loaded, the video reads 0: Bram resumed at 51:22 went on from its first minute.
     expect(positionToMoveFrom({ readyState: 0, currentTime: 0 }, 3_082_298)).toBe(3_082_298);
     expect(positionToMoveFrom(null, 3_082_298)).toBe(3_082_298);
+  });
+});
+
+describe("the page above a Play page, where its Back goes with no page of this app behind it", () => {
+  it("is a film's own page and an extra's", () => {
+    expect(playUp({ titleId: 10, kind: "movie", libraryId: 1 })).toEqual({
+      screen: "title",
+      itemId: 10,
+    });
+    expect(playUp({ titleId: 12, kind: "extra", libraryId: 1 })).toEqual({
+      screen: "title",
+      itemId: 12,
+    });
+  });
+
+  it("is an episode's series at its season, or at its group in the ordering the person chose", () => {
+    const aired = { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 };
+    expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: aired })).toEqual({
+      screen: "series-page",
+      collectionId: 20,
+      season: 2,
+    });
+    const inDVDOrder = {
+      ...aired,
+      ordering: "tmdb:dvd",
+      inOrdering: { groupNumber: 1, numberInGroup: 4 },
+    };
+    expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: inDVDOrder })).toEqual({
+      screen: "series-page",
+      collectionId: 20,
+      season: 1,
+    });
+    // An ordering that leaves it out: the series' top.
+    const leftOut = { ...aired, ordering: "tmdb:dvd" };
+    expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: leftOut })).toEqual({
+      screen: "series-page",
+      collectionId: 20,
+    });
+  });
+
+  it("is an other video's library's list", () => {
+    expect(playUp({ titleId: 30, kind: "other", libraryId: 4 })).toEqual({
+      screen: "browse",
+      library: 4,
+    });
+  });
+
+  it("is home where the server does not say what it plays: a file filed as no title, an older server", () => {
+    expect(playUp(undefined)).toEqual({ screen: "home" });
   });
 });

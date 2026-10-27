@@ -311,9 +311,9 @@ ORDER BY ordering.collection_id, file.id;
 SELECT library_id FROM item WHERE id = sqlc.arg(id);
 
 -- name: GetTitleOfFile :one
--- What a file is, for now playing and a cast's remote: its title and name when one is filed, its
--- path, and how long it plays, 0 before it is probed.
-SELECT file.path, title.id AS title_id, item_text.name,
+-- What a file is, for now playing and a cast's remote: its title, its kind and name when one is
+-- filed, its path, its library, and how long it plays, 0 before it is probed.
+SELECT file.path, file.library_id, title.id AS title_id, title.kind AS title_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file

@@ -126,6 +126,20 @@ type StartPlaybackOutputBody struct {
 	// Tracks are what the playback may play and what the file holds, each named original or
 	// converted, and from what.
 	Tracks TracksBody `json:"tracks"`
+	// Plays is the title the file is and where it lives, which the Play page goes up to when no
+	// page of the app is behind it (the owner, 2026-10-27); absent for a file filed as no title,
+	// and to a Watch Together viewer, who sees none of the app (D246 §3).
+	Plays *PlaysBody `json:"plays,omitempty"`
+}
+
+// PlaysBody is the title a playback plays and where it lives: a film's page is its own, an
+// episode's its series' at its place in the ordering its person watches in, an other video's its
+// library's list.
+type PlaysBody struct {
+	TitleID   int64             `json:"titleId"`
+	Kind      string            `enum:"movie,episode,extra,other" json:"kind"`
+	LibraryID int64             `doc:"The library its file lives in" json:"libraryId"`
+	Episode   *EpisodePlaceBody `doc:"An episode's series and place; absent for any other" json:"episode,omitempty"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -242,20 +256,45 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	return server.namedOutput(ctx, dependencies, input.Body.FileID, started)
+	output, work, err := server.namedOutput(ctx, dependencies, input.Body.FileID, started)
+	if err != nil {
+		return nil, err
+	}
+	if output.Body.Plays, err = server.playsBody(ctx, dependencies, principal.UserID, work); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
-// namedOutput is a playback started, as the API says it, with the name of the title it plays.
+// namedOutput is a playback started, as the API says it, with the name of the title it plays, and
+// what the file is.
 func (server *Server) namedOutput(
 	ctx context.Context, dependencies *Dependencies, fileID int64, started playback.Started,
-) (*StartPlaybackOutput, error) {
+) (*StartPlaybackOutput, library.FileWork, error) {
 	work, err := dependencies.Browser.WorkOfFile(ctx, fileID)
 	if err != nil {
-		return nil, server.libraryError(ctx, "read what a playback plays", err)
+		return nil, library.FileWork{}, server.libraryError(ctx, "read what a playback plays", err)
 	}
 	output := startedOutput(started)
 	output.Body.TitleName = work.Name
-	return output, nil
+	return output, work, nil
+}
+
+// playsBody is the title work is and where it lives, an episode's place as userID sees it; nil for a
+// file filed as no title.
+func (server *Server) playsBody(
+	ctx context.Context, dependencies *Dependencies, userID int64, work library.FileWork,
+) (*PlaysBody, error) {
+	if work.TitleID == 0 {
+		return nil, nil //nolint:nilnil // no title is an answer, not an error
+	}
+	place, err := dependencies.Browser.EpisodePlaceOf(ctx, userID, work.TitleID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read where a playback's episode is", err)
+	}
+	return &PlaysBody{
+		TitleID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, Episode: episodePlaceBody(place),
+	}, nil
 }
 
 // logPlaybackStarted says a playback started: whose, which file, and how it is delivered and why,

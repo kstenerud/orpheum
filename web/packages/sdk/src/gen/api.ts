@@ -3857,6 +3857,19 @@ export interface components {
              */
             subtitleOffsetMs: number;
         };
+        PlaysBody: {
+            /** @description An episode's series and place; absent for any other */
+            episode?: components["schemas"]["EpisodePlaceBody"];
+            /** @enum {string} */
+            kind: "movie" | "episode" | "extra" | "other";
+            /**
+             * Format: int64
+             * @description The library its file lives in
+             */
+            libraryId: number;
+            /** Format: int64 */
+            titleId: number;
+        };
         PortMappingBody: {
             /**
              * Format: int64
@@ -4516,6 +4529,7 @@ export interface components {
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
             onLadder?: components["schemas"]["LadderBody"];
+            plays?: components["schemas"]["PlaysBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];
             /** @enum {string} */
             profile?: "remux" | "h264";

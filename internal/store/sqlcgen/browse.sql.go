@@ -273,7 +273,7 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 }
 
 const getTitleOfFile = `-- name: GetTitleOfFile :one
-SELECT file.path, title.id AS title_id, item_text.name,
+SELECT file.path, file.library_id, title.id AS title_id, title.kind AS title_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
@@ -285,19 +285,23 @@ WHERE file.id = ?1
 
 type GetTitleOfFileRow struct {
 	Path       string
+	LibraryID  int64
 	TitleID    *int64
+	TitleKind  *string
 	Name       *string
 	DurationMs int64
 }
 
-// What a file is, for now playing and a cast's remote: its title and name when one is filed, its
-// path, and how long it plays, 0 before it is probed.
+// What a file is, for now playing and a cast's remote: its title, its kind and name when one is
+// filed, its path, its library, and how long it plays, 0 before it is probed.
 func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileRow, error) {
 	row := q.db.QueryRowContext(ctx, getTitleOfFile, id)
 	var i GetTitleOfFileRow
 	err := row.Scan(
 		&i.Path,
+		&i.LibraryID,
 		&i.TitleID,
+		&i.TitleKind,
 		&i.Name,
 		&i.DurationMs,
 	)

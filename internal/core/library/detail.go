@@ -65,7 +65,7 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	if detail.Episode, err = browser.episodePlace(ctx, userID, titleID); err != nil {
+	if detail.Episode, err = browser.EpisodePlaceOf(ctx, userID, titleID); err != nil {
 		return TitleDetail{}, err
 	}
 	unreadable, err := browser.unreadableItems(ctx, []int64{titleID}, false)
@@ -335,12 +335,15 @@ func (browser *Browser) episodePage(
 	return page, nil
 }
 
-// FileWork is what a file is, as now playing names it: its title, when one is filed, by id and name,
-// its path, and how long it plays, 0 before it is probed.
+// FileWork is what a file is, as now playing names it: its title, when one is filed, by id, kind
+// and name, its path, the library it lives in, and how long it plays, 0 before it is probed.
 type FileWork struct {
-	TitleID    int64
+	TitleID int64
+	// TitleKind is its title's kind (TitleKindMovie and the rest); "" for a file filed as no title.
+	TitleKind  string
 	Name       string
 	Path       string
+	LibraryID  int64
 	DurationMs int64
 }
 
@@ -354,7 +357,7 @@ func (browser *Browser) WorkOfFile(ctx context.Context, fileID int64) (FileWork,
 		return FileWork{}, fmt.Errorf("read what file %d is: %w", fileID, err)
 	}
 	return FileWork{
-		TitleID: ptr.ValueOrZero(row.TitleID), Name: ptr.ValueOrZero(row.Name), Path: row.Path,
-		DurationMs: row.DurationMs,
+		TitleID: ptr.ValueOrZero(row.TitleID), TitleKind: ptr.ValueOrZero(row.TitleKind),
+		Name: ptr.ValueOrZero(row.Name), Path: row.Path, LibraryID: row.LibraryID, DurationMs: row.DurationMs,
 	}, nil
 }

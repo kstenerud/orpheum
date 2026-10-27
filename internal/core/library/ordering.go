@@ -73,8 +73,8 @@ type OrderingPlace struct {
 	IsOnlyGroup          bool
 }
 
-// episodePlace is an episode's series and place as userID sees it, or nil for a title in none.
-func (browser *Browser) episodePlace(ctx context.Context, userID, titleID int64) (*EpisodePlace, error) {
+// EpisodePlaceOf is an episode's series and place as userID sees it, or nil for a title in none.
+func (browser *Browser) EpisodePlaceOf(ctx context.Context, userID, titleID int64) (*EpisodePlace, error) {
 	queries := browser.database.Read()
 	aired, err := store.OrNotFound(queries.GetEpisodePlace(ctx, titleID))
 	switch {

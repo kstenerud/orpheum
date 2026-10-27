@@ -198,7 +198,7 @@ func (browser *Browser) UpNext(ctx context.Context, userID, fileID int64) (UpNex
 	if err != nil || work.TitleID == 0 {
 		return UpNext{}, false, err
 	}
-	place, err := browser.episodePlace(ctx, userID, work.TitleID)
+	place, err := browser.EpisodePlaceOf(ctx, userID, work.TitleID)
 	if err != nil || place == nil {
 		return UpNext{}, false, err
 	}
