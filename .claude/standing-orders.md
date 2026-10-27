@@ -18,7 +18,8 @@
      elsewhere keeps showing its page until touched (should clear at once); and then lands on the core's
      sign-in, not the discovery's. (e) Watched marks: D370 (owner agreed the
      defaults; a white check, no fading). (f) RealMedia cook sound never cut right (file 15102 on nas.example;
-     never record that library's names). D369 merged and on staging. The owner sleeps: runs overnight.
+     never record that library's names). D369, D368 (protocol 53) merged, on staging; VQ81 fixed.
+     Owner to choose (D368's status): loudness when stepping down from the copied sound. Runs overnight.
    - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
      words, the warning sign's page, the uncertain match: queued, not this batch).
    - End: one check-pr, the owner's go, nas.example.
