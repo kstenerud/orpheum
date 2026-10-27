@@ -4,11 +4,12 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { FolderPicker } from "./folder-picker.tsx";
+import { BackButton } from "./back-button.tsx";
+import { FolderBrowser } from "./folder-picker.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
@@ -200,7 +201,10 @@ function FolderTicks(props: {
   );
 }
 
-/** Choosing a folder inside one of the node's configured roots (D359 §1); nothing while it has none. */
+/**
+ * Choosing a folder inside one of the node's configured roots (D359 §1), in the folder browser's
+ * dialog (D361 §3); nothing while it has none.
+ */
 function BrowseInside(props: {
   readonly node: LibraryNode;
   readonly onChoose: (path: string) => void;
@@ -212,15 +216,16 @@ function BrowseInside(props: {
     return null;
   }
   return (
-    <fieldset>
-      <legend>{t("libraries.browseInside")}</legend>
-      <FolderPicker
+    <p>
+      <FolderBrowser
+        opener={t("libraries.browseInside")}
+        heading={t("libraries.browseInsideHeading")}
         starts={starts}
         onChoose={(place) => {
           props.onChoose(place.path);
         }}
       />
-    </fieldset>
+    </p>
   );
 }
 
@@ -406,7 +411,7 @@ export function CreateLibraryForm(props: {
   };
   return (
     <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
-      <h2 id="create-library-heading">{t("libraries.createHeading")}</h2>
+      <h1 id="create-library-heading">{t("libraries.createHeading")}</h1>
       <WhatItHolds draft={draft} setAnswer={setAnswer} />
       <ThreeQuestions
         draft={draft}
@@ -423,8 +428,30 @@ export function CreateLibraryForm(props: {
   );
 }
 
+/**
+ * Creating a library, a page of its own (D361 §4): the form, sent to the server, and Back to the
+ * list. A created library is scanned at once, and its own page shows in this one's place, so Back
+ * from there returns to the list, not to a form already sent.
+ */
+export function CreateLibraryPage(): JSX.Element {
+  const { navigation } = useServices();
+  return (
+    <section className="libraries">
+      <BackButton up={{ screen: "libraries" }} />
+      <CreateLibrary
+        onCreated={(libraryId) => {
+          navigation.replace({ screen: "library", libraryId });
+        }}
+      />
+    </section>
+  );
+}
+
 /** The create-library form, sent to the server; a created library is scanned at once. */
-export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.Element {
+export function CreateLibrary(props: {
+  /** Told the new library's id once the server made it. */
+  readonly onCreated: (libraryId: number) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
@@ -449,9 +476,11 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const submit = (): void => {
     const body = libraryToCreate(onAConnectedNode(draft, nodes));
     creating.runRequest(async (idempotencyKey) => {
-      throwIfRefused(await api.POST("/libraries", { body, ...idempotent(idempotencyKey) }));
+      const created = dataOrThrow(
+        await api.POST("/libraries", { body, ...idempotent(idempotencyKey) }),
+      );
       setDraft(blankLibrary());
-      props.onCreated();
+      props.onCreated(created.id);
     });
   };
   return (

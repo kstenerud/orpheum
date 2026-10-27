@@ -46,7 +46,12 @@ export type Route =
       readonly query?: string;
     }
   | { readonly screen: "identify" }
+  /** The admin's list of libraries, each leading to its own page to manage it (D361). */
   | { readonly screen: "libraries" }
+  /** One library's page, where the admin manages it: its folders, its scans, deleting it (D361). */
+  | { readonly screen: "library"; readonly libraryId: number }
+  /** Creating a library, a page of its own (D361). */
+  | { readonly screen: "new-library" }
   | { readonly screen: "files"; readonly libraryId: number }
   | { readonly screen: "about" }
   | { readonly screen: "settings" }
@@ -106,6 +111,11 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/browse\/?$/u, toRoute: (_, search) => browseRoute(search) },
   { pattern: /^\/identify\/?$/u, toRoute: () => ({ screen: "identify" }) },
   { pattern: /^\/libraries\/?$/u, toRoute: () => ({ screen: "libraries" }) },
+  { pattern: /^\/libraries\/new\/?$/u, toRoute: () => ({ screen: "new-library" }) },
+  {
+    pattern: /^\/libraries\/([1-9]\d{0,15})\/?$/u,
+    toRoute: (libraryId) => ({ screen: "library", libraryId }),
+  },
   {
     pattern: /^\/libraries\/([1-9]\d{0,15})\/files$/u,
     toRoute: (libraryId) => ({ screen: "files", libraryId }),
@@ -232,6 +242,17 @@ function browseRouteHref(route: Route & { readonly screen: "browse" }): string {
   return asString === "" ? "/browse" : `/browse?${asString}`;
 }
 
+/** The address of a library's own page, of its files, or of creating one (D361); else undefined. */
+function libraryRouteHref(route: Route): string | undefined {
+  if (route.screen === "library") {
+    return `/libraries/${String(route.libraryId)}`;
+  }
+  if (route.screen === "files") {
+    return `/libraries/${String(route.libraryId)}/files`;
+  }
+  return route.screen === "new-library" ? "/libraries/new" : undefined;
+}
+
 /** The address of one of the device lab's routes, or undefined for another. */
 function labRouteHref(route: Route): string | undefined {
   if (route.screen === "lab") {
@@ -259,8 +280,9 @@ export function routeHref(route: Route): string {
   if (route.screen === "person") {
     return `/people/${String(route.userId)}`;
   }
-  if (route.screen === "files") {
-    return `/libraries/${String(route.libraryId)}/files`;
+  const library = libraryRouteHref(route);
+  if (library !== undefined) {
+    return library;
   }
   const lab = labRouteHref(route);
   if (lab !== undefined) {

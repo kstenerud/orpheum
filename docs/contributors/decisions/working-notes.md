@@ -22954,4 +22954,47 @@ unmodified row, D201, and an admin who once edited the list keeps theirs for goo
   TestDecide_ARealMediaFilmIsEncodedOnItsLadder, TestDecide_SortsEachVideoStreamIntoOneMenuEntry,
   TestDecide_SortsEachAudioStreamIntoOneMenuEntry
 
+## D361 — The admin's libraries are a list, each library managed on a page of its own, creating one is a page too, and the folder browser is a modal dialog
+
+**Decided** (2026-10-27), by the project owner: "The library management page is a bit ugly. Let's
+make it so that there's a list of libraries with basic info about them, and a button 'manage this
+library'. Also, the 'create a library' should be its own page, and the folder browser should be a
+modal rather than drawing on the page itself." And: "I want the ability to delete libraries", plainly
+on the page that manages one. Until now one page held every library's whole card, every action of
+each, and the new-library form beneath them, and the folder browser
+([D359](#d359--a-librarys-folder-is-any-folder-beneath-one-of-its-nodes-configured-roots-chosen-by-browsing-the-nodes-folders))
+drew itself into the page wherever it was opened. **Keeps** every action and its confirmation
+([D231 §7](#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work),
+[D241 §6](#d241--what-goes-missing-stays-listed-as-unavailable-until-an-admin-says-it-is-gone-and-a-play-of-it-fails-at-once),
+[D357](#d357--a-rescan-re-runs-the-matcher-on-everything-a-person-did-not-set-per-item-per-library-and-for-all-of-them),
+D359 §3); only where each is changes.
+
+1. **`/libraries` lists the libraries at a glance.** Each is a card of its name, what it holds, how
+   many folders it reads, how it notices changes and whether a scan runs now, its folders each with
+   the warning sign of one with a problem, its files by filing, a rescan running, and "Manage this
+   library". The page offers "Create a library", leading to its own page, and "Rescan everything"
+   (D357 §1). Nothing that changes one library is on the list.
+2. **`/libraries/<id>` manages one library.** Back to the list; its name and the same glance; its
+   folders with their state, the answers about a gone root or disk, saying one moved, retiring one and
+   adding one; how it notices changes; its files by filing and the link to what the scanner saw; its
+   scan and its rescan (D357); the note of what was last asked; and deleting it, confirmed first, after
+   which the list shows. An address no library has says so.
+3. **The folder browser is a modal dialog**, opened by a button wherever a folder is chosen: creating a
+   library, adding a folder, saying one moved. It is a `ModalDialog`, the app's one way to show a
+   dialog: the page behind it darkened and taking no press, focus held inside it. It lists the node's
+   roots and the folders beneath them as D359 §2 does, "not responding" with Try again included;
+   choosing a folder closes it and hands the folder back; Cancel, Escape or a remote's Back close it
+   with nothing chosen. As every `ModalDialog` now does, it gives focus back to what had it once it
+   closes: the browser does not for a dialog the page removes (idiosyncrasies.md).
+4. **`/libraries/new` creates a library**, the form as it was; once made, the new library's page takes
+   the form's place in the history, so Back from it returns to the list.
+5. **Each page is a route the router knows**, so a deep link, a reload and Back reach it.
+
+**Proven by:**
+- 1: web/apps/web/src/library-pages.test.tsx, web/apps/web/src/rescan.test.tsx
+- 2: web/apps/web/src/libraries.test.tsx, web/apps/web/src/retire.test.tsx, web/apps/web/src/rescan.test.tsx, web/apps/web/src/screen-refusals.test.tsx
+- 3: web/apps/web/src/folder-picker.test.tsx, web/apps/web/src/folder-picker.browser.test.tsx
+- 4: web/apps/web/src/library-pages.test.tsx, web/apps/web/src/screen-refusals.test.tsx
+- 5: web/apps/web/src/router.test.ts, web/apps/web/src/app.test.tsx
+
 **Status:** Decided 2026-10-27.

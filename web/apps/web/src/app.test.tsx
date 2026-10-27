@@ -112,6 +112,14 @@ describe("App", () => {
     expect(system).not.toContain("There is nothing at this address.");
   });
 
+  it("shows a library's own page and creating one, each at an address of its own (D361)", () => {
+    for (const path of ["/libraries/3", "/libraries/new"]) {
+      const markup = renderToStaticMarkup(withServices(<App />, testServices("token", path)));
+      expect(markup).toContain('class="back-button"');
+      expect(markup).not.toContain("There is nothing at this address.");
+    }
+  });
+
   it("asks again what this session may do each time the page's requests move path (D297 §6)", async () => {
     const heard: Heard[] = [];
     const answers: Answers = {

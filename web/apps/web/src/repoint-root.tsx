@@ -3,7 +3,7 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { FolderPicker, type Place } from "./folder-picker.tsx";
+import { FolderBrowser, type Place } from "./folder-picker.tsx";
 
 export type { Place } from "./folder-picker.tsx";
 
@@ -14,7 +14,8 @@ function isSamePlace(a: Place, b: Place): boolean {
 
 /**
  * Saying a root moved (D241 §6): the admin chooses where it is now, among the connected nodes'
- * roots, or a folder browsed to inside one (D359 §3), and confirms; the root and its files take the
+ * roots, or a folder browsed to inside one in the folder browser's dialog (D359 §3, D361 §3), and
+ * confirms; the root and its files take the
  * new path with their history, and the next scan confirms each. The root's own place is not offered.
  */
 export function RepointRoot(props: {
@@ -60,20 +61,19 @@ export function RepointRoot(props: {
           }
         }}
         onKeep={close}
+      />{" "}
+      <FolderBrowser
+        opener={t("libraries.browseInside")}
+        heading={t("libraries.repointHeading")}
+        starts={props.places}
+        onChoose={(place) => {
+          const known = offered.findIndex((each) => isSamePlace(each, place));
+          if (!isSamePlace(place, props.from)) {
+            setBrowsed(known === -1 ? place : undefined);
+            setChosenIndex(known === -1 ? offered.length : known);
+          }
+        }}
       />
-      <fieldset>
-        <legend>{t("libraries.browseInside")}</legend>
-        <FolderPicker
-          starts={props.places}
-          onChoose={(place) => {
-            const known = offered.findIndex((each) => isSamePlace(each, place));
-            if (!isSamePlace(place, props.from)) {
-              setBrowsed(known === -1 ? place : undefined);
-              setChosenIndex(known === -1 ? offered.length : known);
-            }
-          }}
-        />
-      </fieldset>
     </>
   );
 }

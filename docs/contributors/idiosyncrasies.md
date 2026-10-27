@@ -41,6 +41,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Symptom | Entry |
 |---|---|
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
+| A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
@@ -976,6 +977,24 @@ User-Agent (D263; the User-Agent is logged only).
   insecure
   origins](https://www.chromium.org/Home/chromium-security/deprecating-powerful-features-on-insecure-origins/));
   it does not help real users.
+
+
+### A modal dialog removed from the page while open gives focus back to nothing
+
+- **Technology:** `HTMLDialogElement.showModal()`, in Chromium and Firefox alike.
+- **Symptom:** after the folder browser's dialog closed on Escape, focus was on the page's `<body>`, not
+  on the button that opened it, so a keyboard or a remote started again from the page's beginning.
+- **Cause:** the browser gives focus back to what had it before `showModal()` only in the dialog's
+  close steps, which `close()` runs on a dialog still in the document. A React page closes a dialog by
+  unmounting it: the element leaves the document first, and its removing steps take it out of the top
+  layer without giving focus back; the `close()` that follows, on a detached element, does nothing.
+- **What we do:** `ModalDialog` notes what had focus as it opens and gives it back as it unmounts,
+  while that is still on the page and focus is lost (on `<body>` or in the dialog going)
+  (`web/apps/web/src/modal-dialog.tsx`, `giveFocusBack`; D361 §3).
+- **Evidence:** **[measured]** `web/apps/web/src/folder-picker.browser.test.tsx` failed in Chromium and
+  Firefox without `giveFocusBack`, `document.activeElement` being `<body>` (2026-10-27). **[doc]** the HTML
+  standard's dialog removing steps remove the element from the top layer and run no focusing steps; only
+  its close steps restore the previously focused element.
 
 
 ### A browser plays only the original file's first audio track

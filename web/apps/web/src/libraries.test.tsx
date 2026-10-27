@@ -17,7 +17,8 @@ import {
   withChangeDetection,
   withRootChosen,
 } from "./create-library.tsx";
-import { LibraryCard, rootAnswerRequest, type Library } from "./libraries.tsx";
+import type { Library } from "./libraries.tsx";
+import { LibraryManagement, rootAnswerRequest } from "./library-manage.tsx";
 import { withServices } from "./test-services.tsx";
 
 type Root = components["schemas"]["RootBody"];
@@ -28,7 +29,7 @@ describe("libraries", () => {
   it("shows a library's roots, its files by filing, and the admin's answers when removals wait", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <LibraryCard
+        <LibraryManagement
           note="Asked 1 roots to scan."
           onScan={ignore}
           onAnswer={ignore}
@@ -70,7 +71,7 @@ describe("libraries", () => {
   it("says whether a watched library's roots are watched, and why not (D272 §9)", () => {
     const library = (changeDetection: "watch" | "manual"): JSX.Element =>
       withServices(
-        <LibraryCard
+        <LibraryManagement
           note=""
           onScan={ignore}
           onAnswer={ignore}
@@ -117,7 +118,7 @@ describe("libraries", () => {
     const card = (scan: Root["scan"]): string =>
       renderToStaticMarkup(
         withServices(
-          <LibraryCard
+          <LibraryManagement
             note=""
             onScan={ignore}
             onAnswer={ignore}
@@ -170,7 +171,7 @@ describe("libraries", () => {
     const card = (kind: Library["kind"], rescan?: Library["rescan"]): string =>
       renderToStaticMarkup(
         withServices(
-          <LibraryCard
+          <LibraryManagement
             note=""
             onScan={ignore}
             onRescan={ignore}
@@ -223,7 +224,7 @@ describe("libraries", () => {
     });
     const markup = renderToStaticMarkup(
       withServices(
-        <LibraryCard
+        <LibraryManagement
           note=""
           onScan={ignore}
           onAnswer={ignore}

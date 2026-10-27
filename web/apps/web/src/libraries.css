@@ -1,0 +1,70 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The admin's Libraries pages (D361): the list, one library's page, and creating one. */
+
+.libraries__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Each library a card of lines, as the jobs are: its name, at a glance, its folders, the way in. */
+.libraries__list {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.libraries__library {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  overflow-wrap: anywhere;
+}
+
+.libraries__library h2 {
+  margin-block-start: 0;
+}
+
+.libraries__summary {
+  color: var(--color-muted);
+}
+
+.libraries__folders,
+.library__folders {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+/* A link that leads on, drawn as a button is: the way into a library, and to create one. */
+.libraries__manage,
+.libraries__create {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-control);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.libraries__create {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* One folder on a library's page: a card of its own, its state and the answers about it. */
+.library__folder {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  overflow-wrap: anywhere;
+}

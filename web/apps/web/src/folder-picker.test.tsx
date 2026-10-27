@@ -12,12 +12,19 @@ import {
   foldersOffered,
   type NewLibrary,
 } from "./create-library.tsx";
-import { FolderPicker, folderAbove, folderInside, type Place } from "./folder-picker.tsx";
+import {
+  FolderBrowser,
+  FolderPicker,
+  folderAbove,
+  folderInside,
+  type Place,
+} from "./folder-picker.tsx";
 import { RepointRoot } from "./repoint-root.tsx";
 import {
   buttonWithText,
   choose,
   click,
+  fire,
   mount,
   servedBy,
   settleAnswers,
@@ -115,6 +122,59 @@ describe("choosing a library folder (D359)", () => {
     expect(askedPaths(heard)).toHaveLength(2);
   });
 
+  it("browses in a modal dialog over the page, which choosing a folder closes (D361 §3)", async () => {
+    const chosen: Place[] = [];
+    const services = servedBy({
+      "GET /nodes/nas/folders": [readable("/tank/media", ["video"])],
+    });
+    mounted = await mount(
+      withServices(
+        <FolderBrowser
+          opener="Pick…"
+          heading="Pick a folder"
+          starts={starts}
+          onChoose={(place) => chosen.push(place)}
+        />,
+        services,
+      ),
+    );
+    const page = mounted.container;
+    expect(page.querySelector("dialog")).toBeNull();
+    expect(buttonWithText(page, "Browse nas: /tank/media")).toBeUndefined();
+    await click(buttonWithText(page, "Pick…"));
+    const dialog = page.querySelector("dialog");
+    expect(dialog?.open).toBe(true);
+    expect(dialog?.getAttribute("aria-label")).toBe("Pick a folder");
+    await click(buttonWithText(page, "Browse nas: /tank/media"));
+    await settleAnswers();
+    await click(buttonWithText(page, "Choose this folder"));
+    expect(chosen).toEqual([{ nodeName: "nas", path: "/tank/media" }]);
+    expect(page.querySelector("dialog")).toBeNull();
+  });
+
+  it("closes the folder browser with nothing chosen on Cancel or Escape (D361 §3)", async () => {
+    const chosen: Place[] = [];
+    mounted = await mount(
+      withServices(
+        <FolderBrowser
+          opener="Pick…"
+          heading="Pick a folder"
+          starts={starts}
+          onChoose={(place) => chosen.push(place)}
+        />,
+      ),
+    );
+    const page = mounted.container;
+    await click(buttonWithText(page, "Pick…"));
+    await click(buttonWithText(page, "Cancel"));
+    expect(page.querySelector("dialog")).toBeNull();
+    await click(buttonWithText(page, "Pick…"));
+    // Escape is the browser's cancel on its modal dialog.
+    await fire(page.querySelector("dialog"), new Event("cancel", { cancelable: true }));
+    expect(page.querySelector("dialog")).toBeNull();
+    expect(chosen).toEqual([]);
+  });
+
   it("goes no higher than the root it began at", () => {
     expect(folderAbove("/tank/media", "/tank/media")).toBeUndefined();
     expect(folderAbove("/tank/media/video/movies", "/tank/media")).toBe("/tank/media/video");
@@ -144,7 +204,8 @@ describe("choosing a library folder (D359)", () => {
         services,
       ),
     );
-    expect(mounted.container.textContent).toContain("Or choose a folder inside one");
+    expect(mounted.container.textContent).toContain("Choose a folder inside one…");
+    await click(buttonWithText(mounted.container, "Choose a folder inside one…"));
     await click(buttonWithText(mounted.container, "Browse nas: /tank/media"));
     await settleAnswers();
     await click(buttonWithText(mounted.container, "video"));
@@ -197,6 +258,7 @@ describe("choosing a library folder (D359)", () => {
       ),
     );
     await click(buttonWithText(mounted.container, "This folder moved…"));
+    await click(buttonWithText(mounted.container, "Choose a folder inside one…"));
     await click(buttonWithText(mounted.container, "Browse nas: /tank/media"));
     await settleAnswers();
     await click(buttonWithText(mounted.container, "films"));

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./folder-picker.css";
+
 import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Loaded } from "./loaded.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
@@ -90,6 +93,57 @@ export function FolderPicker(props: {
       }}
       onChoose={props.onChoose}
     />
+  );
+}
+
+/**
+ * The folder browser as a modal dialog over the page (D361 §3): a button opens it, the admin browses
+ * the starts and the folders beneath them as FolderPicker does, and choosing a folder closes it and
+ * says which; Cancel, Escape or a remote's Back close it with nothing chosen. It is a ModalDialog, the
+ * app's one way to show one, so focus is held inside it while it is open. New-library, adding a folder
+ * and saying a folder moved each open it.
+ */
+export function FolderBrowser(props: {
+  /** What the button that opens it says. */
+  readonly opener: string;
+  /** The dialog's heading, and its name for a screen reader. */
+  readonly heading: string;
+  readonly starts: readonly Place[];
+  readonly onChoose: (place: Place) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const close = (): void => {
+    setIsOpen(false);
+  };
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(true);
+        }}
+      >
+        {props.opener}
+      </button>
+      {isOpen ? (
+        <ModalDialog label={props.heading} className="folder-browser" onClose={close}>
+          <h2>{props.heading}</h2>
+          <FolderPicker
+            starts={props.starts}
+            onChoose={(place) => {
+              close();
+              props.onChoose(place);
+            }}
+          />
+          <p>
+            <button type="button" onClick={close}>
+              {t("libraries.browseCancel")}
+            </button>
+          </p>
+        </ModalDialog>
+      ) : null}
+    </>
   );
 }
 

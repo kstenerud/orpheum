@@ -5,7 +5,8 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
-import { ChangeDetectionChoice, type ChangeDetection, type Library } from "./libraries.tsx";
+import type { Library } from "./libraries.tsx";
+import { ChangeDetectionChoice, type ChangeDetection } from "./library-manage.tsx";
 import { choose, enter, mount, submit, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
