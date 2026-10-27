@@ -806,6 +806,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   stay listed as unavailable, and they come back when the folder does and a scan reads it.
   (`internal/core/api/playback.go`, `internal/core/chunks/job.go`, `internal/core/library/absent.go`,
   `internal/node/agent/listing.go`)
+  Seen again 2026-10-27 20:41 (the lead, staging, after earlier commits): with the original
+  renamed away the admin's play read the copy (206; runs moved to the copy's place, logged), and the
+  original's library folder made to vanish scanned as `unreadable`, nothing removed. Still owed: the
+  owner's unplugged disk.
 - [ ] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
