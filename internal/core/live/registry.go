@@ -174,6 +174,22 @@ func (registry *Registry) Disconnect(gone Connection) {
 	}
 }
 
+// SignedOut tells every connection of userID's device deviceID that its sign-in ended: the device
+// was removed, and a page left showing would learn it only at its next request.
+func (registry *Registry) SignedOut(userID, deviceID int64) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		return
+	}
+	for _, each := range owner.connections {
+		if each.deviceID == deviceID {
+			each.send(Outbound{Type: MessageSignedOut})
+		}
+	}
+}
+
 // Connected is userID's devices connected now, by id, in order.
 func (registry *Registry) Connected(userID int64) []int64 {
 	registry.mutex.Lock()

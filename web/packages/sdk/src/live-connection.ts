@@ -34,7 +34,10 @@ export interface LiveSnapshot {
   readonly inFrontDeviceIds: readonly number[];
   /** The last cast handed to this device, until it is taken (takeReceive). */
   readonly receive: CastToReceive | undefined;
-  /** Whether the server refused the sign-in, after which it connects no more. */
+  /**
+   * Whether the server refused the sign-in, or said it ended (the device removed from another),
+   * after which it connects no more.
+   */
   readonly isRefused: boolean;
 }
 
@@ -120,7 +123,8 @@ export type LiveMessage =
       readonly inFrontDeviceIds: readonly number[];
     }
   | { readonly type: "receive"; readonly receive: CastToReceive }
-  | { readonly type: "pong" };
+  | { readonly type: "pong" }
+  | { readonly type: "signedOut" };
 
 /** A list of ids as a message carries it; empty for none or one malformed. */
 function idsIn(ids: unknown): number[] {
@@ -152,6 +156,8 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
     }
     case "pong":
       return { type: "pong" };
+    case "signedOut":
+      return { type: "signedOut" };
     default:
       return undefined;
   }
@@ -252,7 +258,20 @@ class PageLiveConnection implements LiveConnection {
         return;
       case "pong":
         return;
+      case "signedOut":
+        this.#refused();
+        return;
     }
+  }
+
+  /** Stops for good: the server refused the sign-in, or said it ended. */
+  #refused(): void {
+    this.#isClosed = true;
+    this.#generation += 1; // its close, whenever it comes, is not heard
+    clearTimeout(this.#reconnectTimer);
+    clearInterval(this.#pinger);
+    this.#socket?.close();
+    this.#change({ ...this.#snapshot, isConnected: false, isRefused: true });
   }
 
   #closed(code: number): void {
@@ -261,7 +280,7 @@ class PageLiveConnection implements LiveConnection {
       return;
     }
     if (code === policyViolationCode) {
-      this.#change({ ...this.#snapshot, isConnected: false, isRefused: true });
+      this.#refused();
       return;
     }
     this.#reconnectLater();
@@ -317,7 +336,7 @@ class PageLiveConnection implements LiveConnection {
  * whether its tab is in front, says so again as that changes, keeps the person's connected devices,
  * those in front, and the last cast handed to this device, pings as the session
  * socket does, and connects again with a growing wait after a drop, until closed or until the server
- * refuses the sign-in.
+ * refuses the sign-in or says it ended.
  */
 export function createLiveConnection(options: LiveConnectionOptions): LiveConnection {
   return new PageLiveConnection(options);

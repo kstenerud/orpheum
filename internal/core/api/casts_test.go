@@ -186,6 +186,23 @@ func TestLive_ADeviceIsListedWhileItsSocketIsOpenAndGoneAfterTheSilenceLimit(t *
 	}
 }
 
+// A device removed from another is told on its live socket that its sign-in ended, so its page goes
+// to sign in at once, not at its person's next press (the owner's Fire TV, 2026-10-27).
+func TestLive_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	if removed := harness.do(t, http.MethodDelete, "/me/devices/"+itoa(tv), phoneToken, nil); removed.status !=
+		http.StatusNoContent && removed.status != http.StatusOK {
+		t.Fatalf("DELETE /me/devices/%d = %d %s", tv, removed.status, removed.body)
+	}
+	tvSocket.await(live.MessageSignedOut, func(live.Outbound) bool { return true })
+}
+
 // A device casts only to another of its person's devices connected now; the receiver is handed the
 // cast on its live socket and leads its session of one, and the sender commands it (D337 §1, §2, §5).
 func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {

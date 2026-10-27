@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createLiveConnection, type CastToReceive, type LiveConnection } from "@orpheum/sdk";
+import {
+  createLiveConnection,
+  type Api,
+  type CastToReceive,
+  type LiveConnection,
+} from "@orpheum/sdk";
 import {
   createContext,
   use,
@@ -66,7 +71,7 @@ const noDevices: readonly number[] = [];
  */
 export function LiveProvider(props: { readonly children: ReactNode }): JSX.Element {
   const token = useToken();
-  const { openTogetherSocket, navigation } = useServices();
+  const { openTogetherSocket, navigation, api } = useServices();
   const connection = useMemo(
     (): LiveConnection | undefined =>
       token === undefined
@@ -92,6 +97,7 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     connection?.snapshot ?? noSnapshot,
     noSnapshot, // rendered on a server, as a test renders a page to markup, nothing is live
   );
+  useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
   const { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving } = useReceiving(
     connection,
     navigation,
@@ -122,6 +128,20 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
       )}
     </LiveContext>
   );
+}
+
+/**
+ * Asks the server whether the session still works once the live connection is refused, or told the
+ * device's sign-in ended as another device removed it: the answer's 401, which signed-out-watch.ts
+ * hears, takes the page to sign in at once. A removed Fire TV kept showing its films until its
+ * person pressed something (the owner, 2026-10-27).
+ */
+function useChecksTheSessionWhenRefused(isRefused: boolean, api: Api): void {
+  useEffect(() => {
+    if (isRefused) {
+      api.GET("/me").catch(() => undefined); // a failure is the next check's, or the next press's
+    }
+  }, [isRefused, api]);
 }
 
 /** Whether the page's tab is in front: shown, not behind another tab or a minimised window. */
