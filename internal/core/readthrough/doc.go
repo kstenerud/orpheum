@@ -21,6 +21,7 @@
 //     its arguments', never its priority, which a person's interest raises a full read to (D324); a
 //     player's index read folds into a queued full read and makes it one (ArgsMerge).
 //     TestArgsMerge_APlayersIndexReadWinsOverAQueuedFullReadAndARunningOneCoversOnlyItsOwn,
+//     TestSweptRead_ReadsTheIndexFirstOfEveryContainerTheNodeReadsAnIndexOf,
 //     TestReadThrough_AFullReadRaisedToAPlaysPriorityStillMeasuresTheLoudness,
 //     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest,
 //     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo and
