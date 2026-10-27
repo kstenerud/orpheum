@@ -23258,4 +23258,17 @@ not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's len
 5. **The choice says why** in the log: each candidate's year, runtime, votes and class of fit, and the
    one taken, so a wrong guess explains itself.
 
-**Status:** Decided 2026-10-27.
+**Proven by:**
+- 1: TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts
+- 2: TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst, TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestMatch_TheYearIsAStrongerCueThanTheExactName
+- 3: TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest, TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne
+- 4: TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain
+- 5: TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged
+
+**Status:** Decided 2026-10-27. Built 2026-10-27: the ranking in
+`internal/core/identify/settle_film.go`, the runtimes read, kept and logged in
+`internal/core/identify/runtimes.go`, used by the first match (`match.go`) and a rescan's
+(`rematch.go`); a file's length from `ListLiveFilesOfTitle`. Several candidates all a year off the
+file's, none fitting it, stay a person's choice as D301 §1 had them; runtimes are read only where
+several are admitted and a file's length is known, so a film matched before its file is probed is
+ranked by year and votes alone.
