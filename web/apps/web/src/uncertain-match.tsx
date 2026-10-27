@@ -5,6 +5,7 @@ import "./uncertain-match.css";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "./icon.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
@@ -17,12 +18,7 @@ export function UncertainMatchIcon(props: { readonly isRinged: boolean }): JSX.E
   const centre = size / 2;
   const inset = props.isRinged ? 4.5 : 2.5;
   return (
-    <svg
-      className="uncertain-match-icon"
-      viewBox={`0 0 ${String(size)} ${String(size)}`}
-      aria-hidden="true"
-      focusable="false"
-    >
+    <Icon className="uncertain-match-icon" viewBox={`0 0 ${String(size)} ${String(size)}`}>
       {props.isRinged ? (
         <circle className="uncertain-match-icon__ring" cx={centre} cy={centre} r={15} />
       ) : null}
@@ -34,7 +30,7 @@ export function UncertainMatchIcon(props: { readonly isRinged: boolean }): JSX.E
         />
         <circle className="uncertain-match-icon__dot" cx="12" cy="18.8" r="1.7" />
       </g>
-    </svg>
+    </Icon>
   );
 }
 

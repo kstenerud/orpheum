@@ -5,6 +5,7 @@ import "./still-reading.css";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "./icon.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
@@ -18,12 +19,7 @@ export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Ele
   const centre = size / 2;
   const inset = props.isRinged ? 4.5 : 2.5;
   return (
-    <svg
-      className="still-reading-icon"
-      viewBox={`0 0 ${String(size)} ${String(size)}`}
-      aria-hidden="true"
-      focusable="false"
-    >
+    <Icon className="still-reading-icon" viewBox={`0 0 ${String(size)} ${String(size)}`}>
       {props.isRinged ? (
         <circle className="still-reading-icon__ring" cx={centre} cy={centre} r={15} />
       ) : null}
@@ -39,7 +35,7 @@ export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Ele
           d="M6.4 19.4c0-4.4 4.3-5.2 4.3-7.4h2.6c0 2.2 4.3 3 4.3 7.4z"
         />
       </g>
-    </svg>
+    </Icon>
   );
 }
 

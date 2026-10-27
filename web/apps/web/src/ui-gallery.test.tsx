@@ -21,6 +21,30 @@ it("shows every status cue over pale, mid, dark and busy posters, at /ui-gallery
   expect(markup).toContain("Still being read, match guessed");
 });
 
+it("shows every icon the app draws together, each drawn by Icon (the owner, 2026-10-27)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const icons = markup.slice(
+    markup.indexOf('id="gallery-icons"'),
+    markup.indexOf('id="gallery-buttons"'),
+  );
+  const drawn = [...icons.matchAll(/<svg class="icon ([^"]+)"/gu)].map((match) => match[1]);
+  expect(drawn).toEqual([
+    "warning-icon",
+    "uncertain-match-icon",
+    "uncertain-match-icon",
+    "still-reading-icon",
+    "still-reading-icon",
+    "app-shell__menu-icon",
+    "status-tray__icon",
+    "status-tray__icon",
+    "together-voice__icon",
+    "together-voice__icon",
+    "settings__icon",
+    "settings__icon",
+    "poster__clapperboard",
+  ]);
+});
+
 it("shows the banner's status tray with each sign it can show, beside the menu (the owner, 2026-10-17)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const trays = [...markup.matchAll(/<div class="ui-gallery__banner">(.*?)<\/div><\/div>/gu)].map(

@@ -6,6 +6,7 @@ import { artUrl, type ArtSize } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "./icon.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 
 /**
@@ -177,9 +178,9 @@ function imageLoads(url: string, signal?: AbortSignal): Promise<boolean> {
  * A film's clapperboard, open, drawn in the text's colour: the poster of a title that has none
  * yet, as one not identified has (the owner, 2026-10-06: "a subdued clapboard").
  */
-function Clapperboard(): JSX.Element {
+export function Clapperboard(): JSX.Element {
   return (
-    <svg className="poster__clapperboard" viewBox="0 0 64 64" focusable="false">
+    <Icon className="poster__clapperboard" viewBox="0 0 64 64">
       <g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round">
         <rect x="9" y="30" width="46" height="26" rx="3" />
         <path d="M9 38h46" />
@@ -193,6 +194,6 @@ function Clapperboard(): JSX.Element {
         <path d="m34 23.7 6.8-1.8-1.5 8.6-6.8 1.8z" />
         <path d="m48 20 4.4-1.2 1.4 5-5.3 1.4z" />
       </g>
-    </svg>
+    </Icon>
   );
 }

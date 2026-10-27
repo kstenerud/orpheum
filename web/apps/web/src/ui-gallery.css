@@ -42,6 +42,13 @@
   gap: var(--space-3);
 }
 
+/* The blank poster's mark, whose size is a share of the poster it sits in, at a poster's width. */
+.ui-gallery__blank-mark {
+  display: flex;
+  justify-content: center;
+  width: 5rem;
+}
+
 /* The banner's end, as the banner draws it, for each sign its tray can show. */
 .ui-gallery__banner {
   display: flex;

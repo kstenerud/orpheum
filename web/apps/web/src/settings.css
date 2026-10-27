@@ -110,7 +110,6 @@
 .settings__icon {
   inline-size: 1.25rem;
   block-size: 1.25rem;
-  fill: currentcolor;
 }
 
 /* The bin's question, before a key or password is removed, takes the row's whole width. */

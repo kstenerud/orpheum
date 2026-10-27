@@ -130,4 +130,51 @@ describe("the shell, laid out by a real browser", () => {
       }
     });
   });
+
+  it("colours each status cue by its tokens wherever it is drawn, and every other icon as its words", async () => {
+    // The cues' colours, the tokens' (tokens.css), now set by each cue's region (the owner, 2026-10-27).
+    const cues: readonly (readonly [string, "fill" | "stroke", string])[] = [
+      [".warning-icon__triangle", "fill", "rgb(255, 204, 0)"],
+      [".warning-icon__triangle", "stroke", "rgba(0, 0, 0, 0.35)"],
+      [".warning-icon__mark", "fill", "rgb(17, 17, 17)"],
+      [".uncertain-match-icon__ring", "fill", "rgb(28, 29, 34)"],
+      [".uncertain-match-icon__disc", "fill", "rgb(247, 206, 70)"],
+      [".uncertain-match-icon__curve", "stroke", "rgb(28, 29, 34)"],
+      [".uncertain-match-icon__dot", "fill", "rgb(28, 29, 34)"],
+      [".still-reading-icon__ring", "fill", "rgb(4, 38, 61)"],
+      [".still-reading-icon__disc", "fill", "rgb(124, 200, 255)"],
+      [".still-reading-icon__glass", "stroke", "rgb(4, 38, 61)"],
+      [".still-reading-icon__sand", "fill", "rgb(4, 38, 61)"],
+    ];
+    await drawn(<UiGallery />, ({ container }) => {
+      for (const [selector, paint, colour] of cues) {
+        // Over posters, in the icons' row, and beside a note, the cannot-play one's words yellow.
+        const parts = [...container.querySelectorAll(selector)];
+        expect(parts.length, selector).toBeGreaterThan(1);
+        for (const part of parts) {
+          expect(getComputedStyle(part)[paint], `${selector} ${paint}`).toBe(colour);
+        }
+      }
+      const icons = [...container.querySelectorAll(".ui-gallery__icons svg")].filter(
+        (icon) =>
+          !/warning-icon|uncertain-match-icon|still-reading-icon/u.test(
+            icon.getAttribute("class") ?? "",
+          ),
+      );
+      expect(icons.length).toBeGreaterThan(5);
+      for (const icon of icons) {
+        const words = getComputedStyle(icon.parentElement ?? icon).color;
+        const shapes = [...icon.querySelectorAll("path, circle, rect")];
+        expect(shapes.length).toBeGreaterThan(0);
+        // Each at an icon's size beside the others, the blank poster's mark a share of a poster's width.
+        const { width } = boxOf(icon);
+        expect(width, icon.getAttribute("class") ?? "").toBeGreaterThanOrEqual(16);
+        expect(width, icon.getAttribute("class") ?? "").toBeLessThanOrEqual(48);
+        for (const shape of shapes) {
+          const { fill, stroke } = getComputedStyle(shape);
+          expect([fill, stroke], icon.getAttribute("class") ?? "").toContain(words);
+        }
+      }
+    });
+  });
 });

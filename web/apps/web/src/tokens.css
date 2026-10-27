@@ -34,6 +34,8 @@
    */
   --color-warning: #ffcc00;
   --color-on-warning: #111111;
+  /* The warning triangle's edge, which keeps its yellow apart from a pale ground behind it. */
+  --color-icon-outline: rgb(0 0 0 / 35%);
   /* A cue that something may be wrong, softer than a warning: an uncertain match (D301 §4). */
   --color-caution: #f7ce46;
   --color-on-caution: #1c1d22;

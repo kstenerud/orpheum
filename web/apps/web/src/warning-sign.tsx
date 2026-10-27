@@ -5,6 +5,7 @@ import "./warning-sign.css";
 import { createContext, use, useId, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "./icon.tsx";
 /**
  * Whether the person signed in runs the server, so a warning sign says what is wrong and how to fix
  * it, or only that something is and to tell whoever does (D278 §3). Anyone not known to be one is
@@ -15,11 +16,11 @@ export const IsAdminContext = createContext(false);
 /** The warning triangle itself, in the warning yellow (D278 §4): decoration beside words that say it. */
 export function WarningIcon(): JSX.Element {
   return (
-    <svg className="warning-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <Icon className="warning-icon">
       <path className="warning-icon__triangle" d="M12 2.2 23 21.3H1z" />
       <rect className="warning-icon__mark" x="10.9" y="8.2" width="2.2" height="7.2" rx="1.1" />
       <circle className="warning-icon__mark" cx="12" cy="18.1" r="1.3" />
-    </svg>
+    </Icon>
   );
 }
 
