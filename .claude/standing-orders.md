@@ -1,16 +1,11 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now: the next batch** (the local-path batch is on staging, main an earlier commit; VQ76 the cast prompt works on
-   Fire TV: ask, full screen, sound, double OK). In order: subagent cleanup (building), then the rest below.
-   **This batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
-   series libraries). Staging's "Crowd" (2022) is left wrongly matched on purpose: verify D357 on it.
-   **Done:** subagent cleanup (the ten old worktrees removed). D358 note: desktops go full screen too.
-   **Done:** the three cast fixes (device check VQ77). **Done:** D357, D359 the folder
-   picker (owner 2026-10-27: any subfolder of a node's root, new and existing
-   libraries, hidden folders left out). At deploy: staging's [media] roots become /tank/media and
-   /home/yoloai/synctest (full ./staging, not quick). **Owner away (2026-10-27): deploy as soon as the batch
-   is ready, even if a device shows as viewing** (this batch only).
+2. **Batch done and on staging (2026-10-27, main an earlier commit):** subagent cleanup, the cast fixes, D357 (Crowd
+   verified), D359 the folder picker (roots /tank/media, /home/yoloai/synctest), and the watcher fix: the node
+   watches only folders of libraries set to "watch" (staging: "shows", 894 watches). Waiting on the owner:
+   device checks VQ76 and VQ77; D357's rescan state in cache.db (lead recommends keeping); stray "lead
+   matcher check" devices on staging to delete. Next: whatever the owner files.
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
