@@ -22259,3 +22259,132 @@ one-way rules); keeping the harnesses' own wiring beside production's.
   any core package, and it needs none of them.
 
 **Status:** Decided, and built (2026-10-26).
+
+## D352 — The chunked player trusts its link as far as the evidence goes: its first seconds latch nothing, it climbs as far as consistent samples carry, and it grows steadier when it swings or its link flakes
+
+**Proposed** (2026-10-27), by an agent, at the owner's direction after The Unknown sat on its
+lowest quality for minutes on staging (2026-10-26): *"We're going to have transient network issues in
+the real world, so we should be more adaptable to the changing environment, and more intelligent
+about how we recover from it (such as jumping multiple rungs when it's obvious that we can). We do,
+however, want to switch to a more conservative approach if it starts to feel like we've started
+thrashing (jump down too far, then jump up too far, repeat). Also, if network conditions keep flaking
+out, the network itself is too unreliable at higher rates and we're better off staying on a lower
+rung longer."* **Would amend** [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)
+§4–§5 and [D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
+§9. The research is [abr-adaptation-2026-10-27.md](../design/research/abr-adaptation-2026-10-27.md).
+
+The measurement itself was fixed first (a chunk is timed from its first byte to its last, the
+`arrivalMs` fix of 2026-10-27). What remains is the controller's response: one sample lowered the
+ceiling at once, and D247 §9's step-up, one quality per 120 s held, took eight minutes to climb four
+qualities back while its link measured 2.8–5.6 Mb/s within the first minute. The controller has one
+speed of caution for every link; this gives it a measure of how far to trust its estimate, and of how
+steady its link has been.
+
+1. **The first seconds latch nothing.** Until the playback has **four chunks that measured the
+   link** (D265 §7) *and* has played **20 s**, it is *starting*: each chunk's quality is chosen as
+   D265 §4 chooses it, from the link's estimate (§2) as it stands, but a choice below the ceiling
+   does not lower the ceiling, so the next chunk may be chosen higher again as soon as the estimate
+   recovers. Only
+   a chunk given up on its way (D265 §3) or a stall lowers the ceiling while starting: each is a
+   chunk that did not arrive in time, not a reading of one. When starting ends, the ceiling becomes
+   the highest quality the *confident estimate* (§2) carries, by D265 §4's share, no higher than the
+   start (D260 §2). A start's samples are the least reliable a playback takes: the first request
+   on a WebRTC connection opened seconds before waits for its channel and its transport's queue,
+   and a fresh connection's congestion window is still opening (the research, §2), so a single one
+   must not decide minutes of playback. **The speed remembered for the device's next start (D257
+   §1) is the confident estimate**, never a lone first sample. *Why four and 20 s:* four samples
+   are the fewest whose spread says anything (§2), and by 20 s played the player has filled its
+   first buffer, a dozen chunks or more, so a bad first sample has left §2's five; both are
+   constants, to be measured. In the owner's report, the first chunk's 1008 kb/s would have chosen
+   the lowest quality for the next chunk alone; the chunks after it, measuring 2.8–5.6 Mb/s, would have
+   chosen higher again within seconds.
+2. **The step-up climbs as far as consistent samples carry.** The controller keeps the **last five
+   chunks that measured the link**, each counted once whatever its length, and from them **the
+   link's estimate**, their harmonic mean, which every choice of D265 §4 reads in place of hls.js's
+   (hls.js's estimator is still fed, for hls.js's own readers, D265 §1). hls.js's weighs each sample
+   by the seconds it took to load, so one slow sample outweighs dozens of quick ones: after the
+   owner's 1008 kb/s, 30 to 80 chunks at the lowest quality would have passed before its estimate
+   came within a tenth of 12 Mb/s (the research, §1.4). The harmonic mean of five falls as fast at
+   one slow sample and is rid of it five chunks later. From the estimate comes the **confident
+   estimate**: the estimate divided by one plus the largest error of its own recent predictions
+   (how far each of the five fell from the estimate before it, as a share of the sample;
+   RobustMPC's discount, the research §3).
+   At each look (every 10 s, as now), once the quality has been held for the hold (§3) with
+   **20 s loaded ahead** (as now), the ceiling rises to the **highest quality whose average rate
+   times the headroom (§3) the confident estimate carries**. When the samples **agree**, their
+   largest prediction error at most **20%**, the rise may be several qualities at once; when they do
+   not, it is one quality, as D247 §9 has it. A link that falls is still followed at once: one
+   slow sample pulls the harmonic mean of five down by most of the way, and a chunk on its way is
+   given up as now (D265 §3). *Why the harmonic mean of five:* it is the average a chunk's download
+   time follows, pessimistic about a slow sample without remembering it long, and five is
+   RobustMPC's window and FESTIVE's down to a quarter (FESTIVE keeps 20); *why 20%:* about one
+   rung's gap on the ladder (0.7 → 1.2 → 2 → 3 Mb/s), so samples that agree within it name one
+   rung, not two.
+3. **A swing makes it steadier.** The controller has a **steadiness level** from 0 to 3, 0 at a
+   playback's start. A **swing** is a step down, by the link, a chunk given up or a stall, within
+   **twice the hold after a step up**: the climb did not hold. A swing raises the level by one. The
+   level sets the **hold before a step up: 30 s, 60 s, 120 s, 240 s**, and the **headroom: 1.5×
+   the quality's rate at levels 0 and 1, 1.75× at 2, 2× at 3**; at level 1 and above the step-up is
+   one quality at a time. **It relaxes by one level for each 10 minutes with no swing and no drop
+   (§4).** A link that settles is back at level 0, the 30 s hold and multi-quality climbs, within
+   half an hour; one that swings twice in a film's first ten minutes is held for four minutes per
+   step. *Why 30 s at level 0:* five to eight chunks of evidence (our chunks are 4–10 s), where
+   Shaka waits 8 s between switches and Media3 10 s of buffer; 120 s at level 2 is D247 §9's hold, so
+   a link that has swung twice is treated as today's every link. *Why doubling:* each swing says the
+   last hold was too short by an unknown factor; doubling reaches the slow end in three swings.
+4. **A link that flakes is trusted less.** A **drop** is a chunk given up or a stall, at any
+   quality. A second drop within **10 minutes** of the first raises the steadiness level by one, as
+   a swing does, and each drop after it within those 10 minutes raises it again (to 3 at most). The
+   confident estimate (§2) already falls on a link whose samples vary, since its divisor is the
+   largest recent error: a link whose chunks arrive at 4, 12, 3 and 11 Mb/s is targeted near its
+   slowest, not its mean. A link that holds steady earns back its trust by §3's relaxing, and its
+   divisor shrinks as varying samples leave the five.
+5. **The log explains each choice.** Each change of the ceiling is noted (D265's steps, the play
+   report) with why, the confident estimate and its parts (harmonic mean, error), how many samples
+   it rests on, what is loaded ahead, the steadiness level and the hold; each change of the level
+   is noted with what raised or relaxed it; the end of starting is noted with its samples. The last
+   five samples, each its quality, bytes, time to arrive and wait for its first byte, go with every
+   stall and seek report beside the steps, and the core logs them. *Why:* the owner's report needed
+   a day's reading of code to explain one number (memory: "if explaining a report needs digging,
+   the fix adds the logging that would have said it").
+
+**Values:** every number above is a **constant** in the player (`web/packages/player/src`), beside
+D265's: they tune one algorithm against the others and no admin can judge them, and each is to be
+measured on the acceptance's emulated links (D252, D263) and the owner's devices before it is
+trusted. The share a quality may take stays the setting `link_share_for_quality_percent`
+(D247 §6). No new setting.
+
+**Rejected:** BOLA or (Robust)MPC as the controller, a learned controller, a buffer-only
+controller, the median, a probe, and a memory of the rung that failed (each with why in the
+research, §5); keeping one hold for every link (the owner's report).
+
+**Open questions for the owner:**
+
+- Q1. A hold of 30 s at level 0, against D247 §9's "a couple of minutes", which the owner chose for
+  a link recovering "with good confidence": is confidence now the samples' agreement (§2), or does
+  the owner want the long hold kept for the first climb of a playback?
+- Q2. Should a playback start at the steadiness level its device last ended at on that network,
+  remembered as D257 §1 remembers its speed, so a flaky Wi-Fi is not relearned every film?
+- Q3. §5's samples in the stall and seek reports add a field to the play report and a few hundred
+  bytes per report to the core's log: acceptable, or only while the admin's log level is debug
+  (D347)?
+- Q4. A Watch Together player that keeps the film's own picture (D286 §2) is outside the ceiling;
+  should a swing or a drop there raise its level too, or does the group's rule stay apart?
+- Q5. §2 has the controller choose by an estimate of its own, where D265 §1 kept hls.js's
+  estimator for every choice. hls.js's is still fed, and still what its other controllers read;
+  is replacing it for our choices acceptable, or should hls.js's estimator be configured instead
+  (shorter half-lives cannot undo its weighting by seconds, the research §1.4)?
+- Q6. The lowest qualities' chunks are the smallest, and a small chunk on a fresh or idle
+  connection measures lower than the link (Huang et al., IMC 2012, the research §2): a player at
+  the bottom can read its link slower than it is. Is a floor wanted, such as a chunk under 512 KB
+  counting half (Media3 waits for 512 KiB before it trusts its meter), or is the 128 KB rule
+  (D265 §7) enough until a measurement says otherwise?
+
+**Proven by** (tests to be written; none exists yet):
+- 1: web/packages/player/src/abr-starting.test.ts ("a low first sample does not hold the playback low once its next chunks arrive fast"; "a chunk given up while starting lowers the ceiling")
+- 2: web/packages/player/src/link-estimate.test.ts (the confident estimate), web/packages/player/src/step-up.test.ts ("climbs to the highest quality consistent samples carry"; "climbs one quality when its samples disagree")
+- 3: web/packages/player/src/steadiness.test.ts ("a climb that falls back within twice its hold raises the level and doubles the hold"; "relaxes one level for each ten minutes without a swing or a drop")
+- 4: web/packages/player/src/steadiness.test.ts ("a second drop within ten minutes raises the level"), web/packages/player/src/link-estimate.test.ts ("a varying link is targeted near its slowest samples")
+- 5: web/packages/player/src/abr.test.ts (the notes), TestReport_LogsALinksLastSamples in internal/core/api
+
+**Status:** Proposed, not built.
