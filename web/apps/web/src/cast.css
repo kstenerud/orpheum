@@ -13,9 +13,9 @@
   bottom: var(--space-4);
   left: var(--space-4);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--space-2);
-  background: rgb(0 0 0 / 60%);
-  color: var(--color-text);
+  border-radius: var(--radius-card);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
   font-size: var(--font-size-h2);
   animation: cast-receiver-note-fades 5s forwards;
 }
@@ -81,9 +81,9 @@
   top: var(--space-4);
   left: 50%;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--space-2);
-  background: rgb(0 0 0 / 70%);
-  color: var(--color-text);
+  border-radius: var(--radius-card);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
   font-size: var(--font-size-h2);
   transform: translateX(-50%);
 }

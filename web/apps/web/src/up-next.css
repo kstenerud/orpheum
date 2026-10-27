@@ -21,8 +21,8 @@
   padding: var(--space-2);
   border: 0;
   border-radius: var(--radius-card);
-  background: rgb(0 0 0 / 80%);
-  color: #fff;
+  background: var(--color-video-card);
+  color: var(--color-on-video);
   text-align: start;
 }
 
@@ -31,7 +31,7 @@
   width: 8rem;
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-control);
-  background: rgb(255 255 255 / 12%);
+  background: var(--color-video-control);
   object-fit: cover;
 }
 
@@ -47,8 +47,8 @@
 .up-next__dismiss {
   border: 0;
   border-radius: var(--radius-pill);
-  background: rgb(0 0 0 / 80%);
-  color: #fff;
+  background: var(--color-video-card);
+  color: var(--color-on-video);
 }
 
 /* "Still watching?" in the offer's place (still-watching.tsx, D339): the question and its two
