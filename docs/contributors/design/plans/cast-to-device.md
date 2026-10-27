@@ -383,3 +383,16 @@ Where this plan was silent, the build assumed, each the plan's lean or the small
     (`internal/core/live/registry.go`); the receiver's controlled mode (`cast-receiver.tsx`'s
     `ControlledMode`), the page it goes back to (`cast-return.ts`), and the TV composition for a
     receiver (`play.tsx`). Device checks: VQ64–VQ66 and VQ68 as revised, and VQ71.
+14. **Built for D358** (2026-10-27): the receiver asks (`cast-asked.tsx`, shown by `live.tsx`),
+    its Play asking for the page full screen in the press; the sender waits on the cast's session
+    (`cast-to.tsx`'s `AwaitingAnswer`), handing off once the receiver puts the film on in it; the
+    receive message carries the film's name; Not now and the minute end the cast as `declined` and
+    `unanswered`. Where D358 was silent, the build assumed, each the smallest step: **a cast that
+    arrives while the tab receives one already is received without asking** (the same person's
+    newer cast replaces it, last one wins, D337 §6; the page has had its press); **the question
+    hears its cast's session**, so a cast its sender ends while asked (a cast to another device
+    instead) closes it; **Back and Escape on the question are Not now**; **a sender that leaves its
+    page while asking leaves the cast to its receiver's answer** (a minute at most), nothing sent
+    as it goes, since a React development build mounts each component twice; and **a sender never
+    answered gives up a few seconds after its receiver's minute**, ending the cast as unanswered
+    itself. Device checks: VQ76.

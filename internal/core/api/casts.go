@@ -61,7 +61,7 @@ type EndCastInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
 	Body   struct {
-		Reason string `doc:"takenBack on the receiver, stopped on the remote, filmEnded at the film's end" enum:"takenBack,stopped,filmEnded" json:"reason"` //nolint:lll // one struct tag
+		Reason string `doc:"takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)" enum:"takenBack,stopped,filmEnded,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
 	}
 }
 

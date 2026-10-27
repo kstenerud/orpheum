@@ -55,11 +55,13 @@ type Outbound struct {
 }
 
 // Receive is a cast as its receiver is handed it: the session of one it leads, by a credential of
-// its own, the film and where it starts, and the device that cast it, whose name it shows.
+// its own, the film, its name and where it starts, and the device that cast it, whose name it shows
+// as it asks whether to play it (D358 §1).
 type Receive struct {
 	CastID     int64  `json:"castId"`
 	Credential string `json:"membershipCredential"`
 	FileID     int64  `json:"fileId"`
+	TitleName  string `json:"titleName"`
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film, as a cast from a title's page does.
 	PositionMs     *int64 `json:"positionMs,omitempty"`

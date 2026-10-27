@@ -70,7 +70,7 @@ export function reconnectWaitMs(attempt: number): number {
   return Math.min(firstReconnectWaitMs * 2 ** attempt, longestReconnectWaitMs);
 }
 
-export type { PlayerNote, PlayerState, VoiceCallStep } from "./together-notes.ts";
+export type { PlayerNote, PlayerState, Press, VoiceCallStep } from "./together-notes.ts";
 
 /** A command only the host sends (D246 §8): play, pause, seek, put a film on, or stop. */
 export type GroupCommand =

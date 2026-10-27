@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { healPageAudio } from "./page-audio.ts";
-import type { TogetherConnection } from "./together-connection.ts";
+import type { Press, TogetherConnection } from "./together-connection.ts";
 
 /** The part of a video or audio element playing a film with or without its sound uses. */
 export type SoundedMedia = Pick<
@@ -56,10 +56,36 @@ export function playOrPlayMuted(
     }
     // eslint-disable-next-line no-param-reassign -- muting the element is how it may play
     media.muted = true;
-    connection.note({ kind: "playedMuted", positionMs: positionMsOf(media) });
+    const page = pageActivation();
+    connection.note({
+      kind: "playedMuted",
+      positionMs: positionMsOf(media),
+      ...(page === undefined ? {} : { page }),
+    });
     media.dispatchEvent(new Event(playedMutedEvent));
     media.play().catch(() => undefined); // even muted, a phone saving power may refuse: the tap plays it
   });
+}
+
+/**
+ * What the browser says of the page's user activation, for the server's log, undefined where it
+ * says nothing (navigator.userActivation): whether the page was ever pressed (sticky, which lets a
+ * Chromium browser play sound) and is now (transient, which full screen needs), how long since it
+ * loaded and how the browser came to show it. A cast's receiver on a Fire TV was refused its sound
+ * with nothing to say whether its page had been pressed or loaded again since (the owner,
+ * 2026-10-27).
+ */
+export function pageActivation(): string | undefined {
+  const activation: unknown =
+    typeof navigator === "undefined" ? undefined : Reflect.get(navigator, "userActivation");
+  if (typeof activation !== "object" || activation === null) {
+    return undefined;
+  }
+  const hasBeenActive = Reflect.get(activation, "hasBeenActive") === true;
+  const isActive = Reflect.get(activation, "isActive") === true;
+  const entry = performance.getEntriesByType("navigation").at(0);
+  const navigation = entry !== undefined && "type" in entry ? String(entry.type) : "unknown";
+  return `hasBeenActive=${String(hasBeenActive)} isActive=${String(isActive)} loadedMsAgo=${String(Math.round(performance.now()))} navigation=${navigation}`;
 }
 
 /**
@@ -84,11 +110,12 @@ export function readyForSoundAtTap(media: Pick<HTMLMediaElement, "muted" | "paus
 /**
  * Turns a following player's sound on, and plays it if it is paused: for a page to call from the
  * person's tap, which lets the browser play with sound. The server's log is told, with the sound's
- * state then and soundToldAgainAfterMs later.
+ * state then and soundToldAgainAfterMs later, and by how the person pressed where the page says.
  */
 export function soundOnAtTap(
   media: SoundedMedia & Pick<HTMLMediaElement, "volume">,
   connection: Pick<TogetherConnection, "note">,
+  by?: Press,
 ): void {
   // eslint-disable-next-line no-param-reassign -- the tap's whole purpose: the element's sound on
   media.muted = false;
@@ -100,6 +127,7 @@ export function soundOnAtTap(
   connection.note({
     kind: "unmuted",
     positionMs: positionMsOf(media),
+    ...(by === undefined ? {} : { by }),
     soundState: soundStateOf(media),
   });
   setTimeout(() => {

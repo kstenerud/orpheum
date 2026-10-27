@@ -16,6 +16,8 @@ export interface CastToReceive {
   /** The cast session's credential, which the receiver's session socket says hello with (D88). */
   readonly membershipCredential: string;
   readonly fileId: number;
+  /** The film's name, which the receiver asks whether to play (D358 §1); empty for none. */
+  readonly titleName: string;
   /** Where the sender stood, in ms; undefined to start where the person left the film. */
   readonly positionMs: number | undefined;
   readonly fromDeviceId: number;
@@ -89,6 +91,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
   const fromDeviceId = numberIn(record, "fromDeviceId");
   const credential = record["membershipCredential"];
   const name = record["fromDeviceName"];
+  const titleName = record["titleName"];
   if (
     castId === undefined ||
     fileId === undefined ||
@@ -102,6 +105,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     castId,
     membershipCredential: credential,
     fileId,
+    titleName: typeof titleName === "string" ? titleName : "",
     positionMs: numberIn(record, "positionMs"),
     fromDeviceId,
     fromDeviceName: typeof name === "string" ? name : "",

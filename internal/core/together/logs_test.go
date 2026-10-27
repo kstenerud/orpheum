@@ -273,6 +273,50 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 	}
 }
 
+// A film played muted says whether its page had ever been pressed, the press that turned its sound on
+// says how it was made, and full screen entered or refused says by what: a cast's receiver on a Fire
+// TV played silent and out of full screen with nothing to say why (the owner, 2026-10-27). An unknown
+// press, or one on a note that has none, is refused.
+func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	page := "hasBeenActive=false isActive=false loadedMsAgo=23000 navigation=navigate"
+	for _, note := range []PlayerNote{
+		{Kind: NotePlayedMuted, PositionMs: 1131171, Page: page},
+		{Kind: NotePlayedWithSound, PositionMs: 1131172, Page: "hasBeenActive=true"},
+		{Kind: NoteUnmuted, PositionMs: 1140000, By: "key"},
+		{Kind: NoteFullScreen, Why: "refused"},
+		{Kind: NoteFullScreen, Why: "entered", By: "click"},
+		{Kind: NoteFullScreen, Why: "entered", By: "elbow"},
+		{Kind: NoteFullScreen, Why: "maybe"},
+		{Kind: NotePlayedMuted, PositionMs: 7, By: "tap"},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	}
+	logged := stage.logs.String()
+	if muted := lineWith(t, logged, "playedMuted"); !strings.Contains(muted, `page="`+page+`"`) {
+		t.Errorf("the log does not say the page's activation as it played muted:\n%s", logged)
+	}
+	if sounded := lineWith(t, logged, "playedWithSound"); !strings.Contains(sounded, "positionMs=1131172") ||
+		!strings.Contains(sounded, `page="hasBeenActive=true"`) {
+		t.Errorf("the log does not say the film played with sound, and the page's activation:\n%s", logged)
+	}
+	if unmuted := lineWith(t, logged, "unmutedTap"); !strings.Contains(unmuted, "by=key") {
+		t.Errorf("the log does not say a key turned the sound on:\n%s", logged)
+	}
+	for _, want := range []string{"answer=refused by=\"\"", "answer=entered by=click"} {
+		if !strings.Contains(logged, "logEvent=fullScreen "+want) {
+			t.Errorf("the log does not say full screen %s:\n%s", want, logged)
+		}
+	}
+	for _, unknown := range []string{"elbow", "maybe", "positionMs=7 "} {
+		if strings.Contains(logged, unknown) {
+			t.Errorf("the log took a note it does not know (%s):\n%s", unknown, logged)
+		}
+	}
+}
+
 // A guest's page asking for a tap to continue says how it came to be shown, and an unknown way is
 // refused: an iPhone asked straight after its Join said nothing of whether it had loaded again (the
 // owner's test, 2026-10-13).

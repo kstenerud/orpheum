@@ -14,8 +14,26 @@ import { dataOrThrow } from "./problem.ts";
 /** A cast as one of its devices sees it, with this device's credential for its session of one. */
 export type Cast = components["schemas"]["CastBody"];
 
-/** Why a device ends a cast: control taken back on the receiver, Stop on the remote, the film over. */
-export type CastEnd = "takenBack" | "stopped" | "filmEnded";
+/**
+ * Why a device ends a cast: control taken back on the receiver, Stop on the remote, the film over;
+ * or, asked whether to play it, the receiver's Not now or no answer (D358 §3, §4).
+ */
+export type CastEnd = "takenBack" | "stopped" | "filmEnded" | "declined" | "unanswered";
+
+/**
+ * How long a receiver asks whether to play a cast before it takes no answer as no, in milliseconds
+ * (D358 §4): a person across the room finds the remote and presses OK well within a minute, and a
+ * sender left waiting longer has given up on it. A justified constant.
+ */
+export const castAnswerWithinMs = 60_000;
+
+/**
+ * How much longer than castAnswerWithinMs a sender waits for its receiver's answer before ending the
+ * cast as unanswered itself, in milliseconds: a receiver whose page went away answers nothing, and
+ * one still there ends it first, its own minute counted from the moment it was handed the cast. A
+ * justified constant, a few round trips.
+ */
+export const castAnswerGraceMs = 5000;
 
 /** Where a cast stood as it ended. */
 export type CastEnded = components["schemas"]["EndCastOutputBody"];

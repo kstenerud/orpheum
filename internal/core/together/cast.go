@@ -25,6 +25,10 @@ const (
 	CastStopped = "stopped"
 	// CastFilmEnded is the film ending on the receiver with nothing to play next (§9 Q4).
 	CastFilmEnded = "filmEnded"
+	// CastDeclined is the receiver's Not now, asked whether to play it (D358 §3).
+	CastDeclined = "declined"
+	// CastUnanswered is the receiver's question left unanswered for a minute (D358 §4).
+	CastUnanswered = "unanswered"
 )
 
 // CastOpened is a new cast: its session, and a credential each for the device that cast and the

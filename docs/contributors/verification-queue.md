@@ -710,3 +710,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   report what is wrong when it does not: which clip, at what time, and whether seeking across a join
   works. A DVD title with angles or seamless branching is refused as interleaved, saying so.
   (`internal/node/disc`)
+- [ ] **VQ76** — Cast a film from a laptop (Firefox on the Mac) to a Fire TV stick in Silk, then to
+  Chrome on Linux, each with an Orpheum tab in front that was not pressed since it loaded (D358).
+  Passes when each receiver shows "‹Laptop› wants to play ‹Film› here" with Play focused, the
+  laptop saying "Asking ‹device›…" and its film playing on; on the Fire TV the remote's OK on Play,
+  and on Chrome a click on it, starts the film there **with sound and full screen** (Silk's own bars
+  gone), and only then does the laptop become the remote; staging's core log shows
+  `logEvent=playedWithSound` and `logEvent=fullScreen answer=entered by=key` (Fire TV) or
+  `by=click` (Chrome). Cast again and press Not now: the laptop says "‹device› declined." and plays
+  on; cast again and leave it a minute: the prompt closes and the laptop says "‹device› did not
+  answer.". Should a receiver still play muted (`logEvent=playedMuted`, whose `page=` says whether
+  the page had been pressed), "Press OK to turn the sound on" shows over the film, and one OK (or
+  any arrow) turns the sound on without pausing it (`logEvent=unmutedTap by=key`).
+  (`web/apps/web/src/cast-asked.tsx`, `cast-to.tsx`, `cast-receiver.tsx`, `live.tsx`)

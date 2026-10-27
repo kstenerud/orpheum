@@ -2,17 +2,32 @@
 
 import "./cast.css";
 
-import type { Api, CannotKeepUp, CastToReceive } from "@orpheum/sdk";
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import {
+  pageActivation,
+  playedMutedEvent,
+  soundOnAtTap,
+  type Api,
+  type CannotKeepUp,
+  type CastToReceive,
+  type Press,
+  type TogetherConnection,
+  type TogetherEndReason,
+} from "@orpheum/sdk";
+import type { TFunction } from "i18next";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import { pressOf, type CastAnswer } from "./cast-asked.tsx";
 import { endCast, moveCastOn } from "./cast.ts";
 import { fillsWindowClass } from "./film-fullscreen.ts";
+import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
-import { HostPlaysTogether, SoundOn, useLeadingPlayer } from "./together-host.tsx";
+import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
+import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
 
 /**
@@ -23,14 +38,19 @@ export const castNoteShownMs = 5000;
 
 /** The cast this device receives of fileId, while it does, and how it ends here (D337). */
 export function useReceiving(fileId: number): Receiving | undefined {
-  const { receiving, endReceiving, leaveReceiving } = useLive();
-  return useMemo(
-    () =>
-      receiving?.fileId === fileId
-        ? { cast: receiving, onOver: endReceiving, onLeave: leaveReceiving }
-        : undefined,
-    [receiving, fileId, endReceiving, leaveReceiving],
-  );
+  const { receiving, answer, endReceiving, leaveReceiving } = useLive();
+  return useMemo(() => {
+    if (receiving?.fileId !== fileId) {
+      return undefined;
+    }
+    const its = answer?.castId === receiving.castId ? answer : undefined;
+    return {
+      cast: receiving,
+      onOver: endReceiving,
+      onLeave: leaveReceiving,
+      ...(its === undefined ? {} : { answer: its }),
+    };
+  }, [receiving, answer, fileId, endReceiving, leaveReceiving]);
 }
 
 /**
@@ -77,6 +97,11 @@ export interface Receiving {
    * casting stopped, or the film over with nothing after it (D338 §1).
    */
   readonly onLeave: () => void;
+  /**
+   * The press that answered Play to the cast, where this tab was asked (D358 §2); absent for a cast
+   * received at once, as one replacing another this tab received.
+   */
+  readonly answer?: CastAnswer;
 }
 
 /**
@@ -114,18 +139,12 @@ export function CastReceiver(props: {
     putOnAtMs: cast.positionMs,
   });
   useFillsTheWindow(video);
-  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
-  useEffect(() => {
-    // A cast replacing this one is received already; any other end leaves an ordinary player.
-    if (endReason === undefined || endReason === "replaced") {
-      return;
-    }
-    if (endReason === "stopped" || endReason === "filmEnded") {
-      onLeave();
-    } else {
-      onOver();
-    }
-  }, [endReason, onOver, onLeave]);
+  const isWelcomed = snapshot?.status === "connected";
+  useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
+  useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
+    onOver,
+    onLeave,
+  });
   const hasNext = props.hasNext === true;
   useEffect(() => {
     if (hasNext) {
@@ -146,10 +165,32 @@ export function CastReceiver(props: {
   }, [api, cast.castId, onOver]);
   return (
     <>
-      <SoundOn video={video} connection={connection} />
+      <SoundAtAnyPress video={video} connection={connection} />
       <ControlledMode fromName={cast.fromDeviceName} onTakeBack={takeBack} />
     </>
   );
+}
+
+/**
+ * Ends receiving as the cast ends: stopped by the remote, or its film over, the receiver goes back to
+ * the page it was on (D338 §1); a cast replacing it is received already; any other end leaves an
+ * ordinary player.
+ */
+function useEndsAsTheCastDoes(
+  endReason: TogetherEndReason | undefined,
+  ways: Pick<Receiving, "onOver" | "onLeave">,
+): void {
+  const { onOver, onLeave } = ways;
+  useEffect(() => {
+    if (endReason === undefined || endReason === "replaced") {
+      return;
+    }
+    if (endReason === "stopped" || endReason === "filmEnded") {
+      onLeave();
+    } else {
+      onOver();
+    }
+  }, [endReason, onOver, onLeave]);
 }
 
 /** Has the video's stage fill the window while it receives, by layout, as no press asked (§4). */
@@ -164,6 +205,195 @@ function useFillsTheWindow(video: HTMLVideoElement | null): void {
       stage.classList.remove(fillsWindowClass);
     };
   }, [video]);
+}
+
+/**
+ * Tells the server's log how the cast started here (D358 §2): what the browser answered the full
+ * screen the Play press asked for, and by what press, once the session is connected; and whether the
+ * film started with its sound on, as it first plays (a refusal is told by playOrPlayMuted).
+ */
+function useToldHowItStarted(started: {
+  readonly connection: Pick<TogetherConnection, "note"> | undefined;
+  readonly isWelcomed: boolean;
+  readonly video: HTMLVideoElement | null;
+  readonly answer: CastAnswer | undefined;
+}): void {
+  const { connection, isWelcomed, video, answer } = started;
+  const hasToldFullScreenRef = useRef(false);
+  useEffect(() => {
+    if (
+      connection === undefined ||
+      !isWelcomed ||
+      answer?.fullScreen === undefined ||
+      hasToldFullScreenRef.current
+    ) {
+      return;
+    }
+    hasToldFullScreenRef.current = true;
+    const { by } = answer;
+    answer.fullScreen
+      .then((why) => {
+        connection.note({ kind: "fullScreen", why, by });
+      })
+      .catch(() => undefined);
+  }, [connection, isWelcomed, answer]);
+  useEffect(() => {
+    if (video === null || connection === undefined) {
+      return undefined;
+    }
+    const playing = (): void => {
+      video.removeEventListener("playing", playing);
+      if (!video.muted) {
+        const page = pageActivation();
+        connection.note({
+          kind: "playedWithSound",
+          positionMs: video.currentTime * 1000,
+          ...(page === undefined ? {} : { page }),
+        });
+      }
+    };
+    video.addEventListener("playing", playing);
+    return () => {
+      video.removeEventListener("playing", playing);
+    };
+  }, [video, connection]);
+}
+
+/**
+ * The sound turned on at the receiver's first press while the browser plays its film muted (D358
+ * §5): it refused the film's sound, though Play was pressed (a policy, or a browser that wants its
+ * press on the video itself). A line over the film says so ("Press OK to turn the sound on" on a
+ * television), and the first press answers it: any key but those that are no press to a browser
+ * (Escape, a modifier, a shortcut) or that leave (Back), and a click or a tap anywhere. That press
+ * does nothing else, so OK neither pauses the film nor counts towards the double OK that leaves
+ * controlled mode, nor does a click OK makes after it (samePressWithinMs).
+ */
+export function SoundAtAnyPress(props: {
+  readonly video: HTMLVideoElement | null;
+  readonly connection: Pick<TogetherConnection, "note"> | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { video } = props;
+  const muted = useMutedByTheBrowser(video);
+  const latestRef = useRef(props);
+  useEffect(() => {
+    latestRef.current = props;
+  });
+  const { setIsMuted } = muted;
+  const turnOn = useCallback(
+    (by: Press): void => {
+      const { video: shown, connection } = latestRef.current;
+      if (shown === null || connection === undefined) {
+        return;
+      }
+      setIsMuted(false);
+      soundOnAtTap(shown, connection, by);
+    },
+    [setIsMuted],
+  );
+  useFirstPressTurnsSoundOn(muted.isMutedRef, turnOn);
+  if (!muted.isMuted || video === null) {
+    return null;
+  }
+  const line = <output className="cast-receiver__sound-on">{soundOnText(t)}</output>;
+  // Over the film, inside its stage, so it shows in full screen too.
+  const stage = video.closest(".film-player__stage");
+  return stage instanceof HTMLElement ? createPortal(line, stage) : line;
+}
+
+/** Whether the browser plays video muted, having refused its sound (playedMutedEvent). */
+function useMutedByTheBrowser(video: HTMLVideoElement | null): {
+  readonly isMuted: boolean;
+  /** isMuted as a press's listener reads it, between renders. */
+  readonly isMutedRef: RefObject<boolean>;
+  readonly setIsMuted: (isMuted: boolean) => void;
+} {
+  const [isShownMuted, setIsShownMuted] = useState(false);
+  const isMutedRef = useRef(false);
+  const setIsMuted = useCallback((isNow: boolean) => {
+    isMutedRef.current = isNow;
+    setIsShownMuted(isNow);
+  }, []);
+  useEffect(() => {
+    if (video === null) {
+      return undefined;
+    }
+    const onPlayedMuted = (): void => {
+      setIsMuted(true);
+    };
+    video.addEventListener(playedMutedEvent, onPlayedMuted);
+    return () => {
+      video.removeEventListener(playedMutedEvent, onPlayedMuted);
+    };
+  }, [video, setIsMuted]);
+  return { isMuted: isShownMuted, isMutedRef, setIsMuted };
+}
+
+/**
+ * Hears, before anything else on the page, the first press while isMutedRef says the film plays
+ * muted, and takes it for turnOn: a key that is a press (isNoSoundPress), or a click or a tap, with
+ * the click a TV browser makes of the same OK.
+ */
+function useFirstPressTurnsSoundOn(
+  isMutedRef: RefObject<boolean>,
+  turnOn: (by: Press) => void,
+): void {
+  useEffect(() => {
+    let keyTurnedItOnAt = Number.NEGATIVE_INFINITY;
+    const take = (event: Event): void => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (!isMutedRef.current || isNoSoundPress(event)) {
+        return;
+      }
+      take(event);
+      keyTurnedItOnAt = performance.now();
+      turnOn("key");
+    };
+    const onClick = (event: MouseEvent): void => {
+      if (performance.now() - keyTurnedItOnAt <= samePressWithinMs) {
+        take(event); // the click a TV browser makes of the OK that turned the sound on
+        return;
+      }
+      if (isMutedRef.current) {
+        take(event);
+        turnOn(pressOf(event));
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("click", onClick, true);
+    };
+  }, [isMutedRef, turnOn]);
+}
+
+/**
+ * Whether a key press is one that turns no sound on: Escape and a modifier, which no browser counts
+ * as a press that lets a page play sound (the HTML standard's activation-triggering input events), a
+ * shortcut, and Back, which leaves controlled mode as it always does.
+ */
+function isNoSoundPress(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.altKey || event.metaKey || modifierKeys.has(event.key)) {
+    return true;
+  }
+  // Escape is Back too.
+  return commandOf({ kind: "key", key: event.key, keyCode: keyCodeOf(event) }) === "back";
+}
+
+/** The keys that only modify another. */
+const modifierKeys = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn"]);
+
+/** The line that asks for a press to turn the sound on, in this device's words for one. */
+function soundOnText(t: TFunction): string {
+  if (isTelevision(navigator.userAgent)) {
+    return t("cast.soundOn.television");
+  }
+  const isTouch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  return isTouch ? t("cast.soundOn.touch") : t("cast.soundOn.pointer");
 }
 
 /**
