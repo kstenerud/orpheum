@@ -92,6 +92,24 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().isRefused).toBe(true);
   });
 
+  it("connects no more once the server says the sign-in ended, the device removed from another", () => {
+    vi.useFakeTimers();
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "removed",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3] }));
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "signedOut" }));
+    expect(connection.snapshot()).toMatchObject({ isConnected: false, isRefused: true });
+    sockets.opened[0]!.onClose(1006);
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.opened).toHaveLength(1);
+  });
+
   it("keeps a cast handed to it until it is taken", () => {
     const sockets = fakeSockets();
     const connection = createLiveConnection({

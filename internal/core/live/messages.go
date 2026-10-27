@@ -24,6 +24,10 @@ const (
 	MessageReceive MessageType = "receive"
 	// MessagePong answers a ping, so the device knows its connection lives.
 	MessagePong MessageType = "pong"
+	// MessageSignedOut tells the device its sign-in ended, the device removed from another (D218 §4):
+	// its page asks whether its session still works and, refused, goes to sign in at once rather than
+	// at its person's next press (the owner's Fire TV, 2026-10-27).
+	MessageSignedOut MessageType = "signedOut"
 )
 
 // Inbound is one message a device sends.

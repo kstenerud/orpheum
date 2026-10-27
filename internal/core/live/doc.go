@@ -30,6 +30,10 @@
 //   - A cast moves on to another film, the next episode, only at its sender's or its receiver's
 //     asking, in the same cast, and its receiver is handed it again (plans/up-next.md). Enforced by
 //     TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt.
+//   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other
+//     device is, so its page goes to sign in at once. Enforced by
+//     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,
+//     TestLive_ARemovedDeviceIsToldItsSignInEnded in internal/core/api.
 //   - Starts no goroutine, and a Sender never blocks (the api's outbox). Review-only.
 //   - Imports nothing from internal/node, never os/exec, and no database/sql. Enforced by the
 //     depguard rules core-boundary and sql-only-in-store.

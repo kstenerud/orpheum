@@ -145,6 +145,9 @@ func (server *Server) removeMyDevice(ctx context.Context, input *DeviceInput) (*
 		return nil, err
 	}
 	err = dependencies.Auth.RemoveDevice(ctx, principal.UserID, input.DeviceID)
+	if err == nil {
+		dependencies.Live.SignedOut(principal.UserID, input.DeviceID)
+	}
 	return server.deviceAnswer(ctx, "remove a device", err)
 }
 
@@ -171,6 +174,9 @@ func (server *Server) removePersonDevice(ctx context.Context, input *PersonDevic
 		return nil, err
 	}
 	err = dependencies.Auth.RemoveDevice(ctx, input.UserID, input.DeviceID)
+	if err == nil {
+		dependencies.Live.SignedOut(input.UserID, input.DeviceID)
+	}
 	return server.deviceAnswer(ctx, "remove a person's device", err)
 }
 

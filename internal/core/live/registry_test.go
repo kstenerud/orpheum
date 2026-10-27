@@ -295,3 +295,27 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 		t.Errorf("the sender's casts = %+v; want the one, now of file 2", listed)
 	}
 }
+
+// A device removed is told its sign-in ended on each of its connections, and no other device is
+// (D218 §4).
+func TestRegistry_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted())
+	phoneBox, firstTab, secondTab, partnerBox := &inbox{}, &inbox{}, &inbox{}, &inbox{}
+	registry.Connect(owner, phone, inFront, phoneBox.send)
+	registry.Connect(owner, television, inFront, firstTab.send)
+	registry.Connect(owner, television, behind, secondTab.send)
+	registry.Connect(partner, television, inFront, partnerBox.send)
+	registry.SignedOut(owner, television)
+	for name, box := range map[string]*inbox{"the TV's first tab": firstTab, "the TV's second tab": secondTab} {
+		if box.count(MessageSignedOut) != 1 {
+			t.Errorf("%s was told its sign-in ended %d times, want once", name, box.count(MessageSignedOut))
+		}
+	}
+	for name, box := range map[string]*inbox{"the phone": phoneBox, "the partner's device": partnerBox} {
+		if box.count(MessageSignedOut) != 0 {
+			t.Errorf("%s was told its sign-in ended", name)
+		}
+	}
+	registry.SignedOut(laptop, laptop) // a person with no connection: nothing to tell
+}
