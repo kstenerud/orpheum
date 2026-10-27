@@ -23460,7 +23460,36 @@ sound, and a 5.1 film is folded down to stereo. That breaks
 5. **The play's log line says what was sent:** a chunked play no longer says `delivery=direct`; it
    names the ladder, the quality it started on and the sound it started with.
 
-**Status:** Decided 2026-10-27.
+**Proven by:**
+- 1: TestMasterPlaylist_TheTopPlaysTheTracksItsPlayerPlaysAsTheyAreCopied, TestStartOnLadder_StartsTheTopOnTheFilmsOwnSoundCopied, TestStoreFileOf_OffersASoundCopiedOnlyOfATrackTheTopPlaysCopied, TestHandleMakeChunks_ACopiedSoundIsSentAsItsTrackAndAMixAtItsLevelCarriesTheDifference, TestTracks_TheTopNamesTheFilmsOwnSoundItPlaysCopied, TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds, TestMake_TimesACopiedSoundByItsListedEndInTheFilm, TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes (integration tier: 5.1 AAC, stereo AAC and 5.1 AC-3, two runs, the film's packets bit for bit); VQ85
+- 2: TestMasterPlaylist_TheTopPlaysTheTracksItsPlayerPlaysAsTheyAreCopied (the lower qualities' group), TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes (the light track stereo AAC, none of the film's packets)
+- 3: TestMasterPlaylist_EachPictureNamesTheSoundsItPlays, TestMasterPlaylist_TheTopPlaysTheTracksItsPlayerPlaysAsTheyAreCopied, web/packages/player/src/hls.test.ts ("keeping the sound playing as the quality moves between audio groups"); VQ85 (the blip)
+- 4: TestMasterPlaylist_TheTopPlaysTheTracksItsPlayerPlaysAsTheyAreCopied (the boosted mix made in the top's group), hls.test.ts ("keeps a rendition chosen, the boosted mix, at every quality"), TestMasterPlaylist_ATrackPlayedCopiedIsMadeAtItsOwnLevelLevellingOrNot; VQ85
+- 5: TestPlayback_AChunkedPlayLogsItsLadderTheQualityAndTheSoundItStartsOn, TestPlayback_LogsEachStartAndRefusalButNeverTheToken
+
+**Status:** Decided 2026-10-27. Built 2026-10-27. The node makes a new kind of store, a
+sound copied (`nodeproto.StreamSoundCopied`, protocol 53; `internal/node/chunks/arguments.go`,
+`maker.go`, `fmp4.go`): copied with `-copyts -start_at_zero`, led in from the chunk before, its first
+packet put a tick before the film so the segment muxer, which counts its cuts from a run's first
+packet, cuts every run at the same packets, each chunk placed by its listed end less its samples, the
+init after the first packet (AC-3); idiosyncrasies.md has both. The core
+(`internal/core/chunks/ownsound.go`, `offer.go`, `playlists.go`) offers the top, the picture copied, an audio group of its own,
+`own`, holding each track its device plays as it is (`decide.PlaysAsItIs`, kept on the playback as
+`ownSoundTracks`) copied, `sound<track>-own`, with its channels, and the rest as the lower qualities'
+group `audio` has them; every group in one order, one name to a place. A track played copied has its
+mixes made as loud as it, `-ownlevel` (`decide.OwnLevelGainDB`: the stereo mix's levelling less the
+track's own), once the film's loudness was measured, levelling or not, so a step between the two keeps
+the level and the player levels both by the decision's levelling, as it levels the original played
+as it is (D226 §4); a start on such a track carries no gain. Not decided by the owner, chosen to keep
+§1 and §3 from a jump in loudness: say if the light track should rather stay levelled (the player
+would then need a gain per quality). The player (`keepAudioRendition`, `web/packages/player/src/hls.ts`)
+keeps the sound's place as the level moves between groups, where hls.js matches by name and
+channels. The start's log line (`internal/core/api/playback.go`) says `delivery=ladder`,
+`decidedDelivery`, `ladderQuality` and `ladderSound`. The tracks note
+(`web/apps/web/src/tracks-note.tsx`) names the top's own sound from the API's
+`pictures[].sounds`. Night mode is not built (D336); the dialogue boost is the made mix at every
+quality. A device that cannot play a track's codec and channels gets the light stereo track at the
+top too, D336 §2's made sound.
 
 ## D369 — Every device plays with the app's own player controls, built from one standard set of player widgets
 
