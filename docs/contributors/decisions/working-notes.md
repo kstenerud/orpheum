@@ -22813,3 +22813,66 @@ playback at the hand-off"); keeps
 its notes (`cast-receiver.tsx`), the film's name in the receive message and the `declined` and
 `unanswered` ends (`internal/core/live`, `internal/core/api/casts.go`), and the notes' log lines
 (`internal/core/together`). Device checks: VQ76.
+
+## D359 — A library's folder is any folder beneath one of its node's configured roots, chosen by browsing the node's folders
+
+**Decided** (2026-10-27), by the project owner: "The admin should be able to choose any subdir of any
+passed-in root for a library root." Until now a library's folders were a node's configured roots
+whole (`node.root_paths`), so a node configured with `/tank/media` offered one library over all of
+it. The owner's further answers: hidden folders are left out of the browsing ("if anyone starts
+asking for it, we can make it an option"), and the same picker serves a new library and changing an
+existing one's folders ("do both"). **Keeps**
+[D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable):
+a folder narrows a configured root and never widens it, the node's configuration still the only
+place its scope is set; and
+[D193 §1](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes):
+the node lists the folders, the core opening none.
+
+1. **A library folder is a configured root, or a folder beneath one, named by a clean path and its
+   real one.** The core refuses any path its node's hello does not hold, by its text: one with a
+   `..`, a `.`, or a doubled or trailing separator is held by none, so no text climbs out of a root
+   (`pathtree.DeepestHolding`). The node refuses, at every listing and examining, a folder whose path
+   passes through a link or names what is not a directory, and opens the folder as a root of its own
+   through `os.Root`, so nothing outside it is read; a link inside the folder is followed as one in a
+   root is ([D206](#d206--a-symlink-is-followed-only-into-a-media-root-golangorgxtext-normalises-filenames-and-language-tags)).
+   A folder reached through a link is not refused for being elsewhere but for not being its real
+   path: the folder itself is offered at its real path. No library's folder may be at, above or below
+   another library folder on the same node (one file, one library, one scan); a new library's folders
+   may not hold one another either. Each refusal is logged at warn.
+2. **The node lists a folder's folders, for an admin, within a time limit.** `GET
+   /nodes/{name}/folders?path=` (admin only) asks the node, on its byte socket, for the folders in one
+   of its roots or a folder beneath one: no link, even to a folder, and no hidden folder (a name
+   starting with "."). The node reads outside every queue and through its disk gate, within the
+   window a file's open has, asks of a folder while one listing of it runs sharing it, as probes do
+   ([D327](#d327--whoever-needs-to-know-whether-a-root-can-be-read-asks-and-the-node-answers-at-once-outside-every-queue));
+   the core waits five seconds at most. A share gone away (`WhenGone: may_wait_forever`) answers
+   "this folder is not responding", never hanging the page, the node's channel or its other work.
+   Each listing is logged at debug with its node, path, folder count and time; a refused path at
+   warn.
+3. **One picker chooses a new library's folders and changes an existing library's.** The admin picks
+   one of a connected node's configured roots and browses beneath it, never above the root it began
+   at. A new library ticks the configured roots or the folders chosen beneath them. An existing
+   library adds a folder (`POST /libraries/{id}/roots`, `{nodeName, path}`: the smallest mechanism,
+   none existing: the folder is checked as a new library's are, recorded, and scanned at once, as a
+   person's request), says one moved to a folder chosen by the same picker (`POST
+   /libraries/{id}/roots/repoint`, D241 §6, the folder it moves from covering nothing once moved), and
+   retires one (`POST /libraries/{id}/roots/retire`, D231 §7). An added folder may be on any connected
+   node.
+4. **A folder beneath a configured root is valid wherever a configured root was.** Its scan lists and
+   examines it as a root of its own, its scan beginning at its path; a run of chunks, a read-through
+   and an extraction read a file named under it; its node's hello asks for its scan when it names the
+   root holding it, and one no longer naming that root makes it unavailable
+   ([D241 §2](#d241--what-goes-missing-stays-listed-as-unavailable-until-an-admin-says-it-is-gone-and-a-play-of-it-fails-at-once));
+   a status saying the root's disk is not answering makes it unavailable, and one saying the disk
+   answers again asks for its scan, which brings it back; the watcher's notice under the root scans
+   the library folders it touches, the folder changed inside a library's or the library's whole folder
+   inside the one changed; the root's watch is shown as its; the node's disk gate keys its readings
+   by the root, so one stuck share holds one stuck reading. A library whose folders were the
+   configured roots keeps working when the configured roots become their parents: staging's config
+   moves from `/tank/media/video/movies`, `/tank/media/video/shows` and
+   `/home/yoloai/synctest/movies` to `/tank/media` and `/home/yoloai/synctest`. Landlock is
+   unchanged: a confined run is granted its own film, which is under a root either way.
+5. **The node protocol is 48:** the byte socket's folder listing (`FolderListing`), and a library
+   folder beneath a root named as a command's root, which a node of 47 refuses.
+
+**Status:** Decided 2026-10-27, not built.
