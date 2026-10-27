@@ -50,6 +50,27 @@ func TestOpenCache_BuildsAnEmptyFileAndKeepsWhatItHolds(t *testing.T) {
 	}
 }
 
+// D363: a copy's candidate is read whole by a hash_whole_file job (node protocol 52); the schema's
+// job.kind CHECK names it among the kinds the queue may hold.
+func TestOpenCache_QueuesAHashWholeFileJob(t *testing.T) {
+	t.Parallel()
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	fileID := int64(7)
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		_, insertErr := queries.InsertJob(t.Context(), cachegen.InsertJobParams{
+			Kind: "hash_whole_file", FileID: &fileID, ArgsJSON: "{}", RunnableAt: 1, CreatedAt: 1,
+		})
+		return insertErr //nolint:wrapcheck // the test reads it as is
+	})
+	if err != nil {
+		t.Fatalf("InsertJob: %v", err)
+	}
+	jobs, err := cache.Read().ListJobs(t.Context(), 10)
+	if err != nil || len(jobs) != 1 || jobs[0].Kind != "hash_whole_file" {
+		t.Errorf("the queued jobs = %+v, %v; want the one hash_whole_file job", jobs, err)
+	}
+}
+
 func TestOpenCache_ReportsAnotherVersionAsOutdated(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "cache.db")
