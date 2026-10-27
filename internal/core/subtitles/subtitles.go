@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -64,8 +65,8 @@ func textKey(payloadHash []byte, streamIndex *int64) sqlcgen.GetSubtitleTextPara
 // file, so it is done when the file is first played (D217 §6), every track not yet made from one
 // read of it, one job per file the tracks are in (D340). A track that failed is tried again. Bitmap
 // tracks are not offered (cut-a §1).
-func (service *Service) Want(ctx context.Context, videoID int64) ([]Track, error) {
-	rows, err := service.textTrackRows(ctx, service.database.Read(), videoID)
+func (service *Service) Want(ctx context.Context, reach auth.Reach, videoID int64) ([]Track, error) {
+	rows, err := service.textTrackRows(ctx, service.database.Read(), reach, videoID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +105,12 @@ func (service *Service) Want(ctx context.Context, videoID int64) ([]Track, error
 	return append(streamTracksOf(rows), fetchedTracksOf(fetched)...), nil
 }
 
-// Tracks lists a video's text subtitle tracks: its own, its subtitle files' and those
-// fetched for it.
+// Tracks lists a video's text subtitle tracks: its own, those of its subtitle files at the places
+// reach reaches (D363 §3), and those fetched for it.
 func (service *Service) Tracks(
-	ctx context.Context, queries *sqlcgen.Queries, videoID int64,
+	ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, videoID int64,
 ) ([]Track, error) {
-	rows, err := service.textTrackRows(ctx, queries, videoID)
+	rows, err := service.textTrackRows(ctx, queries, reach, videoID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +133,16 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []Track {
 	return tracks
 }
 
-// textTrackRows are a video's subtitle tracks that are text in a file with a payload hash.
+// textTrackRows are a video's subtitle tracks that are text in a file with a payload hash: its own,
+// and its subtitle files' at a place a library reach reaches covers, what lies beside a place being
+// that place's (D363 §3).
 func (service *Service) textTrackRows(
-	ctx context.Context, queries *sqlcgen.Queries, videoID int64,
+	ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, videoID int64,
 ) ([]sqlcgen.ListSubtitleTracksOfVideoRow, error) {
-	rows, err := queries.ListSubtitleTracksOfVideo(ctx, videoID)
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	rows, err := queries.ListSubtitleTracksOfVideo(ctx, sqlcgen.ListSubtitleTracksOfVideoParams{
+		VideoFile: videoID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("read the subtitle tracks of file %d: %w", videoID, err)
 	}

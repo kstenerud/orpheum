@@ -33,7 +33,9 @@ SELECT CAST(coalesce((
   ORDER BY collection_member.collection_id LIMIT 1
 ), version.title_id) AS INTEGER) AS work_id
 FROM file
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN version ON version.id = (
+  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+  ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1) AND version.removed_at IS NULL
 WHERE file.id = sqlc.arg(file_id) AND file.removed_at IS NULL;
 
 -- name: DeletePreferencesOfUser :exec
@@ -44,3 +46,16 @@ DELETE FROM preference WHERE user_id = sqlc.arg(user_id);
 -- A removed file deleted past its keeping takes what each person chose in it.
 DELETE FROM preference
 WHERE scope = 'file' AND scope_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: MoveFilePreferencesToFile :exec
+-- What each person chose in a file confirmed to be a copy of another (D363 section 2): the other's,
+-- where they chose nothing of it there.
+UPDATE preference SET scope_id = sqlc.arg(to_file)
+WHERE preference.scope = 'file' AND preference.scope_id = sqlc.arg(from_file)
+  AND NOT EXISTS (
+    SELECT 1 FROM preference AS kept
+    WHERE kept.user_id = preference.user_id AND kept.scope = 'file' AND kept.scope_id = sqlc.arg(to_file)
+      AND kept.axis = preference.axis);
+
+-- name: DeleteFilePreferencesOfFile :exec
+DELETE FROM preference WHERE scope = 'file' AND scope_id = sqlc.arg(file_id);

@@ -26,13 +26,14 @@ import (
 const root = "/media/films"
 
 type harness struct {
-	t        *testing.T
-	database *store.Database
-	ingester *Ingester
-	clock    *clocktest.Fake
-	nodeID   int64
-	rootPath string // the library's one root, as its node names it
-	settings *settings.Service
+	t         *testing.T
+	database  *store.Database
+	ingester  *Ingester
+	clock     *clocktest.Fake
+	nodeID    int64
+	libraryID int64  // the library over rootPath
+	rootPath  string // the library's one root, as its node names it
+	settings  *settings.Service
 }
 
 // newHarness is a database with a node and one library covering root, and the ingest.
@@ -46,11 +47,12 @@ func newHarnessAt(t *testing.T, rootPath string) *harness {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	nodeID, _ := librarytest.NodeWithLibrary(t, database,
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: rootPath})
 	seeded := settingstest.Seeded(t, database)
 	return &harness{
-		t: t, database: database, clock: fakeClock, nodeID: nodeID, rootPath: rootPath, settings: seeded,
+		t: t, database: database, clock: fakeClock, nodeID: nodeID, libraryID: libraryID, rootPath: rootPath,
+		settings: seeded,
 		ingester: NewIngester(database, fakeClock, seeded, slog.New(slog.DiscardHandler)),
 	}
 }
@@ -147,8 +149,8 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 	live := world.liveFilesByPath()
 	alien, notes := live[root+"/Wing (1979)/Wing.mkv"], live[root+"/Wing (1979)/notes.txt"]
 	broken := live[root+"/Broken.mkv"]
-	if alien.Filing != FilingUnidentified || *alien.FilingReason != notIdentifiedYet || alien.PayloadHash == nil {
-		t.Errorf("the film = %+v, want unidentified with its payload hash", alien)
+	if alien.Filing != FilingVideo || *alien.FilingReason != notIdentifiedYet || alien.PayloadHash == nil {
+		t.Errorf("the film = %+v, want a video not identified yet, with its payload hash", alien)
 	}
 	if notes.Filing != FilingSkipped || *notes.FilingReason != "extension" || notes.PayloadHash != nil {
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
@@ -297,8 +299,8 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 		[]nodeproto.ScanRecord{observedRecord("Episode.mkv", "same bytes")},
 		true)
 	live := world.liveFilesByPath()
-	if kept, found := live[root+"/Film.mkv"]; !found || kept.ID != film.ID || kept.LibraryID != film.LibraryID {
-		t.Errorf("the film is %+v, want it left where it is, in its library", kept)
+	if kept, found := live[root+"/Film.mkv"]; !found || kept.ID != film.ID || kept.Path != film.Path {
+		t.Errorf("the film is %+v, want it left where it is", kept)
 	}
 	if episode, found := live[shows+"/Episode.mkv"]; !found || episode.ID == film.ID {
 		t.Errorf("the episode is %+v, want a row of its own", episode)
@@ -333,8 +335,9 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		sidecarRecord("Nosferatu (1998)/movie.nfo", nodeproto.SidecarNFO, "<movie/>"),
 		sidecarRecord("Show/tvshow.nfo", nodeproto.SidecarNFO, "<tvshow/>"),
 	}, true)
+	after, before := PathRange(root)
 	rows, err := world.database.Read().ListLiveFilesForAttaching(t.Context(), sqlcgen.ListLiveFilesForAttachingParams{
-		NodeID: world.nodeID, LibraryID: world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"].LibraryID,
+		NodeID: world.nodeID, After: after, Before: before,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -385,7 +388,7 @@ func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
 		t.Errorf("a scan that never ended handed on %v", handed)
 	}
 	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, true)
-	if len(handed) != 1 || handed[0] != world.liveFilesByPath()[root+"/a.mkv"].LibraryID {
+	if len(handed) != 1 || handed[0] != world.libraryID {
 		t.Errorf("handed on %v, want the scanned library once", handed)
 	}
 }
@@ -396,7 +399,7 @@ func TestIngest_ABatchThatAddsAFileAsksForAPassBeforeTheScanEnds(t *testing.T) {
 	var asked []int64
 	world.ingester.SetOnNewFiles(func(_ context.Context, libraryID int64) { asked = append(asked, libraryID) })
 	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
-	library := world.liveFilesByPath()[root+"/a.mkv"].LibraryID
+	library := world.libraryID
 	if !slices.Equal(asked, []int64{library}) {
 		t.Errorf("a scan still going that found a new film asked for passes of %v, want its library %d's",
 			asked, library)

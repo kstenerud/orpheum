@@ -78,7 +78,12 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 			run.LastChunk))
 	}
 	queries := service.database.Read()
-	located := library.LocatedOf(film.file)
+	// At the first place on its store's node that can be read now: a copy beside it when the first's
+	// disk does not answer (D363 §8).
+	located, err := library.PlaceOnNodeToRead(ctx, queries, service.nodes, film.file, film.file.NodeID)
+	if err != nil {
+		return jobs.MarkPermanent(err)
+	}
 	if parked := library.ParkIfUnavailable(ctx, queries, service.nodes, job, located); parked != nil {
 		return parked
 	}

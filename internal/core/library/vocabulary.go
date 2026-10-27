@@ -6,14 +6,21 @@ package library
 // write or read: a file's filing (D163), a title's kind (D162), and the kinds of image an item
 // shows. Defined here, the lower of the two packages, so each value is written once.
 const (
+	// How a kind of library's identification filed a video (file_filing, D363 §5).
 	FilingListed       = "listed"
 	FilingUnidentified = "unidentified"
 	FilingExtra        = "extra"
-	FilingAttached     = "attached" // a sidecar: it belongs to a video beside it
-	FilingSkipped      = "skipped"
-	FilingErrored      = "errored"
+	// How a scan filed what it found at a place (file.filing): a video, which each kind of library
+	// that covers it files; a copy of a video found first at another place, that video's place (D363
+	// §2); a sidecar, which belongs to a video beside it; and a path skipped or that could not be read.
+	FilingVideo    = "video"
+	FilingCopy     = "copy"
+	FilingAttached = "attached"
+	FilingSkipped  = "skipped"
+	FilingErrored  = "errored"
 
-	// LibraryKindMovies is a library of films; one of films and series both is mixed.
+	// LibraryKindMovies is a library of films, whose names may also make episodes (D363 removed the
+	// mixed kind).
 	LibraryKindMovies = "movies"
 	// LibraryKindShows is a series library, every video of which is an episode of a series (the
 	// owner, 2026-10-13).

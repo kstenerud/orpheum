@@ -72,7 +72,7 @@ func (q *Queries) GetFileLastSeenAt(ctx context.Context, id int64) (int64, error
 const getItemLibraryMetadataSource = `-- name: GetItemLibraryMetadataSource :one
 SELECT library.metadata_source
 FROM item
-JOIN library ON library.id = item.library_id
+JOIN library ON library.id = item.filing_library_id
 WHERE item.id = ?1
 `
 
@@ -134,13 +134,24 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 }
 
 const isArtworkReached = `-- name: IsArtworkReached :one
-SELECT EXISTS (
+SELECT CAST(EXISTS (
   SELECT 1 FROM artwork
   JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
   WHERE artwork.source_sha256 = ?1
-    AND (CAST(?2 AS INTEGER) = 1
-      OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
-) AS is_reached
+    AND (EXISTS (
+      SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE version.title_id = item.id AND version.removed_at IS NULL
+        AND (CAST(?2 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+    ) OR EXISTS (
+      SELECT 1 FROM collection_member
+      CROSS JOIN version ON version.title_id = collection_member.member_title
+      CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+        AND (CAST(?2 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+    ))
+) AS INTEGER) AS is_reached
 `
 
 type IsArtworkReachedParams struct {
@@ -149,11 +160,12 @@ type IsArtworkReachedParams struct {
 	LibraryIdsJSON string
 }
 
-// Whether an image is held by a live item in a library the caller reaches (D243 section 4): an
-// image is served by its hash to whoever may see something that shows it.
-func (q *Queries) IsArtworkReached(ctx context.Context, arg IsArtworkReachedParams) (bool, error) {
+// Whether an image is held by a live item a library the caller reaches lists (D243 section 4, D363
+// section 8): an image is served by its hash to whoever may see something that shows it, a title or a
+// series one of whose episodes it lists.
+func (q *Queries) IsArtworkReached(ctx context.Context, arg IsArtworkReachedParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, isArtworkReached, arg.SourceSha256, arg.IsEveryLibrary, arg.LibraryIdsJSON)
-	var is_reached bool
+	var is_reached int64
 	err := row.Scan(&is_reached)
 	return is_reached, err
 }
@@ -161,6 +173,17 @@ func (q *Queries) IsArtworkReached(ctx context.Context, arg IsArtworkReachedPara
 const listArtworkSourceSha256s = `-- name: ListArtworkSourceSha256s :many
 SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL AND (
+    item.kind NOT IN ('title', 'collection')
+    OR EXISTS (
+      SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    OR EXISTS (
+      SELECT 1 FROM collection_member
+      CROSS JOIN version ON version.title_id = collection_member.member_title
+      CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+  ) THEN 1 ELSE 0 END) AS INTEGER) AS is_listed,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
@@ -171,11 +194,14 @@ GROUP BY artwork.source_sha256
 type ListArtworkSourceSha256sRow struct {
 	SourceSha256 []byte
 	IsLive       int64
+	IsListed     int64
 	GoneAt       int64
 }
 
-// Every stored image, whether a live item shows it, and when it last stopped being shown: what
-// the artwork ceiling reads to find removed items' images, D212 section 6.
+// Every stored image, whether a live item shows it, whether one a library lists does, and when it last
+// stopped being shown: what the artwork ceiling reads to find removed items' images, D212 section 6,
+// and those of items no library covers any more, kept until the ceiling needs their room (D363
+// section 10). A person or another kind of item is always listed.
 func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSourceSha256sRow, error) {
 	rows, err := q.db.QueryContext(ctx, listArtworkSourceSha256s)
 	if err != nil {
@@ -185,7 +211,12 @@ func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSo
 	items := []ListArtworkSourceSha256sRow{}
 	for rows.Next() {
 		var i ListArtworkSourceSha256sRow
-		if err := rows.Scan(&i.SourceSha256, &i.IsLive, &i.GoneAt); err != nil {
+		if err := rows.Scan(
+			&i.SourceSha256,
+			&i.IsLive,
+			&i.IsListed,
+			&i.GoneAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -204,8 +235,8 @@ SELECT ordering.collection_id AS series_id, CAST((
   SELECT position.title_id FROM position
   JOIN title ON title.id = position.title_id
   WHERE position.ordering_id = ordering.id AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL
   )
   ORDER BY position.group_number IS NULL, position.group_number = 0, position.group_number, position.sort_order
   LIMIT 1
@@ -220,7 +251,7 @@ type ListFirstEpisodesRow struct {
 	EpisodeID int64
 }
 
-// Each series' first episode with a live file, of the first regular season in its aired ordering,
+// Each series' first episode a library lists, of the first regular season in its aired ordering,
 // else of the specials: the episode whose still a series with no poster shows, D362. The ids are a
 // JSON array.
 func (q *Queries) ListFirstEpisodes(ctx context.Context, seriesIDListJson string) ([]ListFirstEpisodesRow, error) {
@@ -262,15 +293,16 @@ SELECT title.id AS title_id, title.kind AS title_kind,
     LIMIT 1
   ), 0) AS INTEGER) AS stale_refusal_id
 FROM item
-JOIN library ON library.id = item.library_id
+JOIN library ON library.id = item.filing_library_id
 CROSS JOIN title ON title.id = item.id
 JOIN file ON file.id = (
-  SELECT live.id FROM version CROSS JOIN file AS live ON live.version_id = version.id
+  SELECT live.id FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
+  CROSS JOIN file AS live ON live.id = file_filing.file_id
   WHERE version.title_id = title.id AND version.removed_at IS NULL AND live.removed_at IS NULL
     AND live.payload_hash IS NOT NULL
   ORDER BY live.path LIMIT 1
 )
-WHERE item.library_id = ?1 AND item.removed_at IS NULL
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
   AND title.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
     SELECT 1 FROM artwork shown
@@ -413,7 +445,7 @@ const listItemsWithLiveUnchosenLocalArtwork = `-- name: ListItemsWithLiveUnchose
 SELECT DISTINCT artwork.item_id
 FROM item
 JOIN artwork ON artwork.item_id = item.id
-WHERE item.library_id = ?1 AND artwork.source = 'local' AND artwork.removed_at IS NULL
+WHERE item.filing_library_id = ?1 AND artwork.source = 'local' AND artwork.removed_at IS NULL
   AND artwork.is_chosen = 0
 ORDER BY artwork.item_id
 `
@@ -511,7 +543,7 @@ const listShownArtwork = `-- name: ListShownArtwork :many
 SELECT artwork.item_id, artwork.source_sha256, artwork.source
 FROM artwork
 JOIN item ON item.id = artwork.item_id
-LEFT JOIN library ON library.id = item.library_id
+LEFT JOIN library ON library.id = item.filing_library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
   AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,

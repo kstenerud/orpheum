@@ -138,6 +138,8 @@ type Services struct {
 	// scanSchedule asks for the scans libraries that notice changes by themselves are due (D27,
 	// D272 §1).
 	scanSchedule *library.ScanSchedule
+	// copies confirms the files found at a second place that are copies of one found before (D363 §2).
+	copies *library.Copies
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
 	// providerServices are each outside host's provider service, which every call to it asks
@@ -313,7 +315,7 @@ func (services *Services) libraryAdmin(parts Parts) *library.Admin {
 		scans = services.Scans
 	}
 	admin := library.NewAdmin(parts.Database, parts.Clock, services.nodes, scans,
-		library.Retirement{Work: services.Queue, Titles: services.pass})
+		library.Retirement{Work: services.Queue})
 	admin.UseSettings(parts.Settings)
 	admin.UseLogger(parts.Logger)
 	return admin

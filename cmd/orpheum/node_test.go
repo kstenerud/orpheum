@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -56,14 +60,9 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 			t.Errorf("the log lacks %s:\n%s", want, log)
 		}
 	}
-	database := openDatabase(t, config)
-	files, err := database.Read().ListLiveFilesByNode(t.Context(), nodeID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	filings := map[string]string{}
-	for _, file := range files {
-		filings[strings.TrimPrefix(file.Path, media+"/")] = file.Filing
+	for _, file := range liveFilingsOfNode(t, config, nodeID) {
+		filings[strings.TrimPrefix(file.path, media+"/")] = file.filing
 	}
 	film, notes := filings["Film (2020)/Film (2020).mkv"], filings["notes.txt"]
 	if film != "unidentified" || notes != "skipped" || len(filings) != 2 {
@@ -249,6 +248,41 @@ func watchItsLibrary(t *testing.T, config Config) {
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// liveFiling is one live place on a node and how it is filed: a video's filing by the kind of library
+// that covers it, else its own row's (D363 §6).
+type liveFiling struct {
+	id              int64
+	path            string
+	reportedPathRaw string
+	filing          string
+	reason          string
+}
+
+// liveFilingsOfNode is every live place on nodeID with its filing, one per place: the tests that
+// read them cover each with one library.
+func liveFilingsOfNode(t *testing.T, config Config, nodeID int64) []liveFiling {
+	t.Helper()
+	rows := storetest.QueryRaw(t, openDatabase(t, config).Path(), fmt.Sprintf(
+		`SELECT file.id, hex(CAST(file.path AS BLOB)), hex(file.reported_path_raw),
+		 coalesce(file_filing.filing, file.filing), coalesce(file_filing.filing_reason, file.filing_reason, '')
+		 FROM file LEFT JOIN file_filing ON file_filing.file_id = file.id
+		 WHERE file.node_id = %d AND file.removed_at IS NULL ORDER BY file.path`, nodeID))
+	filings := make([]liveFiling, 0, len(rows))
+	for _, row := range rows {
+		fields := strings.Split(row, "|")
+		id, err := strconv.ParseInt(fields[0], 10, 64)
+		path, pathErr := hex.DecodeString(fields[1])
+		raw, rawErr := hex.DecodeString(fields[2])
+		if err = errors.Join(err, pathErr, rawErr); err != nil || len(fields) != 5 {
+			t.Fatalf("read the live filing %q: %v", row, err)
+		}
+		filings = append(filings, liveFiling{
+			id: id, path: string(path), reportedPathRaw: string(raw), filing: fields[3], reason: fields[4],
+		})
+	}
+	return filings
 }
 
 func openDatabase(t *testing.T, config Config) *store.Database {

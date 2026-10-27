@@ -10,11 +10,14 @@ import (
 )
 
 const countLibraryFilings = `-- name: CountLibraryFilings :many
-SELECT filing, count(*) AS files
-FROM file
-WHERE library_id = ?1 AND removed_at IS NULL
-GROUP BY filing
-ORDER BY filing
+SELECT CAST(CASE WHEN library_place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
+  ELSE library_place.filing END AS TEXT) AS filing, count(*) AS files
+FROM library_place
+LEFT JOIN file_filing ON file_filing.file_id = library_place.place_id
+  AND file_filing.library_kind = library_place.library_kind
+WHERE library_place.library_id = ?1
+GROUP BY 1
+ORDER BY 1
 `
 
 type CountLibraryFilingsRow struct {
@@ -22,7 +25,8 @@ type CountLibraryFilingsRow struct {
 	Files  int64
 }
 
-// How many live files a library has in each filing: the scanner view's summary (D163).
+// How many live places a library's folders cover in each filing: the scanner view's summary (D163). A
+// video is filed as the library's kind filed it, and unidentified until it has (D363 section 5).
 func (q *Queries) CountLibraryFilings(ctx context.Context, libraryID int64) ([]CountLibraryFilingsRow, error) {
 	rows, err := q.db.QueryContext(ctx, countLibraryFilings, libraryID)
 	if err != nil {
@@ -140,6 +144,8 @@ func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (i
 const insertLibraryRoot = `-- name: InsertLibraryRoot :exec
 INSERT INTO library_root (library_id, node_id, root_path)
 VALUES (?1, ?2, ?3)
+ON CONFLICT (library_id, node_id, root_path) DO UPDATE SET retired_at = NULL
+WHERE library_root.retired_at IS NOT NULL
 `
 
 type InsertLibraryRootParams struct {
@@ -148,6 +154,9 @@ type InsertLibraryRootParams struct {
 	Path      string
 }
 
+// A library's folder, or one it had and retired, live again: a library that covers it again finds
+// what it held as it was (D363 section 10).
+// Only when it changes something (D303, DL9).
 func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootParams) error {
 	_, err := q.db.ExecContext(ctx, insertLibraryRoot, arg.LibraryID, arg.NodeID, arg.Path)
 	return err
@@ -203,18 +212,28 @@ func (q *Queries) ListCheckedRoots(ctx context.Context) ([]ListCheckedRootsRow, 
 }
 
 const listFilesPage = `-- name: ListFilesPage :many
-SELECT id, library_id, path, filing, filing_reason, error_detail_json, size_bytes, first_seen_at, last_seen_at
-FROM file
-WHERE removed_at IS NULL AND id > ?1
-  AND (library_id = ?2 OR ?2 IS NULL)
-  AND (filing = ?3 OR ?3 IS NULL)
-ORDER BY id
+SELECT place.id, CAST(coalesce(covering.id, 0) AS INTEGER) AS library_id, place.path,
+  CAST(CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
+    ELSE place.filing END AS TEXT) AS filing,
+  coalesce(file_filing.filing_reason, place.filing_reason) AS filing_reason,
+  place.error_detail_json, place.size_bytes, place.first_seen_at, place.last_seen_at
+FROM file AS place
+LEFT JOIN library AS covering ON covering.id = (
+  SELECT first.library_id FROM place_library AS first
+  WHERE first.place_id = place.id AND (first.library_id = ?1 OR ?1 IS NULL)
+  ORDER BY first.library_id LIMIT 1)
+LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind
+WHERE place.removed_at IS NULL AND place.id > ?2
+  AND (covering.id IS NOT NULL OR ?1 IS NULL)
+  AND (CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE place.filing END
+    = ?3 OR ?3 IS NULL)
+ORDER BY place.id
 LIMIT ?4
 `
 
 type ListFilesPageParams struct {
-	AfterID   int64
 	LibraryID *int64
+	AfterID   int64
 	Filing    *string
 	MaxRows   int64
 }
@@ -231,12 +250,13 @@ type ListFilesPageRow struct {
 	LastSeenAt      int64
 }
 
-// What the scanner saw (D163): live files by id after a cursor, optionally of one library and
-// one filing.
+// What the scanner saw (D163): live places by id after a cursor, each with the first live library that
+// covers it, optionally of one library and one filing. A video is filed as that library's kind filed
+// it, and unidentified until it has (D363 section 5); a copy is filed a copy.
 func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([]ListFilesPageRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesPage,
-		arg.AfterID,
 		arg.LibraryID,
+		arg.AfterID,
 		arg.Filing,
 		arg.MaxRows,
 	)
@@ -322,11 +342,24 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error)
 }
 
 const listLibraryRootStates = `-- name: ListLibraryRootStates :many
-SELECT library_root.root_path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
-  root_state.last_scan_at, root_state.withheld_reason
+SELECT library_root.root_path, library_root.node_id, node.name AS node_name,
+  CAST(coalesce((
+    SELECT outer_root.root_path FROM library_root AS outer_root
+    JOIN library ON library.id = outer_root.library_id AND library.removed_at IS NULL
+    WHERE outer_root.node_id = library_root.node_id AND outer_root.retired_at IS NULL
+      AND (outer_root.root_path = library_root.root_path OR outer_root.root_path = '/'
+        OR substr(library_root.root_path, 1, length(outer_root.root_path) + 1) = outer_root.root_path || '/')
+    ORDER BY length(outer_root.root_path) LIMIT 1), library_root.root_path) AS TEXT) AS scan_root_path,
+  root_state.last_scan_outcome, root_state.last_scan_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
-LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = (
+  SELECT outer_root.root_path FROM library_root AS outer_root
+  JOIN library ON library.id = outer_root.library_id AND library.removed_at IS NULL
+  WHERE outer_root.node_id = library_root.node_id AND outer_root.retired_at IS NULL
+    AND (outer_root.root_path = library_root.root_path OR outer_root.root_path = '/'
+      OR substr(library_root.root_path, 1, length(outer_root.root_path) + 1) = outer_root.root_path || '/')
+  ORDER BY length(outer_root.root_path) LIMIT 1)
 WHERE library_root.library_id = ?1 AND library_root.retired_at IS NULL
 ORDER BY library_root.root_path
 `
@@ -335,13 +368,15 @@ type ListLibraryRootStatesRow struct {
 	RootPath        string
 	NodeID          int64
 	NodeName        string
+	ScanRootPath    string
 	LastScanOutcome *string
 	LastScanAt      *int64
 	WithheldReason  *string
 }
 
-// A library's roots with their node and the last scan's outcome: whether the files are
-// available, and a withheld scan's reason (D208).
+// A library's roots with their node, the root of the scan that reads each, the outermost live library
+// folder on its node at or above it, of whichever library (D363 section 2), and that scan's last
+// outcome: whether the files are available, and a withheld scan's reason (D208).
 func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([]ListLibraryRootStatesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraryRootStates, libraryID)
 	if err != nil {
@@ -355,6 +390,7 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 			&i.RootPath,
 			&i.NodeID,
 			&i.NodeName,
+			&i.ScanRootPath,
 			&i.LastScanOutcome,
 			&i.LastScanAt,
 			&i.WithheldReason,

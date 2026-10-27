@@ -120,17 +120,13 @@ func (filer *libraryFiler) claimTitleByProviderID(
 	}
 	rows = slices.DeleteFunc(rows, func(row sqlcgen.ListTitlesByProviderIDRow) bool { return row.Kind != kind })
 	for _, row := range rows {
-		if row.LibraryID != nil && *row.LibraryID == filer.library.ID {
+		if row.FilingLibraryID != nil && *row.FilingLibraryID == filer.library.ID {
 			return row.ID, nil
 		}
 	}
 	for _, row := range rows {
-		liveFileCount, countErr := filer.queries.CountLiveFilesOfTitle(ctx, row.ID)
-		if countErr != nil {
-			return 0, fmt.Errorf("count the files of title %d: %w", row.ID, countErr)
-		}
-		if liveFileCount > 0 {
-			continue // its files are still there: that library keeps its title
+		if row.IsFiledByNone == 0 {
+			continue // its library lists its files still: that library keeps its title
 		}
 		libraryID := filer.library.ID
 		err = filer.queries.MoveItemToLibrary(ctx, sqlcgen.MoveItemToLibraryParams{LibraryID: &libraryID, ID: row.ID})

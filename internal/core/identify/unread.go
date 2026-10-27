@@ -4,43 +4,41 @@ package identify
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// RetireUnreadFile retires what a pass filed for a row a listing stored unread, unreadID, whose read
-// found it to be fileID, a file stored before that moved or came back (library.UnreadRetirer): its
-// version is removed, and the title the pass made from its path, left with no live version, is
-// merged into fileID's, which holds the work's history (D304 §5, D173).
-func RetireUnreadFile(ctx context.Context, queries *sqlcgen.Queries, unreadID, fileID, nowMs int64) error {
-	unread, err := store.OrNotFound(queries.GetFileTitle(ctx, unreadID))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil // never filed
-	}
+// RetireVersionInto retires the version a row found to be another file left (library.VersionRetirer):
+// a row a listing stored unread whose read found a file stored before that moved or came back, or a
+// file a whole read confirmed to be a copy of one found before it. The version, holding no file any
+// more, is removed, and the title the pass made it in, left with no live version, is merged into
+// intoTitleID, the other file's title of the same kind, which holds the work's history (D304 §5, D363
+// §2, D173).
+func RetireVersionInto(ctx context.Context, queries *sqlcgen.Queries, versionID, intoTitleID, nowMs int64) error {
+	holding, err := queries.CountFilingsOfVersion(ctx, &versionID)
 	if err != nil {
-		return fmt.Errorf("read the unread file %d's title: %w", unreadID, err)
+		return fmt.Errorf("count the files of version %d: %w", versionID, err)
 	}
-	removed := sqlcgen.RemoveVersionParams{RemovedAt: &nowMs, ID: ptr.ValueOrZero(unread.VersionID)}
-	err = queries.RemoveVersion(ctx, removed)
+	if holding > 0 {
+		return nil // another part of it stays
+	}
+	version, err := queries.GetVersionTitle(ctx, versionID)
 	if err != nil {
-		return fmt.Errorf("remove the unread file %d's version: %w", unreadID, err)
+		return fmt.Errorf("read version %d's title: %w", versionID, err)
 	}
-	stored, err := store.OrNotFound(queries.GetFileTitle(ctx, fileID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && stored.TitleID == unread.TitleID) {
+	err = queries.RemoveVersion(ctx, sqlcgen.RemoveVersionParams{RemovedAt: &nowMs, ID: versionID})
+	if err != nil {
+		return fmt.Errorf("remove version %d: %w", versionID, err)
+	}
+	if version.TitleID == intoTitleID {
 		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("read file %d's title: %w", fileID, err)
-	}
 	err = queries.MergeTitleWithNoLiveVersion(ctx, sqlcgen.MergeTitleWithNoLiveVersionParams{
-		MergedInto: &stored.TitleID, RemovedAt: &nowMs, TitleID: unread.TitleID,
+		MergedInto: &intoTitleID, RemovedAt: &nowMs, TitleID: version.TitleID,
 	})
 	if err != nil {
-		return fmt.Errorf("merge title %d into %d: %w", unread.TitleID, stored.TitleID, err)
+		return fmt.Errorf("merge title %d into %d: %w", version.TitleID, intoTitleID, err)
 	}
 	return nil
 }

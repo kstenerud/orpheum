@@ -43,7 +43,7 @@ func (browser *Browser) listFilmsOrSeriesByName(
 			keyed = append(keyed, keyedEntry{key: row.CollationKey, entry: Entry{
 				ID: row.ItemID, Kind: ListSeries, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+				AddedAt:             row.AddedAt, IsGuessed: row.IsGuessed,
 			}})
 		}
 		return keyed, listErr
@@ -55,8 +55,7 @@ func (browser *Browser) listFilmsOrSeriesByName(
 	for _, row := range rows {
 		keyed = append(keyed, keyedEntry{key: row.CollationKey, entry: Entry{
 			ID: row.ItemID, Kind: ListFilms, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-			IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-			AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+			IdentificationState: row.IdentificationState, AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 		}})
 	}
 	return keyed, err
@@ -81,7 +80,7 @@ func (browser *Browser) listFilmsOrSeriesByAdded(
 			keyed = append(keyed, keyedEntry{key: timeKey(row.FoundAt, row.FoundFileModifiedAt), entry: Entry{
 				ID: row.ItemID, Kind: ListSeries, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+				AddedAt:             row.AddedAt, IsGuessed: row.IsGuessed,
 			}})
 		}
 		return keyed, err
@@ -93,18 +92,17 @@ func (browser *Browser) listFilmsOrSeriesByAdded(
 	for _, row := range rows {
 		keyed = append(keyed, keyedEntry{key: timeKey(row.FoundAt, row.FoundFileModifiedAt), entry: Entry{
 			ID: row.ItemID, Kind: ListFilms, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-			IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-			AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+			IdentificationState: row.IdentificationState, AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 		}})
 	}
 	return keyed, err
 }
 
 // otherEntry is an other video as a list shows it.
-func otherEntry(id int64, name *string, state string, libraryID *int64, addedAt int64, facts *OtherFacts) Entry {
+func otherEntry(id int64, name *string, state string, addedAt int64, facts *OtherFacts) Entry {
 	return Entry{
-		ID: id, Kind: ListOther, Name: ptr.ValueOrZero(name), IdentificationState: state,
-		LibraryID: ptr.ValueOrZero(libraryID), AddedAt: addedAt, Other: facts,
+		ID: id, Kind: ListOther, Name: ptr.ValueOrZero(name), IdentificationState: state, AddedAt: addedAt,
+		Other: facts,
 	}
 }
 
@@ -137,7 +135,7 @@ func (browser *Browser) listOtherByName(
 	for _, row := range rows {
 		facts := otherFactsOf(row.RecordedAt, row.RecordedFrom, row.FileName)
 		keyed = append(keyed, keyedEntry{key: row.CollationKey, entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.LibraryID, row.AddedAt, facts)})
+			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -154,7 +152,7 @@ func (browser *Browser) listOtherByFileName(
 	for _, row := range rows {
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
 		keyed = append(keyed, keyedEntry{key: row.FileNameKey, entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.LibraryID, row.AddedAt, facts)})
+			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -172,7 +170,7 @@ func (browser *Browser) listOtherByRecorded(
 	for _, row := range rows {
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
 		keyed = append(keyed, keyedEntry{key: timeKey(row.RecordedAt), entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.LibraryID, row.AddedAt, facts)})
+			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -190,7 +188,7 @@ func (browser *Browser) listOtherByAdded(
 	for _, row := range rows {
 		facts := otherFactsOf(row.RecordedAt, row.RecordedFrom, row.FileName)
 		keyed = append(keyed, keyedEntry{key: timeKey(row.FoundAt, row.FoundFileModifiedAt), entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.LibraryID, row.AddedAt, facts)})
+			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
 	}
 	return keyed, err
 }

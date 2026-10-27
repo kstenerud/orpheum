@@ -50,9 +50,11 @@ type tokenPlayback struct {
 	userID     int64
 	sessionKey string
 	fileID     int64
-	// libraryID is the file's library: a holder who no longer reaches it no longer holds the
-	// token, so a library taken back stops its playbacks at their next request (D243 §4).
-	libraryID int64
+	// libraryIDs are the libraries that cover the place it plays from, of those its person reached
+	// (D363 §8): a holder who reaches none of them any more no longer holds the token, so a library
+	// taken back stops its playbacks at their next request (D243 §4). Empty for a place no library
+	// covers, which only a holder of every library plays.
+	libraryIDs []int64
 	// playbackID names the playback to the admin's now playing, which never sees the token; deviceID
 	// is the device it plays on, startedAt when it started, decision how it plays, and positionMs
 	// where its last report said it was.
@@ -207,12 +209,20 @@ func (playback *tokenPlayback) isHeldBy(holder Holder) bool {
 	return playback.isHeldByOne(holder) || (holder.Viewer != nil && playback.isHeldByOne(*holder.Viewer))
 }
 
-// isHeldByOne is whether one holder holds the playback: its person, under its session, reaching its
-// library now, and for a viewer, the film the session plays now.
+// isHeldByOne is whether one holder holds the playback: its person, under its session, reaching a
+// library of its place now, and for a viewer, the film the session plays now.
 func (playback *tokenPlayback) isHeldByOne(holder Holder) bool {
 	return holder.SessionKey != "" && playback.userID == holder.UserID &&
-		playback.sessionKey == holder.SessionKey && holder.Reach.Reaches(&playback.libraryID) &&
+		playback.sessionKey == holder.SessionKey && playback.isReachedBy(holder.Reach) &&
 		(holder.OnlyFileID == 0 || holder.OnlyFileID == playback.fileID)
+}
+
+// isReachedBy is whether reach reaches a library that covers the place the playback plays from.
+func (playback *tokenPlayback) isReachedBy(reach auth.Reach) bool {
+	if reach.IsEveryLibrary() {
+		return true
+	}
+	return slices.ContainsFunc(playback.libraryIDs, func(libraryID int64) bool { return reach.Reaches(&libraryID) })
 }
 
 // takeReport marks report seq of a token's playback taken, when holder holds it, and says whether

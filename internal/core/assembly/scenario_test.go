@@ -472,11 +472,11 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		clock: world.clock,
 	}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
-		// No files to measure, nothing due a rolling refresh, and backups, scans and credentials are
-		// not this scenario's work.
+		// No files to measure or to compare as copies, nothing due a rolling refresh, and backups, scans
+		// and credentials are not this scenario's work.
 		if !slices.Contains([]string{
 			sweepReadThroughs, sweepRollingRefresh, sweepScheduledBackup, sweepScheduledScans, sweepEndedCredentials,
-			sweepUnavailableRoots,
+			sweepUnavailableRoots, sweepCopies,
 		}, sweep.Name) {
 			world.queue.AddSweep(sweep)
 		}

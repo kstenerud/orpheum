@@ -70,7 +70,7 @@ func newTestLibraryAt(t *testing.T, kind, source, rootPath string) *testLibrary 
 		ingester: library.NewIngester(database, now, config, logger),
 		pass:     identify.NewPass(database, now, logger, providers, config),
 	}
-	created.ingester.SetOnUnreadRetired(identify.RetireUnreadFile)
+	created.ingester.SetVersionRetirer(identify.RetireVersionInto)
 	created.matcher = identify.NewMatcher(database, created.cache, created.pass, now, logger)
 	created.nodeID, created.libraryID = librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: rootPath})

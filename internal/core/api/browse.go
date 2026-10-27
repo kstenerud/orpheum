@@ -23,7 +23,6 @@ type EntryBody struct {
 	IdentificationState string `json:"identificationState"`
 	// IsGuessed is whether its match is a guess no person confirmed (D301 §4).
 	IsGuessed    bool   `json:"isGuessed,omitempty"`
-	LibraryID    int64  `json:"libraryId"`
 	AddedAt      int64  `json:"addedAt"`
 	PosterSha256 string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 	// LandscapeSha256 is an other video's 16:9 picture: its still, else its backdrop (D349).
@@ -60,7 +59,7 @@ func recordedBody(facts *library.OtherFacts) *RecordedBody {
 func entryBody(entry library.Entry, nodeName func(nodeID int64) string) EntryBody {
 	return EntryBody{
 		ID: entry.ID, Kind: entry.Kind, Name: entry.Name, Year: entry.Year,
-		IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed, LibraryID: entry.LibraryID,
+		IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed,
 		AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256, LandscapeSha256: entry.LandscapeSha256,
 		NoPosterStillSha256: entry.NoPosterStillSha256,
 		Recorded:            recordedBody(entry.Other), Unavailable: unavailableBody(entry.Unreadable, nodeName),
@@ -109,7 +108,7 @@ func artBody(art library.Art) ArtBody {
 // reaches or of one (D349).
 type TitlesInput struct {
 	AuthorizationHeader
-	Kind    string `doc:"movie, series or other; any: every kind, a mixed library's or every library's" enum:"movie,series,other,any" query:"kind" required:"true"`                                                                                                                                                                                                                                                         //nolint:lll // one struct tag
+	Kind    string `doc:"movie, series or other; any: every kind, every library's" enum:"movie,series,other,any" query:"kind" required:"true"`                                                                                                                                                                                                                                                                              //nolint:lll // one struct tag
 	Sort    string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only" enum:"name,added,recorded,file_name" query:"sort" required:"true"` //nolint:lll // one struct tag
 	Library int64  `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                //nolint:lll // one struct tag
 	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
@@ -137,10 +136,13 @@ type StreamBody struct {
 
 // FileDetailBody is one file of a version; its path is shown to an admin only.
 type FileDetailBody struct {
-	ID        int64        `json:"id"`
-	Path      string       `json:"path,omitempty"`
-	SizeBytes *int64       `json:"sizeBytes,omitempty"`
-	Streams   []StreamBody `json:"streams"`
+	ID   int64  `json:"id"`
+	Path string `json:"path,omitempty"`
+	// OtherPaths are the file's other places, copies of it found after its first (D363 §2): an admin
+	// sees every place of a file (§8).
+	OtherPaths []string     `doc:"The file's other places, its byte-identical copies, after its first; an admin's alone" json:"otherPaths,omitempty"` //nolint:lll // one struct tag
+	SizeBytes  *int64       `json:"sizeBytes,omitempty"`
+	Streams    []StreamBody `json:"streams"`
 }
 
 // VersionBody is one version of a title (D155): its files, in part order.
@@ -193,7 +195,6 @@ type ItemDetailOutput struct {
 		IdentificationState string            `json:"identificationState"`
 		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
 		FollowedSource      string            `json:"followedSource,omitempty"`
-		LibraryID           int64             `json:"libraryId"`
 		Versions            []VersionBody     `json:"versions"`
 		Extras              []ExtraBody       `json:"extras"`
 		Episode             *EpisodePlaceBody `json:"episode,omitempty"`
@@ -239,8 +240,7 @@ type CollectionOutput struct {
 		Overview            string            `json:"overview,omitempty"`
 		Year                int64             `json:"year,omitempty"`
 		IdentificationState string            `json:"identificationState,omitempty"`
-		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
-		LibraryID           int64             `json:"libraryId"`
+		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"`                                     //nolint:lll // one struct tag
 		Ordering            string            `doc:"The ordering its person watches it in, which its seasons are the groups of; absent for aired" json:"ordering,omitempty"` //nolint:lll // one struct tag
 		Seasons             []SeasonBody      `json:"seasons"`
 		Orderings           []OrderingBody    `doc:"Every ordering it has, aired first; its page offers a choice when there is more than one" json:"orderings,omitempty"`             //nolint:lll // one struct tag
@@ -400,7 +400,6 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	body.FollowedSource = ptr.ValueOrZero(detail.FollowedSource)
 	body.Year = ptr.ValueOrZero(detail.Year)
 	body.RuntimeMs = ptr.ValueOrZero(detail.RuntimeMs)
-	body.LibraryID = ptr.ValueOrZero(detail.LibraryID)
 	body.FetchFailure = fetchFailureBody(detail.FetchFailure, detail.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(detail.RefreshRequestedAt)
 	body.Versions = make([]VersionBody, 0, len(detail.Versions))
@@ -410,7 +409,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}}
 			// Paths are shown where the admin administers, never from away (the Plex-chain review's T2).
 			if administersHere(ctx, principal) {
-				fileBody.Path = file.Path
+				fileBody.Path, fileBody.OtherPaths = file.Path, file.Paths[1:]
 			}
 			for _, stream := range file.Streams {
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
@@ -478,7 +477,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 		body.Ordering = series.Ordering
 	}
 	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
-	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
+	body.Year = ptr.ValueOrZero(series.Year)
 	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(series.IdentificationState), series.IsGuessed
 	body.FetchFailure = fetchFailureBody(series.FetchFailure, series.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(series.RefreshRequestedAt)
@@ -499,7 +498,8 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	}
 	body.NotInOrderingCount = series.NotInOrderingCount
 	body.Art = artBody(series.Art)
-	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.UserID, series.ID, series.Ordering)
+	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.Reach, principal.UserID, series.ID,
+		series.Ordering)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a series' next episode", err)
 	}

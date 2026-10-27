@@ -17,7 +17,6 @@ const film: TitleDetail = {
   kind: "movie",
   name: "Metropolis",
   identificationState: "identified",
-  libraryId: 1,
   art: {},
   versions: [],
   extras: [],
@@ -35,7 +34,6 @@ const seasons = (count: number): SeriesDetail => ({
   id: 5,
   kind: "series",
   name: "Long Run",
-  libraryId: 1,
   art: {},
   seasons: Array.from({ length: count }, (_, index) => ({
     seasonNumber: index + 1,

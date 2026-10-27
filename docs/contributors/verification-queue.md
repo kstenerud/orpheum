@@ -768,3 +768,21 @@ An item is ticked only by the person who did it, and only with what they saw.
   `full-screen-button.tsx`, `focus-engine.ts`, `device.ts`)
   Seen 2026-10-27 (the owner, staging): the button goes full screen and back; Left and Right on the
   scrub bar seek, in full screen and out. Owed: the new device's name.
+- [ ] **VQ80** — On staging, D363's overlap: make a series library over a folder inside the films
+  library's folder (or a films library over a parent of it). Passes when both are made, one scan of the
+  outer folder lists the place once (staging's core log, at debug, says `a folder inside another library
+  folder is scanned within it`), each library's page lists its own kind, *All libraries* and Home show
+  each film and series once, and adding to the films library a folder beneath its own is refused as
+  already covered. (`internal/core/library/scans.go`, `scanroots.go`, `libraryfolders.go`)
+- [ ] **VQ81** — On staging, D363's copies: copy a film byte for byte to a second folder that a second
+  films library covers, and scan it. Passes when, after the copies' sweep (the pass after the scan, or
+  within `read_through_sweep_every_hours`), the core log says `one file at two places from now on`, the
+  film is listed once, the doctor's "files found at more than one place" names both paths, a person
+  whose role reaches only the second library sees and plays the film (from the copy), and, the first
+  folder's disk unplugged, a person reaching both still plays it, from the copy. A re-encode put
+  there instead stays a film's second version, and a file of the same payload with other bytes is
+  logged `and other bytes: they stay two files`. (`internal/core/library/copies.go`, `playable.go`)
+- [ ] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
+  Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
+  series is listed as before, the libraries keep their folders, and each person's Continue Watching
+  and watched marks are as they were. (`internal/store/migrations/0060_…`)

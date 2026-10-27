@@ -27,7 +27,7 @@ import (
 // Its seeds are fixed, so a failure is the same failure every run.
 func TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"movies", "shows", "mixed"} {
+	for _, kind := range []string{"movies", "shows", "other"} {
 		for seed := range uint64(4) {
 			t.Run(fmt.Sprintf("%s/%d", kind, seed), func(t *testing.T) {
 				t.Parallel()
@@ -48,6 +48,9 @@ type randomFile struct {
 func randomLibraryWalk(t *testing.T, kind string, random *rand.Rand) {
 	t.Helper()
 	source := []string{"nfo", "nfo_then_tmdb"}[random.IntN(2)]
+	if kind == "other" {
+		source = "nfo" // an other library reads NFO files alone (D349 section 10)
+	}
 	// The same library twice: one filed whole, one with each unit its own batch (D304 §2).
 	lib, batched := newTestLibrary(t, kind, source), newTestLibrary(t, kind, source)
 	identify.BatchRows(batched.pass, 1)

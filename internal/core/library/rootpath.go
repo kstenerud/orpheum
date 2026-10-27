@@ -38,6 +38,15 @@ func RootHolding(reportedPath []byte, rootPaths []string) (rootPath string, rela
 	return rootPath, relative, found
 }
 
+// PathRange is the range of reported bytes that lie below a folder, as the store reads a folder's
+// places by the index of their bytes (D211, D363 §1): after the folder's path and a separator, and
+// before its path and the character after the separator, '0'. A folder of "/" holds every path that
+// starts with one. It holds what RelativeToRoot says is below the folder, and nothing else.
+func PathRange(folder string) (after, before []byte) {
+	cleaned := strings.TrimSuffix(path.Clean(folder), "/")
+	return []byte(cleaned + "/"), []byte(cleaned + "0")
+}
+
 // PathText is a path's bytes as the library shows and relates the path: valid UTF-8, in NFC for
 // D49's equality, and cleaned (principles §22). Cut at a separator, the text of each part is the
 // text of the whole cut there.

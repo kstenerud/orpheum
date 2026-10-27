@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -325,10 +326,10 @@ func (harness testHarness) checkAllCancelled(t *testing.T, admin string, forgott
 }
 
 // S22: the disk under a root dies for good. The System page says since when it is offline; the
-// admin retires the root; its files become tombstones, their jobs, parked on the root, are
-// cancelled, the root is forgotten, the sweeps queue nothing for them again, and the history
-// stays on the title (D41, D173, D231 §7).
-func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays(t *testing.T) {
+// admin retires the root; its files are left to no library, kept to be found again or reaped
+// (D363 §10), their jobs, parked on the root, are cancelled, the root is forgotten, the sweeps
+// queue nothing for them again, and the history stays on the title (D41, D173, D231 §7).
+func TestScenario_S22_ARetiredRootsFilesAreLeftToNoLibraryItsWorkIsCancelledAndItsHistoryStays(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -350,8 +351,10 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 	}
 	retired := harness.retire(t, admin, http.MethodPost, "/libraries/1/roots/retire",
 		map[string]string{"nodeName": "local", "path": "/media"})
-	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
-		t.Errorf("the retire = %+v; want the root's 3 files removed and both jobs cancelled", retired.Body)
+	if retired.Body.TombstonedFileCount != 0 || retired.Body.UncoveredFileCount != 3 ||
+		retired.Body.CancelledJobCount != 2 {
+		t.Errorf("the retire = %+v; want the root's 3 files left to no library, none removed, and both jobs "+
+			"cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, root)
 	if queued, err := harness.readThrough.QueueReadThroughs(t.Context()); err != nil || queued != 0 {
@@ -398,11 +401,12 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 }
 
 // S24: the admin deletes a library. Its jobs are cancelled, and nothing is fetched for it again;
-// its titles are hidden, tombstoned with their history, and each person's watch history stays
-// (D208 §2, D231 §7). A film of it that reappears elsewhere brings its title back:
+// its titles are listed by no library, and so reached by no person who is not an admin, but no
+// item is deleted, and each person's watch history stays (D208 §2, D231 §7, D363 §10). A film of
+// it that a library covers again is its title again:
 // TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack,
 // TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack (internal/core/identify).
-func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory(t *testing.T) {
+func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesListedByNoLibraryWithTheirHistory(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -411,17 +415,32 @@ func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheir
 	if title := harness.do(t, http.MethodGet, "/items/30", admin, nil); title.status != http.StatusOK {
 		t.Fatalf("the film before the delete = %d %s", title.status, title.body)
 	}
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	if title := harness.do(t, http.MethodGet, "/items/30", partner, nil); title.status != http.StatusOK {
+		t.Fatalf("the film before the delete, to a person = %d %s", title.status, title.body)
+	}
 	harness.queueWork(t, []jobs.Request{
 		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
 		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}},
 	})
 	retired := harness.retire(t, admin, http.MethodDelete, "/libraries/1", nil)
-	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
-		t.Errorf("the delete = %+v; want its 3 files removed and both its jobs cancelled", retired.Body)
+	if retired.Body.TombstonedFileCount != 0 || retired.Body.UncoveredFileCount != 3 ||
+		retired.Body.CancelledJobCount != 2 {
+		t.Errorf("the delete = %+v; want its 3 files left to no library, none removed, and both its jobs "+
+			"cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, jobs.RootDestination(1, "/media"))
-	if title := harness.do(t, http.MethodGet, "/items/30", admin, nil); title.status != http.StatusNotFound {
-		t.Errorf("the deleted library's film = %d %s; want it hidden", title.status, title.body)
+	if title := harness.do(t, http.MethodGet, "/items/30", partner, nil); title.status != http.StatusNotFound {
+		t.Errorf("the deleted library's film, to a person = %d %s; want it reached by no one but an admin",
+			title.status, title.body)
+	}
+	if title := harness.do(t, http.MethodGet, "/items/30", admin, nil); title.status != http.StatusOK {
+		t.Errorf("the deleted library's film, to the admin = %d %s; want it kept: no item is deleted",
+			title.status, title.body)
 	}
 	if again := harness.do(t, http.MethodDelete, "/libraries/1", admin, nil); again.status != http.StatusNotFound {
 		t.Errorf("deleting it again = %d %s, want 404", again.status, again.body)

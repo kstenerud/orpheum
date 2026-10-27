@@ -243,11 +243,12 @@ describe("the page above a Play page, where its Back goes with no page of this a
     });
   });
 
-  it("is an other video's library's list", () => {
+  it("is an other video's library's list, or home when no library of the person's covers it", () => {
     expect(playUp({ titleId: 30, kind: "other", libraryId: 4 })).toEqual({
       screen: "browse",
       library: 4,
     });
+    expect(playUp({ titleId: 30, kind: "other" })).toEqual({ screen: "home" });
   });
 
   it("is home where the server does not say what it plays: a file filed as no title, an older server", () => {

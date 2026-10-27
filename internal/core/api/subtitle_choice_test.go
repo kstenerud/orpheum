@@ -44,7 +44,6 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE file SET payload_hash = X'0102' WHERE id = 2",
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)")
 	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
 		ID: 50, BytesFile: 2, StreamIndex: 2, Kind: "subtitle", Codec: "subrip", Language: "en",

@@ -20,7 +20,7 @@ func TestItem_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	if chosen != 20 {
 		t.Fatalf("Item with ID 20 returned %d", chosen)
 	}
-	got := storetest.QueryRaw(t, database.Path(), "SELECT kind, library_id, added_at FROM item WHERE id = 20")
+	got := storetest.QueryRaw(t, database.Path(), "SELECT kind, filing_library_id, added_at FROM item WHERE id = 20")
 	if want := []string{"collection|<nil>|5"}; !slices.Equal(got, want) {
 		t.Errorf("item 20 = %v, want %v", got, want)
 	}
@@ -30,7 +30,7 @@ func TestItem_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 		t.Fatalf("Item with no ID returned %d, want a fresh one", chosenByDatabase)
 	}
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT kind, library_id, added_at FROM item WHERE id = "+itoa(chosenByDatabase))
+		"SELECT kind, filing_library_id, added_at FROM item WHERE id = "+itoa(chosenByDatabase))
 	if want := []string{"title|<nil>|1"}; !slices.Equal(got, want) {
 		t.Errorf("item %d (defaults) = %v, want %v", chosenByDatabase, got, want)
 	}
@@ -104,11 +104,12 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 		PayloadHash: []byte{0x01}, VersionID: versionID,
 	})
 	got := storetest.QueryRaw(t, database.Path(),
-		"SELECT path, reported_path_raw, size_bytes, payload_hash, filing, version_id, first_seen_at, last_seen_at "+
-			"FROM file WHERE id = "+itoa(auto))
+		"SELECT path, reported_path_raw, size_bytes, payload_hash, file.filing, file_filing.library_kind, "+
+			"file_filing.filing, version_id, first_seen_at, last_seen_at "+
+			"FROM file JOIN file_filing ON file_filing.file_id = file.id WHERE id = "+itoa(auto))
 	if want := []string{"/media/Metropolis (1995).mkv|2f6d656469612f4d6574726f706f6c6973202831393935292e6d6b76" +
-		"|1000|01|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
-		t.Errorf("auto file %d = %v, want %v", auto, got, want)
+		"|1000|01|video|movies|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
+		t.Errorf("auto file %d = %v, want %v: a video its library's kind filed listed in the version", auto, got, want)
 	}
 
 	chosen := librarytest.File(t, database, librarytest.FileSpec{

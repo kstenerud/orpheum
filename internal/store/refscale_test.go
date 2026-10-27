@@ -466,16 +466,8 @@ func fullScansAllowed() map[string]string {
 		"ListLiveNodes":                 "a household has a handful of nodes",
 		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",
 		"ListLiveLibraryIDs":            "a household has a handful of libraries; the identification sweep lists them",
-		"ListOfflinePlaces": "a household's libraries have a handful of roots and disks in them; the System page " +
-			"lists those offline (D328)",
-		"ListWithheldRoots": "a household's libraries have a handful of roots; the System page lists those whose " +
-			"scans wait for the admin",
 		"ListRefreshRequests": "the refresh sweep reads every request a person made, a handful; it is driven " +
 			"from them, never from every item (D303)",
-		"ListCheckedRoots": "a household's libraries have a handful of roots; the scan schedule reads " +
-			"each one's last scan every 15 minutes (D272 section 1)",
-		"ListUnavailablePlaces": "a household's libraries have a handful of roots and disks; the sweep of " +
-			"unavailable ones reads them every unavailable_root_rescan_seconds (D233 section 10, D327 section 3)",
 		"ListOtherVideoFileNames": "the key refresh reads every other video's file name with its key, as it reads " +
 			"every name, at start and after a pass (D47, D349)",
 	}
@@ -537,6 +529,23 @@ func checkPageBudgets(t *testing.T, database *Database) {
 			_, err := queries.ListFilmsByName(ctx, first)
 			return err //nolint:wrapcheck // a test
 		},
+		// A person's, who reaches the films alone: each film is listed by its versions' coverage of
+		// the libraries they reach (D363 section 8).
+		"films by name, a person's": func() error {
+			first := sqlcgen.ListFilmsByNameParams{
+				Locale: "en", AfterKey: []byte{}, MaxRows: 60, IsEveryLibrary: 0, LibraryIdsJSON: "[1]",
+			}
+			_, err := queries.ListFilmsByName(ctx, first)
+			return err //nolint:wrapcheck // a test
+		},
+		"series newest first, a person's": func() error {
+			first := sqlcgen.ListSeriesByAddedParams{
+				BeforeFoundAt: 1 << 62, BeforeModifiedAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 0,
+				LibraryIdsJSON: "[2]",
+			}
+			_, err := queries.ListSeriesByAdded(ctx, first)
+			return err //nolint:wrapcheck // a test
+		},
 		"films newest first": func() error {
 			first := sqlcgen.ListFilmsByAddedParams{
 				BeforeFoundAt: 1 << 62, BeforeModifiedAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1,
@@ -567,7 +576,10 @@ func checkPageBudgets(t *testing.T, database *Database) {
 			return err //nolint:wrapcheck // a test
 		},
 		"a page of series' progress": func() error {
-			if _, err := queries.CountOrderingMembers(ctx, orderings); err != nil {
+			counted := sqlcgen.CountOrderingMembersParams{
+				OrderingsJSON: orderings, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+			}
+			if _, err := queries.CountOrderingMembers(ctx, counted); err != nil {
 				return err //nolint:wrapcheck // a test
 			}
 			_, err := queries.ListOrderingMemberPositions(ctx, sqlcgen.ListOrderingMemberPositionsParams{
@@ -577,7 +589,7 @@ func checkPageBudgets(t *testing.T, database *Database) {
 		},
 		"a series' episodes": func() error {
 			_, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
-				CollectionID: int64(refFilms) + 1, OrderingName: "aired",
+				CollectionID: int64(refFilms) + 1, OrderingName: "aired", IsEveryLibrary: 1, LibraryIdsJSON: "[]",
 			})
 			return err //nolint:wrapcheck // a test
 		},

@@ -18,6 +18,9 @@ var deleteFrom = regexp.MustCompile(`(?is)\bDELETE\s+FROM\s+"?(\w+)"?`)
 func childIndexesAllowedMissing() map[string]string {
 	return map[string]string{
 		"user(role_id)": "deleting a role reads its people, and a household has a handful",
+		"file(copy_of)": "file_copy holds the copies alone, WHERE copy_of IS NOT NULL, which the lookup of a " +
+			"purged file's copies, copy_of = ?, implies; a full index would tell the planner every file is " +
+			"a copy of one, the NULLs counted as one value (D363)",
 	}
 }
 

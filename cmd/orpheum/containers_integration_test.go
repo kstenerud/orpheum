@@ -147,16 +147,12 @@ func TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade(t *t
 	})
 	token := signedInOwner(t, server, configPath)
 	database := openDatabase(t, config)
-	files, err := database.Read().ListLiveFilesByNode(t.Context(), nodeID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	fileIDs, filings := map[string]int64{}, map[string]string{}
-	for _, file := range files {
-		filings[filepath.Base(file.Path)] = file.Filing
+	for _, file := range liveFilingsOfNode(t, config, nodeID) {
+		filings[filepath.Base(file.path)] = file.filing
 		// Filed as a scan files a video it read; no film has an NFO to be identified by.
-		if slices.Contains([]string{"listed", "unidentified"}, file.Filing) {
-			fileIDs[file.Path] = file.ID
+		if slices.Contains([]string{"listed", "unidentified"}, file.filing) {
+			fileIDs[file.path] = file.id
 		}
 	}
 	for index, film := range films {

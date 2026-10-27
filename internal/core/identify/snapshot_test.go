@@ -18,7 +18,9 @@ var identifiedTables = []string{
 	"SELECT * FROM title ORDER BY id",
 	"SELECT * FROM collection ORDER BY id",
 	"SELECT * FROM version ORDER BY id",
-	"SELECT id, filing, filing_reason, version_id, identified_from_path FROM file ORDER BY id",
+	"SELECT file.id, file.filing, file.filing_reason, file_filing.filing, file_filing.filing_reason, " +
+		"file_filing.version_id, file_filing.identified_from_path FROM file " +
+		"LEFT JOIN file_filing ON file_filing.file_id = file.id ORDER BY file.id, file_filing.library_kind",
 	// Not its id: a surrogate, numbered in the order a pass happens to resolve its titles.
 	"SELECT item_id, language, is_original, name, overview, tagline, search_alternates FROM item_text " +
 		"ORDER BY item_id, language",
@@ -40,7 +42,7 @@ func TestPass_FromTheSnapshotWritesWhatAPassReadingAsItGoesWrites(t *testing.T) 
 		name, kind, source string
 		steps              []func(lib *testLibrary)
 	}{
-		{"films and series filed by NFO", "mixed", "nfo", nfoScenario()},
+		{"films and series filed by NFO", "movies", "nfo", nfoScenario()},
 		{"films matched at TMDB", "movies", "tmdb", tmdbFilmsScenario()},
 		{"series matched at TMDB", "shows", "tmdb", tmdbSeriesScenario()},
 	} {

@@ -60,8 +60,10 @@ type bench struct {
 func newBench(t *testing.T) *bench {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
-	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
-	storetest.ExecRaw(t, database.Path(), `INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)`)
+	librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+	storetest.ExecRaw(t, database.Path(), `INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)`,
+		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 2, '/m')`)
 	cachePath := filepath.Join(t.TempDir(), "cache.db")
 	cache, err := store.OpenCache(t.Context(), cachePath, storetest.OpenOptions())
 	if err != nil {

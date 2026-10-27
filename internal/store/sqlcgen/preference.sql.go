@@ -9,6 +9,15 @@ import (
 	"context"
 )
 
+const deleteFilePreferencesOfFile = `-- name: DeleteFilePreferencesOfFile :exec
+DELETE FROM preference WHERE scope = 'file' AND scope_id = ?1
+`
+
+func (q *Queries) DeleteFilePreferencesOfFile(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFilePreferencesOfFile, fileID)
+	return err
+}
+
 const deletePreferencesOfPurgedFiles = `-- name: DeletePreferencesOfPurgedFiles :exec
 DELETE FROM preference
 WHERE scope = 'file' AND scope_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
@@ -38,7 +47,9 @@ SELECT CAST(coalesce((
   ORDER BY collection_member.collection_id LIMIT 1
 ), version.title_id) AS INTEGER) AS work_id
 FROM file
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN version ON version.id = (
+  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+  ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1) AND version.removed_at IS NULL
 WHERE file.id = ?1 AND file.removed_at IS NULL
 `
 
@@ -120,6 +131,27 @@ func (q *Queries) ListPreferencesAtScope(ctx context.Context, arg ListPreference
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveFilePreferencesToFile = `-- name: MoveFilePreferencesToFile :exec
+UPDATE preference SET scope_id = ?1
+WHERE preference.scope = 'file' AND preference.scope_id = ?2
+  AND NOT EXISTS (
+    SELECT 1 FROM preference AS kept
+    WHERE kept.user_id = preference.user_id AND kept.scope = 'file' AND kept.scope_id = ?1
+      AND kept.axis = preference.axis)
+`
+
+type MoveFilePreferencesToFileParams struct {
+	ToFile   int64
+	FromFile int64
+}
+
+// What each person chose in a file confirmed to be a copy of another (D363 section 2): the other's,
+// where they chose nothing of it there.
+func (q *Queries) MoveFilePreferencesToFile(ctx context.Context, arg MoveFilePreferencesToFileParams) error {
+	_, err := q.db.ExecContext(ctx, moveFilePreferencesToFile, arg.ToFile, arg.FromFile)
+	return err
 }
 
 const setPreference = `-- name: SetPreference :exec

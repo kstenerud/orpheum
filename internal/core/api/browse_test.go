@@ -30,7 +30,7 @@ func (harness testHarness) shelve(t *testing.T) {
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
 	librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1, Year: 1995, AddedAt: 1})
 	librarytest.Item(t, harness.database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: 1, AddedAt: 2})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{
@@ -74,6 +74,25 @@ func (harness testHarness) shelve(t *testing.T) {
 		 (21, 'still', 'tmdb', '/e.jpg', X'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 0, NULL)`)
 }
 
+// checkDetailsPaths checks a title's detail, its film found at a second place too, a copy of its file
+// (D363 §2): a user's has its streams and no path; an admin's every place (§8).
+func checkDetailsPaths(t *testing.T, harness testHarness, user, admin string) {
+	t.Helper()
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1995).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
+	})
+	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
+	if !strings.Contains(detail.body, `"codec":"truehd","language":"en","channelCount":8`) ||
+		!strings.Contains(detail.body, `"streams":[{"id":`) ||
+		strings.Contains(detail.body, "Metropolis (1995).mkv") || strings.Contains(detail.body, "otherPaths") {
+		t.Errorf("a user's detail = %d %s; want the streams and no path", detail.status, detail.body)
+	}
+	if adminDetail := harness.do(t, http.MethodGet, "/items/10", admin, nil); !strings.Contains(adminDetail.body,
+		`"path":"/m/Metropolis (1995).mkv","otherPaths":["/m/Copy/Metropolis (1995).mkv"]`) {
+		t.Errorf("an admin's detail = %s; want the path and the copy's (D363 §8)", adminDetail.body)
+	}
+}
+
 func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -96,16 +115,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name", user, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 
-	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
-	if !strings.Contains(detail.body, `"codec":"truehd","language":"en","channelCount":8`) ||
-		!strings.Contains(detail.body, `"streams":[{"id":`) ||
-		strings.Contains(detail.body, "Metropolis (1995).mkv") {
-		t.Errorf("a user's detail = %d %s; want the streams and no path", detail.status, detail.body)
-	}
-	if adminDetail := harness.do(t, http.MethodGet, "/items/10", admin, nil); !strings.Contains(adminDetail.body,
-		`"path":"/m/Metropolis (1995).mkv"`) {
-		t.Errorf("an admin's detail = %s; want the path", adminDetail.body)
-	}
+	checkDetailsPaths(t, harness, user, admin)
 	// From away, where the admin does not administer, no path (the Plex-chain review's T2).
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
 	if away := harness.do(t, http.MethodGet, "/items/10", admin, nil); strings.Contains(away.body, "Metropolis (1995).mkv") {

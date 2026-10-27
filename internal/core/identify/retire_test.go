@@ -25,7 +25,7 @@ func (noWork) CancelRetired(context.Context, jobs.RetiredWork) (int, error) { re
 // of kind and source over another root of the node, which the test library is from then on.
 func (lib *testLibrary) deleteAndStartAnother(kind, source string) {
 	lib.t.Helper()
-	admin := library.NewAdmin(lib.database, lib.clock, nil, nil, library.Retirement{Work: noWork{}, Titles: lib.pass})
+	admin := library.NewAdmin(lib.database, lib.clock, nil, nil, library.Retirement{Work: noWork{}})
 	if _, err := admin.Delete(lib.t.Context(), lib.libraryID); err != nil {
 		lib.t.Fatal(err)
 	}
@@ -47,6 +47,18 @@ func (lib *testLibrary) deleteAndStartAnother(kind, source string) {
 	}
 }
 
+// isListed is whether a library lists a title: covers a live place of one of its files (D363 §4).
+func (lib *testLibrary) isListed(titleID int64) bool {
+	lib.t.Helper()
+	isReached, err := lib.database.Read().IsItemReached(lib.t.Context(), sqlcgen.IsItemReachedParams{
+		ItemID: titleID, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+	})
+	if err != nil {
+		lib.t.Fatal(err)
+	}
+	return isReached == 1
+}
+
 // isLive is whether an item is live, not a tombstone.
 func (lib *testLibrary) isLive(itemID int64) bool {
 	lib.t.Helper()
@@ -58,7 +70,8 @@ func (lib *testLibrary) isLive(itemID int64) bool {
 }
 
 // S24, D231 §7, D208 §2: a deleted library's film that reappears in another library, named by
-// the provider id its NFO gives, brings its title back, with its history.
+// the provider id its NFO gives, is its title still, with its history. Deleting the library deleted no
+// item (D363 §10): the title stayed, listed by no library, until one covers its file again.
 func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo")
@@ -67,8 +80,8 @@ func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *te
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
 	the kid := lib.titlesByPath()[film].TitleID
 	lib.deleteAndStartAnother("movies", "nfo")
-	if lib.isLive(the kid) {
-		t.Fatal("the deleted library's title is live; it should be a tombstone")
+	if !lib.isLive(the kid) {
+		t.Fatal("the deleted library's title is a tombstone; deleting a library deletes no item (D363 §10)")
 	}
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
 	if got := lib.titlesByPath()[film].TitleID; got != the kid || !lib.isLive(the kid) {
@@ -110,7 +123,8 @@ func (lib *testLibrary) seriesOfFile(rel string) int64 {
 
 // S24, D231 §7, D208 §2: a deleted library's series whose episodes reappear in another library,
 // named by the provider id its tvshow.nfo gives, comes back with its history; so does each
-// episode whose file reappears, and an episode whose file does not stays hidden.
+// episode whose file reappears, and an episode whose file does not is kept, listed by no library
+// (D363 §10).
 func TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "nfo")
@@ -127,14 +141,16 @@ func TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack(t *testing.T
 	if got := lib.titlesByPath()[first].TitleID; got != magicXylophone || !lib.isLive(magicXylophone) {
 		t.Errorf("S01E01 in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), magicXylophone)
 	}
-	if lib.isLive(hospital) {
-		t.Error("S01E02, whose file did not reappear, came back")
+	if !lib.isLive(hospital) || lib.isListed(hospital) {
+		t.Errorf("S01E02, whose file did not reappear, is live %v and listed %v; want it kept and listed by no "+
+			"library", lib.isLive(hospital), lib.isListed(hospital))
 	}
 }
 
 // S24, D231 §7, D208 §2: a deleted library's series whose episodes reappear in another library and
 // is matched there to the same show comes back with its history: an episode it had takes its file
-// back, an episode it did not have joins it, and one whose file reappears later comes back then.
+// back, an episode it did not have joins it, and one whose file reappears later is listed then, kept
+// until it does (D363 §10).
 func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T) {
 	t.Parallel()
 	lib := orbitoramaLibrary(t)
@@ -164,8 +180,9 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 	if got := lib.seriesOfFile(added); got != orbitoramaSeries {
 		t.Errorf("S02E12, new in Kids, is in series %d, want %d", got, orbitoramaSeries)
 	}
-	if lib.isLive(later) {
-		t.Error("S02E11, whose file has not reappeared, came back")
+	if !lib.isLive(later) || lib.isListed(later) {
+		t.Errorf("S02E11, whose file has not reappeared, is live %v and listed %v; want it kept and listed by "+
+			"no library", lib.isLive(later), lib.isListed(later))
 	}
 	lib.scanAll(orbitoramaFiles[0], orbitoramaFiles[1], added)
 	if got := lib.titlesByPath()[orbitoramaFiles[1]].TitleID; got != later || !lib.isLive(later) {

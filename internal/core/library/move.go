@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -20,13 +22,15 @@ var (
 	ErrFileReadable = errors.New("the file can be read now, so it is not gone")
 	// ErrNoFile is a file that is not there to play: never seen, gone, not a video, or never probed.
 	ErrNoFile = errors.New("no such file")
-	// ErrRootCovered is a path another library, or this one, already covers on the node.
-	ErrRootCovered = errors.New("a library already covers that path on the node")
+	// ErrRootCovered is a path the library already covers on the node, by a folder at or above it, or,
+	// for a moved folder, one with others of the library below it (D363 §1).
+	ErrRootCovered = errors.New("the library already covers that path on the node")
 )
 
 // RetireFile is the admin saying one file that cannot be read now is gone for good (D241 §5): it
-// becomes a tombstone, its history staying on its title (D173), and its work, and that of a title
-// left with no live file, is cancelled. A file that can be read is refused (ErrFileReadable).
+// becomes a tombstone at every place it was found (D363 §2), its history staying on its title (D173),
+// and its work, and that of a title no library lists any more, is cancelled. A file that can be read
+// at any place is refused (ErrFileReadable).
 func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, error) {
 	queries := admin.database.Read()
 	file, err := store.OrNotFound(queries.GetPlayableFile(ctx, fileID))
@@ -36,7 +40,11 @@ func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, erro
 	if err != nil {
 		return Retired{}, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	_, isUnreadable, err := UnreadableFile(ctx, queries, admin.nodes, file.NodeID, file.ReportedPathRaw)
+	place, err := PlaceToRead(ctx, queries, admin.nodes, auth.EveryLibrary(), file)
+	if err != nil {
+		return Retired{}, err
+	}
+	_, isUnreadable, err := UnreadableFile(ctx, queries, admin.nodes, place.NodeID, place.ReportedPathRaw)
 	if err != nil {
 		return Retired{}, err
 	}
@@ -44,13 +52,27 @@ func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, erro
 		return Retired{}, fmt.Errorf("file %d: %w", fileID, ErrFileReadable)
 	}
 	return admin.retire(ctx, func(retire *retiring) error {
-		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &retire.nowMs, ID: fileID}
-		if tombstoneErr := retire.queries.TombstoneFile(ctx, tombstone); tombstoneErr != nil {
-			return fmt.Errorf("tombstone file %d: %w", fileID, tombstoneErr)
+		titleIDs, listErr := retire.queries.ListTitlesOfFileNoLibraryLists(ctx, fileID)
+		if listErr != nil {
+			return fmt.Errorf("list file %d's titles: %w", fileID, listErr)
 		}
-		retire.fileIDs = append(retire.fileIDs, fileID)
-		retire.libraryIDs = append(retire.libraryIDs, file.LibraryID)
-		return retire.titlesLeftWithoutFiles(ctx)
+		removed, removeErr := removeFilesAndPlaces(ctx, retire.queries, retire.logger, []int64{fileID}, retire.nowMs)
+		if removeErr != nil {
+			return removeErr
+		}
+		retire.fileIDs = append(retire.fileIDs, removed...)
+		retire.tombstonedCount += len(removed)
+		// Its titles no library listed but by it are listed by none now.
+		gone, goneErr := retire.queries.ListTitlesOfFileNoLibraryLists(ctx, fileID)
+		if goneErr != nil {
+			return fmt.Errorf("list file %d's titles: %w", fileID, goneErr)
+		}
+		for _, titleID := range gone {
+			if !slices.Contains(titleIDs, titleID) {
+				retire.itemIDs = append(retire.itemIDs, titleID)
+			}
+		}
+		return nil
 	})
 }
 
@@ -71,7 +93,9 @@ type Repointed struct {
 // RepointRoot is the admin saying a library root moved (D241 §6): the root and its live files take
 // the new path, keeping their history, and a scan of it is asked for, which reads each file again
 // and confirms it by its payload hash before it counts as there, one it cannot confirm being a
-// removal under D208. The new path must be one the new node names, and no library may cover it.
+// removal under D208. A file another library's folder still covers at the old path stays there, that
+// library's (D363 §1). The new path must be one the new node names, and the library may not cover it
+// already, by it or a folder above it.
 func (admin *Admin) RepointRoot(ctx context.Context, repoint Repoint) (Repointed, error) {
 	root, err := admin.findRoot(ctx, repoint.LibraryID, repoint.NodeName, repoint.Path)
 	if err != nil {
@@ -86,9 +110,15 @@ func (admin *Admin) RepointRoot(ctx context.Context, repoint Repoint) (Repointed
 	if newNodeID == root.NodeID {
 		except = repoint.Path
 	}
-	coveredErr := admin.refuseCovered(ctx, newNodeID, repoint.NewNodeName, repoint.NewPath, except)
+	replaced, coveredErr := admin.refuseCovered(ctx, repoint.LibraryID, newNodeID, repoint.NewNodeName,
+		repoint.NewPath, except)
 	if coveredErr != nil {
 		return Repointed{}, coveredErr
+	}
+	if len(replaced) > 0 {
+		// A folder moved above others of its library would take their places: that is an add, not a move.
+		return Repointed{}, fmt.Errorf("%s on node %q: %w: the library has %v below it", repoint.NewPath,
+			repoint.NewNodeName, ErrRootCovered, replaced)
 	}
 	var moved int
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -112,25 +142,37 @@ func (admin *Admin) RepointRoot(ctx context.Context, repoint Repoint) (Repointed
 	return Repointed{MovedFileCount: moved}, nil
 }
 
-// moveRoot moves a library root, its live files and its state to the new place, in one
-// transaction, and returns how many files moved.
+// moveRoot moves a library root, the live places under it that no other library's folder covers,
+// and, when no live folder is left at the old path, its state, to the new place, in one transaction,
+// and returns how many files moved.
 func moveRoot(ctx context.Context, queries *sqlcgen.Queries, repoint Repoint, nodeID, newNodeID int64) (int, error) {
-	rootPaths, err := queries.ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: repoint.LibraryID, NodeID: nodeID,
+	count, err := queries.RepointLibraryRoot(ctx, sqlcgen.RepointLibraryRootParams{
+		NewNodeID: newNodeID, NewRootPath: repoint.NewPath, LibraryID: repoint.LibraryID, NodeID: nodeID,
+		RootPath: repoint.Path,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("list library %d's roots: %w", repoint.LibraryID, err)
+		return 0, fmt.Errorf("move root %s: %w", repoint.Path, err)
 	}
-	files, err := queries.ListLiveFilesOfLibraryOnNode(ctx, sqlcgen.ListLiveFilesOfLibraryOnNodeParams{
-		NodeID: nodeID, LibraryID: repoint.LibraryID,
+	if count == 0 {
+		return 0, fmt.Errorf("%s: %w", repoint.Path, ErrNoSuchRoot)
+	}
+	after, before := PathRange(repoint.Path)
+	left, err := queries.ListUncoveredFilesUnder(ctx, sqlcgen.ListUncoveredFilesUnderParams{
+		NodeID: nodeID, After: after, Before: before,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("list the files under %s: %w", repoint.Path, err)
+	}
+	files, err := queries.ListLiveFilesUnder(ctx, sqlcgen.ListLiveFilesUnderParams{
+		NodeID: nodeID, After: after, Before: before,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("list the files under %s: %w", repoint.Path, err)
 	}
 	moved := 0
 	for _, file := range files {
-		holding, relative, found := RootHolding(file.ReportedPathRaw, rootPaths)
-		if !found || holding != repoint.Path {
+		relative, under := RelativeToRoot(file.ReportedPathRaw, repoint.Path)
+		if !under || !slices.Contains(left, file.ID) {
 			continue
 		}
 		newRaw := bytes.Join([][]byte{[]byte(repoint.NewPath), relative}, []byte("/"))
@@ -143,28 +185,28 @@ func moveRoot(ctx context.Context, queries *sqlcgen.Queries, repoint Repoint, no
 		}
 		moved++
 	}
-	count, err := queries.RepointLibraryRoot(ctx, sqlcgen.RepointLibraryRootParams{
-		NewNodeID: newNodeID, NewRootPath: repoint.NewPath, LibraryID: repoint.LibraryID, NodeID: nodeID,
-		RootPath: repoint.Path,
-	})
+	folders, err := queries.ListLiveRootPathsOnNode(ctx, nodeID)
 	if err != nil {
-		return 0, fmt.Errorf("move root %s: %w", repoint.Path, err)
+		return 0, fmt.Errorf("list node %d's library folders: %w", nodeID, err)
 	}
-	if count == 0 {
-		return 0, fmt.Errorf("%s: %w", repoint.Path, ErrNoSuchRoot)
+	if slices.Contains(folders, repoint.Path) {
+		return moved, nil // another library's folder is at it: still a scan's root
 	}
-	place := sqlcgen.ForgetRootStateParams{NodeID: nodeID, RootPath: repoint.Path}
+	return moved, forgetRootState(ctx, queries, nodeID, repoint.Path)
+}
+
+// forgetRootState forgets a folder that is no scan's root any more, retired or repointed: its scans,
+// its facts, the disks mounted inside it and its places' availability.
+func forgetRootState(ctx context.Context, queries *sqlcgen.Queries, nodeID int64, rootPath string) error {
+	place := sqlcgen.ForgetRootStateParams{NodeID: nodeID, RootPath: rootPath}
 	if err := queries.ForgetRootState(ctx, place); err != nil {
-		return 0, fmt.Errorf("forget %s's state: %w", repoint.Path, err)
+		return fmt.Errorf("forget %s's state: %w", rootPath, err)
 	}
 	if err := queries.ForgetRootMounts(ctx, sqlcgen.ForgetRootMountsParams(place)); err != nil {
-		return 0, fmt.Errorf("forget %s's mounts: %w", repoint.Path, err)
+		return fmt.Errorf("forget %s's mounts: %w", rootPath, err)
 	}
 	if err := queries.ForgetRootScan(ctx, sqlcgen.ForgetRootScanParams(place)); err != nil {
-		return 0, fmt.Errorf("forget %s's last scan: %w", repoint.Path, err)
+		return fmt.Errorf("forget %s's last scan: %w", rootPath, err)
 	}
-	if err := forgetRootPlaces(ctx, queries, nodeID, repoint.Path); err != nil {
-		return 0, err
-	}
-	return moved, nil
+	return forgetRootPlaces(ctx, queries, nodeID, rootPath)
 }

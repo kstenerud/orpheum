@@ -48,7 +48,7 @@ func localKinds(report identify.Report) map[int64][]string {
 
 func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "mixed", "nfo")
+	lib := newTestLibrary(t, "movies", "nfo")
 	report := lib.scan(
 		videoRecord("Films/Salt Harbour (1981)/Salt Harbour (1981).mkv"),
 		imageRecord("Films/Salt Harbour (1981)/cover.jpg"),

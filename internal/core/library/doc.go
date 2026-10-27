@@ -203,15 +203,42 @@
 //     TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved.
 //
 //   - A root, a node and a library each have a retire action, a library's being its delete, and
-//     offline never ends without one or a scan that finds it (D41, D231 §7). A retire tombstones
-//     the live files it covers, keeping their history, is scanned no more, and cancels, through
-//     the job queue, the work of those files, of their streams and fetched subtitles, of titles
-//     left with no live file, and of the destinations it forgets: the roots, the disks mounted
-//     inside them, and a node's own. A deleted library's films, series and episodes are
-//     tombstoned with no merged_into, hidden with their history. A retired node is forgotten, so
-//     its name enrols a new node. TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItNoMore,
+//     offline never ends without one or a scan that finds it (D41, D231 §7). A retired folder or a
+//     deleted library is scanned no more and deletes no item: the places no other library covers are
+//     left to none, kept with what was learned and watched until a library covers them again or the
+//     existing budgets reap them, oldest first (D363 §10); the work of those files, of their streams
+//     and fetched subtitles, and of the destinations it forgets (the roots, the disks mounted inside
+//     them) is cancelled through the job queue. A retired node's places are tombstoned, a file's first
+//     place handing it to a live copy elsewhere, and the node is forgotten, so its name enrols a new
+//     node. TestRetireRoot_LeavesItsFilesToNoLibraryCancelsTheirWorkForgetsItsDisksAndScansItNoMore,
 //     TestRetireNode_RetiresItsRootsCancelsItsWorkAndForgetsIt,
-//     TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork.
+//     TestDelete_RemovesTheLibraryAndItsRootsKeepsItsFilesAndCancelsTheirWork.
+//
+//   - A file is found at one or more places, a node and a path (D363 §2): a video read at a second
+//     place whose payload a live video found before it has is a candidate, both are read whole (D116),
+//     and the same bytes make it the first's place from then on, its tracks, filings and what other
+//     packages hold of it the file's, the subtitles beside it its place's; other bytes leave two files.
+//     Each is logged. When a file's first place goes, a live copy's place is the file's.
+//     TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces,
+//     TestCopies_AFileWithTheSamePayloadAndOtherBytesStaysAFileOfItsOwn,
+//     TestRemovePlace_AFilesFirstPlaceGoingLeavesItAtItsCopysPlace.
+//
+//   - Libraries may overlap, and each place is scanned and watched once: a folder inside another
+//     library folder on its node is scanned within the outermost, of its scope, and a node watches the
+//     outermost of its watched folders (D363 §1, §2).
+//     TestScans_AFolderInsideAnotherLibrarysFolderIsScannedOnceWithinIt,
+//     TestScans_AnAskForAnInnerFolderIsItsScopeWithinTheOuter,
+//     TestScanSchedule_ANodeWatchesAFolderInsideAnotherOnlyThroughIt,
+//     TestScanRootOf_IsTheOutermostFolderAtOrAboveWithTheScopeWithinIt.
+//
+//   - A person reaches an item when a library they reach covers a place of one of its files; lists
+//     show each item once; a detail names only the places they reach, an admin's every place; a play
+//     reads from a place they reach, the first before a copy, and falls back only among those; a
+//     subtitle beside a copy is offered where that place is reached (D363 §3, §7, §8).
+//     TestBrowse_AFilmAtTwoPlacesOfTwoLibrariesIsListedOnceToWhoeverReachesEither,
+//     TestBrowse_ATitleShowsOnlyThePlacesItsPersonReaches,
+//     TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem,
+//     TestSubtitleTracks_ASubtitleBesideACopyIsOfferedWhereItsPlaceIsReached.
 //
 //   - A root, or a disk mounted inside one, is offline since the first scan in a row that found
 //     it missing, until one finds it. TestOffline_IsSinceTheFirstScanThatFoundARootOrDiskMissingUntilOneFindsIt.
@@ -251,11 +278,12 @@
 //     can (D48). TestSearch_EveryRouteFindsWhatItShould.
 //
 //   - A library covers only roots its node configured, as the node's hello named them, or folders
-//     inside them by a clean path, and no library's folder is at, above or below another's on its
-//     node (D107, D359 §1); creating one, or adding a folder to one, scans it (D359 §3).
+//     inside them by a clean path (D107, D359 §1); libraries may overlap, and within one library a
+//     folder beneath another of its own is refused as covered, one above them replacing them (D363
+//     §1); creating one, or adding a folder to one, scans it (D359 §3).
 //     TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt,
 //     TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath,
-//     TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode,
+//     TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing,
 //     TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot. A folder inside a configured root is
 //     listed and told of its watcher's notices as the root's own was (D359 §4), and shown with its own
 //     watch, never its configured root's. TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch,

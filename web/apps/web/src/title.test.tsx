@@ -31,7 +31,6 @@ const heat: TitleDetail = {
   tagline: "A Los Angeles crime saga",
   overview: "A crime saga.",
   identificationState: "identified",
-  libraryId: 1,
   art: { posterSha256: "p1", backdropSha256: "b1" },
   versions: [
     {

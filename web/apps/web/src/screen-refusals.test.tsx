@@ -49,7 +49,6 @@ const waitingItem: components["schemas"]["ItemBody"] = {
   kind: "movie",
   name: "Variety",
   identificationState: "ambiguous",
-  libraryId: 1,
 };
 
 const secret: components["schemas"]["SecretBody"] = {

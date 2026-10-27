@@ -5,6 +5,7 @@ package api_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // closedResponse is a response, read and closed.
@@ -187,5 +190,38 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 	if below := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(below.body,
 		`{"check":"prepared copies on node local","verdict":"warn"`) {
 		t.Errorf("doctor with the disk below its floor of free space = %s, want a warning", below.body)
+	}
+}
+
+// D363 §8, §9: the doctor names each file found at more than one place, at every place, and warns of
+// an item whose places' NFO files disagree.
+func TestDoctor_NamesAFileAtTwoPlacesAndWarnsWhenTheirNFOFilesDisagree(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	copyID := librarytest.File(t, harness.database, librarytest.FileSpec{
+		LibraryID: 1, NodeID: 1, Path: "/m/Copy/Metropolis (1995).mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 2,
+	})
+	for index, besideID := range []int64{1, copyID} {
+		nfoID := librarytest.File(t, harness.database, librarytest.FileSpec{
+			NodeID: 1, Path: fmt.Sprintf("/m/%d/Metropolis (1995).nfo", index), SidecarKind: "nfo",
+			AttachedToFile: besideID, FirstSeenAt: 2,
+		})
+		storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
+			"INSERT INTO file_nfo (file_id, body) VALUES (%d, CAST('<movie><title>%d</title></movie>' AS BLOB))",
+			nfoID, index))
+	}
+	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	for _, want := range []string{
+		`{"check":"files found at more than one place","verdict":"ok","detail":"1, each one file, byte for byte ` +
+			`the same, at every place: file 1 at /m/Metropolis (1995).mkv and /m/Copy/Metropolis (1995).mkv"}`,
+		`{"check":"NFO files beside the places of one file","verdict":"warn","detail":"1 with NFO files ` +
+			`that disagree, the one beside the place found first speaking for each: \"Metropolis\" (item 10) at ` +
+			`/m/Metropolis (1995).mkv and /m/Copy/Metropolis (1995).mkv"`,
+	} {
+		if !strings.Contains(found.body, want) {
+			t.Errorf("doctor = %d %s; want %s", found.status, found.body, want)
+		}
 	}
 }

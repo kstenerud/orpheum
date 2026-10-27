@@ -33,7 +33,6 @@ describe("identify", () => {
               kind: "series",
               name: "Glass Tide",
               identificationState: "ambiguous",
-              libraryId: 1,
               year: 2011,
             },
           ]}

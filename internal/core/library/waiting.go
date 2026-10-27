@@ -64,9 +64,9 @@ func (admin *Admin) Waiting(ctx context.Context) ([]WaitingRemovals, error) {
 	}
 	waiting := make([]WaitingRemovals, 0, len(roots))
 	for _, root := range roots {
+		after, before := PathRange(root.RootPath)
 		paths, err := queries.ListFilesAHeldBackScanDidNotSee(ctx, sqlcgen.ListFilesAHeldBackScanDidNotSeeParams{
-			NodeID: root.NodeID, LibraryID: root.LibraryID, RootPrefix: root.RootPath + "/",
-			ScanStartedAt: root.WithheldScanStartedAt,
+			NodeID: root.NodeID, After: after, Before: before, ScanStartedAt: root.WithheldScanStartedAt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list what %s's scan would remove: %w", root.RootPath, err)

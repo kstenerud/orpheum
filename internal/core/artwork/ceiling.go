@@ -161,11 +161,14 @@ func (service *Service) ceilingBytes(ctx context.Context) (int64, error) {
 type class int
 
 const (
-	classRemoved  class = iota + 1 // a removed item's image
-	classOnDemand                  // a size made on request, or JPEG: cut again when asked for
-	classOther                     // another size, cut again from the base by the node
-	classBase                      // the largest size, fetched again when next needed
-	classKept                      // never evicted while its item is live
+	classRemoved class = iota + 1 // a removed item's image
+	// The image of an item no library lists any more, a library deleted or a folder taken out of one:
+	// kept, its item's data reapable, but only under pressure, never by a grace (D363 §10).
+	classUncovered
+	classOnDemand // a size made on request, or JPEG: cut again when asked for
+	classOther    // another size, cut again from the base by the node
+	classBase     // the largest size, fetched again when next needed
+	classKept     // never evicted while its item is live
 )
 
 // candidate is one file a sweep may evict.
@@ -202,13 +205,14 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, fmt.Errorf("list the stored images: %w", err)
 	}
-	isLiveBySourceSha256 := map[string]bool{}
+	shownBySourceSha256 := map[string]shown{}
 	goneAtBySourceSha256 := map[string]int64{}
 	for _, row := range rows {
 		key := hex.EncodeToString(row.SourceSha256)
-		isLiveBySourceSha256[key], goneAtBySourceSha256[key] = row.IsLive == 1, row.GoneAt
+		shownBySourceSha256[key] = shown{isLive: row.IsLive == 1, isListed: row.IsListed == 1}
+		goneAtBySourceSha256[key] = row.GoneAt
 	}
-	sorted := service.classify(isLiveBySourceSha256, goneAtBySourceSha256)
+	sorted := service.classify(shownBySourceSha256, goneAtBySourceSha256)
 	candidates, required, total := sorted.candidates, sorted.requiredBytes, sorted.totalBytes
 	graceEndsAt := service.parts.Clock.Now().Add(-grace).UnixMilli()
 	isOverCeiling, lowWaterBytes := total > ceiling, ceiling*sweepToPercent/100
@@ -241,9 +245,14 @@ type classified struct {
 	totalBytes    int64
 }
 
+// shown is whether a live item shows an image, and whether one a library lists does.
+type shown struct {
+	isLive, isListed bool
+}
+
 // classify sorts every held file into its class.
 func (service *Service) classify(
-	isLiveBySourceSha256 map[string]bool, goneAtBySourceSha256 map[string]int64,
+	shownBySourceSha256 map[string]shown, goneAtBySourceSha256 map[string]int64,
 ) classified {
 	held := service.holdings
 	held.mutex.Lock()
@@ -258,7 +267,7 @@ func (service *Service) classify(
 				lastServedDay: held.lastServedDayBySourceSha256[sourceSha256Hex],
 				goneAt:        goneAtBySourceSha256[sourceSha256Hex],
 			}
-			file.class = classOf(name, base, isLiveBySourceSha256[sourceSha256Hex])
+			file.class = classOf(name, base, shownBySourceSha256[sourceSha256Hex])
 			if file.class == classKept {
 				required += size
 				continue
@@ -279,12 +288,14 @@ func (service *Service) classify(
 }
 
 // classOf is a file's class.
-func classOf(name, base string, isLive bool) class {
+func classOf(name, base string, shownBy shown) class {
 	switch {
 	case strings.HasSuffix(name, cannotMakeSuffix):
 		return classKept // an empty note that a size cannot be made
-	case !isLive:
+	case !shownBy.isLive:
 		return classRemoved
+	case !shownBy.isListed:
+		return classUncovered
 	case strings.HasSuffix(name, "."+FormatJPEG):
 		return classOnDemand
 	}

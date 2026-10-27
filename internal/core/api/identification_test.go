@@ -24,7 +24,7 @@ import (
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{
 		ID: 10, Library: 1, Year: 2003, IdentificationState: "ambiguous",
 	})
@@ -58,7 +58,7 @@ func (harness testHarness) ambiguousTitle(t *testing.T) {
 func (harness testHarness) otherVideoTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Home movies", Kind: "other", MetadataSource: "nfo"})
+		librarytest.Library{Name: "Home movies", Kind: "other", MetadataSource: "nfo", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 20, Library: 1, Kind: "other"})
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (20, 'und', 1, 'Beach day')`)

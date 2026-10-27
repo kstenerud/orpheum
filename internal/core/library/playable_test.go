@@ -16,10 +16,10 @@ import (
 func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+	nodeID, _ := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/"})
 	named, err := library.BytesFileOf(t.Context(), database.Read(), library.Located{
-		Subject: "file 1", LibraryID: libraryID, NodeID: nodeID, ReportedPathRaw: []byte("/Film.mkv"),
+		Subject: "file 1", NodeID: nodeID, ReportedPathRaw: []byte("/Film.mkv"),
 		PayloadHash: []byte{0x0c},
 	})
 	if err != nil || named.RootPath != "/" || string(named.Path) != "Film.mkv" || named.PayloadHash != "0c" {

@@ -39,3 +39,17 @@ WHERE video_file = sqlc.arg(video_file) AND provider = sqlc.arg(provider)
 -- A removed file deleted past its keeping takes the subtitles fetched for it: they were timed to it.
 DELETE FROM fetched_subtitle
 WHERE video_file IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: MoveFetchedSubtitlesToFile :exec
+-- The subtitles fetched for a file confirmed to be a copy of another (D363 section 2): the other's,
+-- one fetched for both from one provider's file kept once.
+UPDATE fetched_subtitle SET video_file = sqlc.arg(to_file)
+WHERE fetched_subtitle.video_file = sqlc.arg(from_file)
+  AND NOT EXISTS (
+    SELECT 1 FROM fetched_subtitle AS kept
+    WHERE kept.video_file = sqlc.arg(to_file) AND kept.provider = fetched_subtitle.provider
+      AND kept.provider_file_id = fetched_subtitle.provider_file_id);
+
+-- name: DeleteFetchedSubtitlesOfFile :exec
+-- What was fetched for a copy that its file had fetched too.
+DELETE FROM fetched_subtitle WHERE video_file = sqlc.arg(file_id);

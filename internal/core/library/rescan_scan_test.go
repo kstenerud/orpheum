@@ -29,7 +29,7 @@ func TestRescan_AFileUnchangedOnDiskIsNotProbedAgain(t *testing.T) {
 	versionID := librarytest.Version(t, bench.database, librarytest.VersionSpec{TitleID: titleID})
 	alien := bench.liveFilesByPath()[root+"/Wing (1979)/Wing.mkv"]
 	err = bench.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return PutInVersion(ctx, queries, alien.ID, versionID)
+		return PutInVersion(ctx, queries, alien.ID, LibraryKindMovies, versionID)
 	})
 	if err != nil {
 		t.Fatal(err)

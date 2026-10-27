@@ -30,7 +30,6 @@ describe("SeriesView", () => {
       id: 20,
       kind: "series",
       name: "Glass Tide",
-      libraryId: 1,
       art: { posterSha256: "p" },
       seasons: [
         { seasonNumber: 1, episodeCount: 2, stillSha256: "s31" },
@@ -59,7 +58,6 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
     id: 20,
     kind: "series",
     name: "Glass Tide",
-    libraryId: 1,
     art: {},
     seasons: [
       { seasonNumber: 1, episodeCount: 4 },
@@ -203,7 +201,6 @@ describe("a series of one season", () => {
       id: 21,
       kind: "series",
       name: "Short Run",
-      libraryId: 1,
       art: {},
       seasons: [{ seasonNumber: 1, episodeCount: 1 }],
     };
@@ -219,7 +216,6 @@ describe("a series whose match is a guess (D301)", () => {
       id: 20,
       kind: "series",
       name: "The Ledger Room",
-      libraryId: 1,
       art: { posterSha256: "p" },
       seasons: [],
       isGuessed: true,

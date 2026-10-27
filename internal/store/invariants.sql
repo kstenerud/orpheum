@@ -9,7 +9,8 @@
 SELECT version.id FROM version
 JOIN item ON item.id = version.title_id
 WHERE version.removed_at IS NULL AND item.removed_at IS NOT NULL AND EXISTS (
-  SELECT 1 FROM file WHERE file.version_id = version.id AND file.removed_at IS NULL);
+  SELECT 1 FROM file_filing CROSS JOIN file ON file.id = file_filing.file_id
+  WHERE file_filing.version_id = version.id AND file.removed_at IS NULL);
 
 -- invariant: every live title has a version
 -- A pass makes a title for a file, and tombstones one it moves the last version out of or made and

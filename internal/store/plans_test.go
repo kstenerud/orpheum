@@ -180,6 +180,10 @@ func wholeReadsAllowed() map[string]string {
 		few      = "a household has a handful: "
 		redesign = "a defect D303's fresh baseline removes: "
 		sweep    = "a background sweep over the library, which D303 phase C makes incremental: "
+		// folders is a read of whether a place is covered, through place_library, version_library or
+		// library_place: the library folders on its node, a handful, read whole (D363).
+		folders = "a household has a handful of library folders, those on a place's node read whole for " +
+			"whether they cover it (D363): "
 	)
 	return map[string]string{
 		// Tables a household keeps small.
@@ -189,9 +193,10 @@ func wholeReadsAllowed() map[string]string {
 		"ListLibraries":                 few + "libraries",
 		"ListWatchedLiveFiles": "every file anyone watched is what it lists, by the covering index of play " +
 			"position's files, once a minute, for their work's rung above the background (D324)",
-		"GetLibraryForRoot":   few + "roots; a scan finds its library once",
-		"ListLiveRootsOfNode": few + "roots; retiring a node reads them",
-		"ListCheckedRoots":    few + "roots; the scan schedule reads each one's last scan every 15 minutes",
+		"ListLibrariesAtOrUnderRoot": few + "roots; a scan finds the libraries under its root once",
+		"ListLiveRootPathsOnNode":    few + "roots; a scan's request finds the root it runs under",
+		"ListLiveRootsOfNode":        few + "roots; retiring a node reads them",
+		"ListCheckedRoots":           few + "roots; the scan schedule reads each one's last scan every 15 minutes",
 		"ListUnavailablePlaces": few + "roots and disks in them; the unavailable ones' sweep reads them " +
 			"every unavailable_root_rescan_seconds (D328)",
 		"ListOfflinePlaces": few + "roots and disks in them; the System page lists those offline (D328)",
@@ -240,21 +245,67 @@ func wholeReadsAllowed() map[string]string {
 		// Small tables the planner reads whole by the committed statistics (D303, DL15).
 		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
 			"reference scale), and sorts a page of them",
-		"ListLibrarySeries": "a library's series, which are few, read whole by the statistics",
-		"ListLibraryUnnumberedEpisodePaths": "the series' orderings, which are few, each searched for its " +
-			"unnumbered positions; a pass reads it once (D307 section 2)",
 		"ListFilesOfWork": "the series' orderings, which are few, for the aired one; an admin's report of a " +
 			"work's filing, which is rare (D306 section 3)",
 		"ListUnnumberedEpisodeFiles": "the series' orderings, which are few (one or two a series), each searched " +
 			"for its positions; Needs attention looks for episodes read wrongly (D306 section 6)",
+		"ListUnreadablePaths":   few + "nodes, which the errored files are joined to",
+		"ListLibraryRootStates": few + "roots and nodes",
+		"ListLiveRealmKeys":     few + "people, whose realm keys a discovery lists",
+		"ListLibraryIDsOfRole":  few + "libraries",
+		"ListLibrarySeries":     "a library's series, which are few, read whole by the statistics",
+		"ListLibraryUnnumberedEpisodePaths": "the series' orderings, which are few, each searched for its " +
+			"unnumbered positions; a pass reads it once (D307 section 2)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
 		"ListTitlesAwaitingMatch": sweep + "the first-match sweep reads the titles never answered",
-		"ListUnreadablePaths":     few + "nodes, which the errored files are joined to",
 		"ListLibraryRoots":        few + "roots",
-		"ListLibraryRootStates":   few + "roots and nodes",
 		"RetireRootsOfLibrary":    few + "roots; a library's removal retires them",
-		"ListLiveRealmKeys":       few + "people, whose realm keys a discovery lists",
-		"ListLibraryIDsOfRole":    few + "libraries",
+		// Whether a library covers a place (D363).
+		"CountLibraryFilings":  folders + "the scanner view's counts",
+		"CountOrderingMembers": folders + "a page's series' episodes counted",
+		"IsArtworkReached":     folders + "whether a person reaches an image",
+		"IsFileReached":        folders + "whether a person reaches a file",
+		"IsItemReached":        folders + "whether a person reaches an item",
+		"ListArtworkSourceSha256s": folders + "the artwork ceiling's daily sweep, for the images of what no " +
+			"library lists",
+		"ListEpisodesNotInOrdering":            folders + "a series' episodes an ordering leaves out",
+		"ListFileTitles":                       folders + "the scanner view",
+		"ListFilesPage":                        folders + "the scanner view",
+		"ListFilmsByAdded":                     folders + "a page of films",
+		"ListFilmsByName":                      folders + "a page of films",
+		"ListFilesToReadThrough":               folders + "the read-through sweep, a range of files at a time",
+		"ListFirstEpisodes":                    folders + "a page's series' first episodes",
+		"ListIdentifyFiles":                    folders + "the identification pass, once",
+		"ListLibrariesOfFile":                  folders + "the libraries a played file is in",
+		"ListLibraryNFOBodies":                 folders + "the identification pass's snapshot",
+		"ListLibraryRecordedTimes":             folders + "an other library's pass, once",
+		"ListLibraryVersionTitles":             folders + "the identification pass's snapshot",
+		"ListLiveFileLocationsOfSeries":        folders + "where a page's series' files are",
+		"ListLiveFileLocationsOfTitles":        folders + "where a page's titles' files are",
+		"ListOrderingMemberFilesWithPositions": folders + "a series' members for Next Up",
+		"ListOtherByAdded":                     folders + "a page of other videos",
+		"ListOtherByFileName":                  folders + "a page of other videos",
+		"ListOtherByName":                      folders + "a page of other videos",
+		"ListOtherByRecorded":                  folders + "a page of other videos",
+		"ListOtherVideosOfLibrary":             folders + "an other library's folders",
+		"ListPlacesOfFile":                     folders + "the places a file is read from",
+		"ListRecentPlayPositions":              folders + "Continue Watching",
+		"ListSeasonEpisodeDetails":             folders + "a season's episodes",
+		"ListSeriesByAdded":                    folders + "a page of series",
+		"ListSeriesByProviderID":               folders + "a series found by its provider id",
+		"ListSeriesEpisodeDetails":             folders + "a series' episodes",
+		"ListSubtitleTracksOfVideo":            folders + "the subtitles beside the places a person reaches",
+		"ListTitleExtras":                      folders + "a title's extras",
+		"ListTitleFiles":                       folders + "a title's files at the places its person reaches",
+		"ListTitlesByProviderID":               folders + "a film found by its provider id",
+		"ListTitlesNoLibraryLists":             folders + "a retire's titles no library lists",
+		"ListTitlesOfFileNoLibraryLists":       folders + "a retired file's titles",
+		"ListTitlesToAdopt":                    folders + "the identification pass, once",
+		"ListUncoveredFilesUnder":              folders + "a retired folder's places no library covers",
+		"SearchTrigram":                        folders + "a search's hits",
+		"SearchWords":                          folders + "a search's hits",
+		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
+			"found before it has (D363 section 2)",
 		// Defects the redesign removes (the access audit and the independent audit).
 		"ListTitlesByIdentification": redesign + "counted by fetching every row (access audit A7)",
 		"ListRefreshRequests":        "the refresh sweep reads every request a person made, a handful",
@@ -331,7 +382,8 @@ func weakSearchesAllowed() map[string]string {
 	return map[string]string{
 		"DeleteDevicesOfRemovedUser": person + "the check that no play names a device deleted, whose plays " +
 			"removing the person deleted first (D305)",
-		"ListLiveFilesOfLibraryOnNode":    library + "a scan's comparison",
+		"ListLiveFilesUnder": library + "a scan's comparison and its removals, of the places under its " +
+			"root",
 		"ListLiveFilesForAttaching":       library + "a scan's attaching of sidecars",
 		"ListFilesToCompare":              library + "a scan's comparison",
 		"ListFilesAHeldBackScanDidNotSee": library + "what a withheld scan would remove",
@@ -341,8 +393,6 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibraryTitles": library + "the identification pass",
 		// What the pass reads of its library at its start, once a pass, so that it runs no
 		// statement per file (D303, DL7).
-		"ListLibraryVersionTitles":       library + snapshot,
-		"ListLibraryNFOBodies":           library + snapshot,
 		"ListLibraryTitlesForPass":       library + snapshot,
 		"ListLibraryOverrides":           library + snapshot,
 		"ListLibraryProviderIDs":         library + snapshot,
@@ -352,14 +402,9 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibrarySeriesEpisodePlaces": library + snapshot,
 		"ListLibraryProviderResponses":   library + snapshot,
 		"ListLibraryOtherVideos":         library + snapshot,
-		"ListLibraryRecordedTimes":       library + "an other library's pass reads when its files were recorded (D349)",
 		"ListLibraryLiveEpisodeSources":  library + snapshot,
 		"ListLibraryExtraRelations":      library + snapshot,
-		"ListFileTitles":                 library + "the scanner view",
-		"CountLibraryFilings":            library + "the scanner view's counts",
-		"TombstoneLiveFilesOfLibrary":    library + "a library's removal",
-		"ListTitlesWithoutLiveFiles":     library + "a library's removal",
-		"TombstoneItemsOfLibrary":        library + "a library's removal",
+		"ListTitlesNoLibraryLists":       library + "a retire's titles no library lists any more",
 		"ListLiveFilesByNode":            node + "the System page's files of a node",
 		"DeletePlaySpansOfUser":          person + "their removal",
 		"DeletePlayPositionsOfUser":      person + "their removal",

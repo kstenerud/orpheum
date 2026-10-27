@@ -74,6 +74,11 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 	if err != nil {
 		return nil, server.libraryError(ctx, "list nodes", err)
 	}
+	placesFindings, err := server.placesFindings(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	findings = append(findings, placesFindings...)
 	for _, node := range listed {
 		facts, found := dependencies.NodeReports.Facts(node.Name)
 		if !found {
@@ -244,4 +249,53 @@ func artworkFinding(dependencies *Dependencies) FindingBody {
 			pressure.RecommendedBytes/diskspace.BytesPerGiB)
 	}
 	return finding
+}
+
+// namedAtMost is how many files or items a doctor's finding names, the rest counted: a justified
+// constant, what one line of a page can show.
+const namedAtMost = 20
+
+// placesFindings are the files found at more than one place, an admin seeing every place of each, and
+// the items whose places' NFO files disagree, where the one beside the place first found speaks
+// (D363 §8, §9).
+func (server *Server) placesFindings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
+	files, isMore, err := dependencies.Libraries.FilesAtSeveralPlaces(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "list the files found at more than one place", err)
+	}
+	several := FindingBody{
+		Check: "files found at more than one place", Verdict: VerdictOK, Detail: "none: each file is at one place",
+	}
+	if len(files) > 0 {
+		named := make([]string, 0, min(len(files), namedAtMost))
+		for _, file := range files[:min(len(files), namedAtMost)] {
+			named = append(named, fmt.Sprintf("file %d at %s", file.FileID, strings.Join(file.Paths, " and ")))
+		}
+		count := fmt.Sprintf("%d", len(files))
+		if isMore {
+			count = "at least " + count
+		}
+		several.Detail = fmt.Sprintf("%s, each one file, byte for byte the same, at every place: %s", count,
+			strings.Join(named, "; "))
+	}
+	disagreeing, err := dependencies.Libraries.ItemsWhoseNFOsDisagree(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "compare the NFO files of the files found at more than one place", err)
+	}
+	nfos := FindingBody{
+		Check: "NFO files beside the places of one file", Verdict: VerdictOK,
+		Detail: "none disagree: a file at several places is described the same at each",
+	}
+	if len(disagreeing) > 0 {
+		named := make([]string, 0, min(len(disagreeing), namedAtMost))
+		for _, item := range disagreeing[:min(len(disagreeing), namedAtMost)] {
+			named = append(named, fmt.Sprintf("%q (item %d) at %s", item.Name, item.TitleID,
+				strings.Join(item.Paths, " and ")))
+		}
+		nfos.Verdict = VerdictWarning
+		nfos.Detail = fmt.Sprintf("%d with NFO files that disagree, the one beside the place found first "+
+			"speaking for each: %s", len(disagreeing), strings.Join(named, "; "))
+		nfos.Action = "make the NFO files beside each copy the same, or choose the match by hand"
+	}
+	return []FindingBody{several, nfos}, nil
 }

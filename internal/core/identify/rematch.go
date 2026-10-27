@@ -217,8 +217,8 @@ func (matcher *Matcher) unsettleFilm(
 	if err != nil {
 		return err
 	}
-	if title.LibraryID != nil {
-		matcher.pass.OwePass(*title.LibraryID)
+	if title.FilingLibraryID != nil {
+		matcher.pass.OwePass(*title.FilingLibraryID)
 	}
 	return nil
 }

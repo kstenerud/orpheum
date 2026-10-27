@@ -10,6 +10,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -325,7 +326,10 @@ func (raiser *Raiser) withMembersAhead(
 	if err != nil {
 		return jobs.Interested{}, nil, err
 	}
-	members, err := library.ReadMembers(ctx, queries, raiser.parts.Settings, look.ItemID, look.UserID, ordering)
+	// Every member's files, at whichever place: what is raised is work a play of them would wait on,
+	// which shows nothing (D363 §8 holds what a person is shown and plays).
+	everyPlace := library.Viewer{UserID: look.UserID, Reach: auth.EveryLibrary()}
+	members, err := library.ReadMembers(ctx, queries, raiser.parts.Settings, everyPlace, look.ItemID, ordering)
 	if err != nil {
 		return jobs.Interested{}, nil, err
 	}

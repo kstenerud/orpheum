@@ -41,7 +41,7 @@ type TitlesKind = "movie" | "series" | "other" | "any";
 /** How many posters a page loads, as Films and Series do (browse.tsx). */
 const entriesPerPage = 60;
 
-/** The kind of titles a library's own page lists (D349 §9.2): mixed asks for every kind it holds. */
+/** The kind of titles a library's own page lists (D349 §9.2); every kind before its library is read. */
 function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
   if (kind === "movies") {
     return "movie";
@@ -177,7 +177,7 @@ function useAutoSelectFirstLibrary(
 /**
  * The Libraries page (D349): a library chosen (or All libraries), its view, its sort and a search
  * field, in its address so Back and a reload return to where it was. A film library lists its
- * films, a series library its series, a mixed one both, All libraries everything; an other library
+ * films, a series library its series, All libraries everything; an other library
  * lists its videos by recorded date, name, file name or newest added, with a view of All or
  * Folders; no genre.
  */
@@ -512,8 +512,8 @@ const entryId = (entry: Entry): number => entry.id;
 
 /**
  * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
- * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; a mixed
- * list's grid reads each entry's own kind (browse.tsx's PosterGrid).
+ * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; All
+ * libraries' grid reads each entry's own kind (browse.tsx's PosterGrid).
  */
 function LibraryGrid(props: {
   readonly kind: TitlesKind;

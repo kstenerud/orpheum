@@ -134,10 +134,14 @@
 //     TestLibraries_AnAdminCreatesOneOverTheNodesRoots,
 //     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery, TestFiles_PagesWhatTheScannerSaw
 //     and TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk. An admin retires a
-//     root or a node, or deletes a library, and its work is cancelled (D231 §7).
-//     TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays,
+//     root or a node, or deletes a library, and its work is cancelled (D231 §7); a retired folder's
+//     or deleted library's files are left to no library and no item is deleted (D363 §10).
+//     TestScenario_S22_ARetiredRootsFilesAreLeftToNoLibraryItsWorkIsCancelledAndItsHistoryStays,
 //     TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled,
-//     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory. An admin,
+//     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesListedByNoLibraryWithTheirHistory.
+//     The doctor names each file found at more than one place and warns of an item whose places' NFO
+//     files disagree (D363 §8, §9).
+//     TestDoctor_NamesAFileAtTwoPlacesAndWarnsWhenTheirNFOFilesDisagree. An admin,
 //     and no one else, browses the folders inside a node's configured roots, makes a library over
 //     one and adds one to a library, which is scanned (D359).
 //     TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots,

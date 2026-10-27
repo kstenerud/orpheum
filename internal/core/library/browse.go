@@ -33,8 +33,8 @@ const (
 	ListSeries = "series"
 	// ListOther is an other library's videos, neither films nor series (D349 §3).
 	ListOther = "other"
-	// ListAny is films, series and other videos together, by name or newest first: a mixed library's,
-	// or every library's (D349 §1).
+	// ListAny is films, series and other videos together, by name or newest first: every library's
+	// (D349 §1).
 	ListAny   = "any"
 	SortName  = "name"
 	SortAdded = "added"
@@ -86,7 +86,6 @@ type Entry struct {
 	IdentificationState string
 	// IsGuessed is whether its match is a guess no person confirmed: its poster says so (D301 §4).
 	IsGuessed    bool
-	LibraryID    int64
 	AddedAt      int64
 	PosterSha256 string // its poster's hash; "" when it has none
 	// LandscapeSha256 is an other video's 16:9 picture, its still or else its backdrop, a frame still
@@ -165,11 +164,11 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	page := closePage(entries, query.Limit, func(last int) string {
 		return encodeCursor(keyed[last].key, entries[last].ID)
 	})
-	page, err = browser.finishPage(ctx, page)
+	page, err = browser.finishPage(ctx, query.Reach, page)
 	if err != nil {
 		return Page{}, err
 	}
-	return browser.withProgress(ctx, query.UserID, page)
+	return browser.withProgress(ctx, query.Reach, query.UserID, page)
 }
 
 // keyedEntry is an entry with its place in its list's order: the key a cursor holds.

@@ -103,7 +103,7 @@ type fakeFileReads struct {
 	asked [][]byte
 }
 
-func (reads *fakeFileReads) ReadNow(_ context.Context, _, _ int64, reportedPath []byte) error {
+func (reads *fakeFileReads) ReadNow(_ context.Context, _ int64, reportedPath []byte) error {
 	reads.mutex.Lock()
 	defer reads.mutex.Unlock()
 	reads.asked = append(reads.asked, reportedPath)

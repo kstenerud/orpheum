@@ -120,8 +120,8 @@ type CreateRequest struct {
 }
 
 // Create adds a library over folders of one node, each one of its configured roots or a folder inside
-// one, none covered by another library nor at, above or below another of them (D107, D359 §1), then
-// asks the node to scan them.
+// one (D107, D359 §1), then asks the node to scan them. Another library's folders may be at, above or
+// below them (D363 §1); one beneath another of its own adds nothing, and is left out.
 func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, error) {
 	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, request.NodeName)
 	if !connected {
@@ -135,20 +135,35 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 		if _, err := admin.libraryFolderOn(ctx, request.NodeName, root); err != nil {
 			return 0, err
 		}
-		if err := admin.refuseCovered(ctx, nodeID, request.NodeName, root, ""); err != nil {
-			return 0, err
-		}
-	}
-	if err := refuseOverlapping(request.NodeName, request.Roots); err != nil {
-		return 0, err
 	}
 	library := request.NewLibrary
 	library.NodeID = nodeID
-	id, err := Create(ctx, admin.database, admin.clock, library)
+	library.Roots = admin.outermostOfNew(ctx, request.NodeName, request.Roots)
+	var id int64
+	var forgotten []jobs.Destination
+	err := admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var createErr error
+		if id, createErr = create(ctx, queries, admin.clock, library); createErr != nil {
+			return createErr
+		}
+		for _, root := range library.Roots {
+			within, forgetErr := forgetRootsNowWithin(ctx, queries, nodeID, root)
+			if forgetErr != nil {
+				return forgetErr
+			}
+			forgotten = append(forgotten, within...)
+		}
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
 	admin.watchedFoldersChanged()
+	if len(forgotten) > 0 {
+		if _, err := admin.retirement.Work.CancelRetired(ctx, jobs.RetiredWork{Destinations: forgotten}); err != nil {
+			return id, fmt.Errorf("forget the folders now within the library's: %w", err)
+		}
+	}
 	for _, root := range library.Roots {
 		if err := admin.scans.Request(ctx, nodeID, root, jobs.PriorityPersonsRequest); err != nil {
 			return id, err
@@ -222,10 +237,15 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 			return nil, err
 		}
 		for index, root := range roots {
-			if progress, isScanning := scanning[ScanRoot{NodeID: root.NodeID, RootPath: root.RootPath}]; isScanning {
+			scanned := ScanRoot{NodeID: root.NodeID, RootPath: root.ScanRootPath}
+			if progress, isScanning := scanning[scanned]; isScanning {
 				roots[index].Scan = &progress
 			}
-			if watch, isSaid := watchOf(admin.nodes.RootWatches(root.NodeID), root.RootPath); isSaid {
+			watches := admin.nodes.RootWatches(root.NodeID)
+			if watch, isSaid := watchOf(watches, root.RootPath); isSaid {
+				roots[index].Watch = &watch
+			} else if watch, isSaid := watchOf(watches, root.ScanRootPath); isSaid {
+				// Watched within a folder of another library's above it (D363 §2).
 				roots[index].Watch = &watch
 			}
 		}
@@ -251,7 +271,7 @@ func rootSummaries(ctx context.Context, queries *sqlcgen.Queries, libraryID int6
 	summaries := make([]RootSummary, 0, len(roots))
 	for _, root := range roots {
 		mounts, err := queries.ListRootMounts(ctx, sqlcgen.ListRootMountsParams{
-			NodeID: root.NodeID, RootPath: root.RootPath,
+			NodeID: root.NodeID, RootPath: root.ScanRootPath,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list the mounts under %s: %w", root.RootPath, err)
@@ -334,7 +354,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeNa
 	}
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, approveErr := queries.ApproveRootRemovals(ctx, sqlcgen.ApproveRootRemovalsParams{
-			NodeID: root.NodeID, RootPath: path,
+			NodeID: root.NodeID, RootPath: root.ScanRootPath,
 		})
 		return approveErr
 	})
@@ -361,7 +381,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 	if err != nil {
 		return false, fmt.Errorf("read the mount %s: %w", mountPath, err)
 	}
-	root, err := admin.findRoot(ctx, libraryID, nodeName, mount.RootPath)
+	root, err := admin.findRootScannedUnder(ctx, libraryID, nodeName, mount.RootPath)
 	if err != nil {
 		return false, fmt.Errorf("%s on %s: %w", mountPath, nodeName, ErrMountNotMissing)
 	}
@@ -415,6 +435,23 @@ func (admin *Admin) findRoot(
 		}
 	}
 	return sqlcgen.ListLibraryRootStatesRow{}, fmt.Errorf("%s on %s: %w", path, nodeName, ErrNoSuchRoot)
+}
+
+// findRootScannedUnder is the library's root on the named node that the scan of scanRootPath reads: at
+// it, or beneath it (D363 §2).
+func (admin *Admin) findRootScannedUnder(
+	ctx context.Context, libraryID int64, nodeName, scanRootPath string,
+) (sqlcgen.ListLibraryRootStatesRow, error) {
+	roots, err := admin.libraryRoots(ctx, libraryID)
+	if err != nil {
+		return sqlcgen.ListLibraryRootStatesRow{}, err
+	}
+	for _, root := range roots {
+		if root.NodeName == nodeName && root.ScanRootPath == scanRootPath {
+			return root, nil
+		}
+	}
+	return sqlcgen.ListLibraryRootStatesRow{}, fmt.Errorf("%s on %s: %w", scanRootPath, nodeName, ErrNoSuchRoot)
 }
 
 // libraryNodeIDByName is the id of the named node, which must hold one of the library's roots.

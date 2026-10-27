@@ -79,7 +79,7 @@ func sqlBlob(bytes []byte) string {
 type ItemSpec struct {
 	ID        int64  // 0: let the database choose
 	Kind      string // "title", "collection" or "person"; defaults to "title"
-	LibraryID int64  // 0: no library
+	LibraryID int64  // the library whose pass files it (item.filing_library_id); 0: none
 	AddedAt   int64  // defaults to 1
 }
 
@@ -90,7 +90,7 @@ func Item(t *testing.T, database *store.Database, spec ItemSpec) int64 {
 	addedAt := defaultInt(spec.AddedAt, 1)
 	if spec.ID != 0 {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-			"INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, %s, %s, %d)",
+			"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (%d, %s, %s, %d)",
 			spec.ID, sqlString(kind), sqlNullableInt(spec.LibraryID), addedAt))
 		return spec.ID
 	}
@@ -115,7 +115,7 @@ func Item(t *testing.T, database *store.Database, spec ItemSpec) int64 {
 // TitleSpec is a title's own columns, beside the item row Title makes to hold them.
 type TitleSpec struct {
 	ID                  int64  // 0: let the database choose (its item's id)
-	Library             int64  // 0: no library
+	Library             int64  // the library whose pass files it; 0: none
 	Kind                string // movie/episode/extra/other; defaults to "movie"
 	Year                int64  // 0: NULL
 	RuntimeMs           int64  // 0: NULL
@@ -199,21 +199,28 @@ func Version(t *testing.T, database *store.Database, spec VersionSpec) int64 {
 }
 
 // FileSpec is a file row a test builds directly: a video or audio file a scan listed, or a
-// sidecar (SidecarKind set) attached to one.
+// sidecar (SidecarKind set) attached to one, at a place (D363 §2).
 type FileSpec struct {
-	ID                int64  // 0: let the database choose
-	LibraryID         int64  // required
-	NodeID            int64  // required
-	Path              string // required
-	ReportedPathRaw   []byte // nil: path's own bytes, as a scan of an NFC name would report it
-	SizeBytes         int64  // 0: NULL
-	ModifiedAt        int64  // 0: NULL
-	PayloadHash       []byte // nil: NULL
-	PayloadBytes      int64  // 0: NULL
-	Filing            string // defaults to "listed"; ignored when SidecarKind is set (always "attached")
+	ID int64 // 0: let the database choose
+	// LibraryID is the library the test means it in: its kind files it, and one of its folders on
+	// NodeID must cover Path, which File checks, so the file is not left in no library unseen.
+	// 0: a file no library files, which no folder need cover.
+	LibraryID       int64
+	NodeID          int64  // required
+	Path            string // required
+	ReportedPathRaw []byte // nil: path's own bytes, as a scan of an NFC name would report it
+	SizeBytes       int64  // 0: NULL
+	ModifiedAt      int64  // 0: NULL
+	PayloadHash     []byte // nil: NULL
+	PayloadBytes    int64  // 0: NULL
+	// Filing defaults to "listed": listed, extra or unidentified is a video as LibraryID's kind files
+	// it (file_filing); video, copy, skipped or errored the scan's own filing alone. Ignored when
+	// SidecarKind is set (always "attached").
+	Filing            string
 	FilingReason      string // "": NULL
 	ErrorDetailJSON   string // "": NULL
-	VersionID         int64  // 0: none
+	VersionID         int64  // 0: none; the version LibraryID's kind files it in
+	CopyOf            int64  // 0: none; the file it is a copy of, at another place (Filing "copy")
 	AttachedToFile    int64  // 0: none
 	SidecarKind       string // "": an ordinary file; else nfo/subtitle/image
 	FirstSeenAt       int64  // defaults to 1
@@ -228,17 +235,67 @@ type FileSpec struct {
 // (fileWithChosenID), and returns its id.
 func File(t *testing.T, database *store.Database, spec FileSpec) int64 {
 	t.Helper()
-	if spec.ID != 0 {
-		return fileWithChosenID(t, database, spec)
-	}
+	libraryKind := requireCovered(t, database, spec)
 	var id int64
-	if spec.SidecarKind != "" {
+	switch {
+	case spec.ID != 0:
+		id = fileWithChosenID(t, database, spec)
+	case spec.SidecarKind != "":
 		id = insertSidecarFile(t, database, spec)
-	} else {
+	default:
 		id = insertOrdinaryFile(t, database, spec)
 	}
-	applyFileFollowUps(t, database, spec, id)
+	applyFileFollowUps(t, database, spec, id, libraryKind)
 	return id
+}
+
+// isIdentificationFiling is whether a filing is one a kind of library's identification gives a video,
+// kept in file_filing; any other is the scan's own, on the file's row.
+func isIdentificationFiling(filing string) bool {
+	return filing == "listed" || filing == "extra" || filing == "unidentified"
+}
+
+// rowFiling is the filing a file's own row takes: a video for one a kind of library files, and for a
+// copy made through the writer, which makes a video a copy (MakeFileACopy).
+func rowFiling(spec FileSpec) string {
+	filing := defaultString(spec.Filing, "listed")
+	if isIdentificationFiling(filing) || (filing == "copy" && spec.ID == 0) {
+		return "video"
+	}
+	return filing
+}
+
+// requireCovered fails the test when spec names a library none of whose folders on its node covers
+// its path, and returns that library's kind: a file is in the libraries that cover its place (D363
+// §4), so one left in none would be in no list a test reads.
+func requireCovered(t *testing.T, database *store.Database, spec FileSpec) string {
+	t.Helper()
+	if spec.LibraryID == 0 {
+		return "movies"
+	}
+	var kind string
+	var roots []sqlcgen.ListLibraryRootsRow
+	err := database.ReadTx(t.Context(), func(queries *sqlcgen.Queries) error {
+		library, err := queries.GetLibraryForIdentify(t.Context(), spec.LibraryID)
+		if err != nil {
+			return err
+		}
+		kind = library.Kind
+		roots, err = queries.ListLibraryRoots(t.Context(), spec.LibraryID)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("read library %d: %v", spec.LibraryID, err)
+	}
+	for _, root := range roots {
+		prefix := strings.TrimSuffix(root.RootPath, "/") + "/"
+		if root.NodeID == spec.NodeID && strings.HasPrefix(string(fileReportedPathRaw(spec)), prefix) {
+			return kind
+		}
+	}
+	t.Fatalf("file %s on node %d is under no folder of library %d (%+v): a file is in the libraries "+
+		"that cover its place (D363)", spec.Path, spec.NodeID, spec.LibraryID, roots)
+	return kind
 }
 
 // fileWithChosenID builds a file row directly: a chosen id, or first_seen_at and last_seen_at
@@ -247,21 +304,23 @@ func File(t *testing.T, database *store.Database, spec FileSpec) int64 {
 func fileWithChosenID(t *testing.T, database *store.Database, spec FileSpec) int64 {
 	t.Helper()
 	reportedPathRaw := fileReportedPathRaw(spec)
-	filing := defaultString(spec.Filing, "listed")
+	filing := rowFiling(spec)
+	if spec.SidecarKind != "" {
+		filing = "attached"
+	}
 	firstSeenAt := defaultInt(spec.FirstSeenAt, 1)
 	lastSeenAt := defaultInt(spec.LastSeenAt, firstSeenAt)
 	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
-		 payload_hash, payload_bytes, filing, filing_reason, error_detail_json, version_id,
-		 attached_to_file, sidecar_kind, first_seen_at, last_seen_at, removed_at, opensubtitles_hash,
-		 filesystem_device, inode)
-		 VALUES (%d, %d, %d, %s, %s, %s, %s, %s, %s, %s, %s,
-		         %s, %s, %s, %s, %d, %d, %s, %s, %s, %s)`,
-		spec.ID, spec.LibraryID, spec.NodeID, sqlString(spec.Path), sqlBlob(reportedPathRaw),
+		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, modified_at,
+		 payload_hash, payload_bytes, filing, filing_reason, error_detail_json, copy_of,
+		 sidecar_kind, first_seen_at, last_seen_at, opensubtitles_hash, filesystem_device, inode)
+		 VALUES (%d, %d, %s, %s, %s, %s, %s, %s, %s, %s,
+		         %s, %s, %s, %d, %d, %s, %s, %s)`,
+		spec.ID, spec.NodeID, sqlString(spec.Path), sqlBlob(reportedPathRaw),
 		sqlNullableInt(spec.SizeBytes), sqlNullableInt(spec.ModifiedAt), sqlBlob(spec.PayloadHash),
 		sqlNullableInt(spec.PayloadBytes), sqlString(filing), sqlNullableString(spec.FilingReason),
-		sqlNullableString(spec.ErrorDetailJSON), sqlNullableInt(spec.VersionID), sqlNullableInt(spec.AttachedToFile),
-		sqlNullableString(spec.SidecarKind), firstSeenAt, lastSeenAt, sqlNullableInt(spec.RemovedAt),
+		sqlNullableString(spec.ErrorDetailJSON), sqlNullableInt(spec.CopyOf),
+		sqlNullableString(spec.SidecarKind), firstSeenAt, lastSeenAt,
 		sqlNullableString(spec.OpensubtitlesHash), sqlNullableInt(spec.FilesystemDevice), sqlNullableInt(spec.Inode)))
 	return spec.ID
 }
@@ -298,7 +357,7 @@ func insertSidecarFile(t *testing.T, database *store.Database, spec FileSpec) in
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		id, err = queries.InsertSidecarFile(t.Context(), sqlcgen.InsertSidecarFileParams{
-			LibraryID: spec.LibraryID, NodeID: spec.NodeID, Path: spec.Path,
+			NodeID: spec.NodeID, Path: spec.Path,
 			ReportedPathRaw: fileReportedPathRaw(spec), SizeBytes: sizeBytes, ModifiedAt: modifiedAt,
 			PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes,
 			FilingReason: filingReason, SidecarKind: &sidecarKind, SeenAt: defaultInt(spec.FirstSeenAt, 1),
@@ -344,10 +403,10 @@ func insertOrdinaryFile(t *testing.T, database *store.Database, spec FileSpec) i
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		id, err = queries.InsertFile(t.Context(), sqlcgen.InsertFileParams{
-			LibraryID: spec.LibraryID, NodeID: spec.NodeID, Path: spec.Path,
+			NodeID: spec.NodeID, Path: spec.Path,
 			ReportedPathRaw: fileReportedPathRaw(spec), SizeBytes: sizeBytes, ModifiedAt: modifiedAt,
 			PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes,
-			Filing: defaultString(spec.Filing, "listed"), FilingReason: filingReason, ErrorDetailJSON: errorDetailJSON,
+			Filing: rowFiling(spec), FilingReason: filingReason, ErrorDetailJSON: errorDetailJSON,
 			SeenAt: defaultInt(spec.FirstSeenAt, 1), OpensubtitlesHash: opensubtitlesHash,
 			FilesystemDevice: filesystemDevice, Inode: inode,
 		})
@@ -359,39 +418,74 @@ func insertOrdinaryFile(t *testing.T, database *store.Database, spec FileSpec) i
 	return id
 }
 
-// applyFileFollowUps sets id's version, attachment and removal, each through the setter
-// production uses, when spec asks for one.
-func applyFileFollowUps(t *testing.T, database *store.Database, spec FileSpec, id int64) {
+// applyFileFollowUps sets id's filing of libraryKind and its version, its copy, its attachment and
+// its removal, each through the setter production uses, when spec asks for one.
+func applyFileFollowUps(t *testing.T, database *store.Database, spec FileSpec, id int64, libraryKind string) {
 	t.Helper()
-	if spec.VersionID != 0 {
-		versionID := spec.VersionID
-		err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-			return queries.SetFileVersionAndIdentifiedPath(t.Context(),
-				sqlcgen.SetFileVersionAndIdentifiedPathParams{VersionID: &versionID, ID: id})
+	if isIdentificationFiling(defaultString(spec.Filing, "listed")) && spec.SidecarKind == "" {
+		applyFileFiling(t, database, spec, id, libraryKind)
+	}
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return applyPlaceFollowUps(t, queries, spec, id)
+	})
+	if err != nil {
+		t.Fatalf("file %d: %v", id, err)
+	}
+}
+
+// applyFileFiling sets id's filing by libraryKind, and its version when spec names one.
+func applyFileFiling(t *testing.T, database *store.Database, spec FileSpec, id int64, libraryKind string) {
+	t.Helper()
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		var reason *string
+		if spec.FilingReason != "" {
+			reason = &spec.FilingReason
+		}
+		upsertErr := queries.UpsertFileFiling(t.Context(), sqlcgen.UpsertFileFilingParams{
+			FileID: id, LibraryKind: libraryKind, Filing: defaultString(spec.Filing, "listed"), FilingReason: reason,
 		})
+		if upsertErr != nil || spec.VersionID == 0 {
+			return upsertErr
+		}
+		versionID := spec.VersionID
+		return queries.SetFileVersionAndIdentifiedPath(t.Context(), sqlcgen.SetFileVersionAndIdentifiedPathParams{
+			LibraryKind: libraryKind, VersionID: &versionID, FileID: id,
+		})
+	})
+	if err != nil {
+		t.Fatalf("file filing: %v", err)
+	}
+}
+
+// applyPlaceFollowUps makes id the copy, the sidecar or the tombstone spec says.
+func applyPlaceFollowUps(t *testing.T, queries *sqlcgen.Queries, spec FileSpec, id int64) error {
+	t.Helper()
+	if spec.CopyOf != 0 && spec.ID == 0 {
+		copyOf := spec.CopyOf
+		made, err := queries.MakeFileACopy(t.Context(), sqlcgen.MakeFileACopyParams{CopyOf: &copyOf, ID: id})
+		if err == nil && made != 1 {
+			err = fmt.Errorf("file %d was not made a copy of file %d", id, copyOf)
+		}
 		if err != nil {
-			t.Fatalf("file version_id: %v", err)
+			return err
 		}
 	}
 	if spec.AttachedToFile != 0 {
 		attachedTo := spec.AttachedToFile
-		err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-			return queries.SetFileAttachedTo(t.Context(),
-				sqlcgen.SetFileAttachedToParams{AttachedToFile: &attachedTo, ID: id})
-		})
+		err := queries.SetFileAttachedTo(t.Context(),
+			sqlcgen.SetFileAttachedToParams{AttachedToFile: &attachedTo, ID: id})
 		if err != nil {
-			t.Fatalf("file attached_to_file: %v", err)
+			return fmt.Errorf("attached_to_file: %w", err)
 		}
 	}
 	if spec.RemovedAt != 0 {
 		removedAt := spec.RemovedAt
-		err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-			return queries.TombstoneFile(t.Context(), sqlcgen.TombstoneFileParams{RemovedAt: &removedAt, ID: id})
-		})
+		err := queries.TombstoneFile(t.Context(), sqlcgen.TombstoneFileParams{RemovedAt: &removedAt, ID: id})
 		if err != nil {
-			t.Fatalf("file removed_at: %v", err)
+			return fmt.Errorf("removed_at: %w", err)
 		}
 	}
+	return nil
 }
 
 // ProbeSpec is a file's probe row, what the node reported.

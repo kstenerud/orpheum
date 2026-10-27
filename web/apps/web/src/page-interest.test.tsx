@@ -13,7 +13,6 @@ const series: SeriesDetail = {
   id: 20,
   kind: "series",
   name: "Glass Tide",
-  libraryId: 1,
   art: {},
   seasons: [
     { seasonNumber: 1, episodeCount: 1 },

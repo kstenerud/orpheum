@@ -2483,8 +2483,6 @@ export interface components {
             isGuessed?: boolean;
             /** @enum {string} */
             kind: "series";
-            /** Format: int64 */
-            libraryId: number;
             name: string;
             /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
             nextUp?: components["schemas"]["NextUpBody"];
@@ -2561,7 +2559,7 @@ export interface components {
             /** @description May the server write beside the media */
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "mixed" | "other";
+            kind: "movies" | "shows" | "other";
             /** @enum {string} */
             metadataSource?: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -2755,8 +2753,6 @@ export interface components {
             kind: "movie" | "series" | "other";
             /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             landscapeSha256?: string;
-            /** Format: int64 */
-            libraryId: number;
             name: string;
             /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             noPosterStillSha256?: string;
@@ -2909,6 +2905,8 @@ export interface components {
         FileDetailBody: {
             /** Format: int64 */
             id: number;
+            /** @description The file's other places, its byte-identical copies, after its first; an admin's alone */
+            otherPaths?: string[] | null;
             path?: string;
             /** Format: int64 */
             sizeBytes?: number;
@@ -3053,8 +3051,6 @@ export interface components {
             fileName?: string;
             /** Format: int64 */
             id: number;
-            /** Format: int64 */
-            libraryId: number;
             name: string;
             /** Format: int64 */
             positionMs: number;
@@ -3137,8 +3133,6 @@ export interface components {
             identificationState: "identified" | "ambiguous" | "unidentified" | "confirmed";
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "series";
-            /** Format: int64 */
-            libraryId: number;
             name: string;
             /**
              * Format: int64
@@ -3161,8 +3155,6 @@ export interface components {
             isGuessed?: boolean;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "other";
-            /** Format: int64 */
-            libraryId: number;
             name: string;
             overview?: string;
             /**
@@ -3207,7 +3199,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate" | "hash_whole_file";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -3462,7 +3454,7 @@ export interface components {
             id: number;
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "mixed" | "other";
+            kind: "movies" | "shows" | "other";
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -3864,9 +3856,9 @@ export interface components {
             kind: "movie" | "episode" | "extra" | "other";
             /**
              * Format: int64
-             * @description The library its file lives in
+             * @description A library its person reaches that covers its file's place, which a person goes back up to; absent for none
              */
-            libraryId: number;
+            libraryId?: number;
             /** Format: int64 */
             titleId: number;
         };
@@ -4173,6 +4165,8 @@ export interface components {
             cancelledJobCount: number;
             /** Format: int64 */
             tombstonedFileCount: number;
+            /** Format: int64 */
+            uncoveredFileCount: number;
         };
         RetireNodeInputBody: {
             /** @description The node's configured name */
@@ -9405,7 +9399,7 @@ export interface operations {
                 cursor?: string;
                 /** @description A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does */
                 from?: string;
-                /** @description movie, series or other; any: every kind, a mixed library's or every library's */
+                /** @description movie, series or other; any: every kind, every library's */
                 kind: "movie" | "series" | "other" | "any";
                 /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
                 library?: number;

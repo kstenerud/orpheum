@@ -86,15 +86,21 @@
 //   - A renamed or moved file is identified again from its new path, unless a person confirmed
 //     its match (D208 §1). TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed.
 //   - A title with no live files left follows them to another library, found by provider id
-//     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary. A deleted library's film that
-//     reappears in another, named by the same provider id by its NFO or by a match, brings its
-//     title back with its history (D231 §7).
+//     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary. Deleting a library deletes no
+//     item (D363 §10); its film, listed by no library, is its title again when another covers its
+//     file, named by the same provider id by its NFO or by a match, with its history (D231 §7).
 //     TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack,
 //     TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack. A deleted library's
 //     series comes back the same way, by its tvshow.nfo's provider id or by a match, and each
 //     episode with it as its file reappears; a matched series' episodes it did not have join it.
 //     TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack,
 //     TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack.
+//   - Libraries may overlap (D363 §5): a file two libraries of one kind cover is filed once, by the
+//     library whose folder is outermost (the oldest on a tie), and both list that title; a library of
+//     another kind gives it its own item. A file at several places is described by the NFO beside its
+//     first place, and the doctor names it and warns when the places' NFO files disagree (§9).
+//     TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem,
+//     TestPass_TheNFOBesideTheFirstPlaceSpeaksForAFileAtTwo.
 //   - A provider id in hand skips the search; a single result matching the name and year is
 //     accepted (D172). The one result may also be a year off, or a name the file's begins with word
 //     by word in its year, each tier asked only when the one before found none (the owner,
@@ -315,6 +321,6 @@
 //   - rescan.go: an admin's rescans, their sweep and their jobs (D357); rematch.go: a rescan's
 //     match of one film or series; files_say.go: what a library's files say each is, its match set
 //     aside.
-//   - retire.go: hiding a deleted library's titles with their history (D231 §7);
-//     series_return.go: a series found again by a provider id its files give (D208 §2).
+//   - unread.go's RetireVersionInto: a version another row was found to be retired into its title
+//     (D304 §5, D363 §2); series_return.go: a series found again by a provider id its files give (D208 §2).
 package identify

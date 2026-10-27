@@ -46,7 +46,7 @@ LIMIT 1;
 SELECT artwork.item_id, artwork.source_sha256, artwork.source
 FROM artwork
 JOIN item ON item.id = artwork.item_id
-LEFT JOIN library ON library.id = item.library_id
+LEFT JOIN library ON library.id = item.filing_library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
@@ -59,10 +59,23 @@ UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND source_sha256 IS NULL AND is_chosen = 0 AND removed_at IS NULL;
 
 -- name: ListArtworkSourceSha256s :many
--- Every stored image, whether a live item shows it, and when it last stopped being shown: what
--- the artwork ceiling reads to find removed items' images, D212 section 6.
+-- Every stored image, whether a live item shows it, whether one a library lists does, and when it last
+-- stopped being shown: what the artwork ceiling reads to find removed items' images, D212 section 6,
+-- and those of items no library covers any more, kept until the ceiling needs their room (D363
+-- section 10). A person or another kind of item is always listed.
 SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL AND (
+    item.kind NOT IN ('title', 'collection')
+    OR EXISTS (
+      SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    OR EXISTS (
+      SELECT 1 FROM collection_member
+      CROSS JOIN version ON version.title_id = collection_member.member_title
+      CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+  ) THEN 1 ELSE 0 END) AS INTEGER) AS is_listed,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
@@ -81,7 +94,7 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 SELECT DISTINCT artwork.item_id
 FROM item
 JOIN artwork ON artwork.item_id = item.id
-WHERE item.library_id = sqlc.arg(library_id) AND artwork.source = 'local' AND artwork.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND artwork.source = 'local' AND artwork.removed_at IS NULL
   AND artwork.is_chosen = 0
 ORDER BY artwork.item_id;
 
@@ -124,19 +137,31 @@ SELECT last_seen_at FROM file WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 -- beside the media over a provider's (D215), so a provider's of the same kind is not fetched.
 SELECT library.metadata_source
 FROM item
-JOIN library ON library.id = item.library_id
+JOIN library ON library.id = item.filing_library_id
 WHERE item.id = sqlc.arg(item_id);
 
 -- name: IsArtworkReached :one
--- Whether an image is held by a live item in a library the caller reaches (D243 section 4): an
--- image is served by its hash to whoever may see something that shows it.
-SELECT EXISTS (
+-- Whether an image is held by a live item a library the caller reaches lists (D243 section 4, D363
+-- section 8): an image is served by its hash to whoever may see something that shows it, a title or a
+-- series one of whose episodes it lists.
+SELECT CAST(EXISTS (
   SELECT 1 FROM artwork
   JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
   WHERE artwork.source_sha256 = sqlc.arg(source_sha256)
-    AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-      OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
-) AS is_reached;
+    AND (EXISTS (
+      SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE version.title_id = item.id AND version.removed_at IS NULL
+        AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+    ) OR EXISTS (
+      SELECT 1 FROM collection_member
+      CROSS JOIN version ON version.title_id = collection_member.member_title
+      CROSS JOIN version_library ON version_library.version_id = version.id
+      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+        AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+    ))
+) AS INTEGER) AS is_reached;
 
 -- name: ListFrameStillCandidates :many
 -- A library's films, episodes and other videos that show no picture of their kind, and whose every
@@ -164,15 +189,16 @@ SELECT title.id AS title_id, title.kind AS title_kind,
     LIMIT 1
   ), 0) AS INTEGER) AS stale_refusal_id
 FROM item
-JOIN library ON library.id = item.library_id
+JOIN library ON library.id = item.filing_library_id
 CROSS JOIN title ON title.id = item.id
 JOIN file ON file.id = (
-  SELECT live.id FROM version CROSS JOIN file AS live ON live.version_id = version.id
+  SELECT live.id FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
+  CROSS JOIN file AS live ON live.id = file_filing.file_id
   WHERE version.title_id = title.id AND version.removed_at IS NULL AND live.removed_at IS NULL
     AND live.payload_hash IS NOT NULL
   ORDER BY live.path LIMIT 1
 )
-WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND title.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
     SELECT 1 FROM artwork shown
@@ -214,15 +240,15 @@ WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
 ORDER BY title.id;
 
 -- name: ListFirstEpisodes :many
--- Each series' first episode with a live file, of the first regular season in its aired ordering,
+-- Each series' first episode a library lists, of the first regular season in its aired ordering,
 -- else of the specials: the episode whose still a series with no poster shows, D362. The ids are a
 -- JSON array.
 SELECT ordering.collection_id AS series_id, CAST((
   SELECT position.title_id FROM position
   JOIN title ON title.id = position.title_id
   WHERE position.ordering_id = ordering.id AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL
   )
   ORDER BY position.group_number IS NULL, position.group_number = 0, position.group_number, position.sort_order
   LIMIT 1

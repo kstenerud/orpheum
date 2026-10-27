@@ -214,7 +214,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
               {
                 id: 1,
                 name: "Films",
-                kind: "mixed",
+                kind: "movies",
                 metadataSource: "nfo_then_tmdb",
                 changeDetection: "watch",
                 isWritable: true,

@@ -177,8 +177,12 @@ const passReadsOnAReader = 3
 var errLibraryChanged = errors.New("the database changed since the pass read the library")
 
 // fileLibrary files a library's units: in a read alone when nothing would change, which never
-// takes the writer, and else in batches.
+// takes the writer, and else in batches. It first adopts the titles and series of the videos it
+// governs that their filing library files no more (adopt).
 func (pass *Pass) fileLibrary(ctx context.Context, libraryID int64, sorter *textindex.Sorter) (Report, error) {
+	if err := pass.adopt(ctx, libraryID); err != nil {
+		return Report{}, err
+	}
 	var report Report
 	wouldWrite, err := pass.database.WouldWrite(ctx, func(queries *sqlcgen.Queries) error {
 		report = Report{}
@@ -684,7 +688,7 @@ func (filer *libraryFiler) newVersion(ctx context.Context, file sqlcgen.ListIden
 	if err != nil {
 		return fmt.Errorf("add a version for %s: %w", file.Path, err)
 	}
-	err = library.PutInVersion(ctx, filer.queries, file.ID, version)
+	err = library.PutInVersion(ctx, filer.queries, file.ID, filer.library.Kind, version)
 	if err != nil {
 		return fmt.Errorf("put %s in its version: %w", file.Path, err)
 	}
@@ -711,7 +715,7 @@ func (filer *libraryFiler) keepOrMove(
 	}
 	if hasMoved(file) {
 		// Record the path this identification came from.
-		err = library.PutInVersion(ctx, filer.queries, file.ID, *file.VersionID)
+		err = library.PutInVersion(ctx, filer.queries, file.ID, filer.library.Kind, *file.VersionID)
 		if err != nil {
 			return 0, fmt.Errorf("record %s's identification: %w", file.Path, err)
 		}

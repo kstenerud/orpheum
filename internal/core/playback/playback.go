@@ -78,7 +78,7 @@ type RootProbes interface {
 
 // FileReads has a file its listing stored unread read before what else waits: library.Scans.
 type FileReads interface {
-	ReadNow(ctx context.Context, libraryID, nodeID int64, reportedPath []byte) error
+	ReadNow(ctx context.Context, nodeID int64, reportedPath []byte) error
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
@@ -204,8 +204,14 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, service.readIfStillReading(ctx, file, err)
 	}
-	// Nothing is queued for a file that cannot be read now: the person is told why at once (D241 §4).
-	refused := library.RefuseUnreadable(ctx, service.database.Read(), service.nodes, file.NodeID, file.ReportedPathRaw)
+	// It plays from a place the person reaches, the first that can be read now (D363 §8); nothing is
+	// queued for a file that cannot be read now at any: the person is told why at once (D241 §4).
+	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, holder.Reach, file)
+	if err != nil {
+		return Started{}, err
+	}
+	refused := library.RefuseUnreadable(ctx, service.database.Read(), service.nodes, place.NodeID,
+		place.ReportedPathRaw)
 	if refused != nil {
 		return Started{}, refused
 	}
@@ -218,7 +224,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	started := Started{SoundOffsetMs: offsetMs}
-	if started.Subtitles, err = service.subtitles.Want(ctx, file.ID); err != nil {
+	if started.Subtitles, err = service.subtitles.Want(ctx, holder.Reach, file.ID); err != nil {
 		return Started{}, err
 	}
 	used, err := service.startingChoices(ctx, userID, file.ID, probe, &started)
@@ -236,7 +242,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	playback := tokenPlayback{
-		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
+		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryIDs: place.LibraryIDs,
 		deviceID: request.DeviceID, decision: decision,
 		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
 		// A person who plays without levelling hears the film's sound unlevelled, carrying no gain
@@ -404,8 +410,13 @@ func (service *Service) reachedFile(ctx context.Context, holder Holder, fileID i
 	isOtherFile := holder.OnlyFileID != 0 && holder.OnlyFileID != fileID
 	// A file still being read is found too, so it is judged by reach as a readable one is.
 	isFound := err == nil || errors.As(err, new(*library.UnreadableError))
-	if isFound && (!holder.Reach.Reaches(&file.LibraryID) || isOtherFile) {
+	if isFound && isOtherFile {
 		return file, fmt.Errorf("file %d: %w", fileID, library.ErrNoFile)
+	}
+	if isFound {
+		if reachErr := library.ReachFile(ctx, service.database.Read(), holder.Reach, fileID); reachErr != nil {
+			return file, reachErr
+		}
 	}
 	return file, err
 }
@@ -419,7 +430,7 @@ func (service *Service) readIfStillReading(
 	if !isUnreadable || unreadable.Reason != library.StillReading || service.reads == nil {
 		return refusal
 	}
-	if err := service.reads.ReadNow(ctx, file.LibraryID, file.NodeID, file.ReportedPathRaw); err != nil {
+	if err := service.reads.ReadNow(ctx, file.NodeID, file.ReportedPathRaw); err != nil {
 		return errors.Join(refusal, fmt.Errorf("ask for file %d's read: %w", file.ID, err))
 	}
 	return refusal
@@ -516,7 +527,12 @@ func (service *Service) DirectSource(ctx context.Context, token string, holder H
 	if err != nil {
 		return Source{}, err
 	}
-	bytesFile, err := library.BytesFileOf(ctx, service.database.Read(), library.LocatedOf(file))
+	// From a place its holder reaches, the first that can be read now (D363 §8).
+	place, err := library.PlaceToRead(ctx, service.database.Read(), service.nodes, holder.Reach, file)
+	if err != nil {
+		return Source{}, err
+	}
+	bytesFile, err := library.BytesFileOf(ctx, service.database.Read(), place)
 	if err != nil {
 		return Source{}, err
 	}
@@ -524,7 +540,7 @@ func (service *Service) DirectSource(ctx context.Context, token string, holder H
 	if err != nil {
 		return Source{}, err
 	}
-	return Source{NodeID: file.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format)}, nil
+	return Source{NodeID: place.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format)}, nil
 }
 
 // Unreadable is why a file cannot be read now, or nil when it can (D241 §7); library.ErrNoFile for
@@ -645,7 +661,7 @@ func (service *Service) ReadWhenViewed(ctx context.Context, titleID int64) error
 		return fmt.Errorf("list title %d's files still being read: %w", titleID, err)
 	}
 	for _, file := range files {
-		if err := service.reads.ReadNow(ctx, file.LibraryID, file.NodeID, file.ReportedPathRaw); err != nil {
+		if err := service.reads.ReadNow(ctx, file.NodeID, file.ReportedPathRaw); err != nil {
 			return fmt.Errorf("ask for file %d's read: %w", file.ID, err)
 		}
 	}

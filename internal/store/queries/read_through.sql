@@ -16,14 +16,17 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 -- by payload hash alone; the read-through picks the main picture. A timeline read from the file's
 -- index has its keyframes but not its bytes in each second, which only a read through finds (D259
 -- section 2), so it is read through still, unless that read failed (read_failure, D270 section 1). has_timeline is 1 when the bytes have any timeline, so
--- one with none is read from its index first, the sweep's fast tier (D269 section 5).
+-- one with none is read from its index first, the sweep's fast tier (D269 section 5). A file no
+-- library covers, its folder retired or its library deleted, is read by no sweep: it waits to be
+-- covered again or reaped (D363 section 10).
 SELECT f.id, f.node_id, f.reported_path_raw,
   CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)
     AS has_timeline
 FROM file f
 WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
-  AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL
+  AND f.filing = 'video' AND f.payload_hash IS NOT NULL
   AND EXISTS (SELECT 1 FROM file_probe WHERE file_probe.file_id = f.id)
+  AND EXISTS (SELECT 1 FROM place_library WHERE place_library.place_id = f.id)
   AND (
     ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)

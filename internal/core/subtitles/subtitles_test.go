@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -247,7 +248,7 @@ func (bench *bench) extractTarget() jobs.Target { return jobs.Target{FileID: bar
 func TestSubtitles_ATextTrackIsQueuedOnceAndServedAsASSAndWebVTTOnceExtracted(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
-	if _, err := bench.service.Want(t.Context(), bareVideoFileID); err != nil {
+	if _, err := bench.service.Want(t.Context(), auth.EveryLibrary(), bareVideoFileID); err != nil {
 		t.Fatal(err)
 	}
 	if count := bench.queue.requestCount(jobs.KindExtractSubtitle, bench.extractTarget()); count != 1 {
@@ -270,7 +271,7 @@ func TestSubtitles_ATextTrackIsQueuedOnceAndServedAsASSAndWebVTTOnceExtracted(t 
 	if err != nil || vtt.Readiness != jobs.ReadinessComplete || string(vtt.Text) != "WEBVTT" {
 		t.Errorf("the extracted track's WebVTT: %+v, %v; want its text, complete", vtt, err)
 	}
-	if _, err := bench.service.Want(t.Context(), bareVideoFileID); err != nil {
+	if _, err := bench.service.Want(t.Context(), auth.EveryLibrary(), bareVideoFileID); err != nil {
 		t.Fatal(err)
 	}
 	if count := bench.queue.requestCount(jobs.KindExtractSubtitle, bench.extractTarget()); count != 1 {
@@ -283,7 +284,7 @@ func TestSubtitles_ATextTrackIsQueuedOnceAndServedAsASSAndWebVTTOnceExtracted(t 
 func TestSubtitles_AFailedExtractionSaysSoAndTheNextWantTriesItAgain(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t)
-	if _, err := bench.service.Want(t.Context(), bareVideoFileID); err != nil {
+	if _, err := bench.service.Want(t.Context(), auth.EveryLibrary(), bareVideoFileID); err != nil {
 		t.Fatal(err)
 	}
 	bench.node.answer = func(extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
@@ -297,7 +298,7 @@ func TestSubtitles_AFailedExtractionSaysSoAndTheNextWantTriesItAgain(t *testing.
 	if text := bench.text(t); text.Readiness != jobs.ReadinessFailed || text.Failure != "a text FFmpeg could not read" {
 		t.Fatalf("the failed track: %+v; want FFmpeg's failure kept and shown", text)
 	}
-	if _, err := bench.service.Want(t.Context(), bareVideoFileID); err != nil {
+	if _, err := bench.service.Want(t.Context(), auth.EveryLibrary(), bareVideoFileID); err != nil {
 		t.Fatal(err)
 	}
 	if count := bench.queue.requestCount(jobs.KindExtractSubtitle, bench.extractTarget()); count != 2 {

@@ -34,7 +34,7 @@ func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	librarytest.File(t, database, librarytest.FileSpec{
 		ID: 4, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", SizeBytes: 4000,
 		PayloadHash: []byte{0x04}, Filing: "unidentified",

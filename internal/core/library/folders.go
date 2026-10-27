@@ -89,12 +89,12 @@ func (browser *Browser) Folder(ctx context.Context, query FolderQuery) (Folder, 
 		row := video.row
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
 		page.Entries = append(page.Entries, otherEntry(row.TitleID, &row.Name, row.IdentificationState,
-			&query.LibraryID, row.AddedAt, facts))
+			row.AddedAt, facts))
 	}
-	if page, err = browser.finishPage(ctx, page); err != nil {
+	if page, err = browser.finishPage(ctx, query.Reach, page); err != nil {
 		return Folder{}, err
 	}
-	if page, err = browser.withProgress(ctx, query.UserID, page); err != nil {
+	if page, err = browser.withProgress(ctx, query.Reach, query.UserID, page); err != nil {
 		return Folder{}, err
 	}
 	folder.Entries = page.Entries
@@ -118,7 +118,7 @@ func (browser *Browser) placedVideos(ctx context.Context, libraryID int64) ([]pl
 	if err != nil {
 		return nil, fmt.Errorf("list library %d's roots: %w", libraryID, err)
 	}
-	rows, err := queries.ListOtherVideosOfLibrary(ctx, &libraryID)
+	rows, err := queries.ListOtherVideosOfLibrary(ctx, libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("list library %d's videos: %w", libraryID, err)
 	}

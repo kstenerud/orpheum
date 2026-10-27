@@ -11,9 +11,9 @@ import (
 )
 
 // claimSeriesByProviderID finds a series by a provider id its files give, as claimTitleByProviderID
-// finds a film: in this library, or in another where it has no live files left, a deleted
-// library's among them, when it follows its files here with its history (D208 section 2, D231
-// section 7). Its episodes come back one by one, as their files are filed.
+// finds a film: in this library, or in another that lists none of its episodes' files any more, a
+// deleted library's among them, when it follows its files here with its history (D208 section 2,
+// D231 section 7, D363 section 10). Its episodes come back one by one, as their files are filed.
 func (filer *libraryFiler) claimSeriesByProviderID(ctx context.Context, ids map[string]string) (int64, error) {
 	for _, provider := range []string{sourceTMDB, sourceIMDb, sourceTVDB} {
 		providerID := ids[provider]
@@ -27,17 +27,13 @@ func (filer *libraryFiler) claimSeriesByProviderID(ctx context.Context, ids map[
 			return 0, fmt.Errorf("look up the series %s %s: %w", provider, providerID, err)
 		}
 		for _, row := range rows {
-			if row.LibraryID != nil && *row.LibraryID == filer.library.ID && row.RemovedAt == nil {
+			if row.FilingLibraryID != nil && *row.FilingLibraryID == filer.library.ID && row.RemovedAt == nil {
 				return row.ID, nil
 			}
 		}
 		for _, row := range rows {
-			liveFileCount, countErr := filer.queries.CountLiveFilesOfSeries(ctx, row.ID)
-			if countErr != nil {
-				return 0, fmt.Errorf("count the files of series %d: %w", row.ID, countErr)
-			}
-			if liveFileCount > 0 {
-				continue // its files are still there: that library keeps its series
+			if row.IsFiledByNone == 0 {
+				continue // its library lists its episodes' files still: that library keeps its series
 			}
 			return row.ID, filer.bringSeriesBack(ctx, row.ID)
 		}
@@ -80,7 +76,7 @@ func joinDeletedSeries(
 	ctx context.Context, queries *sqlcgen.Queries, provider, providerID string, series sqlcgen.GetSeriesForMatchRow,
 	now int64,
 ) (int64, error) {
-	if series.LibraryID == nil {
+	if series.FilingLibraryID == nil {
 		return series.ID, nil
 	}
 	rows, err := queries.ListSeriesByProviderID(ctx, sqlcgen.ListSeriesByProviderIDParams{
@@ -90,10 +86,10 @@ func joinDeletedSeries(
 		return 0, fmt.Errorf("look up the series %s %s: %w", provider, providerID, err)
 	}
 	for _, row := range rows {
-		if row.ID == series.ID || row.RemovedAt == nil {
+		if row.ID == series.ID || row.IsFiledByNone == 0 {
 			continue
 		}
-		if joinErr := joinEpisodes(ctx, queries, series.ID, row.ID, *series.LibraryID, now); joinErr != nil {
+		if joinErr := joinEpisodes(ctx, queries, series.ID, row.ID, *series.FilingLibraryID, now); joinErr != nil {
 			return 0, joinErr
 		}
 		err = queries.MergeItem(ctx, sqlcgen.MergeItemParams{MergedInto: &row.ID, RemovedAt: &now, ID: series.ID})

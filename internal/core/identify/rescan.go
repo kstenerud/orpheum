@@ -20,8 +20,8 @@ import (
 
 // Refusals a rescan can meet.
 var (
-	// ErrNotRescannable is a library of neither films nor series: a mixed or an other one, which only
-	// its films' and series' own pages rescan (D357 §1).
+	// ErrNotRescannable is a library of neither films nor series: an other one, whose videos are never
+	// matched (D357 §1).
 	ErrNotRescannable = errors.New("only a library of films or of series is rescanned whole")
 	// ErrNotAWork is an episode, an extra or an other video: a rescan matches a film or a series,
 	// an episode through its series (D209, D357 §1).

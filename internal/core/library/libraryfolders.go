@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -75,9 +76,12 @@ func (admin *Admin) Folders(ctx context.Context, nodeName, path string) (nodepro
 	return listing, nil
 }
 
-// AddRoot adds a folder to a library: one of a node's configured roots or a folder inside one, which no
-// library covers yet, nor any folder above or below it, and asks for its scan (D359 §3). The node is
-// any connected one, the library's own or another.
+// AddRoot adds a folder to a library: one of a node's configured roots or a folder inside one, and asks
+// for its scan (D359 §3). The node is any connected one, the library's own or another. Another
+// library's folders may be at, above or below it (D363 §1); within the library, one at or below a folder
+// it has adds nothing and is refused as covered, and one above some of its folders takes their place,
+// which are retired. A folder of another library's that is no scan's root any more, now that one above
+// it is, has its scan state forgotten.
 func (admin *Admin) AddRoot(ctx context.Context, libraryID int64, nodeName, path string) error {
 	if _, err := admin.libraryRoots(ctx, libraryID); err != nil {
 		return err
@@ -86,21 +90,75 @@ func (admin *Admin) AddRoot(ctx context.Context, libraryID int64, nodeName, path
 	if err != nil {
 		return err
 	}
-	if coveredErr := admin.refuseCovered(ctx, nodeID, nodeName, path, ""); coveredErr != nil {
-		return coveredErr
+	replaced, err := admin.refuseCovered(ctx, libraryID, nodeID, nodeName, path, "")
+	if err != nil {
+		return err
 	}
+	var forgotten []jobs.Destination
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.InsertLibraryRoot(ctx, sqlcgen.InsertLibraryRootParams{
+		nowMs := admin.clock.Now().UnixMilli()
+		for _, child := range replaced {
+			_, retireErr := queries.RetireLibraryRoot(ctx, sqlcgen.RetireLibraryRootParams{
+				RetiredAt: &nowMs, LibraryID: libraryID, NodeID: nodeID, RootPath: child,
+			})
+			if retireErr != nil {
+				return fmt.Errorf("retire %s, which %s takes the place of: %w", child, path, retireErr)
+			}
+		}
+		insertErr := queries.InsertLibraryRoot(ctx, sqlcgen.InsertLibraryRootParams{
 			LibraryID: libraryID, NodeID: nodeID, Path: path,
 		})
+		if insertErr != nil {
+			return insertErr
+		}
+		var forgetErr error
+		forgotten, forgetErr = forgetRootsNowWithin(ctx, queries, nodeID, path)
+		return forgetErr
 	})
 	if err != nil {
 		return fmt.Errorf("add %s on node %q to library %d: %w", path, nodeName, libraryID, err)
 	}
 	admin.log().InfoContext(ctx, "a folder was added to a library", "libraryId", libraryID, "nodeName", nodeName,
-		"path", path)
+		"path", path, "replacedPaths", replaced)
 	admin.watchedFoldersChanged()
+	if len(forgotten) > 0 {
+		// The work parked on a root that is no scan's any more waits on a destination that is no more;
+		// the sweeps derive it again under the root that holds it now.
+		if _, err := admin.retirement.Work.CancelRetired(ctx, jobs.RetiredWork{Destinations: forgotten}); err != nil {
+			return fmt.Errorf("forget the folders now within %s: %w", path, err)
+		}
+	}
 	return admin.scans.Request(ctx, nodeID, path, jobs.PriorityPersonsRequest)
+}
+
+// forgetRootsNowWithin forgets the scan state of each live library folder on a node below folder,
+// which a scan of folder's root holds from now on (D363 §2), and returns their destinations.
+func forgetRootsNowWithin(
+	ctx context.Context, queries *sqlcgen.Queries, nodeID int64, folder string,
+) ([]jobs.Destination, error) {
+	folders, err := queries.ListLiveRootPathsOnNode(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("list node %d's library folders: %w", nodeID, err)
+	}
+	var destinations []jobs.Destination
+	for _, inner := range folders {
+		if inner == folder || !pathtree.IsAtOrUnder(inner, folder) {
+			continue
+		}
+		mounts, err := queries.ListRootMountPaths(ctx,
+			sqlcgen.ListRootMountPathsParams{NodeID: nodeID, RootPath: inner})
+		if err != nil {
+			return nil, fmt.Errorf("list the disks mounted inside %s: %w", inner, err)
+		}
+		destinations = append(destinations, jobs.RootDestination(nodeID, inner))
+		for _, mount := range mounts {
+			destinations = append(destinations, jobs.RootDestination(nodeID, mount))
+		}
+		if err := forgetRootState(ctx, queries, nodeID, inner); err != nil {
+			return nil, err
+		}
+	}
+	return destinations, nil
 }
 
 // libraryFolderOn is the id of the connected node named, once path is a library folder on it: one of
@@ -120,38 +178,47 @@ func (admin *Admin) libraryFolderOn(ctx context.Context, nodeName, path string) 
 	return nodeID, nil
 }
 
-// refuseCovered refuses path on the node when a live library's folder there is at it, above it or
-// below it (ErrRootCovered): a file is one library's, read by one scan. The folder a repoint moves away
-// from, except, does not count; empty for none.
-func (admin *Admin) refuseCovered(ctx context.Context, nodeID int64, nodeName, path, except string) error {
+// refuseCovered refuses path on the node for a library one of whose folders there is at it or above it
+// (ErrRootCovered): within one library, a folder beneath another of its folders adds nothing (D363 §1).
+// It returns the library's folders below path, whose place path takes. Another library's folders are
+// no matter: libraries may overlap. The folder a repoint moves away from, except, does not count;
+// empty for none. A refusal is logged at warn.
+func (admin *Admin) refuseCovered(
+	ctx context.Context, libraryID, nodeID int64, nodeName, path, except string,
+) ([]string, error) {
 	roots, err := admin.database.Read().ListLiveRootsOfNode(ctx, nodeID)
 	if err != nil {
-		return fmt.Errorf("read node %q's library folders: %w", nodeName, err)
+		return nil, fmt.Errorf("read node %q's library folders: %w", nodeName, err)
 	}
+	var replaced []string
 	for _, root := range roots {
-		if root.RootPath == except {
+		if root.LibraryID != libraryID || root.RootPath == except {
 			continue
 		}
-		if pathtree.IsAtOrUnder(path, root.RootPath) || pathtree.IsAtOrUnder(root.RootPath, path) {
-			admin.log().WarnContext(ctx, "refused a library folder another covers", "nodeName", nodeName,
+		if pathtree.IsAtOrUnder(path, root.RootPath) {
+			admin.log().WarnContext(ctx, "refused a library folder its library covers already", "nodeName", nodeName,
 				"path", path, "coveredBy", root.RootPath, "libraryId", root.LibraryID)
-			return fmt.Errorf("%s on node %q: %w: library %d has %s", path, nodeName, ErrRootCovered,
+			return nil, fmt.Errorf("%s on node %q: %w: library %d has %s", path, nodeName, ErrRootCovered,
 				root.LibraryID, root.RootPath)
 		}
-	}
-	return nil
-}
-
-// refuseOverlapping refuses folders, a new library's, when one is at, above or below another of them.
-func refuseOverlapping(nodeName string, folders []string) error {
-	for index, folder := range folders {
-		for _, other := range folders[index+1:] {
-			if pathtree.IsAtOrUnder(folder, other) || pathtree.IsAtOrUnder(other, folder) {
-				return fmt.Errorf("%s and %s on node %q: %w", folder, other, nodeName, ErrRootCovered)
-			}
+		if pathtree.IsAtOrUnder(root.RootPath, path) {
+			replaced = append(replaced, root.RootPath)
 		}
 	}
-	return nil
+	return replaced, nil
+}
+
+// outermostOfNew are a new library's folders less those beneath another of them, which a parent takes
+// the place of within one library (D363 §1); each one dropped is logged.
+func (admin *Admin) outermostOfNew(ctx context.Context, nodeName string, folders []string) []string {
+	kept := outermostFolders(folders)
+	for _, folder := range folders {
+		if !slices.Contains(kept, folder) {
+			admin.log().InfoContext(ctx, "a new library's folder beneath another of its folders adds nothing",
+				"nodeName", nodeName, "path", folder)
+		}
+	}
+	return kept
 }
 
 // watchedFoldersChanged tells the nodes the library folders they watch may have changed (Nodes); with

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -26,7 +27,9 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
 			return err
 		}
-		tracks, err := service.subtitles.Tracks(ctx, queries, fileID)
+		// The file's every track, beside any place: the choice is of one of them, which a play offers
+		// only where its person reaches it (D363 §3).
+		tracks, err := service.subtitles.Tracks(ctx, queries, auth.EveryLibrary(), fileID)
 		if err != nil {
 			return err
 		}

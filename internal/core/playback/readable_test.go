@@ -47,7 +47,7 @@ func unavailableFilm(t *testing.T, roots *probedRoots) *Service {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
 	librarytest.File(t, database, librarytest.FileSpec{
 		ID: 2, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film.mkv", SizeBytes: 10,
 		PayloadHash: []byte{0x0c, 0x0d}, Filing: "listed",

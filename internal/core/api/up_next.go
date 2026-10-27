@@ -42,7 +42,7 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 	if err != nil {
 		return nil, err
 	}
-	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.UserID, input.ID)
+	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.Reach, principal.UserID, input.ID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what plays after a file", err)
 	}

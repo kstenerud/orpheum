@@ -100,7 +100,8 @@ func (harness testHarness) identifyFilm(t *testing.T) {
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Year: 2002})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 3, TitleID: 30})
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE file SET version_id = 3, opensubtitles_hash = '8e245d9679d31e12' WHERE id = 2",
+		"UPDATE file_filing SET version_id = 3 WHERE file_id = 2",
+		"UPDATE file SET opensubtitles_hash = '8e245d9679d31e12' WHERE id = 2",
 		`INSERT INTO item_provider_id (item_id, provider, provider_id)
 		 VALUES (30, 'tmdb', '4801'), (30, 'imdb', 'tt0123456')`)
 }

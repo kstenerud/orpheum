@@ -301,7 +301,6 @@ function WhatItHolds(props: {
         choices={[
           ["movies", t("libraries.kindMovies")],
           ["shows", t("libraries.kindShows")],
-          ["mixed", t("libraries.kindMixed")],
           ["other", t("libraries.kindOther")],
         ]}
       />

@@ -479,7 +479,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
 	librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/a.mkv", Filing: "listed", FirstSeenAt: 1, LastSeenAt: 2,
 	})

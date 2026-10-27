@@ -119,7 +119,7 @@ func TestTake_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
 	_, libraryID := librarytest.NodeWithLibrary(t, bench.database,
 		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	storetest.ExecRaw(t, bench.database.Path(),
-		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
+		fmt.Sprintf("UPDATE item SET filing_library_id = %d WHERE id = %d", libraryID, bench.itemID))
 	poster := LocalImage{ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 100, ModifiedAtMs: 7}
 	found := Found{BesideTheMedia: &LocalImages{LibraryID: libraryID, Images: []LocalImage{poster}}}
 	bench.service.Take(t.Context(), found)
@@ -154,7 +154,7 @@ func (bench *bench) inLibrary(t *testing.T, metadataSource string) (nodeID, libr
 	nodeID, libraryID = librarytest.NodeWithLibrary(t, bench.database,
 		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: metadataSource, Root: "/m"})
 	storetest.ExecRaw(t, bench.database.Path(),
-		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
+		fmt.Sprintf("UPDATE item SET filing_library_id = %d WHERE id = %d", libraryID, bench.itemID))
 	return nodeID, libraryID
 }
 

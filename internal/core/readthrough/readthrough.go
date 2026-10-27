@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -386,26 +387,43 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 	if len(command.LoudnessTracks) == 0 && command.VideoTimeline == nil {
 		return nil
 	}
-	located := library.LocatedOf(file)
-	if parked := library.ParkIfUnavailable(ctx, queries, service.nodes, job, located); parked != nil {
-		return parked
-	}
-	if command.Video, err = library.BytesFileOf(ctx, queries, located); err != nil {
-		return jobs.MarkPermanent(err)
+	located, err := service.locate(ctx, queries, job, file, &command)
+	if err != nil {
+		return err
 	}
 	// A node not yet heard from since the server started has not said how fast it reads: the job
 	// waits for its hello, and is not failed, which each restart of the server had done once
 	// until it failed for good (the owner's log, 2026-10-05).
-	if err := service.nodes.ParkUnlessConnected(ctx, file.NodeID); err != nil {
+	if err := service.nodes.ParkUnlessConnected(ctx, located.NodeID); err != nil {
 		return err
 	}
-	if service.nodes.SlowestReadBytesPerSecond(file.NodeID) <= 0 {
+	if service.nodes.SlowestReadBytesPerSecond(located.NodeID) <= 0 {
 		return fmt.Errorf("node %d has not said how fast it reads, so a read-through of file %d cannot be "+
-			"waited for", file.NodeID, file.ID)
+			"waited for", located.NodeID, file.ID)
 	}
-	return service.exchanges.Assign(ctx, file.NodeID, job, nodeproto.Command{
+	return service.exchanges.Assign(ctx, located.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &command},
 	})
+}
+
+// locate is where a read-through reads its file, named in command: the first of its places that can be
+// read now, a copy when its first's disk does not answer (D363 §2), for what it learns is of the bytes,
+// which are the same. A place that cannot be read parks the job.
+func (service *Service) locate(
+	ctx context.Context, queries *sqlcgen.Queries, job jobs.Job, file sqlcgen.GetPlayableFileRow,
+	command *nodeproto.ReadThrough,
+) (library.Located, error) {
+	located, err := library.PlaceToRead(ctx, queries, service.nodes, auth.EveryLibrary(), file)
+	if err != nil {
+		return located, jobs.MarkPermanent(err)
+	}
+	if parked := library.ParkIfUnavailable(ctx, queries, service.nodes, job, located); parked != nil {
+		return located, parked
+	}
+	if command.Video, err = library.BytesFileOf(ctx, queries, located); err != nil {
+		return located, jobs.MarkPermanent(err)
+	}
+	return located, nil
 }
 
 // whatIsLacking is the read-through a file's bytes need, without its video: the loudness of every
