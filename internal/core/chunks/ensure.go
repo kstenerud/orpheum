@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -78,10 +79,7 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	}
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted, wants)
 	if !isPlanned {
-		if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
-			return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
-		}
-		return nil
+		return service.plannedNone(ctx, asked, dir)
 	}
 	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
 	if err != nil {
@@ -113,6 +111,33 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 			"lastChunkEndMs", film.grid.endMs(last))
 	}
 	return nil
+}
+
+// plannedNone ends an ensure that planned no run of the store at dir: one of its runs on its way is
+// kept wanted (D234 §3), and a player's ask for a chunk neither made nor on its way, which no player
+// wants a run for, is logged (logUnwantedAsk).
+func (service *Service) plannedNone(ctx context.Context, asked ensuring, dir string) error {
+	if asked.isAsked && !service.runs.isEvicted(dir) && !service.runs.isCovered(dir, asked.wanted) {
+		service.logUnwantedAsk(ctx, dir, asked.stream, asked.wanted)
+	}
+	if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
+		return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
+	}
+	return nil
+}
+
+// logUnwantedAsk says, at debug, a player's ask for a chunk not made nor on its way that planned no
+// run, as no player wants one from there, and what the players of its stream want: an init asked for
+// from where its playback last reported, behind where its player jumped, is answered "ask again"
+// until the jump's chunk starts the run (the owner's The Unknown, 2026-10-26).
+func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream Stream, wanted int) {
+	interests, _ := service.interestsOf(fileOfStore(dir))
+	keptAhead, err := service.settings.Duration(ctx, settings.ChunkKeptAheadSeconds)
+	if err != nil {
+		keptAhead = 0 // the log says the positions all the same
+	}
+	service.logger.DebugContext(ctx, "planned no run of chunks: no player wants one from there", "storeDir", dir,
+		"wantedChunk", wanted, "streamInterests", describeInterests(stream.Name(), interests, keptAhead.Milliseconds()))
 }
 
 // ask is a player's ask for chunk wanted of the store: an evicted store refuses it when it is neither

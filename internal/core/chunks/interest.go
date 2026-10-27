@@ -49,6 +49,9 @@ type stoppedRun struct {
 	RunSpan
 	dir     string
 	storeID int64
+	// interests are what each player wanting its stream wanted as it stopped (describeInterests); nil
+	// for a run not stopped for want of one.
+	interests []string
 }
 
 // StopUnwanted stops every run of the film's chunks no player wants (D309 §2): a quality its players
@@ -92,10 +95,34 @@ func (service *Service) cancelRun(ctx context.Context, stopped stoppedRun) (int,
 
 // attributes are what a log says of a run cancelled with its jobs.
 func (stopped stoppedRun) attributes(cancelled int) []any {
-	return []any{
+	attributes := []any{
 		"storeDir", stopped.dir, "firstChunk", stopped.First, "lastChunk", stopped.Last,
 		"madeThrough", stopped.MadeThrough, "cancelledJobs", cancelled,
 	}
+	if stopped.interests != nil {
+		attributes = append(attributes, "streamInterests", stopped.interests)
+	}
+	return attributes
+}
+
+// describeInterests says, for a log, what each player wanting stream wants: where it plays from, or
+// where it stopped and the film it keeps ahead; empty when none wants it. A run stopped as no player
+// wanted it said nothing of whose want had ended, and a pause read as a playing player's run cut
+// (the owner's The Unknown, 2026-10-26).
+func describeInterests(stream string, interests []Interest, keptAheadMs int64) []string {
+	described := []string{}
+	for _, interest := range interests {
+		if interest.StreamName != stream {
+			continue
+		}
+		if interest.IsStopped {
+			described = append(described, fmt.Sprintf("stopped at %d ms, keeping to %d ms",
+				interest.PositionMs, interest.PositionMs+keptAheadMs))
+			continue
+		}
+		described = append(described, fmt.Sprintf("playing from %d ms", interest.PositionMs))
+	}
+	return described
 }
 
 // cutQueuedAhead forgets a run of the store still waiting in the queue that begins within
@@ -143,7 +170,7 @@ func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest, keptA
 			}
 			stopped = append(stopped, stoppedRun{
 				RunSpan: RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough},
-				dir:     dir, storeID: known.storeID,
+				dir:     dir, storeID: known.storeID, interests: describeInterests(stream, interests, keptAheadMs),
 			})
 			tracker.cancelLocked(known, first)
 		}
@@ -184,18 +211,27 @@ func (known *storeRuns) isWantedLocked(
 		if each.last < from {
 			continue
 		}
+		// Chunks made between the player and the run are no distance: the run makes what follows them
+		// (the owner's test, 2026-10-12, where a jump onto made chunks cut the run after them).
+		unmade := from
+		for unmade < each.first && known.isMade[unmade] {
+			unmade++
+		}
+		// A run more than the look-ahead behind the first chunk its player needs is a place the player
+		// sought away from (D309 §2), though its chunks reach past the player: wanted for covering a jump's
+		// chunk, it kept the jump from starting a run there, and the player waited for it to make the
+		// film between (the owner's The Unknown, 2026-10-26). Nearer, it is the player's place: its
+		// picture and sound, loaded apart, each move the one position it wants them from.
+		making := max(each.first, each.madeThrough+1)
+		if making < unmade && grid.StartsMs[unmade]-grid.StartsMs[making] > lookaheadMs {
+			continue
+		}
 		if interest.IsStopped {
 			end := grid.chunkAt(interest.PositionMs + keptAheadMs - 1)
 			if each.first <= end && each.madeThrough < end {
 				return true
 			}
 			continue
-		}
-		// Chunks made between the player and the run are no distance: the run makes what follows them
-		// (the owner's test, 2026-10-12, where a jump onto made chunks cut the run after them).
-		unmade := from
-		for unmade < each.first && known.isMade[unmade] {
-			unmade++
 		}
 		if grid.StartsMs[each.first]-grid.StartsMs[unmade] <= lookaheadMs {
 			return true

@@ -171,6 +171,22 @@ func (tracker *runTracker) covering(dir string, n int) (RunSpan, bool) {
 	return RunSpan{}, false
 }
 
+// earliest is the run of the store from its earliest chunk, and whether it has any.
+func (tracker *runTracker) earliest(dir string) (RunSpan, bool) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	var found *run
+	for _, each := range tracker.storeLocked(dir).runByFirst {
+		if found == nil || each.first < found.first {
+			found = each
+		}
+	}
+	if found == nil {
+		return RunSpan{}, false
+	}
+	return RunSpan{First: found.first, Last: found.last, MadeThrough: found.madeThrough}, true
+}
+
 // begin records a run its handler is giving to nodeID at now: one planned, or one its job tried
 // again after it ended; never one cancelled (cancelLocked), whose node may still say its progress.
 func (tracker *runTracker) begin(dir string, first, last int, jobID, nodeID int64, now time.Time) {
