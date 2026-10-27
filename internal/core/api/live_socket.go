@@ -122,6 +122,8 @@ func readLive(
 			send(live.Outbound{Type: live.MessagePong, TMono: message.TMono})
 		case live.MessageFront:
 			showFront(!message.IsBehind)
+		// The server's own messages, never a page's: a cast's sending (D364; VQ90) and a removed
+		// device's signing out (VQ87) among them.
 		case live.MessageHello, live.MessageDevices, live.MessageReceive, live.MessageSending, live.MessagePong,
 			live.MessageSignedOut:
 		}

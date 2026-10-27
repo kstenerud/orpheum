@@ -49,7 +49,9 @@ export function StatusTray(props: {
 
 /** A sign's class: the tray's button, white while its function is off, blue while it is on. */
 function signClass(isOn: boolean): string {
-  return `status-tray__button status-tray__button--${isOn ? "on" : "off"}`;
+  return isOn
+    ? "status-tray__button status-tray__button--on"
+    : "status-tray__button status-tray__button--off";
 }
 
 /**

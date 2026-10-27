@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 // Apart from watch-together.tsx, whose page loads only when it is first shown: the tray's sign holds
-// the details at hand on every screen, and loads no player for it (the audit of 2026-10-25, W1).
+// the details at hand on every screen, and loads no player for it (the audit of 2026-10-25, W1); the
+// tray's two signs as D364 §12 has them are seen on devices, VQ90.
 
 import type { Api } from "@orpheum/sdk";
 import { useEffect } from "react";

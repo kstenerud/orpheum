@@ -10,10 +10,6 @@
   gap: 0;
 }
 
-.status-tray__item {
-  position: relative;
-}
-
 /* Each sign the size of every icon button (D369 §1: the owner, 2026-10-27, "Let's try sizing them
    the same as the others and see how that feels"; they were a narrower 2.25rem, from 2026-10-11).
    The warning sign is a link to its page, sized here as IconButton sizes the rest. */
