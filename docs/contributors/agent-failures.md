@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A46 — Blamed a browser for a path the server's own network chose (2026-10-27)
+
+- **What happened:** the owner said staging worked in Brave on the Mac; the lead saw staging's log warn
+  that the connection hairpinned through the router (D354) and told the owner Brave's privacy protections
+  probably kept the page off the local network, so it fell back to the router. One look at the plays
+  before it would have shown Chrome on the same Mac hairpinning too: the cause is staging itself, a core
+  in the yoloAI sandbox behind Docker's NAT, which takes no UDP from the LAN, so every WebRTC path to it
+  goes out to the router and back.
+- **Caught by:** the owner, asking whether Chrome hairpinned too.
+- **Gate:** none can check a guess's grounding. The rule: before naming a cause for a log line, compare
+  it with the same line for another client or another server (digging-means-missing-logs: a play's
+  start line now names its device, and the path line should too, so the comparison is one grep).
+
 ### A45 — Took revert-red's browser-mode "red" as coverage when the probe could not pass (2026-10-26)
 
 - **What happened:** the night's check-pr flagged `tokens.css` and `app-shell.css` as untested, and the

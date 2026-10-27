@@ -7,8 +7,8 @@
    - Done: D363 overlap and copies (owner accepted its Test-Weakened; VQ80 passed, VQ81 mostly), D365
      runtime matching (Crowd fixed), the rescan's hour-long wait, the player fixes (VQ78 passed; VQ79
      owes the new device name), the MPEG-TS seek, readthrough's formats.
-   - Agents now: D366 (sorting both ways, release date, each person's Home libraries); the Icon component
-     (one component, currentColor, --icon-ground, a test; the QR code exempt).
+   - Icon component done. Agent now: D366 (sorting both ways, release date, each person's Home
+     libraries). Brave on the Mac: all fine (owner, 2026-10-27).
    - Then: one full check-pr, the owner's go, nas.example (step 0060 there is VQ82); then the inventory of every
      decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
      D160) for the owner to choose from (owner: "once the overlap batch is done").
