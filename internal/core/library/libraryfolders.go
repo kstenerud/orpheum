@@ -99,6 +99,7 @@ func (admin *Admin) AddRoot(ctx context.Context, libraryID int64, nodeName, path
 	}
 	admin.log().InfoContext(ctx, "a folder was added to a library", "libraryId", libraryID, "nodeName", nodeName,
 		"path", path)
+	admin.watchedFoldersChanged()
 	return admin.scans.Request(ctx, nodeID, path, jobs.PriorityPersonsRequest)
 }
 
@@ -153,16 +154,18 @@ func refuseOverlapping(nodeName string, folders []string) error {
 	return nil
 }
 
-// watchOf is the watch of the configured root holding a library folder, as its node's status said,
-// and whether it said one (D272 §9, D359 §4).
+// watchedFoldersChanged tells the nodes the library folders they watch may have changed (Nodes); with
+// no node channel, as a test of the libraries alone gives, there is no one to tell.
+func (admin *Admin) watchedFoldersChanged() {
+	if admin.nodes != nil {
+		admin.nodes.WatchedFoldersChanged()
+	}
+}
+
+// watchOf is a library folder's own watch, as its node's status said, and whether it said one: the
+// node watches each library folder it is given, never a configured root around it (D272 §9, D359's
+// amendment of 2026-10-27).
 func watchOf(watches map[string]nodeproto.RootWatch, folder string) (nodeproto.RootWatch, bool) {
-	roots := make([]string, 0, len(watches))
-	for root := range watches {
-		roots = append(roots, root)
-	}
-	root, isHeld := pathtree.DeepestHolding(folder, roots)
-	if !isHeld {
-		return nodeproto.RootWatch{}, false
-	}
-	return watches[root], true
+	watch, isSaid := watches[folder]
+	return watch, isSaid
 }

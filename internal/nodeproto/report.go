@@ -74,7 +74,8 @@ type Status struct {
 	TakenCommandSeq int64 `json:"takenCommandSeq"`
 	// Stuck is the work the node gave up on that has not ended, waiting on a device (D233 §10).
 	Stuck []Stuck `json:"stuck,omitempty"`
-	// Watches say, for each root, whether the node watches it for changes (D27, D272 §9).
+	// Watches say, for each library folder it was given to watch (HelloReply.WatchFolders), whether the node
+	// watches it for changes (D27, D272 §9).
 	Watches []RootWatch `json:"watches,omitempty"`
 }
 

@@ -41,13 +41,16 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		}
 		writeJSON(writer, nodeproto.Commands{
 			Commands: pending, DeviceReaderLimits: limits, StoreTiers: service.storeTiersNow(ctx, nodeID),
-			Tuning: service.tuning(ctx),
+			Tuning: service.tuning(ctx), WatchFolders: service.watchFoldersNow(ctx, nodeID),
 		})
 	}
 	for {
 		pending, wake := service.dropAckedAndListPending(nodeID, ackedSeq)
-		if len(pending) > 0 {
-			answer(request.Context(), pending)
+		// The folders it watches changed: it is answered at once, so a folder added is watched, and one
+		// retired is not, within a poll's round trip, not its hold.
+		areWatchedFoldersChanged := service.takeWatchedFoldersChanged(nodeID)
+		if len(pending) > 0 || areWatchedFoldersChanged {
+			answer(request.Context(), append([]nodeproto.Command{}, pending...))
 			return
 		}
 		select {
@@ -208,6 +211,49 @@ func readPost[Body any](
 		return 0, body, false
 	}
 	return nodeID, body, true
+}
+
+// WatchedFoldersChanged says the library folders the nodes watch may have changed (library.Nodes):
+// each connected node's waiting poll is answered at once with its folders, and one between polls is
+// answered so by its next.
+func (service *Service) WatchedFoldersChanged() {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	for _, node := range service.nodesHeardSinceStart {
+		node.areWatchedFoldersChanged = true
+		close(node.wake)
+		node.wake = make(chan struct{})
+	}
+}
+
+// takeWatchedFoldersChanged is whether a node's watched folders changed since a poll last answered it,
+// which it forgets.
+func (service *Service) takeWatchedFoldersChanged(nodeID int64) bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.nodesHeardSinceStart[nodeID]
+	if !found {
+		return false
+	}
+	areChanged := node.areWatchedFoldersChanged
+	node.areWatchedFoldersChanged = false
+	return areChanged
+}
+
+// watchFoldersNow are the library folders a node watches, as its libraries stand now, for its hello's
+// reply and each poll's answer (nodeproto.HelloReply.WatchFolders); nil, which leaves the node its
+// last, when nothing takes changes or they cannot be read.
+func (service *Service) watchFoldersNow(ctx context.Context, nodeID int64) []string {
+	if service.changes == nil {
+		return nil
+	}
+	folders, err := service.changes.WatchedFolders(ctx, nodeID)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not say which library folders a node watches; it keeps its last",
+			"nodeId", nodeID, "err", err)
+		return nil
+	}
+	return folders
 }
 
 // storeTiersNow is how strongly each chunk store is kept as the players stand now, for an answer to

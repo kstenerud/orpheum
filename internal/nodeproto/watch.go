@@ -8,8 +8,9 @@ package nodeproto
 const PathChanged = "/node/v1/changed"
 
 // Changed is the node's word that something changed under Path, a folder relative to RootPath, one
-// of its roots: the folder holding every change its watcher saw there before the root went quiet,
-// "." for the whole root, as after the watcher missed events. The core decides what to scan.
+// of the library folders it watches (HelloReply.WatchFolders): the folder holding every change its
+// watcher saw there before the folder went quiet, "." for the whole of it, as after the watcher missed
+// events. The core decides what to scan.
 type Changed struct {
 	RootPath string `json:"rootPath"`
 	Path     string `json:"path"`
@@ -26,13 +27,15 @@ const (
 	// WatchCauseWatchLimit is a root with more folders than the kernel lets a user watch
 	// (fs.inotify.max_user_watches).
 	WatchCauseWatchLimit WatchCause = "watch-limit"
-	// WatchCauseUnavailable is a node whose kernel would not give it a watcher at all.
+	// WatchCauseUnavailable is a node whose kernel would not give it a watcher at all, or a folder
+	// its watcher has not started watching yet.
 	WatchCauseUnavailable WatchCause = "unavailable"
 	// WatchCauseUnreadable is a root, or a folder in it, the watcher could not read.
 	WatchCauseUnreadable WatchCause = "unreadable"
 )
 
-// RootWatch is whether the node watches a root's folders for changes, and when it does not, why.
+// RootWatch is whether the node watches a library folder it was given (HelloReply.WatchFolders), RootPath, for
+// changes, and when it does not, why: one per folder, as the status says them.
 type RootWatch struct {
 	RootPath   string     `json:"rootPath"`
 	IsWatching bool       `json:"isWatching"`

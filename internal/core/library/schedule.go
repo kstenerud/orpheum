@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -138,6 +139,23 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 		asked++
 	}
 	return asked, nil
+}
+
+// WatchedFolders are the folders a node's watcher watches: each live folder on it of a live library
+// that watches for changes, and nothing else, so no folder of a configured root that no library uses is
+// ever walked (D272 §9, D359's amendment of 2026-10-27). Empty, not nil, when there are none.
+func (schedule *ScanSchedule) WatchedFolders(ctx context.Context, nodeID int64) ([]string, error) {
+	rows, err := schedule.database.Read().ListCheckedRoots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the roots libraries check: %w", err)
+	}
+	folders := []string{}
+	for _, row := range rows {
+		if row.NodeID == nodeID && row.ChangeDetection == "watch" && !slices.Contains(folders, row.RootPath) {
+			folders = append(folders, row.RootPath)
+		}
+	}
+	return folders, nil
 }
 
 // TakeChange is a node watcher's word that something changed under folder, relative to a root of

@@ -185,7 +185,10 @@
 //     TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode.
 //   - A node watcher's notice of a change is handed to what scans it, and each root's watch its
 //     last status said is kept for the libraries page (D272 §9).
-//     TestChanged_AWatchersNoticeIsHandedOnAndItsRootsWatchesKept.
+//     TestChanged_AWatchersNoticeIsHandedOnAndItsRootsWatchesKept. The hello's reply and each poll's
+//     answer name the library folders the node watches, and a change of them answers a waiting poll
+//     at once (D359's amendment of 2026-10-27).
+//     TestHelloAndCommands_NameTheFoldersTheNodeWatchesAtOnceWhenTheyChange.
 //
 // # Read before changing
 //

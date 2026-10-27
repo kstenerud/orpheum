@@ -22879,7 +22879,7 @@ the node lists the folders, the core opening none.
 - 1: TestDeepestHolding_IsTheDeepestDirectoryHoldingACleanPathAndNoneForAnother, TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath, TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode, TestMediaRoot_AFolderIsARootOfItsOwnReachedWithoutALink, TestHolding_IsTheConfiguredRootAFolderIsAtOrUnderByAPathThatCannotClimbOut, TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot
 - 2: TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside, TestServeFolders_AShareThatHasGoneIsNotAnsweringWithinTheWindow, TestMediaRoot_SubfoldersAreTheRealFoldersButTheHiddenOnes, TestListFolders_AsksTheNodesByteSocket, TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait, TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots, web/apps/web/src/folder-picker.test.tsx
 - 3: TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary, TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot, web/apps/web/src/folder-picker.test.tsx
-- 4: TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink, TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot, TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt, TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere, TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches, TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs
+- 4: TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink, TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot, TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt, TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere, TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches, TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch
 - 5: TestProtocolVersion_IsRaisedWithAnyChangeToTheWire
 
 **Status:** Decided 2026-10-27. Built 2026-10-27: the folder rule in
@@ -22888,3 +22888,31 @@ root of its own and its listing in `internal/node/confine` and `internal/node/by
 the API in `internal/core/api/library_folders.go`, the hello, status and watcher's answers in
 `internal/core/nodes` and `internal/core/library/schedule.go`, and the picker in
 `web/apps/web/src/folder-picker.tsx`. Staging's roots move to their parents at its next deploy.
+
+**Amended 2026-10-27: the node watches its library folders, never its whole configured roots.** On
+staging, once its configured roots became `/tank/media` and `/home/yoloai/synctest`, the node's
+watcher, which watched its configured roots, walked and watched the whole of `/tank/media` (audio,
+books, photos) over a slow share: five minutes after the start it held some 7,500 watches and was
+still adding, and every library said "the watcher has not started" the whole time. Before D359 the
+configured roots were the library folders, so the watcher watched only them. What holds now:
+1. **The core names the folders the node watches,** in the hello's reply and in each poll's answer
+   (`WatchFolders`): each live folder on the node of a live library that watches for changes, and
+   nothing else. A library made, deleted or set to watch or not, and a folder added, moved or
+   retired, answers the node's waiting poll at once, or its next when none waits, so the change is
+   watched within a poll's round trip, not its hold. Nil from a core that names none leaves the
+   node's last; empty watches nothing.
+2. **The node watches exactly those folders,** starting a folder's watches when it is named and
+   releasing them when it no longer is, and refuses one no configured root holds (D107). A folder of a
+   configured root that no library uses is never walked or watched; the folder picker's listing
+   watches nothing. Each start and stop is logged at info with the folder's count of watches.
+3. **Each library folder's watch is its own** in the status and on the Libraries page: not started,
+   watching, on a network filesystem, unreadable or at the watch limit, per folder, never the
+   configured root's (this replaces §4's "the root's watch is shown as its"). D272 §9's quiet spell
+   and its notices are unchanged, per folder.
+4. **The node protocol is 49:** `WatchFolders` in the hello's reply and the poll's answer.
+
+**Proven by** (the amendment):
+- 1: TestScanSchedule_ANodeWatchesTheFoldersOfItsWatchedLibrariesAndEachChangeIsSaid, TestHelloAndCommands_NameTheFoldersTheNodeWatchesAtOnceWhenTheyChange, TestAgent_HasTheWatcherWatchTheLibraryFoldersTheCoreNames
+- 2: TestKernel_WatchesOnlyTheLibraryFoldersItIsGivenNeverTheRestOfTheirRoot, TestKernel_AFolderGivenIsWatchedAndOneNoLongerGivenIsNot, TestKernel_AFolderNoConfiguredRootHoldsIsNotWatchedAndSaysWhy
+- 3: TestWatcher_SaysEachLibraryFoldersWatchAndOnlyTheFoldersItIsGiven, TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch, TestWatcher_NoticesTheFolderHoldingARootsChangesOnceItGoesQuiet
+- 4: TestProtocolVersion_IsRaisedWithAnyChangeToTheWire

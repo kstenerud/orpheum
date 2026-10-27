@@ -99,6 +99,7 @@ func (admin *Admin) RepointRoot(ctx context.Context, repoint Repoint) (Repointed
 	if err != nil {
 		return Repointed{}, err
 	}
+	admin.watchedFoldersChanged() // the old folder is watched no more, the new one from now
 	// The work parked on the old place waits on a destination that is no more; the sweeps derive
 	// it again for the new one.
 	forgotten := jobs.RetiredWork{Destinations: []jobs.Destination{jobs.RootDestination(root.NodeID, repoint.Path)}}

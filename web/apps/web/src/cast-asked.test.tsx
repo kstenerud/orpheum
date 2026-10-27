@@ -115,9 +115,13 @@ describe("a cast asked about before it plays (D358)", () => {
     expect(answers).toEqual([]);
     await act(async () => {
       vi.advanceTimersByTime(1);
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
-    expect(answers).toEqual([undefined]);
+    // The end is told and then answered through a few promises: one tick was enough alone and not
+    // under the full gate's load (2026-10-27), so wait for the outcome itself.
+    await vi.waitFor(() => {
+      expect(answers).toEqual([undefined]);
+    });
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/5/end")?.body).toEqual({
       reason: "unanswered",
     });

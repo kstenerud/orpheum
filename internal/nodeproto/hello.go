@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 48
+const ProtocolVersion = 49
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -141,6 +141,13 @@ type HelloReply struct {
 	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
 	// Tuning is how the node behaves, as the core's settings say.
 	Tuning Tuning `json:"tuning"`
+	// WatchFolders are the folders the node watches for changes: each library folder on it whose
+	// library watches for changes, a configured root or a folder inside one (D359), and nothing else,
+	// so no folder of a configured root that no library uses is ever walked or watched. The node
+	// watches exactly these, starting and stopping watches as they change (Commands.WatchFolders),
+	// and refuses one no configured root holds (D107). Nil, from a core that says none, leaves the
+	// node's last; empty watches nothing.
+	WatchFolders []string `json:"watchFolders"`
 }
 
 // Tuning is how a node behaves where the core's settings decide, sent in the hello's reply and each

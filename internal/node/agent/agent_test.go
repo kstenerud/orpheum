@@ -59,6 +59,9 @@ type fakeCore struct {
 	helloHeard chan struct{}
 	// statusEverySeconds is the status cadence the reply to a hello says. Guarded by mutex.
 	statusEverySeconds int
+	// watchFolders are the library folders the reply to a hello and each poll's answer name. Guarded by
+	// mutex.
+	watchFolders []string
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
 	tokenlessJobIDs map[int64]bool
 }
@@ -111,14 +114,14 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
-		statusEvery := core.statusEverySeconds
+		statusEvery, watchFolders := core.statusEverySeconds, core.watchFolders
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
 		default:
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
-			NodeID: 7, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery},
+			NodeID: 7, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery}, WatchFolders: watchFolders,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -129,12 +132,12 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			// Work and its cancel name an attempt, as the core's do: job N's one attempt, unless the
 			// test named another.
 			core.mutex.Lock()
-			isTokenless := core.tokenlessJobIDs[command.JobID]
+			isTokenless, watchFolders := core.tokenlessJobIDs[command.JobID], core.watchFolders
 			core.mutex.Unlock()
 			if command.AttemptToken == "" && !isTokenless {
 				command.AttemptToken = tokenOf(command.JobID)
 			}
-			answer := nodeproto.Commands{Commands: []nodeproto.Command{command}}
+			answer := nodeproto.Commands{Commands: []nodeproto.Command{command}, WatchFolders: watchFolders}
 			if err := json.NewEncoder(writer).Encode(answer); err != nil {
 				t.Error(err)
 			}

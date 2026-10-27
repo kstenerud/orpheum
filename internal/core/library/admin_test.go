@@ -35,11 +35,15 @@ type fakeNodes struct {
 	clock    clock.Clock
 	// isAway is whether the node is not connected.
 	isAway bool
-	// watches are the node's roots' watches, as its status said.
+	// watches are the node's library folders' watches, as its status said.
 	watches map[string]nodeproto.RootWatch
+	// watchedFoldersChanges are how many times the nodes were told their watched folders changed.
+	watchedFoldersChanges int
 }
 
 func (nodes *fakeNodes) RootWatches(int64) map[string]nodeproto.RootWatch { return nodes.watches }
+
+func (nodes *fakeNodes) WatchedFoldersChanged() { nodes.watchedFoldersChanges++ }
 
 // NodeConnection is the node's: connected unless it is away.
 func (nodes *fakeNodes) NodeConnection(context.Context, int64) (corenodes.Connection, time.Time) {
