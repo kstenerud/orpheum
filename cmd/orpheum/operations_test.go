@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,11 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // startServerOnce runs the server until it is ready and stops it, leaving an instance with a
@@ -245,6 +249,7 @@ func TestStartOver_SetsTheDatabaseAsideAndKeepsTheRest(t *testing.T) {
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
+	untilTheInstanceIsFree(t, config)
 	persistentDB := filepath.Join(config.Instance.PersistentDir, "persistent.db")
 	dryRun := runCommand(t, "start-over", "--instance", path)
 	if _, err := os.Stat(persistentDB); err != nil || dryRun.status != exitUsageError ||
@@ -297,5 +302,30 @@ func TestServe_TheAdminListsTheFilingReports(t *testing.T) {
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// untilTheInstanceIsFree waits until the stopped server's lock on the instance can be taken, and lets
+// it go. The server ran in this test process, whose other tests start subprocesses: until each child
+// execs, it holds a copy of every descriptor the process has open, the lock's among them, and under
+// load start-over found the instance still in use after stop returned (2026-10-27).
+func untilTheInstanceIsFree(t *testing.T, config Config) {
+	t.Helper()
+	directories, err := instancedir.Open(config.Instance.paths())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for tries := 0; ; tries++ {
+		lock, lockErr := directories.LockInstance()
+		if lockErr == nil {
+			if releaseErr := lock.Release(); releaseErr != nil {
+				t.Fatal(releaseErr)
+			}
+			return
+		}
+		if !errors.Is(lockErr, instancedir.ErrInUse) || tries >= int(testutil.ReceiveLimit/(10*time.Millisecond)) {
+			t.Fatalf("the stopped server's instance is still locked: %v", lockErr)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
