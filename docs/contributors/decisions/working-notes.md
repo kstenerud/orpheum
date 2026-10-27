@@ -23210,13 +23210,20 @@ question per session); **keeps** D337 §1, §5's remote and split devices, §6 (
    receiver taking control back, by another cast to the receiver (the last cast wins, D337 §6), or
    when the receiver has been gone for two minutes, which the sending device is told.
 7. **The sending device shows a tray icon on every page** while the session lasts, naming the receiver
-   and what it plays; it opens the remote and Stop casting. The receiver shows none.
-8. **Taking control back on the receiver** (Back, Escape, a double OK or click, D338) ends the session:
+   and what it plays. The receiver shows none.
+8. **The remote is a page of its own the person returns to from anywhere** (the owner: *"I cast to my
+   TV, then start Wings playing. I then start browsing to Quillwick … Then I think actually I want to
+   continue with wings. Now I need a way to go back to the remote controls for the already playing
+   Wings on the TV"*). The tray icon, and the top bar's Cast while a session lasts, lead to it: the
+   remote of what plays on the receiver, at its position, with Stop casting; with nothing playing,
+   "Ready on ‹Device›", Stop casting and nothing else. Browsing away leaves the video playing on; Back
+   from the remote returns to where the person was.
+9. **Taking control back on the receiver** (Back, Escape, a double OK or click, D338) ends the session:
    a video playing goes on there as an ordinary player (D338 as the owner kept it); with none playing,
    the receiver goes to its home page.
-9. **Stop casting on the sending device** ends the session and returns the receiver to the page it was
-   on before the session began (D338 §4); the sending device is offered "Play here from ‹time›" for a
-   video that was playing.
+10. **Stop casting on the sending device** ends the session and returns the receiver to the page it was
+    on before the session began (D338 §4); the sending device is offered "Play here from ‹time›" for a
+    video that was playing.
 
 **Status:** Decided 2026-10-27.
 
