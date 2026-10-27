@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import "./cast.css";
+
+import type { CastToReceive, Press } from "@orpheum/sdk";
+import { useEffect, useRef, type JSX } from "react";
+import { useTranslation } from "react-i18next";
+
+import { castAnswerWithinMs, endCast } from "./cast.ts";
+import { ModalDialog } from "./modal-dialog.tsx";
+import { useServices, useToken } from "./services.tsx";
+import { useTogether } from "./use-together.ts";
+
+/** What a browser answered a request to put the page full screen. */
+export type FullScreenAnswer = "entered" | "refused";
+
+/**
+ * The press that answered Play to a cast (D358 §2): how it was made, and what the browser answered
+ * the full screen asked for in it, undefined where none was asked, the page full screen already.
+ */
+export interface CastAnswer {
+  readonly castId: number;
+  readonly by: Press;
+  readonly fullScreen: Promise<FullScreenAnswer> | undefined;
+}
+
+/**
+ * How a click was pressed: by a key (a click a key made has no count, as a remote's OK on a button
+ * makes), a touch's tap, or a mouse's click.
+ */
+export function pressOf(event: MouseEvent): Press {
+  if (event.detail === 0) {
+    return "key";
+  }
+  return "pointerType" in event && event.pointerType === "touch" ? "tap" : "click";
+}
+
+/**
+ * Asks for the whole page full screen, from a press: the Fullscreen API needs one made moments
+ * before (transient activation), which a cast's own start never is (idiosyncrasies.md). The page,
+ * not the player's stage, which the Play page has not made yet; the stage fills the page then
+ * (cast-receiver.tsx). Undefined where the page is full screen already.
+ */
+export function enterFullScreen(page: Document): Promise<FullScreenAnswer> | undefined {
+  if (page.fullscreenElement instanceof Element) {
+    return undefined;
+  }
+  const root = page.documentElement;
+  if (typeof root.requestFullscreen !== "function") {
+    return Promise.resolve("refused");
+  }
+  return root.requestFullscreen().then(
+    (): FullScreenAnswer => "entered",
+    (): FullScreenAnswer => "refused",
+  );
+}
+
+/** Leaves the full screen enterFullScreen asked for, where the page holds it. */
+export function leaveFullScreen(page: Document): void {
+  if (page.fullscreenElement === page.documentElement) {
+    page.exitFullscreen().catch(() => undefined);
+  }
+}
+
+/**
+ * A cast arrived, asked about before it plays (D358 §1–§4): "‹Device› wants to play ‹Film› here",
+ * with Play focused, so a remote's OK answers it, and Not now. Play's press is the one that lets the
+ * film play with sound (sticky activation) and puts the page full screen (transient activation, so
+ * asked in the press itself); Not now, Back or Escape decline it, and no answer within
+ * castAnswerWithinMs leaves it unanswered, the sender told either way. A cast that ends while asked,
+ * its sender gone, closes it.
+ */
+export function CastAsked(props: {
+  readonly cast: CastToReceive;
+  readonly onAnswered: (answer: CastAnswer | undefined) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const token = useToken();
+  const { cast, onAnswered } = props;
+  const playRef = useRef<HTMLButtonElement>(null);
+  const { snapshot } = useTogether({ credential: cast.membershipCredential, sessionToken: token });
+  const isEnded = snapshot?.status === "ended";
+  const answeredRef = useRef(onAnswered);
+  useEffect(() => {
+    answeredRef.current = onAnswered;
+  });
+  useEffect(() => {
+    playRef.current?.focus();
+    const timer = setTimeout(() => {
+      endCast(api, cast.castId, "unanswered").catch(() => undefined);
+      answeredRef.current(undefined);
+    }, castAnswerWithinMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [api, cast.castId]);
+  useEffect(() => {
+    if (isEnded) {
+      answeredRef.current(undefined);
+    }
+  }, [isEnded]);
+  const decline = (): void => {
+    endCast(api, cast.castId, "declined").catch(() => undefined);
+    onAnswered(undefined);
+  };
+  const question =
+    cast.titleName === ""
+      ? t("cast.asked.aFilm", { device: cast.fromDeviceName })
+      : t("cast.asked.film", { device: cast.fromDeviceName, film: cast.titleName });
+  return (
+    <ModalDialog label={question} onClose={decline} className="cast-asked">
+      <p className="cast-asked__question">{question}</p>
+      <div className="cast-asked__buttons">
+        <button
+          ref={playRef}
+          type="button"
+          onClick={(event) => {
+            const fullScreen = enterFullScreen(document);
+            onAnswered({ castId: cast.castId, by: pressOf(event.nativeEvent), fullScreen });
+          }}
+        >
+          {t("cast.asked.play")}
+        </button>
+        <button type="button" onClick={decline}>
+          {t("cast.asked.notNow")}
+        </button>
+      </div>
+    </ModalDialog>
+  );
+}

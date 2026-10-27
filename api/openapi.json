@@ -1463,11 +1463,13 @@
         "additionalProperties": false,
         "properties": {
           "reason": {
-            "description": "takenBack on the receiver, stopped on the remote, filmEnded at the film's end",
+            "description": "takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)",
             "enum": [
               "takenBack",
               "stopped",
-              "filmEnded"
+              "filmEnded",
+              "declined",
+              "unanswered"
             ],
             "type": "string"
           }

@@ -30,6 +30,8 @@ const (
 	eventPlayedMuted       = "playedMuted"
 	eventUnmutedTap        = "unmutedTap"
 	eventContinueAsked     = "continueAsked"
+	eventFullScreen        = "fullScreen"
+	eventPlayedWithSound   = "playedWithSound"
 	eventGroupChanged      = "groupChanged"
 )
 
@@ -156,25 +158,42 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
 				"mapping", note.Mapping, "mediaSourceState", note.MediaSourceState)...)
 		return true
-	case NotePlayedMuted:
-		current.logger.InfoContext(ctx,
-			"watch together: the browser would not play the film with sound; it plays muted",
-			append(current.deviceAttributes(who, from), logEvent, eventPlayedMuted,
-				positionMsAttribute, note.PositionMs)...)
-		return true
-	case NoteUnmuted:
-		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
-			append(current.deviceAttributes(who, from), logEvent, eventUnmutedTap,
-				positionMsAttribute, note.PositionMs, "why", note.Why, "soundState", note.SoundState)...)
-		return true
-	case NoteContinueAsked:
-		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
-			append(current.deviceAttributes(who, from), logEvent, eventContinueAsked,
-				"navigation", note.Why, "page", note.Page)...)
+	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked:
+		current.logSound(ctx, who, from, note)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
 	return false
+}
+
+// logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
+// or playing it, a press turning it on, full screen entered or refused, and a guest's page asking for
+// a tap to continue, each with the page's presses where it says them (D358).
+func (current *session) logSound(ctx context.Context, who *member, from *device, note *PlayerNote) {
+	attributes := current.deviceAttributes(who, from)
+	switch note.Kind {
+	case NotePlayedMuted:
+		current.logger.InfoContext(ctx,
+			"watch together: the browser would not play the film with sound; it plays muted",
+			append(attributes, logEvent, eventPlayedMuted, positionMsAttribute, note.PositionMs, "page", note.Page)...)
+	case NoteUnmuted:
+		current.logger.InfoContext(ctx, "watch together: a press turned a muted player's sound on",
+			append(attributes, logEvent, eventUnmutedTap, positionMsAttribute, note.PositionMs,
+				"why", note.Why, "by", note.By, "soundState", note.SoundState)...)
+	case NotePlayedWithSound:
+		current.logger.InfoContext(ctx, "watch together: the browser played the film with sound",
+			append(attributes, logEvent, eventPlayedWithSound, positionMsAttribute, note.PositionMs,
+				"page", note.Page)...)
+	case NoteFullScreen:
+		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered or refused",
+			append(attributes, logEvent, eventFullScreen, "answer", note.Why, "by", note.By)...)
+	case NoteContinueAsked:
+		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
+			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
+		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
+		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand: // logAtInfo logs them
+	}
 }
 
 // logVoice says how a voice call is going, as its receiver measured it: a call that broke up on a

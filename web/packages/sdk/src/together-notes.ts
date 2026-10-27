@@ -53,9 +53,14 @@ export interface PlayerState {
  * - ownMarkExpired: a seek or pause the follower made fired no event within ownMarkLastsMs, and its
  *   mark was given up (D268 §4);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
- *   tap, and it plays muted (playedMutedEvent);
- * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap), the sound's state
- *   then, and again "after", soundToldAgainAfterMs later;
+ *   tap, and it plays muted (playedMutedEvent), page whether the page had been pressed
+ *   (pageActivation);
+ * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap), by how they pressed,
+ *   the sound's state then, and again "after", soundToldAgainAfterMs later;
+ * - playedWithSound: a cast's receiver's film started with its sound on at positionMs, page the
+ *   page's activation then (D358 §2);
+ * - fullScreen: the player's stage was put full screen ("entered") or the browser refused
+ *   ("refused"), by the press that asked, absent as the player opened;
  * - diagnosis: what the player holds at positionMs as it moved itself over a gap ("movedItself"),
  *   stalled ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): its readyState, its
  *   picture's and sound's buffered ranges, its last error, how hls.js placed its first chunks and
@@ -108,7 +113,24 @@ export type PlayerNote =
       readonly aheadOfExpectedMs: number;
       readonly why: "placed" | "kept";
     }
-  | { readonly kind: "playedMuted"; readonly positionMs: number }
+  | {
+      readonly kind: "playedMuted";
+      readonly positionMs: number;
+      /** The page's activation then (pageActivation), where the browser says it. */
+      readonly page?: string;
+    }
+  | {
+      readonly kind: "playedWithSound";
+      readonly positionMs: number;
+      /** The page's activation then (pageActivation), where the browser says it. */
+      readonly page?: string;
+    }
+  | {
+      readonly kind: "fullScreen";
+      readonly why: "entered" | "refused";
+      /** The press that asked; absent as the player opened. */
+      readonly by?: Press;
+    }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
   | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
   | { readonly kind: "loadHeld"; readonly why: "held" | "goesOn" }
@@ -136,6 +158,8 @@ export type PlayerNote =
       readonly positionMs: number;
       /** At the tap, absent; "after", soundToldAgainAfterMs later. */
       readonly why?: "after";
+      /** How the person pressed, where the page says. */
+      readonly by?: Press;
       /** The sound then (soundStateOf). */
       readonly soundState?: string;
     }
@@ -153,3 +177,6 @@ export type PlayerNote =
  */
 export type VoiceCallStep =
   "offered" | "answered" | "accepted" | "connected" | "failed" | "signalDropped";
+
+/** How a person pressed: a touch's tap, a mouse's click, or a key (a remote's OK among them). */
+export type Press = "tap" | "click" | "key";

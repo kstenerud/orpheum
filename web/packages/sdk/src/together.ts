@@ -126,12 +126,15 @@ export type TogetherEndReason =
   | "uploadFull"
   /**
    * A cast's ends (D337): its receiver took control back, another cast replaced it, its remote
-   * stopped it, or its film ended.
+   * stopped it, or its film ended; or, asked whether to play it, the receiver said Not now or nothing
+   * for a minute (D358 §3, §4).
    */
   | "takenBack"
   | "replaced"
   | "stopped"
-  | "filmEnded";
+  | "filmEnded"
+  | "declined"
+  | "unanswered";
 
 /** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
 export interface SyncTuning {
@@ -344,6 +347,8 @@ const endReasons: readonly TogetherEndReason[] = [
   "replaced",
   "stopped",
   "filmEnded",
+  "declined",
+  "unanswered",
 ];
 
 /** A welcome's tuning, each value the starting one where it says none. */

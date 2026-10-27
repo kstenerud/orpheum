@@ -22758,7 +22758,7 @@ apparent way to turn the sound on (staging's log, 06:54:59 and 07:02:50 UTC: `lo
 on each receiver). A cast starts its film from a message, not a press on the receiving tab: a
 browser plays sound only on a page that has been pressed (sticky activation), and puts a page full
 screen only within moments of a press (transient activation)
-([idiosyncrasies](../idiosyncrasies.md)).
+([idiosyncrasies](../idiosyncrasies.md#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen)).
 A press at the moment the cast arrives is the only reliable way to have both. **Amends**
 [D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back),
 whose casts started with no confirmation and whose §9 answers held the fading "Controlled from" line
@@ -22782,11 +22782,15 @@ playback at the hand-off"); keeps
    now, and its "turn the sound on" prompt shows over the film and is answered by a key press, OK
    among them, as well as by a click or a tap.
 
-**Proven by** (tests to be written):
-- 1: web/apps/web/src/cast-asked.test.tsx
-- 2: web/apps/web/src/cast-asked.test.tsx, TestHub_LogsThePagesActivationAndThePressThatAnswered
+**Proven by:**
+- 1: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy (the film's name it asks with), VQ76
+- 2: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-receiver.test.tsx, TestHub_LogsThePagesActivationAndThePressThatAnswered, VQ76
 - 3: web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy
 - 4: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx
-- 5: web/apps/web/src/cast-receiver.test.tsx
+- 5: web/apps/web/src/cast-receiver.test.tsx, VQ76
 
-**Status:** Decided 2026-10-27; not built.
+**Status:** Decided 2026-10-27. Built 2026-10-27: the question and its answers (`cast-asked.tsx`,
+`live.tsx`), the sender waiting for them (`cast-to.tsx`), the receiver's sound at any press and
+its notes (`cast-receiver.tsx`), the film's name in the receive message and the `declined` and
+`unanswered` ends (`internal/core/live`, `internal/core/api/casts.go`), and the notes' log lines
+(`internal/core/together`). Device checks: VQ76.

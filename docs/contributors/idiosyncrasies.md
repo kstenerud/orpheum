@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
@@ -874,6 +875,61 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Web platform, all browsers
+
+
+### A cast receiver is started by a message, so the browser gives it neither sound nor full screen
+
+- **Technology:** autoplay policy (Chrome, Silk, Firefox, Safari) and the Fullscreen API, both gated
+  on user activation.
+- **Symptom:** a cast from Firefox on a Mac to Chrome on Linux, and to a Fire TV's Silk, played the
+  film muted, with no way to turn the sound on by remote, and out of full screen, though a film
+  chosen on the Fire TV itself goes full screen (the owner, staging, 2026-10-27; the core's log
+  `logEvent=playedMuted` at 06:54:59 and 07:02:50 UTC, after the casts to devices 37 and 33).
+- **Cause:** two rules, which a cast's start meets neither of. **Sound** needs *sticky* activation:
+  the page pressed at least once since it loaded (a click, a tap or a key, but Escape, a modifier
+  or a shortcut the browser keeps); a page never pressed is refused `play()` with sound
+  (`NotAllowedError`) and may play muted. **Full screen** needs *transient* activation: a press
+  within the last few seconds (Chromium's lifespan is 5 s), used up by the request. A cast starts
+  playback from a message on the receiver's live socket, minutes or never after a press; a film
+  chosen on the Fire TV itself is opened by the OK that chose it, so its player's full-screen request
+  is within that press's seconds. A reload starts a new page with no activation at all. What the
+  logs show: both receivers' pages had loaded shortly before their casts (device 37's sign-in began
+  at 06:54:41, 15 s before its cast; device 33's live connection opened at 07:02:04, 23 s before
+  its), and the play-state notes' `isUserActive=false` was the transient flag, which says nothing of
+  sticky activation. Our code does not reload or navigate away on a cast (a received cast is a
+  `history.pushState` to the Play page, which keeps the page's activation), so a page the owner had
+  pressed should have kept it; what is not known is whether the Fire TV's page had been pressed at
+  all since it loaded. Two Silk habits could leave it unpressed: in pointer mode the D-pad moves
+  Silk's pointer, which is no press until OK clicks, and arrow keys never reach the page
+  ([above](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on));
+  and Silk reloads a page when its navigation mode is changed (cast-to-device.md §4). Unverified
+  which; the `playedMuted` note now says.
+- **What we do:** D358: a cast arriving asks first, "‹Device› wants to play ‹Film› here", with Play
+  focused, and Play's own handler asks for the page full screen (`document.documentElement`, the
+  player's stage not yet made) and opens the film, whose `play()` then has the press's sticky
+  activation (`cast-asked.tsx`, `live.tsx`). A press is the only reliable way; there is no permission
+  to ask for ahead. Should the sound still be refused, the receiver plays muted and "Press OK to turn
+  the sound on" shows over the film, answered by any key but Escape, a modifier, a shortcut or Back,
+  or by a click or a tap (`SoundAtAnyPress`, `cast-receiver.tsx`). The log says each step:
+  `playedMuted` with `page=hasBeenActive=… isActive=… loadedMsAgo=… navigation=…`
+  (`pageActivation`, `together-sound.ts`), `playedWithSound`, `fullScreen answer=entered|refused
+  by=key|click|tap`, and `unmutedTap by=…`. VQ76.
+- **Evidence:** [owner] staging 2026-10-27, core log as above. **[web]** the [HTML standard, user
+  activation](https://html.spec.whatwg.org/multipage/interaction.html#activation-triggering-input-event):
+  an activation-triggering input event is a trusted `keydown` ("provided the key is neither the Esc
+  key nor a shortcut key reserved by the user agent"), `mousedown`, `pointerdown` (mouse),
+  `pointerup` (not mouse) or `touchend`; sticky activation stays for the page's life, transient
+  activation lasts "at most a few seconds". [Chrome's autoplay
+  policy](https://developer.chrome.com/blog/autoplay): sound is allowed when "the user has interacted
+  with the domain (click, tap, etc.)", or by the Media Engagement Index on desktop, or for an
+  installed PWA. [MDN, autoplay guide](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay):
+  "playback of any media that includes audio is generally blocked if the playback is
+  programmatically initiated in a tab which has not yet had any user interaction", failing with
+  `NotAllowedError` (Firefox's rule). [MDN,
+  `requestFullscreen`](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen):
+  "Transient user activation is required." Silk is Chromium and keeps Chromium's rule; its own
+  Settings > Advanced > Site settings > Media > Autoplay can block more (read 2026-10-27). iPhone
+  Safari wants more still (above, Safari).
 
 
 ### Secure-context APIs are simply absent on plain HTTP off localhost

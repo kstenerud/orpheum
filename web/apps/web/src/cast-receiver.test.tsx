@@ -13,6 +13,9 @@ import {
   doublePressWithinMs,
   moveOnOrLeave,
 } from "./cast-receiver.tsx";
+import { playedMutedEvent } from "@orpheum/sdk";
+
+import type { CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
 import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -142,6 +145,7 @@ const cast = {
   castId: 9,
   membershipCredential: "receiver",
   fileId: 4,
+  titleName: "Metropolis",
   positionMs: 61_000,
   fromDeviceId: 1,
   fromDeviceName: "Pixel",
@@ -314,5 +318,157 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
       reason: "filmEnded",
     });
     expect(onLeave).toHaveBeenCalledOnce();
+  });
+});
+
+describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    document.body.replaceChildren();
+    vi.useRealTimers();
+  });
+
+  /** A receiver of cast inside a player's stage, answered by answer, connected and welcomed. */
+  async function started(answer?: CastAnswer): Promise<{
+    readonly server: FakeTogetherServer;
+    readonly video: HTMLVideoElement;
+    readonly stage: HTMLElement;
+    readonly onOver: ReturnType<typeof vi.fn>;
+  }> {
+    const services = servedBy(
+      { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: true }] },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    const stage = document.createElement("div");
+    stage.className = "film-player__stage";
+    const video = document.createElement("video");
+    stage.append(video);
+    document.body.append(stage);
+    const onOver = vi.fn();
+    const receiving = {
+      cast,
+      onOver,
+      onLeave: vi.fn(),
+      ...(answer === undefined ? {} : { answer }),
+    };
+    mounted = await mount(
+      withServices(
+        <CastReceiver receiving={receiving} fileId={4} video={video} startPositionMs={0} />,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say(welcome);
+    return { server, video, stage, onOver };
+  }
+
+  /** The browser refusing the film's sound: it plays muted, and says so (playOrPlayMuted). */
+  function refuseSound(video: HTMLVideoElement): void {
+    act(() => {
+      // eslint-disable-next-line no-param-reassign -- muted as the browser's refusal leaves it
+      video.muted = true;
+      video.dispatchEvent(new Event(playedMutedEvent));
+    });
+  }
+
+  /** The notes the receiver sent of kind. */
+  function notesOf(server: FakeTogetherServer, kind: string): unknown[] {
+    return server.heard
+      .filter((each) => each["type"] === "note")
+      .map((each) => each["note"])
+      .filter(
+        (note) => typeof note === "object" && note !== null && Reflect.get(note, "kind") === kind,
+      );
+  }
+
+  it("says over the film that a press turns the sound on, and turns it on at a key, which does nothing else", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const { server, video, stage, onOver } = await started();
+    refuseSound(video);
+    expect(stage.querySelector(".cast-receiver__sound-on")?.textContent).toBe(
+      "Click to turn the sound on",
+    );
+    const heard = vi.fn();
+    const stop = onCommand(document, heard, { isCapture: true });
+    const ok = press("Enter");
+    tap(); // the click a TV browser makes of the same OK
+    expect(ok.defaultPrevented).toBe(true);
+    expect(heard).not.toHaveBeenCalled(); // the player's own controls never heard it
+    expect(video.muted).toBe(false);
+    expect(stage.querySelector(".cast-receiver__sound-on")).toBeNull();
+    expect(notesOf(server, "unmuted")[0]).toMatchObject({ kind: "unmuted", by: "key" });
+    vi.advanceTimersByTime(doublePressWithinMs - 1);
+    press("Enter"); // the first OK of a double: the one that turned the sound on is not counted
+    stop();
+    expect(onOver).not.toHaveBeenCalled();
+    expect(heard).toHaveBeenCalledOnce();
+  });
+
+  it("turns the sound on at a tap, and says to press OK on a television", async () => {
+    const userAgent = Object.getOwnPropertyDescriptor(Navigator.prototype, "userAgent");
+    Object.defineProperty(Navigator.prototype, "userAgent", {
+      configurable: true,
+      get: () => "Mozilla/5.0 (Linux; Android 9; AFTKA) AppleWebKit/537.36 Silk/131.4.1",
+    });
+    try {
+      const { server, video, stage } = await started();
+      refuseSound(video);
+      expect(stage.querySelector(".cast-receiver__sound-on")?.textContent).toBe(
+        "Press OK to turn the sound on",
+      );
+      act(() => {
+        document.body.dispatchEvent(
+          new PointerEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            detail: 1,
+            pointerType: "touch",
+          }),
+        );
+      });
+      expect(video.muted).toBe(false);
+      expect(notesOf(server, "unmuted")[0]).toMatchObject({ by: "tap" });
+    } finally {
+      if (userAgent !== undefined) {
+        Object.defineProperty(Navigator.prototype, "userAgent", userAgent);
+      }
+    }
+  });
+
+  it("leaves Back to leave controlled mode, the sound still off", async () => {
+    const { video, onOver } = await started();
+    refuseSound(video);
+    press("Escape");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(onOver).toHaveBeenCalledOnce();
+    expect(video.muted).toBe(true);
+  });
+
+  it("tells the log what full screen the Play press got, and that the film played with sound", async () => {
+    const { server, video } = await started({
+      castId: 9,
+      by: "key",
+      fullScreen: Promise.resolve("refused"),
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(notesOf(server, "fullScreen")).toEqual([
+      { kind: "fullScreen", why: "refused", by: "key" },
+    ]);
+    act(() => {
+      video.currentTime = 61;
+      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(new Event("playing"));
+    });
+    expect(notesOf(server, "playedWithSound")).toEqual([
+      expect.objectContaining({ kind: "playedWithSound", positionMs: 61_000 }),
+    ]);
   });
 });

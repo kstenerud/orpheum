@@ -16,6 +16,23 @@ export const enCast = {
       "{{name}} has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
+    asked: {
+      film: "{{device}} wants to play {{film}} here",
+      aFilm: "{{device}} wants to play a film here",
+      play: "Play",
+      notNow: "Not now",
+    },
+    asking: "Asking {{name}}…",
+    answered: {
+      declined: "{{name}} declined.",
+      unanswered: "{{name}} did not answer.",
+      ended: "The cast to {{name}} ended before it started.",
+    },
+    soundOn: {
+      television: "Press OK to turn the sound on",
+      touch: "Tap to turn the sound on",
+      pointer: "Click to turn the sound on",
+    },
     remote: "Remote",
     aFilm: "A film",
     playingOn: "Playing on {{name}}",

@@ -61,3 +61,29 @@
   padding: 0;
   list-style: none;
 }
+
+/* A cast arrived, asked about before it plays (cast-asked.tsx): read across a room. */
+.cast-asked__question {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-h2);
+}
+
+.cast-asked__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* The receiver's line, over its film, that a press turns the sound on (cast-receiver.tsx). */
+.cast-receiver__sound-on {
+  position: absolute;
+  z-index: 1;
+  top: var(--space-4);
+  left: 50%;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--space-2);
+  background: rgb(0 0 0 / 70%);
+  color: var(--color-text);
+  font-size: var(--font-size-h2);
+  transform: translateX(-50%);
+}

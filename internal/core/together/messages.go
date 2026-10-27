@@ -157,8 +157,10 @@ const (
 	// ("stopped"), muted or unmuted (D281 §2, §3).
 	NoteVoiceTalk NoteKind = "voiceTalk"
 	// NotePlayedMuted is a browser refusing to start the film with sound for want of a recent tap,
-	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
-	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
+	// and the player playing it muted, Page what the page's activation was then; NoteUnmuted, the
+	// person's tap turning the sound on, By how they pressed (the owner's test, 2026-10-08, where a
+	// guest's iPhone sat silent and nothing said why; a cast's receiver on a Fire TV, 2026-10-27,
+	// silent with nothing to say whether its page had ever been pressed).
 	NotePlayedMuted NoteKind = "playedMuted"
 	// NoteDiagnosis is what a player holds when it moved itself over a gap ("movedItself"), stalled
 	// ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): an iPhone that jumped 10 s
@@ -181,6 +183,15 @@ const (
 	// iPhone that joined by its keyboard's Go was asked straight after, and nothing said whether the
 	// page had loaded again (the owner's test, 2026-10-13).
 	NoteContinueAsked NoteKind = "continueAsked"
+	// NoteFullScreen is a player's stage put full screen ("entered") or the browser refusing it
+	// ("refused"), By the press that asked, absent as the player opened: full screen needs a press
+	// made moments before, and a cast's receiver on a Fire TV stayed out of it with nothing said why
+	// (the owner, 2026-10-27).
+	NoteFullScreen NoteKind = "fullScreen"
+	// NotePlayedWithSound is a cast's receiver's film starting with its sound on, at PositionMs, Page
+	// what the page's activation was then: with NotePlayedMuted, whether the press that answered the
+	// cast let it play with sound (D358 §2).
+	NotePlayedWithSound NoteKind = "playedWithSound"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -238,8 +249,12 @@ type PlayerNote struct {
 	// paused, and an iPhone's audio session; its Why, "after" for the state some seconds after the
 	// tap. An iPhone that stayed silent after its tap could not say why (the owner's VQ30, 2026-10-12).
 	SoundState string `json:"soundState,omitempty"`
-	// Page is a continueAsked note's page: how long since it loaded, and whether it joined itself.
+	// Page is a continueAsked note's page: how long since it loaded, and whether it joined itself; a
+	// playedMuted note's, whether the page has ever been pressed and is now, how long since it
+	// loaded and how the browser came to show it.
 	Page string `json:"page,omitempty"`
+	// By is how the person pressed for an unmuted or fullScreen note: "tap", "click" or "key".
+	By string `json:"by,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -300,32 +315,40 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld:
 		return note.isKnownFollowing()
-	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked:
+	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
+	case NoteFullScreen:
+		return note.Track == "" && (note.Why == "entered" || note.Why == "refused") && isPressWord(note.By)
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
 	}
 	return false
 }
 
-// isKnownSound is whether a note of a guest's sound is one the server logs: a film played muted, a
-// tap turning it on with its sound then, or a page asking for a tap to continue and how it was shown.
+// isPressWord is whether word says how a person pressed, as the web client's Press names it: a tap,
+// a click or a key, or "" where it does not say.
+func isPressWord(word string) bool {
+	return slices.Contains([]string{"", "tap", "click", "key"}, word)
+}
+
+// isKnownSound is whether a note of a player's sound is one the server logs: a film played muted, or
+// with its sound, with its page's activation, a press turning it on with its sound then, or a page
+// asking for a tap to continue and how it was shown.
 func (note PlayerNote) isKnownSound() bool {
-	if note.Track != "" {
+	if note.Track != "" || len(note.Page) > diagnosisTextMost || len(note.SoundState) > diagnosisTextMost {
 		return false
 	}
 	switch note.Kind {
-	case NotePlayedMuted:
-		return note.PositionMs >= 0 && note.Why == ""
+	case NotePlayedMuted, NotePlayedWithSound:
+		return note.PositionMs >= 0 && note.Why == "" && note.By == ""
 	case NoteUnmuted:
-		return note.PositionMs >= 0 && (note.Why == "" || note.Why == "after") &&
-			len(note.SoundState) <= diagnosisTextMost
+		return note.PositionMs >= 0 && (note.Why == "" || note.Why == "after") && isPressWord(note.By)
 	case NoteContinueAsked:
 		return slices.Contains([]string{"navigate", "reload", "back_forward", "prerender"}, note.Why) &&
-			len(note.Page) <= diagnosisTextMost
+			note.By == ""
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
-		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld: // not sound's: isKnown reads them
+		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen: // isKnown reads them
 	}
 	return false
 }
@@ -348,7 +371,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.Why == "held" || note.Why == "goesOn"
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
-		NoteLeaderCommand, NoteContinueAsked: // isKnown reads them
+		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound: // isKnown reads them
 	}
 	return false
 }
@@ -367,7 +390,8 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
-		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked: // not voice's: isKnown reads them
+		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
+		NotePlayedWithSound: // not voice's: isKnown reads them
 	}
 	return false
 }

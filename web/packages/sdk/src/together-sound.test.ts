@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PlayerNote } from "./together-connection.ts";
 import {
+  pageActivation,
   playedMutedEvent,
   playOrPlayMuted,
   readyForSoundAtTap,
@@ -128,5 +129,46 @@ describe("a film the browser will not start with sound", () => {
     };
     readyForSoundAtTap(video);
     expect(changes).toEqual([]);
+  });
+});
+
+describe("what the server's log is told of a film's sound and the page's presses (D358)", () => {
+  it("says, as it plays muted, whether the page had ever been pressed, where the browser says", async () => {
+    vi.stubGlobal("navigator", { userActivation: { hasBeenActive: false, isActive: false } });
+    try {
+      const video = new FakeVideo("NotAllowedError");
+      const connection = noting();
+      playOrPlayMuted(video, connection);
+      await vi.waitFor(() => {
+        expect(connection.notes).toHaveLength(1);
+      });
+      expect(connection.notes[0]).toEqual({
+        kind: "playedMuted",
+        positionMs: 61_000,
+        page: expect.stringMatching(
+          /^hasBeenActive=false isActive=false loadedMsAgo=\d+ navigation=\w+$/u,
+        ) as unknown,
+      });
+      expect(pageActivation()).toMatch(/^hasBeenActive=false /u);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("says nothing of the page where the browser does not", () => {
+    vi.stubGlobal("navigator", {});
+    try {
+      expect(pageActivation()).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("says by what press the sound was turned on", () => {
+    const video = Object.assign(new FakeVideo(), { volume: 1 });
+    video.muted = true;
+    const connection = noting();
+    soundOnAtTap(video, connection, "key");
+    expect(connection.notes[0]).toMatchObject({ kind: "unmuted", by: "key" });
   });
 });

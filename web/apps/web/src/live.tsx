@@ -12,10 +12,12 @@ import {
   useSyncExternalStore,
   type JSX,
   type ReactNode,
+  type RefObject,
 } from "react";
 
 import { ownScriptOf } from "./app-update.ts";
 import { tabStorage } from "./browser-storage.ts";
+import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { forgetReturn, noteReturn, takeReturn } from "./cast-return.ts";
 import type { Navigation } from "./navigation.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -29,6 +31,8 @@ export interface Live {
   readonly inFrontDeviceIds: readonly number[];
   /** The cast this device receives now, until it ends here. */
   readonly receiving: CastToReceive | undefined;
+  /** The press that answered Play to the cast received, and its full screen (D358 §2). */
+  readonly answer: CastAnswer | undefined;
   /** Ends receiving here, the film playing on as this device's own: control taken back here. */
   readonly endReceiving: () => void;
   /**
@@ -42,6 +46,7 @@ const nothingLive: Live = {
   connectedDeviceIds: [],
   inFrontDeviceIds: [],
   receiving: undefined,
+  answer: undefined,
   endReceiving: () => undefined,
   leaveReceiving: () => undefined,
 };
@@ -87,18 +92,36 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     connection?.snapshot ?? noSnapshot,
     noSnapshot, // rendered on a server, as a test renders a page to markup, nothing is live
   );
-  const { receiving, endReceiving, leaveReceiving } = useReceiving(connection, navigation);
+  const { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving } = useReceiving(
+    connection,
+    navigation,
+  );
   const live = useMemo(
     (): Live => ({
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
       inFrontDeviceIds: snapshot?.inFrontDeviceIds ?? noDevices,
       receiving,
+      answer,
       endReceiving,
       leaveReceiving,
     }),
-    [snapshot?.deviceIds, snapshot?.inFrontDeviceIds, receiving, endReceiving, leaveReceiving],
+    [
+      snapshot?.deviceIds,
+      snapshot?.inFrontDeviceIds,
+      receiving,
+      answer,
+      endReceiving,
+      leaveReceiving,
+    ],
   );
-  return <LiveContext value={live}>{props.children}</LiveContext>;
+  return (
+    <LiveContext value={live}>
+      {props.children}
+      {asked === undefined ? null : (
+        <CastAsked key={asked.castId} cast={asked} onAnswered={onAnswered} />
+      )}
+    </LiveContext>
+  );
 }
 
 /** Whether the page's tab is in front: shown, not behind another tab or a minimised window. */
@@ -122,58 +145,108 @@ function useTellsWhereTheTabIs(connection: LiveConnection | undefined): void {
   }, [connection]);
 }
 
+/** What useReceiving gives the provider: Live's part, and the cast it asks about and its answer. */
+interface Received extends Pick<Live, "receiving" | "answer" | "endReceiving" | "leaveReceiving"> {
+  /** The cast arrived and asked about, until it is answered (D358 §1). */
+  readonly asked: CastToReceive | undefined;
+  /** Told the answer to asked: Play's, which receives it, or undefined for none (Not now, silence). */
+  readonly onAnswered: (answer: CastAnswer | undefined) => void;
+}
+
 /**
- * The cast connection hands this device, while it receives one, and what ends receiving here: a
- * cast handed opens its film's Play page, noting the page it took the tab over from (D338 §1);
- * handed again as the connection came back, it is received already, unless the page left it;
- * handed again with another film, the cast moved on to the next episode (plans/up-next.md), which
- * plays.
+ * The cast connection hands this device, and what it does with it: one arriving while the device
+ * receives none is asked about first, and received once its Play is pressed (D358 §1, §2); one
+ * arriving while it receives one, the same cast handed again or another replacing it, is received
+ * at once. A cast received opens its film's Play page, noting the page it took the tab over from
+ * (D338 §1); handed again as the connection came back, it is received already, unless the page left
+ * it; handed again with another film, the cast moved on to the next episode (plans/up-next.md),
+ * which plays.
  */
-function useReceiving(
-  connection: LiveConnection | undefined,
-  navigation: Navigation,
-): Pick<Live, "receiving" | "endReceiving" | "leaveReceiving"> {
+function useReceiving(connection: LiveConnection | undefined, navigation: Navigation): Received {
   const [receiving, setReceiving] = useState<CastToReceive | undefined>(undefined);
   const isReceivingRef = useRef(false);
-  useEffect(() => {
-    if (connection === undefined) {
-      return undefined;
-    }
-    let received: CastToReceive | undefined;
-    return connection.subscribe(() => {
-      const handed = connection.snapshot().receive;
-      if (handed === undefined) {
-        return;
-      }
-      connection.takeReceive();
+  const receivedRef = useRef<CastToReceive | undefined>(undefined);
+  const receive = useCallback(
+    (handed: CastToReceive) => {
       noteReturn(tabStorage(), {
         castId: handed.castId,
         route: navigation.route(),
         isReceiving: isReceivingRef.current,
       });
       isReceivingRef.current = true;
+      const received = receivedRef.current;
       const isSame = received?.castId === handed.castId && received.fileId === handed.fileId;
       if (!isSame || navigation.route().screen !== "play") {
         navigation.go({ screen: "play", fileId: handed.fileId });
       }
-      received = handed;
+      receivedRef.current = handed;
       setReceiving((current) =>
         current?.castId === handed.castId && current.fileId === handed.fileId ? current : handed,
       );
-    });
-  }, [connection, navigation]);
+    },
+    [navigation],
+  );
+  const { asked, answer, onAnswered } = useAsking(connection, isReceivingRef, receive);
   const endReceiving = useCallback(() => {
     isReceivingRef.current = false;
+    receivedRef.current = undefined;
     forgetReturn(tabStorage());
     setReceiving(undefined);
   }, []);
   const leaveReceiving = useCallback(() => {
     isReceivingRef.current = false;
+    receivedRef.current = undefined;
     const back = takeReturn(tabStorage());
     setReceiving(undefined);
+    leaveFullScreen(document);
     navigation.go(back);
   }, [navigation]);
-  return { receiving, endReceiving, leaveReceiving };
+  return { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving };
+}
+
+/**
+ * Takes each cast the connection hands: received at once (receive) while the tab receives one
+ * already, else asked about (D358 §1) and received once answered Play, with that answer.
+ */
+function useAsking(
+  connection: LiveConnection | undefined,
+  isReceivingRef: RefObject<boolean>,
+  receive: (handed: CastToReceive) => void,
+): Pick<Received, "asked" | "answer" | "onAnswered"> {
+  const [asked, setAsked] = useState<CastToReceive | undefined>(undefined);
+  const [answer, setAnswer] = useState<CastAnswer | undefined>(undefined);
+  const askedRef = useRef<CastToReceive | undefined>(undefined);
+  useEffect(() => {
+    if (connection === undefined) {
+      return undefined;
+    }
+    return connection.subscribe(() => {
+      const handed = connection.snapshot().receive;
+      if (handed === undefined) {
+        return;
+      }
+      connection.takeReceive();
+      if (isReceivingRef.current) {
+        receive(handed);
+        return;
+      }
+      askedRef.current = handed;
+      setAsked(handed);
+    });
+  }, [connection, isReceivingRef, receive]);
+  const onAnswered = useCallback(
+    (given: CastAnswer | undefined) => {
+      const answered = askedRef.current;
+      askedRef.current = undefined;
+      setAsked(undefined);
+      if (given !== undefined && answered !== undefined) {
+        setAnswer(given);
+        receive(answered);
+      }
+    },
+    [receive],
+  );
+  return { asked, answer, onAnswered };
 }
 
 const subscribeToNothing = (): (() => void) => () => undefined;

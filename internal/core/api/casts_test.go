@@ -292,3 +292,37 @@ func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
 		t.Errorf("the laptop's remote was told %q, want %q", reason, together.CastTakenBack)
 	}
 }
+
+// A receiver asks before it plays (D358): it is handed the film's name to ask with, and its Not now,
+// or a minute with no answer, ends the cast, its sender told which, so the sender, still playing, can
+// say so (§1, §3, §4).
+func TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.fileFilmAsTitle(t, "Metropolis")
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	for _, reason := range []string{together.CastDeclined, together.CastUnanswered} {
+		started := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
+		received := tvSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+			return each.Receive.CastID == started.CastID
+		}).Receive
+		if received.TitleName != "Metropolis" {
+			t.Fatalf("the TV was handed the film named %q; want Metropolis, to ask with", received.TitleName)
+		}
+		sender := harness.dialCast(t, started.MembershipCredential, together.RolePanel)
+		sender.awaitWelcome()
+		ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", started.CastID), tvToken,
+			map[string]string{"reason": reason})
+		if ended.status != http.StatusOK {
+			t.Fatalf("the TV's %s = %d %s", reason, ended.status, ended.body)
+		}
+		if told := sender.awaitEnded(); told != reason {
+			t.Errorf("the sender was told %q, want %q", told, reason)
+		}
+	}
+}

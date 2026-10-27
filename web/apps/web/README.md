@@ -54,7 +54,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A person casts only to their own devices open now, to the tab in front there, and the receiver
   keeps a television's controls** (D337, D338; plans/cast-to-device.md): every signed-in page holds a
   live connection (`src/live.tsx`) that says whether its tab is in front, and a cast handed to it
-  opens the film's Play page, noting the page it took the tab over from; the page leads the cast's
+  first asks "‹Device› wants to play ‹Film› here" (`src/cast-asked.tsx`, D358), Play focused for a
+  remote's OK: Play's press asks for the page full screen and opens the film's Play page, noting the
+  page it took the tab over from, the film's sound let play by that press; Not now, or a minute's
+  silence, ends the cast, the sender, still playing, saying so, and it hands its playback off only
+  once the receiver puts the film on; a cast replacing one received is received at once; should
+  the sound still be refused, the first key, click or tap turns it on, and does nothing else. The
+  page leads the cast's
   session of one from where the sender stood, fills the window and shows a television's player
   controls and a fading *Controlled from* line; its controls, media keys and seeks stay its own;
   Back (a Fire TV's history step too), or OK or a tap twice within 500 ms, leaves controlled mode,
@@ -66,9 +72,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   in front that one must be brought to the front, and is not offered while the tab hosts Watch
   Together; the remote (`/casting`) holds no player, commands the receiver, offers its film's *Up
   next*, follows the receiver to the next episode, and once the cast is over says why with *Play
-  here from*. `src/cast-to.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-return.test.ts`,
+  here from*. `src/cast-to.test.tsx`, `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`,
+  `src/cast-return.test.ts`,
   `src/cast-remote.test.tsx`; on
-  devices, VQ64–VQ66, VQ68 and VQ71.
+  devices, VQ64–VQ66, VQ68, VQ71 and VQ76.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.

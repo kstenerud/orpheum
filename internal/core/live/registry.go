@@ -313,7 +313,8 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 // receiveOf is the receive message of cast, by credential.
 func receiveOf(cast Cast, credential string) *Receive {
 	return &Receive{
-		CastID: cast.ID, Credential: credential, FileID: cast.FileID, PositionMs: cast.PositionMs,
+		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,
+		PositionMs:   cast.PositionMs,
 		FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
 	}
 }

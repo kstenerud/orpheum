@@ -2612,10 +2612,10 @@ export interface components {
         };
         EndCastInputBody: {
             /**
-             * @description takenBack on the receiver, stopped on the remote, filmEnded at the film's end
+             * @description takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)
              * @enum {string}
              */
-            reason: "takenBack" | "stopped" | "filmEnded";
+            reason: "takenBack" | "stopped" | "filmEnded" | "declined" | "unanswered";
         };
         EndCastOutputBody: {
             isPlaying: boolean;
