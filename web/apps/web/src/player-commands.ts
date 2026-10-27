@@ -146,11 +146,29 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
         isTaken = false;
       }
     };
+    // A press on the browser's own controls leaves focus on that button, inside the video, where
+    // Chrome presses it at Space before any page hears the key (the owner, 2026-10-27: the
+    // full-screen button left full screen). Focus goes back to the video itself after each, and
+    // after full screen changes, so Space is the player's.
+    const takeFocusBack = (): void => {
+      setTimeout(() => {
+        video.focus({ preventScroll: true });
+      }, 0);
+    };
+    const onFullscreenChange = (): void => {
+      if (document.activeElement === video) {
+        takeFocusBack();
+      }
+    };
     document.addEventListener("keydown", down, true);
     document.addEventListener("keyup", up, true);
+    video.addEventListener("click", takeFocusBack);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
       document.removeEventListener("keydown", down, true);
       document.removeEventListener("keyup", up, true);
+      video.removeEventListener("click", takeFocusBack);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
   }, [video]);
 }

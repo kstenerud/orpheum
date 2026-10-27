@@ -745,7 +745,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   it was on; a mouse move showed Chrome's controls; each side played on from the right place
   (`cause=castOver pageStartsAtMs=763013` at 14:07). Seen beside it, filed for the next batch: on
   Chrome's receiver neither a click on the video nor Space pauses it; only the pause button does.
-- [ ] **VQ78** — On Chrome on a computer, play a film on its ordinary Play page, click the video's
+- [x] **VQ78** — On Chrome on a computer, play a film on its ordinary Play page, click the video's
   own full-screen button, then press Space. Passes when Space pauses the film and Space again plays
   it, full screen staying as it is; Space on the video after a click on it does the same, and Space
   on a control under the player (a menu, a button) still presses that control. Then cast a film to
@@ -754,6 +754,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   the overlay's play button or its scrub bar); a double click still takes control back with the film
   playing on; with the sound refused, the first click only turns the sound on.
   (`web/apps/web/src/player-commands.ts`, `cast-receiver.tsx`)
+  Passed 2026-10-27 (the owner, staging): on a receiver a click pauses and plays, a double click takes
+  control back; on a computer Space pauses after the full-screen button, once focus went back to the
+  video after a press on its own controls (Chrome pressed the focused button before the page heard
+  Space).
 - [ ] **VQ79** — On the Fire TV stick in Silk's spatial mode, open a film's Play page so it opens out
   of full screen (as a reload of the Play page does). Passes when the player's overlay offers a
   full-screen button the remote moves to beside Play, whose OK puts the film full screen (the
