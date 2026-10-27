@@ -53,6 +53,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
+- **A chunked playback keeps its sound's place as its quality moves between audio groups**: the
+  top of a film's ladder plays its own sound in a group of its own, every group in one order
+  (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
+  matches one by name and channels (`keepAudioRendition`, `src/hls.ts`; idiosyncrasies.md).
+  `hls.test.ts`.
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.

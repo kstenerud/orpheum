@@ -47,6 +47,74 @@ func fragmentOf(decodeTime uint64, samples uint32, firstShownAfter int32) []byte
 	return append(boxOf("moof", boxOf("traf", boxOf("tfdt", tfdt), boxOf("trun", trun))), boxOf("mdat", []byte("x"))...)
 }
 
+// aacFrameTicks is how long an AAC frame lasts at its sample rate: 1024 samples.
+const aacFrameTicks = 1024
+
+// lastingFragmentOf is one moof and its mdat of samples each lasting an AAC frame, as FFmpeg writes a
+// sound's: the duration the fragment's default (tfhd), the trun naming each sample's size alone.
+func lastingFragmentOf(samples uint32) []byte {
+	const ticks = aacFrameTicks
+	tfhd := []byte{0, 0x02, 0, 0x08} // the base is the moof, and a default duration
+	tfhd = binary.BigEndian.AppendUint32(tfhd, 1)
+	tfhd = binary.BigEndian.AppendUint32(tfhd, ticks)
+	tfdt := append([]byte{1, 0, 0, 0}, binary.BigEndian.AppendUint64(nil, 0)...)
+	trun := []byte{0, 0, 0x02, 0x01} // a data offset, and each sample's size
+	trun = binary.BigEndian.AppendUint32(trun, samples)
+	trun = binary.BigEndian.AppendUint32(trun, 0)
+	for range samples {
+		trun = binary.BigEndian.AppendUint32(trun, 400)
+	}
+	traf := boxOf("traf", boxOf("tfhd", tfhd), boxOf("tfdt", tfdt), boxOf("trun", trun))
+	return append(boxOf("moof", traf), boxOf("mdat", []byte("x"))...)
+}
+
+// timedFragmentOf is one moof and its mdat whose trun names each sample's duration, as FFmpeg writes
+// one whose samples last unequally: a copied sound's first, moved a tick before the film.
+func timedFragmentOf(ticks ...uint32) []byte {
+	if len(ticks) > 1<<16 {
+		panic("a fragment of more samples than a test makes")
+	}
+	tfdt := append([]byte{1, 0, 0, 0}, binary.BigEndian.AppendUint64(nil, 0)...)
+	trun := []byte{0, 0, 0x03, 0x01}                               // a data offset, and each sample's duration and size
+	trun = binary.BigEndian.AppendUint32(trun, uint32(len(ticks))) //nolint:gosec // bounded above
+	trun = binary.BigEndian.AppendUint32(trun, 0)
+	for _, each := range ticks {
+		trun = binary.BigEndian.AppendUint32(trun, each)
+		trun = binary.BigEndian.AppendUint32(trun, 400)
+	}
+	return append(boxOf("moof", boxOf("traf", boxOf("tfdt", tfdt), boxOf("trun", trun))), boxOf("mdat", []byte("x"))...)
+}
+
+// initLastingOf is initOf whose track's samples last ticks by default (trex).
+func initLastingOf(timescale, ticks uint32) []byte {
+	trex := make([]byte, 24) // version and flags, track, description, duration, size, flags
+	binary.BigEndian.PutUint32(trex[4:], 1)
+	binary.BigEndian.PutUint32(trex[12:], ticks)
+	mdhd := make([]byte, 24)
+	binary.BigEndian.PutUint32(mdhd[12:], timescale)
+	return append(boxOf("ftyp", []byte("isom\x00\x00\x02\x00")),
+		boxOf("moov", boxOf("trak", boxOf("mdia", boxOf("mdhd", mdhd))), boxOf("mvex", boxOf("trex", trex)))...)
+}
+
+// Fragments last as long as their samples: each sample's own duration where the trun names it, else
+// the fragment's default, else the track's.
+func TestDuration_IsEachSamplesOwnOrTheFragmentsOrTheTracksDefault(t *testing.T) {
+	t.Parallel()
+	for name, each := range map[string]struct {
+		init, fragments []byte
+		want            int64
+	}{
+		"each its own":         {initOf(48000), timedFragmentOf(1, 1024, 1024), 2049},
+		"the fragment's":       {initOf(48000), lastingFragmentOf(94), 94 * 1024},
+		"the track's":          {initLastingOf(48000, 960), fragmentOf(0, 50, 0), 50 * 960},
+		"two fragments summed": {initOf(48000), append(lastingFragmentOf(2), timedFragmentOf(5, 6)...), 2059},
+	} {
+		if got, err := Duration(each.init, each.fragments); err != nil || got != each.want {
+			t.Errorf("%s: the fragments last %d, %v; want %d", name, got, err, each.want)
+		}
+	}
+}
+
 // rawOf is one raw file of FFmpeg's segment muxer: its init, its fragments and an mfra.
 func rawOf(timescale uint32, fragments ...[]byte) []byte {
 	raw := initOf(timescale)

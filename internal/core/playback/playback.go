@@ -250,6 +250,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryIDs: place.LibraryIDs,
 		deviceID: request.DeviceID, decision: decision,
 		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
+		ownSoundTracks:         ownSoundTracksOf(probe, request.PlayableFormats),
 		// A person who plays without levelling hears the film's sound unlevelled, carrying no gain
 		// for the player to take back out through Web Audio, whose latency, half a second on an
 		// Android TV, plays the sound that much later (the owner's TCL TV, 2026-10-24).
@@ -271,6 +272,18 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)
 	}
 	return service.issued(ctx, playback, probe, started, idle)
+}
+
+// ownSoundTracksOf are the file's audio tracks, by their place among them, a device of formats plays
+// as they are, which the top of the file's ladder plays copied (D368 §1, D336 §1).
+func ownSoundTracksOf(probe nodeproto.Probe, formats decide.PlayableFormats) []int {
+	var tracks []int
+	for index, stream := range decide.AudioStreams(probe) {
+		if decide.PlaysAsItIs(stream, formats) {
+			tracks = append(tracks, index)
+		}
+	}
+	return tracks
 }
 
 // isOwnPictureUnplayable is whether the asking player gave fileID's own picture up as unplayable on

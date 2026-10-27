@@ -81,8 +81,8 @@ func (film cutFilm) averageKbpsOf(stream Stream) int64 {
 	switch stream.Kind {
 	case nodeproto.StreamQuality:
 		return int64(stream.Quality.Kbps)
-	case nodeproto.StreamSound:
-		return int64(stream.SoundKbps)
+	case nodeproto.StreamSound, nodeproto.StreamSoundCopied:
+		return int64(film.soundKbpsOf(stream))
 	case nodeproto.StreamPicture:
 		return film.pictureAverageBps() / 1000
 	}
@@ -100,8 +100,8 @@ func (file StoreFile) StartMs() (int64, bool) { return file.startMs, !file.isIni
 // StreamName is the name of the file's stream, as a playback's master playlist names it.
 func (file StoreFile) StreamName() string { return file.stream.Name() }
 
-// IsSound is whether the file is of a sound rather than a picture.
-func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.StreamSound }
+// IsSound is whether the file is of a sound, made or copied, rather than a picture.
+func (file StoreFile) IsSound() bool { return file.stream.Kind.IsSound() }
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
 // or, for the init, from the chunk the playback is at. The film's runs no player wants stop first

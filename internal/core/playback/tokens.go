@@ -91,9 +91,15 @@ type tokenPlayback struct {
 	// without levelling, or its film's loudness was not measured when they were first offered. It
 	// keeps them so to its end.
 	isSoundUnlevelled bool
+	// isSoundUnmeasured is whether its film's sounds were first offered to it before its loudness was
+	// measured: none is made as loud as its track's own sound, to its end (chunks.Playback).
+	isSoundUnmeasured bool
 	// isOwnPictureUnplayable is whether its player, on an earlier playback of the film, gave up the
 	// film's own picture as one its device cannot play (D266): it is not offered (unplayablePictures).
 	isOwnPictureUnplayable bool
+	// ownSoundTracks are its film's audio tracks, by place, its device plays as they are: the top of
+	// its ladder, the film's own picture, plays them copied (D368 §1).
+	ownSoundTracks []int
 	// sound is the last file of a sound its player asked for, and hasSound whether it asked for one:
 	// the sound a jump's picture is made alongside (SoundOf).
 	sound    chunks.StoreFile
@@ -201,6 +207,7 @@ func (all *tokens) keep(token string, holder Holder, kept chunks.Kept) {
 	if known, found := all.playbackByToken[token]; found && known.isHeldBy(holder) {
 		known.isOnTime = known.isOnTime || kept.IsOnTime
 		known.isSoundUnlevelled = known.isSoundUnlevelled || kept.IsSoundUnlevelled
+		known.isSoundUnmeasured = known.isSoundUnmeasured || kept.IsSoundUnmeasured
 	}
 }
 

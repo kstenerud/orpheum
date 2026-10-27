@@ -73,11 +73,34 @@ func DirectLevelling(levels Levels, probe nodeproto.Probe) Levelling {
 	if !found {
 		return Levelling{}
 	}
+	return asItIs(levels, main)
+}
+
+// asItIs is the levelling of an audio track played as it is: as its multichannel sound when it has
+// more than two channels, which the device mixes down itself, else as stereo.
+func asItIs(levels Levels, track nodeproto.ProbeStream) Levelling {
 	mix := MixStereo
-	if main.Audio.ChannelCount > 2 {
+	if track.Audio.ChannelCount > 2 {
 		mix = MixMultichannel
 	}
-	return levels[SoundKey{int64(main.StreamIndex), mix}]
+	return levels[SoundKey{int64(track.StreamIndex), mix}]
+}
+
+// OwnLevelGainDB is the gain that makes a file's audio track's stereo mix, by its place among the
+// tracks, as loud as the track played as it is: the stereo mix's levelling less the track's own, so
+// a player stepping from the track copied to the mix hears one level (D368 §1); zero for a place it
+// lacks, or a sound not measured.
+func OwnLevelGainDB(levels Levels, probe nodeproto.Probe, audioTrackIndex int) float64 {
+	tracks := AudioStreams(probe)
+	if audioTrackIndex >= len(tracks) {
+		return 0
+	}
+	own := asItIs(levels, tracks[audioTrackIndex])
+	stereo := StereoLevelling(levels, probe, audioTrackIndex)
+	if !own.IsMeasured || !stereo.IsMeasured {
+		return 0
+	}
+	return math.Round((stereo.GainDB-own.GainDB)*10) / 10
 }
 
 // StereoLevelling is the levelling of a file's audio track, by its place among its audio tracks, as

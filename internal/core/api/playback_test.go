@@ -387,8 +387,8 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	asked := chrome(2)
 	asked["cause"], asked["pageStarts"], asked["startsAtMs"] = "subtitleFetched", 3, 166502
 	decided := harness.play(t, user, asked)
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
-		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"ladder"`,
+		`"decidedDelivery":"hls"`, `"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
 		// what made the page ask, how many it asked for, and where it goes on from, not the resume
 		// position (staging, 2026-10-26)
 		`"cause":"subtitleFetched"`, `"pageStarts":3`, `"pageStartsAtMs":166502`,

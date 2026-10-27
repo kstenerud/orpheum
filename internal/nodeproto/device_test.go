@@ -56,11 +56,11 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 }
 
 // A run of chunks holds an encode slot when it encodes a quality, and a remux slot when it copies
-// the picture or makes a sound (D247 §10).
+// the picture or a sound, or makes a sound (D247 §10, D368 §1).
 func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.T) {
 	t.Parallel()
 	for kind, want := range map[ChunkStreamKind]Slot{
-		StreamQuality: SlotEncode, StreamPicture: SlotRemux, StreamSound: SlotRemux,
+		StreamQuality: SlotEncode, StreamPicture: SlotRemux, StreamSound: SlotRemux, StreamSoundCopied: SlotRemux,
 	} {
 		if got := (Work{MakeChunks: &MakeChunks{Stream: ChunkStream{Kind: kind}}}).Slot(); got != want {
 			t.Errorf("a run of a %s holds %q, want %q", kind, got, want)

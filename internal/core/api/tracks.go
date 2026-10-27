@@ -17,12 +17,13 @@ type TracksBody struct {
 
 // PictureTrackBody is a picture a playback may play.
 type PictureTrackBody struct {
-	Stream     string `doc:"Its stream on the film's ladder, as the player's level names it; absent off it" json:"stream,omitempty"` //nolint:lll // one struct tag
-	Codec      string `doc:"ffprobe's name for it: hevc, h264, av1 ..." json:"codec"`
-	Width      int    `doc:"0 when not known" json:"width"`
-	Height     int    `doc:"0 when not known" json:"height"`
-	Kbps       int64  `doc:"Its average rate; 0 when not known" json:"kbps"`
-	IsOriginal bool   `doc:"Whether it is the file's own, played as it is" json:"isOriginal"`
+	Stream     string           `doc:"Its stream on the film's ladder, as the player's level names it; absent off it" json:"stream,omitempty"` //nolint:lll // one struct tag
+	Codec      string           `doc:"ffprobe's name for it: hevc, h264, av1 ..." json:"codec"`
+	Width      int              `doc:"0 when not known" json:"width"`
+	Height     int              `doc:"0 when not known" json:"height"`
+	Kbps       int64            `doc:"Its average rate; 0 when not known" json:"kbps"`
+	IsOriginal bool             `doc:"Whether it is the file's own, played as it is" json:"isOriginal"`
+	Sounds     []SoundTrackBody `doc:"The sounds it plays where they are not the ladder's (sounds), in their order: the top's, its tracks' own copied; absent for every other picture" json:"sounds,omitempty"` //nolint:lll // one struct tag
 }
 
 // SoundTrackBody is a sound a playback may play: one of the file's audio tracks, as it is or
@@ -50,11 +51,22 @@ type FileSoundBody struct {
 	ChannelCount    int    `json:"channelCount"`
 }
 
+// soundTrackBodies are sounds as the API says them; nil for none.
+func soundTrackBodies(sounds []playback.SoundTrack) []SoundTrackBody {
+	var bodies []SoundTrackBody
+	for _, sound := range sounds {
+		bodies = append(bodies, SoundTrackBody{
+			AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted, Codec: sound.Codec,
+			ChannelCount: sound.ChannelCount, Kbps: sound.Kbps, IsOriginal: sound.IsOriginal,
+		})
+	}
+	return bodies
+}
+
 // tracksBody is a playback's tracks, as the API says them.
 func tracksBody(tracks playback.Tracks) TracksBody {
 	body := TracksBody{
 		Pictures: make([]PictureTrackBody, 0, len(tracks.Pictures)),
-		Sounds:   make([]SoundTrackBody, 0, len(tracks.Sounds)),
 		FilePicture: FilePictureBody{
 			Codec: tracks.FilePicture.Codec, Width: tracks.FilePicture.Width, Height: tracks.FilePicture.Height,
 		},
@@ -63,14 +75,12 @@ func tracksBody(tracks playback.Tracks) TracksBody {
 	for _, picture := range tracks.Pictures {
 		body.Pictures = append(body.Pictures, PictureTrackBody{
 			Stream: picture.Stream, Codec: picture.Codec, Width: picture.Width, Height: picture.Height,
-			Kbps: picture.Kbps, IsOriginal: picture.IsOriginal,
+			Kbps: picture.Kbps, IsOriginal: picture.IsOriginal, Sounds: soundTrackBodies(picture.Sounds),
 		})
 	}
-	for _, sound := range tracks.Sounds {
-		body.Sounds = append(body.Sounds, SoundTrackBody{
-			AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted, Codec: sound.Codec,
-			ChannelCount: sound.ChannelCount, Kbps: sound.Kbps, IsOriginal: sound.IsOriginal,
-		})
+	body.Sounds = soundTrackBodies(tracks.Sounds)
+	if body.Sounds == nil {
+		body.Sounds = []SoundTrackBody{}
 	}
 	for _, sound := range tracks.FileSounds {
 		body.FileSounds = append(body.FileSounds, FileSoundBody{

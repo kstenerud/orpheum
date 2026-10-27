@@ -97,7 +97,9 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	harness.measureFilmOnesLoudness(t)
 	fresh := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
-	checkFilmOnesMaster(t, harness.getBytePath(t, fresh+"master.m3u8", user, true, ""), "sound0-96k")
+	// Film 1's stereo AAC, which Chrome plays as it is, is copied at the top; its light track, once
+	// the loudness is measured, is made as loud as it (D368 §1).
+	checkFilmOnesMaster(t, harness.getBytePath(t, fresh+"master.m3u8", user, true, ""), "sound0-96k-ownlevel")
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	if raw := harness.getBytePath(t, base+"sound0-96k-raw/stream.m3u8", user, true, ""); raw.status != http.StatusOK {
 		t.Errorf("the unlevelled sound's playlist, once the loudness is measured: %d %s; want it still", raw.status,
@@ -105,24 +107,48 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 	}
 }
 
-// A person who plays without levelling is offered the film's sound unlevelled, though its loudness is
-// measured: it carries no gain for the player to take back out through Web Audio, whose latency
-// plays the sound later on an Android TV (the owner's TCL TV, 2026-10-24).
+// A person who plays without levelling is offered the film's sound carrying no levelling, though its
+// loudness is measured: nothing for the player to take back out through Web Audio, whose latency
+// plays the sound later on an Android TV (the owner's TCL TV, 2026-10-24). A player that cannot play
+// the film's own sound is offered its mix unlevelled; one that plays it copied at the top, its mix as
+// loud as it, levelling or not, which its player then levels as it levels the copy, by the decision's
+// levelling, or not at all (D368 §1).
 func TestChunks_APersonWithoutLevellingIsOfferedTheSoundUnlevelled(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
 	harness.keepFilmOnesTimeline(t)
 	harness.measureFilmOnesLoudness(t)
-	levelled := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
-	checkFilmOnesMaster(t, harness.getBytePath(t, levelled+"master.m3u8", user, true, ""), "sound0-96k")
+	master := func(started decision) byteAnswer {
+		path := api.Prefix + "/bytes/media/chunks/" + started.MediaToken + "/master.m3u8"
+		return harness.getBytePath(t, path, user, true, "")
+	}
+	copied := master(harness.play(t, user, chrome(1)))
+	checkFilmOnesMaster(t, copied, "sound0-96k-ownlevel")
+	checkStartingSound(t, copied, "sound0-own")
 	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent && answer.status != http.StatusOK {
 		t.Fatalf("PUT /me/preferences: %d %s", answer.status, answer.body)
 	}
-	unlevelled := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
-	checkFilmOnesMaster(t, harness.getBytePath(t, unlevelled+"master.m3u8", user, true, ""), "sound0-96k-raw")
+	unlevelled := master(harness.play(t, user, chrome(1)))
+	checkFilmOnesMaster(t, unlevelled, "sound0-96k-ownlevel")
+	checkStartingSound(t, unlevelled, "sound0-own")
+	// A player that gave the film's own picture up starts at its twin, which plays the mix, unlevelled.
+	twin := chrome(1)
+	twin["hasGivenUpOwnPicture"] = true
+	checkStartingSound(t, master(harness.play(t, user, twin)), "sound0-96k-raw")
+}
+
+// checkStartingSound fails the test unless a master playlist starts its top on sound's stream.
+func checkStartingSound(t *testing.T, master byteAnswer, sound string) {
+	t.Helper()
+	first := strings.Index(master.body, "DEFAULT=YES")
+	if master.status != http.StatusOK || first < 0 ||
+		!strings.HasPrefix(master.body[first:], `DEFAULT=YES,AUTOSELECT=YES,CHANNELS="2",URI="`+sound+`/stream.m3u8"`) {
+		t.Errorf("the master playlist: %d\n%s\nwant its top to start on %s", master.status, master.body, sound)
+	}
 }
 
 // A playback whose sound was offered unlevelled keeps it so: once the film's loudness is measured,

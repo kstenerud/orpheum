@@ -161,11 +161,14 @@ func (fakeNode) NodeConnection(context.Context, int64) (nodes.Connection, time.T
 	return nodes.Connected, time.Time{}
 }
 
-// fakeLoudness levels film 1's first audio track, stream 1, as stereo by -3.5 dB.
+// fakeLoudness levels film 1's first audio track, stream 1, as stereo by -3.5 dB and as it is, 5.1, by -6.
 type fakeLoudness struct{}
 
 func (fakeLoudness) Levels(context.Context, []byte) (decide.Levels, error) {
-	return decide.Levels{{StreamIndex: 1, Mix: decide.MixStereo}: {IsMeasured: true, GainDB: -3.5}}, nil
+	return decide.Levels{
+		{StreamIndex: 1, Mix: decide.MixStereo}:       {IsMeasured: true, GainDB: -3.5},
+		{StreamIndex: 1, Mix: decide.MixMultichannel}: {IsMeasured: true, GainDB: -6},
+	}, nil
 }
 
 // fakeReadThrough counts the read-throughs asked for at play priority.

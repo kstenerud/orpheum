@@ -849,3 +849,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   The status tray's signs, now 2.75rem wide, are looked at for how they feel (the owner, 2026-10-27).
   (`web/apps/web/src/page-controls.tsx`, `player-controls.tsx`, `timeline.tsx`, `icon-button.tsx`,
   `tv-controls.tsx`, `cast-remote.tsx`)
+- [ ] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
+  E-AC-3) and a stereo one. Passes when each starts at the top on its own sound (the tracks note says
+  "E-AC-3 5.1 (original)" or "AAC stereo (original)", and the core's `a playback started` line says
+  `delivery=ladder`, `ladderQuality=picture`, `ladderSound=sound0-own`); a forced step down to a lower
+  quality and back up (DevTools throttling, with "Bypass for network" on: idiosyncrasies.md) switches the sound to
+  the light stereo track and back, the same track and the same mix, with no jump in loudness; and the
+  dialogue boost turned on at the top plays the boosted mix, kept as the quality steps. Note whether a
+  blip is heard at each switch, and on which device. (`internal/core/chunks/ownsound.go`,
+  `internal/node/chunks/arguments.go`, `web/packages/player/src/hls.ts`)

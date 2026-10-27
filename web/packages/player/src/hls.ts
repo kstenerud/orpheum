@@ -98,6 +98,49 @@ export function startWithAudio(hls: AudioStart, audioIndex: number): void {
   });
 }
 
+/** What keeping the audio rendition's place across audio groups needs of hls.js. */
+export interface AudioKeeping {
+  on: ((
+    event: typeof Hls.Events.AUDIO_TRACKS_UPDATED,
+    listener: (event: unknown, data: { readonly audioTracks: readonly unknown[] }) => void,
+  ) => void) &
+    ((
+      event: typeof Hls.Events.AUDIO_TRACK_SWITCHED,
+      listener: (event: unknown, data: { readonly id: number }) => void,
+    ) => void);
+  audioTrack: number;
+}
+
+/**
+ * Keeps the audio rendition at its place, startIndex until another plays, as the quality playing
+ * moves between audio groups: a film's top quality plays its own sound in a group of its own, every
+ * group listing its sounds in one order (D368 §3), and hls.js, matching a rendition across groups by
+ * its name and channels, would take the first of its language for a copied 5.1 one, the standard
+ * mix for the boosted. Returns the choosing of another rendition, which it keeps from then on.
+ */
+export function keepAudioRendition(
+  hls: AudioKeeping,
+  startIndex: number | undefined,
+): (index: number) => void {
+  let kept = startIndex;
+  hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_event, data) => {
+    kept = data.id;
+  });
+  // A group's tracks are listed before hls.js chooses one of them: a rendition chosen then is the
+  // one it plays.
+  hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_event, data) => {
+    if (kept !== undefined && kept < data.audioTracks.length && hls.audioTrack !== kept) {
+      // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
+      hls.audioTrack = kept;
+    }
+  });
+  return (index) => {
+    kept = index;
+    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
+    hls.audioTrack = index;
+  };
+}
+
 /** What telling the player's own moves needs of hls.js. */
 export interface OwnMoves {
   on: (

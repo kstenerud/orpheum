@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -98,7 +99,7 @@ func check(command nodeproto.MakeChunks) error {
 			return fmt.Errorf("%w: bounds not rising at %d", ErrBadRun, index)
 		}
 	}
-	isSound := command.Stream.Kind == nodeproto.StreamSound
+	isSound := command.Stream.Kind.IsSound()
 	if isSound != (command.Stream.Sound != nil) {
 		return fmt.Errorf("%w: a %s stream with a sound of %v", ErrBadRun,
 			command.Stream.Kind, command.Stream.Sound)
@@ -272,12 +273,13 @@ func (taker *rawTaker) take(line string) error {
 	if spanErr := checkSpan(command, entry, number == lastOfRun && taker.hasEndedCleanly); spanErr != nil {
 		return spanErr
 	}
-	return taker.makeChunk(name, number)
+	return taker.makeChunk(entry)
 }
 
-// makeChunk makes raw file number, named name, into its chunk, at its time in the film, putting the
-// store's init first if the run has not; a sound's lead-in is counted and dropped.
-func (taker *rawTaker) makeChunk(name string, number int) error {
+// makeChunk makes a listed raw file into its chunk, at its time in the film, putting the store's
+// init first if the run has not; a sound's lead-in is counted and dropped.
+func (taker *rawTaker) makeChunk(entry listed) error {
+	name, number := entry.name, entry.number
 	command := taker.command
 	raw, err := os.ReadFile(filepath.Join(taker.rawPath, name)) //nolint:gosec // a raw file's name, checked above
 	if err != nil {
@@ -291,7 +293,7 @@ func (taker *rawTaker) makeChunk(name string, number int) error {
 	if err != nil {
 		return fmt.Errorf("raw %s: %w", name, err)
 	}
-	start, err := taker.startTicks(number, fragments, int64(scale))
+	start, err := taker.startTicks(entry, init, fragments, int64(scale))
 	if err != nil {
 		return fmt.Errorf("raw %s: %w", name, err)
 	}
@@ -318,12 +320,23 @@ func (taker *rawTaker) makeChunk(name string, number int) error {
 	return nil
 }
 
-// startTicks is where raw file number's first sample is decoded in the film, in its track's ticks.
+// startTicks is where a listed raw file's first sample is decoded in the film, in its track's ticks.
 // A picture's chunk starts with its keyframe, shown at its bound: it is decoded that much earlier
 // as its composition offset says. A sound's starts after the run's samples before it, from the
-// run's start less the encoder's priming; it counts this file's samples for the next.
-func (taker *rawTaker) startTicks(number int, fragments []byte, scale int64) (int64, error) {
-	command := taker.command
+// run's start less the encoder's priming; it counts this file's samples for the next. A sound
+// copied ends where the muxer lists it ending, at the source's own time in the film, the next
+// packet's or its last's end (copiedSoundTimes), and starts as long before that as its samples last:
+// the list's start of a run's first file is not a packet's, and its first packet's time is moved.
+func (taker *rawTaker) startTicks(entry listed, init, fragments []byte, scale int64) (int64, error) {
+	command, number := taker.command, entry.number
+	if command.Stream.Kind == nodeproto.StreamSoundCopied {
+		lasting, err := Duration(init, fragments)
+		if err != nil {
+			return 0, err
+		}
+		endTicks := int64(math.Round((entry.endSeconds + TimelineOffsetMs/1000.0) * float64(scale)))
+		return endTicks - lasting, nil
+	}
 	if command.Stream.Kind != nodeproto.StreamSound {
 		shownAfter, err := FirstShownAfterDecode(fragments)
 		if err != nil {

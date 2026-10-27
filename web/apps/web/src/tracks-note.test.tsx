@@ -66,6 +66,42 @@ describe("the tracks a film plays (the owner, 2026-10-20)", () => {
     expect(lower).toContain("Audio: AAC stereo, 96 kb/s (transcoded from E-AC-3 5.1)");
   });
 
+  it("names the film's own sound, copied, where the top of its ladder plays it (D368 §1)", () => {
+    const ownSound = {
+      audioTrackIndex: 0,
+      isBoosted: false,
+      codec: "eac3",
+      channelCount: 6,
+      kbps: 0,
+      isOriginal: true,
+    };
+    const tracks = {
+      ...scopeFilm,
+      pictures: scopeFilm.pictures.map((picture) =>
+        picture.stream === "picture"
+          ? {
+              ...picture,
+              sounds: [ownSound, ...scopeFilm.sounds.filter((sound) => sound.isBoosted)],
+            }
+          : picture,
+      ),
+    };
+    const atTheTop = renderToStaticMarkup(
+      <TracksNote tracks={tracks} height={696} sound={{ audioTrackIndex: 0, isBoosted: false }} />,
+    );
+    expect(atTheTop).toContain("Audio: E-AC-3 5.1 (original)");
+    const boosted = renderToStaticMarkup(
+      <TracksNote tracks={tracks} height={696} sound={{ audioTrackIndex: 0, isBoosted: true }} />,
+    );
+    expect(boosted).toContain(
+      "Audio: AAC stereo, 96 kb/s (transcoded from E-AC-3 5.1, dialogue boost)",
+    );
+    const below = renderToStaticMarkup(
+      <TracksNote tracks={tracks} height={540} sound={{ audioTrackIndex: 0, isBoosted: false }} />,
+    );
+    expect(below).toContain("Audio: AAC stereo, 96 kb/s (transcoded from E-AC-3 5.1)");
+  });
+
   it("names a file played as it is original throughout, and says nothing without tracks", () => {
     const direct = renderToStaticMarkup(
       <TracksNote

@@ -169,7 +169,7 @@ func makeInTwoRuns(
 				}
 			}
 		}
-		if stream.Kind == nodeproto.StreamSound && first > 0 {
+		if stream.Kind.IsSound() && first > 0 {
 			command.SoundLeadInMs = grid[first-1]
 		}
 		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
@@ -247,6 +247,126 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	if len(times) == 0 || math.Abs(times[0]-(offset-frame)) > 0.002 || times[len(times)-1] < offset+11.9 {
 		t.Errorf("the sound runs from %.4f to %.4f s; want from its priming, a frame before the film, to the end",
 			times[0], times[len(times)-1])
+	}
+}
+
+// filmWithSound is film, a keyframe every two seconds, with its sound in codec, of so many channels.
+func filmWithSound(t *testing.T, runner *execx.Runner, codec string, channels int) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "a film in "+codec+" of "+strconv.Itoa(channels)+" channels (2020).mp4")
+	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
+		"-v", "error",
+		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
+		"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+		"-c:v", "libx264", "-preset", "fast", "-bf", "2", "-g", "48", "-keyint_min", "48", "-sc_threshold", "0",
+		"-c:a", codec, "-ac", strconv.Itoa(channels), "file:" + path,
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// packetHashes are the SHA-256 of each packet of stream, in decode order: its bytes, bit for bit.
+func packetHashes(t *testing.T, runner *execx.Runner, path, stream string) []string {
+	t.Helper()
+	listed, err := runner.Run(t.Context(), execx.FFprobe, confine.Access{}, []string{
+		"-v", "error", "-select_streams", stream, "-show_data_hash", "SHA256", "-show_entries", "packet=data_hash",
+		"-of", "csv=p=0", "file:" + path,
+	}, 16<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hashes []string
+	for line := range strings.Lines(string(listed)) {
+		if hash := strings.Trim(strings.TrimSpace(line), ","); hash != "" {
+			hashes = append(hashes, hash)
+		}
+	}
+	return hashes
+}
+
+// streamFacts are a file's first stream's codec and channels, as ffprobe says them.
+func streamFacts(t *testing.T, runner *execx.Runner, path string) string {
+	t.Helper()
+	listed, err := runner.Run(t.Context(), execx.FFprobe, confine.Access{}, []string{
+		"-v", "error", "-select_streams", "0", "-show_entries", "stream=codec_name,channels", "-of", "csv=p=0",
+		"file:" + path,
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Trim(strings.TrimSpace(string(listed)), ",")
+}
+
+// A sound copied, made in two runs far apart, is the film's own, every channel: its packets the
+// source's, bit for bit, each once, at the source's times in the film, of a 5.1 AAC film, a stereo one
+// and a 5.1 AC-3 one alike, but the first, an AAC's priming before the film, a tick before its next
+// (copiedSoundTimes); the light track made of the same 5.1 film is stereo AAC, its packets none of the
+// source's (D368 §1, §2).
+func TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	offset := float64(chunks.TimelineOffsetMs) / 1000
+	for fileID, sound := range map[int]struct {
+		codec    string
+		channels int
+	}{1: {"aac", 6}, 2: {"aac", 2}, 4: {"ac3", 6}} {
+		channels := sound.channels
+		source := filmWithSound(t, runner, sound.codec, channels)
+		grid := keyframeGrid(t, runner, source)
+		storeDir := strconv.Itoa(fileID) + "/chunks-sound0-own/0123456789abcdef"
+		makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{
+			Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: channels},
+		})
+		stored := joined(t, filepath.Join(directory, storeDir), len(grid)-1)
+		if facts, want := streamFacts(t, runner, stored), sound.codec+","+strconv.Itoa(channels); facts != want {
+			t.Errorf("%d channels: the copy is %s, want %s", channels, facts, want)
+		}
+		got, want := packetHashes(t, runner, stored, "0"), packetHashes(t, runner, source, "a:0")
+		if !slices.Equal(got, want) {
+			t.Errorf("%d channels: the copy's %d packets are not the film's %d, bit for bit, each once",
+				channels, len(got), len(want))
+		}
+		times := packetTimes(t, runner, filepath.Join(directory, storeDir), len(grid)-1)
+		filmTimes := sourceTimes(t, runner, source, "a:0", false)
+		if len(times) != len(filmTimes) || len(times) < 2 || math.Abs(times[0]-offset) > 0.002 || times[0] >= times[1] {
+			t.Fatalf("%d channels: %d packets from %v s; want the film's %d from its start, offset, in order",
+				channels, len(times), times[:min(2, len(times))], len(filmTimes))
+		}
+		for index := 1; index < len(times); index++ {
+			if got, want := times[index]-times[1], filmTimes[index]-filmTimes[1]; math.Abs(got-want) > 0.001 {
+				t.Errorf("%d channels: packet %d is at %.4f s into the sound, want the film's %.4f s",
+					channels, index, got, want)
+				break
+			}
+		}
+	}
+	surround := filmWithSound(t, runner, "aac", 6)
+	grid := keyframeGrid(t, runner, surround)
+	lightStore := "3/chunks-sound0-96k/0123456789abcdef"
+	makeInTwoRuns(t, maker, surround, lightStore, grid, nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
+	})
+	light := joined(t, filepath.Join(directory, lightStore), len(grid)-1)
+	if facts := streamFacts(t, runner, light); facts != "aac,2" {
+		t.Errorf("the light track is %s, want stereo AAC", facts)
+	}
+	own := map[string]bool{}
+	for _, hash := range packetHashes(t, runner, surround, "a:0") {
+		own[hash] = true
+	}
+	for _, hash := range packetHashes(t, runner, light, "0") {
+		if own[hash] {
+			t.Fatal("the light track holds a packet of the film's own sound; want it made")
+		}
 	}
 }
 

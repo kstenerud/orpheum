@@ -114,6 +114,9 @@ var wireShapeByVersion = map[int]string{
 	// 52 adds the hash_whole command and its answer, a file's every byte hashed: D116's whole-file
 	// pass, run for a candidate copy alone (D363 §2). A node of 51 would refuse it.
 	52: "815a96b4107015bd0d07faa379797253ecc4f36a6159835564917143b3b3d5f6",
+	// 53 adds a run of a sound copied as it is, the stream kind soundCopied (D368 §1), which a node of
+	// 52 would refuse; the fields are unchanged.
+	53: "815a96b4107015bd0d07faa379797253ecc4f36a6159835564917143b3b3d5f6",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -3,43 +3,56 @@
 package chunks
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
 
 // variant is one picture a master playlist offers: its stream's playlist, its peak and average bit
-// rates with the sound's, the average zero when not known, and its picture's size, zero when not
-// known.
+// rates with the sound's, the average zero when not known, its picture's size, zero when not known,
+// and the audio group it plays.
 type variant struct {
 	uri                               string
 	bandwidthBps, averageBandwidthBps int64
 	width, height                     int
+	soundGroup                        string
 }
 
-// soundMedia is one sound a master playlist offers, in the audio group every picture plays with.
+// soundGroup is one audio group a master playlist offers: its id and its sounds.
+type soundGroup struct {
+	id     string
+	sounds []soundMedia
+}
+
+// soundMedia is one sound a master playlist offers, in an audio group.
 type soundMedia struct {
 	uri, name, language string
+	// channels is how many channels it plays.
+	channels int
 	// isDefault is the sound a player starts with: the playback's starting track's standard mix.
 	isDefault bool
 }
 
 // masterPlaylist is the master playlist of a film cut into chunks (chunks.md §3): each sound a
-// rendition of the group "audio", stereo, the default one also chosen automatically; then each
-// picture, highest first, with its bit rates and size. CODECS is left out: our encodes' H.264
-// profile and level and a copied picture's are not known for sure, and a CODECS naming only the
-// sound would say a picture is sound alone (RFC 8216 §4.3.4.2).
-func masterPlaylist(sounds []soundMedia, variants []variant) string {
+// rendition of its group, with its channels, the default one also chosen automatically; then each
+// picture, highest first, with its bit rates and size, naming the group it plays (D368 §3). CODECS
+// is left out: our encodes' H.264 profile and level and a copied picture's are not known for sure, and
+// a CODECS naming only the sound would say a picture is sound alone (RFC 8216 §4.3.4.2).
+func masterPlaylist(groups []soundGroup, variants []variant) string {
 	var text strings.Builder
 	text.WriteString("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n")
-	for _, sound := range sounds {
-		isDefault := "NO"
-		if sound.isDefault {
-			isDefault = "YES"
+	for _, group := range groups {
+		for _, sound := range group.sounds {
+			isDefault := "NO"
+			if sound.isDefault {
+				isDefault = "YES"
+			}
+			text.WriteString(`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="` + group.id + `",NAME="` + sound.name +
+				`",LANGUAGE="` + sound.language + `",DEFAULT=` + isDefault + `,AUTOSELECT=` + isDefault +
+				`,CHANNELS="` + strconv.Itoa(sound.channels) + `",URI="` + sound.uri + "\"\n")
 		}
-		text.WriteString(`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="` + sound.name + `",LANGUAGE="` +
-			sound.language + `",DEFAULT=` + isDefault + `,AUTOSELECT=` + isDefault + `,CHANNELS="2",URI="` +
-			sound.uri + "\"\n")
 	}
+	hasSound := slices.ContainsFunc(groups, func(group soundGroup) bool { return len(group.sounds) > 0 })
 	for _, picture := range variants {
 		text.WriteString("#EXT-X-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(picture.bandwidthBps, 10))
 		if picture.averageBandwidthBps > 0 {
@@ -48,8 +61,8 @@ func masterPlaylist(sounds []soundMedia, variants []variant) string {
 		if picture.width > 0 && picture.height > 0 {
 			text.WriteString(",RESOLUTION=" + strconv.Itoa(picture.width) + "x" + strconv.Itoa(picture.height))
 		}
-		if len(sounds) > 0 {
-			text.WriteString(`,AUDIO="audio"`)
+		if hasSound {
+			text.WriteString(`,AUDIO="` + picture.soundGroup + `"`)
 		}
 		text.WriteString("\n" + picture.uri + "\n")
 	}

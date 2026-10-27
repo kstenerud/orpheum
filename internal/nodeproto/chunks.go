@@ -22,17 +22,23 @@ const (
 	StreamQuality ChunkStreamKind = "quality"
 	// StreamSound is one audio track's stereo mix, standard or with the dialogue boost.
 	StreamSound ChunkStreamKind = "sound"
+	// StreamSoundCopied is one audio track as it is, copied, every channel (D368 §1).
+	StreamSoundCopied ChunkStreamKind = "soundCopied"
 )
 
+// IsSound is whether the kind is a sound, made or copied: a run of either names its track (Sound) and
+// starts a chunk early, which it drops (MakeChunks.SoundLeadInMs).
+func (kind ChunkStreamKind) IsSound() bool { return kind == StreamSound || kind == StreamSoundCopied }
+
 // ChunkStream is one stream's recipe. A quality's fields are set for StreamQuality, a sound's for
-// StreamSound, and none for StreamPicture.
+// StreamSound, its track alone for StreamSoundCopied, and none for StreamPicture.
 type ChunkStream struct {
 	Kind ChunkStreamKind `json:"kind"`
 	// BitRateKbps and Height are a quality's: its average bit rate and its picture's height, the
 	// width following the source's shape.
 	BitRateKbps int `json:"bitRateKbps,omitempty"`
 	Height      int `json:"height,omitempty"`
-	// Sound is a sound's: the track and its mix (D217 §3).
+	// Sound is a sound's: the track and its mix (D217 §3); a copied sound's track alone.
 	Sound *SoundTrack `json:"sound,omitempty"`
 	// IsBoosted is whether a sound is the dialogue boost's mix.
 	IsBoosted bool `json:"isBoosted,omitempty"`
@@ -58,7 +64,8 @@ type MakeChunks struct {
 	BoundsMs []int64 `json:"boundsMs"`
 	// SoundLeadInMs is, for a sound run past the film's first chunk, the start of the chunk before
 	// FirstChunk: the run starts its sound there and drops that chunk, which carries the encoder's
-	// priming (slow-links.md §10). Zero otherwise.
+	// priming (slow-links.md §10), or, for a sound copied, what FFmpeg copies from before its seek, so
+	// its first chunk starts where the run before it ended (D368 §1). Zero otherwise.
 	SoundLeadInMs int64 `json:"soundLeadInMs,omitempty"`
 	// PictureSeekMs is, for a copied picture, where FFmpeg is told to seek: past the run's first
 	// keyframe, before the next, or, with IsPictureSeekBeforeKeyframe, at or before it. FFmpeg lands

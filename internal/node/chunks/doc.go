@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package chunks makes runs of chunks: one stream of a film, the copied picture, a quality or a
-// sound, cut at the film's grid and written into a store in the node's prepared directory, chunk by
-// chunk, each at its time in the film (D247 §10; plans/chunks.md §2). A run is one FFmpeg command
-// through execx, whose segment muxer writes raw fragmented MP4 files; each, once FFmpeg lists it
-// finished, is split into the store's init and the chunk, its decode times moved to the film's.
+// Package chunks makes runs of chunks: one stream of a film, the copied picture, a quality, a
+// sound made or a sound copied, cut at the film's grid and written into a store in the node's
+// prepared directory, chunk by chunk, each at its time in the film (D247 §10; plans/chunks.md §2).
+// A run is one FFmpeg command through execx, whose segment muxer writes raw fragmented MP4 files;
+// each, once FFmpeg lists it finished, is split into the store's init and the chunk, its decode
+// times moved to the film's.
 //
 // # Invariants
 //
@@ -46,6 +47,17 @@
 //     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg,
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes and
 //     TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole.
+//   - A sound copied is the film's own track, every channel, packet for packet: run from a lead-in,
+//     at the film's own times, its first packet put a tick before the film so the muxer, which counts
+//     its cuts from a run's first packet, cuts every run at the same packets; each chunk is placed by
+//     its listed end less its samples, and the init waits for the first packet, as AC-3 needs
+//     (D368 §1, idiosyncrasies.md). Enforced by
+//     TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds,
+//     TestMake_TimesACopiedSoundByItsListedEndInTheFilm and
+//     TestDuration_IsEachSamplesOwnOrTheFragmentsOrTheTracksDefault; with the pinned FFmpeg, two
+//     runs' chunks of a 5.1 AAC, a stereo AAC and a 5.1 AC-3 film are the film's packets bit for bit,
+//     each once, at their times, by TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes
+//     (integration tier).
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
 //     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
 //     finished. Enforced by TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds.

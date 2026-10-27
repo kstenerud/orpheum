@@ -157,30 +157,36 @@ func (service *Service) startAt(
 	if err := service.Ensure(ctx, playback.FileID, film.kind, picture, chunk); err != nil {
 		return Offer{}, err
 	}
+	soundKbps := film.soundKbpsWith(offered, playback, picture)
 	offer := Offer{
 		Quality:          film.qualityOf(picture),
-		StartAtBps:       film.variantOf(picture, offered.soundKbps).bandwidthBps,
+		StartAtBps:       film.variantOf(picture, soundKbps).bandwidthBps,
 		IsBelowTheLowest: chosen.isBelowTheLowest,
 		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
 		StreamName:       picture.Name(),
-		AverageKbps:      film.averageWithSoundKbps(picture, offered.soundKbps),
+		AverageKbps:      film.averageWithSoundKbps(picture, soundKbps),
 		IsHeldByUpload:   chosen.isHeldByUpload,
 		FromMs:           film.grid.StartsMs[chunk],
 		LinkSharePercent: chosen.sharePercent,
 		IsOnTime:         film.kind == OnTime,
 	}
 	if playback.HasStartingAudio {
-		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)
+		sound := offered.startingSoundOf(playback, picture)
 		offer.SoundStreamName = sound.Name()
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, film.kind, sound, chunk); err != nil {
 			return Offer{}, err
 		}
-		track, err := service.levelledTrack(ctx, film, sound)
-		if err != nil {
-			return Offer{}, err
+		// A track the top plays copied is at its own level at every quality, which the player's gain
+		// levels as it levels the track played as it is (D368 §1, D226 §4): its sound carries nothing
+		// of the levelling.
+		if !offered.isCopied(sound.AudioTrackIndex) {
+			track, err := service.levelledTrack(ctx, film, sound)
+			if err != nil {
+				return Offer{}, err
+			}
+			offer.SoundCarriedGainDB = track.CarriedGainDB
 		}
-		offer.SoundCarriedGainDB = track.CarriedGainDB
 	}
 	return offer, nil
 }
@@ -191,15 +197,6 @@ func (film cutFilm) qualityOf(picture Stream) qualities.Quality {
 		return picture.Quality
 	}
 	return qualities.Quality{Kbps: int(max(0, film.pictureAverageBps()/1000)), Height: film.picture.Video.Height}
-}
-
-// startingSound is the stream of the sound a playback started with, in chunks of soundKbps,
-// unlevelled or not: what its chunks' master playlist starts with (D247 §10).
-func startingSound(playback Playback, soundKbps int, isUnlevelled bool) Stream {
-	return Stream{
-		Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex, SoundKbps: soundKbps,
-		IsUnlevelled: isUnlevelled,
-	}
 }
 
 // chooseQuality is the place among lower, highest first, of the highest quality within sharePercent

@@ -42,6 +42,8 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 		IsSourcePictureDecodable: playback.decision.Profile != decide.H264 && !playback.isOwnPictureUnplayable,
 		IsOnTime:                 playback.isOnTime,
 		IsSoundUnlevelled:        playback.isSoundUnlevelled,
+		IsSoundUnmeasured:        playback.isSoundUnmeasured,
+		OwnSoundTracks:           playback.ownSoundTracks,
 	}
 	if playback.startingAudio != nil {
 		chunked.HasStartingAudio, chunked.StartingAudioTrackIndex = true, playback.startingAudio.AudioTrackIndex

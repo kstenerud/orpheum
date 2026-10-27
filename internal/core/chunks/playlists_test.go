@@ -9,21 +9,21 @@ import (
 func TestMasterPlaylist_ListsEachSoundThenEachPictureHighestFirst(t *testing.T) {
 	t.Parallel()
 	sounds := []soundMedia{
-		{uri: "sound0/stream.m3u8", name: "sound0", language: "en", isDefault: true},
-		{uri: "sound0-boost/stream.m3u8", name: "sound0-boost", language: "en"},
-		{uri: "sound1/stream.m3u8", name: "sound1", language: "und"},
+		{uri: "sound0/stream.m3u8", name: "sound0", language: "en", channels: 2, isDefault: true},
+		{uri: "sound0-boost/stream.m3u8", name: "sound0-boost", language: "en", channels: 2},
+		{uri: "sound1/stream.m3u8", name: "sound1", language: "und", channels: 2},
 	}
 	variants := []variant{
 		{
 			uri: "picture/stream.m3u8", bandwidthBps: 9_792_000, averageBandwidthBps: 4_192_000,
-			width: 1920, height: 1080,
+			width: 1920, height: 1080, soundGroup: "audio",
 		},
 		{
 			uri: "q1200k480p/stream.m3u8", bandwidthBps: 1_992_000, averageBandwidthBps: 1_392_000,
-			width: 854, height: 480,
+			width: 854, height: 480, soundGroup: "audio",
 		},
 		// A picture whose average and size are not known says neither.
-		{uri: "q700k432p/stream.m3u8", bandwidthBps: 1_242_000},
+		{uri: "q700k432p/stream.m3u8", bandwidthBps: 1_242_000, soundGroup: "audio"},
 	}
 	const want = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
 		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0",LANGUAGE="en",DEFAULT=YES,AUTOSELECT=YES,` +
@@ -38,7 +38,7 @@ func TestMasterPlaylist_ListsEachSoundThenEachPictureHighestFirst(t *testing.T) 
 		"q1200k480p/stream.m3u8\n" +
 		`#EXT-X-STREAM-INF:BANDWIDTH=1242000,AUDIO="audio"` + "\n" +
 		"q700k432p/stream.m3u8\n"
-	if got := masterPlaylist(sounds, variants); got != want {
+	if got := masterPlaylist([]soundGroup{{id: "audio", sounds: sounds}}, variants); got != want {
 		t.Errorf("the master playlist =\n%s\nwant\n%s", got, want)
 	}
 	// A film with no sound lists its pictures in no audio group.
@@ -61,5 +61,41 @@ func TestMediaPlaylist_ListsEveryChunkAtItsExactLengthAfterTheInit(t *testing.T)
 		"#EXT-X-ENDLIST\n"
 	if got := mediaPlaylist(grid); got != want {
 		t.Errorf("the media playlist =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// Each picture names the audio group it plays, and each group lists its sounds with their channels:
+// the top, its own picture copied, plays its own 5.1 sound copied and the boosted mix made, the lower
+// qualities the light stereo track, each slot of either group under one name (D368 §3).
+func TestMasterPlaylist_EachPictureNamesTheSoundsItPlays(t *testing.T) {
+	t.Parallel()
+	const standard, boosted = "sound0-96k-ownlevel", "sound0-boost-96k-ownlevel"
+	groups := []soundGroup{
+		{id: "audio", sounds: []soundMedia{
+			{uri: "sound0-96k-ownlevel/stream.m3u8", name: standard, language: "en", channels: 2, isDefault: true},
+			{uri: "sound0-boost-96k-ownlevel/stream.m3u8", name: boosted, language: "en", channels: 2},
+		}},
+		{id: "own", sounds: []soundMedia{
+			{uri: "sound0-own/stream.m3u8", name: standard, language: "en", channels: 6, isDefault: true},
+			{uri: "sound0-boost-96k-ownlevel/stream.m3u8", name: boosted, language: "en", channels: 2},
+		}},
+	}
+	variants := []variant{
+		{uri: "picture/stream.m3u8", bandwidthBps: 9_792_000, soundGroup: "own"},
+		{uri: "q1200k480p/stream.m3u8", bandwidthBps: 1_992_000, soundGroup: "audio"},
+	}
+	const want = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0-96k-ownlevel",LANGUAGE="en",DEFAULT=YES,` +
+		`AUTOSELECT=YES,CHANNELS="2",URI="sound0-96k-ownlevel/stream.m3u8"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0-boost-96k-ownlevel",LANGUAGE="en",DEFAULT=NO,` +
+		`AUTOSELECT=NO,CHANNELS="2",URI="sound0-boost-96k-ownlevel/stream.m3u8"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="own",NAME="sound0-96k-ownlevel",LANGUAGE="en",DEFAULT=YES,` +
+		`AUTOSELECT=YES,CHANNELS="6",URI="sound0-own/stream.m3u8"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="own",NAME="sound0-boost-96k-ownlevel",LANGUAGE="en",DEFAULT=NO,` +
+		`AUTOSELECT=NO,CHANNELS="2",URI="sound0-boost-96k-ownlevel/stream.m3u8"` + "\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=9792000,AUDIO="own"` + "\npicture/stream.m3u8\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=1992000,AUDIO="audio"` + "\nq1200k480p/stream.m3u8\n"
+	if got := masterPlaylist(groups, variants); got != want {
+		t.Errorf("the master playlist =\n%s\nwant\n%s", got, want)
 	}
 }

@@ -22,11 +22,13 @@ const spanToleranceMs = 500
 var errNotHeld = errors.New("FFmpeg cut it elsewhere or was stopped in it")
 
 // listed is one line of the muxer's list: a raw file it finished and the span it holds, in
-// milliseconds from the run's first frame.
+// milliseconds from the run's first frame, or, for a sound copied, in the film (copiedSoundTimes);
+// and its end in seconds as listed, to the microsecond, by which a sound copied is placed.
 type listed struct {
 	name           string
 	number         int
 	startMs, endMs int64
+	endSeconds     float64
 }
 
 // parseListed reads a list line: "<name>,<start seconds>,<end seconds>".
@@ -39,26 +41,34 @@ func parseListed(line string) (listed, error) {
 	if err != nil {
 		return listed{}, fmt.Errorf("the run's list names %q", fields[0])
 	}
-	var times [2]int64
+	var times [2]float64
 	for index, field := range fields[1:] {
 		seconds, err := strconv.ParseFloat(field, 64)
 		if err != nil {
 			return listed{}, fmt.Errorf("the run's list times %q at %q", fields[0], field)
 		}
-		times[index] = int64(math.Round(seconds * 1000))
+		times[index] = seconds
 	}
-	return listed{name: fields[0], number: number, startMs: times[0], endMs: times[1]}, nil
+	return listed{
+		name: fields[0], number: number, endSeconds: times[1],
+		startMs: int64(math.Round(times[0] * 1000)), endMs: int64(math.Round(times[1] * 1000)),
+	}, nil
 }
 
 // chunkSpan is the span raw file number of the run should hold, in milliseconds from the run's
-// start: its chunk's, or, for a sound's lead-in, from the run's start to its first chunk's.
+// start: its chunk's, or, for a sound's lead-in, from the run's start to its first chunk's. A sound
+// copied is listed at its times in the film, its first packet at the film's start
+// (copiedSoundTimes): its chunks' spans are their own, and its lead-in's from the film's start.
 func chunkSpan(command nodeproto.MakeChunks, number int) (fromMs, toMs int64) {
-	start := runStartMs(command)
+	origin := runStartMs(command)
+	if command.Stream.Kind == nodeproto.StreamSoundCopied {
+		origin = 0
+	}
 	if number < command.FirstChunk {
-		return 0, command.BoundsMs[0] - start
+		return 0, command.BoundsMs[0] - origin
 	}
 	index := number - command.FirstChunk
-	return command.BoundsMs[index] - start, command.BoundsMs[index+1] - start
+	return command.BoundsMs[index] - origin, command.BoundsMs[index+1] - origin
 }
 
 // checkSpan fails a raw file whose listed span is not its chunk's. A file closed by FFmpeg's end
