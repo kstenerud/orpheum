@@ -32,6 +32,9 @@
    **Next batch (owner 2026-10-27):** one Icon component draws every icon (viewBox, aria-hidden, size, class),
    each icon only its shapes; marks in currentColor, a two-tone one's ground from --icon-ground, set by its
    region (the three status cues still use fixed tokens); a test holds both; the QR code exempt.
+   **Next batch (found 2026-10-27, VQ81):** a play reading a place whose file is gone (renamed, deleted)
+   answers 404 instead of trying the person's next reached place; and a library folder that vanished is
+   not marked unavailable when its scan's listing is refused ("stat movies: no such file"), still "complete".
    **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
    **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once); the owner's
    cast icon is `CastIcon` in status-tray.tsx (from cast.svg): use it. And
