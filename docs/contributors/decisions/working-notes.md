@@ -18085,6 +18085,8 @@ answering the three questions that review left (§7–§9). **Revises**
    member stalls and the rest move on, and then the one member missed a crucial point. But then
    again someone could just rewind..."*
 
+> **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): leaving the film no longer stops it for the group (§5's stop on leaving is withdrawn): Stop on the session's page, or the host playing another film, ends it; the session's page holds the film's controls.
+
 **Status:** Decided 2026-10-05; built in M4 in place of what it revises, except §4, later by decision.
 
 ---
@@ -21669,6 +21671,8 @@ opt-out; the fading "Controlled from" line is enough; and the remote's commands 
 Watch Together's hub (a cast is a session of one, D88), with a presence socket for presence and
 the hand-off (the plan's §3, A).
 
+> **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): a cast is a session with a device, not one film: started from the status tray's Cast, asked once, and while it lasts whatever the person plays plays there, ended by Stop, taking control back, another cast or the receiver gone two minutes.
+
 **Status:** Decided; its §9 questions answered 2026-10-25; being built.
 
 ## D336 — A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
@@ -21835,6 +21839,8 @@ as it names its roles.
    available."* This replaces D337 §4's two presses, any key raising Take back control and one
    more confirming it. Every other press works the receiver's own controls. Leaving gives the
    receiver back its own playback, which plays on there, and the remote is told.
+
+> **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): between videos the receiver waits full screen and ready; taking control back with nothing playing goes to its home page; Stop casting returns it to the page it was on before the session.
 
 **Status:** Decided, and built (cast-to-device.md §11, its assumptions 2, 3, 5, 7, 11–13). Device checks: VQ64–VQ66 and VQ68 as revised, and VQ71.
 
@@ -22811,6 +22817,8 @@ playback at the hand-off"); keeps
 - 4: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx
 - 5: web/apps/web/src/cast-receiver.test.tsx, VQ76
 
+> **Revised by [D364](#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray)** (2026-10-27): the receiver is asked once per session, "‹Device› wants to use this device for playback", Use and Not now.
+
 **Status:** Decided 2026-10-27. Built 2026-10-27: the question and its answers (`cast-asked.tsx`,
 `live.tsx`), the sender waiting for them (`cast-to.tsx`), the receiver's sound at any press and
 its notes (`cast-receiver.tsx`), the film's name in the receive message and the `declined` and
@@ -23281,7 +23289,62 @@ These points replace §1's top-bar "Cast", §7's tray icon and §11 where they d
     D369's `PlayerControls`).
 16. **No mini player and no picture-in-picture** without a very compelling reason.
 
-**Status:** Decided 2026-10-27.
+**Proven by:**
+- 1, 12: TestCast_IsASessionOnlyItsReceiverAccepts (started with nothing playing), cast-to.test.tsx ("lists the person's other devices open now, and starts a session with the one chosen, moving the film playing here", "starts a session with nothing playing where no film was playing here"), status-tray.test.tsx ("has Cast's sign on a film's Play page take the film to the casting page"), cast-remote.test.tsx ("lists the devices to cast to when this device casts nothing"), title.test.tsx ("offers no cast of its own"), web/e2e/cast.spec.ts
+- 2: TestRegistry_ACastIsASessionTheSenderIsToldOf, TestCast_IsASessionOnlyItsReceiverAccepts, cast-asked.test.tsx ("asks whether to use this device for playback", "asks for the page full screen in Use's own press, tells the server"), cast-to.test.tsx ("asks once whether to be used for playback", "goes full screen and ready between videos, then plays the next with no question"); VQ88
+- 3: TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver, TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver, cast-to.test.tsx ("goes on to the receiver, from where it was to start"), watching.test.ts ("lets go of the warm-up, preload and playback, of a film sent on to a cast's receiver"), web/e2e/cast.spec.ts (a second film, no question); VQ88
+- 4: cast-remote.test.tsx ("plays here instead, from where the receiver stood, the receiver waiting ready"), cast-to.test.tsx ("plays here where ... the remote said to play here"), router.test.ts, web/e2e/cast.spec.ts
+- 5: TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh, cast-ready.test.tsx, cast-receiver.test.tsx ("waits ready for the next video at the film's end", "waits ready for the next video where it cannot move on", "keeps control where full screen ended as the page took its element away"), film-fullscreen.test.ts ("asks nothing of the stage while the page asked for itself full screen"), web/e2e/cast.spec.ts; VQ88
+- 6: TestRegistry_ACastIsASessionTheSenderIsToldOf (a page of the sender opened later told first), TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes, TestEndGoneCasts_EndsEachGoneReceiversSessionAtATick, TestRegistry_TheLastCastWins, live-connection.test.ts ("keeps the cast this device sends as it is told"), cast-remote.test.tsx ("says the receiver was gone for two minutes"); VQ88 (sleep, reload)
+- 7, 12, 13: status-tray.test.tsx, app.test.tsx ("turns Watch Together's sign blue"), app-shell.test.tsx, ui-gallery.test.tsx; VQ88 (the colours, the pulse)
+- 8: cast-remote.test.tsx ("holds no player", "says the receiver is ready with nothing playing", "follows what plays on the receiver"), web/e2e/cast.spec.ts (the remote found again from Films by the sign)
+- 9: cast-receiver.test.tsx ("plays on here, the remote told, when its control is taken back here"), cast-ready.test.tsx ("takes control back at Back, ending the session and going to its home page"), cast-remote.test.tsx ("says control was taken back"), web/e2e/cast.spec.ts
+- 10: cast-receiver.test.tsx ("goes back to the page it was on before the cast when the remote stops casting"), cast-ready.test.tsx ("goes back to the page it was on before the session"), cast-remote.test.tsx ("stops casting at Stop, offering to play here"), web/e2e/cast.spec.ts
+- 11, 13: TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession, cast-receiver.test.tsx ("leads its person's Watch Together session as their player"), cast-remote.test.tsx ("leaves the controls to Watch Together's page"), watch-together.test.tsx ("holds Stop casting too while this device casts"), status-tray.test.tsx ("leads to Watch Together's page while that is on too"); VQ88
+- 14: status-tray.test.tsx ("turns Watch Together's sign blue for the host ..., and for a signed-in guest")
+- 15: watch-together.test.tsx ("leaves it playing on leaving", "holds the group's controls as a remote, the way back to the film, and Stop for everyone"), TestTogether_TheHostsDetailsNameWhatPlays, web/e2e/together.spec.ts ("the film plays on for the group as the host leaves it for the session's page"); VQ88
+- 16: nothing built: no mini player, no picture-in-picture.
+
+**Status:** Decided 2026-10-27. Built 2026-10-27. The core keeps the session
+(`internal/core/live/registry.go`): a cast may start with nothing playing (`fileId` 0, the receiver
+ready), `Play` hands the receiver each film the person plays, or nothing, in the same cast, `Accept`
+notes its Use, and a new live message, `sending`, tells every page of the sending device the cast it
+sends, as a page opens (before its devices, so a Play there knows at once) and at each change and end;
+a receiver with no connection for `ReceiverGoneAfter` (two minutes) is ended by `EndGone`, looked at
+every ten seconds (`cmd/orpheum/casts_gone.go`), its sender told `receiverGone`. The endpoints
+(`internal/core/api/casts.go`): `POST /me/casts` with `fileId` optional, `POST /me/casts/{id}/play`
+(a film, or none; none stops the cast's group, `together.Hub.CastReady`, so the next is put on
+afresh), `POST /me/casts/{id}/accept`; `filmEnded` is no longer a cast's end. The web client
+(`web/apps/web/src/`): the tray's two signs (`status-tray.tsx`), white off, the status blue on with a
+slow 3 s breathing of the icon's opacity (1 to 0.55), none where less motion is asked for; the
+top bar's Watch Together item gone (`app-shell.tsx`); the casting page (`cast-remote.tsx`, the device
+list and the wait for Use in `cast-to.tsx`), the remote of a session's film shared with Watch
+Together's page (`session-remote.tsx`, `together-plays.tsx`), `PlayOrSendOn` deciding once by the
+live connection, the receiver's question and ready page (`cast-asked.tsx`, `cast-ready.tsx`,
+`live.tsx`), the film playing here as the Cast sign is pressed (`playing-here.ts`), and the host's
+player sending nothing as it is left (`together-host.tsx`, `use-together.ts`). The wire: the live
+socket's new `sending` message and `receive`'s `isAccepted` and `togetherCredential` (no version: the
+live socket has none, and its pages are served by the same core); Watch Together's protocol is
+unchanged but for the cast's end `receiverGone`.
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **Casting while Watch Together is on** (§11, §13) is plans/cast-to-device.md §7's step 8 in its
+  simplest form: the receiver is handed a host's credential for the person's session with each film
+  and plays it as their player, so what they play plays for the group, the cast's own session only
+  telling it how the cast ends. §7's refinements are not built: the receiver is not told its
+  person's voice is live, so does not make room for it, and the upload's last resort may still send
+  the receiver away with the voice.
+- **The receiver asks again after its page is loaded again**: a reloaded page has no press left to
+  play with sound or go full screen, so it asks once more for the session it is handed.
+- **Cast's sign is blue from the moment a cast is asked for**, while the receiver is asked, not only
+  once it said Use; a Play goes to the receiver only after its Use.
+- **The title page's Cast is gone too**, as the Play page's is: the tray's sign is the one entry.
+- **The receiver's full screen is the page's**, asked in Use's press, which a player's stage no longer
+  races to take (`film-fullscreen.ts`, `askPageFullScreen`); full screen ended as the page removes its
+  element is no one taking control back (`cast-receiver.tsx`): the second film of a session had taken
+  control back as it opened.
+- **A film's end with Up next shown and autoplay off** stays on the offer, as before, rather than
+  going to the ready page; the next Play on the sender goes to it all the same.
 
 ## D365 — Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
 
