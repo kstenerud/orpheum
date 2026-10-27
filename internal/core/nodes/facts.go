@@ -211,7 +211,7 @@ func (service *Service) bringBackFoldersOf(ctx context.Context, nodeID int64, di
 		if folder == disk.Path {
 			continue
 		}
-		if err := service.scans.RequestOnHello(ctx, nodeID, folder); err != nil {
+		if err := service.scans.RequestOnReturn(ctx, nodeID, folder); err != nil {
 			service.logger.WarnContext(ctx, "could not ask for the scan of a library folder whose disk answers again",
 				"nodeId", nodeID, "rootPath", folder, "err", err)
 		}

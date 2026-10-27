@@ -61,7 +61,15 @@
 //     of those new or changed it has read; and whether one more follows (D236 §2).
 //     TestAdmin_ListsARootsScanInProgress.
 //
-//   - A scan asked for while one of its root runs starts none; one more runs after it (D236 §3).
+//   - A root (a node and an absolute path) has one scan in progress, however many libraries cover it:
+//     a scan asked for of it, by any way of asking, joins it while its listing is not with the node,
+//     widening its scope to cover both at the higher priority, and the root is listed once.
+//     TestScans_AnAskForARootWhoseListingIsNotWithItsNodeJoinsIt,
+//     TestScans_FoldersAskedForWhileTheListingWaitsAreListedOnceByTheFolderHoldingThem,
+//     TestScans_TwoLibrariesOverOneRootPathMakeOneListingAndReadEachFileOnce. A node's hello's ask
+//     also joins a listing with the node that covers it, which went to the start that said hello.
+//     Otherwise one asked for while one of its root runs starts none; one more runs after it (D236
+//     §3). TestScans_AHellosAskJoinsTheListingWithItsNodeAndOtherAsksFollowIt,
 //     TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt. A scan the core stopped during
 //     after taking its listing starts again. TestScans_AScanTheCoreStoppedDuringStartsAgain.
 //

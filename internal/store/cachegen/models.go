@@ -100,6 +100,7 @@ type Scan struct {
 	IsAnotherScanQueued int64
 	ScopePath           string
 	AgainScopePath      *string
+	ListingSentAt       *int64
 }
 
 type ScanBatch struct {
