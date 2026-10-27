@@ -33,6 +33,10 @@ type ScanRequester interface {
 	// RequestOnHello asks for the scan a node's hello brings of a root a library covers: before other
 	// work when the root is unavailable, as the scan that brings it back (D240 §1, D328).
 	RequestOnHello(ctx context.Context, nodeID int64, root string) error
+	// RequestOnReturn asks for the scan of a library folder whose disk answers again, as RequestOnHello
+	// would, but joining no listing already with the node, which may have gone to it while the disk
+	// did not answer.
+	RequestOnReturn(ctx context.Context, nodeID int64, root string) error
 	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error

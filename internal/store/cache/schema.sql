@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 43
+-- cache schema version 44
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +89,9 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   scope_path  TEXT NOT NULL DEFAULT '.',
   -- The scope of the one that follows, widened to cover every request made while this one ran.
   again_scope_path TEXT,
+  -- When its listing was last handed to its node, NULL before: until then a scan asked for of the root
+  -- joins this one, whose listing will see what the ask is about.
+  listing_sent_at INTEGER,
   UNIQUE (node_id, root_path)
 ) STRICT;
 

@@ -376,6 +376,10 @@ func (scans *recordingScans) RequestOnHello(_ context.Context, _ int64, root str
 	return nil
 }
 
+func (scans *recordingScans) RequestOnReturn(ctx context.Context, nodeID int64, root string) error {
+	return scans.RequestOnHello(ctx, nodeID, root)
+}
+
 func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)

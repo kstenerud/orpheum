@@ -148,11 +148,13 @@ func TestScans_FoldersAskedForWhileOneRunsAreScannedOnceByTheFolderHoldingThem(t
 	bench := newScanBench(t)
 	bench.scan(nil, true)
 	bench.requestUnder("Films")
+	bench.hand()
 	bench.requestUnder("Shows/Dag/Season 1")
 	bench.requestUnder("Shows/Dag/Season 2")
 	bench.listedIn("Films")
 	bench.listedIn("Shows/Dag")
 	bench.requestUnder("Shows")
+	bench.hand()
 	if err := bench.scans.Request(t.Context(), bench.nodeID, root, jobs.PriorityBackground); err != nil {
 		t.Fatal(err)
 	}

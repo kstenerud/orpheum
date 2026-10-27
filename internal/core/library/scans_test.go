@@ -110,6 +110,19 @@ func (bench *scanBench) list(records ...nodeproto.ScanRecord) {
 	}
 }
 
+// hand runs the last scan job queued, handing its listing to the node, which has not yet answered:
+// the scan runs.
+func (bench *scanBench) hand() {
+	bench.t.Helper()
+	sentBefore := len(bench.sent.commands)
+	if err := bench.scans.HandleScan(bench.t.Context(), bench.jobs.last(bench.t, jobs.KindScan)); err != nil {
+		bench.t.Fatal(err)
+	}
+	if len(bench.sent.commands) != sentBefore+1 || bench.sent.commands[sentBefore].List == nil {
+		bench.t.Fatalf("the scan job sent %+v, want a listing", bench.sent.commands[sentBefore:])
+	}
+}
+
 // examine runs the last examine job queued, and returns the files it asked the node to read.
 func (bench *scanBench) examine() (jobs.Job, []nodeproto.ExamineFile) {
 	bench.t.Helper()
@@ -198,9 +211,12 @@ func TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
 	ctx := t.Context()
-	for range 3 {
+	for asked := range 3 {
 		if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
 			t.Fatal(err)
+		}
+		if asked == 0 {
+			bench.hand()
 		}
 	}
 	if count := bench.jobs.count(jobs.KindScan); count != 1 {
@@ -576,10 +592,12 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
 	ctx := t.Context()
-	for range 2 {
-		if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
-			t.Fatal(err)
-		}
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
+		t.Fatal(err)
+	}
+	bench.hand()
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
+		t.Fatal(err)
 	}
 	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || !scan.IsAnotherScanQueued {
 		t.Errorf("before its listing, the scan shows %+v (%v); want unlisted, with another asked for", scan,

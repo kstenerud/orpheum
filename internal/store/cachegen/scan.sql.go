@@ -46,7 +46,7 @@ func (q *Queries) DeleteScan(ctx context.Context, id int64) error {
 
 const getScan = `-- name: GetScan :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
 FROM scan WHERE id = ?1
 `
 
@@ -66,6 +66,7 @@ func (q *Queries) GetScan(ctx context.Context, id int64) (Scan, error) {
 		&i.IsAnotherScanQueued,
 		&i.ScopePath,
 		&i.AgainScopePath,
+		&i.ListingSentAt,
 	)
 	return i, err
 }
@@ -89,7 +90,7 @@ func (q *Queries) GetScanBatch(ctx context.Context, id int64) (ScanBatch, error)
 
 const getScanOfRoot = `-- name: GetScanOfRoot :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
 FROM scan WHERE node_id = ?1 AND root_path = ?2
 `
 
@@ -114,6 +115,7 @@ func (q *Queries) GetScanOfRoot(ctx context.Context, arg GetScanOfRootParams) (S
 		&i.IsAnotherScanQueued,
 		&i.ScopePath,
 		&i.AgainScopePath,
+		&i.ListingSentAt,
 	)
 	return i, err
 }
@@ -189,9 +191,27 @@ func (q *Queries) InsertScanBatch(ctx context.Context, arg InsertScanBatchParams
 	return id, err
 }
 
+const joinScan = `-- name: JoinScan :exec
+UPDATE scan SET scope_path = ?1, priority = ?2
+WHERE id = ?3
+`
+
+type JoinScanParams struct {
+	ScopePath string
+	Priority  int64
+	ID        int64
+}
+
+// A scan asked for of a root whose scan's listing is not yet with its node joins it: its scope
+// widened to cover both, and its priority the higher of the two.
+func (q *Queries) JoinScan(ctx context.Context, arg JoinScanParams) error {
+	_, err := q.db.ExecContext(ctx, joinScan, arg.ScopePath, arg.Priority, arg.ID)
+	return err
+}
+
 const listScans = `-- name: ListScans :many
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
 FROM scan ORDER BY id
 `
 
@@ -218,6 +238,7 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 			&i.IsAnotherScanQueued,
 			&i.ScopePath,
 			&i.AgainScopePath,
+			&i.ListingSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -230,6 +251,41 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const sendScanListing = `-- name: SendScanListing :one
+UPDATE scan SET listing_sent_at = ?1
+WHERE id = ?2 AND listed_at IS NULL
+RETURNING id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
+          is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+`
+
+type SendScanListingParams struct {
+	ListingSentAt *int64
+	ID            int64
+}
+
+// A scan's listing handed to its node, unless it was taken: what it lists is read in the same write,
+// so no scan asked for joins it after its scope went to the node.
+func (q *Queries) SendScanListing(ctx context.Context, arg SendScanListingParams) (Scan, error) {
+	row := q.db.QueryRowContext(ctx, sendScanListing, arg.ListingSentAt, arg.ID)
+	var i Scan
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.RootPath,
+		&i.Priority,
+		&i.StartedAt,
+		&i.ListedAt,
+		&i.ListedCount,
+		&i.ToExamineCount,
+		&i.ExaminedCount,
+		&i.IsAnotherScanQueued,
+		&i.ScopePath,
+		&i.AgainScopePath,
+		&i.ListingSentAt,
+	)
+	return i, err
 }
 
 const setScanAgain = `-- name: SetScanAgain :execrows
