@@ -319,11 +319,27 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
                     "./dev npm --prefix web run test:browser -- x", "npx vitest run", "./dev git commit -q -F -",
                     "cd /x && env A=1 ./dev make check-pr-failed", "python3 scripts/check_revert_red.py",
                     "golangci-lint run ./..."):
-            self.assertTrue(pre_bash.loads_the_machine(cmd), cmd)
+            self.assertTrue(pre_bash.loads_the_machine(cmd, ROOT), cmd)
         for cmd in ("git status --short", "git diff 0b9a HEAD", "git stash", "make help", "make",
                     "grep -n check Makefile", "npm --prefix web ci", "go build ./...", "tail -5 /tmp/log",
                     "ps aux | grep '[c]heck_pr_snapshot'", "echo make check"):
-            self.assertFalse(pre_bash.loads_the_machine(cmd), cmd)
+            self.assertFalse(pre_bash.loads_the_machine(cmd, ROOT), cmd)
+
+    def test_a_commit_in_another_repository_is_not_this_projects(self):
+        """A commit in a sibling repository, orpheum-ops beside this clone, runs none of this project's gate,
+        so check-pr does not hold it up (the owner, 2026-10-27); one in this clone, from anywhere, does."""
+        sys.path.insert(0, str(HOOKS))
+        import pre_bash  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as other:
+            subprocess.run(["git", "init", "-q", other], check=True, env={**os.environ, **HERMETIC})
+            for cmd in (f"cd {other} && git commit -q -m x", f"git -C {other} commit -q -m x",
+                        f"cd {other}; git add . && git commit -F -"):
+                self.assertFalse(pre_bash.loads_the_machine(cmd, ROOT), cmd)
+                self.assertTrue(pre_bash.loads_the_machine(cmd.replace(other, str(ROOT / "web")), ROOT), cmd)
+            self.assertTrue(pre_bash.loads_the_machine("git commit -q -m x", ROOT))
+            self.assertFalse(pre_bash.loads_the_machine("git commit -q -m x", Path(other)))
+            self.assertTrue(pre_bash.loads_the_machine(f"git -C {other}/nowhere commit -m x", ROOT))
 
     def test_while_check_pr_runs_a_test_is_refused_and_a_read_is_not(self):
         from unittest import mock

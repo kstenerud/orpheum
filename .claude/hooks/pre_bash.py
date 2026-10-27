@@ -297,17 +297,45 @@ TEST_RUNNERS = frozenset({"vitest", "playwright", "golangci-lint", "pytest"})
 GATE_SCRIPT = re.compile(r"(?:^|/)scripts/(?:check_\w+|spot_check|py_tests|web_tests|quiet_gate|revert_red_\w+)\.py$")
 
 
-def loads_the_machine(command: str) -> bool:
-    """Whether a simple command of command runs tests, a lint, or a commit (whose hook runs
-    `make check`), through ./dev or not: work that beside a running check-pr slows both and makes
-    their tests flaky (the owner, 2026-10-20)."""
+def loads_the_machine(command: str, cwd: Path) -> bool:
+    """Whether a simple command of command runs tests, a lint, or a commit in this project (whose hook
+    runs `make check`), through ./dev or not: work that beside a running check-pr slows both and makes
+    their tests flaky (the owner, 2026-10-20). A commit in another repository, a sibling such as
+    orpheum-ops, runs none of this project's gate and is not one (the owner, 2026-10-27)."""
+    directory = cwd
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
         while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
             words = words[1:]
-        if words and _runs_tests(Path(words[0]).name, words[1:]):
-            return True
+        if words[:1] == ["cd"] and len(words) == 2:
+            directory = directory / Path(words[1]).expanduser()
+            continue
+        if not words or not _runs_tests(Path(words[0]).name, words[1:]):
+            continue
+        if Path(words[0]).name == "git" and not in_this_project(git_directory(words[1:], directory)):
+            continue
+        return True
     return False
+
+
+def git_directory(words: list[str], directory: Path) -> Path:
+    """The directory a git command's words run it in, from directory: each `-C` moves it on."""
+    for option, value in zip(words, words[1:], strict=False):
+        if option == "-C":
+            directory = directory / Path(value).expanduser()
+    return directory
+
+
+def in_this_project(directory: Path) -> bool:
+    """Whether directory is in this clone or one of its worktrees, which share its git directory; a
+    directory git cannot place counts as in it, so a doubt never lets a commit beside check-pr."""
+    def common_dir(where: Path) -> str | None:
+        done = subprocess.run(["git", "-C", str(where), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                              capture_output=True, text=True, check=False)
+        return str(Path(done.stdout.strip()).resolve()) if done.returncode == 0 else None
+
+    theirs = common_dir(directory)
+    return theirs is None or theirs == common_dir(hooklib.ROOT)
 
 
 def _runs_tests(name: str, rest: list[str]) -> bool:
@@ -367,7 +395,7 @@ def main() -> None:
         )
     elif FORCE_PUSH.search(shell_text(command)):
         refusals.append("No force-pushes. Add a commit that fixes the problem instead.")
-    elif loads_the_machine(command) and (run := hooklib.check_pr_running()) is not None:
+    elif loads_the_machine(command, cwd) and (run := hooklib.check_pr_running()) is not None:
         # Edits made while check-pr ran, and tests run beside it, failed its runs again and again
         # though a written rule forbade them (the owner, 2026-10-20: "trying to remember will lead
         # to failures"). It runs in its own tree now, so edits are fine; tests and commits wait.
