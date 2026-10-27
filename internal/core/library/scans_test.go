@@ -154,6 +154,8 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 	bench := newScanBench(t)
 	bench.scan([]nodeproto.ScanRecord{observedRecord("Gone.mkv", "gone")}, true)
 	ctx := t.Context()
+	var endedWhileScanning []bool
+	bench.scans.OnEnded(func() { endedWhileScanning = append(endedWhileScanning, bench.isScanning()) })
 	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
 		t.Fatal(err)
 	}
@@ -187,6 +189,10 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 	}
 	if bench.isScanning() {
 		t.Error("the scan is still in progress after its last batch was read")
+	}
+	// What waits for the scan to be over is told once it is, the root no longer scanning.
+	if len(endedWhileScanning) != 1 || endedWhileScanning[0] {
+		t.Errorf("told of the scan's end %v (each: still scanning?), want once, no longer scanning", endedWhileScanning)
 	}
 }
 

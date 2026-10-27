@@ -151,6 +151,8 @@ func openScans(services *Services, parts Parts) *library.Scans {
 		Settings: parts.Settings, Clock: parts.Clock, Logger: parts.Logger,
 	})
 	services.nodes.SetScans(scans)
+	// A rescan waits for its library's scan to be over; it is told the moment one ends.
+	scans.OnEnded(func() { services.Queue.RequestSweeps(sweepRescans) })
 	services.Exchanges.SetDiskStalls(scans)
 	holdSlowReadsForQuickPasses(services.Exchanges, scans)
 	return scans

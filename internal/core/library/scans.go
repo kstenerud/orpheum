@@ -72,7 +72,16 @@ type Scans struct {
 	// prober asks a node whether a root can be read now (SetProber); nil probes nothing. Guarded by
 	// mutex: it is set once the sweeps may already run.
 	prober RootProber
+	// onEnded is told each time a scan has ended, so work that waits for a root's scan to be over
+	// runs then (OnEnded); nil tells nothing. Set before the scans run.
+	onEnded func()
 }
+
+// OnEnded sets what is told each time a scan has ended, its root no longer scanning. The pass that
+// follows a scan runs inside its completion, while the scan is still in progress, so a rescan waiting
+// for its library's scan to be over saw it scanning and, asked again by nothing, waited for the next
+// hourly sweep (staging's "Rescan this" of Crowd, 2026-10-27).
+func (scans *Scans) OnEnded(tell func()) { scans.onEnded = tell }
 
 // RequestOnHello asks for the scan a node's hello brings of a root a library covers: in the
 // background, and before the queue's own work when the root, or a disk inside it, is unavailable, as
@@ -754,6 +763,9 @@ func (scans *Scans) end(ctx context.Context, scan cachegen.Scan) error {
 	})
 	if err != nil {
 		return fmt.Errorf("end the scan of %s: %w", scan.RootPath, err)
+	}
+	if scans.onEnded != nil {
+		scans.onEnded()
 	}
 	return nil
 }
