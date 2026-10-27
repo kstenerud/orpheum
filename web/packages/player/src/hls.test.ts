@@ -18,9 +18,11 @@ import {
   measuredKbps,
   playNative,
   preparedHlsConfig,
+  keepAudioRendition,
   startWithAudio,
   tellLoading,
   tellOwnMoves,
+  type AudioKeeping,
   type AudioStart,
   type NativeTarget,
 } from "./hls.ts";
@@ -184,6 +186,64 @@ describe("playing a prepared rendition", () => {
     const untouched: AudioStart = { on: () => expect.fail("nothing to wait for"), audioTrack: -1 };
     startWithAudio(untouched, 0);
     expect(untouched.audioTrack).toBe(-1);
+  });
+});
+
+describe("keeping the sound playing as the quality moves between audio groups (D368 §3)", () => {
+  /** A fake hls.js whose listeners the test calls, as hls.js would. */
+  function fakeHls(): AudioKeeping & {
+    readonly updated: (count: number) => void;
+    readonly switched: (id: number) => void;
+  } {
+    const listeners = new Map<string, (event: unknown, data: never) => void>();
+    const hls = {
+      on: (event: string, listener: (event: unknown, data: never) => void) => {
+        listeners.set(event, listener);
+      },
+      audioTrack: -1,
+      // hls.js lists a group's tracks with no track chosen yet, then chooses its own if none is.
+      updated: (count: number) => {
+        hls.audioTrack = -1;
+        listeners.get(Hls.Events.AUDIO_TRACKS_UPDATED)?.(undefined, {
+          audioTracks: Array.from({ length: count }),
+        } as never);
+        if (hls.audioTrack === -1) {
+          hls.audioTrack = 0;
+        }
+      },
+      switched: (id: number) => {
+        listeners.get(Hls.Events.AUDIO_TRACK_SWITCHED)?.(undefined, { id } as never);
+      },
+    };
+    return hls;
+  }
+
+  it("plays the rendition at its place in the new group, not the one hls.js would match", () => {
+    const hls = fakeHls();
+    keepAudioRendition(hls, undefined);
+    hls.updated(3);
+    hls.switched(2); // the playlist's default, the starting track's
+    hls.updated(3); // the top's group, its own sound copied in that place
+    expect(hls.audioTrack).toBe(2);
+  });
+
+  it("keeps a rendition chosen, the boosted mix, at every quality", () => {
+    const hls = fakeHls();
+    const choose = keepAudioRendition(hls, undefined);
+    hls.updated(3);
+    choose(1);
+    expect(hls.audioTrack).toBe(1);
+    hls.updated(3);
+    expect(hls.audioTrack).toBe(1);
+  });
+
+  it("starts with the rendition it is given, and leaves hls.js its own where the group lacks the place", () => {
+    const hls = fakeHls();
+    keepAudioRendition(hls, 4);
+    hls.updated(5);
+    expect(hls.audioTrack).toBe(4);
+    hls.updated(2);
+    expect(hls.audioTrack).toBe(0);
   });
 });
 

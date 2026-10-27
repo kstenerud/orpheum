@@ -88,6 +88,21 @@
 //     TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackIsOffered
 //     (internal/core/api).
 //
+//   - The top of a ladder, the film's own picture copied, plays in an audio group of its own each
+//     track its player plays as it is (Playback.OwnSoundTracks) copied, "sound<track>-own", its
+//     channels said, and every other sound as the lower qualities do, the light stereo track at
+//     chunk_sound_kbps; every group lists its sounds in one order, one name to a place. A track played
+//     copied has its mixes made as loud as it ("-ownlevel") once the film's loudness was measured,
+//     levelling or not, and a start on it carries no gain for the player to take back out; a sound
+//     copied is offered only of such a track (D368 §1–§4). Enforced by
+//     TestMasterPlaylist_TheTopPlaysTheTracksItsPlayerPlaysAsTheyAreCopied,
+//     TestMasterPlaylist_ATrackPlayedCopiedIsMadeAtItsOwnLevelLevellingOrNot,
+//     TestMasterPlaylist_EachPictureNamesTheSoundsItPlays,
+//     TestStoreFileOf_OffersASoundCopiedOnlyOfATrackTheTopPlaysCopied,
+//     TestStartOnLadder_StartsTheTopOnTheFilmsOwnSoundCopied,
+//     TestHandleMakeChunks_ACopiedSoundIsSentAsItsTrackAndAMixAtItsLevelCarriesTheDifference and
+//     TestStreamNamed_ReadsTheSoundsCopiedAndAtTheirOwnLevelBack.
+//
 //   - A stall is offered the highest quality within 70% of its link, the lowest when the link is not
 //     measured or too slow for any (said so), or the one below whose chunks another stall is already
 //     making there; the quality's run and the starting sound's are started from the stall's chunk
@@ -200,6 +215,7 @@
 // # Read before changing
 //
 //   - D247 §6 and §10: the qualities, and chunks cut at the source's keyframes, made on request.
+//   - D368: the top quality plays the film's own sound copied; D336 §1: which sound a device plays.
 //   - docs/contributors/design/plans/chunks.md §1 (the words) and §3 (the core).
 //   - docs/contributors/design/research/slow-links.md §10: the measured recipe.
 //   - D234 §7: work given to a node, resolved by its word.
@@ -208,7 +224,8 @@
 //
 //   - grid.go: GridOf, the merging of keyframes, and Service.Grid, a film's grid from its timeline.
 //   - streams.go: the streams' names, the grid's id and the store's directory.
-//   - offer.go and playlists.go: what a playback is offered, and its playlists.
+//   - offer.go and playlists.go: what a playback is offered, and its playlists. ownsound.go: the
+//     sounds each picture plays, the top's own copied (D368).
 //   - files.go: a store's file a player asks for. ensure.go and runs.go: the runs a player's asks
 //     queue, and the chunks known made. job.go: the make_chunks job. interest.go: which runs the
 //     players want; jump.go: when a player jumped away from a run (D353).

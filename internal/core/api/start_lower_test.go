@@ -123,3 +123,21 @@ func TestPlayback_ADeviceStartsAtTheSteadinessItsLastPlaybackOnTheNetworkReporte
 		t.Errorf("after reporting steadiness 0, a playback starts on %+v; want steadiness 0", last.OnLadder)
 	}
 }
+
+// A playback started on its film's ladder is logged as delivered from the ladder, though its decision
+// says the device plays the film as it is, naming the quality it starts on and the sound it starts
+// with: here the film's own picture and its own stereo AAC, copied, which the browser plays as it is
+// (D368 §1, §5).
+func TestPlayback_AChunkedPlayLogsItsLadderTheQualityAndTheSoundItStartsOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.keepFilmOnesTimeline(t)
+	if started := harness.play(t, user, chrome(1)); started.OnLadder == nil || started.Delivery != "direct" {
+		t.Fatalf("film 1 starts %+v; want it decided direct and started on its ladder", started)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":1`, `"delivery":"ladder"`,
+		`"decidedDelivery":"direct"`, `"ladderQuality":"picture"`, `"ladderSound":"sound0-own"`)
+}

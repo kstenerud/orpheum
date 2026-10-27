@@ -43,22 +43,34 @@ type Playback struct {
 	// film's loudness not measured yet: they stay so to its end, though the loudness is measured
 	// meanwhile, so a stall's offer starts and waits on the sound its player plays.
 	IsSoundUnlevelled bool
+	// IsSoundUnmeasured is whether its first master playlist was made before its film's loudness was
+	// measured: no mix of it is made as loud as a track's own sound, which needs the measurement, to
+	// its end, so its sounds stay as they were named (D259 §2, D368 §1).
+	IsSoundUnmeasured bool
 	// StartAtMostKbps is the highest rate, a picture's average with its sound's, its start on its
 	// ladder may take: what is left of the server's upload for films (D286 §5); zero for no bound.
 	StartAtMostKbps int64
+	// OwnSoundTracks are the film's audio tracks, by their place among them, its player plays as they
+	// are (decide.PlaysAsItIs): the top of its ladder, the film's own picture copied, plays each of
+	// them copied (D368 §1).
+	OwnSoundTracks []int
 }
 
 // Kept is what a playback keeps, to its end, of the first master playlist it was offered, though
-// its film changes meanwhile: whether the film was cut on time, and whether its sounds were named
-// unlevelled.
+// its film changes meanwhile: whether the film was cut on time, whether its sounds were named
+// unlevelled, and whether before the film's loudness was measured.
 type Kept struct {
 	IsOnTime          bool
 	IsSoundUnlevelled bool
+	IsSoundUnmeasured bool
 }
 
 // Kept is what the playback keeps already.
 func (playback Playback) Kept() Kept {
-	return Kept{IsOnTime: playback.IsOnTime, IsSoundUnlevelled: playback.IsSoundUnlevelled}
+	return Kept{
+		IsOnTime: playback.IsOnTime, IsSoundUnlevelled: playback.IsSoundUnlevelled,
+		IsSoundUnmeasured: playback.IsSoundUnmeasured,
+	}
 }
 
 // gridKind is what the playback's film is cut at: on time, once it began so, else on keyframes.
@@ -74,32 +86,35 @@ func (playback Playback) gridKind() GridKind {
 const qualityPeakPerAverage = 1.5
 
 // offer is what a film cut into chunks offers a playback: its pictures, highest first, and its
-// sounds, each track's standard mix and then its boosted one (SoundsOf).
+// sounds, each track's standard mix and then its boosted one (SoundsOf), made, or, on the top, a
+// track's own copied (soundOf).
 type offer struct {
 	pictures []Stream
 	sounds   []Sound
-	// soundKbps is chunk_sound_kbps: every sound's bit rate, which every picture plays with.
+	// soundKbps is chunk_sound_kbps: the bit rate of every sound the server makes.
 	soundKbps int
-	// isUnlevelled is whether the film's loudness is not measured yet: its sounds are offered
-	// unlevelled (Stream.IsUnlevelled).
-	isUnlevelled bool
+	// isUnlevelled is whether the film's loudness is not measured yet, or its person plays without
+	// levelling: its sounds are offered unlevelled (Stream.IsUnlevelled); and isMeasured whether its
+	// loudness was measured before the playback's first master playlist, so a mix can be made as
+	// loud as its track's own sound (Stream.IsAtOwnLevel).
+	isUnlevelled, isMeasured bool
+	// copied are the tracks, by place, whose own sound the top, the film's own picture copied, plays
+	// copied (D368 §1); none where the top is not the picture copied.
+	copied []int
 }
 
-// has is whether the offer has the stream. A sound is had levelled or not, whichever the film's
-// loudness now says, so a playback goes on with the sounds its playlist named.
+// has is whether the offer has the stream. A sound made is had levelled or not, whichever the film's
+// loudness now says, so a playback goes on with the sounds its playlist named; a sound copied only of
+// a track the top plays copied.
 func (offered offer) has(stream Stream) bool {
-	if stream.Kind == nodeproto.StreamSound {
+	switch stream.Kind {
+	case nodeproto.StreamSound:
 		return stream.SoundKbps == offered.soundKbps && hasSound(offered.sounds, stream)
+	case nodeproto.StreamSoundCopied:
+		return offered.isCopied(stream.AudioTrackIndex)
+	case nodeproto.StreamPicture, nodeproto.StreamQuality:
 	}
 	return slices.Contains(offered.pictures, stream)
-}
-
-// soundStream is the stream of one of a film's sounds, at kbps, unlevelled or not.
-func soundStream(sound Sound, kbps int, isUnlevelled bool) Stream {
-	return Stream{
-		Kind: nodeproto.StreamSound, AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted,
-		SoundKbps: kbps, IsUnlevelled: isUnlevelled,
-	}
 }
 
 // offerOf is what the film offers the playback (chunks.md §3): its picture copied, unless the
@@ -107,7 +122,7 @@ func soundStream(sound Sound, kbps int, isUnlevelled bool) Stream {
 // quality of the ladder below the film's own picture, in bit rate and in height, where each is known,
 // the ladder chunk_qualities_hardware where the film's node encodes on a GPU, else chunk_qualities
 // (D323 §3); and every sound of its tracks (SoundsOf), unlevelled while the film's loudness is not
-// measured (D259 §2).
+// measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
 	if err != nil {
@@ -117,17 +132,19 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	if err != nil {
 		return offer{}, fmt.Errorf("read chunk_sound_kbps: %w", err)
 	}
-	isUnlevelled, err := service.isSoundUnlevelled(ctx, film, playback)
+	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
 	if err != nil {
 		return offer{}, err
 	}
 	offered := offer{
 		sounds: SoundsOf(SoundTracksOf(film.probe)), soundKbps: int(soundKbps),
-		isUnlevelled: isUnlevelled,
+		isUnlevelled: playback.IsSoundUnlevelled || len(levels) == 0,
+		isMeasured:   !playback.IsSoundUnmeasured && len(levels) > 0,
 	}
 	height := film.picture.Video.Height
 	top, averageBps := topOf(film, playback)
 	offered.pictures = append(offered.pictures, top...)
+	offered.copied = copiedTracksOf(film, playback, top)
 	for _, quality := range all {
 		if (averageBps <= 0 || int64(quality.Kbps)*1000 < averageBps) && (height <= 0 || quality.Height < height) {
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
@@ -287,24 +304,13 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 	return film, fmt.Errorf("file %d: %w", fileID, ErrNoGrid)
 }
 
-// isSoundUnlevelled is whether the playback is offered its film's sounds unlevelled: when it kept
-// them so, or while the film's loudness is not measured (D259 §2).
-func (service *Service) isSoundUnlevelled(ctx context.Context, film cutFilm, playback Playback) (bool, error) {
-	if playback.IsSoundUnlevelled {
-		return true, nil
-	}
-	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
-	if err != nil {
-		return false, err
-	}
-	return len(levels) == 0, nil
-}
-
 // MasterPlaylist is the master playlist of the playback's film cut into chunks (chunks.md §3): every
-// sound of its tracks (SoundsOf), the playback's starting track's standard mix the default, and every
-// picture it is offered, highest first; and what the playback keeps of it from then on: whether the
-// film is cut on time (D269 §3), and whether its sounds are named unlevelled. A film with no grid
-// yet is ErrNoGrid, and is being read through for one; one that cannot be cut is ErrCannotBeCut.
+// sound of its tracks (SoundsOf), the playback's starting track's standard mix the default, in the
+// audio group the lower qualities play, and, where the top plays a track's own sound copied, again in
+// a group of the top's own (D368 §3); every picture it is offered, highest first, each naming its
+// group; and what the playback keeps of it from then on: whether the film is cut on time (D269 §3),
+// and whether its sounds are named unlevelled. A film with no grid yet is ErrNoGrid, and is being
+// read through for one; one that cannot be cut is ErrCannotBeCut.
 func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, Kept, error) {
 	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
@@ -314,15 +320,48 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	if err != nil {
 		return "", Kept{}, err
 	}
+	var groups []soundGroup
+	variants := make([]variant, 0, len(offered.pictures))
+	for _, picture := range offered.pictures {
+		shown := film.variantOf(picture, film.soundKbpsWith(offered, playback, picture))
+		shown.soundGroup = lightSoundGroup
+		if offered.hasPicturesOwnGroup(picture) {
+			shown.soundGroup = ownSoundGroup
+		}
+		if !slices.ContainsFunc(groups, func(group soundGroup) bool { return group.id == shown.soundGroup }) {
+			sounds := film.soundMediaOf(offered, playback, picture)
+			groups = append(groups, soundGroup{id: shown.soundGroup, sounds: sounds})
+		}
+		variants = append(variants, shown)
+	}
+	kept := Kept{
+		IsOnTime: film.kind == OnTime, IsSoundUnlevelled: offered.isUnlevelled, IsSoundUnmeasured: !offered.isMeasured,
+	}
+	return masterPlaylist(groups, variants), kept, nil
+}
+
+// The audio groups of a master playlist: the lower qualities' sounds, which every picture plays
+// where the top plays no sound of its own, and the top's, its tracks' own sounds copied (D368 §3).
+const (
+	lightSoundGroup = "audio"
+	ownSoundGroup   = "own"
+)
+
+// soundMediaOf are the film's sounds picture plays (soundOf), each as its master playlist names it: in
+// SoundsOf's order, which every group keeps, so a player keeps the sound's place as it moves between
+// groups; each named as its made mix is, a name the groups share; the playback's starting track's
+// standard sound the default, or the first where the film no longer has that track.
+func (film cutFilm) soundMediaOf(offered offer, playback Playback, picture Stream) []soundMedia {
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
-		name := soundStream(sound, offered.soundKbps, offered.isUnlevelled).Name()
+		stream := offered.soundOf(picture, sound)
 		language := sound.Language
 		if !langtag.IsWellFormed(language) {
 			language = langtag.Undetermined
 		}
 		sounds = append(sounds, soundMedia{
-			uri: name + "/stream.m3u8", name: name, language: language,
+			uri: stream.Name() + "/stream.m3u8", name: offered.madeSound(sound).Name(), language: language,
+			channels: film.channelsOf(stream),
 			isDefault: !sound.IsBoosted && playback.HasStartingAudio &&
 				sound.AudioTrackIndex == playback.StartingAudioTrackIndex,
 		})
@@ -331,12 +370,7 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	if len(sounds) > 0 && !slices.ContainsFunc(sounds, func(sound soundMedia) bool { return sound.isDefault }) {
 		sounds[0].isDefault = true
 	}
-	variants := make([]variant, 0, len(offered.pictures))
-	for _, picture := range offered.pictures {
-		variants = append(variants, film.variantOf(picture, offered.soundKbps))
-	}
-	kept := Kept{IsOnTime: film.kind == OnTime, IsSoundUnlevelled: offered.isUnlevelled}
-	return masterPlaylist(sounds, variants), kept, nil
+	return sounds
 }
 
 // Rung is one picture a playback is offered, as its master playlist names it: its stream's name
@@ -361,7 +395,8 @@ func (service *Service) Ladder(ctx context.Context, playback Playback) ([]Rung, 
 	rungs := make([]Rung, 0, len(offered.pictures))
 	for _, picture := range offered.pictures {
 		rungs = append(rungs, Rung{
-			StreamName: picture.Name(), AverageKbps: film.averageWithSoundKbps(picture, offered.soundKbps),
+			StreamName:  picture.Name(),
+			AverageKbps: film.averageWithSoundKbps(picture, film.soundKbpsWith(offered, playback, picture)),
 		})
 	}
 	slices.SortStableFunc(rungs, func(one, other Rung) int { return cmp.Compare(one.AverageKbps, other.AverageKbps) })
@@ -369,12 +404,15 @@ func (service *Service) Ladder(ctx context.Context, playback Playback) ([]Rung, 
 }
 
 // Offered is what a playback on its film's ladder may play, as its player names it beside what it
-// is made from: its pictures, highest first, the rate every sound is made at, and the film's own
-// picture's average rate (the owner, 2026-10-20: which tracks are the original's, and which are
-// converted, and from what).
+// is made from: its pictures, highest first, the rate every sound is made at, the tracks whose own
+// sound its top plays copied, and the film's own picture's average rate (the owner, 2026-10-20: which
+// tracks are the original's, and which are converted, and from what).
 type Offered struct {
 	Pictures  []Stream
 	SoundKbps int
+	// CopiedTracks are the audio tracks, by place, the top, the film's own picture, plays copied as
+	// they are (D368 §1).
+	CopiedTracks []int
 	// OwnPictureKbps is the film's own picture's average rate, 0 when not known.
 	OwnPictureKbps int64
 }
@@ -390,7 +428,8 @@ func (service *Service) Offered(ctx context.Context, playback Playback) (Offered
 		return Offered{}, err
 	}
 	return Offered{
-		Pictures: offered.pictures, SoundKbps: offered.soundKbps, OwnPictureKbps: film.pictureAverageBps() / 1000,
+		Pictures: offered.pictures, SoundKbps: offered.soundKbps, CopiedTracks: offered.copied,
+		OwnPictureKbps: film.pictureAverageBps() / 1000,
 	}, nil
 }
 

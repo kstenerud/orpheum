@@ -15,12 +15,14 @@ import (
 )
 
 // Stream is one thing a film is cut into on its grid (chunks.md §1): its picture copied, its
-// picture encoded at one of the qualities, or one audio track's standard or boosted stereo mix.
+// picture encoded at one of the qualities, one audio track's standard or boosted stereo mix, or one
+// audio track copied as it is (D368 §1).
 type Stream struct {
 	Kind nodeproto.ChunkStreamKind
 	// Quality is a StreamQuality's bit rate and height.
 	Quality qualities.Quality
-	// AudioTrackIndex is a StreamSound's track: its place among the film's audio tracks.
+	// AudioTrackIndex is a StreamSound's or a StreamSoundCopied's track: its place among the film's
+	// audio tracks.
 	AudioTrackIndex int
 	// IsBoosted is whether a StreamSound is the track's mix with the dialogue boost (D217 §3).
 	IsBoosted bool
@@ -31,6 +33,10 @@ type Stream struct {
 	// film cut from its file's index is (D259 §2): it plays as it is, from a store of its own, so a
 	// levelled chunk never follows an unlevelled one in a store, and a later playback gets the levelled.
 	IsUnlevelled bool
+	// IsAtOwnLevel is whether a StreamSound is made as loud as its track's own sound, which its
+	// playback's top quality plays copied (D368 §1), and not levelled: a player stepping between the
+	// two hears one level, which its own gain then levels (D226 §4). A store of its own.
+	IsAtOwnLevel bool
 }
 
 // pictureStreamName is the name of the stream that is the source's picture, copied.
@@ -39,7 +45,8 @@ const pictureStreamName = "picture"
 // Name is the stream's name in its playlist's path and its store's directory: "picture";
 // "q<kbps>k<height>p" for a quality, such as q1200k480p; "sound<track>-<kbps>k" for a track's
 // standard mix and "sound<track>-boost-<kbps>k" for its boosted one, such as sound0-boost-96k, each
-// ending "-raw" when unlevelled.
+// ending "-raw" when unlevelled or "-ownlevel" when as loud as the track's own sound; and
+// "sound<track>-own" for the track copied as it is.
 func (stream Stream) Name() string {
 	switch stream.Kind {
 	case nodeproto.StreamQuality:
@@ -50,18 +57,24 @@ func (stream Stream) Name() string {
 			name += "-boost"
 		}
 		name += "-" + strconv.Itoa(stream.SoundKbps) + "k"
-		if stream.IsUnlevelled {
+		switch {
+		case stream.IsUnlevelled:
 			name += "-raw"
+		case stream.IsAtOwnLevel:
+			name += "-ownlevel"
 		}
 		return name
+	case nodeproto.StreamSoundCopied:
+		return "sound" + strconv.Itoa(stream.AudioTrackIndex) + "-own"
 	case nodeproto.StreamPicture:
 	}
 	return pictureStreamName
 }
 
-// streamNamePattern is the shape of every stream's name: the picture, a quality, or a sound.
+// streamNamePattern is the shape of every stream's name: the picture, a quality, a sound made, or a
+// sound copied.
 var streamNamePattern = regexp.MustCompile(`^(?:picture|q([1-9]\d{0,5})k([1-9]\d{0,4})p|` +
-	`sound(0|[1-9]\d{0,2})(-boost)?-([1-9]\d{1,2})k(-raw)?)$`)
+	`sound(0|[1-9]\d{0,2})(?:(-own)|(-boost)?-([1-9]\d{1,2})k(-raw|-ownlevel)?))$`)
 
 // StreamNamed is the stream a name names, or false for a name not of a stream's shape. Whether the
 // film has that stream, a quality in the setting or a track it has, is not its to say.
@@ -77,15 +90,21 @@ func StreamNamed(name string) (Stream, bool) {
 			return Stream{}, false
 		}
 		return Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: kbps, Height: height}}, true
+	case match[3] != "" && match[4] != "":
+		track, err := strconv.Atoi(match[3])
+		if err != nil {
+			return Stream{}, false
+		}
+		return Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: track}, true
 	case match[3] != "":
 		track, trackErr := strconv.Atoi(match[3])
-		kbps, kbpsErr := strconv.Atoi(match[5])
+		kbps, kbpsErr := strconv.Atoi(match[6])
 		if trackErr != nil || kbpsErr != nil {
 			return Stream{}, false
 		}
 		return Stream{
-			Kind: nodeproto.StreamSound, AudioTrackIndex: track, IsBoosted: match[4] != "", SoundKbps: kbps,
-			IsUnlevelled: match[6] != "",
+			Kind: nodeproto.StreamSound, AudioTrackIndex: track, IsBoosted: match[5] != "", SoundKbps: kbps,
+			IsUnlevelled: match[7] == "-raw", IsAtOwnLevel: match[7] == "-ownlevel",
 		}, true
 	}
 	return Stream{Kind: nodeproto.StreamPicture}, true

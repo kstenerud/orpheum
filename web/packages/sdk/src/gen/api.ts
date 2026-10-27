@@ -3822,6 +3822,8 @@ export interface components {
              * @description Its average rate; 0 when not known
              */
             kbps: number;
+            /** @description The sounds it plays where they are not the ladder's (sounds), in their order: the top's, its tracks' own copied; absent for every other picture */
+            sounds?: components["schemas"]["SoundTrackBody"][] | null;
             /** @description Its stream on the film's ladder, as the player's level names it; absent off it */
             stream?: string;
             /**

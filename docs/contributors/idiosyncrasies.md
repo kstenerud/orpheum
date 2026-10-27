@@ -1301,6 +1301,22 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   flushes the browser's rendering pipeline, which a SourceBuffer flush does not.
 
 
+### On a level in another audio group, it matches the sound playing by name and channels, not by its place
+
+- **Symptom:** none seen; read in the source when the top of a film's ladder came to play its own
+  sound in a group of its own (D368 §3).
+- **Cause:** on a level switch to another audio group (`AudioTrackController.switchLevel`), hls.js
+  forgets the track playing and looks in the new group for one of its name, language and channels;
+  with none, for the first of its language. A copied 5.1 sound and the light stereo track differ in
+  channels, so the first of the language is taken: another track's sound where two share a language,
+  and the standard mix in place of the boosted one.
+- **What we do:** every group lists its sounds in one order under one name per place, and the
+  player keeps the place: on `AUDIO_TRACKS_UPDATED`, before hls.js chooses, it sets `audioTrack` to the
+  place playing (`keepAudioRendition` in `web/packages/player/src/hls.ts`), which hls.js then keeps.
+- **Evidence:** **[source]** hls.js 1.7.3, `src/controller/audio-track-controller.ts` (`switchLevel`,
+  `findTrackId`) and `src/utils/rendition-helper.ts` (`audioMatchPredicate`). The audible switch is
+  VQ86's to hear.
+
 ### Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"
 
 - **Symptom:** a phone reported its link as 500, then 5000 kb/s (hls.js's starting values), and the core
@@ -1589,6 +1605,48 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `00040.mp4,4.379000,10.927000`, a file whose cut was at 14.68 s.
   `TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds`. **[web]** no public report found (searched
   GitHub issues of Kyoo and Jellyfin, 2026-10-08).
+
+### A sound copied starts before its seek, and the segment muxer times its cuts from the first packet
+
+- **Symptom:** a film's own sound copied into chunks by two runs, one from the film's start and one
+  from a later chunk, held a packet twice at their join, or the later run's lead-in was refused as
+  cut elsewhere ("holds 0 to 9920 ms of the run, not its chunk's 0 to 6000 ms").
+- **Cause:** two things together. A stream copy from an input seek keeps what the demuxer lands on
+  before the seek: `-ss 6` into a 12 s MP4's AAC began at 5.909 s, four packets early, where a decode
+  is trimmed to the time exactly. And the segment muxer of the pinned build counts `-segment_times`
+  from the first packet it is given (`reference_stream_first_pts`, added to each cut by the
+  Jellyfin patch "add fixes for segment muxer"), so a run whose first packet is not known before it
+  runs cuts its chunks at times shifted by an unknown part of a frame, a packet more or less than the
+  run beside it.
+- **What we do:** a sound copied keeps the film's own times (`-copyts -start_at_zero`, nothing
+  shifted: `-avoid_negative_ts disabled`), and its first packet alone is put one tick before the film
+  (`-bsf:a setts=ts=if(eq(N\,0)\,-1\,TS)`), so every run counts its cuts from the same origin and
+  each chunk starts at the first packet at or after its bound, whichever run made it. The first
+  packet is a lead-in the run drops, or the film's first (an AAC's priming), which then lasts one tick
+  to the next; each chunk is placed by where the muxer lists it ending, less its samples' durations,
+  since the list's start of a run's first file is not a packet's. Not at zero: an MP4's AAC has its
+  second packet there, and the muxer would move it. (`copiedSoundTimes` in
+  `internal/node/chunks/arguments.go`; `startTicks` in `maker.go`.) A film with two packets or more
+  before its start would put the first after the second; none is known.
+- **Evidence:** **[measured]** with the pinned FFmpeg 8.1.2-5-2: `-ss 6 -c:a copy` of a 12 s MP4's
+  AAC wrote 5.909 s first (`-f framecrc` with `-copyts`); with `-copyts` and `-segment_times
+  6,8,10,12` the first cut came at 11.925 s, six seconds after the first packet.
+  `TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes` (integration tier) joins two runs'
+  chunks into the film's own packets, each once, and fails without the first packet moved.
+  **[source]** `libavformat/segment.c` of the pinned build, `seg_write_packet`. **[web]** a search
+  found only that `-segment_times` count from the start of the file (2026-10-27).
+
+### The MP4 muxer cannot write an init before it has read an AC-3 or E-AC-3 packet
+
+- **Symptom:** a run copying a film's AC-3 sound failed at once: "Cannot write moov atom before AC3
+  packets. Set the delay_moov flag to fix this."
+- **Cause:** the MP4 muxer describes AC-3 and E-AC-3 in the init from a parsed packet; with
+  `empty_moov` it writes the init before any.
+- **What we do:** a sound copied's raw files are written with `+delay_moov`, the init written with
+  the first fragment (`rawMovFlags` in `internal/node/chunks/arguments.go`); the store's init is split
+  from it as from any raw file.
+- **Evidence:** **[measured]** pinned FFmpeg 8.1.2-5-2: AC-3 and E-AC-3 5.1 failed without the flag
+  and copied with it; Opus and FLAC copied either way. The integration test copies an AC-3 5.1 film.
 
 ### The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid
 

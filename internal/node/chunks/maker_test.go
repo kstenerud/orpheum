@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -191,6 +192,69 @@ func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 	}
 	if got := storedDecodeTime(t, directory, command.StoreDir, 11); got != uint64(start-aacPriming+(470+469)*1024) {
 		t.Errorf("chunk 11 starts at %d, want after 939 frames, less the priming", got)
+	}
+}
+
+// A sound copied has its lead-in dropped, and each chunk ends where the muxer lists it ending, at the
+// source's own time in the film to the microsecond, and starts as long before as its samples last:
+// not at its bound, nor after a count of frames, nor at the list's start, which for a run's first
+// file is no packet's (D368 §1).
+func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
+	t.Parallel()
+	command := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
+	})
+	command.SoundLeadInMs = 88_839
+	fake := &fakeFFmpeg{
+		raw: map[int][]byte{
+			9:  rawOf(48000, fragmentOf(0, 470, 0)),
+			10: rawOf(48000, lastingFragmentOf(469)),
+			11: rawOf(48000, lastingFragmentOf(176)),
+			12: rawOf(48000, lastingFragmentOf(467)),
+		},
+		numbers: []int{9, 10, 11, 12},
+		spans: map[int]string{
+			9: "0.000000,98.858667", 10: "98.858667,108.864000", 11: "108.864000,112.618667",
+			12: "112.618667,122.581333",
+		},
+	}
+	maker, shelf, directory := makerOver(t, fake)
+	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil || last != 12 {
+		t.Fatalf("the run made through %d, %v; want chunk 12", last, err)
+	}
+	if shelf.HasFile(command.StoreDir, ChunkName(9)) {
+		t.Error("the lead-in was made a chunk")
+	}
+	for chunk, end := range map[int]struct {
+		seconds float64
+		samples uint64
+	}{10: {108.864, 469}, 11: {112.618667, 176}, 12: {122.581333, 467}} {
+		want := uint64(math.Round((end.seconds+float64(TimelineOffsetMs)/1000)*48000)) - end.samples*aacFrameTicks
+		if got := storedDecodeTime(t, directory, command.StoreDir, chunk); got != want {
+			t.Errorf("chunk %d starts at %d, want %d: its listed end in the film, offset, less its %d samples",
+				chunk, got, want, end.samples)
+		}
+	}
+	// A run from the film's start: its first file is listed from zero, its first packet, the priming,
+	// moved to a tick before the film, lasting a tick to the next.
+	first := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	first.FirstChunk, first.BoundsMs = 0, []int64{21, 2_005}
+	ticks := []uint32{1}
+	for range 94 {
+		ticks = append(ticks, 1024)
+	}
+	fromStart := &fakeFFmpeg{
+		raw: map[int][]byte{0: rawOf(48000, timedFragmentOf(ticks...))}, numbers: []int{0},
+		spans: map[int]string{0: "0.000000,2.005333"},
+	}
+	maker, _, directory = makerOver(t, fromStart)
+	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, first, nil); err != nil || last != 0 {
+		t.Fatalf("the run from the start made through %d, %v; want chunk 0", last, err)
+	}
+	if got, want := storedDecodeTime(t, directory, first.StoreDir, 0), uint64(TimelineOffsetMs*48-1); got != want {
+		t.Errorf("chunk 0 starts at %d, want %d: a tick before the film, offset", got, want)
 	}
 }
 

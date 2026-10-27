@@ -32,7 +32,7 @@ func (service *Service) StartOnLadder(
 		return Offer{}, err
 	}
 	chosen, isBelowTheLowest := film.startingPicture(offered.pictures, linkKbps, sharePercent)
-	held := film.heldByUpload(offered, chosen, playback.StartAtMostKbps)
+	held := film.heldByUpload(offered, playback, chosen)
 	return service.startAt(ctx, playback, film, offered, chosenPicture{
 		stream: offered.pictures[held], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
 		isHeldByUpload: held != chosen, sharePercent: sharePercent,
@@ -40,14 +40,16 @@ func (service *Service) StartOnLadder(
 }
 
 // heldByUpload is the place among the offered pictures, highest first, a start the link put at
-// chosen takes within atMostKbps, its average with its sound's: chosen or lower, the lowest when
-// none is within it; chosen with no bound (D286 §5).
-func (film cutFilm) heldByUpload(offered offer, chosen int, atMostKbps int64) int {
+// chosen takes within the playback's StartAtMostKbps, its average with its sound's: chosen or lower,
+// the lowest when none is within it; chosen with no bound (D286 §5).
+func (film cutFilm) heldByUpload(offered offer, playback Playback, chosen int) int {
+	atMostKbps := playback.StartAtMostKbps
 	if atMostKbps <= 0 {
 		return chosen
 	}
 	for index := chosen; index < len(offered.pictures); index++ {
-		if film.averageWithSoundKbps(offered.pictures[index], offered.soundKbps) <= atMostKbps {
+		picture := offered.pictures[index]
+		if film.averageWithSoundKbps(picture, film.soundKbpsWith(offered, playback, picture)) <= atMostKbps {
 			return index
 		}
 	}

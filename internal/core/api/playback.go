@@ -307,12 +307,36 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 	for _, each := range started.Decision.NotDirectReasons {
 		reasons = append(reasons, string(each))
 	}
-	server.logger.InfoContext(ctx, "a playback started", append(who,
-		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
-		"notDirectReasons", reasons,
-		"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
-		"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
-		"notOnLadderBecause", started.NotOnLadderBecause)...)
+	server.logger.InfoContext(ctx, "a playback started", append(append(who,
+		"delivery", deliveryOf(started), "decidedDelivery", string(started.Decision.Delivery),
+		"profile", string(started.Decision.Profile), "notDirectReasons", reasons),
+		append(ladderStart(started),
+			"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
+			"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
+			"notOnLadderBecause", started.NotOnLadderBecause)...)...)
+}
+
+// ladderDelivery is how a playback started on its film's ladder is delivered, as its log line says
+// it: from its chunks, whatever its decision was (D368 §5).
+const ladderDelivery = "ladder"
+
+// deliveryOf is how a playback is delivered, as its log line says it: from its film's ladder when it
+// starts on it, a film its device plays as it is too, which its decision calls direct; else as its
+// decision says (D368 §5).
+func deliveryOf(started playback.Started) string {
+	if started.OnLadder != nil {
+		return ladderDelivery
+	}
+	return string(started.Decision.Delivery)
+}
+
+// ladderStart is where on its film's ladder a playback starts, for its log line: the quality's stream
+// and the sound's it starts with, such as picture and sound0-own (D368 §5); nothing off it.
+func ladderStart(started playback.Started) []any {
+	if started.OnLadder == nil {
+		return nil
+	}
+	return []any{"ladderQuality", started.OnLadder.StreamName, "ladderSound", started.OnLadder.SoundStreamName}
 }
 
 // startsOnLadderKbps is the rate of the picture on its film's ladder a playback starts at, 0 when it

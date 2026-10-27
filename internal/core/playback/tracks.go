@@ -4,6 +4,7 @@ package playback
 
 import (
 	"context"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -35,6 +36,10 @@ type PictureTrack struct {
 	// Kbps is its average rate, 0 when not known.
 	Kbps       int64
 	IsOriginal bool
+	// Sounds are the sounds it plays where they are not the ladder's light ones (Tracks.Sounds), in
+	// their order: the top's, its tracks' own sounds copied where its device plays them (D368 §1);
+	// nil for every other picture.
+	Sounds []SoundTrack
 }
 
 // SoundTrack is a sound a playback may play: one of the file's audio tracks, as it is or converted.
@@ -87,7 +92,11 @@ func (service *Service) tracksOf(
 			return Tracks{}, err
 		}
 		tracks.Pictures = ladderPictures(offered, tracks.FilePicture)
-		tracks.Sounds = convertedSounds(chunks.SoundsOf(chunks.SoundTracksOf(probe)), int64(offered.SoundKbps))
+		made := chunks.SoundsOf(chunks.SoundTracksOf(probe))
+		tracks.Sounds = convertedSounds(made, int64(offered.SoundKbps))
+		if len(offered.CopiedTracks) > 0 && len(tracks.Pictures) > 0 && tracks.Pictures[0].IsOriginal {
+			tracks.Pictures[0].Sounds = withOwnSounds(tracks.Sounds, offered.CopiedTracks, probe)
+		}
 	default:
 		tracks.Pictures = []PictureTrack{originalPicture(tracks.FilePicture, probe.Format.BitRateBps/1000)}
 		for _, sound := range tracks.FileSounds {
@@ -147,6 +156,24 @@ func widthAt(file FilePicture, height int) int {
 	}
 	width := (file.Width*height + file.Height/2) / file.Height
 	return width - width%2
+}
+
+// withOwnSounds are sounds with each standard mix of a track in copied replaced by the track's own
+// sound, as it is: what the top of a ladder plays (D368 §1).
+func withOwnSounds(sounds []SoundTrack, copied []int, probe nodeproto.Probe) []SoundTrack {
+	own := make([]SoundTrack, 0, len(sounds))
+	streams := decide.AudioStreams(probe)
+	for _, sound := range sounds {
+		if !sound.IsBoosted && slices.Contains(copied, sound.AudioTrackIndex) && sound.AudioTrackIndex < len(streams) {
+			stream := streams[sound.AudioTrackIndex]
+			sound = SoundTrack{
+				AudioTrackIndex: sound.AudioTrackIndex, Codec: stream.Codec, ChannelCount: stream.Audio.ChannelCount,
+				Kbps: stream.BitRateBps / 1000, IsOriginal: true,
+			}
+		}
+		own = append(own, sound)
+	}
+	return own
 }
 
 // convertedSounds are the sounds a conversion makes of each sound, AAC in stereo at kbps.

@@ -59,6 +59,43 @@ func TestTracks_OnTheLadderAreTheFilmsOwnPictureAndConvertedQualitiesAndSounds(t
 	}
 }
 
+// The top of the ladder, the film's own picture, names the sounds it plays where its device plays the
+// track as it is: the file's own E-AC-3 5.1, copied, in the standard mix's place, and the boosted mix
+// converted; the lower qualities play the ladder's (D368 §1). A device of formats plays as they are
+// the tracks whose codec and channels the formats list, which the playback's chunks copy at its top.
+func TestTracks_TheTopNamesTheFilmsOwnSoundItPlaysCopied(t *testing.T) {
+	t.Parallel()
+	fake := &cutAfterChunks{offered: chunks.Offered{
+		Pictures: []chunks.Stream{
+			{Kind: nodeproto.StreamPicture},
+			{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 2000, Height: 540}},
+		},
+		SoundKbps: 96, OwnPictureKbps: 2205, CopiedTracks: []int{0},
+	}}
+	service := &Service{offers: fake}
+	tracks, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(), Started{OnLadder: &chunks.Offer{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTop := []SoundTrack{
+		{AudioTrackIndex: 0, Codec: "eac3", ChannelCount: 6, IsOriginal: true},
+		{AudioTrackIndex: 0, IsBoosted: true, Codec: "aac", ChannelCount: 2, Kbps: 96},
+	}
+	if len(tracks.Pictures) != 2 || !reflect.DeepEqual(tracks.Pictures[0].Sounds, wantTop) ||
+		tracks.Pictures[1].Sounds != nil || len(tracks.Sounds) != 2 || tracks.Sounds[0].IsOriginal {
+		t.Errorf("tracks on the ladder = %+v, %+v; want the top's own E-AC-3 copied, the others' the ladder's",
+			tracks.Pictures, tracks.Sounds)
+	}
+	formats := decide.PlayableFormats{AudioCodecs: []decide.Audio{decide.AACStereo, decide.EAC3}}
+	if got := ownSoundTracksOf(scopeFilm(), formats); !reflect.DeepEqual(got, []int{0}) {
+		t.Errorf("a device of E-AC-3 plays %v as they are; want track 0", got)
+	}
+	formats.AudioCodecs = []decide.Audio{decide.AACStereo}
+	if got := ownSoundTracksOf(scopeFilm(), formats); got != nil {
+		t.Errorf("a device of stereo AAC alone plays %v as they are; want none", got)
+	}
+}
+
 // Off the ladder, a file played as it is plays every track as it is.
 func TestTracks_OffTheLadderAreTheFilesOwn(t *testing.T) {
 	t.Parallel()

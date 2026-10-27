@@ -24,7 +24,7 @@ const rawListName = "list.csv"
 // runStartMs is where a run starts reading: its first chunk's start, or, for sound past the
 // film's first chunk, the chunk before it, whose chunk is dropped.
 func runStartMs(command nodeproto.MakeChunks) int64 {
-	if command.Stream.Kind == nodeproto.StreamSound && command.SoundLeadInMs > 0 {
+	if command.Stream.Kind.IsSound() && command.SoundLeadInMs > 0 {
 		return command.SoundLeadInMs
 	}
 	return command.BoundsMs[0]
@@ -40,14 +40,14 @@ const soundSeekEarlyMs = 2_000
 // seekMs is where FFmpeg is told to seek: a copied picture's seek, past its first keyframe, so
 // FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); a sound's soundSeekEarlyMs before its
 // run's start, which its filter trims to (soundTrimMs); otherwise the run's start, which a decode
-// trims to exactly.
+// trims to exactly, and from which a sound copied copies what FFmpeg lands on, a little before it.
 func seekMs(command nodeproto.MakeChunks) int64 {
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
 		return command.PictureSeekMs
 	case nodeproto.StreamSound:
 		return max(0, runStartMs(command)-soundSeekEarlyMs)
-	case nodeproto.StreamQuality:
+	case nodeproto.StreamQuality, nodeproto.StreamSoundCopied:
 		return runStartMs(command)
 	}
 	return runStartMs(command)
@@ -70,23 +70,43 @@ func firstRawNumber(command nodeproto.MakeChunks) int {
 // seconds is milliseconds as FFmpeg's seconds.
 func seconds(ms int64) string { return strconv.FormatFloat(float64(ms)/1000, 'f', 3, 64) }
 
-// cutTimes are where the muxer cuts, relative to the run's start: every chunk boundary after it,
-// the end of the last chunk among them, so what FFmpeg writes past it lands in a raw file that is
-// dropped. A picture is cut a little early, so its keyframe is not missed; a sound is cut at the
-// first frame at or after the time.
+// cutTimes are where the muxer cuts: every chunk boundary after the run's start, the end of the
+// last chunk among them, so what FFmpeg writes past it lands in a raw file that is dropped. The
+// muxer times its cuts from the run's first packet: relative to the run's start, its first packet's
+// time, but for a sound copied, whose first packet is put a tick before the film's start
+// (copiedSoundTimes), so it is cut at the film's own times, a tick early alike in every run. A
+// picture is cut a little early, so its keyframe is not missed;
+// a sound is cut at the first frame at or after the time.
 func cutTimes(command nodeproto.MakeChunks) string {
-	start := runStartMs(command)
+	origin := runStartMs(command)
+	if command.Stream.Kind == nodeproto.StreamSoundCopied {
+		origin = 0
+	}
 	early := int64(cutEarlyMs)
-	if command.Stream.Kind == nodeproto.StreamSound {
+	if command.Stream.Kind.IsSound() {
 		early = 0
 	}
 	var cuts []string
 	for _, bound := range command.BoundsMs {
-		if bound > start {
-			cuts = append(cuts, seconds(bound-start-early))
+		if bound > runStartMs(command) {
+			cuts = append(cuts, seconds(bound-origin-early))
 		}
 	}
 	return strings.Join(cuts, ",")
+}
+
+// copiedSoundTimes keeps a copied sound's packets at their times in the film, the file's start at
+// zero (-copyts -start_at_zero), as no seek moves them: FFmpeg copies from a little before its seek,
+// by as much as the demuxer lands before it (85 ms into an MP4's AAC), so a run's first packet is not
+// known before it runs, and the segment muxer times its cuts from that packet (idiosyncrasies.md).
+// The first packet alone is put one tick before the film's start, so every cut is at the film's own
+// time, a tick early, in every run alike: each chunk holds the packets from the first at or after its
+// start, whichever run made it, and two runs' chunks join with every packet once. The first packet is
+// in a lead-in the run drops, or is the film's first, its priming, which then lasts only to the next
+// (a tick, before an MP4's AAC; or as long as the film's sound starts after it); not at zero, where an
+// MP4's AAC has its second packet, which the muxer would move.
+func copiedSoundTimes() []string {
+	return []string{"-bsf:a", `setts=ts=if(eq(N\,0)\,-1\,TS)`, "-avoid_negative_ts", "disabled"}
 }
 
 // keyframeTimes are where an encode puts its keyframes, relative to the run's start: at each of
@@ -104,7 +124,11 @@ func keyframeTimes(command nodeproto.MakeChunks) string {
 // run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
 	end := command.BoundsMs[len(command.BoundsMs)-1]
-	arguments := []string{"-v", "error", "-nostats", "-ss", seconds(seekMs(command)), "-to", seconds(end)}
+	arguments := []string{"-v", "error", "-nostats"}
+	if command.Stream.Kind == nodeproto.StreamSoundCopied {
+		arguments = append(arguments, "-copyts", "-start_at_zero")
+	}
+	arguments = append(arguments, "-ss", seconds(seekMs(command)), "-to", seconds(end))
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
@@ -127,6 +151,9 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 			"-filter:a", "atrim=start="+seconds(soundTrimMs(command))+",asetpts=PTS-STARTPTS,"+
 				encode.MixFilter(*sound, command.Stream.IsBoosted),
 			"-c:a", "aac", "-b:a", strconv.Itoa(command.Stream.SoundKbps)+"k", "-ac", "2")
+	case nodeproto.StreamSoundCopied:
+		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(command.Stream.Sound.AudioTrackIndex), "-c:a", "copy")
+		arguments = append(arguments, copiedSoundTimes()...)
 	}
 	return append(arguments, "-sn", "-dn",
 		"-f", "segment", "-segment_times", cutTimes(command),
@@ -135,7 +162,18 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		"-segment_format", "mp4",
 		// write_tmcd=0: the MP4 muxer adds a timecode track for a picture carrying a timecode, as an
 		// MXF's or a camera's MOV does, and a raw file must hold the one track (D360).
-		"-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof:use_editlist=0:write_tmcd=0",
+		"-segment_format_options", "movflags="+rawMovFlags(command)+":use_editlist=0:write_tmcd=0",
 		filepath.Join(rawPath, "%05d.mp4"),
 	)
+}
+
+// rawMovFlags are the MP4 muxer's flags for a run's raw files: fragmented, the init first. A sound
+// copied waits for its first packet before the init (delay_moov), which AC-3 and E-AC-3 need: the
+// muxer cannot describe them before it has read one ("Cannot write moov atom before AC3 packets").
+func rawMovFlags(command nodeproto.MakeChunks) string {
+	flags := "+frag_keyframe+empty_moov+default_base_moof"
+	if command.Stream.Kind == nodeproto.StreamSoundCopied {
+		flags += "+delay_moov"
+	}
+	return flags
 }

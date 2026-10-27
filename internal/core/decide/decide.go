@@ -128,11 +128,8 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
-	if audio, present := playedAudio(input); present {
-		name, placed := audioEntry(audio)
-		if !placed || !slices.Contains(input.PlayableFormats.AudioCodecs, name) {
-			reasons = append(reasons, ReasonAudioCodec)
-		}
+	if audio, present := playedAudio(input); present && !PlaysAsItIs(audio, input.PlayableFormats) {
+		reasons = append(reasons, ReasonAudioCodec)
 	}
 	return reasons, videoFits
 }

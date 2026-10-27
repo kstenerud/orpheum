@@ -177,3 +177,43 @@ func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 		t.Errorf("the sound decodes from %s filtered by %q; want from 0.000, dropping 1.500 s", start, filter)
 	}
 }
+
+// A sound copied is copied as it is, every channel, from its lead-in, at its times in the film; its
+// first packet put at the film's start, so the muxer, which times its cuts from a run's first packet,
+// cuts it at the film's own times, the bounds, wherever FFmpeg's copy began (D368 §1;
+// idiosyncrasies.md).
+func TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds(t *testing.T) {
+	t.Parallel()
+	copied := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
+	})
+	copied.SoundLeadInMs = 88_839
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	if start := valueOf(arguments, "-ss"); start != "88.839" {
+		t.Errorf("the copy reads from %s, want its lead-in, 88.839", start)
+	}
+	if mapped, codec := valueOf(arguments, "-map"), valueOf(arguments, "-c:a"); mapped != "0:a:1" || codec != "copy" {
+		t.Errorf("the sound is %s as %s; want track 1 copied", mapped, codec)
+	}
+	if slices.Contains(arguments, "-ac") || slices.Contains(arguments, "-filter:a") {
+		t.Errorf("the copy is mixed or filtered: %q", arguments)
+	}
+	keep := slices.Index(arguments, "-copyts")
+	if keep < 0 || keep > slices.Index(arguments, "-i") || !slices.Contains(arguments, "-start_at_zero") {
+		t.Errorf("the copy's times are not the film's, its start at zero: %q", arguments)
+	}
+	if first, shift := valueOf(arguments, "-bsf:a"), valueOf(arguments, "-avoid_negative_ts"); first !=
+		`setts=ts=if(eq(N\,0)\,-1\,TS)` || shift != "disabled" {
+		t.Errorf("the first packet is retimed by %q, the times shifted by %q; want it a tick before the film, "+
+			"nothing else moved", first, shift)
+	}
+	if cuts := valueOf(arguments, "-segment_times"); cuts != "98.849,108.859,112.613,122.581" {
+		t.Errorf("the cuts are %s, want the bounds in the film, 98.849,108.859,112.613,122.581", cuts)
+	}
+	if first := valueOf(arguments, "-segment_start_number"); first != "9" {
+		t.Errorf("the first raw file is %s, want 9, the lead-in's", first)
+	}
+	if options := valueOf(arguments, "-segment_format_options"); !strings.Contains(options, "delay_moov") {
+		t.Errorf("the raw files are written with %q; want the init after the first packet, as AC-3 needs", options)
+	}
+}

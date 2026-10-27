@@ -167,6 +167,138 @@ func Samples(fragments []byte) (int64, error) {
 	return count, nil
 }
 
+// tfhd flags this reads: whether the fragment names a base data offset, a sample description, and a
+// default duration for its samples.
+const (
+	tfhdBaseDataOffset         = 0x000001
+	tfhdSampleDescriptionIndex = 0x000002
+	tfhdDefaultSampleDuration  = 0x000008
+)
+
+// Duration is how long the fragments' samples last, in the track's ticks: each sample's duration as
+// its trun says it, or its fragment's default, or the track's (trex, in init).
+func Duration(init, fragments []byte) (int64, error) {
+	trackDefault, err := trackDefaultDuration(init)
+	if err != nil {
+		return 0, err
+	}
+	trafs, err := find(fragments, 0, len(fragments), "moof", "traf")
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, traf := range trafs {
+		lasting, err := trafDuration(fragments, traf, trackDefault)
+		if err != nil {
+			return 0, err
+		}
+		total += lasting
+	}
+	return total, nil
+}
+
+// trackDefaultDuration is the default duration of the init's one track's samples (trex), zero when it
+// names none.
+func trackDefaultDuration(init []byte) (int64, error) {
+	extends, err := find(init, 0, len(init), "moov", "mvex", "trex")
+	if err != nil {
+		return 0, err
+	}
+	if len(extends) == 0 {
+		return 0, nil
+	}
+	trex := init[extends[0].payload:extends[0].end]
+	if len(trex) < 16 {
+		return 0, fmt.Errorf("%w: a short trex", errMalformed)
+	}
+	// Version and flags, the track, the sample description, then the default duration.
+	return int64(binary.BigEndian.Uint32(trex[12:])), nil
+}
+
+// trafDuration is how long one fragment's samples last: its truns' durations, each sample's own or
+// the fragment's default, which falls back to the track's.
+func trafDuration(fragments []byte, traf box, trackDefault int64) (int64, error) {
+	headers, err := find(fragments, traf.payload, traf.end, "tfhd")
+	if err != nil {
+		return 0, err
+	}
+	sampleDefault := trackDefault
+	if len(headers) == 1 {
+		if sampleDefault, err = fragmentDefaultDuration(fragments[headers[0].payload:headers[0].end],
+			trackDefault); err != nil {
+			return 0, err
+		}
+	}
+	truns, err := find(fragments, traf.payload, traf.end, "trun")
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, each := range truns {
+		lasting, err := trunDuration(fragments[each.payload:each.end], sampleDefault)
+		if err != nil {
+			return 0, err
+		}
+		total += lasting
+	}
+	return total, nil
+}
+
+// fragmentDefaultDuration is the default duration a fragment's header (tfhd) gives its samples, or
+// trackDefault where it gives none.
+func fragmentDefaultDuration(header []byte, trackDefault int64) (int64, error) {
+	if len(header) < 8 {
+		return 0, fmt.Errorf("%w: a short tfhd", errMalformed)
+	}
+	flags := binary.BigEndian.Uint32(header) & 0xffffff
+	if flags&tfhdDefaultSampleDuration == 0 {
+		return trackDefault, nil
+	}
+	durationAt := 8 // version, flags, track
+	if flags&tfhdBaseDataOffset != 0 {
+		durationAt += 8
+	}
+	if flags&tfhdSampleDescriptionIndex != 0 {
+		durationAt += 4
+	}
+	if len(header) < durationAt+4 {
+		return 0, fmt.Errorf("%w: a short tfhd", errMalformed)
+	}
+	return int64(binary.BigEndian.Uint32(header[durationAt:])), nil
+}
+
+// trunDuration is how long one trun's samples last: each its own duration where the trun says it,
+// else sampleDefault.
+func trunDuration(run []byte, sampleDefault int64) (int64, error) {
+	if len(run) < 8 {
+		return 0, fmt.Errorf("%w: a short trun", errMalformed)
+	}
+	flags, count := binary.BigEndian.Uint32(run)&0xffffff, int64(binary.BigEndian.Uint32(run[4:]))
+	if flags&trunSampleDuration == 0 {
+		return count * sampleDefault, nil
+	}
+	samplesAt := 8
+	for _, field := range []uint32{trunDataOffset, trunFirstSampleFlags} {
+		if flags&field != 0 {
+			samplesAt += 4
+		}
+	}
+	stride := 0
+	for _, field := range []uint32{trunSampleDuration, trunSampleSize, trunSampleFlags, trunCompositionTime} {
+		if flags&field != 0 {
+			stride += 4
+		}
+	}
+	if int64(len(run)-samplesAt) < count*int64(stride) {
+		return 0, fmt.Errorf("%w: a trun of %d samples in %d bytes", errMalformed, count, len(run))
+	}
+	var total int64
+	for sample := range count {
+		total += int64(binary.BigEndian.Uint32(run[samplesAt+int(sample)*stride:]))
+	}
+	return total, nil
+}
+
 // trun flags this reads: whether each sample says its duration, size, flags and composition offset,
 // and whether the run's first sample has flags of its own.
 const (

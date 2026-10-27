@@ -76,6 +76,13 @@ func hdrOrSDR(stream nodeproto.ProbeStream, sdr, hdr10 Video, profiles []string)
 	return sdr, true
 }
 
+// PlaysAsItIs is whether a device whose playable formats are formats plays an audio track as it is,
+// its codec and channels both listed (D336 §1).
+func PlaysAsItIs(stream nodeproto.ProbeStream, formats PlayableFormats) bool {
+	entry, isOnMenu := audioEntry(stream)
+	return isOnMenu && slices.Contains(formats.AudioCodecs, entry)
+}
+
 // audioEntry is the menu entry an audio stream is, or false when it is none (TrueHD, DTS, MP3
 // and PCM are not on the menu).
 func audioEntry(stream nodeproto.ProbeStream) (Audio, bool) {

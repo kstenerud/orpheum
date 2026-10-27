@@ -4554,6 +4554,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "sounds": {
+            "description": "The sounds it plays where they are not the ladder's (sounds), in their order: the top's, its tracks' own copied; absent for every other picture",
+            "items": {
+              "$ref": "#/components/schemas/SoundTrackBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "stream": {
             "description": "Its stream on the film's ladder, as the player's level names it; absent off it",
             "type": "string"

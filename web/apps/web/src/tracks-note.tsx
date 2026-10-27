@@ -108,16 +108,19 @@ export function playingPicture(
   return height === undefined ? pictures[0] : pictures.find((picture) => picture.height === height);
 }
 
-/** The sound playing: the track chosen, its boosted mix when the boost is on and it has one. */
-export function playingSound(tracks: Tracks, chosen: PlayingSound): SoundTrack | undefined {
-  const ofTrack = (tracks.sounds ?? []).filter(
-    (sound) => sound.audioTrackIndex === chosen.audioTrackIndex,
-  );
-  return (
-    ofTrack.find((sound) => sound.isBoosted === chosen.isBoosted) ??
-    ofTrack[0] ??
-    (tracks.sounds ?? [])[0]
-  );
+/**
+ * The sound playing: the track chosen, its boosted mix when the boost is on and it has one; among the
+ * sounds the picture playing plays of its own where it names them, the top of a ladder its tracks'
+ * own copied (D368 §1), else among the playback's.
+ */
+export function playingSound(
+  tracks: Tracks,
+  chosen: PlayingSound,
+  picture?: PictureTrack,
+): SoundTrack | undefined {
+  const sounds = picture?.sounds ?? tracks.sounds ?? [];
+  const ofTrack = sounds.filter((sound) => sound.audioTrackIndex === chosen.audioTrackIndex);
+  return ofTrack.find((sound) => sound.isBoosted === chosen.isBoosted) ?? ofTrack[0] ?? sounds[0];
 }
 
 /**
@@ -137,7 +140,7 @@ export function TracksNote(props: {
     return null;
   }
   const picture = playingPicture(tracks, props.height);
-  const sound = playingSound(tracks, props.sound);
+  const sound = playingSound(tracks, props.sound, picture);
   const file = (tracks.fileSounds ?? []).find(
     (each) => each.audioTrackIndex === sound?.audioTrackIndex,
   );

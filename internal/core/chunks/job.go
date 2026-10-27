@@ -154,6 +154,15 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 		if args.FirstChunk > 0 {
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
+	case nodeproto.StreamSoundCopied:
+		track, err := copiedTrack(film, stream)
+		if err != nil {
+			return command, err
+		}
+		command.Stream.Sound = &track
+		if args.FirstChunk > 0 {
+			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
+		}
 	case nodeproto.StreamPicture:
 		startMs := film.grid.StartsMs[args.FirstChunk]
 		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, startMs, film.grid.FilmDurationMs)
@@ -202,9 +211,23 @@ func PictureSeekBeforeMs(keyframesMs []int64, startMs int64) int64 {
 	return min(seekMs, startMs)
 }
 
+// copiedTrack is a sound copied's audio track, as its chunks are copied of it: its place, language
+// and channels, carrying no gain, which a copy cannot. A track the film does not have ends the job for
+// good.
+func copiedTrack(film cutFilm, stream Stream) (nodeproto.SoundTrack, error) {
+	for _, track := range SoundTracksOf(film.probe) {
+		if track.AudioTrackIndex == stream.AudioTrackIndex {
+			return track, nil
+		}
+	}
+	return nodeproto.SoundTrack{}, jobs.MarkPermanent(fmt.Errorf("file %d has no sound %s", film.file.ID,
+		stream.Name()))
+}
+
 // levelledTrack is a sound stream's audio track as its chunks are made of it, with the levelling gain
-// they carry (D226 §4). A track the
-// film does not have, or a boosted mix of a track with no centre to raise, ends the job for good.
+// they carry (D226 §4), or, made as loud as the track's own sound, the gain that brings its mix there
+// (D368 §1). A track the film does not have, or a boosted mix of a track with no centre to raise,
+// ends the job for good.
 func (service *Service) levelledTrack(
 	ctx context.Context, film cutFilm, stream Stream,
 ) (nodeproto.SoundTrack, error) {
@@ -215,6 +238,11 @@ func (service *Service) levelledTrack(
 			return nodeproto.SoundTrack{}, err
 		}
 		decide.LevelSounds(tracks, levels, film.probe)
+		if stream.IsAtOwnLevel {
+			for index := range tracks {
+				tracks[index].CarriedGainDB = decide.OwnLevelGainDB(levels, film.probe, tracks[index].AudioTrackIndex)
+			}
+		}
 	}
 	if hasSound(SoundsOf(tracks), stream) {
 		for _, track := range tracks {
@@ -347,12 +375,15 @@ func (service *Service) takeEnd(
 	return fmt.Errorf("node %d ended %s in a state this core does not know: %q", nodeID, what, report.State)
 }
 
-// hasSound is whether a film whose sounds are those of its audio tracks (SoundsOf) has the sound
-// stream, at whatever bit rate: a track it has, and a boosted mix only of a track with a centre to
-// raise.
+// hasSound is whether a film whose sounds are those of its audio tracks (SoundsOf) has the made sound
+// stream, at whatever bit rate, levelled, unlevelled or as loud as its track's own: a track it has,
+// and a boosted mix only of a track with a centre to raise.
 func hasSound(sounds []Sound, stream Stream) bool {
+	if stream.Kind != nodeproto.StreamSound || stream.IsUnlevelled && stream.IsAtOwnLevel {
+		return false
+	}
 	return slices.ContainsFunc(sounds, func(sound Sound) bool {
-		return soundStream(sound, stream.SoundKbps, stream.IsUnlevelled) == stream
+		return sound.AudioTrackIndex == stream.AudioTrackIndex && sound.IsBoosted == stream.IsBoosted
 	})
 }
 
