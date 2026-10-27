@@ -213,6 +213,11 @@ type AddressesRequest struct {
 	// core made it, so only the core answers it (the protocol's §2.6). Each heartbeat sends a new one,
 	// recognised for ten minutes.
 	ProbeNonce string `json:"probeNonce,omitempty"`
+	// HouseNetworks are the house's public IPv6 /64s, at most MaxHouseNetworks, the most recently
+	// witnessed first: those the core learnt from devices it proved at home, and those its admin named.
+	// A discovery judges a device asking from one at home (IsInHouseNetworks), for the LAN path's place
+	// alone, and never returns them to a client (D356 §3, §5, §9).
+	HouseNetworks []HouseNetwork `json:"houseNetworks,omitempty"`
 }
 
 // ProbeResult is what the discovery's outside probe found of one candidate, each part a field of its
@@ -306,6 +311,10 @@ type SignalMessage struct {
 	Person string `json:"person,omitempty"`
 	Ask    string `json:"ask,omitempty"`
 	Tag    string `json:"tag,omitempty"`
+	// ClientNetwork is, on an offer, the network the client's offer came from as the discovery saw its
+	// source (HouseNetworkOf), "2a0f:1000:1:2::/64"; none when it came over IPv4. The core learns it as
+	// a house network once the offer's connection proves itself from home (D356 §1, §2).
+	ClientNetwork string `json:"clientNetwork,omitempty"`
 }
 
 // ACMEAccountRequest is the core's ACME account, as its CA named it, which the discovery's CAA at

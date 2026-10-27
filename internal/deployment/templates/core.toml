@@ -50,6 +50,10 @@ lan_addresses = {{toml .Values.LANAddresses}}
 # In its container the core sees only the container's network and its tunnel, which nothing at home
 # reaches: it sends none of them, only the addresses above.
 send_interface_addresses = false
+# The house's public IPv6 /64s, for a house whose devices cannot reach the core directly over WebRTC,
+# which teaches the core them by itself: the discovery recognises the house's devices by them. Stale
+# when the provider moves the prefix.
+house_ipv6_networks = []
 
 [webrtc]
 # The UDP port WebRTC is taken on, published at this machine's address at home on the same port, which

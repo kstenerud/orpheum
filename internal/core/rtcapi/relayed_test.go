@@ -3,6 +3,7 @@
 package rtcapi_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // offerOf is an offer's SDP with the given attribute lines in its media section.
@@ -85,19 +87,61 @@ func TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork(t *testing.T) {
 	t.Parallel()
 	server := newServer(t)
 	rtcapi.SetBounds(server, rtcapi.Bounds{ConnectWithin: time.Second})
-	if _, isConnected := rtcapitest.Dial(t, server.AnswerRelayed, 2*time.Second, rtcapitest.OnLoopback()); isConnected {
+	_, isConnected := rtcapitest.Dial(t, answerRelayedBy(server), 2*time.Second, rtcapitest.OnLoopback())
+	if isConnected {
 		t.Error("a client on the loopback connected through a discovery")
 	}
 	if count := rtcapi.ConnectionCount(server); count != 0 {
 		t.Errorf("the core holds %d connections after the bound to connect; want none", count)
 	}
 	rtcapitest.Connect(t, server.Answer)
-	_, err := server.AnswerRelayed(t.Context(), rtcapi.Description{Type: "offer", SDP: offerOf()})
+	_, err := server.AnswerRelayed(t.Context(), rtcapi.Description{Type: "offer", SDP: offerOf()}, nil)
 	if !errors.Is(err, rtcapi.ErrOfferRefused) {
 		t.Errorf("an offer with no fingerprint = %v; want ErrOfferRefused", err)
 	}
 	if count := rtcapi.ConnectionCount(server); count != 1 {
 		t.Errorf("the core holds %d connections; want the direct one alone", count)
+	}
+}
+
+// A connection a discovery's offer made that connects directly from a home network is told to its
+// answerer as proven at home, once it connects (D356 §1).
+func TestAnswerRelayed_TellsAConnectionProvenAtHome(t *testing.T) {
+	t.Parallel()
+	server := rtcapi.New(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
+	// The test's client is on this machine, whose addresses are the core's own networks: a development
+	// build's lifting of the address check lets it connect, and every IPv4 address is home here.
+	server.AcceptAnyRelayedAddress()
+	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")})
+	proven := make(chan rtcapi.ProvenAtHome, 1)
+	rtcapitest.Connect(t, func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+		return server.AnswerRelayed(ctx, offer, func(each rtcapi.ProvenAtHome) { proven <- each })
+	}, rtcapitest.OverIPv4())
+	if told := testutil.Receive(t, proven, "the connection proven at home"); told.Path != rtcapi.PathDirectIPv4 ||
+		!told.Device.Is4() {
+		t.Errorf("the connection was told proven at home as %+v; want direct over IPv4 from the client", told)
+	}
+}
+
+// answerRelayedBy is server's AnswerRelayed, telling no one of a connection proven at home.
+func answerRelayedBy(server *rtcapi.Server) rtcapitest.Answerer {
+	return func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+		return server.AnswerRelayed(ctx, offer, nil)
+	}
+}
+
+// The public IPv6 addresses an offer names are its candidates', a device's own: never a private,
+// link-local or IPv4 one, nor an mDNS name, and each once (D356, Q5).
+func TestOfferedIPv6Addresses_AreTheOffersPublicIPv6Candidates(t *testing.T) {
+	t.Parallel()
+	sdp := offerOf(sha256Fingerprint, candidate("2a0f:1000:1:2::9"), candidate("2a0f:1000:1:2::9"),
+		"a=candidate:2 1 udp 1686052607 2a0f:3000:5:6::1 50001 typ srflx raddr :: rport 0",
+		candidate("fd77::1"), candidate("fe80::1"), candidate("11.22.33.144"),
+		candidate("0a1b2c3d-1111-2222-3333-444455556666.local"))
+	got := rtcapi.OfferedIPv6Addresses(sdp)
+	if len(got) != 2 || got[0].String() != "2a0f:1000:1:2::9" || got[1].String() != "2a0f:3000:5:6::1" {
+		t.Errorf("the offer's public IPv6 addresses are %v; want its two public IPv6 candidates, once each", got)
 	}
 }
 

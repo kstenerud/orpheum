@@ -21,6 +21,7 @@ import { useResource } from "./use-resource.ts";
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 type PortMapping = components["schemas"]["PortMappingBody"];
 type WebRTCPath = components["schemas"]["WebRTCPathBody"];
+type HouseNetwork = components["schemas"]["HouseNetworkBody"];
 
 /** The paid discovery's address, the one an admin is offered first (D273 §2). */
 export const serviceDiscoveryUrl = "https://api.orpheum-app.com/core/v1";
@@ -133,6 +134,7 @@ function StandingView(props: {
       )}
       <PortMappingView mapping={standing.portMapping} />
       <WebRTCPaths paths={standing.webrtcPaths ?? []} />
+      <HouseNetworks networks={standing.houseNetworks ?? []} />
       {standing.deprecatedUntil === undefined ? null : (
         <p role="alert">{t("system.discovery.deprecated", { date: standing.deprecatedUntil })}</p>
       )}
@@ -388,6 +390,36 @@ function WebRTCPaths(props: { readonly paths: readonly WebRTCPath[] }): JSX.Elem
         {taken.map((each) => (
           <li key={each.path}>
             {t(`system.discovery.paths.path.${camelKey(each.path)}`, { count: each.count })}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/**
+ * The house's public IPv6 networks the discovery recognises devices at home by (D356 §10): each
+ * learnt one with the device that last reached the server directly at home and when, each configured
+ * one with its warning that it goes stale; nothing while there are none.
+ */
+function HouseNetworks(props: { readonly networks: readonly HouseNetwork[] }): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.networks.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      <p>{t("system.discovery.houseNetworks.heading")}</p>
+      <ul>
+        {props.networks.map((each) => (
+          <li key={each.network}>
+            {each.source === "learnt"
+              ? t("system.discovery.houseNetworks.learnt", {
+                  network: each.network,
+                  device: each.device ?? "",
+                  at: dateTimeText(each.witnessedAt, i18n.language),
+                })
+              : t("system.discovery.houseNetworks.configured", { network: each.network })}
           </li>
         ))}
       </ul>

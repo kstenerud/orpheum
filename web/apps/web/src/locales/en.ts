@@ -553,6 +553,14 @@ export const en = {
           failed: "failed to connect: {{count}}",
         },
       },
+      houseNetworks: {
+        heading:
+          "The discovery recognises devices at home by your home's IPv6 networks, and offers them this server's address at home:",
+        learnt:
+          "{{network}}, learnt from the device at {{device}}, which reached this server directly at home at {{at}}",
+        configured:
+          "{{network}}, named in the config. It goes stale when your provider moves the prefix; devices that reach this server directly at home teach it the new one.",
+      },
       leave: "Leave the discovery",
       leaveConsequence: "Clients outside the house will no longer find this server through it.",
       leaveConfirm: "Leave",

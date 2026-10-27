@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -60,7 +61,9 @@ func (files *memoryFiles) RemovePersistentFile(name string) error {
 // answering answers every offer as the core's WebRTC server would.
 type answering struct{}
 
-func (answering) AnswerRelayed(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+func (answering) AnswerRelayed(
+	_ context.Context, offer rtcapi.Description, _ func(rtcapi.ProvenAtHome),
+) (rtcapi.Description, error) {
 	return rtcapi.Description{Type: "answer", SDP: "answer to " + offer.SDP}, nil
 }
 
@@ -148,7 +151,7 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	// The client proves its offer under its session's key; the core checks it before answering.
 	answer, err := held.Offer(t.Context(), discoveryproto.ClientOffer{
 		SDP: offer, Proof: proof.Offer(proof.SessionOfferKey("a session's token"), "sha-256 AB:CD"),
-	}, link.LocatorHash("a device's locator"))
+	}, link.LocatorHash("a device's locator"), netip.Prefix{})
 	if err != nil || answer.SDP != "answer to "+offer {
 		t.Errorf("the offer passed through the discovery was answered %q, %v", answer.SDP, err)
 	}

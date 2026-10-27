@@ -193,6 +193,7 @@ relay_port_max = 49199
 configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true
+house_ipv6_networks = []
 
 [webrtc]
 udp_port = 0
@@ -322,6 +323,35 @@ func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing
 		if discovery.check() == nil {
 			t.Errorf("house address %q was taken", refused)
 		}
+	}
+}
+
+// The house's IPv6 networks an admin names are public IPv6 /64s, at most four, which the discovery
+// is sent as configured; a wider, private, IPv4 or unmasked network, and a fifth, are refused (D356 §6).
+func TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s(t *testing.T) {
+	t.Parallel()
+	discovery := DiscoveryConfig{HouseIPv6Networks: []string{"2a0f:1000:1:2::/64", "2a0f:3000:9:8::/64"}}
+	if err := discovery.check(); err != nil {
+		t.Fatal(err)
+	}
+	got := discovery.houseNetworks()
+	if len(got) != 2 || got[0].String() != "2a0f:1000:1:2::/64" || got[1].String() != "2a0f:3000:9:8::/64" {
+		t.Errorf("the house networks are %v; want both named", got)
+	}
+	for _, refused := range []string{
+		"2a0f:1000::/32", "fd77:1:2:3::/64", "2001:db8:1:2::/64", "11.22.33.0/24", "2a0f:1000:1:2::9/64",
+		"2a0f:1000:1:2::1",
+	} {
+		discovery.HouseIPv6Networks = []string{refused}
+		if discovery.check() == nil {
+			t.Errorf("house network %q was taken", refused)
+		}
+	}
+	discovery.HouseIPv6Networks = []string{
+		"2a0f:1000:1:1::/64", "2a0f:1000:1:2::/64", "2a0f:1000:1:3::/64", "2a0f:1000:1:4::/64", "2a0f:1000:1:5::/64",
+	}
+	if discovery.check() == nil {
+		t.Error("five house networks were taken; a discovery counts four")
 	}
 }
 

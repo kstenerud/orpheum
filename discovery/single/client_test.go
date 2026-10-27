@@ -192,6 +192,9 @@ func answerAll(t *testing.T, built clientStage) {
 				SDP: offer.SDP + " under " + offer.LocatorHash, Signature: []byte(offer.Proof),
 				PublicKey: []byte("the core's key"),
 			}
+			if offer.ClientNetwork != "" {
+				reply.SDP += " from " + offer.ClientNetwork
+			}
 			if wsjson.Write(t.Context(), connection, reply) != nil {
 				return
 			}
@@ -230,6 +233,43 @@ func TestOffers_ReachTheCoreWithTheHashTheDeviceFoundItByAndComeBackInOrder(t *t
 		answered.Answers[0].SDP != "first under "+link.LocateHash(everyUseSecret) {
 		t.Errorf("an offer by a bootstrap token was answered %+v; want it passed under its link's hash",
 			answered.Answers)
+	}
+}
+
+// An offer reaches the core with the network it came from, its source's /64, when the source is a
+// public IPv6 address, and with none over IPv4, a carrier's shared address saying nothing of a
+// household (D356 §2).
+func TestSignal_AnOfferCarriesItsSourcesIPv6NetworkAndNoIPv4(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	answerAll(t, built)
+	asked := discoveryproto.OfferRequest{
+		PathsRequest: discoveryproto.PathsRequest{Locator: aLocator},
+		Offers:       []discoveryproto.ClientOffer{{SDP: "an offer", Proof: "p"}},
+	}
+	under := "an offer under " + link.LocatorHash(aLocator)
+	for source, want := range map[string]string{
+		"[2a0f:1000:1:2:aaaa:bbbb:cccc:dddd]:51234": under + " from 2a0f:1000:1:2::/64",
+		"11.22.33.144:51234":                       under,
+		"[fd77::5]:51234":                           under,
+	} {
+		var sent bytes.Buffer
+		if err := json.NewEncoder(&sent).Encode(asked); err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, discoveryproto.OfferPath(built.coreID),
+			&sent)
+		request.RemoteAddr = source
+		request.Header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
+		recorder := httptest.NewRecorder()
+		built.discovery.ClientHandler().ServeHTTP(recorder, request)
+		var answered discoveryproto.OfferResponse
+		if err := json.NewDecoder(recorder.Body).Decode(&answered); err != nil {
+			t.Fatalf("an offer from %s answered %d: %v", source, recorder.Code, err)
+		}
+		if len(answered.Answers) != 1 || answered.Answers[0].SDP != want {
+			t.Errorf("an offer from %s reached the core as %+v; want %q", source, answered.Answers, want)
+		}
 	}
 }
 

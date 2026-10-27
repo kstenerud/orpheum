@@ -299,12 +299,15 @@ func (server *Server) Answer(ctx context.Context, offer Description) (Descriptio
 	if offer.Type != webrtc.SDPTypeOffer.String() {
 		return Description{}, fmt.Errorf("want an offer, not %q", offer.Type)
 	}
-	return server.answerWith(ctx, server.api, offer.SDP)
+	return server.answerWith(ctx, server.api, offer.SDP, nil)
 }
 
-// answerWith answers an offer's SDP with a connection api makes.
-func (server *Server) answerWith(ctx context.Context, api *webrtc.API, offerSDP string) (Description, error) {
-	connection, err := server.open(api)
+// answerWith answers an offer's SDP with a connection api makes, telling onProvenAtHome, unless nil,
+// when the connection proves itself from home.
+func (server *Server) answerWith(
+	ctx context.Context, api *webrtc.API, offerSDP string, onProvenAtHome func(ProvenAtHome),
+) (Description, error) {
+	connection, err := server.open(api, onProvenAtHome)
 	if err != nil {
 		return Description{}, err
 	}
@@ -317,8 +320,9 @@ func (server *Server) answerWith(ctx context.Context, api *webrtc.API, offerSDP 
 }
 
 // open makes a peer connection with api, unless the core holds its most connections. One that has not
-// connected within its bound is closed, and so is one past its network's share once it connects.
-func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
+// connected within its bound is closed, and so is one past its network's share once it connects. Once
+// it connects, onProvenAtHome, unless nil, is told when it proved itself from home (D356 §1).
+func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (*webrtc.PeerConnection, error) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
 	if len(server.connections) >= server.bounds.connections {
@@ -353,7 +357,9 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
 			own.keep(connection.GetStats())
-			server.recordSelectedPath(connection, server.clock.Now().Sub(openedAt))
+			pair := selectedPair(connection)
+			server.recordSelectedPath(pair, server.clock.Now().Sub(openedAt))
+			server.tellIfProvenAtHome(pair, own.held(), onProvenAtHome)
 			server.holdWithinItsSourcesShare(connection, verdict)
 		}
 		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
@@ -393,8 +399,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 
 // recordSelectedPath records the path a connection that just connected took, by its selected pair,
 // took after its offer.
-func (server *Server) recordSelectedPath(connection *webrtc.PeerConnection, took time.Duration) {
-	pair := selectedPair(connection)
+func (server *Server) recordSelectedPath(pair *webrtc.ICECandidatePair, took time.Duration) {
 	path := PathFailed
 	if pair != nil {
 		path = pathOf(pair.Local, pair.Remote)

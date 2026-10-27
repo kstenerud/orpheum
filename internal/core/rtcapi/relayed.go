@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 )
 
@@ -30,8 +31,11 @@ func sharedAddressSpace() netip.Prefix {
 // sha-256 fingerprint, no more than MaxRelayedCandidates candidates, and no candidate that names a
 // network the core's own LAN path serves. Its connection checks no remote address but one reachable
 // from outside, so an offer cannot make the core send its ICE checks into its own network (the
-// protocol's §2.5; the security audit's A2).
-func (server *Server) AnswerRelayed(ctx context.Context, offer Description) (Description, error) {
+// protocol's §2.5; the security audit's A2). Once it connects, onProvenAtHome, unless nil, is told
+// when it proved itself from home, which a discovery's word cannot make it (D300 §2, D356 §1).
+func (server *Server) AnswerRelayed(
+	ctx context.Context, offer Description, onProvenAtHome func(ProvenAtHome),
+) (Description, error) {
 	if offer.Type != "offer" {
 		return Description{}, fmt.Errorf("%w: want an offer, not %q", ErrOfferRefused, offer.Type)
 	}
@@ -39,7 +43,30 @@ func (server *Server) AnswerRelayed(ctx context.Context, offer Description) (Des
 	if err != nil {
 		return Description{}, fmt.Errorf("%w: %w", ErrOfferRefused, err)
 	}
-	return server.answerWith(ctx, server.relayedAPI, checked)
+	return server.answerWith(ctx, server.relayedAPI, checked, onProvenAtHome)
+}
+
+// OfferedIPv6Addresses are the public IPv6 addresses an offer's SDP names among its candidates: a
+// device's own, as its browser found them, which may be absent, hidden behind an mDNS name or left
+// out when it equals the host's (house-ipv6-2026-10-27.md §3 (d)). What the core compares with the
+// network the discovery saw the offer from, for its log alone (D356, Q5).
+func OfferedIPv6Addresses(sdp string) []netip.Addr {
+	var addresses []netip.Addr
+	for line := range strings.SplitSeq(strings.ReplaceAll(sdp, "\r\n", "\n"), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 5 || !strings.HasPrefix(fields[0], "a=candidate:") {
+			continue
+		}
+		address, err := netip.ParseAddr(fields[4])
+		if err != nil {
+			continue
+		}
+		if address = address.Unmap().WithZone(""); address.Is6() && address.IsGlobalUnicast() &&
+			!address.IsPrivate() && !slices.Contains(addresses, address) {
+			addresses = append(addresses, address)
+		}
+	}
+	return addresses
 }
 
 // checkRelayedOffer is an offer's SDP as the core takes it from a discovery, or why it is refused.

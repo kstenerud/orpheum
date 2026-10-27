@@ -215,6 +215,17 @@ func prefixOf(remoteAddress string) string {
 	return prefix.String()
 }
 
+// clientNetworkOf is the network a client at remoteAddress asks from, which its offers carry to the
+// core: its /64 when it is a public IPv6 address, none otherwise (D356 §2).
+func clientNetworkOf(remoteAddress string) netip.Prefix {
+	addrPort, err := netip.ParseAddrPort(remoteAddress)
+	if err != nil {
+		return netip.Prefix{}
+	}
+	network, _ := discoveryproto.HouseNetworkOf(addrPort.Addr())
+	return network
+}
+
 // deadEndWindow is the week dead ends are counted over, and deadEndsKept the most it keeps, so a
 // stranger holding a locator cannot fill memory: the count saturates there.
 const (
@@ -297,10 +308,11 @@ func (discovery *Discovery) offers(writer http.ResponseWriter, request *http.Req
 	ctx, cancel := context.WithTimeout(request.Context(), offerWait)
 	defer cancel()
 	answers := make([]discoveryproto.OfferAnswer, len(asked.Offers))
+	clientNetwork := clientNetworkOf(request.RemoteAddr)
 	var waiting sync.WaitGroup
 	for index, offer := range asked.Offers {
 		waiting.Go(func() {
-			answered, offerErr := discovery.Offer(ctx, offer, hash)
+			answered, offerErr := discovery.Offer(ctx, offer, hash, clientNetwork)
 			answers[index] = discoveryproto.OfferAnswer{
 				OfferID: answered.OfferID, SDP: answered.SDP, Signature: answered.Signature,
 				PublicKey: answered.PublicKey,

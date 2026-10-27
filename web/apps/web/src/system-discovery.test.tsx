@@ -134,6 +134,50 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).not.toContain("directly over IPv6");
 });
 
+it("lists the house's IPv6 networks the discovery recognises devices at home by (D356 §10)", async () => {
+  const witnessedAt = 1_790_000_000_000;
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...none,
+        baseUrl: "https://discovery.example.com/core/v1",
+        state: "claimed",
+        houseNetworks: [
+          {
+            network: "2a0f:1000:1:2::/64",
+            source: "learnt",
+            device: "192.168.1.30",
+            witnessedAt,
+          },
+          { network: "2a0f:3000:9:8::/64", source: "configured", witnessedAt: 0 },
+        ],
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const text = mounted.container.textContent;
+  expect(text).toContain("recognises devices at home by your home's IPv6 networks");
+  expect(text).toContain("2a0f:1000:1:2::/64, learnt from the device at 192.168.1.30");
+  expect(text).toContain("2a0f:3000:9:8::/64, named in the config. It goes stale");
+});
+
+it("says nothing of the house's networks while there are none", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...none,
+        baseUrl: "https://discovery.example.com/core/v1",
+        state: "claimed",
+        houseNetworks: [],
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).not.toContain("IPv6 networks");
+});
+
 const pendingAtTheService = {
   ...none,
   baseUrl: serviceDiscoveryUrl,

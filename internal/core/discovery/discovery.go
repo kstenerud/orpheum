@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strings"
@@ -112,6 +113,10 @@ type Parts struct {
 	// hash and when it ends, and every live session's device locator's hash (auth.Service's
 	// LiveLinks and LiveLocators; discovery-core.md K7). Nil registers none.
 	Links func(ctx context.Context) ([]Link, []string, error)
+	// ConfiguredHouseNetworks are the house's public IPv6 /64s its admin named
+	// (discovery.house_ipv6_networks), sent in each heartbeat as configured, for a house whose devices
+	// make no direct pair to teach them (D356 §6). One that is no house network is never sent.
+	ConfiguredHouseNetworks []netip.Prefix
 }
 
 // retryJitter is how far a retry's wait may move either way.
@@ -122,15 +127,21 @@ const retryJitter = 0.1
 // first filter (the protocol's §2.5; the security audit's A2). It is the one way an offer through
 // a discovery reaches rtcapi.
 type Answerer interface {
-	AnswerRelayed(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
+	// AnswerRelayed answers offer, and tells onProvenAtHome when its connection proves itself from
+	// home (D356 §1).
+	AnswerRelayed(
+		ctx context.Context, offer rtcapi.Description, onProvenAtHome func(rtcapi.ProvenAtHome),
+	) (rtcapi.Description, error)
 }
 
 // kept is the state file: which discovery, the core's id there, and its zone once claimed, so its
-// certificate is served from the start.
+// certificate is served from the start; and the house networks it learnt, so a restart keeps them
+// (D356 §4).
 type kept struct {
-	BaseURL string `json:"baseUrl"`
-	CoreID  string `json:"coreId"`
-	Zone    string `json:"zone,omitempty"`
+	BaseURL       string             `json:"baseUrl"`
+	CoreID        string             `json:"coreId"`
+	Zone          string             `json:"zone,omitempty"`
+	HouseNetworks []keptHouseNetwork `json:"houseNetworks,omitempty"`
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -162,6 +173,13 @@ type Service struct {
 	sentLinks    []Link
 	sentLocators []string
 	sentUnder    string
+	// learnt are the house networks learnt from devices proven at home, the most recently witnessed
+	// first, and sentHouseNetworks the house networks the last heartbeat carried (D356).
+	learnt            []HouseNetwork
+	sentHouseNetworks []discoveryproto.HouseNetwork
+
+	// keeping is held through each write of the state file, so two never interleave.
+	keeping sync.Mutex
 
 	// pingsUnanswered is how many pings of the signalling connection wait for their answer: a test
 	// moves its fake time on only once a ping answered in real time has been heard.
@@ -233,6 +251,7 @@ func New(parts Parts) (*Service, error) {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
 	service.status.BaseURL, service.status.CoreID, service.status.Zone = state.BaseURL, state.CoreID, state.Zone
+	service.learnt = learntOf(state.HouseNetworks)
 	return service, nil
 }
 
@@ -255,6 +274,9 @@ func (service *Service) Status() Status {
 	if status.IsPublished() {
 		status.HomeAddresses = homeAddresses(service.lastSent, status.CoreID, status.Zone)
 		status.IsHomeAddressReady = service.parts.HasCertificate != nil && service.parts.HasCertificate()
+	}
+	if status.BaseURL != "" {
+		status.HouseNetworks = service.houseNetworksAt(service.parts.Clock.Now())
 	}
 	return status
 }
@@ -304,7 +326,7 @@ func (service *Service) enrol(ctx context.Context, baseURL string) (Status, erro
 		ClaimCode: enrolled.ClaimCode, ClaimExpiresAt: time.UnixMilli(enrolled.ClaimExpiresAt),
 		DeprecatedUntil: service.status.DeprecatedUntil, // what this connect's calls were told
 	}
-	service.token, service.lastSent = "", nil
+	service.token, service.lastSent, service.sentHouseNetworks = "", nil, nil
 	service.mutex.Unlock()
 	service.parts.Logger.InfoContext(ctx, "discovery: enrolled; waiting to be claimed", "baseUrl", baseURL,
 		"coreId", enrolled.CoreID)
@@ -330,6 +352,7 @@ func (service *Service) Leave(ctx context.Context) error {
 	}
 	service.mutex.Lock()
 	service.status, service.token, service.lastSent = Status{}, "", nil
+	service.learnt, service.sentHouseNetworks = nil, nil
 	service.mutex.Unlock()
 	service.parts.Logger.InfoContext(ctx, "discovery: left", "baseUrl", status.BaseURL)
 	return nil
@@ -483,8 +506,13 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 	}
 }
 
-// keep writes the state file.
+// keep writes the state file, with the house networks learnt now.
 func (service *Service) keep(state kept) error {
+	service.keeping.Lock()
+	defer service.keeping.Unlock()
+	service.mutex.Lock()
+	state.HouseNetworks = keptHouseNetworksOf(service.learnt)
+	service.mutex.Unlock()
 	encoded, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", StateFileName, err)
@@ -495,12 +523,14 @@ func (service *Service) keep(state kept) error {
 	return nil
 }
 
-// heartbeat sends the core's addresses when they changed, or every heartbeatEvery, and returns the
-// wait until it looks again.
+// heartbeat sends the core's addresses and the house's networks when they changed, or every
+// heartbeatEvery, and returns the wait until it looks again.
 func (service *Service) heartbeat(ctx context.Context, status Status) time.Duration {
 	candidates := service.parts.Candidates()
 	service.mutex.Lock()
+	houseNetworks := heartbeatHouseNetworks(service.houseNetworksAt(service.parts.Clock.Now()))
 	isDue := !slices.Equal(candidates, service.lastSent) ||
+		!slices.Equal(houseNetworks, service.sentHouseNetworks) ||
 		service.parts.Clock.Now().Sub(service.status.LastHeartbeatAt) >= heartbeatEvery
 	service.mutex.Unlock()
 	if !isDue {
@@ -513,7 +543,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	}
 	request := discoveryproto.AddressesRequest{
 		OrpheumVersion: service.parts.Version,
-		APIMajor:       service.parts.APIMajor, Candidates: candidates,
+		APIMajor:       service.parts.APIMajor, Candidates: candidates, HouseNetworks: houseNetworks,
 	}
 	if service.parts.TURN != nil {
 		request.TURN = service.parts.TURN(ctx)
@@ -534,7 +564,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		return service.failed(ctx, "send the core's addresses", err)
 	}
 	service.mutex.Lock()
-	service.lastSent = candidates
+	service.lastSent, service.sentHouseNetworks = candidates, houseNetworks
 	service.status.LastHeartbeatAt = service.parts.Clock.Now()
 	service.status.Published, service.status.Probe = answered.Published, answered.Probe
 	service.status.ReachableFrom, service.status.Problem = answered.ReachableFrom, ""

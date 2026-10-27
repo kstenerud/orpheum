@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -160,23 +161,30 @@ func (discovery *Discovery) IsCoreOnline() bool {
 	return isOnline
 }
 
-// Offer passes a client's WebRTC offer to the core, with the hash the client found it by and the
-// offer's proof, which the core checks itself, and returns its answer: at once ErrCoreNotConnected
-// when the core has no signalling connection, ErrRefused when it refuses, and the context's error
-// when it does not answer in time (the protocol's §2.5).
+// Offer passes a client's WebRTC offer to the core, with the hash the client found it by, the
+// offer's proof, which the core checks itself, and the network the offer came from
+// (discoveryproto.HouseNetworkOf its source; none over IPv4), which the core learns as the house's
+// once the offer's connection proves itself from home (D356 §2); and returns its answer: at once
+// ErrCoreNotConnected when the core has no signalling connection, ErrRefused when it refuses, and the
+// context's error when it does not answer in time (the protocol's §2.5).
 func (discovery *Discovery) Offer(
-	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
+	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string, clientNetwork netip.Prefix,
 ) (Answer, error) {
-	return discovery.signal.Offer(ctx, offer, locatorHash)
+	return discovery.signal.Offer(ctx, offer, locatorHash, clientNetwork)
 }
 
-// Offer passes a client's offer to the core over this connection, as Discovery.Offer says.
+// Offer passes a client's offer to the core over this connection, as Discovery.Offer says; a
+// clientNetwork that is no house network (discoveryproto.IsHouseNetwork) passes none.
 func (signal *Signal) Offer(
-	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
+	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string, clientNetwork netip.Prefix,
 ) (Answer, error) {
-	reply, offerID, err := signal.pass(ctx, discoveryproto.SignalMessage{
+	message := discoveryproto.SignalMessage{
 		Type: discoveryproto.SignalOffer, SDP: offer.SDP, LocatorHash: locatorHash, Proof: offer.Proof,
-	}, discoveryproto.SignalAnswer)
+	}
+	if discoveryproto.IsHouseNetwork(clientNetwork) {
+		message.ClientNetwork = clientNetwork.String()
+	}
+	reply, offerID, err := signal.pass(ctx, message, discoveryproto.SignalAnswer)
 	if err != nil {
 		return Answer{OfferID: offerID}, err
 	}

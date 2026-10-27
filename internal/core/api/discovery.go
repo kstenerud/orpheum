@@ -52,6 +52,18 @@ type DiscoveryStatusBody struct {
 	PortMapping        PortMappingBody      `json:"portMapping"`
 	// WebRTCPaths are how many WebRTC connections took each path since the core started (D274 §3).
 	WebRTCPaths []WebRTCPathBody `json:"webrtcPaths"`
+	// HouseNetworks are the house's public IPv6 networks the discovery recognises devices at home by
+	// (D356 §10).
+	HouseNetworks []HouseNetworkBody `json:"houseNetworks"`
+}
+
+// HouseNetworkBody is one of the house's public IPv6 /64s, as the core tells its discovery: how it
+// was had, and for a learnt one the device in the house that last witnessed it, and when (D356 §10).
+type HouseNetworkBody struct {
+	Network     string `doc:"A public IPv6 /64, \"2a0f:1000:1:2::/64\"" json:"network"`
+	Source      string `doc:"Learnt from a device that reached the server directly at home, or named in the config" enum:"learnt,configured" json:"source"` //nolint:lll // one struct tag
+	Device      string `doc:"A learnt network's: the address in the house of the device that last witnessed it" json:"device,omitempty"`                    //nolint:lll // one struct tag
+	WitnessedAt int64  `doc:"Unix milliseconds a device last witnessed a learnt network; 0 for a configured one" json:"witnessedAt"`                        //nolint:lll // one struct tag
 }
 
 // PortMappingBody is what the home router opened for the core while its discovery publishes it
@@ -246,6 +258,23 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		body.Probe = append(body.Probe, DiscoveryProbeBody{
 			Address: probe.Address, Port: probe.Port, Kind: probe.Kind, Result: probe.Result,
 		})
+	}
+	body.HouseNetworks = houseNetworksBody(status.HouseNetworks)
+	return body
+}
+
+// houseNetworksBody are the house's networks as the API sends them.
+func houseNetworksBody(networks []discovery.HouseNetwork) []HouseNetworkBody {
+	body := make([]HouseNetworkBody, 0, len(networks))
+	for _, each := range networks {
+		item := HouseNetworkBody{Network: each.Network.String(), Source: each.Source}
+		if each.Device.IsValid() {
+			item.Device = each.Device.String()
+		}
+		if !each.WitnessedAt.IsZero() {
+			item.WitnessedAt = each.WitnessedAt.UnixMilli()
+		}
+		body = append(body, item)
 	}
 	return body
 }
