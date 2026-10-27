@@ -23105,4 +23105,9 @@ with a source of its own, and
 - 4: TestRegister_ASessionsTilesInViewAreALookBesideItsPage, TestRaiser_TilesInViewRaiseTheirItemsWork, TestInterest_ASessionSaysTheTilesItShowsAndLeavesThem, TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists, web/apps/web/src/tile-interest.test.tsx
 - 5: TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo, TestStill_NothingWrittenIsAVideoWithNoFrame, TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone, TestAgent_TakesAStillFromTheVideoTheCoreNamedAndReEncodesIt
 
-**Status:** Decided 2026-10-27.
+**Status:** Decided 2026-10-27. Built 2026-10-27: the still in
+`internal/node/artwork/still.go` and the agent's `takeStill`; the planning, the job and its answer in
+`internal/core/artwork/frames.go` and `ListFrameStillCandidates`; what shows in
+`internal/core/library/art.go` and `web/apps/web/src/poster.tsx`; the tiles' interest in
+`internal/core/interest/register.go`, `PUT /tiles/interest` and `web/apps/web/src/tile-interest.ts`.
+Not seen on a device yet.
