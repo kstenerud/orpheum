@@ -3,8 +3,11 @@
 package chunks
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -282,5 +285,106 @@ func TestWant_APausedPlayersAskStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
 	}
 	if runs := queue.runs(t, service); len(runs) != 0 {
 		t.Errorf("a paused player's ask queued %+v; want nothing past the 30 s it keeps ahead", runs)
+	}
+}
+
+// A player that seeks forward inside a run, more than a minute of film past what it makes, stops it,
+// playing or paused there, and its ask starts a run where it landed: left, the run was wanted for
+// covering the jump's chunk, the jump's ask started none, and the player waited for the run from near
+// the film's start to get there until it gave up (the owner's The Unknown on staging, 2026-10-26).
+func TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn(t *testing.T) {
+	t.Parallel()
+	for _, isPaused := range []bool{false, true} {
+		queue := newFakeQueue()
+		service, _ := chunksFixture(t, queue, fakeNode{})
+		wanted := wantedBy(service)
+		picture := Stream{Kind: nodeproto.StreamPicture}
+		dir := StoreDir(1, picture, mustGrid(t, service).ID())
+		wanted.say(playingAt(picture, 1))
+		askedFor(t, service, picture, 1)
+		service.runs.begin(dir, 1, 30, 21, 1, service.clock.Now())
+		service.runs.madeThrough(dir, 1, 2)
+		landed := playingAt(picture, 24)
+		landed.IsStopped = isPaused
+		wanted.say(landed)
+		file := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, runFrom: 24, chunk: 24}
+		if err := service.Want(t.Context(), file.AsSought()); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(queue.cancelledFirsts, []int{1}) {
+			t.Errorf("paused %v: a seek 210 s past what the run makes cancelled %v; want the run from 1",
+				isPaused, queue.cancelledFirsts)
+		}
+		runs := queue.runs(t, service)
+		if len(runs) != 2 || runs[1].firstChunk != 24 {
+			t.Errorf("paused %v: the runs asked for = %+v; want the first, then one from the jump's chunk 24",
+				isPaused, runs)
+		}
+	}
+}
+
+// A store's init asked for from where its playback last reported, far behind where its player now
+// wants the stream, starts no run there: the jump's chunk, asked for beside it, starts the run from
+// where the player is, which makes the init too, and is the run said to make it. Left, the init's run,
+// from where the player had been before it jumped, covered the jump's chunk and kept it waiting, and
+// the init's wait said no run covered it (the owner's The Unknown, 2026-10-26).
+func TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	wanted := wantedBy(service)
+	quality := Stream{Kind: nodeproto.StreamPicture}
+	dir := StoreDir(1, quality, mustGrid(t, service).ID())
+	wanted.say(playingAt(quality, 24))
+	init := StoreFile{fileID: 1, kind: OnKeyframes, stream: quality, storeDir: dir, isInit: true, runFrom: 1}
+	chunk := StoreFile{fileID: 1, kind: OnKeyframes, stream: quality, storeDir: dir, runFrom: 24, chunk: 24}
+	for _, file := range []StoreFile{init.AsSought(), chunk.AsSought()} {
+		if err := service.Want(t.Context(), file); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runs := queue.runs(t, service)
+	if len(runs) != 1 || runs[0].firstChunk != 24 {
+		t.Errorf("the runs asked for = %+v; want one, from the jump's chunk 24", runs)
+	}
+	if run, isCovered := service.CoveringRun(init); !isCovered || run.First != 24 {
+		t.Errorf("the run said to make the init = %+v, %v; want the jump's, from 24", run, isCovered)
+	}
+}
+
+// A run stopped as no player wants it says what the players of its stream want, and an ask that
+// planned no run says so with them: a paused player's run stopped read in the log as a playing
+// player's cut, and an init answered "ask again" as one no run would make (the owner's The Unknown,
+// 2026-10-26).
+func TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	var logs bytes.Buffer
+	service.logger = slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	wanted.say(playingAt(picture, 3))
+	askedFor(t, service, picture, 3)
+	service.runs.madeThrough(dir, 3, 6)
+	paused := playingAt(picture, 3)
+	paused.IsStopped = true
+	wanted.say(paused)
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	init := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 40}
+	if err := service.Want(t.Context(), init); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		`"msg":"stopped a run of chunks no player wants"`,
+		`"streamInterests":["stopped at 30000 ms, keeping to 60000 ms"]`,
+		`"msg":"planned no run of chunks: no player wants one from there"`, `"wantedChunk":40`,
+	} {
+		if !strings.Contains(logs.String(), line) {
+			t.Errorf("the log lacks %s:\n%s", line, logs.String())
+		}
 	}
 }
