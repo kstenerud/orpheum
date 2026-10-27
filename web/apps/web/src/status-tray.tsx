@@ -56,6 +56,27 @@ export function TogetherIcon(): JSX.Element {
 }
 
 /**
+ * A screen playing, a phone beside it: casting to another device (D364), for the top bar's Cast and
+ * the sending device's tray. The owner's choice (2026-10-27), in the colour of the text it sits in.
+ */
+export function CastIcon(): JSX.Element {
+  return (
+    <svg className="status-tray__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fillRule="evenodd"
+        d="M7 2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10.5a1 1 0 0 1-1-1v-1.4a3.1 3.1 0 0 0-3.1-3.1H6a1 1 0 0 1-1-1V4a2 2 0 0 1 2-2zM12.8 5.8v5.4l4.6-2.7z"
+      />
+      <path d="M13 15h2v4.5h-2z" />
+      <path d="M10.5 19.5h7a1 1 0 0 1 0 2h-7a1 1 0 0 1 0-2z" />
+      <path
+        fillRule="evenodd"
+        d="M2.6 11h3.8A1.6 1.6 0 0 1 8 12.6v8.8A1.6 1.6 0 0 1 6.4 23H2.6A1.6 1.6 0 0 1 1 21.4v-8.8A1.6 1.6 0 0 1 2.6 11zM3.3 20.4h2.4v1.1H3.3z"
+      />
+    </svg>
+  );
+}
+
+/**
  * Watch Together's controls, whose code loads as the sign appears, not with every page: with them,
  * the player's volume, and hls.js with it, was in the script every page loaded before it drew (the
  * audit of 2026-10-25, W1). Asked for with the sign, they show the moment the tray opens, as the
