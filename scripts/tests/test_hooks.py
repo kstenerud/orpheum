@@ -53,6 +53,19 @@ class PreEdit(unittest.TestCase):
         self.assertEqual(self.edit("internal/core/api/handler.go"), "")
         self.assertEqual(self.edit("docs/contributors/README.md"), "")
 
+    def test_the_owners_flag_covers_the_session_not_its_subagents(self):
+        """A subagent inherits the session's environment; `1` allows the session alone (2026-10-26)."""
+        def by_agent(value: str) -> str:
+            return decision(run_hook("pre_edit.py", {"tool_name": "Edit", "agent_id": "a1", "agent_type": "general-purpose",
+                                                     "tool_input": {"file_path": str(ROOT / "Makefile")}},
+                                     ORPHEUM_ALLOW_GATE_EDIT=value))
+        self.assertEqual(by_agent("1"), "deny")
+        self.assertEqual(by_agent("agents"), "")
+        self.assertEqual(self.edit("Makefile", ORPHEUM_ALLOW_GATE_EDIT="agents"), "")
+        shell = run_hook("pre_bash.py", {"agent_id": "a1", "tool_input": {"command": "echo x > Makefile"}},
+                         ORPHEUM_ALLOW_GATE_EDIT="1")
+        self.assertEqual(decision(shell), "deny")
+
     def test_owner_override_opens_gates_but_not_generated_code(self):
         self.assertEqual(self.edit("Makefile", ORPHEUM_ALLOW_GATE_EDIT="1"), "")
         self.assertEqual(self.edit("api/openapi.json", ORPHEUM_ALLOW_GATE_EDIT="1"), "deny")
@@ -125,6 +138,15 @@ class Worktrees(unittest.TestCase):
         result = run_hook("pre_bash.py", {"tool_input": {"command": f"echo x > {target}"}},
                           CLAUDE_PROJECT_DIR=str(self.project))
         self.assertEqual(decision(result), "deny")
+
+
+class AgentWorktreeBase(unittest.TestCase):
+    def test_an_agents_worktree_starts_from_the_sessions_head(self):
+        """The default base is the remote's default branch, which this sandbox never fetches: agents
+        started from a commit days old and hit gates main had fixed (2026-10-26). `head` is the
+        session's own HEAD (code.claude.com/docs/en/worktrees)."""
+        settings = json.loads((ROOT / ".claude" / "settings.json").read_text())
+        self.assertEqual(settings.get("worktree", {}).get("baseRef"), "head")
 
 
 class PreBash(unittest.TestCase):
@@ -356,6 +378,7 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
         with mock.patch.object(on_stop, "PENDING", pending), \
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-docs").touch()
             on_stop.main()
@@ -364,6 +387,26 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
             on_stop.main()
         # Documentation alone runs no test of the code (the owner, 2026-10-08).
         self.assertEqual(targets, ["check-documentation", "check"])
+
+    def test_a_tree_the_gate_already_passed_on_is_not_gated_again(self):
+        """A turn that committed a checked tree owes nothing more (gate-throughput G2)."""
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        targets = []
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: True), \
+                mock.patch.object(on_stop.run_gate, "gate_command", lambda target, env: targets.append(target) or ["true"]):
+            (pending / "check-pending-code").touch()
+            on_stop.main()
+        self.assertEqual(targets, [])
+        self.assertFalse((pending / "check-pending-code").exists(), "the owed gate is paid")
 
 
 if __name__ == "__main__":

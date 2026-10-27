@@ -25,6 +25,12 @@ def main() -> None:
         target = "check-documentation"
     else:
         return
+    if already_passed():
+        # The gate already passed on exactly this tree, as a commit's does in the same turn: running
+        # it again ran the same gate twice (gate-throughput G2, 2026-10-26).
+        code.unlink(missing_ok=True)
+        docs.unlink(missing_ok=True)
+        return
     if hooklib.check_pr_running() is not None:
         # Run beside check-pr, make check slowed it and failed a test on the load (2026-10-20). The
         # mark stays, so the first turn to end after check-pr does runs it.
@@ -42,6 +48,13 @@ def main() -> None:
         return
     # make check prints only failures and the log's path (scripts/quiet_gate.py); cap it anyway.
     block(target, (done.stdout + done.stderr)[-6000:])
+
+
+def already_passed() -> bool:
+    """Whether `make check` passed on exactly the working tree as it is now (scripts/check_stamp.py)."""
+    done = subprocess.run([sys.executable, str(hooklib.ROOT / "scripts" / "check_stamp.py"), "matches"],
+                          cwd=hooklib.ROOT, capture_output=True, check=False)
+    return done.returncode == 0
 
 
 def block(target: str, output: str) -> None:

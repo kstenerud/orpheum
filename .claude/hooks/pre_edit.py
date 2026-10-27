@@ -33,11 +33,12 @@ def main() -> None:
             "production has run the baseline, so it is frozen too and a change appends a step "
             "(D272 §5)."
         )
-    elif is_gate(rel) and not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
+    elif is_gate(rel) and not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT", event):
         hooklib.deny(
             f"{rel} is a gate: it decides what passing means, so the owner changes it. "
             "If the gate is wrong, stop and tell the owner what to change and why. "
-            "(Sessions started with ORPHEUM_ALLOW_GATE_EDIT=1 may edit gates.)"
+            "(Sessions started with ORPHEUM_ALLOW_GATE_EDIT=1 may edit gates; =agents lets their "
+            "subagents too.)"
         )
 
 

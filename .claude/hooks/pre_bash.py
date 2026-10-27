@@ -345,7 +345,7 @@ def main() -> None:
         return
     cwd = Path(str(event.get("cwd") or hooklib.ROOT))
     adds = ADD_DEPENDENCY.search(shell_text(command)) or npm_adds_package(command)
-    if adds and not hooklib.owner_allows("ORPHEUM_ALLOW_DEPS"):
+    if adds and not hooklib.owner_allows("ORPHEUM_ALLOW_DEPS", event):
         hooklib.deny(
             "Adding a dependency is the owner's decision (AGENTS.md rule 3). Propose it: the "
             "name, the job it does, and why the standard library or an allowed package cannot. "
@@ -375,7 +375,7 @@ def main() -> None:
             "freely; test and commit when it ends (you are told). If it is stuck, find its processes "
             "with `ps aux | grep '[c]heck_pr_snapshot'` and stop them."
         )
-    elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
+    elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT", event):
         hits = gate_writes(command, cwd)
         if hits:
             hooklib.deny(
