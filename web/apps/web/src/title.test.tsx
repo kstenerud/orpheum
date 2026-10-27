@@ -104,11 +104,10 @@ describe("TitleView", () => {
     episodePage.unmount();
   });
 
-  it("offers to cast a file it can play to another device, before anything plays (D337; §9 Q1)", () => {
+  it("offers no cast of its own: a cast is a session started from the status tray (D364 §1, §12)", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
-    expect(markup).toMatch(
-      /<\/details><button type="button" class="cast-to__open">Cast to another device/u,
-    );
+    expect(markup).not.toContain("cast-to");
+    expect(markup).not.toContain("Cast to another device");
   });
 
   it("keeps a file's path and streams in a closed File details, with Play outside it", () => {

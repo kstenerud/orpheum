@@ -28,12 +28,14 @@ import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { detailsOf, knownDetailsOf } from "./hosted-details.ts";
+import { TogetherPlays } from "./together-plays.tsx";
 
 /**
- * The host's Watch Together screen (D246 §3, §5): start a session, or have back the one this tab
- * started; make a link for each person with a note of who it is for, which only the host sees;
+ * The host's Watch Together screen (D246 §3, §5), where the tray's Watch Together leads (D364 §13):
+ * start a session, or have back the one this tab started; what plays for the group and its controls
+ * (§15); make a link for each person with a note of who it is for, which only the host sees;
  * withdraw a link, remove a member, end the session. While it is on, what the host plays plays
- * for everyone in it.
+ * for everyone in it. Reached from anywhere, it has no Up; Back returns to where the host was (D367).
  */
 export function WatchTogether(): JSX.Element {
   const { t } = useTranslation();
@@ -46,9 +48,8 @@ export function WatchTogether(): JSX.Element {
 }
 
 /**
- * What the host does with their session, on its own screen or in the status tray's pop-up over
- * whatever screen they are on (D280), so managing it never means leaving the film, which stops it
- * for everyone (D246 §5): start one, or have back the one this tab started, and run it.
+ * What the host does with their session, on its own screen: start one, or have back the one this tab
+ * started, and run it. Leaving the film for it stops nothing (D364 §15).
  */
 export function WatchTogetherControls(): JSX.Element {
   // Started here, or had back from the server on another of the host's devices (D267 §2).
@@ -152,7 +153,14 @@ function HostedSession(props: {
   return (
     <Loaded
       resource={details}
-      render={(value) => <SessionView details={value} onChanged={reload} onEnded={props.onEnded} />}
+      render={(value) => (
+        <SessionView
+          membership={props.membership}
+          details={value}
+          onChanged={reload}
+          onEnded={props.onEnded}
+        />
+      )}
     />
   );
 }
@@ -267,11 +275,12 @@ function SessionDialogs(props: {
 }
 
 /**
- * A session as its host runs it, on its own screen or in the status tray's pop-up during the film
- * (D281 §5): voice and each person's volume, the film's volume, the people with a dialog each,
- * Invite, which opens a dialog of its own, and ending it.
+ * A session as its host runs it, on its own screen (D281 §5, D364 §15): what plays and its controls,
+ * voice and each person's volume, the film's volume, the people with a dialog each, Invite, which
+ * opens a dialog of its own, and ending it.
  */
 function SessionView(props: {
+  readonly membership: Membership;
   readonly details: SessionDetails;
   readonly onChanged: () => void;
   readonly onEnded: () => void;
@@ -290,6 +299,7 @@ function SessionView(props: {
   return (
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
+      <TogetherPlays {...props} />
       {voice === undefined ? null : <VoiceControls {...voice} />}
       <FilmVolumeSlider />
       {problem === undefined ? null : <p role="alert">{problem}</p>}

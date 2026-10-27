@@ -44,7 +44,8 @@ import { Subtitles } from "./subtitles.tsx";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
-import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
+import { PlayOrSendOn } from "./cast-to.tsx";
+import { useNotesPlayingHere } from "./playing-here.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { overTheFilm, UpNextContext, useUpNextOffered } from "./up-next.tsx";
 import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
@@ -161,6 +162,7 @@ function PlayerView(
   const { receiving } = props;
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
+  useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs });
   const offered = useUpNextOffered(fileId, decision.preferences.isAutoplayOn, receiving);
   return (
     <UpNextContext value={offered}>
@@ -176,9 +178,7 @@ function PlayerView(
             composition={pageComposition(props)}
           />
           <FrameTimingNote video={video} />
-          {isOwn ? (
-            <UnderThePlayer {...{ fileId, onBare: props.onBare, video }} at={resumePositionMs} />
-          ) : null}
+          {isOwn ? <UnderThePlayer onBare={props.onBare} /> : null}
         </div>
       </PlayContext>
       <PlaysAlong
@@ -190,25 +190,16 @@ function PlayerView(
   );
 }
 
-/** The bare player's button where onBare is given, and Cast to another device (D337). */
-function UnderThePlayer(props: {
-  readonly fileId: number;
-  /** Where the film started, for a cast before the video can say where it stands. */
-  readonly at: number;
-  readonly onBare: (() => void) | undefined;
-  readonly video: HTMLVideoElement | null;
-}): JSX.Element {
+/**
+ * The bare player's button where onBare is given. Casting is no longer offered here: it is started
+ * from the status tray's Cast, and moves this film with it (D364 §1, §12).
+ */
+function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): JSX.Element | null {
   const { t } = useTranslation();
-  const { video } = props;
-  return (
-    <>
-      {props.onBare === undefined ? null : (
-        <button type="button" onClick={props.onBare}>
-          {t("play.bare.open")}
-        </button>
-      )}
-      <CastToDevice fileId={props.fileId} positionMs={() => positionToMoveFrom(video, props.at)} />
-    </>
+  return props.onBare === undefined ? null : (
+    <button type="button" onClick={props.onBare}>
+      {t("play.bare.open")}
+    </button>
   );
 }
 
@@ -282,6 +273,26 @@ function decideAgainFor(
       isPaused: video?.paused ?? false,
     });
   };
+}
+
+/**
+ * Notes where this device's own film stands, for a cast started on the casting page to move it to
+ * the receiver at its position (D364 §1; playing-here.ts).
+ */
+function useNotesWhereItPlays(
+  isOwn: boolean,
+  played: {
+    readonly fileId: number;
+    readonly video: HTMLVideoElement | null;
+    readonly startPositionMs: number;
+  },
+): void {
+  const { fileId, video, startPositionMs } = played;
+  const positionNow = useCallback(
+    () => positionToMoveFrom(video, startPositionMs),
+    [video, startPositionMs],
+  );
+  useNotesPlayingHere(isOwn, fileId, positionNow);
 }
 
 /**
@@ -556,15 +567,21 @@ function openedAt(decision: PlaybackDecision, at: ReopenAt): Opened {
  * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
  * or paused as it was, while the server answers within about a minute (askUntilAnswered); one lost
  * again within reopenAtMostEveryMs is told. On a device that casts, the film goes on to its receiver
- * instead (D337; plans/cast-to-device.md §9 Q3). Given atMs, it starts there in place of where the
- * person last left the file: a cast's remote playing here from where its receiver stood.
+ * instead (D364 §3), unless shouldPlayHere: the remote's "Play on this device instead" (§4). Given atMs,
+ * it starts there in place of where the person last left the file: a cast's remote playing here from
+ * where its receiver stood.
  */
 export function Play(props: {
   readonly fileId: number;
   readonly atMs?: number | undefined;
+  readonly shouldPlayHere?: boolean | undefined;
 }): ReactNode {
   return (
-    <PlayOrSendOn fileId={props.fileId}>
+    <PlayOrSendOn
+      fileId={props.fileId}
+      atMs={props.atMs}
+      shouldPlayHere={props.shouldPlayHere === true}
+    >
       <PlayHere fileId={props.fileId} atMs={props.atMs} />
     </PlayOrSendOn>
   );

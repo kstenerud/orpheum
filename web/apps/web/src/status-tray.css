@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* D280: the status tray at the banner's end, its signs in the status blue; the warning, yellow. */
+/* D280: the status tray at the banner's end. Watch Together's and Cast's signs are always there, white
+   while their function is off and the status blue, pulsing gently, while it is on (D364 §12); the
+   warning, yellow. */
 
 .status-tray {
   display: flex;
@@ -32,9 +34,37 @@
   background: var(--color-surface-raised);
 }
 
-.status-tray__button[aria-expanded="true"] {
-  background: var(--color-surface-raised);
-  box-shadow: inset 0 -2px 0 var(--color-status);
+/* Off: the banner's own white, an entry point like any other of its places. */
+.status-tray__button--off {
+  color: var(--color-text);
+}
+
+/* On: the status blue, its icon breathing slowly, enough to catch the eye from across a room
+   without pulling at it while a film plays (the owner's "perhaps pulsing", D364 §12). */
+.status-tray__button--on {
+  color: var(--color-status);
+}
+
+.status-tray__button--on .status-tray__icon {
+  animation: status-tray-on-pulses 3s ease-in-out infinite;
+}
+
+@keyframes status-tray-on-pulses {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* No pulse for a person who asked for less motion: the blue alone says it is on. */
+@media (prefers-reduced-motion: reduce) {
+  .status-tray__button--on .status-tray__icon {
+    animation: none;
+  }
 }
 
 .status-tray__icon {
@@ -45,27 +75,4 @@
 .status-tray__button--warning .warning-icon {
   width: 1.5rem;
   height: 1.5rem;
-}
-
-.status-tray__panel {
-  /* A modal drop-down in the browser's top layer, placed from the screen's top end, not from its
-     sign: hung from the sign, it ran off a phone's start once the menu sat after it (the owner,
-     2026-10-11). It stays clear of the screen's edges at every width. */
-  position: fixed;
-  inset-block: 3.5rem auto;
-  inset-inline: auto var(--space-page);
-  width: min(30rem, calc(100vw - 2 * var(--space-page)));
-  max-height: calc(100vh - 5rem);
-  margin: 0;
-}
-
-.status-tray__panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.status-tray__panel-head h2 {
-  margin: 0;
 }

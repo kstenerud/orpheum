@@ -62,7 +62,6 @@ interface Destination {
   readonly labelKey:
     | "films"
     | "series"
-    | "watchTogether"
     | "deviceTests"
     | "identify"
     | "libraries"
@@ -75,11 +74,10 @@ interface Destination {
     | "about"
     | "uiGallery";
   /**
-   * Who it shows to: everyone, an admin, a person whose role may host Watch Together, anyone while
-   * the admin has the pages for development turned on, or anyone while the admin offers the device
-   * tests.
+   * Who it shows to: everyone, an admin, anyone while the admin has the pages for development turned
+   * on, or anyone while the admin offers the device tests.
    */
-  readonly audience: "everyone" | "admin" | "host" | "developer" | "tester";
+  readonly audience: "everyone" | "admin" | "developer" | "tester";
   /**
    * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
    * banner's end, the admin's area under Manage, the pages for development, or the person's own
@@ -97,12 +95,6 @@ const destinations: readonly Destination[] = [
     route: { screen: "browse" },
     labelKey: "libraries",
     audience: "everyone",
-    group: "watching",
-  },
-  {
-    route: { screen: "watch-together" },
-    labelKey: "watchTogether",
-    audience: "host",
     group: "watching",
   },
   {
@@ -133,19 +125,15 @@ const destinations: readonly Destination[] = [
  * main landmark holding the screen. The places for watching are always in view; everything else is
  * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
  * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
- * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Watch
- * Together shows to a person whose role may host, and Device tests, beside it, to everyone while the
- * admin offers them. The server refuses a destination to anyone else whatever the menu shows.
+ * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Device
+ * tests show to everyone while the admin offers them. Watch Together and Cast are no places here:
+ * their signs in the status tray are their entry points (D364 §12). The server refuses a destination
+ * to anyone else whatever the menu shows.
  */
 export function AppShell(props: {
   readonly isAdmin: boolean;
-  /** Whether the person's role may host Watch Together, which shows them its screen. */
+  /** Whether the person's role may host Watch Together, which shows them its sign while it is off. */
   readonly canHostWatchTogether: boolean;
-  /**
-   * Whether this tab hosts a Watch Together session now: Watch Together is marked as on, in view
-   * on every screen, since while it is on what the host plays plays for everyone.
-   */
-  readonly isHostingTogether?: boolean;
   readonly currentScreen: Route["screen"];
   readonly onSignOut: () => void;
   /** Who is signed in, and on which device, once known: said in the banner. */
@@ -187,7 +175,6 @@ export function AppShell(props: {
         key={`${destination.group}-${destination.labelKey}`}
         destination={destination}
         isCurrent={destination.route.screen === props.currentScreen}
-        isOn={destination.labelKey === "watchTogether" && props.isHostingTogether === true}
       />
     ));
   const isIn = (group: Destination["group"]): boolean =>
@@ -229,8 +216,6 @@ function isShownTo(
       return true;
     case "admin":
       return shell.isAdmin;
-    case "host":
-      return shell.canHostWatchTogether;
     case "developer":
       return shell.showsDeveloperPages === true;
     case "tester":
@@ -263,7 +248,7 @@ function BannerEnd(props: {
   return (
     <div className="app-shell__end">
       {shell.realm === undefined ? null : <RealmMark realm={shell.realm} />}
-      <StatusTray isHostingTogether={shell.isHostingTogether === true} isAdmin={shell.isAdmin} />
+      <StatusTray isAdmin={shell.isAdmin} canHostWatchTogether={shell.canHostWatchTogether} />
       <MainMenu
         signedInAs={shell.signedInAs}
         isCurrent={props.isMenuCurrent}
@@ -341,21 +326,16 @@ export function MenuIcon(): JSX.Element {
   );
 }
 
-/** One place in the menu, marked when it is the current screen, and when it is on. */
+/** One place in the menu, marked when it is the current screen. */
 function Place(props: {
   readonly destination: Destination;
   readonly isCurrent: boolean;
-  /** Whether it is on now: Watch Together, while this tab hosts a session. */
-  readonly isOn: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { destination } = props;
   return (
     <li aria-current={props.isCurrent ? "page" : undefined}>
-      <Link to={destination.route}>
-        {t(`nav.${destination.labelKey}`)}
-        {props.isOn ? <span className="app-shell__on"> {t("nav.togetherOn")}</span> : null}
-      </Link>
+      <Link to={destination.route}>{t(`nav.${destination.labelKey}`)}</Link>
     </li>
   );
 }

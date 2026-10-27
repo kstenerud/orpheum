@@ -84,7 +84,7 @@ export const enTogether = {
       takenBack: "Control was taken back. You can close this page.",
       replaced: "Another device took over. You can close this page.",
       stopped: "Casting stopped. You can close this page.",
-      filmEnded: "The film ended. You can close this page.",
+      receiverGone: "The device that played was gone too long. You can close this page.",
       joinAgain: "Join again",
     },
     event: {
@@ -109,7 +109,11 @@ export const enTogether = {
     mayNotHost: "Your role may not host Watch Together. An administrator can change that.",
     over: "That session is over.",
     onExplain:
-      "Your session is on. Browse and play as usual: whatever you play plays on everyone's screen, and when you stop, their screens go black.",
+      "Your session is on. Browse and play as usual: whatever you play plays on everyone's screen, and goes on while you browse. When you stop it, their screens go black.",
+    nothingPlays: "Nothing is playing",
+    backToTheFilm: "Back to the film",
+    stopTheFilm: "Stop the film for everyone",
+    castingTo: "Casting to {{name}}.",
     makeLinkHeading: "Invite someone",
     filmVolume: "Film volume",
     note: "Who it is for (only you see this)",

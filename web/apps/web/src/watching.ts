@@ -236,6 +236,20 @@ export class Watching {
     );
   }
 
+  /**
+   * The film fileId plays on a cast's receiver, not here (D364 §3): its film page's warm-up, which
+   * this device will not take, is let go of, its preload and its playback. A preload left behind
+   * kept its hidden video and its chunks on the sender for half an hour (the cast test, 2026-10-27).
+   */
+  sentAway(fileId: number): void {
+    const warm = this.warm;
+    if (this.fileId !== fileId || warm === undefined) {
+      return;
+    }
+    this.warm = undefined;
+    this.letGoOf(warm);
+  }
+
   private async ask(
     fileId: number,
     asked: StartAsked & { readonly playableFormats: PlayableFormats },

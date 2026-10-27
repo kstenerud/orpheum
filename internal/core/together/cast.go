@@ -13,7 +13,8 @@ import (
 // as their video viewer (RoleVideo) and leads; the device that cast is their control panel with
 // voice (RolePanel), their remote, which plays nothing (D120). It has no links, no locators and no
 // place among the person's Watch Together sessions: Open, Mine and a host's endpoints never find
-// it, so a host keeps their party beside it.
+// it, so a host keeps their party beside it. It lasts while the person plays one video after another
+// on the receiver (D364): its group goes back to nothing on between them (CastReady).
 
 // The reasons a cast ends, which each of its devices is told as it ends (MessageEnded).
 const (
@@ -23,8 +24,8 @@ const (
 	CastReplaced = "replaced"
 	// CastStopped is the remote's Stop casting.
 	CastStopped = "stopped"
-	// CastFilmEnded is the film ending on the receiver with nothing to play next (§9 Q4).
-	CastFilmEnded = "filmEnded"
+	// CastReceiverGone is the receiver gone, no page of it connected, for two minutes (D364 §6).
+	CastReceiverGone = "receiverGone"
 	// CastDeclined is the receiver's Not now, asked whether to play it (D358 §3).
 	CastDeclined = "declined"
 	// CastUnanswered is the receiver's question left unanswered for a minute (D358 §4).
@@ -114,6 +115,48 @@ func (hub *Hub) CastPosition(sessionID, userID int64) (positionMs int64, isPlayi
 		return 0, false, err
 	}
 	return cast.positionAt(hub.clock.Now()).Milliseconds(), cast.group.state == GroupPlaying, nil
+}
+
+// CastReady has the cast sessionID that userID cast play nothing, its receiver ready between videos
+// (D364 §5): the next video is put on afresh, from where it is asked to start, even the one that
+// played before.
+func (hub *Hub) CastReady(sessionID, userID int64) error {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	cast, err := hub.castOf(sessionID, userID)
+	if err != nil {
+		return err
+	}
+	if cast.group.fileID == 0 {
+		return nil
+	}
+	cast.group.fileID, cast.group.position = 0, 0
+	cast.change(hub.clock.Now(), GroupIdle, EventStopped, 0)
+	return nil
+}
+
+// HostedCredential is a new credential for the Watch Together session userID hosts, for a cast's
+// receiver to play it as their player, so what they play plays for the group (D364 §11;
+// plans/cast-to-device.md §7); "" when they host none, or none can be made.
+func (hub *Hub) HostedCredential(userID int64) string {
+	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
+	if err != nil {
+		return ""
+	}
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	for _, each := range hub.sessions {
+		if each.hostUserID != userID || each.isCast {
+			continue
+		}
+		for _, hostMember := range each.members {
+			if hostMember.isHost {
+				hostMember.addCredential(madeCredential{credential: made})
+				return made
+			}
+		}
+	}
+	return ""
 }
 
 // castOf is the cast userID cast by sessionID.

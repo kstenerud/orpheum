@@ -211,6 +211,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark).
 		"markTitleWatched", "markTitleUnwatched", "markSeriesWatched", "markSeriesUnwatched", "markSeasonWatched",
 		"markSeasonUnwatched",
+		// A film played in a cast is reach-checked as startCast's is (castFilmOf;
+		// TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver).
+		"playInCast",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
@@ -232,7 +235,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"listMyTogether",
 		// A person's own casts between their devices: the receiver plays by its own playback, which
 		// checks its reach (D337 §1).
-		"listMyCasts", "endCast",
+		"listMyCasts", "endCast", "acceptCast",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.

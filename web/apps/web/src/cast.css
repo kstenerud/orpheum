@@ -72,3 +72,22 @@
   font-size: var(--font-size-h2);
   transform: translateX(-50%);
 }
+
+/* A cast's receiver between videos (cast-ready.tsx, D364 §5): the whole screen, the film's black
+   ground, a quiet line in its middle, read across a room. */
+.cast-ready {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-video-background);
+  color: var(--color-on-video);
+}
+
+.cast-ready__line {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-h2);
+}

@@ -2,6 +2,7 @@
 
 import { lazy } from "react";
 
+import type { CastReady as CastReadyComponent } from "./cast-ready.tsx";
 import type { Casting as CastingComponent } from "./cast-remote.tsx";
 import type { LabExtendPlayer as LabExtendPlayerComponent } from "./lab-extend-player.tsx";
 import type { Lab as LabComponent } from "./lab.tsx";
@@ -32,6 +33,9 @@ const loadTogetherViewer = async (): Promise<{ default: typeof TogetherViewerCom
 const loadCasting = async (): Promise<{ default: typeof CastingComponent }> => ({
   default: (await import("./cast-remote.tsx")).Casting,
 });
+const loadCastReady = async (): Promise<{ default: typeof CastReadyComponent }> => ({
+  default: (await import("./cast-ready.tsx")).CastReady,
+});
 const loadLab = async (): Promise<{ default: typeof LabComponent }> => ({
   default: (await import("./lab.tsx")).Lab,
 });
@@ -48,7 +52,7 @@ const loadUiGallery = async (): Promise<{ default: typeof UiGalleryComponent }> 
 /**
  * The screens whose code loads only when one is first shown, each with what only it needs: a
  * title's and a series' pages, which make a film ready to play, the player and hls.js with it,
- * Watch Together, casting, the server's settings, the device lab and its player, and the UI gallery. They were
+ * Watch Together, casting and a cast's ready page, the server's settings, the device lab and its player, and the UI gallery. They were
  * all in the one script every page loaded before it drew, most of it hls.js, which a TV parses
  * slowly (the audit of 2026-10-25, W1); app.tsx shows Loading… meanwhile (ScreenLoading). A screen
  * here is one the app reaches as a route, never one a home page draws; the status tray loads Watch
@@ -64,6 +68,7 @@ export let Play = lazy(loadPlay);
 export let WatchTogether = lazy(loadWatchTogether);
 export let TogetherViewer = lazy(loadTogetherViewer);
 export let Casting = lazy(loadCasting);
+export let CastReady = lazy(loadCastReady);
 export let Lab = lazy(loadLab);
 export let LabExtendPlayer = lazy(loadLabExtendPlayer);
 export let Settings = lazy(loadSettings);
@@ -84,6 +89,7 @@ export function resetLazyScreensForTests(): void {
   WatchTogether = lazy(loadWatchTogether);
   TogetherViewer = lazy(loadTogetherViewer);
   Casting = lazy(loadCasting);
+  CastReady = lazy(loadCastReady);
   Lab = lazy(loadLab);
   LabExtendPlayer = lazy(loadLabExtendPlayer);
   Settings = lazy(loadSettings);

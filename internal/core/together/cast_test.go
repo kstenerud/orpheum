@@ -103,3 +103,51 @@ func TestCast_ADeviceComingBackHasACredentialOfItsOwn(t *testing.T) {
 		}
 	}
 }
+
+// A cast made ready between videos plays nothing, every device told, so the next video, even the one
+// before, is put on afresh rather than followed where the group had gone on to (D364 §5).
+func TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	stage.command(t, receiver, CommandChangeItem, 12)
+	stage.ready(t, receiver, false)
+	if err = stage.hub.CastReady(cast.SessionID, stage.owner.UserID); err != nil {
+		t.Fatal(err)
+	}
+	for name, box := range map[string]*inbox{"receiver": receiverBox, "remote": remoteBox} {
+		if group := box.last(MessageGroup).Group; group.State != GroupIdle || group.FileID != 0 {
+			t.Errorf("the %s sees %+v once ready, want nothing on", name, group)
+		}
+	}
+	if err := stage.hub.CastReady(cast.SessionID, 99); !errors.Is(err, ErrNoSession) {
+		t.Errorf("someone else made the cast ready: %v; want ErrNoSession", err)
+	}
+	if err := stage.hub.CastReady(stage.opened.SessionID, stage.owner.UserID); !errors.Is(err, ErrNoSession) {
+		t.Errorf("the party was made ready as a cast: %v; want ErrNoSession", err)
+	}
+}
+
+// A cast's receiver is given a credential of the host's own for the Watch Together session its person
+// hosts, to play it as their player; a person hosting none, or only a cast, is given none (D364 §11).
+func TestCast_AHostsReceiverHasACredentialForTheirSession(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}); err != nil {
+		t.Fatal(err)
+	}
+	if credential := stage.hub.HostedCredential(77); credential != "" {
+		t.Errorf("a person with only a cast was given %q; want none", credential)
+	}
+	credential := stage.hub.HostedCredential(stage.owner.UserID)
+	sessionID, memberID, isMember := stage.hub.MemberOf(credential)
+	if !isMember || sessionID != stage.opened.SessionID || stage.hub.hostOf(sessionID) != stage.owner.UserID {
+		t.Fatalf("the host's credential is of session %d, member %d (%v); want the party's host",
+			sessionID, memberID, isMember)
+	}
+}

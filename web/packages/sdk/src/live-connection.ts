@@ -10,11 +10,15 @@
 import { deadAfterUnansweredPings, pingEveryMs, reconnectWaitMs } from "./together-connection.ts";
 import { recordOf, type OpenTogetherSocket, type TogetherSocket } from "./together.ts";
 
-/** A cast handed to this device to receive: its session of one, the film, and who cast it. */
+/**
+ * A cast handed to this device to receive: its session of one, what it plays, and who cast it; handed
+ * again each time what it plays changes, the same cast while the session lasts (D364).
+ */
 export interface CastToReceive {
   readonly castId: number;
   /** The cast session's credential, which the receiver's session socket says hello with (D88). */
   readonly membershipCredential: string;
+  /** What it plays; 0 for nothing, the receiver ready for the next video (D364 §5). */
   readonly fileId: number;
   /** The film's name, which the receiver asks whether to play (D358 §1); empty for none. */
   readonly titleName: string;
@@ -22,6 +26,28 @@ export interface CastToReceive {
   readonly positionMs: number | undefined;
   readonly fromDeviceId: number;
   readonly fromDeviceName: string;
+  /**
+   * A credential for the Watch Together session the person hosts, if any, which the receiver plays
+   * as their player, so what they play plays for the group (D364 §11).
+   */
+  readonly togetherCredential?: string | undefined;
+}
+
+/**
+ * The cast this device sends, as every page of it is told (D364 §6, §7): to which device, what plays
+ * there, and whether that device said Use to it.
+ */
+export interface CastSending {
+  readonly castId: number;
+  readonly receiverDeviceId: number;
+  readonly receiverName: string;
+  /** What plays on the receiver; 0 for nothing, ready for the next video (D364 §5). */
+  readonly fileId: number;
+  readonly titleName: string;
+  /** How long it plays, in ms; 0 when unknown. */
+  readonly durationMs: number;
+  /** Whether the receiver said Use, asked once (D364 §2). */
+  readonly isAccepted: boolean;
 }
 
 /** What the live connection knows now. */
@@ -34,6 +60,10 @@ export interface LiveSnapshot {
   readonly inFrontDeviceIds: readonly number[];
   /** The last cast handed to this device, until it is taken (takeReceive). */
   readonly receive: CastToReceive | undefined;
+  /** The cast this device sends, as last told; undefined for none, or until told. */
+  readonly sending: CastSending | undefined;
+  /** Whether the server has said, since the page loaded, what this device sends: none, or a cast. */
+  readonly isSendingKnown: boolean;
   /**
    * Whether the server refused the sign-in, or said it ended (the device removed from another),
    * after which it connects no more.
@@ -74,6 +104,8 @@ const startingSnapshot: LiveSnapshot = {
   deviceIds: [],
   inFrontDeviceIds: [],
   receive: undefined,
+  sending: undefined,
+  isSendingKnown: false,
   isRefused: false,
 };
 
@@ -112,6 +144,40 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     positionMs: numberIn(record, "positionMs"),
     fromDeviceId,
     fromDeviceName: typeof name === "string" ? name : "",
+    togetherCredential: nonEmptyStringIn(record, "togetherCredential"),
+  };
+}
+
+/** A record's non-empty string field, or undefined. */
+function nonEmptyStringIn(
+  record: Readonly<Record<string, unknown>>,
+  name: string,
+): string | undefined {
+  const value = record[name];
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/** A sending message's cast, or undefined for none or one malformed. */
+function parseSending(value: unknown): CastSending | undefined {
+  const record = recordOf(value);
+  if (record === undefined) {
+    return undefined;
+  }
+  const castId = numberIn(record, "castId");
+  const receiverDeviceId = numberIn(record, "receiverDeviceId");
+  if (castId === undefined || receiverDeviceId === undefined) {
+    return undefined;
+  }
+  const receiverName = record["receiverName"];
+  const titleName = record["titleName"];
+  return {
+    castId,
+    receiverDeviceId,
+    receiverName: typeof receiverName === "string" ? receiverName : "",
+    fileId: numberIn(record, "fileId") ?? 0,
+    titleName: typeof titleName === "string" ? titleName : "",
+    durationMs: numberIn(record, "durationMs") ?? 0,
+    isAccepted: record["isAccepted"] === true,
   };
 }
 
@@ -123,6 +189,8 @@ export type LiveMessage =
       readonly inFrontDeviceIds: readonly number[];
     }
   | { readonly type: "receive"; readonly receive: CastToReceive }
+  /** The cast this device sends now, undefined for none (D364 §6). */
+  | { readonly type: "sending"; readonly sending: CastSending | undefined }
   | { readonly type: "pong" }
   | { readonly type: "signedOut" };
 
@@ -154,6 +222,8 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
       const receive = parseReceive(record["receive"]);
       return receive === undefined ? undefined : { type: "receive", receive };
     }
+    case "sending":
+      return { type: "sending", sending: parseSending(record["sending"]) };
     case "pong":
       return { type: "pong" };
     case "signedOut":
@@ -256,6 +326,9 @@ class PageLiveConnection implements LiveConnection {
       case "receive":
         this.#change({ ...this.#snapshot, receive: message.receive });
         return;
+      case "sending":
+        this.#change({ ...this.#snapshot, sending: message.sending, isSendingKnown: true });
+        return;
       case "pong":
         return;
       case "signedOut":
@@ -334,7 +407,7 @@ class PageLiveConnection implements LiveConnection {
 /**
  * A page's live connection, which connects when opened: says hello with the session token and
  * whether its tab is in front, says so again as that changes, keeps the person's connected devices,
- * those in front, and the last cast handed to this device, pings as the session
+ * those in front, the last cast handed to this device and the one it sends, pings as the session
  * socket does, and connects again with a growing wait after a drop, until closed or until the server
  * refuses the sign-in or says it ended.
  */

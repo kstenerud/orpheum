@@ -431,8 +431,12 @@
             "type": "integer"
           },
           "fileId": {
+            "description": "What plays, 0 for nothing, the receiver ready (D364 §5)",
             "format": "int64",
             "type": "integer"
+          },
+          "isAccepted": {
+            "type": "boolean"
           },
           "isSender": {
             "type": "boolean"
@@ -467,6 +471,7 @@
         "required": [
           "castId",
           "isSender",
+          "isAccepted",
           "fileId",
           "titleId",
           "titleName",
@@ -477,6 +482,24 @@
           "receiverName",
           "membershipCredential"
         ],
+        "type": "object"
+      },
+      "CastFilm": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "description": "What to play; absent, nothing, the receiver ready for the next",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "positionMs": {
+            "description": "Where to start, in ms; absent, where the person left the film",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "CertificateBody": {
@@ -1481,11 +1504,10 @@
         "additionalProperties": false,
         "properties": {
           "reason": {
-            "description": "takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)",
+            "description": "takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358)",
             "enum": [
               "takenBack",
               "stopped",
-              "filmEnded",
               "declined",
               "unanswered"
             ],
@@ -6766,6 +6788,7 @@
         "additionalProperties": false,
         "properties": {
           "fileId": {
+            "description": "What to play; absent, nothing, the receiver ready for the next",
             "format": "int64",
             "minimum": 1,
             "type": "integer"
@@ -6784,8 +6807,7 @@
           }
         },
         "required": [
-          "toDeviceId",
-          "fileId"
+          "toDeviceId"
         ],
         "type": "object"
       },
@@ -7529,6 +7551,11 @@
       "TogetherDetailsOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "durationMs": {
+            "description": "How long what plays lasts, in ms; absent when unknown",
+            "format": "int64",
+            "type": "integer"
+          },
           "fileId": {
             "description": "What plays; absent while nothing does",
             "format": "int64",
@@ -7558,6 +7585,10 @@
           "sessionId": {
             "format": "int64",
             "type": "integer"
+          },
+          "titleName": {
+            "description": "The name of what plays; absent while nothing does",
+            "type": "string"
           }
         },
         "required": [
@@ -12795,7 +12826,59 @@
             "description": "Error"
           }
         },
-        "summary": "Cast a film from this device to another of one's own, connected now (D337)",
+        "summary": "Start casting from this device to another of one's own, connected now (D337, D364)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/me/casts/{id}/accept": {
+      "post": {
+        "operationId": "acceptCast",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say Use, on its receiver, to a cast it was asked about (D364 §2)",
         "tags": [
           "Accounts"
         ]
@@ -12910,6 +12993,68 @@
           }
         },
         "summary": "Move a cast this device sends or receives on to what plays after its film, the next episode, which its receiver is handed (plans/up-next.md)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/me/casts/{id}/play": {
+      "post": {
+        "operationId": "playInCast",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastFilm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
         "tags": [
           "Accounts"
         ]

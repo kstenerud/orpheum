@@ -8,6 +8,9 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 var (
@@ -25,7 +28,18 @@ var (
 // CastCredential.
 type Credential func(castID, userID int64) (string, error)
 
-// Cast is one device of a person casting to another of theirs (D337).
+// Hosted mints a credential for the Watch Together session userID hosts, for a cast's receiver to play
+// it as their player (plans/cast-to-device.md §7), or "" when they host none: the hub's
+// HostedCredential.
+type Hosted func(userID int64) string
+
+// ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
+// sender told (D364 §6): a television switched off or its page closed, not one loaded again or
+// reconnecting, which comes back in seconds. The owner's two minutes.
+const ReceiverGoneAfter = 2 * time.Minute
+
+// Cast is one device of a person casting to another of theirs: a session with that device, in which
+// whatever the person plays on the sender plays on the receiver, until it ends (D337, D364).
 type Cast struct {
 	// ID is the cast's session of one in Watch Together's hub (together.OpenCast).
 	ID               int64
@@ -34,7 +48,8 @@ type Cast struct {
 	ReceiverDeviceID int64
 	// SenderName and ReceiverName are the devices' names, as the person's list shows them.
 	SenderName, ReceiverName string
-	FileID                   int64
+	// FileID is what the receiver plays now; 0 while it plays nothing, ready between videos (D364 §5).
+	FileID int64
 	// TitleID and TitleName are the title the file is, which the remote shows; 0 and "" for none.
 	TitleID   int64
 	TitleName string
@@ -42,6 +57,8 @@ type Cast struct {
 	DurationMs int64
 	// PositionMs is where the sender stood, or nil to start where the person left the film.
 	PositionMs *int64
+	// IsAccepted is whether the receiver said Use to the session, asked once (D364 §2).
+	IsAccepted bool
 }
 
 // Connection is one registered live connection, which Disconnect takes.
@@ -54,6 +71,9 @@ type Connection struct {
 // Registry is every person's live connections and casts, in memory.
 type Registry struct {
 	credential Credential
+	clock      clock.Clock
+	// hosted, when set, mints a hosted session's credential for each hand-off (LeadsHostedBy).
+	hosted Hosted
 
 	mutex  sync.Mutex
 	people map[int64]*person // by user; guarded by mutex
@@ -83,11 +103,23 @@ type connection struct {
 type heldCast struct {
 	Cast
 	heldBy int64
+	// goneSince is when the receiver's last connection closed, zero while it has one (EndGone).
+	goneSince time.Time
 }
 
-// NewRegistry is an empty registry, minting a receiver's credentials again by credential.
-func NewRegistry(credential Credential) *Registry {
-	return &Registry{credential: credential, people: map[int64]*person{}}
+// NewRegistry is an empty registry, minting a receiver's credentials again by credential, and keeping
+// time by clockSource.
+func NewRegistry(credential Credential, clockSource clock.Clock) *Registry {
+	return &Registry{credential: credential, clock: clockSource, people: map[int64]*person{}}
+}
+
+// LeadsHostedBy has each cast's receiver handed, by hosted, a credential for the Watch Together session
+// its person hosts, if any, so that each film the person plays goes on for the group from it (D364 §11;
+// plans/cast-to-device.md §7).
+func (registry *Registry) LeadsHostedBy(hosted Hosted) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	registry.hosted = hosted
 }
 
 // Connect registers a connection of userID's device deviceID, its tab in front or behind (isInFront),
@@ -110,6 +142,10 @@ func (registry *Registry) Connect(userID, deviceID int64, isInFront bool, send S
 		opened.frontSince = registry.fronts
 	}
 	owner.connections[opened.id] = opened
+	if held := owner.casts[deviceID]; held != nil {
+		held.goneSince = time.Time{}
+	}
+	send(owner.sendingMessage(deviceID)) // before the devices, so the page knows both at once
 	if wasConnected && wasInFront == owner.isInFront(deviceID) {
 		send(owner.devicesMessage())
 	} else {
@@ -147,7 +183,8 @@ func (registry *Registry) ShowFront(shown Connection, isInFront bool) {
 }
 
 // Disconnect removes a connection that ended: its person's other connections are told when its
-// device is no longer connected, and a cast it held waits for the device's next connection.
+// device is no longer connected, and a cast it held waits for the device's next connection, ended by
+// EndGone if none comes within ReceiverGoneAfter.
 func (registry *Registry) Disconnect(gone Connection) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
@@ -164,6 +201,9 @@ func (registry *Registry) Disconnect(gone Connection) {
 		if held.heldBy == gone.ID {
 			held.heldBy = 0
 		}
+	}
+	if held := owner.casts[gone.DeviceID]; held != nil && !owner.isConnected(gone.DeviceID) {
+		held.goneSince = registry.clock.Now()
 	}
 	if !owner.isConnected(gone.DeviceID) || wasInFront != owner.isInFront(gone.DeviceID) {
 		owner.tellDevices()
@@ -202,9 +242,10 @@ func (registry *Registry) Connected(userID int64) []int64 {
 }
 
 // Cast starts cast, handing it by receiverCredential to the receiver's tab in front, the one that
-// came to the front last (D338 §2). It replaces the cast its receiver had, and the one its sender
-// controlled, which it returns for their sessions to be ended (D337 §6: the last cast wins). The
-// receiver must be another of the person's devices, connected now, with a tab in front.
+// came to the front last (D338 §2), and telling the sender's pages it sends it. It replaces the cast
+// its receiver had, and the one its sender controlled, which it returns for their sessions to be
+// ended, their senders told (D337 §6: the last cast wins). The receiver must be another of the
+// person's devices, connected now, with a tab in front.
 func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced []Cast, err error) {
 	if cast.ReceiverDeviceID == cast.SenderDeviceID {
 		return nil, ErrToItself
@@ -226,7 +267,13 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced [
 		}
 	}
 	owner.casts[cast.ReceiverDeviceID] = &heldCast{Cast: cast, heldBy: front.id}
-	front.send(Outbound{Type: MessageReceive, Receive: receiveOf(cast, receiverCredential)})
+	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(cast, receiverCredential)})
+	for _, each := range replaced {
+		if each.SenderDeviceID != cast.SenderDeviceID {
+			owner.tellSending(each.SenderDeviceID)
+		}
+	}
+	owner.tellSending(cast.SenderDeviceID)
 	return replaced, nil
 }
 
@@ -260,6 +307,7 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	for receiverID, held := range owner.casts {
 		if held.ID == castID && (held.SenderDeviceID == deviceID || held.ReceiverDeviceID == deviceID) {
 			delete(owner.casts, receiverID)
+			owner.tellSending(held.SenderDeviceID)
 			if len(owner.connections) == 0 && len(owner.casts) == 0 {
 				delete(registry.people, userID)
 			}
@@ -277,30 +325,70 @@ type Film struct {
 	DurationMs int64
 }
 
-// MoveOn has the cast castID play film from where its person left it, at the asking of userID's
-// device deviceID, its sender or its receiver: the next episode as the film ends (plans/up-next.md).
-// The cast and its session of one go on; its receiver is handed it again, by a credential of its
-// own, on the connection that holds it, or the next one it opens. It returns the cast as it is now.
-func (registry *Registry) MoveOn(userID, deviceID, castID int64, film Film) (Cast, error) {
+// Play has the cast castID play film from positionMs, or from where its person left it for nil, at
+// the asking of userID's device deviceID, its sender or its receiver: whatever the person plays on the
+// sender, and the next episode as a film ends (D364 §3; plans/up-next.md). A film of FileID 0 plays
+// nothing: the receiver waits ready for the next (§5). The cast goes on; its receiver is handed it
+// again, by a credential of its own, on the connection that holds it, or the next one it opens, and
+// its sender's pages are told. It returns the cast as it is now.
+func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positionMs *int64) (Cast, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	held := owner.castByEither(castID, deviceID)
+	if held == nil {
+		return Cast{}, ErrNoCast
+	}
+	held.FileID, held.TitleID, held.TitleName, held.DurationMs = film.FileID, film.TitleID, film.TitleName,
+		film.DurationMs
+	held.PositionMs = positionMs
+	if holder := owner.connections[held.heldBy]; holder != nil {
+		registry.handOff(held, holder)
+	}
+	owner.tellSending(held.SenderDeviceID)
+	return held.Cast, nil
+}
+
+// Accept notes that the receiver, userID's device deviceID, said Use to the cast castID, which it is
+// asked once (D364 §2), and tells its sender's pages.
+func (registry *Registry) Accept(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
 	if owner == nil {
 		return Cast{}, ErrNoCast
 	}
-	for _, held := range owner.casts {
-		if held.ID != castID || (held.SenderDeviceID != deviceID && held.ReceiverDeviceID != deviceID) {
-			continue
-		}
-		held.FileID, held.TitleID, held.TitleName, held.DurationMs = film.FileID, film.TitleID, film.TitleName,
-			film.DurationMs
-		held.PositionMs = nil
-		if holder := owner.connections[held.heldBy]; holder != nil {
-			registry.handOff(held, holder)
-		}
-		return held.Cast, nil
+	held := owner.casts[deviceID]
+	if held == nil || held.ID != castID {
+		return Cast{}, ErrNoCast
 	}
-	return Cast{}, ErrNoCast
+	held.IsAccepted = true
+	owner.tellSending(held.SenderDeviceID)
+	return held.Cast, nil
+}
+
+// EndGone ends every cast whose receiver has had no connection for ReceiverGoneAfter (D364 §6), its
+// sender's pages told, and returns them for their sessions to be ended.
+func (registry *Registry) EndGone() []Cast {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	now := registry.clock.Now()
+	ended := []Cast{}
+	for userID, owner := range registry.people {
+		for receiverID, held := range owner.casts {
+			if held.goneSince.IsZero() || now.Sub(held.goneSince) < ReceiverGoneAfter {
+				continue
+			}
+			delete(owner.casts, receiverID)
+			owner.tellSending(held.SenderDeviceID)
+			ended = append(ended, held.Cast)
+		}
+		if len(owner.connections) == 0 && len(owner.casts) == 0 {
+			delete(registry.people, userID)
+		}
+	}
+	slices.SortFunc(ended, func(one, other Cast) int { return cmp.Compare(one.ID, other.ID) })
+	return ended
 }
 
 // handOffWaiting hands the cast to deviceID that no connection holds, if any, to its tab in front,
@@ -323,15 +411,57 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 		return
 	}
 	held.heldBy = to.id
-	to.send(Outbound{Type: MessageReceive, Receive: receiveOf(held.Cast, credential)})
+	to.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held.Cast, credential)})
 }
 
-// receiveOf is the receive message of cast, by credential.
-func receiveOf(cast Cast, credential string) *Receive {
+// receiveOf is the receive message of cast, by credential, with a credential for the Watch Together
+// session its person hosts, if any (LeadsHostedBy).
+func (registry *Registry) receiveOf(cast Cast, credential string) *Receive {
+	hostedCredential := ""
+	if registry.hosted != nil {
+		hostedCredential = registry.hosted(cast.UserID)
+	}
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,
-		PositionMs:   cast.PositionMs,
-		FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
+		PositionMs: cast.PositionMs, FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
+		IsAccepted: cast.IsAccepted, TogetherCredential: hostedCredential,
+	}
+}
+
+// castByEither is the cast castID that deviceID sends or receives; nil for none, or no person.
+func (owner *person) castByEither(castID, deviceID int64) *heldCast {
+	if owner == nil {
+		return nil
+	}
+	for _, held := range owner.casts {
+		if held.ID == castID && (held.SenderDeviceID == deviceID || held.ReceiverDeviceID == deviceID) {
+			return held
+		}
+	}
+	return nil
+}
+
+// sendingMessage is the sending message of the cast deviceID sends, without one when it sends none.
+func (owner *person) sendingMessage(deviceID int64) Outbound {
+	for _, held := range owner.casts {
+		if held.SenderDeviceID == deviceID {
+			return Outbound{Type: MessageSending, Sending: &Sending{
+				CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
+				FileID: held.FileID, TitleName: held.TitleName, DurationMs: held.DurationMs,
+				IsAccepted: held.IsAccepted,
+			}}
+		}
+	}
+	return Outbound{Type: MessageSending}
+}
+
+// tellSending tells every connection of deviceID the cast it sends now, or that it sends none.
+func (owner *person) tellSending(deviceID int64) {
+	message := owner.sendingMessage(deviceID)
+	for _, each := range owner.connections {
+		if each.deviceID == deviceID {
+			each.send(message)
+		}
 	}
 }
 

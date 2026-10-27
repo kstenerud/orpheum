@@ -34,7 +34,7 @@ function pageFullScreen(answer: "grant" | "refuse"): { readonly asked: () => num
   return { asked: () => asked };
 }
 
-describe("a cast asked about before it plays (D358)", () => {
+describe("a cast asked about once, before it plays (D364 §2, D358)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -51,7 +51,10 @@ describe("a cast asked about before it plays (D358)", () => {
     const answers: (CastAnswer | undefined)[] = [];
     const server = fakeTogetherServer();
     const services = servedBy(
-      { "POST /me/casts/5/end": [200, { positionMs: 0, isPlaying: false }] },
+      {
+        "POST /me/casts/5/end": [200, { positionMs: 0, isPlaying: false }],
+        "POST /me/casts/5/accept": [200, { castId: 5 }],
+      },
       heard,
       "token",
     );
@@ -69,18 +72,20 @@ describe("a cast asked about before it plays (D358)", () => {
     return { answers, server };
   }
 
-  it("asks whether to play the film, Play focused for a remote's OK (§1)", async () => {
+  it("asks whether to use this device for playback, Use focused for a remote's OK (D364 §2)", async () => {
     await asked();
-    expect(document.body.textContent).toContain("Pixel wants to play Metropolis here");
-    const play = buttonWithText(document.body, "Play");
-    expect(document.activeElement).toBe(play);
+    expect(document.body.textContent).toContain("Pixel wants to use this device for playback");
+    const use = buttonWithText(document.body, "Use");
+    expect(document.activeElement).toBe(use);
     expect(buttonWithText(document.body, "Not now")).toBeDefined();
   });
 
-  it("asks for the page full screen in Play's own press, and says by what press it was answered (§2)", async () => {
+  it("asks for the page full screen in Use's own press, tells the server, and says by what press it was answered (§2)", async () => {
     const fullScreen = pageFullScreen("grant");
-    const { answers } = await asked();
-    await click(buttonWithText(document.body, "Play")); // a remote's OK: a click with no count
+    const heard: Heard[] = [];
+    const { answers } = await asked(heard);
+    await click(buttonWithText(document.body, "Use")); // a remote's OK: a click with no count
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /me/casts/5/accept");
     expect(fullScreen.asked()).toBe(1);
     expect(answers).toHaveLength(1);
     expect(answers[0]).toMatchObject({ castId: 5, by: "key" });
@@ -90,7 +95,7 @@ describe("a cast asked about before it plays (D358)", () => {
   it("says a refused full screen as refused", async () => {
     pageFullScreen("refuse");
     const { answers } = await asked();
-    await click(buttonWithText(document.body, "Play"));
+    await click(buttonWithText(document.body, "Use"));
     await expect(answers[0]?.fullScreen).resolves.toBe("refused");
   });
 

@@ -6,8 +6,8 @@ import type { CastToReceive, Press } from "@orpheum/sdk";
 import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { castAnswerWithinMs, endCast } from "./cast.ts";
-import { leaveFullScreenAsked } from "./film-fullscreen.ts";
+import { acceptCast, castAnswerWithinMs, endCast } from "./cast.ts";
+import { askPageFullScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { useTogether } from "./use-together.ts";
@@ -16,8 +16,9 @@ import { useTogether } from "./use-together.ts";
 export type FullScreenAnswer = "entered" | "refused";
 
 /**
- * The press that answered Play to a cast (D358 §2): how it was made, and what the browser answered
- * the full screen asked for in it, undefined where none was asked, the page full screen already.
+ * The press that answered Use to a cast (D364 §2, D358 §2): how it was made, and what the browser
+ * answered the full screen asked for in it, undefined where none was asked, the page full screen
+ * already.
  */
 export interface CastAnswer {
   readonly castId: number;
@@ -46,13 +47,11 @@ export function enterFullScreen(page: Document): Promise<FullScreenAnswer> | und
   if (page.fullscreenElement instanceof Element) {
     return undefined;
   }
-  const root = page.documentElement;
-  if (typeof root.requestFullscreen !== "function") {
+  if (typeof page.documentElement.requestFullscreen !== "function") {
     return Promise.resolve("refused");
   }
-  return root.requestFullscreen().then(
-    (): FullScreenAnswer => "entered",
-    (): FullScreenAnswer => "refused",
+  return askPageFullScreen(page).then((isEntered): FullScreenAnswer =>
+    isEntered ? "entered" : "refused",
   );
 }
 
@@ -64,10 +63,11 @@ export function leaveFullScreen(page: Document): void {
 }
 
 /**
- * A cast arrived, asked about before it plays (D358 §1–§4): "‹Device› wants to play ‹Film› here",
- * with Play focused, so a remote's OK answers it, and Not now. Play's press is the one that lets the
- * film play with sound (sticky activation) and puts the page full screen (transient activation, so
- * asked in the press itself); Not now, Back or Escape decline it, and no answer within
+ * A cast arrived, asked about once for its whole session (D364 §2, D358 §1–§4): "‹Device› wants to use
+ * this device for playback", with Use focused, so a remote's OK answers it, and Not now. Use's press
+ * is the one that lets every video of the session play with sound (sticky activation) and puts the
+ * page full screen (transient activation, so asked in the press itself), and the server is told, so
+ * the sender's Plays come here; Not now, Back or Escape decline it, and no answer within
  * castAnswerWithinMs leaves it unanswered, the sender told either way. A cast that ends while asked,
  * its sender gone, closes it.
  */
@@ -105,10 +105,7 @@ export function CastAsked(props: {
     endCast(api, cast.castId, "declined").catch(() => undefined);
     onAnswered(undefined);
   };
-  const question =
-    cast.titleName === ""
-      ? t("cast.asked.aFilm", { device: cast.fromDeviceName })
-      : t("cast.asked.film", { device: cast.fromDeviceName, film: cast.titleName });
+  const question = t("cast.asked.question", { device: cast.fromDeviceName });
   return (
     <ModalDialog label={question} onClose={decline} className="cast-asked">
       <p className="cast-asked__question">{question}</p>
@@ -118,10 +115,11 @@ export function CastAsked(props: {
           type="button"
           onClick={(event) => {
             const fullScreen = enterFullScreen(document);
+            acceptCast(api, cast.castId).catch(() => undefined); // its sender waits on it, and says so
             onAnswered({ castId: cast.castId, by: pressOf(event.nativeEvent), fullScreen });
           }}
         >
-          {t("cast.asked.play")}
+          {t("cast.asked.use")}
         </button>
         <button type="button" onClick={decline}>
           {t("cast.asked.notNow")}

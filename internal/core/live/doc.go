@@ -27,9 +27,18 @@
 //     receiving). Enforced by TestRegistry_TheTabInFrontReceives,
 //     TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain and, through the socket,
 //     TestCast_GoesOnlyToADeviceWithATabInFront in internal/core/api.
-//   - A cast moves on to another film, the next episode, only at its sender's or its receiver's
-//     asking, in the same cast, and its receiver is handed it again (plans/up-next.md). Enforced by
-//     TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt.
+//   - A cast is a session with the receiver (D364): it plays another film, or nothing between videos,
+//     only at its sender's or its receiver's asking, in the same cast, its receiver handed it again;
+//     only the receiver says Use, once; and the sender's every page is told the cast it sends, as a
+//     page opens before its devices, and at each change and its end (plans/up-next.md). Enforced by
+//     TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
+//     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
+//     TestRegistry_ACastIsASessionTheSenderIsToldOf.
+//   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
+//     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
+//   - A receiver whose person hosts Watch Together is handed a credential for that session with each
+//     cast, to play it as their player (D364 §11). Enforced by
+//     TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts.
 //   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,
@@ -40,6 +49,8 @@
 //
 // # Read before changing
 //
+//   - D364: casting is a session with a device, ended only by Stop, take-back, another cast or the
+//     receiver gone; it revises D337, D338 and D358.
 //   - D337: casting to one's own signed-in devices, and its §9 answers (plans/cast-to-device.md);
 //     D338, the owner's changes after the first build: the tab in front receives.
 //     at a film's end, the next episode as the sender would play it (plans/up-next.md).

@@ -53,21 +53,23 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
   ]);
 });
 
-it("shows the banner's status tray with each sign it can show, beside the menu (the owner, 2026-10-17)", () => {
+it("shows the banner's status tray with each sign it can show, Watch Together's and Cast's always, off or on, beside the menu (D364 §12)", () => {
   const markup = renderToStaticMarkup(withServices(<UiGallery />));
   const trays = [...markup.matchAll(/<div class="ui-gallery__banner">(.*?)<\/div><\/div>/gu)].map(
     (match) => match[1] ?? "",
   );
-  expect(trays).toHaveLength(3);
+  expect(trays).toHaveLength(5);
   const signs = trays.map((tray) => [
     tray.includes("status-tray__button--warning"),
-    tray.includes("status-tray__icon"),
+    [...tray.matchAll(/status-tray__button--(on|off)/gu)].map((match) => match[1]).join(" "),
     tray.includes("app-shell__menu-icon"),
   ]);
   expect(signs).toEqual([
-    [true, false, true],
-    [false, true, true],
-    [true, true, true],
+    [false, "off off", true],
+    [true, "off off", true],
+    [false, "on off", true],
+    [false, "off on", true],
+    [true, "on on", true],
   ]);
 });
 

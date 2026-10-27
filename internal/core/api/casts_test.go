@@ -343,3 +343,124 @@ func TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy(t *testing.T) {
 		}
 	}
 }
+
+// sessionWithNothingOn signs a phone and a TV in, both pages' live sockets open, and starts casting
+// from the phone to the TV with nothing playing, the phone's page told it sends it and the TV handed
+// it; it returns the cast, the two tokens and the two live sockets.
+func (harness testHarness) sessionWithNothingOn(t *testing.T) (api.CastBody, [2]string, [2]liveSocket) {
+	t.Helper()
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.fileFilmAsTitle(t, "Metropolis")
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	television := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(television)
+	phoneSocket := harness.dialLive(t, phoneToken)
+	started := harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{"toDeviceId": television})
+	session := startedCast(t, started)
+	if session.FileID != 0 || session.IsAccepted {
+		t.Fatalf("the session started as %+v; want nothing playing, not yet accepted", session)
+	}
+	phoneSocket.await(live.MessageSending, func(message live.Outbound) bool {
+		return message.Sending != nil && message.Sending.CastID == session.CastID &&
+			message.Sending.ReceiverDeviceID == television
+	})
+	tvSocket.await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 0 })
+	return session, [2]string{phoneToken, tvToken}, [2]liveSocket{phoneSocket, tvSocket}
+}
+
+// Casting is a session with a device (D364): started with nothing playing, the sender's page told it
+// sends it; the receiver alone says Use, which the sender is told (§1, §2, §6).
+func TestCast_IsASessionOnlyItsReceiverAccepts(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	session, tokens, sockets := harness.sessionWithNothingOn(t)
+	acceptPath := fmt.Sprintf("/me/casts/%d/accept", session.CastID)
+	wantError(t, harness.do(t, http.MethodPost, acceptPath, tokens[0], nil), http.StatusNotFound, api.CodeNotFound)
+	if accepted := harness.do(t, http.MethodPost, acceptPath, tokens[1], nil); accepted.status != http.StatusOK {
+		t.Fatalf("the TV's Use = %d %s", accepted.status, accepted.body)
+	}
+	sockets[0].await(live.MessageSending, func(message live.Outbound) bool {
+		return message.Sending != nil && message.Sending.IsAccepted
+	})
+}
+
+// Every film the sender plays while it casts is handed to the receiver in the same cast, its name with
+// it, and the ready state between videos stops the cast's group, so the next is put on afresh; a file
+// the person does not reach is refused (D364 §3, §5).
+func TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	session, tokens, sockets := harness.sessionWithNothingOn(t)
+	playPath := fmt.Sprintf("/me/casts/%d/play", session.CastID)
+	if played := harness.do(t, http.MethodPost, playPath, tokens[0],
+		map[string]any{"fileId": 1, "positionMs": 7_000}); played.status != http.StatusOK {
+		t.Fatalf("POST %s = %d %s", playPath, played.status, played.body)
+	}
+	handed := sockets[1].await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.FileID == 1
+	}).Receive
+	if handed.CastID != session.CastID || handed.TitleName != "Metropolis" || handed.PositionMs == nil ||
+		*handed.PositionMs != 7_000 {
+		t.Errorf("the TV was handed %+v; want the same cast, of Metropolis from 7 s", handed)
+	}
+	sockets[0].await(live.MessageSending, func(message live.Outbound) bool {
+		return message.Sending != nil && message.Sending.FileID == 1 && message.Sending.TitleName == "Metropolis"
+	})
+	receiver := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	receiver.awaitWelcome()
+	remote := harness.dialCast(t, session.MembershipCredential, together.RolePanel)
+	remote.awaitWelcome()
+	putOn(receiver, remote, 1)
+	if ready := harness.do(t, http.MethodPost, playPath, tokens[0], map[string]any{}); ready.status != http.StatusOK {
+		t.Fatalf("POST %s with nothing = %d %s", playPath, ready.status, ready.body)
+	}
+	if idle := remote.awaitGroup(together.GroupIdle); idle.Group.FileID != 0 {
+		t.Errorf("ready, the cast's group is %+v; want nothing on", idle.Group)
+	}
+	sockets[1].await(live.MessageReceive, func(message live.Outbound) bool { return message.Receive.FileID == 0 })
+	wantError(t, harness.do(t, http.MethodPost, playPath, tokens[1], map[string]any{"fileId": 999}),
+		http.StatusNotFound, api.CodeNotFound)
+}
+
+// A person who hosts Watch Together and casts has their receiver handed a credential for their
+// session as well, to play it as their player, so what they play plays for the group (D364 §11).
+func TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	hosted := harness.openTogether(t, phoneToken)
+	startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{"toDeviceId": tv}))
+	handed := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
+	if handed.TogetherCredential == "" {
+		t.Fatal("the host's TV was handed no credential for their Watch Together session")
+	}
+	player := harness.dialCast(t, handed.TogetherCredential, together.RoleVideo)
+	if welcome := player.awaitWelcome(); !welcome.IsHost || welcome.SessionID != hosted.Body.SessionID {
+		t.Errorf("the TV's welcome = %+v; want the host's, in session %d", welcome, hosted.Body.SessionID)
+	}
+}
+
+// The session's page names what plays and how long it lasts, for its remote (D364 §15).
+func TestTogether_TheHostsDetailsNameWhatPlays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	hostToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.fileFilmAsTitle(t, "Nosferatu")
+	hosted := harness.openTogether(t, hostToken)
+	player := harness.dialTogether(t, hosted.Body.MembershipCredential)
+	player.awaitWelcome()
+	putOn(player, player, 1)
+	var details api.TogetherDetailsOutput
+	read := harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", hosted.Body.SessionID), hostToken, nil)
+	if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil || details.Body.FileID != 1 ||
+		details.Body.TitleName != "Nosferatu" {
+		t.Errorf("GET /together/%d = %d %s; want Nosferatu, file 1, playing", hosted.Body.SessionID, read.status, read.body)
+	}
+}

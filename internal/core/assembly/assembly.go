@@ -328,7 +328,9 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	dependencies := &services.API
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// Which of each person's devices are open now, and the casts between them (D337).
-	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential)
+	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential, parts.Clock)
+	// A cast's receiver plays the Watch Together session its person hosts, if any (D364 §11).
+	dependencies.Live.LeadsHostedBy(dependencies.Together.HostedCredential)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)

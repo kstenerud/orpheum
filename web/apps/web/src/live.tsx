@@ -3,8 +3,10 @@
 import {
   createLiveConnection,
   type Api,
+  type CastSending,
   type CastToReceive,
   type LiveConnection,
+  type LiveSnapshot,
 } from "@orpheum/sdk";
 import {
   createContext,
@@ -25,6 +27,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { forgetReturn, noteReturn, takeReturn } from "./cast-return.ts";
 import type { Navigation } from "./navigation.ts";
+import type { Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
 
@@ -36,6 +39,13 @@ export interface Live {
   readonly inFrontDeviceIds: readonly number[];
   /** The cast this device receives now, until it ends here. */
   readonly receiving: CastToReceive | undefined;
+  /** The cast this device sends now, as the server last said (D364 §6); undefined for none. */
+  readonly sending: CastSending | undefined;
+  /**
+   * Whether the server has said what this device sends since the page loaded, so a Play may go by
+   * sending (PlayOrSendOn); true with no live connection, which sends nothing.
+   */
+  readonly isSendingKnown: boolean;
   /** The press that answered Play to the cast received, and its full screen (D358 §2). */
   readonly answer: CastAnswer | undefined;
   /** Ends receiving here, the film playing on as this device's own: control taken back here. */
@@ -51,6 +61,8 @@ const nothingLive: Live = {
   connectedDeviceIds: [],
   inFrontDeviceIds: [],
   receiving: undefined,
+  sending: undefined,
+  isSendingKnown: true,
   answer: undefined,
   endReceiving: () => undefined,
   leaveReceiving: () => undefined,
@@ -70,8 +82,32 @@ const noDevices: readonly number[] = [];
  * open and can cast to it (D337 §2); a cast handed to it is received, the film's Play page opened.
  */
 export function LiveProvider(props: { readonly children: ReactNode }): JSX.Element {
+  const { navigation, api } = useServices();
+  const { connection, snapshot } = usePageLiveConnection();
+  useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
+  const received = useReceiving(connection, navigation);
+  const live = useLiveOf(snapshot, received);
+  const { asked, onAnswered } = received;
+  return (
+    <LiveContext value={live}>
+      {props.children}
+      {asked === undefined ? null : (
+        <CastAsked key={asked.castId} cast={asked} onAnswered={onAnswered} />
+      )}
+    </LiveContext>
+  );
+}
+
+/**
+ * The page's live connection while it is signed in, open while the provider shows, telling the
+ * server where its tab is, and what it knows now; both undefined signed out.
+ */
+function usePageLiveConnection(): {
+  readonly connection: LiveConnection | undefined;
+  readonly snapshot: LiveSnapshot | undefined;
+} {
   const token = useToken();
-  const { openTogetherSocket, navigation, api } = useServices();
+  const { openTogetherSocket } = useServices();
   const connection = useMemo(
     (): LiveConnection | undefined =>
       token === undefined
@@ -97,16 +133,19 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     connection?.snapshot ?? noSnapshot,
     noSnapshot, // rendered on a server, as a test renders a page to markup, nothing is live
   );
-  useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
-  const { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving } = useReceiving(
-    connection,
-    navigation,
-  );
-  const live = useMemo(
+  return { connection, snapshot };
+}
+
+/** What every signed-in screen knows of the live connection, from its snapshot and what it received. */
+function useLiveOf(snapshot: LiveSnapshot | undefined, received: Received): Live {
+  const { receiving, answer, endReceiving, leaveReceiving } = received;
+  return useMemo(
     (): Live => ({
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
       inFrontDeviceIds: snapshot?.inFrontDeviceIds ?? noDevices,
       receiving,
+      sending: snapshot?.sending,
+      isSendingKnown: snapshot?.isSendingKnown ?? true,
       answer,
       endReceiving,
       leaveReceiving,
@@ -114,19 +153,13 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
     [
       snapshot?.deviceIds,
       snapshot?.inFrontDeviceIds,
+      snapshot?.sending,
+      snapshot?.isSendingKnown,
       receiving,
       answer,
       endReceiving,
       leaveReceiving,
     ],
-  );
-  return (
-    <LiveContext value={live}>
-      {props.children}
-      {asked === undefined ? null : (
-        <CastAsked key={asked.castId} cast={asked} onAnswered={onAnswered} />
-      )}
-    </LiveContext>
   );
 }
 
@@ -175,12 +208,13 @@ interface Received extends Pick<Live, "receiving" | "answer" | "endReceiving" | 
 
 /**
  * The cast connection hands this device, and what it does with it: one arriving while the device
- * receives none is asked about first, and received once its Play is pressed (D358 §1, §2); one
+ * receives none is asked about first, and received once its Use is pressed (D364 §2, D358 §2); one
  * arriving while it receives one, the same cast handed again or another replacing it, is received
- * at once. A cast received opens its film's Play page, noting the page it took the tab over from
- * (D338 §1); handed again as the connection came back, it is received already, unless the page left
- * it; handed again with another film, the cast moved on to the next episode (plans/up-next.md),
- * which plays.
+ * at once. A cast received opens its film's Play page, or with nothing playing the full-screen ready
+ * page (D364 §5), noting the page it took the tab over from (D338 §1); handed again as the
+ * connection came back, it is received already, unless the page left it; handed again with another
+ * film, or nothing, the person played another on the sender (D364 §3) or the cast moved on to the
+ * next episode (plans/up-next.md), which plays.
  */
 function useReceiving(connection: LiveConnection | undefined, navigation: Navigation): Received {
   const [receiving, setReceiving] = useState<CastToReceive | undefined>(undefined);
@@ -196,8 +230,9 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
       isReceivingRef.current = true;
       const received = receivedRef.current;
       const isSame = received?.castId === handed.castId && received.fileId === handed.fileId;
-      if (!isSame || navigation.route().screen !== "play") {
-        navigation.go({ screen: "play", fileId: handed.fileId });
+      const shown = receivedRoute(handed);
+      if (!isSame || navigation.route().screen !== shown.screen) {
+        navigation.go(shown);
       }
       receivedRef.current = handed;
       setReceiving((current) =>
@@ -267,6 +302,11 @@ function useAsking(
     [receive],
   );
   return { asked, answer, onAnswered };
+}
+
+/** Where a cast received shows: its film's Play page, or the ready page between videos (D364 §5). */
+function receivedRoute(handed: CastToReceive): Route {
+  return handed.fileId === 0 ? { screen: "cast-ready" } : { screen: "play", fileId: handed.fileId };
 }
 
 const subscribeToNothing = (): (() => void) => () => undefined;

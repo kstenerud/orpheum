@@ -8,6 +8,9 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
 // inbox keeps what one connection was sent.
@@ -47,6 +50,11 @@ func (box *inbox) count(kind MessageType) int {
 	return count
 }
 
+// newClock is a fake clock at a fixed start.
+func newClock() *clocktest.Fake {
+	return clocktest.NewFake(time.Date(2026, 10, 27, 20, 0, 0, 0, time.UTC))
+}
+
 // Minted mints a credential for a receiver loaded again: "again-1", then "again-2", and on.
 func minted() Credential {
 	count := 0
@@ -75,7 +83,7 @@ const (
 // front, or the one in front as the tab holding the cast goes, is handed a cast none holds (D338 §2).
 func TestRegistry_TheTabInFrontReceives(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	phoneBox, older, newer := &inbox{}, &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, phoneBox.send)
 	olderTab := registry.Connect(owner, television, behind, older.send)
@@ -123,7 +131,7 @@ func TestRegistry_TheTabInFrontReceives(t *testing.T) {
 // its connections is open (D337 §2).
 func TestRegistry_ListsAPersonsConnectedDevicesToThemAlone(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	phoneBox, tvBox, otherTab, partnerBox := &inbox{}, &inbox{}, &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, phoneBox.send)
 	tvConnection := registry.Connect(owner, television, inFront, tvBox.send)
@@ -156,7 +164,7 @@ func TestRegistry_ListsAPersonsConnectedDevicesToThemAlone(t *testing.T) {
 // A cast goes only to another of the asker's own devices connected now (D337 §1, §2).
 func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	tvBox := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, tvBox.send)
@@ -207,7 +215,7 @@ func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testin
 // the receiver it controlled (D337 §6).
 func TestRegistry_TheLastCastWins(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	tvBox := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, tvBox.send)
@@ -237,7 +245,7 @@ func TestRegistry_TheLastCastWins(t *testing.T) {
 // the connection that held it is gone; a second tab behind it is not (§4).
 func TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	first, second, third := &inbox{}, &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	held := registry.Connect(owner, television, inFront, first.send)
@@ -257,12 +265,12 @@ func TestRegistry_AReceiverLoadedAgainIsHandedItsCastAgain(t *testing.T) {
 	}
 }
 
-// A cast moves on to another film, the next episode, at the asking of its sender or its receiver and
-// no other device: its receiver is handed it again with the film, from where the person left it, in
-// the same cast (plans/up-next.md).
+// A cast plays another film, the next episode, at the asking of its sender or its receiver and no
+// other device: its receiver is handed it again with the film, from where the person left it, in the
+// same cast (D364 §3; plans/up-next.md).
 func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	receiver := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, laptop, inFront, (&inbox{}).send)
@@ -275,19 +283,19 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 		t.Fatal(err)
 	}
 	next := Film{FileID: 2, TitleID: 22, TitleName: "Cat", DurationMs: 1000}
-	if _, err := registry.MoveOn(owner, laptop, 5, next); !errors.Is(err, ErrNoCast) {
+	if _, err := registry.Play(owner, laptop, 5, next, nil); !errors.Is(err, ErrNoCast) {
 		t.Errorf("a device neither sending nor receiving moved it on: %v; want ErrNoCast", err)
 	}
-	if _, err := registry.MoveOn(partner, television, 5, next); !errors.Is(err, ErrNoCast) {
+	if _, err := registry.Play(partner, television, 5, next, nil); !errors.Is(err, ErrNoCast) {
 		t.Errorf("another person moved it on: %v; want ErrNoCast", err)
 	}
-	moved, err := registry.MoveOn(owner, television, 5, next)
+	moved, err := registry.Play(owner, television, 5, next, nil)
 	if err != nil || moved.FileID != 2 || moved.TitleName != "Cat" || moved.PositionMs != nil {
 		t.Fatalf("moved on by its receiver: %+v (%v); want file 2, Cat, from where the person left it", moved, err)
 	}
 	received, isTold := receiver.last(MessageReceive)
 	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 TitleName:Cat PositionMs:<nil> FromDeviceID:10 " +
-		"FromDeviceName:}"
+		"FromDeviceName: IsAccepted:false TogetherCredential:}"
 	if got := fmt.Sprintf("%v %d %+v", isTold, receiver.count(MessageReceive), received.Receive); got != want {
 		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, by a new credential", got)
 	}
@@ -300,7 +308,7 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 // (D218 §4).
 func TestRegistry_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(minted())
+	registry := NewRegistry(minted(), newClock())
 	phoneBox, firstTab, secondTab, partnerBox := &inbox{}, &inbox{}, &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, phoneBox.send)
 	registry.Connect(owner, television, inFront, firstTab.send)
@@ -318,4 +326,144 @@ func TestRegistry_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
 		}
 	}
 	registry.SignedOut(laptop, laptop) // a person with no connection: nothing to tell
+}
+
+// castWithNothingOn connects a phone and a TV of the owner's, the phone casting to the TV with
+// nothing playing, and returns what each was sent.
+func castWithNothingOn(t *testing.T, registry *Registry) (sender, receiver *inbox) {
+	t.Helper()
+	sender, receiver = &inbox{}, &inbox{}
+	registry.Connect(owner, phone, inFront, sender.send)
+	registry.Connect(owner, television, inFront, receiver.send)
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Fatalf("the phone was told it sends %+v before it cast", told.Sending)
+	}
+	cast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, ReceiverName: "TV"}
+	if _, err := registry.Cast(cast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	return sender, receiver
+}
+
+// A cast is a session with the receiver (D364): it may start with nothing playing, the sender's pages
+// told what it sends at once, a page of it opened later told before its devices; only the receiver
+// says Use, which the sender is told; and its end tells the sender it sends none (§1, §2, §6).
+func TestRegistry_ACastIsASessionTheSenderIsToldOf(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sender, _ := castWithNothingOn(t, registry)
+	if told, _ := sender.last(MessageSending); told.Sending == nil || *told.Sending != (Sending{
+		CastID: 5, ReceiverDeviceID: television, ReceiverName: "TV",
+	}) {
+		t.Errorf("the phone was told it sends %+v; want cast 5 to the TV, nothing playing, not yet accepted",
+			told.Sending)
+	}
+	if _, err := registry.Accept(owner, phone, 5); !errors.Is(err, ErrNoCast) {
+		t.Errorf("the sender said Use for the receiver: %v; want ErrNoCast", err)
+	}
+	if _, err := registry.Accept(owner, television, 5); err != nil {
+		t.Fatal(err)
+	}
+	if told, _ := sender.last(MessageSending); !told.Sending.IsAccepted {
+		t.Error("the phone was not told the TV said Use")
+	}
+	later := &inbox{}
+	registry.Connect(owner, phone, inFront, later.send)
+	if first := later.messages; len(first) < 2 || first[0].Type != MessageSending || first[0].Sending == nil {
+		t.Errorf("a page of the phone opened later was first told %+v; want the cast it sends, before its devices",
+			first)
+	}
+	if _, err := registry.End(owner, phone, 5); err != nil {
+		t.Fatal(err)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Errorf("after its end the phone was told it sends %+v; want none", told.Sending)
+	}
+}
+
+// Each film the sender plays in a cast, and the ready state between, is handed to its receiver in the
+// same cast, and the sender's pages are told what it plays (D364 §3, §5).
+func TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sender, receiver := castWithNothingOn(t, registry)
+	from := int64(5_000)
+	for _, film := range []Film{{FileID: 2, TitleName: "Cat"}, {FileID: 3, TitleName: "Dog"}, {}} {
+		if _, err := registry.Play(owner, phone, 5, film, &from); err != nil {
+			t.Fatal(err)
+		}
+		handed, _ := receiver.last(MessageReceive)
+		if handed.Receive.CastID != 5 || handed.Receive.FileID != film.FileID || *handed.Receive.PositionMs != from {
+			t.Errorf("playing %+v, the TV was handed %+v; want cast 5, of that file from 5 s", film, handed.Receive)
+		}
+		if told, _ := sender.last(MessageSending); told.Sending.FileID != film.FileID ||
+			told.Sending.TitleName != film.TitleName {
+			t.Errorf("playing %+v, the phone was told %+v", film, told.Sending)
+		}
+	}
+}
+
+// A cast's receiver handed it while its person hosts a Watch Together session is handed a credential
+// for that session too, to play it as their player (D364 §11); with none hosted, none.
+func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	hosts := map[int64]string{owner: "hosted"}
+	registry.LeadsHostedBy(func(userID int64) string { return hosts[userID] })
+	receiver, partnerReceiver := &inbox{}, &inbox{}
+	registry.Connect(owner, phone, inFront, (&inbox{}).send)
+	registry.Connect(owner, television, inFront, receiver.send)
+	registry.Connect(partner, 20, inFront, (&inbox{}).send)
+	registry.Connect(partner, 21, inFront, partnerReceiver.send)
+	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	if _, err := registry.Cast(ownCast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	partnerCast := Cast{ID: 6, UserID: partner, SenderDeviceID: 20, ReceiverDeviceID: 21}
+	if _, err := registry.Cast(partnerCast, "b"); err != nil {
+		t.Fatal(err)
+	}
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "hosted" {
+		t.Errorf("the host's TV was handed %q for their session; want its credential",
+			handed.Receive.TogetherCredential)
+	}
+	if handed, _ := partnerReceiver.last(MessageReceive); handed.Receive.TogetherCredential != "" {
+		t.Errorf("a person hosting nothing had their TV handed %q; want none", handed.Receive.TogetherCredential)
+	}
+}
+
+// A cast ends once its receiver has had no connection for ReceiverGoneAfter, its sender told, and not
+// before; a receiver that comes back in time, loaded again, keeps it (D364 §6).
+func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
+	t.Parallel()
+	fake := newClock()
+	registry := NewRegistry(minted(), fake)
+	sender := &inbox{}
+	registry.Connect(owner, phone, inFront, sender.send)
+	tvPage := registry.Connect(owner, television, inFront, (&inbox{}).send)
+	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	if _, err := registry.Cast(ownCast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	registry.Disconnect(tvPage)
+	fake.Advance(ReceiverGoneAfter - time.Second)
+	if ended := registry.EndGone(); len(ended) != 0 {
+		t.Fatalf("a receiver gone %s had its cast ended: %+v", ReceiverGoneAfter-time.Second, ended)
+	}
+	tvPage = registry.Connect(owner, television, inFront, (&inbox{}).send)
+	fake.Advance(time.Hour)
+	if ended := registry.EndGone(); len(ended) != 0 {
+		t.Fatalf("a receiver that came back had its cast ended: %+v", ended)
+	}
+	registry.Disconnect(tvPage)
+	fake.Advance(ReceiverGoneAfter)
+	if ended := registry.EndGone(); len(ended) != 1 || ended[0].ID != 5 {
+		t.Fatalf("a receiver gone %s ended %+v; want cast 5", ReceiverGoneAfter, ended)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
+	}
+	if casts := registry.CastsOf(owner, phone); len(casts) != 0 {
+		t.Errorf("the sender still has %+v", casts)
+	}
 }

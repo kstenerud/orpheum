@@ -98,16 +98,27 @@ export function UiGallery(): JSX.Element {
   );
 }
 
-/** Which signs a banner's tray shows, each with its name's key. */
+/**
+ * Which signs a banner's tray shows, each with its name's key: Watch Together's and Cast's always,
+ * each off or on (D364 §12).
+ */
 const trays: readonly {
   readonly key: string;
   readonly needsAttention: boolean;
-  readonly isHostingTogether: boolean;
+  readonly isTogetherOn: boolean;
+  readonly isCastOn: boolean;
 }[] = [
-  { key: "gallery.trayNeedsAttention", needsAttention: true, isHostingTogether: false },
-  { key: "gallery.trayTogether", needsAttention: false, isHostingTogether: true },
-  { key: "gallery.trayBoth", needsAttention: true, isHostingTogether: true },
+  { key: "gallery.trayOff", needsAttention: false, isTogetherOn: false, isCastOn: false },
+  { key: "gallery.trayNeedsAttention", needsAttention: true, isTogetherOn: false, isCastOn: false },
+  { key: "gallery.trayTogether", needsAttention: false, isTogetherOn: true, isCastOn: false },
+  { key: "gallery.trayCasting", needsAttention: false, isTogetherOn: false, isCastOn: true },
+  { key: "gallery.trayBoth", needsAttention: true, isTogetherOn: true, isCastOn: true },
 ];
+
+/** A tray sign's classes, off or on, as the tray draws them (status-tray.tsx). */
+function traySignClass(isOn: boolean): string {
+  return `status-tray__button status-tray__button--${isOn ? "on" : "off"}`;
+}
 
 /**
  * The banner's end as each sign of its status tray shows there (D280): beside the realm and the
@@ -130,11 +141,12 @@ function BannerTrays(): JSX.Element {
                     <WarningIcon />
                   </span>
                 ) : null}
-                {tray.isHostingTogether ? (
-                  <span className="status-tray__button">
-                    <TogetherIcon />
-                  </span>
-                ) : null}
+                <span className={traySignClass(tray.isTogetherOn)}>
+                  <TogetherIcon />
+                </span>
+                <span className={traySignClass(tray.isCastOn)}>
+                  <CastIcon />
+                </span>
               </span>
               <span className="app-shell__menu">
                 <span className="ui-gallery__menu-mark">

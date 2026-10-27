@@ -20,6 +20,7 @@ import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import {
   Casting,
+  CastReady,
   Lab,
   LabExtendPlayer,
   Play,
@@ -126,7 +127,6 @@ function SignedIn(): JSX.Element {
   const poller = useServersPoller(clientSettings);
   // The session this tab hosts, whose voice every screen shares (D281 §5).
   const hostMembership = useMembership(tabStorage, "host");
-  const isHostingTogether = hostMembership !== undefined;
   useEffect(() => {
     // A session this person is in follows them to this device (D267 §2); one not had back is
     // offered again by the screens that start or join one.
@@ -141,7 +141,6 @@ function SignedIn(): JSX.Element {
               <AppShell
                 isAdmin={isAdmin}
                 canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-                isHostingTogether={isHostingTogether}
                 signedInAs={
                   me.state === "loaded"
                     ? { name: me.value.name, deviceName: me.value.device?.name }
@@ -237,7 +236,14 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     );
   }
   if (route.screen === "play") {
-    return <Play key={route.fileId} fileId={route.fileId} atMs={route.atMs} />;
+    return (
+      <Play
+        key={route.fileId}
+        fileId={route.fileId}
+        atMs={route.atMs}
+        shouldPlayHere={route.shouldPlayHere === true}
+      />
+    );
   }
   if (route.screen === "browse") {
     return (
@@ -268,8 +274,9 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "watch-together") {
     return <WatchTogether />;
   }
-  if (route.screen === "casting") {
-    return <Casting />;
+  const casting = castingScreen(route);
+  if (casting !== undefined) {
+    return casting;
   }
   if (route.screen === "ui-gallery") {
     return <UiGallery />;
@@ -278,6 +285,14 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
     return <Lab key={route.probe ?? "menu"} probe={route.probe} />;
   }
   return route.screen === "about" ? <About /> : undefined;
+}
+
+/** Casting's screens: the casting page (D364 §8), and a receiver's ready page (§5). */
+function castingScreen(route: Route): JSX.Element | undefined {
+  if (route.screen === "casting") {
+    return <Casting key={route.fileId ?? 0} fileId={route.fileId} />;
+  }
+  return route.screen === "cast-ready" ? <CastReady /> : undefined;
 }
 
 /** The admin's screens; the server refuses them to anyone else. */

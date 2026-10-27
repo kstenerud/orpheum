@@ -15,16 +15,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
-// StartCastInput is a cast from the asking device to another of the person's, connected now (D337).
+// StartCastInput is a casting session from the asking device to another of the person's, connected
+// now (D337, D364), with the video the asking device plays, if any, which moves to it (D364 §1).
 type StartCastInput struct {
 	AuthorizationHeader
 	Body struct {
 		ToDeviceID int64 `doc:"Another of one's own devices, connected now" json:"toDeviceId" minimum:"1"`
-		FileID     int64 `json:"fileId" minimum:"1"`
-		// PositionMs is where the sender stood; absent, the receiver starts where the person left the
-		// film, as a cast from a title's page does.
-		PositionMs *int64 `doc:"Where to start, in ms; absent, where the person left the film" json:"positionMs,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
+		CastFilm
 	}
+}
+
+// CastFilm is what a cast plays: a film from a position, or, with no fileId, nothing, its receiver
+// ready for the next (D364 §5).
+type CastFilm struct {
+	FileID int64 `doc:"What to play; absent, nothing, the receiver ready for the next" json:"fileId,omitempty" minimum:"1" required:"false"` //nolint:lll // one struct tag
+	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
+	// film.
+	PositionMs *int64 `doc:"Where to start, in ms; absent, where the person left the film" json:"positionMs,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
 }
 
 // CastBody is one cast as one of its devices sees it, with a credential of its own for the cast's
@@ -32,8 +39,10 @@ type StartCastInput struct {
 type CastBody struct {
 	CastID int64 `json:"castId"`
 	// IsSender is whether the asking device cast it, and so is its remote; else it receives.
-	IsSender             bool   `json:"isSender"`
-	FileID               int64  `json:"fileId"`
+	IsSender bool `json:"isSender"`
+	// IsAccepted is whether its receiver said Use, asked once (D364 §2).
+	IsAccepted           bool   `json:"isAccepted"`
+	FileID               int64  `doc:"What plays, 0 for nothing, the receiver ready (D364 §5)" json:"fileId"`
 	TitleID              int64  `doc:"The title the film is, 0 for none" json:"titleId"`
 	TitleName            string `json:"titleName"`
 	DurationMs           int64  `doc:"How long the film plays, 0 when unknown" json:"durationMs"`
@@ -61,7 +70,7 @@ type EndCastInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
 	Body   struct {
-		Reason string `doc:"takenBack on the receiver, stopped on the remote, filmEnded at the film's end, declined or unanswered as the receiver was asked (D358)" enum:"takenBack,stopped,filmEnded,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
+		Reason string `doc:"takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358)" enum:"takenBack,stopped,declined,unanswered" json:"reason"` //nolint:lll // one struct tag
 	}
 }
 
@@ -78,9 +87,18 @@ func (server *Server) registerCasts() {
 	tags := []string{tagAccounts}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "startCast", Method: http.MethodPost, Path: "/me/casts",
-		Summary: "Cast a film from this device to another of one's own, connected now (D337)", Tags: tags,
-		DefaultStatus: http.StatusCreated,
+		Summary: "Start casting from this device to another of one's own, connected now (D337, D364)",
+		Tags:    tags, DefaultStatus: http.StatusCreated,
 	}, server.startCast)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "playInCast", Method: http.MethodPost, Path: "/me/casts/{id}/play",
+		Summary: "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
+		Tags:    tags,
+	}, server.playInCast)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "acceptCast", Method: http.MethodPost, Path: "/me/casts/{id}/accept",
+		Summary: "Say Use, on its receiver, to a cast it was asked about (D364 §2)", Tags: tags,
+	}, server.acceptCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyCasts", Method: http.MethodGet, Path: "/me/casts",
 		Summary: "The casts this device sends or receives, each with a credential for it", Tags: tags,
@@ -132,9 +150,9 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 	if err != nil {
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
-	moved, err := dependencies.Live.MoveOn(principal.UserID, principal.DeviceID, cast.ID, live.Film{
+	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, live.Film{
 		FileID: next.FileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs,
-	})
+	}, nil)
 	if err != nil {
 		return nil, castError(err)
 	}
@@ -147,12 +165,13 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 	return &StartCastOutput{Body: castBodyOf(moved, principal.DeviceID, credential)}, nil
 }
 
-// startCast casts a film from the asking device to another of the person's, connected now, which is
-// handed it on its live connection: a session of one in Watch Together's hub, which the receiver
-// leads and the sender commands (D88, D337). The receiver's earlier cast, and the one the sender
+// startCast starts casting from the asking device to another of the person's, connected now, which
+// is handed it on its live connection: a session of one in Watch Together's hub, which the receiver
+// leads and the sender commands (D88, D337), playing the video given, if any, and every one the
+// person plays after it until it ends (D364). The receiver's earlier cast, and the one the sender
 // controlled, end (D337 §6: the last cast wins).
 func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*StartCastOutput, error) {
-	dependencies, principal, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.Body.FileID)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +182,9 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if err != nil {
 		return nil, err
 	}
-	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, input.Body.FileID)
+	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.FileID)
 	if err != nil {
-		return nil, server.libraryError(ctx, "read what a cast plays", err)
+		return nil, err
 	}
 	opened, err := dependencies.Together.OpenCast(together.Person{UserID: principal.UserID, Name: principal.Name})
 	if err != nil {
@@ -174,7 +193,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	cast := live.Cast{
 		ID: opened.SessionID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
-		FileID: input.Body.FileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs,
+		FileID: film.FileID, TitleID: film.TitleID, TitleName: film.TitleName, DurationMs: film.DurationMs,
 		PositionMs: input.Body.PositionMs,
 	}
 	replaced, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
@@ -193,6 +212,90 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	server.logger.InfoContext(ctx, "cast: a device cast to another", "castId", cast.ID, logKeyUserID, cast.UserID,
 		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "replaced", len(replaced))
 	return &StartCastOutput{Body: castBodyOf(cast, principal.DeviceID, opened.SenderCredential)}, nil
+}
+
+// castFilmOf is the film fileID as a cast plays it, which the person must reach; nothing, the
+// receiver ready, for 0 (D364 §5).
+func (server *Server) castFilmOf(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal, fileID int64,
+) (live.Film, error) {
+	if fileID == 0 {
+		return live.Film{}, nil
+	}
+	if err := dependencies.Browser.ReachFile(ctx, principal.Reach, fileID); err != nil {
+		return live.Film{}, server.playbackError(ctx, "reach a file", err)
+	}
+	work, err := dependencies.Browser.WorkOfFile(ctx, principal.Reach, fileID)
+	if err != nil {
+		return live.Film{}, server.libraryError(ctx, "read what a cast plays", err)
+	}
+	return live.Film{FileID: fileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs}, nil
+}
+
+// PlayInCastInput plays a film on a cast's receiver, the asking device its sender or its receiver.
+type PlayInCastInput struct {
+	AuthorizationHeader
+	CastID int64 `minimum:"1" path:"id"`
+	Body   CastFilm
+}
+
+// playInCast plays a film on a cast's receiver, which is handed the cast again with it: whatever the
+// person plays on the sender while the cast lasts (D364 §3). With no film the receiver plays nothing,
+// ready for the next, the cast's group stopped so the next is put on afresh: the remote's "Play on
+// this device instead" (§4) and a film's end with nothing after it (§5).
+func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*StartCastOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	film, err := server.castFilmOf(ctx, dependencies, principal, input.Body.FileID)
+	if err != nil {
+		return nil, err
+	}
+	if film.FileID == 0 {
+		err = dependencies.Together.CastReady(input.CastID, principal.UserID)
+		if err != nil {
+			return nil, castError(live.ErrNoCast)
+		}
+	}
+	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID, film,
+		input.Body.PositionMs)
+	if err != nil {
+		return nil, castError(err)
+	}
+	credential, err := dependencies.Together.CastCredential(played.ID, principal.UserID)
+	if err != nil {
+		return nil, castError(live.ErrNoCast) // ended as it played
+	}
+	server.logger.InfoContext(ctx, "cast: a cast plays another film", "castId", played.ID,
+		logKeyUserID, played.UserID, "by", principal.DeviceID, "fileId", played.FileID)
+	return &StartCastOutput{Body: castBodyOf(played, principal.DeviceID, credential)}, nil
+}
+
+// AcceptCastInput is the receiver's Use to a cast it was asked about.
+type AcceptCastInput struct {
+	AuthorizationHeader
+	CastID int64 `minimum:"1" path:"id"`
+}
+
+// acceptCast notes the receiver's Use to a cast, which its sender is told on its live connection
+// (D364 §2): from then on what the person plays goes to it.
+func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*StartCastOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	accepted, err := dependencies.Live.Accept(principal.UserID, principal.DeviceID, input.CastID)
+	if err != nil {
+		return nil, castError(err)
+	}
+	credential, err := dependencies.Together.CastCredential(accepted.ID, principal.UserID)
+	if err != nil {
+		return nil, castError(live.ErrNoCast)
+	}
+	server.logger.InfoContext(ctx, "cast: a receiver said Use", "castId", accepted.ID, logKeyUserID,
+		accepted.UserID, "by", principal.DeviceID)
+	return &StartCastOutput{Body: castBodyOf(accepted, principal.DeviceID, credential)}, nil
 }
 
 // castNames are the names of the asking device and of the one it casts to, which must be another of
@@ -272,7 +375,8 @@ func (server *Server) endCast(ctx context.Context, input *EndCastInput) (*EndCas
 // castBodyOf is cast as the device thisDeviceID sees it, with its credential.
 func castBodyOf(cast live.Cast, thisDeviceID int64, credential string) CastBody {
 	return CastBody{
-		CastID: cast.ID, IsSender: cast.SenderDeviceID == thisDeviceID, FileID: cast.FileID,
+		CastID: cast.ID, IsSender: cast.SenderDeviceID == thisDeviceID, IsAccepted: cast.IsAccepted,
+		FileID:  cast.FileID,
 		TitleID: cast.TitleID, TitleName: cast.TitleName, DurationMs: cast.DurationMs,
 		SenderDeviceID: cast.SenderDeviceID, SenderName: cast.SenderName,
 		ReceiverDeviceID: cast.ReceiverDeviceID, ReceiverName: cast.ReceiverName, MembershipCredential: credential,

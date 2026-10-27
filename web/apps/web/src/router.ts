@@ -38,9 +38,16 @@ export type Route =
   | { readonly screen: "series-page"; readonly collectionId: number; readonly season?: number }
   /**
    * A file's Play page; with atMs, starting there in place of where the person last left the file:
-   * a cast's remote playing here from where its receiver stood (D337's §9 answers, Q5).
+   * a cast's remote playing here from where its receiver stood (D337's §9 answers, Q5). With
+   * shouldPlayHere, it plays on this device while it casts, not on the receiver: the remote's "Play on this
+   * device instead" (D364 §4).
    */
-  | { readonly screen: "play"; readonly fileId: number; readonly atMs?: number }
+  | {
+      readonly screen: "play";
+      readonly fileId: number;
+      readonly atMs?: number;
+      readonly shouldPlayHere?: true;
+    }
   /**
    * The Libraries page (D349 §9.1), which replaces Search: the library chosen ("all" for every one
    * the person reaches, undefined for none chosen yet, which the page itself resolves to the first
@@ -78,8 +85,14 @@ export type Route =
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
-  /** This device's remote for the cast it sends to another of the person's (D337 §5). */
-  | { readonly screen: "casting" }
+  /**
+   * The casting page (D364 §8, §13): the devices to cast to, or the remote of the cast this device
+   * sends. With fileId, the film this device was playing as the person came to it, which a cast they
+   * start then moves to the receiver (§1).
+   */
+  | { readonly screen: "casting"; readonly fileId?: number }
+  /** A cast's receiver between videos: full screen, ready, controlled from the sender (D364 §5). */
+  | { readonly screen: "cast-ready" }
   /**
    * The device lab (plans/tv-device-tests.md): its menu, or one of its probes, at a short address a
    * TV's remote types quickly; no menu leads to it.
@@ -144,7 +157,8 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
-  { pattern: /^\/casting\/?$/u, toRoute: () => ({ screen: "casting" }) },
+  { pattern: /^\/casting\/?$/u, toRoute: (_, search) => castingRoute(search) },
+  { pattern: /^\/cast-ready\/?$/u, toRoute: () => ({ screen: "cast-ready" }) },
   { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
   { pattern: /^\/lab\/?$/u, toRoute: () => ({ screen: "lab" }) },
   ...labPages.map((probe) => ({
@@ -154,12 +168,26 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/lab\/extend\/player\/?$/u, toRoute: () => ({ screen: "lab-extend-player" }) },
 ];
 
-/** The Play page's route, with where it starts, `at` in ms, where the address says a whole number. */
+/**
+ * The Play page's route, with where it starts, `at` in ms, where the address says a whole number,
+ * and whether it plays here while the device casts (`here`).
+ */
 function playRoute(fileId: number, search: URLSearchParams): Route {
   const at = search.get("at") ?? "";
-  return /^\d{1,12}$/u.test(at)
-    ? { screen: "play", fileId, atMs: Number(at) }
-    : { screen: "play", fileId };
+  return {
+    screen: "play",
+    fileId,
+    ...(/^\d{1,12}$/u.test(at) ? { atMs: Number(at) } : {}),
+    ...(search.get("here") === "1" ? { shouldPlayHere: true } : {}),
+  };
+}
+
+/** The casting page's route, with the film playing as the person came to it (`file`), if any. */
+function castingRoute(search: URLSearchParams): Route {
+  const file = search.get("file") ?? "";
+  return /^[1-9]\d{0,15}$/u.test(file)
+    ? { screen: "casting", fileId: Number(file) }
+    : { screen: "casting" };
 }
 
 /** A library id from the address: a positive whole number, else undefined (not a library). */
@@ -228,8 +256,18 @@ function queryRouteHref(route: Route): string | undefined {
     return browseRouteHref(route);
   }
   if (route.screen === "play") {
-    const at = route.atMs === undefined ? "" : `?at=${String(Math.round(route.atMs))}`;
-    return `/play/${String(route.fileId)}${at}`;
+    const query = new URLSearchParams();
+    if (route.atMs !== undefined) {
+      query.set("at", String(Math.round(route.atMs)));
+    }
+    if (route.shouldPlayHere === true) {
+      query.set("here", "1");
+    }
+    const asString = query.toString();
+    return `/play/${String(route.fileId)}${asString === "" ? "" : `?${asString}`}`;
+  }
+  if (route.screen === "casting" && route.fileId !== undefined) {
+    return `/casting?file=${String(route.fileId)}`;
   }
   return undefined;
 }

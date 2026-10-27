@@ -204,6 +204,19 @@ describe("the film being watched (D258)", () => {
     expect(asked.map((request) => bodyField(request, "startsAtMs"))).toEqual([undefined, 982_680]);
   });
 
+  it("lets go of the warm-up, preload and playback, of a film sent on to a cast's receiver (D364 §3)", async () => {
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { watching } = watchingServed(heard, preloads);
+    watching.warmUp(7, playableFormats);
+    await settled(heard);
+    watching.sentAway(8); // another film: its own warm-up is not this one
+    expect(preloads.started[0]?.isStopped).toBe(false);
+    watching.sentAway(7);
+    expect(preloads.started[0]?.isStopped).toBe(true);
+    expect(await settled(heard)).toEqual(["POST /playback", "DELETE /playback/a"]);
+  });
+
   it("lets go of the warm-up's playback when it asks again at Play, and asks again for one that failed", async () => {
     const heard: Heard[] = [];
     const { api } = servedBy(

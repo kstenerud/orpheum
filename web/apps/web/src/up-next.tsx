@@ -15,7 +15,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { moveOnOrLeave, type Receiving } from "./cast-receiver.tsx";
+import { moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
@@ -145,7 +145,7 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
         if (receiving === undefined) {
           navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
         } else {
-          moveOnOrLeave(api, receiving);
+          moveOnOrReady(api, receiving);
         }
       }}
     />
