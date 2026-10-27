@@ -37,7 +37,15 @@
 //     before it and every chunk of the run would hold the one before it. A decoded stream seeks to
 //     its start. Enforced by TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd and, with the
 //     pinned FFmpeg, TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes, whose Matroska
-//     picture's packets must be the film's.
+//     picture's packets must be the film's. An MPEG-TS run, which FFmpeg seeks to a frame and not a
+//     keyframe, seeks at or before its first keyframe instead, as the core says, and every copied
+//     picture's times start at its first keyframe (-avoid_negative_ts make_zero), so an MPEG-TS's
+//     chunks are the film's too, its one keyframe its first included. Enforced by
+//     TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe,
+//     TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe,
+//     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg,
+//     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes and
+//     TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole.
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
 //     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
 //     finished. Enforced by TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds.

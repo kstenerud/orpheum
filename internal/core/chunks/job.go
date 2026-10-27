@@ -148,8 +148,12 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
 	case nodeproto.StreamPicture:
-		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, film.grid.StartsMs[args.FirstChunk],
-			film.grid.FilmDurationMs)
+		startMs := film.grid.StartsMs[args.FirstChunk]
+		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, startMs, film.grid.FilmDurationMs)
+		if container, _ := decide.ContainerOf(film.probe.Format); container == decide.MPEGTS {
+			command.IsPictureSeekBeforeKeyframe = true
+			command.PictureSeekMs = PictureSeekBeforeMs(film.keyframesMs, startMs)
+		}
 	}
 	return command, nil
 }
@@ -172,6 +176,23 @@ func PictureSeekMs(keyframesMs []int64, startMs, durationMs int64) int64 {
 	}
 	seekMs := max(startMs+(nextMs-startMs)/2, startMs+seekMovedEarlierMs)
 	return min(seekMs, nextMs-1)
+}
+
+// PictureSeekBeforeMs is where a copied picture's run starting at the keyframe at startMs seeks in
+// MPEG-TS, which FFmpeg seeks to the frame at or before a time, not to a keyframe, so a copy from
+// a seek past the keyframe starts at the next one, and a run of the film's last keyframe has none
+// (idiosyncrasies.md): midway back to the keyframe before it, and at least seekMovedEarlierMs past
+// that one, as FFmpeg moves the seek so much earlier, but never past the start; with no keyframe
+// before it, the film's start. A copy drops what comes before its first keyframe, so it starts at
+// the run's.
+func PictureSeekBeforeMs(keyframesMs []int64, startMs int64) int64 {
+	at, _ := slices.BinarySearch(keyframesMs, startMs)
+	if at == 0 {
+		return 0
+	}
+	previousMs := keyframesMs[at-1]
+	seekMs := max(previousMs+(startMs-previousMs)/2, previousMs+seekMovedEarlierMs)
+	return min(seekMs, startMs)
 }
 
 // levelledTrack is a sound stream's audio track as its chunks are made of it, with the levelling gain

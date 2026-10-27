@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
@@ -209,6 +210,51 @@ func TestHandleMakeChunks_APictureRunSeeksPastItsFirstKeyframe(t *testing.T) {
 	if sent == nil || sent.PictureSeekMs != 25_000 || !slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
 		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 25 s, midway to the next "+
 			"keyframe", sent)
+	}
+}
+
+// An MPEG-TS film's copied picture seeks before its run's first keyframe, midway back to the one
+// before, and says so: FFmpeg seeks MPEG-TS to a frame, not a keyframe, and a copy from past the
+// keyframe starts at the next one, or, past the film's last, has none (idiosyncrasies.md).
+func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	librarytest.Probe(t, fixture.service.database, librarytest.ProbeSpec{
+		FileID: 1, DurationMs: filmMinutes * 60_000,
+		ProbeJSON: `{"format":{"formatNames":["mpegts"],"durationMs":1200000,"bitRateBps":4000000},"streams":[` +
+			`{"kind":"video","codec":"h264","video":{"width":1920,"height":1080}},` +
+			`{"streamIndex":1,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`,
+	})
+	gridID := mustGrid(t, fixture.service).ID()
+	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
+	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
+	if sent == nil || sent.PictureSeekMs != 15_000 || !sent.IsPictureSeekBeforeKeyframe {
+		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 15 s, midway back to the "+
+			"keyframe before, said to be before the run's keyframe", sent)
+	}
+}
+
+// Before a keyframe, the seek is midway back to the one before it; at least FFmpeg's 131 ms past
+// that one, so a seek moved earlier stays after it; never past the keyframe itself; and the film's
+// start for its first keyframe.
+func TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore(t *testing.T) {
+	t.Parallel()
+	keyframes := []int64{400, 10_000, 10_200, 10_300, 20_000}
+	for _, test := range []struct {
+		name        string
+		startMs     int64
+		wantSeekMs  int64
+		explanation string
+	}{
+		{"the first keyframe", 400, 0, "the film's start"},
+		{"far apart", 20_000, 15_150, "midway back to 10.3 s"},
+		{"200 ms apart", 10_200, 10_131, "131 ms past the one before, beyond midway"},
+		{"100 ms apart", 10_300, 10_300, "the keyframe itself, never past it"},
+	} {
+		if got := PictureSeekBeforeMs(keyframes, test.startMs); got != test.wantSeekMs {
+			t.Errorf("%s: the run at %d ms seeks to %d ms, want %d: %s",
+				test.name, test.startMs, got, test.wantSeekMs, test.explanation)
+		}
 	}
 }
 

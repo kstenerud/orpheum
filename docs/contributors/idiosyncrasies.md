@@ -109,6 +109,7 @@ User-Agent (D263; the User-Agent is logged only).
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
+| An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
 | Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt` | [Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`](#each-output-file-starts-its-fmp4-times-at-zero-and-upstream-has-no-flag-for-absolute-tfdt) |
@@ -1543,6 +1544,36 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   given time ... if the given time is a keyframe, this is UB"; Kyoo's `transcoder/src/stream.go`
   seeks midway to the next keyframe for the same reason. FFmpeg's trac refuses automated search, so
   no FFmpeg ticket was checked (2026-10-08).
+
+### An input seek into MPEG-TS lands on a frame, not a keyframe
+
+- **Symptom:** an H.264 MPEG-TS whose only keyframe is its first failed its one copied chunk, "no
+  init or no fragments": FFmpeg wrote the init and no picture (the container sweep, 2026-10-27). Any
+  MPEG-TS run seeking past its first keyframe, as a Matroska run must, began at the keyframe after
+  it, and the node refused its first raw file for holding the chunk after its own; a run of a
+  film's last keyframe had none to begin at, and wrote nothing.
+- **Cause:** the MPEG-TS demuxer has no index and seeks by `read_timestamp`, `mpegts_get_dts`,
+  which answers any packet's decode time, not a keyframe's (its own comment: `/* FIXME keyframe?
+  */`), so `-ss` lands on the frame at or before the time, mid-GOP. A stream copy drops what comes
+  before its first keyframe, so it starts at the next one. Seeking *before* the keyframe, the copy
+  starts at it, but its times then start as far after zero as the seek was before the keyframe, and
+  the segment muxer's list times each raw file that much late (its cuts count from the first packet).
+- **What we do:** a copied picture of an MPEG-TS film (`decide.ContainerOf`) seeks midway back to the
+  keyframe before its run's first, at least 131 ms past that one and never past its own, or to the
+  film's start for its first keyframe (`chunks.PictureSeekBeforeMs` in `internal/core/chunks/job.go`),
+  and says so (`nodeproto.MakeChunks.IsPictureSeekBeforeKeyframe`), which the node checks; every
+  copied picture is written with `-avoid_negative_ts make_zero`, so its times start at its first
+  keyframe whichever side the seek was (`internal/node/chunks/arguments.go`). Other demuxers seeking
+  by `read_timestamp` (MPEG-PS among them) likely behave alike; unmeasured, and `decide.ContainerOf`
+  names none of them.
+- **Evidence:** **[measured]** with the pinned FFmpeg 8.1.2, a 12 s H.264 film with a keyframe every
+  2 s, remuxed to MPEG-TS: `-ss 5 -c:v copy` wrote 144 pictures, 6 s to 12 s; `-ss 11` wrote none;
+  with the only keyframe at 0, `-ss 6` and `-ss 0.131` wrote none and `-ss 0` the whole film.
+  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` and
+  `TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole` (integration tier) make MPEG-TS
+  chunks packet for packet. **[source]** `libavformat/mpegts.c`, `mpegts_get_dts`; `libavformat/seek.c`,
+  `ff_gen_search`. **[web]** a search for the behaviour found only general advice that a stream copy
+  starts at a keyframe (2026-10-27).
 
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
