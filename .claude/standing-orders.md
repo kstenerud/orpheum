@@ -6,8 +6,8 @@
    **This batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
    series libraries). Staging's "Crowd" (2022) is left wrongly matched on purpose: verify D357 on it.
    **Done:** subagent cleanup (the ten old worktrees removed). D358 note: desktops go full screen too.
-   **Done:** the three cast fixes (device check VQ77). **Building now (two agents):** D357;
-   the library folder picker (the decision after D358) (owner 2026-10-27: any subfolder of a node's root, new and existing
+   **Done:** the three cast fixes (device check VQ77). **Done:** D357, D359 the folder
+   picker (owner 2026-10-27: any subfolder of a node's root, new and existing
    libraries, hidden folders left out). At deploy: staging's [media] roots become /tank/media and
    /home/yoloai/synctest (full ./staging, not quick). **Owner away (2026-10-27): deploy as soon as the batch
    is ready, even if a device shows as viewing** (this batch only).
