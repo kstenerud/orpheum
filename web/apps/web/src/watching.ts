@@ -19,6 +19,17 @@ export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
  */
 export type StartCause = NonNullable<components["schemas"]["StartPlaybackInputBody"]["cause"]>;
 
+/**
+ * Why a page asks for a playback, and, when it asks again from where its video stood, where it
+ * starts it in place of the resume position answered: both for the server's log alone. A film whose
+ * audio track was changed three minutes in started again from its beginning, and the log said only
+ * resumePositionMs=0 (staging, 2026-10-26).
+ */
+export interface StartAsked {
+  readonly cause: StartCause;
+  readonly startsAtMs?: number | undefined;
+}
+
 /** How many playbacks this page has asked for since it loaded, which the server logs beside each. */
 const pageStarts = { count: 0 };
 
@@ -26,7 +37,7 @@ const pageStarts = { count: 0 };
 export async function requestPlayback(
   api: Api,
   fileId: number,
-  asked: { readonly playableFormats: PlayableFormats; readonly cause: StartCause },
+  asked: StartAsked & { readonly playableFormats: PlayableFormats },
 ): Promise<PlaybackDecision> {
   const askedMs = performance.now();
   pageStarts.count += 1;
@@ -41,6 +52,7 @@ export async function requestPlayback(
         ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
         // The person chose the film's own file over its ladder.
         ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
+        ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),
       },
     }),
   );
@@ -170,22 +182,24 @@ export class Watching {
   /**
    * The Play page asks how the film plays: the film page's decision when it is fresh and on the
    * film's ladder, else a new one, since the warm-up read the keyframes of a film not cut yet and it
-   * may be on its ladder now (D260 §1). Another film being watched is let go of first.
+   * may be on its ladder now (D260 §1). Another film being watched is let go of first. Where asked
+   * says where the page starts the playback, each request says so (StartAsked).
    */
   decide(
     fileId: number,
     playableFormats: PlayableFormats,
-    cause: StartCause = "playPage",
+    asked: StartAsked = { cause: "playPage" },
   ): Promise<PlaybackDecision> {
     this.watch(fileId);
     const warm = this.warm;
     this.warm = undefined;
+    const { startsAtMs } = asked;
     if (warm === undefined) {
-      return this.ask(fileId, { playableFormats, cause });
+      return this.ask(fileId, { playableFormats, ...asked });
     }
     if (this.nowMs() - warm.askedMs >= warmUpKeptMs) {
       warm.preload?.stop();
-      return this.ask(fileId, { playableFormats, cause: "warmUpStale" });
+      return this.ask(fileId, { playableFormats, cause: "warmUpStale", startsAtMs });
     }
     // Its start is timed from Play, not from opening the page: what the person waits for.
     const pressedMs = performance.now();
@@ -198,7 +212,7 @@ export class Watching {
           // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
           this.tokens.delete(decision.mediaToken);
           this.leave(decision.mediaToken);
-          return this.ask(fileId, { playableFormats, cause: "warmUpOffLadder" });
+          return this.ask(fileId, { playableFormats, cause: "warmUpOffLadder", startsAtMs });
         }
         noteDecisionTimes(decision.mediaToken, {
           askedMs: pressedMs,
@@ -211,13 +225,13 @@ export class Watching {
       },
       // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
       // first press of Play instead (the M4 closing audit, 2026-10-08).
-      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed" }),
+      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed", startsAtMs }),
     );
   }
 
   private async ask(
     fileId: number,
-    asked: { readonly playableFormats: PlayableFormats; readonly cause: StartCause },
+    asked: StartAsked & { readonly playableFormats: PlayableFormats },
   ): Promise<PlaybackDecision> {
     const answered = await requestPlayback(this.api, fileId, asked);
     const decision =

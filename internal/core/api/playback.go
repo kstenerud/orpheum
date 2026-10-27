@@ -67,6 +67,12 @@ type StartPlaybackInput struct {
 		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
 		// keeps it before it decides, whether or not the player's report reached it first.
 		HasGivenUpOwnPicture bool `doc:"Whether the player gave the film's own picture up as unplayable here" json:"hasGivenUpOwnPicture,omitempty" required:"false"` //nolint:lll // one struct tag
+		// StartsAtMs is for the log alone: where the page starts the playback when it asks again from
+		// where its video stood, which it does in place of the resume position answered, so a playback
+		// asked for again says where it went on from. A film whose audio track was changed three
+		// minutes in started again from its beginning, and the log said only resumePositionMs=0
+		// (staging, 2026-10-26).
+		StartsAtMs *int64 `doc:"Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position" json:"startsAtMs,omitempty" minimum:"0" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -223,6 +229,9 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent,
 		"over", input.over, "host", input.host, "clientAddress", input.clientAddress,
 		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts,
+	}
+	if input.Body.StartsAtMs != nil {
+		who = append(who, "pageStartsAtMs", *input.Body.StartsAtMs)
 	}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)

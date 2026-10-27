@@ -110,7 +110,7 @@ describe("a playback asked for again because its player gave the film's own pict
     const heard: Heard[] = [];
     const { watching } = watchingServed(heard);
     await watching.decide(7, playableFormats);
-    await watching.decide(7, playableFormats, "ownPictureGivenUp");
+    await watching.decide(7, playableFormats, { cause: "ownPictureGivenUp" });
     const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
     expect(asked.map((request) => bodyField(request, "hasGivenUpOwnPicture"))).toEqual([
       undefined,
@@ -200,7 +200,7 @@ describe("the film being watched (D258)", () => {
     watching.warmUp(7, playableFormats);
     clock.ms = warmUpKeptMs;
     await watching.decide(7, playableFormats);
-    await watching.decide(7, playableFormats, "subtitleFetched");
+    await watching.decide(7, playableFormats, { cause: "subtitleFetched" });
     const offLadder: Heard[] = [];
     const { api } = servedBy(
       {

@@ -8,7 +8,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { PlaybackDecision } from "./watching.ts";
 import { Play, PlayView } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
-import { click, mount, playbackCauses, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  bodyField,
+  choose,
+  click,
+  mount,
+  playbackCauses,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision, television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
@@ -336,5 +345,75 @@ describe("the dialogue boost on a film's ladder", () => {
       ),
     );
     expect(mounted.container.textContent).not.toContain("Dialogue boost");
+  });
+});
+
+/** A decision to play the original, with two audio tracks to choose between, the first chosen. */
+function withTwoTracks(): PlaybackDecision {
+  return directDecision({
+    audioTracks: [
+      { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+      { streamId: 81, audioTrackIndex: 1, language: "fr", kind: "plain" },
+    ],
+    startingAudioStreamId: 80,
+  });
+}
+
+/** Stands the page's video at positionS, loaded there and playing, as one playing for a while does. */
+function standVideoAt(positionS: number): void {
+  const video = mounted?.container.querySelector("video");
+  if (video !== null && video !== undefined) {
+    Object.defineProperty(video, "readyState", { value: 4, configurable: true });
+    Object.defineProperty(video, "currentTime", { value: positionS, configurable: true });
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
+  }
+}
+
+describe("another audio track, chosen mid-film (D230 §5)", () => {
+  it("asks how the film plays again from where the video stands, not from its beginning", async () => {
+    const asked: { cause: string; at: unknown }[] = [];
+    mounted = await mount(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={withTwoTracks()}
+          onDecideAgain={(cause, at) => asked.push({ cause, at })}
+        />,
+        servedBy({
+          "PUT /files/2/preferences": [204, undefined],
+          "GET /files/2/waits": [200, {}],
+          "GET /files/2/up-next": [200, {}],
+          "DELETE /playback/t": [204, null],
+        }),
+      ),
+    );
+    // The Unknown, its track changed 2:46 in, started again at 0:00 (staging, 2026-10-26).
+    standVideoAt(166.502);
+    await choose(mounted.container.querySelector("select"), "81");
+    expect(asked).toEqual([{ cause: "audioChosen", at: { positionMs: 166_502, isPaused: false } }]);
+  });
+
+  it("tells the server where the page goes on from, which its log says beside the cause", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [
+          [200, withTwoTracks()],
+          [200, withTwoTracks()],
+        ],
+        "PUT /files/2/preferences": [204, undefined],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(<Play fileId={2} />, services));
+    standVideoAt(166.502);
+    await choose(mounted.container.querySelector("select"), "81");
+    const asks = heard.filter((each) => each.methodAndPath === "POST /playback");
+    expect(playbackCauses(heard)).toEqual(["playPage", "audioChosen"]);
+    expect(asks.map((each) => bodyField(each, "startsAtMs"))).toEqual([undefined, 166_502]);
   });
 });

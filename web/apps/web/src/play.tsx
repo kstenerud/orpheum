@@ -257,13 +257,26 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
   readonly onCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
 };
 
-/** A handler that asks how the file plays again, saying why. */
+/**
+ * A handler that asks how the file plays again, saying why, from where the video stands: the
+ * server's answer starts where the person last left the file, by the resume thresholds, so a film
+ * whose audio track was changed three minutes in started again from its beginning (The Unknown on
+ * staging, 2026-10-26).
+ */
 function decideAgainFor(
-  props: { readonly onDecideAgain: DecideAgain },
+  props: {
+    readonly onDecideAgain: DecideAgain;
+    readonly videoRef: RefObject<HTMLVideoElement | null>;
+    readonly decision: Pick<PlaybackDecision, "resumePositionMs">;
+  },
   cause: DecideAgainCause,
 ): () => void {
   return () => {
-    props.onDecideAgain(cause);
+    const video = props.videoRef.current;
+    props.onDecideAgain(cause, {
+      positionMs: positionToMoveFrom(video, props.decision.resumePositionMs),
+      isPaused: video?.paused ?? false,
+    });
   };
 }
 
@@ -415,8 +428,7 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
  * §3).
  */
 function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
-  const { onDecideAgain, videoRef } = props;
-  const startPositionMs = props.decision.resumePositionMs;
+  const boostChosen = decideAgainFor(props, "boostChosen");
   return (
     <>
       <UnderTheVideo
@@ -430,11 +442,7 @@ function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
           onSwitched={() => undefined}
           onKept={(isOn) => {
             if (isOn) {
-              const video = videoRef.current;
-              onDecideAgain("boostChosen", {
-                positionMs: positionToMoveFrom(video, startPositionMs),
-                isPaused: video?.paused ?? false,
-              });
+              boostChosen();
             }
           }}
         />
@@ -485,7 +493,7 @@ function LadderUnder(
         {...props}
         decision={decision}
         level={level}
-        onAudioChosen={decideAgainFor(props, "audioChosen")}
+        onAudioChosen={decideAgainFor({ ...props, decision }, "audioChosen")}
       />
       {canBoost ? (
         <BoostSwitch
@@ -495,7 +503,7 @@ function LadderUnder(
           }}
         />
       ) : null}
-      <PlayOriginal onChosen={decideAgainFor(props, "originalChosen")} />
+      <PlayOriginal onChosen={decideAgainFor({ ...props, decision }, "originalChosen")} />
     </>
   );
 }
@@ -529,6 +537,14 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
 interface Opened {
   readonly decision: PlaybackDecision;
   readonly isStartPaused?: boolean;
+}
+
+/** The decision opened from at, where its video stood, in place of its resume position. */
+function openedAt(decision: PlaybackDecision, at: ReopenAt): Opened {
+  return {
+    decision: { ...decision, resumePositionMs: Math.round(at.positionMs) },
+    isStartPaused: at.isPaused,
+  };
 }
 
 /**
@@ -694,21 +710,17 @@ function useOpenedPlayback(
     const watching = watchingOf(api);
     if (reopen === undefined) {
       setHeld(undefined);
-      const decision = await watching.decide(fileId, playableFormats(), cause);
-      return askedAt === undefined
-        ? { decision }
-        : {
-            decision: { ...decision, resumePositionMs: Math.round(askedAt.positionMs) },
-            isStartPaused: askedAt.isPaused,
-          };
+      const decision = await watching.decide(fileId, playableFormats(), {
+        cause,
+        startsAtMs: askedAt?.positionMs,
+      });
+      return askedAt === undefined ? { decision } : openedAt(decision, askedAt);
     }
     // The server may still be starting: asked again for about a minute.
     const decision = await askUntilAnswered(() =>
-      watching.decide(fileId, playableFormats(), reopen.cause),
+      watching.decide(fileId, playableFormats(), { cause: reopen.cause }),
     );
-    const at = reopen.whereNow();
-    const resumePositionMs = Math.round(at.positionMs);
-    return { decision: { ...decision, resumePositionMs }, isStartPaused: at.isPaused };
+    return openedAt(decision, reopen.whereNow());
   });
   const decideAgain = useCallback(
     (cause: DecideAgainCause, at?: ReopenAt) => {
