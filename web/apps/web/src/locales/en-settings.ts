@@ -322,9 +322,6 @@ export const enSettingsCatalogue = {
       "How often ended sign-ins and removed files past their keep times are deleted.",
     scanRootErrorLimit:
       "How many errors one folder's scan may meet before it stops, so a broken share does not flood it.",
-    scanSubtitleExtensions:
-      "The file extensions a scan reads as subtitles beside their videos, comma-separated.",
-    scanVideoExtensions: "The file extensions a scan reads as videos, comma-separated.",
     scanVideosPerExamineBatch: "How many videos of one folder a media node reads in one go.",
     scanWithheldRemovalsNamed: "How many files a held-back scan names when it asks you to confirm.",
     scanWithholdRemovalsOverFiles:

@@ -482,18 +482,28 @@ func TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape(t *testing.T) {
 	}
 }
 
-// A scan reads the containers people keep films in by default, the older ones too: a DivX film's
-// .divx was skipped as an extension a scan does not read (staging, 2026-10-16, four of the owner's).
+// A scan reads the containers people keep films in, the older ones too: a DivX film's .divx was
+// skipped as an extension a scan does not read (staging, 2026-10-16, four of the owner's), and the
+// owner asked for RealMedia's (2026-10-27). They are the code's, whatever a stored row of the retired
+// setting says (D360).
 func TestReadRules_ReadTheOlderContainersByDefault(t *testing.T) {
 	t.Parallel()
-	scans := &Scans{settings: settingstest.Seeded(t, storetest.OpenMigrated(t))}
+	database := storetest.OpenMigrated(t)
+	storetest.ExecRaw(t, database.Path(), `INSERT INTO setting (key, value_json, set_at, is_modified) VALUES `+
+		`('scan_video_extensions', '"mkv"', 0, 1), ('scan_subtitle_extensions', '"srt"', 0, 1)`)
+	scans := &Scans{settings: settingstest.Seeded(t, database)}
 	rules, _, err := scans.readRules(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, extension := range []string{"mkv", "mp4", "avi", "divx", "vob"} {
+	for _, extension := range []string{"mkv", "mp4", "avi", "divx", "vob", "rm", "rmvb"} {
 		if !rules.VideoExtensions[extension] {
 			t.Errorf("a scan does not read .%s files by default", extension)
+		}
+	}
+	for _, extension := range []string{"srt", "ass", "ssa", "vtt"} {
+		if !rules.SubtitleExtensions[extension] {
+			t.Errorf("a scan does not read .%s files as subtitles", extension)
 		}
 	}
 }

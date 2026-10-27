@@ -30,6 +30,8 @@
 //     TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself,
 //     TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder,
 //     TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt.
+//     The extensions it reads as videos and as subtitles are the code's, not settings, whatever a
+//     stored row of the retired settings says (D360). TestReadRules_ReadTheOlderContainersByDefault.
 //
 //   - A file whose size and modified time are as stored, and which was read whole, is seen and not
 //     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. A video listed at a
@@ -309,6 +311,7 @@
 //   - D179: a file's identity is a hash of its media payload.
 //   - D42: nodes are sensors; the core is the only thing that decides.
 //   - D240: a scan is a listing the core compares, and the batches it has the node read.
+//   - D360: the extensions a scan reads are the code's, each container proven to play.
 //   - docs/contributors/design/plans/library-model.md, docs/contributors/design/plans/scanner.md.
 //   - Every list, search and detail a person asks for holds only the libraries their reach reaches,
 //     and one not reached is answered as one that does not exist: the lists in SQL, a detail and a
@@ -320,7 +323,8 @@
 //   - reach.go: whether a person reaches a file, an item or an image (D243 §4).
 //   - scans.go: a scan's jobs, from its request to its end; schedule.go: the scans libraries are
 //     due; scope.go: a scan of a folder; compare.go: a listing compared with what is stored, by
-//     the library's rules; batches.go: the batches a scan's node reads;
+//     the library's rules; extensions.go: the extensions a scan reads; batches.go: the batches a scan's
+//     node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a

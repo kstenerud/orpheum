@@ -31,15 +31,26 @@ func RetiredKeys() []RetiredKey {
 		renamed("network_share_reader_limit", ReaderLimitNetworkShare),
 		renamed("unknown_disk_reader_limit", ReaderLimitUnknownDisk),
 		{
-			Key: "system_page_recent_prepares_per_node", Release: "after 0.3.0-beta.7",
+			Key: "system_page_recent_prepares_per_node", Release: afterBeta7,
 			Reason: "the whole-film prepare is retired: there are no prepares to list (D344)",
 		},
 		{
-			Key: "prepare_progress_every_seconds", Release: "after 0.3.0-beta.7",
+			Key: "prepare_progress_every_seconds", Release: afterBeta7,
 			Reason: "renamed " + string(NodeProgressEverySeconds) + ": the whole-film prepare is retired (D344)",
+		},
+		{
+			Key: "scan_video_extensions", Release: afterBeta7,
+			Reason: "the extensions a scan reads as videos are the code's, each container proven to play (D360)",
+		},
+		{
+			Key: "scan_subtitle_extensions", Release: afterBeta7,
+			Reason: "the extensions a scan reads as subtitles are the code's, the formats the node converts (D360)",
 		},
 	}
 }
+
+// afterBeta7 is the release after 0.3.0-beta.7, which retired the keys it names.
+const afterBeta7 = "after 0.3.0-beta.7"
 
 // renamed is a key the settings page's names renamed (the owner, 2026-10-21): its value, set by a
 // person, is not carried to the new key, which starts at its starting value.

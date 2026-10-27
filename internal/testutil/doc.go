@@ -5,7 +5,7 @@
 // capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory and RequireMKVToolNix find the
 // pinned tools that way. It installs the fake ffmpeg and ffprobe (testing.md §11), and runs the
 // MKVToolNix that tests edit Matroska files with, which the node never runs. It generates media
-// with the pinned FFmpeg: test images and the M2 acceptance's 200-file fixture tree. Receive is a
+// with the pinned FFmpeg: test images, films and the M2 acceptance's 200-file fixture tree. Receive is a
 // test's bounded wait on a channel, and Log a logger's output a test waits on for a line.
 //
 // # Invariants
@@ -32,8 +32,9 @@
 //   - require.go: the policy. A capability that needs finding (a pinned binary, a device)
 //     gets its own helper here that finds it and calls Require, as ffmpeg.go does.
 //   - mkvtoolnix.go: the pinned MKVToolNix (scripts/fetch_mkvtoolnix.py; linux/amd64 only).
-//   - image.go and fixturetree.go: media the pinned FFmpeg makes for tests that may not run a
-//     process themselves — an image, and cut-a's 200-file fixture tree (testing.md §7, tier 2).
+//   - image.go, film.go and fixturetree.go: media the pinned FFmpeg makes for tests that may not run
+//     a process themselves — an image, a film, and cut-a's 200-file fixture tree (testing.md §7,
+//     tier 2).
 //   - ffmpeg.go and testdata/fake-ffmpeg.sh: the pinned FFmpeg and the fake. The fake is linked,
 //     never copied: writing an executable while a parallel test forks makes running it fail
 //     with "text file busy".

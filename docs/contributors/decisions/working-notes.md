@@ -17630,6 +17630,8 @@ alone."*
 
 ## D240 — The core keeps the smarts: a scan is a listing the core compares, the work it implies is the core's to schedule, and the node enforces its devices' limits and pauses background work for play
 
+> **§8's extension lists revised by [D360](#d360--the-extensions-a-scan-reads-are-the-codes-each-container-proven-to-play-and-realmedia-is-one)** (2026-10-27): they are constants in the core's code, not settings, each container proven to play.
+
 > **§5 and §6 revised by [D329](#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)** (2026-10-22): the node decides its disks and encoders from the wants the core sends, and play is admitted rather than exempted from limits.
 
 > **§5 revised by [D255](#d255--work-has-three-priorities-a-persons-a-fast-operations-and-a-slow-ones-and-a-higher-one-bumps-the-lowest-when-nothing-is-free)** (2026-10-07): work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps a running job of the lowest when nothing is free.
@@ -17700,8 +17702,9 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
      as a movies folder holding a few dozen bare files, is several batches (the owner: *"those would
      all get swept up in one call to the base movies dir, right?"*). This revises §4's per-file
      answer.
-   - **The extension lists are settings.** Which files are videos and which subtitles is a skip rule,
-     the core's by §3, so they leave the node's configuration.
+   - ~~**The extension lists are settings.**~~ *(Since 2026-10-27, constants in the core's code, D360.)*
+     Which files are videos and which subtitles is a skip rule, the core's by §3, so they leave the
+     node's configuration.
    - **A move is still told by its payload hash** (D179). A file at a new path is examined like a new
      one, and the ingest finds the row it moved from. Telling a move by device and inode, which
      saves that one read, waits; §3's move by inode is not built.
@@ -22916,3 +22919,39 @@ configured roots were the library folders, so the watcher watched only them. Wha
 - 2: TestKernel_WatchesOnlyTheLibraryFoldersItIsGivenNeverTheRestOfTheirRoot, TestKernel_AFolderGivenIsWatchedAndOneNoLongerGivenIsNot, TestKernel_AFolderNoConfiguredRootHoldsIsNotWatchedAndSaysWhy
 - 3: TestWatcher_SaysEachLibraryFoldersWatchAndOnlyTheFoldersItIsGiven, TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch, TestWatcher_NoticesTheFolderHoldingARootsChangesOnceItGoesQuiet
 - 4: TestProtocolVersion_IsRaisedWithAnyChangeToTheWire
+
+## D360 — The extensions a scan reads are the code's, each container proven to play, and RealMedia is one
+
+**Decided** (2026-10-27), by the project owner: "I also want the ability to view .rm files." Asked
+whether the extension lists should stay settings, the owner agreed they should not: which
+containers FFmpeg reads is nothing an admin can judge, and as a setting an install keeps the list it
+stored, so a container added later never reaches it (a starting value changed reaches only an
+unmodified row, D201, and an admin who once edited the list keeps theirs for good). **Amends**
+[D240 §8](#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play)'s
+"the extension lists are settings": they stay the core's, as a skip rule, but in its code.
+
+1. **The video and subtitle extensions are constants** (`internal/core/library/extensions.go`), not
+   the settings `scan_video_extensions` and `scan_subtitle_extensions`. Both keys are retired
+   (D202): a stored row is left in place, read by nothing, and listed as unused with why, until a
+   person deletes it. The subtitle extensions are those the node converts (D217 §6): `srt`, `ass`,
+   `ssa`, `vtt`.
+2. **RealMedia is read: `rm` and `rmvb`.** The pinned FFmpeg (8.1.2 with fdproxy, D330) demuxes it
+   and decodes RealVideo 1.0 to 4.0 (and 6.0) and RealAudio (Cook, SIPR, ATRAC3, RealAudio
+   Lossless, 14.4 and 28.8). None is on the menu (D21), so a RealMedia film is encoded on its
+   ladder, picture and sound, for its container, its picture and its sound (D344). Nothing else
+   needed changing: the decision's table already converted what it cannot place; the node probes,
+   hashes (whole, as any container but Matroska and MP4, D116), reads through for its keyframes
+   and cuts its chunks by FFmpeg, whatever the container. RealVideo's sparse keyframes are cut at
+   as they come: a film with one every four seconds has four-second chunks.
+
+**Proven by:**
+- 1: TestReadRules_ReadTheOlderContainersByDefault (a stored row of either retired key changes
+  nothing), TestRetiredKeys_AreNotInUseAndSayWhen
+- 2: TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade (integration tier:
+  a RealVideo 2.0 film and a RealVideo 1.0 one, each with RealAudio 14.4, as the pinned FFmpeg writes
+  them, are read as videos, probed, decided onto their ladders for container, picture and sound,
+  and their first chunks made),
+  TestDecide_ARealMediaFilmIsEncodedOnItsLadder, TestDecide_SortsEachVideoStreamIntoOneMenuEntry,
+  TestDecide_SortsEachAudioStreamIntoOneMenuEntry
+
+**Status:** Decided 2026-10-27.

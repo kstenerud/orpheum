@@ -83,6 +83,10 @@ func TestDecide_SortsEachVideoStreamIntoOneMenuEntry(t *testing.T) {
 		"AV1 HDR10":         {videoStream("av1", "Main", "yuv420p10le", "smpte2084"), decide.AV1HDR10},
 		"MPEG-2":            {videoStream("mpeg2video", "Main", "yuv420p", ""), ""},
 		"VC-1":              {videoStream("vc1", "Advanced", "yuv420p", ""), ""},
+		"RealVideo 1.0":     {videoStream("rv10", "", "yuv420p", ""), ""},
+		"RealVideo 2.0":     {videoStream("rv20", "", "yuv420p", ""), ""},
+		"RealVideo 3.0":     {videoStream("rv30", "", "yuv420p", ""), ""},
+		"RealVideo 4.0":     {videoStream("rv40", "", "yuv420p", ""), ""},
 	} {
 		if got := placedAs(t, row.stream); got != row.want {
 			t.Errorf("%s: placed as %q, want %q", name, got, row.want)
@@ -108,6 +112,12 @@ func TestDecide_SortsEachAudioStreamIntoOneMenuEntry(t *testing.T) {
 		"TrueHD":              {audioStream("truehd", "", 8), ""},
 		"DTS":                 {audioStream("dts", "DTS-HD MA", 6), ""},
 		"MP3":                 {audioStream("mp3", "", 2), ""},
+		"RealAudio Cook":      {audioStream("cook", "", 2), ""},
+		"RealAudio SIPR":      {audioStream("sipr", "", 1), ""},
+		"ATRAC3":              {audioStream("atrac3", "", 2), ""},
+		"RealAudio Lossless":  {audioStream("ralf", "", 2), ""},
+		"RealAudio 14.4":      {audioStream("ra_144", "", 1), ""},
+		"RealAudio 28.8":      {audioStream("ra_288", "", 1), ""},
 	} {
 		got := decide.Audio("")
 		for _, entry := range everyEntry.AudioCodecs {
@@ -141,6 +151,20 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 	if got.Delivery != want.Delivery || got.Profile != want.Profile ||
 		!slices.Equal(got.NotDirectReasons, want.NotDirectReasons) {
 		t.Errorf("Decide = %+v, want %+v", got, want)
+	}
+}
+
+// A RealMedia film is encoded on its ladder, picture and sound, whatever a device plays: no menu
+// entry is its container, RealVideo or RealAudio (D344; the owner, 2026-10-27).
+func TestDecide_ARealMediaFilmIsEncodedOnItsLadder(t *testing.T) {
+	t.Parallel()
+	for _, codecs := range [][2]string{{"rv40", "cook"}, {"rv30", "sipr"}, {"rv20", "ra_144"}, {"rv10", "ra_288"}} {
+		film := probeOf("rm", videoStream(codecs[0], "", "yuv420p", ""), audioStream(codecs[1], "", 2))
+		got := decide.Decide(decide.Input{Probe: film, PlayableFormats: everyEntry})
+		want := []decide.Reason{decide.ReasonContainer, decide.ReasonVideoCodec, decide.ReasonAudioCodec}
+		if got.Delivery != decide.HLS || got.Profile != decide.H264 || !slices.Equal(got.NotDirectReasons, want) {
+			t.Errorf("RealMedia with %s and %s: %+v, want hls, h264, for %v", codecs[0], codecs[1], got, want)
+		}
 	}
 }
 

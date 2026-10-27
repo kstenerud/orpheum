@@ -654,29 +654,11 @@ func (scans *Scans) end(ctx context.Context, scan cachegen.Scan) error {
 	return nil
 }
 
-// readRules reads the library's rules for what a scan reads, and how many videos a batch holds.
+// readRules is the rules a scan reads by, and how many videos a batch holds.
 func (scans *Scans) readRules(ctx context.Context) (ScanRules, int, error) {
-	videos, err := scans.settings.String(ctx, settings.ScanVideoExtensions)
-	if err != nil {
-		return ScanRules{}, 0, fmt.Errorf("read scan_video_extensions: %w", err)
-	}
-	subtitles, err := scans.settings.String(ctx, settings.ScanSubtitleExtensions)
-	if err != nil {
-		return ScanRules{}, 0, fmt.Errorf("read scan_subtitle_extensions: %w", err)
-	}
 	perBatch, err := scans.settings.Int(ctx, settings.ScanVideosPerExamineBatch)
 	if err != nil {
 		return ScanRules{}, 0, fmt.Errorf("read scan_videos_per_examine_batch: %w", err)
 	}
-	rules := ScanRules{VideoExtensions: extensionSet(videos), SubtitleExtensions: extensionSet(subtitles)}
-	return rules, int(perBatch), nil
-}
-
-// extensionSet is a setting's comma-separated extensions as a set.
-func extensionSet(listed string) map[string]bool {
-	set := map[string]bool{}
-	for extension := range strings.SplitSeq(listed, ",") {
-		set[extension] = true
-	}
-	return set
+	return scanRules(), int(perBatch), nil
 }
