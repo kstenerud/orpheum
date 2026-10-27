@@ -22582,3 +22582,108 @@ its store's last ask. It amends D309 §1 and D353 §4.
 - 6: TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted
 
 **Status:** Decided 2026-10-27.
+
+## D356 — An IPv4-only core's devices at home are recognised by the house's IPv6 networks, which the core learns from devices that reached it directly in the house and tells its discovery
+
+**Proposed** (2026-10-27), on the owner's approval the same day of the direction in
+[local-path-2026-10-27.md](../design/research/local-path-2026-10-27.md) option D: *"the core tells the
+discovery the house's IPv6 network so an IPv4-only core can recognise devices at home"*. The evidence,
+the mechanisms weighed and how Plex, Jellyfin and Tailscale judge "local" are in
+[house-ipv6-2026-10-27.md](../design/research/house-ipv6-2026-10-27.md). A core whose heartbeat
+leaves over IPv4 behind DS-Lite or carrier NAT (staging; a host without IPv6; a Docker install on the
+default bridge) reports from the carrier's shared address, which the discovery rightly never trusts,
+while the house's devices ask over the house's IPv6 /64: none is ever judged at home, so none is
+offered the LAN name. **Amends**
+[D290](#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta)
+§2 (what "seems to be at home" is judged by, and what the discovery is told of a household), and the
+discovery protocol's §2.4 (the heartbeat) and §3.2 (the `lan` path).
+
+1. **A house network is learnt from a device the core has proven at home.** When a WebRTC
+   connection made through a discovery is from home by
+   [D300](#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address)
+   §3 (its selected pair direct, the client's end in the home networks or the core's own IPv6
+   networks), the core keeps the network that device's offer came from (§2) as a house network. A
+   relayed, punched or hairpinned connection (D354 §4) teaches nothing, and nothing a page sends
+   counts. A device in the house is the strongest evidence the core trusts; the network is the
+   discovery's own observation of the same device.
+2. **The discovery passes each offer's source network to the core with the offer**:
+   `clientNetwork` on the signalling message, the offer request's source address as the discovery
+   saw it (`CF-Connecting-IP` behind Cloudflare), as its /64, and only when it is a public IPv6
+   address: a shared IPv4 says nothing of a household. Both the paid service and `discovery/single`
+   pass it. The core learns nothing new of a device by it: an offer's candidates already carry the
+   device's public addresses.
+3. **The core tells its discovery its house networks in each heartbeat** (`houseNetworks` beside
+   `candidates`), each a public IPv6 /64 with how it was had, `learnt` or `configured` (§6), at most
+   four, the most recently witnessed first. A network newly learnt sends a heartbeat at once rather
+   than at the next interval.
+4. **A house network is kept 30 days after it was last witnessed**, and a fifth pushes out the one
+   least recently witnessed. They are kept in the core's discovery state (`discovery.json`), so a
+   restart keeps them, and a Leave forgets them with the enrolment. A provider's new prefix (Deutsche
+   Telekom's moves every night) is learnt from the first device that reaches the core from home
+   after the move; every first reach is WebRTC through the discovery (D274), so that is its first
+   use. Until then the house's devices get no LAN name, as before this decision.
+5. **The discovery judges a device at home also when its address is in one of the heartbeat's house
+   networks.** The match is `discovery/discoveryproto`'s, which both discoveries and Orpheum's tests
+   share, and counts only a public IPv6 /64: a shorter prefix, a private or IPv4 one, or a fifth,
+   counts for nothing. The existing matches (the heartbeat's source /64, a public IPv6 candidate's
+   /64, the household's own reached IPv4) stand.
+6. **The admin may name the house's networks** (`discovery.house_ipv6_networks`, public /64s, sent
+   as `configured`), for a house whose devices cannot make a direct pair, as staging cannot until its
+   UDP port is published (the research's option A1). The System page says a configured network goes
+   stale when the provider moves the prefix.
+7. **A house network grants nothing but the LAN name's place among the paths** (D290 §2). The core
+   never counts one as home, for admin or anything else (D297 §6, D300 §3, D302): a learnt network is
+   the discovery's word, and a stale one may be another household's once the provider reuses it.
+8. **No stranger can name a household's network.** The heartbeat carries only what the core, under
+   its own credential, sends; a learnt network needs a direct pair into the house's networks, which an
+   offer through a discovery cannot make the core send (D300 §2). A household's own device can teach
+   a wrong one, a VPN's exit network when the VPN keeps LAN access; the harm is that the household's
+   own link holders in that network are offered the LAN name and may meet Chrome's local-network
+   prompt, until it ages out (§4).
+9. **What the discovery keeps, and for how long.** The house networks are part of the core's
+   heartbeat and kept as it is: the current value only, replaced by each heartbeat, past values in
+   backups for their period, deleted when the core is released (the paid service's spec §6, "Current
+   addresses"). They are never written to the zone and never returned to a client, who is told only
+   its own `clientPrefix` (D293 §8). For a dual-stack core this adds nothing the heartbeat's source
+   did not already say; for a DS-Lite or carrier-NAT household it is new, tying the core to the
+   household's current connection, where the discovery held only a carrier's shared address.
+10. **The judgement says why.** The discovery's `a core's paths were asked for` line names what
+    judged the device at home (`heartbeat`, `candidate`, `houseNetwork`, `ownIPv4`) or `none`; and a
+    core whose heartbeat comes over a shared IPv4 with no house network is logged once as one whose
+    devices at home cannot be recognised (local-path §4 item 6). The core's System page lists its
+    house networks, how each was had, and for a learnt one by which device and when.
+
+**Rejected** (the research's §3): the install script reading the host's prefix and a STUN helper in
+the host's network (each works only where the host has IPv6, where Orpheum's compose already sends the
+heartbeat over IPv6, and the first goes stale); listening for router advertisements (the host's
+network and a raw socket, for the same case); the page's own word (D300 §3); a hairpin as evidence
+(D354 §4).
+
+**Questions for the owner:**
+- Q1: one proven connection teaches a network (proposed), or two, from two devices or on two days,
+  which halves the VPN case and delays a new prefix's first LAN name by as long?
+- Q2: keep §6's configured networks, a second way for one job kept only for houses with no WebRTC
+  LAN pair (staging today), or drop it and publish staging's UDP port instead?
+- Q3: 30 days and four networks (§4), constants, or settings?
+- Q4: the System page showing the house's public /64 to the admin (§10): their own network, but a
+  screenshot of the page then carries it.
+- Q5: should the core log, not gate on, whether the device's own IPv6 reflexive candidate agrees
+  with the discovery's network (the research's corroboration), to learn how often a VPN teaches?
+
+**Proven by:**
+- 1: TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork, TestHouseNetworks_ARelayedPunchedOrHairpinnedConnectionTeachesNothing
+- 2: TestSignal_AnOfferCarriesItsSourcesIPv6NetworkAndNoIPv4, TestRTCOffer_TheOffersNetworkIsKeptWithItsConnection
+- 3: TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst, TestHouseNetworks_ANewNetworkSendsAHeartbeatAtOnce
+- 4: TestHouseNetworks_ANetworkUnwitnessedForThirtyDaysIsDropped, TestHouseNetworks_AFifthPushesOutTheLeastRecent, TestHouseNetworks_SurviveARestartAndGoWithALeave
+- 5: TestInHouseNetworks_ADeviceInAPublicSlash64IsAtHome, TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing
+- 6: TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s, web/apps/web/src/system-discovery.test.tsx
+- 7: TestMarkingHome_AHouseNetworkGrantsNoAdmin
+- 8: TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks, TestHouseNetworks_ARelayedPunchedOrHairpinnedConnectionTeachesNothing
+- 9: TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst
+- 10: web/apps/web/src/system-discovery.test.tsx
+
+The paid service's side (its `isAtHome` calling §5's match, its offer's `clientNetwork`, its log
+line) is tested in orpheum-connect, which `make check-claims` cannot see; each point above names an
+Orpheum test, and the connect tests are named in its own plan when built.
+
+**Status:** Proposed, not built.
