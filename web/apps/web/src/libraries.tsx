@@ -185,6 +185,27 @@ function ScanProgress(props: { readonly scan: NonNullable<Root["scan"]> }): JSX.
   );
 }
 
+/**
+ * A library's rescans as they run (D357 §5): scanning first, then how many of the films and series
+ * listed were matched again.
+ */
+function RescanProgress(props: { readonly rescan: NonNullable<Library["rescan"]> }): JSX.Element {
+  const { t } = useTranslation();
+  const { rescan } = props;
+  return (
+    <output>
+      {rescan.isScanning && rescan.itemCount === 0
+        ? t("libraries.rescanScanning")
+        : t("libraries.rescanMatching", { matched: rescan.matchedCount, count: rescan.itemCount })}
+    </output>
+  );
+}
+
+/** Whether a library is rescanned whole: one of films or of series, never mixed or other (D357 §1). */
+export function isRescannable(library: Pick<Library, "kind">): boolean {
+  return library.kind === "movies" || library.kind === "shows";
+}
+
 /** The ways a library notices changes (D184). */
 const changeDetections = ["watch", "interval", "manual"] as const;
 
@@ -279,6 +300,8 @@ export function LibraryCard(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
+  /** Its rescan (D357), offered for a library of films or of series. */
+  readonly onRescan?: () => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
@@ -308,6 +331,7 @@ export function LibraryCard(props: {
         onSave={(choice) => props.onChangeDetection?.(choice)}
       />
       <FilingCounts library={library} />
+      {library.rescan === undefined ? null : <RescanProgress rescan={library.rescan} />}
       <p>
         <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
         <button type="button" onClick={props.onScan}>
@@ -315,6 +339,13 @@ export function LibraryCard(props: {
             ? t("libraries.scanAgainAfter")
             : t("libraries.scan")}
         </button>{" "}
+        {props.onRescan !== undefined && isRescannable(library) ? (
+          <>
+            <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
+              {t("libraries.rescan")}
+            </button>{" "}
+          </>
+        ) : null}
         <ConfirmButton
           label={t("libraries.delete")}
           consequence={t("libraries.deleteConsequence")}
@@ -358,9 +389,50 @@ function useLibraryNotes(): {
   return { notesByLibraryId, setNote, act, isActing: acting.isBusy };
 }
 
+/**
+ * A library's scan, and its rescan (D357), each run as a library's action, saying what it asked
+ * for in the library's note.
+ */
+function useScanActions(
+  notes: Pick<ReturnType<typeof useLibraryNotes>, "act" | "setNote"> & {
+    readonly reload: () => void;
+  },
+): {
+  readonly scan: (libraryId: number) => void;
+  readonly rescan: (libraryId: number) => void;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { act, setNote, reload } = notes;
+  return {
+    scan: (libraryId) => {
+      act(libraryId, async (idempotencyKey) => {
+        const askedRootCount = await scanLibrary(api, libraryId, idempotencyKey);
+        setNote(libraryId, t("libraries.scanning", { count: askedRootCount }));
+      });
+    },
+    rescan: (libraryId) => {
+      act(libraryId, async (idempotencyKey) => {
+        const answer = dataOrThrow(
+          await api.POST("/libraries/{id}/rescan", {
+            params: { path: { id: libraryId } },
+            ...idempotent(idempotencyKey),
+          }),
+        );
+        setNote(
+          libraryId,
+          answer.isStarted ? t("libraries.rescanStarted") : t("libraries.rescanRunning"),
+        );
+        reload();
+      });
+    },
+  };
+}
+
 function useLibraryActions(reload: () => void): {
   readonly notesByLibraryId: ReadonlyMap<number, string>;
   readonly scan: (libraryId: number) => void;
+  readonly rescan: (libraryId: number) => void;
   readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: (libraryId: number) => void;
   readonly repoint: (libraryId: number, root: Root, to: Place) => void;
@@ -374,12 +446,7 @@ function useLibraryActions(reload: () => void): {
   return {
     notesByLibraryId,
     isActing,
-    scan: (libraryId) => {
-      act(libraryId, async (idempotencyKey) => {
-        const askedRootCount = await scanLibrary(api, libraryId, idempotencyKey);
-        setNote(libraryId, t("libraries.scanning", { count: askedRootCount }));
-      });
-    },
+    ...useScanActions({ act, setNote, reload }),
     answerAboutRoot: (libraryId, root, answer) => {
       act(libraryId, async (idempotencyKey) => {
         await sendRootAnswer(
@@ -475,6 +542,40 @@ function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
     .flatMap((node) => (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path })));
 }
 
+/**
+ * "Rescan everything": every library of films or of series scanned, then each film and series in it
+ * matched again from its files, in the background (D357 §1); it says how many started.
+ */
+export function RescanEverything(props: { readonly onStarted: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [note, setNote] = useState("");
+  const rescanning = useRequest((cause) => problemText(t, cause));
+  return (
+    <p>
+      <button
+        type="button"
+        title={t("libraries.rescanHelp")}
+        disabled={rescanning.isBusy}
+        onClick={() => {
+          setNote("");
+          rescanning.runRequest(async (idempotencyKey) => {
+            const answer = dataOrThrow(
+              await api.POST("/libraries/rescan", { ...idempotent(idempotencyKey) }),
+            );
+            setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
+            props.onStarted();
+          });
+        }}
+      >
+        {t("libraries.rescanEverything")}
+      </button>
+      {note === "" ? null : <output>{note}</output>}
+      {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
+    </p>
+  );
+}
+
 /** The libraries the person reaches; an admin sees each one's roots and files too. */
 export async function listLibraries(api: Api): Promise<Library[]> {
   return dataOrThrow(await api.GET("/libraries")).libraries ?? [];
@@ -502,6 +603,9 @@ export function Libraries(): JSX.Element {
       onScan={() => {
         actions.scan(library.id);
       }}
+      onRescan={() => {
+        actions.rescan(library.id);
+      }}
       onAnswer={(root, answer) => {
         actions.answerAboutRoot(library.id, root, answer);
       }}
@@ -520,6 +624,7 @@ export function Libraries(): JSX.Element {
   return (
     <section aria-labelledby="libraries-heading">
       <h1 id="libraries-heading">{t("libraries.heading")}</h1>
+      <RescanEverything onStarted={reload} />
       <BusyGroup isBusy={actions.isActing}>
         <Loaded
           resource={libraries}

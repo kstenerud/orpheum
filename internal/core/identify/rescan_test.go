@@ -1,0 +1,476 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package identify_test
+
+import (
+	"bytes"
+	"context"
+	"log/slog"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
+)
+
+// rescanScans is the library admin as a rescan asks it: the scans it asked for, and whether a scan
+// of a library is in progress, as the test sets it.
+type rescanScans struct {
+	libraries []int64
+	works     []int64
+	scanning  map[int64]bool
+}
+
+func (scans *rescanScans) Scan(_ context.Context, libraryID int64) (int, error) {
+	scans.libraries = append(scans.libraries, libraryID)
+	return 1, nil
+}
+
+func (scans *rescanScans) ScanWork(_ context.Context, _, itemID int64) (int, error) {
+	scans.works = append(scans.works, itemID)
+	return 1, nil
+}
+
+func (scans *rescanScans) IsScanning(_ context.Context, libraryID int64) (bool, error) {
+	return scans.scanning[libraryID], nil
+}
+
+// fetchQueue is the job queue as a rescan queues on it: one open fetch an item, as the queue keeps
+// a target's (jobs: TestEnqueue_QueuesATargetOnceWhileItIsOpen).
+type fetchQueue struct {
+	open []jobs.Request
+}
+
+func (queue *fetchQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
+	if slices.ContainsFunc(queue.open, func(open jobs.Request) bool { return open.ItemID == job.ItemID }) {
+		return false, nil
+	}
+	queue.open = append(queue.open, job)
+	return true, nil
+}
+
+// rescanning is a library's rescans, over the test's fakes of the scans and the queue.
+type rescanning struct {
+	lib     *testLibrary
+	rescans *identify.Rescans
+	matcher *identify.Matcher
+	scans   *rescanScans
+	queue   *fetchQueue
+}
+
+func (lib *testLibrary) rescanning() *rescanning {
+	return lib.rescanningLogged(lib.logger)
+}
+
+// rescanningLogged is rescanning with the matcher logging to logger.
+func (lib *testLibrary) rescanningLogged(logger *slog.Logger) *rescanning {
+	matcher := identify.NewMatcher(lib.database, lib.cache, lib.pass, lib.clock, logger)
+	scans, queue := &rescanScans{scanning: map[int64]bool{}}, &fetchQueue{}
+	return &rescanning{
+		lib: lib, matcher: matcher, scans: scans, queue: queue,
+		rescans: identify.NewRescans(matcher, queue, scans),
+	}
+}
+
+// run is the rescans' sweep, then each fetch it queued, as the fetch_metadata runner runs them, then
+// the passes they left owed.
+func (rescan *rescanning) run() {
+	t := rescan.lib.t
+	t.Helper()
+	if _, err := rescan.rescans.Advance(t.Context()); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	for len(rescan.queue.open) > 0 {
+		job := rescan.queue.open[0]
+		rescan.queue.open = rescan.queue.open[1:]
+		err := rescan.matcher.Handle(t.Context(), jobs.Job{Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON})
+		if err != nil {
+			t.Fatalf("the fetch of item %d: %v", job.ItemID, err)
+		}
+	}
+	rescan.lib.runOwedPasses()
+}
+
+// library rescans the test's library, and fails unless it started.
+func (rescan *rescanning) library() {
+	t := rescan.lib.t
+	t.Helper()
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), rescan.lib.libraryID)
+	if err != nil || !isStarted {
+		t.Fatalf("RescanLibrary = %v, %v; want it started", isStarted, err)
+	}
+}
+
+// followed is the id at its provider a file's title follows, and its name.
+func (lib *testLibrary) followed(rel string) (id, name string) {
+	lib.t.Helper()
+	file, found := lib.titlesByPath()[rel]
+	if !found {
+		lib.t.Fatalf("no file %s", rel)
+	}
+	title, err := lib.database.Read().GetTitleForMatch(lib.t.Context(), file.TitleID)
+	if err != nil {
+		lib.t.Fatal(err)
+	}
+	return ptr.ValueOrZero(title.FollowedSourceID), titleName(file)
+}
+
+// crowdAsBeforeTheFix is a library whose "Crowd (2022).mkv" was matched to TMDB's "The
+// Crowd" of 2022 by a search that found only it, as the matcher matched staging's before the
+// exact name won (ab718755); the search now finds the film named exactly too.
+func crowdAsBeforeTheFix(t *testing.T) *testLibrary {
+	t.Helper()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	withArticle := lib.provider.Add(identify.Metadata{
+		ID: "32", Name: "The Crowd", OriginalName: "The Crowd", Year: 2022,
+	})
+	plain := lib.provider.Add(identify.Metadata{ID: "31", Name: "Crowd", OriginalName: "Crowd", Year: 2022})
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{withArticle}
+	lib.scan(videoRecord(crowdFile))
+	lib.matchFileTitle(crowdFile)
+	if id, name := lib.followed(crowdFile); id != "32" || name != "The Crowd" {
+		t.Fatalf("before the rescan: %s %q; want The Crowd (32)", id, name)
+	}
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{withArticle, plain}
+	// Searched by the name its match stored, the film named so is all TMDB finds.
+	lib.provider.Searches[identifytest.SearchKey("The Crowd", 2022)] = []identify.Candidate{withArticle}
+	return lib
+}
+
+const crowdFile = "Crowd (2022)/Crowd (2022).mkv"
+
+// D357 §2: a rescan scans its library first, matches nothing while the scan runs, and then matches
+// each film again from the name and year its file gives, not the name its old match stored: the
+// file's "Crowd", once matched to "The Crowd", is the film named exactly.
+func TestRescan_ScansThenRematchesFromTheFilesNameAndYear(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	rescan := lib.rescanning()
+	rescan.scans.scanning[lib.libraryID] = true
+	rescan.library()
+	if !slices.Equal(rescan.scans.libraries, []int64{lib.libraryID}) {
+		t.Fatalf("scans asked for: %v; want the library's", rescan.scans.libraries)
+	}
+	calls := len(lib.provider.Calls)
+	rescan.run()
+	if len(lib.provider.Calls) != calls {
+		t.Fatalf("matched while its scan ran: %v", lib.provider.Calls[calls:])
+	}
+	rescan.scans.scanning[lib.libraryID] = false
+	rescan.run()
+	if !slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Crowd", 2022)) {
+		t.Errorf("searched %v; want the file's name and year", lib.provider.Calls[calls:])
+	}
+	if id, name := lib.followed(crowdFile); id != "31" || name != "Crowd" {
+		t.Errorf("after the rescan: %s %q; want Crowd (31)", id, name)
+	}
+}
+
+// D357 §3: a match a person chose is not searched again, and a field a person edited keeps its value
+// over the new match.
+func TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	const chosenFile = "Metropolis (1995).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	lib.provider.Add(identify.Metadata{ID: "950", Name: "Metropolis", Year: 1986})
+	lib.scan(videoRecord(crowdFile), videoRecord(chosenFile))
+	chosen := lib.titlesByPath()[chosenFile].TitleID
+	if err := lib.chooser.Choose(t.Context(), chosen, "tmdb", "950"); err != nil {
+		t.Fatal(err)
+	}
+	crowd := lib.titlesByPath()[crowdFile].TitleID
+	person := storetest.InsertUser(t, lib.database, "alice", "admin")
+	if err := lib.chooser.SetOverride(t.Context(), crowd, identify.FieldName, "Ours", person); err != nil {
+		t.Fatal(err)
+	}
+	calls := len(lib.provider.Calls)
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1995)) {
+		t.Errorf("searched for the film a person chose: %v", lib.provider.Calls[calls:])
+	}
+	if id, _ := lib.followed(chosenFile); id != "950" {
+		t.Errorf("the chosen film follows %s; want 950, the person's choice", id)
+	}
+	if id, name := lib.followed(crowdFile); id != "31" || name != "Ours" {
+		t.Errorf("the edited film follows %s, named %q; want 31, matched again, named as the person named it",
+			id, name)
+	}
+}
+
+// D357 §3: a match the matcher guessed and no one confirmed is matched again like any other, and
+// one the rules now settle clearly is no longer marked a guess (D301).
+func TestRescan_RematchesAnUnconfirmedGuess(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	const rel = "The General (2002).mkv"
+	lesser := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002})
+	lesser.Votes = 10
+	popular := lib.provider.Add(identify.Metadata{ID: "3", Name: "The General", Year: 2002})
+	popular.Votes = 900
+	lib.provider.Searches[identifytest.SearchKey("The General", 2002)] = []identify.Candidate{lesser, popular}
+	lib.scan(videoRecord(rel))
+	lib.matchFileTitle(rel)
+	titleID := lib.titlesByPath()[rel].TitleID
+	if id, _ := lib.followed(rel); id != "3" || !lib.isGuessed(titleID) {
+		t.Fatalf("before: follows %s, guessed %v; want the most voted, guessed", id, lib.isGuessed(titleID))
+	}
+	lib.provider.Searches[identifytest.SearchKey("The General", 2002)] = []identify.Candidate{lesser}
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	if id, _ := lib.followed(rel); id != "2" {
+		t.Errorf("after: follows %s; want 2, the search's one answer", id)
+	}
+	if lib.isGuessed(titleID) {
+		t.Error("still marked a guess; want the guess cleared by a match no person confirmed")
+	}
+}
+
+// D357 §4: a different answer replaces the old one without review: its ids replace the old match's,
+// the title takes the new work's name, and an answer that is a guess is marked one.
+func TestRescan_ADifferentMatchReplacesTheOld(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		if id.ProviderID == "32" {
+			t.Errorf("the old match's id is kept: %+v", ids)
+		}
+	}
+	if lib.isGuessed(titleID) {
+		t.Error("marked a guess; the film named exactly is a clear match")
+	}
+	// Two of the name in its year, now: the most voted is guessed, and marked so.
+	other := lib.provider.Add(identify.Metadata{ID: "33", Name: "Crowd", OriginalName: "Crowd", Year: 2022})
+	other.Votes = 900
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = append(
+		lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)], other)
+	rescan.library()
+	rescan.run()
+	if id, _ := lib.followed(crowdFile); id != "33" || !lib.isGuessed(titleID) {
+		t.Errorf("follows %s, guessed %v; want 33, the most voted of the two, marked a guess", id,
+			lib.isGuessed(titleID))
+	}
+}
+
+// D357 §5: a second press while a library's rescan runs adds nothing, nor does a press on a film in
+// it; once it ends, a press starts another.
+func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	rescan := lib.rescanning()
+	rescan.scans.scanning[lib.libraryID] = true
+	rescan.library()
+	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID)
+	if err != nil || isStarted {
+		t.Errorf("a second press = %v, %v; want nothing started", isStarted, err)
+	}
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	isStarted, err = rescan.rescans.RescanItem(t.Context(), titleID)
+	if err != nil || isStarted {
+		t.Errorf("a press on its film = %v, %v; want nothing started", isStarted, err)
+	}
+	if len(rescan.scans.libraries) != 1 || len(rescan.scans.works) != 0 {
+		t.Errorf("scans asked for: %v and %v; want the first press's alone", rescan.scans.libraries,
+			rescan.scans.works)
+	}
+	rescan.scans.scanning[lib.libraryID] = false
+	rescan.run()
+	rescan.library()
+}
+
+// D357 §1: "Rescan everything" rescans each library of films or of series, and no mixed or other
+// one, which only their films' and series' own pages rescan.
+func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	var want []int64
+	want = append(want, lib.libraryID)
+	for index, kind := range []string{"shows", "mixed", "other"} {
+		source := "tmdb"
+		if kind == "other" {
+			source = "nfo"
+		}
+		libraryID := librarytest.LibraryOn(t, lib.database, lib.nodeID, librarytest.Library{
+			Name: kind, Kind: kind, MetadataSource: source, Root: "/media/" + kind + string(rune('a'+index)),
+		})
+		if kind == "shows" {
+			want = append(want, libraryID)
+		}
+	}
+	rescan := lib.rescanning()
+	started, err := rescan.rescans.RescanEverything(t.Context())
+	if err != nil || started != len(want) || !slices.Equal(rescan.scans.libraries, want) {
+		t.Errorf("RescanEverything = %d, %v, scanning %v; want %d started, scanning %v", started, err,
+			rescan.scans.libraries, len(want), want)
+	}
+}
+
+// D357 §1, §2: "Rescan this" scans the film's own files and matches it alone again.
+func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	const otherFile = "Metropolis (1995).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	lib.scan(videoRecord(crowdFile), videoRecord(otherFile))
+	lib.matchFileTitle(otherFile)
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	rescan := lib.rescanning()
+	isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID)
+	if err != nil || !isStarted {
+		t.Fatalf("RescanItem = %v, %v; want it started", isStarted, err)
+	}
+	if !slices.Equal(rescan.scans.works, []int64{titleID}) || len(rescan.scans.libraries) != 0 {
+		t.Errorf("scans asked for: works %v, libraries %v; want the film's files alone", rescan.scans.works,
+			rescan.scans.libraries)
+	}
+	calls := len(lib.provider.Calls)
+	rescan.run()
+	if id, _ := lib.followed(crowdFile); id != "31" {
+		t.Errorf("the film follows %s; want 31", id)
+	}
+	if slices.Contains(lib.provider.Calls[calls:], "search "+identifytest.SearchKey("Metropolis", 1995)) {
+		t.Errorf("searched for the other film too: %v", lib.provider.Calls[calls:])
+	}
+	seriesLib := orbitoramaLibrary(t)
+	seriesLib.scanAll(orbitoramaFiles...)
+	episode := seriesLib.titlesByPath()[orbitoramaFiles[0]].TitleID
+	if _, err := seriesLib.rescanning().rescans.RescanItem(t.Context(), episode); err == nil {
+		t.Error("an episode was rescanned alone; want it refused, its series is what is rescanned")
+	}
+}
+
+// D357 §6: each match a rescan changes is logged with the item, its old match, its new one and
+// what settled it, and each run's totals when it ends.
+func TestRescan_LogsEachChangedMatchAndTheRunsTotals(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	var logged bytes.Buffer
+	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
+	rescan.library()
+	rescan.run()
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	for _, want := range []string{
+		`msg="a rescan matched an item to another work" itemId=` + strconv.FormatInt(titleID, 10) +
+			` before=32 beforeName="The Crowd" after=31 afterName=Crowd settledBy="the name and the year"` +
+			` isGuess=false`,
+		`msg="a rescan ended" libraryId=` + strconv.FormatInt(lib.libraryID, 10) + ` itemId=0 itemCount=1` +
+			` changedCount=1 unchangedCount=0 leftAloneCount=0 unsettledCount=0 failedCount=0`,
+	} {
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("the log lacks %s:\n%s", want, logged.String())
+		}
+	}
+}
+
+// D357 §1, §4: a series is matched again as the one thing identified, from its folder's name: a
+// different answer replaces the old match, the old work's season listings with it, and its episodes
+// follow the new work's (D209).
+func TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow(t *testing.T) {
+	t.Parallel()
+	lib := orbitoramaLibrary(t)
+	remake := lib.provider.Add(identify.Metadata{ID: "700", Name: "Orbitorama", Year: 2023})
+	lib.provider.Seasons["700/2"] = []identify.Episode{
+		{ID: "7001", Season: 2, Number: 10, Name: "Not Ours", Year: 2023},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{remake}
+	lib.scanAll(orbitoramaFiles...)
+	series := lib.onlySeries()
+	if _, err := lib.matcher.Match(t.Context(), series.ID); err != nil {
+		t.Fatal(err)
+	}
+	lib.runOwedPasses()
+	if name := titleName(lib.titlesByPath()[orbitoramaFiles[0]]); name != "Not Ours" {
+		t.Fatalf("before the rescan, S02E10 is %q; want the remake's episode", name)
+	}
+	original := identify.Candidate{ID: orbitorama.ID, Name: orbitorama.Name, Year: orbitorama.Year}
+	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{remake, original}
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	if followed := ptr.ValueOrZero(lib.onlySeries().FollowedSourceID); followed != orbitorama.ID {
+		t.Errorf("the series follows %s; want %s, the oldest of the name, guessed", followed, orbitorama.ID)
+	}
+	if !lib.isGuessed(series.ID) {
+		t.Error("the series' new match is not marked a guess; two of its name were found and it has no year")
+	}
+	checkOrbitorama(t, lib, "after the rescan")
+}
+
+// D357 §2: a film whose search now settles on none is left as a first match leaves one, its old
+// match forgotten: unidentified, not found, named from its file again.
+func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = nil
+	lib.provider.Searches[identifytest.SearchKey("The Crowd", 2022)] = nil
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	file := lib.titlesByPath()[crowdFile]
+	if id, name := lib.followed(crowdFile); id != "" || name != "Crowd" ||
+		file.Filing != identify.FilingUnidentified {
+		t.Errorf("after the rescan: follows %q, named %q, filed %s; want no match, named from its file, unidentified",
+			id, name, file.Filing)
+	}
+	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)
+	if err != nil || len(ids) != 0 {
+		t.Errorf("ids kept: %+v, %v; want the old match's forgotten", ids, err)
+	}
+}
+
+// D357 §4: what a person watched stays theirs across a changed match. Watching is kept by file
+// (play_position, play_span and play_event name the file), and a person's hiding of a film's
+// progress by its item (progress_hide); a rescan's new match keeps the film's title and its files in
+// it, so its Continue Watching row is the same film's, under its new name.
+func TestRescan_WhatAPersonWatchedSurvivesAChangedMatch(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	file := lib.titlesByPath()[crowdFile]
+	person := storetest.InsertUser(t, lib.database, "alice", "user")
+	storetest.ExecRaw(t, lib.database.Path(),
+		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
+		 VALUES (`+strconv.FormatInt(person, 10)+`, `+strconv.FormatInt(file.ID, 10)+`, 600000, 1, 1, 1)`,
+		`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at)
+		 VALUES (`+strconv.FormatInt(person, 10)+`, `+strconv.FormatInt(file.ID, 10)+`, 0, 600000, 1, 2)`)
+	rescan := lib.rescanning()
+	rescan.library()
+	rescan.run()
+	if id, _ := lib.followed(crowdFile); id != "31" {
+		t.Fatalf("the film follows %s; want 31, its match changed", id)
+	}
+	watching, err := lib.database.Read().ListRecentPlayPositions(t.Context(), sqlcgen.ListRecentPlayPositionsParams{
+		UserID: person, IsEveryLibrary: 1, LibraryIdsJSON: "[]", MaxRows: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(watching) != 1 || watching[0].TitleID != file.TitleID || watching[0].PositionMs != 600000 ||
+		ptr.ValueOrZero(watching[0].Name) != "Crowd" {
+		t.Errorf("what alice was watching: %+v; want the same film, ten minutes in, named Crowd now", watching)
+	}
+	spans, err := lib.database.Read().ListPlaySpansOfFile(t.Context(), sqlcgen.ListPlaySpansOfFileParams{
+		UserID: person, FileID: file.ID,
+	})
+	if err != nil || len(spans) != 1 {
+		t.Errorf("what alice watched of the file: %+v, %v; want the one span", spans, err)
+	}
+}

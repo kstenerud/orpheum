@@ -119,7 +119,10 @@ type Services struct {
 	matcher   *identify.Matcher
 	chooser   *identify.Chooser
 	refresher *identify.Refresher
-	artwork   *artwork.Service
+	// rescans are an admin's rescans: a scan, then a match again of every film and series in its
+	// scope (D357).
+	rescans *identify.Rescans
+	artwork *artwork.Service
 	// chunks cuts films into chunks made on request, run by run (D247 §10).
 	chunks *chunks.Service
 	// playback plays files, and counts what its players need of the server's upload (D286 §5).
@@ -183,6 +186,9 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	dependencies := &services.API
 	dependencies.Chooser, dependencies.Refresher = services.chooser, services.refresher
 	dependencies.Libraries = services.libraryAdmin(parts)
+	services.rescans = identify.NewRescans(services.matcher, services.Queue, dependencies.Libraries)
+	services.rescans.OnRequested(func() { services.Queue.RequestSweeps(sweepRescans) })
+	dependencies.Rescans = services.rescans
 	dependencies.Browser = library.NewBrowser(parts.Database, parts.Settings)
 	dependencies.Browser.SetNodeConnections(services.nodes)
 	services.openPlayback(parts)

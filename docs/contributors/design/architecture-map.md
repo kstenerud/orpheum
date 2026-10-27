@@ -206,6 +206,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
+| rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | chunk_store (a stream of a film on a grid, the target of its runs) | cache.db | T4 | no | made again by the next run asked for; the chunks themselves are the node's |

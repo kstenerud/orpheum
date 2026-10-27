@@ -65,6 +65,28 @@ type NodeAttempt struct {
 	SentAt       int64
 }
 
+type Rematch struct {
+	ItemID   int64
+	RescanID int64
+	Name     string
+	Year     int64
+	IdsJSON  string
+}
+
+type Rescan struct {
+	ID             int64
+	LibraryID      int64
+	ItemID         *int64
+	RequestedAt    int64
+	ListedAt       *int64
+	ItemCount      int64
+	ChangedCount   int64
+	UnchangedCount int64
+	LeftAloneCount int64
+	UnsettledCount int64
+	FailedCount    int64
+}
+
 type Scan struct {
 	ID                  int64
 	NodeID              int64

@@ -1123,7 +1123,9 @@ loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks 
 gave a `node_attempt` its `node_start_id`, the start of the node it was given to, so a node that
 started again is known by its hello even when the core started again too (D238 §3). Version 41
 dropped `prepared_rendition`, the `prepare` kind and `job.rendition_id`: the whole-film prepare is
-retired, and a film its device cannot play as it is plays from its ladder of chunks (D344).
+retired, and a film its device cannot play as it is plays from its ladder of chunks (D344). Version
+43 added `rescan` and `rematch`: an admin's rescan in progress, kept as a scan is from its request
+to its end, and each film and series it matches again with what its files say it is (D357).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -1206,6 +1208,22 @@ CREATE TABLE scan_batch (                                  -- D240 section 8: a 
   is_done     INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1))
 );
 CREATE INDEX scan_batch_of_scan ON scan_batch(scan_id);
+CREATE TABLE rescan (                                      -- D357: an admin's rescan in progress
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  library_id  INTEGER NOT NULL,          -- persistent.db's library
+  item_id     INTEGER,                   -- the one film or series it rescans; NULL for the whole library
+  requested_at INTEGER NOT NULL,
+  listed_at   INTEGER,                   -- its scan over and its films and series listed; NULL while it scans
+  item_count  INTEGER NOT NULL DEFAULT 0,
+  changed_count, unchanged_count, left_alone_count, unsettled_count, failed_count  -- INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));  -- one a scope at a time
+CREATE TABLE rematch (                                     -- D357: a film or series a rescan matches again
+  item_id     INTEGER PRIMARY KEY,       -- persistent.db's film or series
+  rescan_id   INTEGER NOT NULL REFERENCES rescan(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, year INTEGER NOT NULL, ids_json TEXT NOT NULL  -- what its files and NFOs say
+);
+CREATE INDEX rematch_of_rescan ON rematch(rescan_id);
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
   item_id     INTEGER NOT NULL,          -- a film, or a series (D209)
   rank        INTEGER NOT NULL,
@@ -1247,7 +1265,8 @@ re-transcodes; it loses nothing** (D231 §3,
 `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`): every job is derived again from `persistent.db`
 by its sweep, or asked for again by the next play. A lost `match_candidate` means an ambiguous title's choice
 screen searches once more, which is a search the user asked for, and running jobs restart from
-zero because their output is a cache.
+zero because their output is a cache. A lost `rescan` is, like a lost `scan`, an admin's request that ends: the
+admin presses again (D357).
 
 **One queue, not one per kind** (principles §4). Metadata fetches, prepare jobs, scans and
 backups differ in what runs them and in `args_json`, not in how they wait, retry, report progress or
@@ -1361,6 +1380,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
+| `rescan` | cache.db | `internal/core/identify` | an admin's rescan in progress, from its request to its end (D357) |
+| `rematch` | cache.db | `internal/core/identify` | each film and series a rescan matches again, with what its files say (D357) |
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
 | `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |

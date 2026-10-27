@@ -467,6 +467,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	})
 	services := &Services{
 		Queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass, matcher: world.matcher,
+		rescans:    identify.NewRescans(world.matcher, world.queue, nil),
 		invariants: world.database, removedFiles: library.NewFilePurger(world.database), settings: world.config,
 		clock: world.clock,
 	}

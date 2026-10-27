@@ -188,3 +188,14 @@ SELECT CAST((
 -- name: ClearOverridesSetByRemovedUser :exec
 -- The overrides a removed person typed stay, for everyone; who typed them is forgotten (D305).
 UPDATE field_override SET set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);
+
+-- name: ForgetItemProviderIDsBut :exec
+-- A rescan's answer replaces every id an earlier match recorded: only the ids the item's files and
+-- NFOs give stay, as provider:id in the JSON array kept_json (D357 section 4).
+DELETE FROM item_provider_id
+WHERE item_id = sqlc.arg(item_id)
+  AND (provider || ':' || provider_id) NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(kept_json) AS TEXT)));
+
+-- name: GetItemName :one
+-- A film's or series' name as it is shown, what a rescan's log names it by (D357 section 6).
+SELECT name FROM item_text WHERE item_id = sqlc.arg(item_id) AND is_original = 1;

@@ -73,6 +73,9 @@ type Dependencies struct {
 	FilingReports *identify.FilingReports
 	// Refresher queues a person's refresh of a title or series (D213).
 	Refresher *identify.Refresher
+	// Rescans are an admin's rescans of every library of films or series, of one, or of one film or
+	// series (D357).
+	Rescans *identify.Rescans
 	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
 	Libraries *library.Admin
 	// Browser is what a person browses and searches.

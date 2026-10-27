@@ -22740,15 +22740,31 @@ fixes." A fix to the matcher reaches the library only when it re-runs; this is h
 , is left as it is, so that this decision's first build is checked on it: after "Rescan
 this" it is the film named "Crowd".
 
-**Proven by** (tests to be written):
-- 1: TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther, TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_IsForAnAdminOnly, web/apps/web/src/libraries.test.tsx (the buttons)
-- 2: TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_AFileUnchangedOnDiskIsNotProbedAgain
+**Proven by:**
+- 1: TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther, TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_IsForAnAdminOnly, TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow, web/apps/web/src/libraries.test.tsx and web/apps/web/src/rescan.test.tsx (the buttons)
+- 2: TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_AFileUnchangedOnDiskIsNotProbedAgain, TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain
 - 3: TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone, TestRescan_RematchesAnUnconfirmedGuess
-- 4: TestRescan_ADifferentMatchReplacesTheOld, TestRescan_WhatAPersonWatchedSurvivesAChangedMatch
-- 5: TestRescan_ASecondPressWhileOneRunsAddsNothing
+- 4: TestRescan_ADifferentMatchReplacesTheOld, TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow, TestRescan_WhatAPersonWatchedSurvivesAChangedMatch
+- 5: TestRescan_ASecondPressWhileOneRunsAddsNothing, TestRescan_IsForAnAdminOnly (the Libraries page's progress)
 - 6: TestRescan_LogsEachChangedMatchAndTheRunsTotals
 
-**Status:** Decided 2026-10-27, not built: in the next batch.
+**Status:** Decided 2026-10-27.
+
+**Build note** (2026-10-27, staging's check owed, above): the rescans
+(`internal/core/identify/rescan.go`), each item's match again (`rematch.go`) from what its files say,
+read by the pass with its match set aside (`files_say.go`: the stored name after a match is the
+provider's, so the file's name and year are read again from the paths and NFOs); the scan of a
+library, or of the folders holding one item's files (`internal/core/library/rescan_scans.go`); the
+endpoints `POST /libraries/rescan`, `POST /libraries/{id}/rescan`, `POST /items/{id}/rescan` and each
+library's `rescan` progress on `GET /libraries` (`internal/core/api/rescans.go`); the buttons
+(`libraries.tsx`, `match-correction.tsx`). What a person watched is kept by file (`play_position`,
+`play_span`, `play_event`; `progress_hide` by item), and a rescan keeps the item's title and its
+files, so it stays. Decided in the build, for the owner's review: a rescan is kept in cache.db
+(`rescan`, `rematch`), as a scan is, not in persistent.db, so a cache.db lost mid-rescan loses the
+admin's request as it loses a scan's and the admin presses again (the alternative, a persistent
+request as a refresh's, needs a migration and its golden); "Rescan everything" starts one rescan a
+library; a library's matches queue in the background and one item's at a person's priority; "Rescan
+this" on a film in a library being rescanned, or a second press, adds nothing.
 
 ## D358 — A cast asks the receiving device first: "‹Device› wants to play ‹Film› here", whose Play is the press that starts it with sound and full screen
 

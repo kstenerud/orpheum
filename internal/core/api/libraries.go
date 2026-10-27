@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -66,6 +67,8 @@ type LibraryBody struct {
 	CreatedAt          int64            `json:"createdAt"`
 	Roots              []RootBody       `json:"roots,omitempty"`
 	FileCountsByFiling map[string]int64 `doc:"Live files by filing (D163)" json:"fileCountsByFiling,omitempty"`
+	// Rescan is, for an admin, how far its rescans in progress are; absent when none is (D357 §5).
+	Rescan *LibraryRescanBody `json:"rescan,omitempty"`
 }
 
 // LibrariesOutput lists libraries.
@@ -267,6 +270,7 @@ func (server *Server) registerLibraries() {
 		OperationID: "getFiles", Method: http.MethodGet, Path: "/files",
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
 	}, server.getFiles)
+	server.registerRescans()
 }
 
 func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
@@ -357,6 +361,12 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	if err != nil {
 		return nil, server.libraryError(ctx, "list libraries", err)
 	}
+	var rescans map[int64]identify.RescanProgress
+	if administersHere(ctx, principal) {
+		if rescans, err = dependencies.Rescans.Progress(ctx); err != nil {
+			return nil, server.logInternalError(ctx, "list the rescans", err)
+		}
+	}
 	output := &LibrariesOutput{}
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
 	for _, summary := range summaries {
@@ -369,6 +379,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 		// Roots are shown where the admin administers, never from away (the Plex-chain review's T2).
 		if administersHere(ctx, principal) {
 			body.FileCountsByFiling = summary.FileCountByFiling
+			body.Rescan = rescanBodyOf(rescans, summary.ID)
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
 					NodeName: root.NodeName, RootPath: root.RootPath,

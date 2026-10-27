@@ -24,6 +24,8 @@ type fakeNodes struct {
 	roots []string
 	// scanned are the roots a person asked to scan.
 	scanned []string
+	// scopes are the folders a person asked to scan, as root:folder.
+	scopes []string
 	// scanning are the scans in progress.
 	scanning map[ScanRoot]ScanProgress
 	// removed are the nodes an admin retired.
@@ -87,6 +89,13 @@ func (nodes *fakeNodes) InProgress(context.Context) (map[ScanRoot]ScanProgress, 
 func (nodes *fakeNodes) Request(_ context.Context, nodeID int64, root string, priority int64) error {
 	if nodeID == nodes.id && priority == jobs.PriorityPersonsRequest {
 		nodes.scanned = append(nodes.scanned, root)
+	}
+	return nil
+}
+
+func (nodes *fakeNodes) RequestUnder(_ context.Context, nodeID int64, root, scope string, priority int64) error {
+	if nodeID == nodes.id && priority == jobs.PriorityPersonsRequest {
+		nodes.scopes = append(nodes.scopes, root+":"+scope)
 	}
 	return nil
 }

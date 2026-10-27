@@ -796,6 +796,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357) */
+        post: operations["postItemRescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -967,6 +984,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/libraries/{id}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357) */
+        post: operations["postLibraryRescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries/{id}/roots/repoint": {
         parameters: {
             query?: never;
@@ -1012,6 +1046,23 @@ export interface paths {
         put?: never;
         /** Ask a library's nodes to scan it (admin) */
         post: operations["postLibraryScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/libraries/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357) */
+        post: operations["postLibrariesRescan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3355,7 +3406,22 @@ export interface components {
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
+            rescan?: components["schemas"]["LibraryRescanBody"];
             roots?: components["schemas"]["RootBody"][] | null;
+        };
+        LibraryRescanBody: {
+            /** @description Whether a rescan of it waits for its scan before it lists its films and series */
+            isScanning: boolean;
+            /**
+             * Format: int64
+             * @description The films and series its rescans listed to match again
+             */
+            itemCount: number;
+            /**
+             * Format: int64
+             * @description Of them, those matched again
+             */
+            matchedCount: number;
         };
         LinkKindInputBody: {
             secret: string;
@@ -4012,6 +4078,13 @@ export interface components {
         };
         RescanOutputBody: {
             isScanning: boolean;
+        };
+        RescansStartedOutputBody: {
+            /** Format: int64 */
+            startedCount: number;
+        };
+        RescanStartedOutputBody: {
+            isStarted: boolean;
         };
         RetiredOutputBody: {
             /** Format: int64 */
@@ -6687,6 +6760,40 @@ export interface operations {
             };
         };
     };
+    postItemRescan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescanStartedOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listJobs: {
         parameters: {
             query?: never;
@@ -7074,6 +7181,40 @@ export interface operations {
             };
         };
     };
+    postLibraryRescan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescanStartedOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     postLibraryRootRepoint: {
         parameters: {
             query?: never;
@@ -7171,6 +7312,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScanOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postLibrariesRescan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescansStartedOutputBody"];
                 };
             };
             /** @description Error */

@@ -86,6 +86,14 @@ func (matcher *Matcher) acceptSeriesGuess(
 func (matcher *Matcher) acceptSeries(
 	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, id, identification string,
 ) error {
+	return matcher.acceptSeriesAnswer(ctx, provider, series, answer{id: id, identification: identification})
+}
+
+// acceptSeriesAnswer is acceptSeries, of an answer.
+func (matcher *Matcher) acceptSeriesAnswer(
+	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, settled answer,
+) error {
+	id, identification := settled.id, settled.identification
 	body, err := provider.Fetch(ctx, KindSeries, id)
 	if err != nil {
 		return fmt.Errorf("fetch %s series %s: %w", provider.Name(), id, err)
@@ -101,6 +109,7 @@ func (matcher *Matcher) acceptSeries(
 	now := matcher.clock.Now().UnixMilli()
 	found := seriesMatchFound{
 		provider: provider.Name(), seriesID: series.ID, metadata: metadata, identification: identification,
+		keptIDs: settled.keptIDs,
 	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		kept, joinErr := joinDeletedSeries(ctx, queries, provider.Name(), metadata.ID, series, now)
@@ -130,6 +139,8 @@ type seriesMatchFound struct {
 	seriesID       int64
 	metadata       Metadata
 	identification string
+	// keptIDs, when not nil, are the only ids of the series' that stay (D357 §4).
+	keptIDs map[string]string
 }
 
 // recordSeries stores a series' response and ids and its match. A person's choice replaces the
@@ -138,6 +149,11 @@ func recordSeries(
 	ctx context.Context, queries *sqlcgen.Queries, found seriesMatchFound, bodyGzip []byte, now int64,
 ) error {
 	provider, seriesID, metadata, identification := found.provider, found.seriesID, found.metadata, found.identification
+	if found.keptIDs != nil {
+		if err := forgetIDsBut(ctx, queries, seriesID, found.keptIDs); err != nil {
+			return err
+		}
+	}
 	if identification == identificationConfirmed {
 		forget := sqlcgen.DeleteItemProviderIDsAtProviderParams{ItemID: seriesID, Provider: provider}
 		if err := queries.DeleteItemProviderIDsAtProvider(ctx, forget); err != nil {

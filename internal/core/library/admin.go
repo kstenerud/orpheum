@@ -43,9 +43,11 @@ type Nodes interface {
 	RootWatches(nodeID int64) map[string]nodeproto.RootWatch
 }
 
-// ScanRequests are how an admin asks for a root's scan, and sees those in progress: Scans (D240).
+// ScanRequests are how an admin asks for a root's scan, or of a folder in it, and sees those in
+// progress: Scans (D240, D272 §9).
 type ScanRequests interface {
 	Request(ctx context.Context, nodeID int64, root string, priority int64) error
+	RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error
 	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
 }
 
