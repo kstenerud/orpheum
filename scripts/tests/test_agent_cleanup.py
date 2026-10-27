@@ -23,9 +23,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_hooks import HERMETIC, HOOKS_INSTALLED  # noqa: E402
 
 
+# This run's own agent ids: the kill scans the whole machine, and two gates running these tests at
+# once, an agent's and the lead's, ended each other's processes under the same fixed ids (2026-10-27).
+RUN = f"t{os.getpid()}"
+
+
+def ident(name: str) -> str:
+    return f"{name}-{RUN}"
+
+
 def tagged_sleep(agent_id: str) -> subprocess.Popen:
-    """A process an agent's command left behind: a sleep carrying its tag."""
-    return subprocess.Popen(["sleep", "60"], env={**os.environ, agents.TAG: agent_id})
+    """A process an agent's command left behind: a sleep carrying its tag, returned once /proc shows
+    the tag. Until the child execs, it carries the test's own environment: under the gate's load a
+    scan made at once missed it, and the test waited in vain (2026-10-27)."""
+    process = subprocess.Popen(["sleep", "60"], env={**os.environ, agents.TAG: agent_id})
+    deadline = time.monotonic() + 10
+    while agents.tagged_processes().get(process.pid) != agent_id:
+        if time.monotonic() > deadline:
+            process.kill()
+            process.wait()
+            raise AssertionError(f"the tagged sleep {process.pid} never showed its tag")
+        time.sleep(0.01)
+    return process
 
 
 class StateDir(unittest.TestCase):
@@ -41,7 +60,8 @@ class StateDir(unittest.TestCase):
 class Wrapped(StateDir):
     def run_wrapped(self, command: str, *, is_background: bool) -> subprocess.CompletedProcess:
         # stdin is a pipe held open, as the Bash tool's is: a command reading it would wait forever.
-        process = subprocess.Popen(["bash", "-c", agents.wrapped(command, "a1", is_background=is_background)],
+        wrapped = agents.wrapped(command, ident("a1"), is_background=is_background)
+        process = subprocess.Popen(["bash", "-c", wrapped],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             returncode = process.wait(timeout=20)
@@ -59,7 +79,7 @@ class Wrapped(StateDir):
     def test_a_command_waiting_on_its_stdin_ends_at_once_and_carries_its_agent(self):
         """The review agent's `rg` with no path read its stdin for twelve hours (2026-10-27)."""
         done = self.run_wrapped('cat; echo "agent=$ORPHEUM_AGENT_ID"', is_background=False)
-        self.assertEqual(done.stdout.strip(), "agent=a1")
+        self.assertEqual(done.stdout.strip(), f"agent={ident('a1')}")
 
     def test_a_cd_in_the_foreground_carries_on_in_the_shell(self):
         done = self.run_wrapped("cd /tmp; pwd", is_background=False)
@@ -106,21 +126,21 @@ class StoppedAgentsProcesses(StateDir):
     def test_an_agent_that_stops_has_every_process_it_left_ended_and_no_other(self):
         import on_subagent_stop  # noqa: PLC0415
 
-        left, other = tagged_sleep("a1"), tagged_sleep("a2")
+        left, other = tagged_sleep(ident("a1")), tagged_sleep(ident("a2"))
         self.addCleanup(lambda: (other.kill(), other.wait()))
-        event = {"agent_id": "a1", "last_assistant_message": "Done."}
+        event = {"agent_id": ident("a1"), "last_assistant_message": "Done."}
         with mock.patch.object(on_subagent_stop.hooklib, "read_event", lambda: event), \
                 mock.patch.object(on_subagent_stop.sys, "stdout", io.StringIO()):
             on_subagent_stop.main()
         self.assertIsNotNone(left.wait(timeout=10))
         self.assertIsNone(other.poll())
-        self.assertTrue(agents.has_stopped("a1"))
+        self.assertTrue(agents.has_stopped(ident("a1")))
 
     def test_the_sweep_ends_what_a_stopped_agent_left_and_spares_one_acting_again(self):
-        agents.mark_stopped("gone", now=100.0)
-        agents.mark_stopped("back", now=100.0)
-        agents.mark_active("back", now=200.0)  # resumed by a message after it stopped
-        left, working = tagged_sleep("gone"), tagged_sleep("back")
+        agents.mark_stopped(ident("gone"), now=100.0)
+        agents.mark_stopped(ident("back"), now=100.0)
+        agents.mark_active(ident("back"), now=200.0)  # resumed by a message after it stopped
+        left, working = tagged_sleep(ident("gone")), tagged_sleep(ident("back"))
         self.addCleanup(lambda: (working.kill(), working.wait()))
         self.assertIn(left.pid, agents.end_left_by_stopped())
         self.assertIsNotNone(left.wait(timeout=10))
