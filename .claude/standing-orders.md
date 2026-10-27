@@ -19,11 +19,17 @@
    encodes of one other video stay separate (owner: no handling; the admin fixes the files).
    **After the overlap batch:** an inventory of every decided-but-unbuilt feature (decision statuses, plans,
    code-debt, the owner's asks; collections' UI, D160) for the owner to choose from.
+   **Once the filed work (icons, D364, own player controls) is done (owner 2026-10-27):** a DRY audit of
+   the TS code: a standard set of UI widgets (buttons, choosers, dialogs, lists, forms...) instead of
+   bespoke ones; findings for the owner, then the consolidation.
    **Next batch, also (owner 2026-10-27):** a library's setting for whether its items show on the home page.
    Each person chooses for themselves (owner 2026-10-27), beside D349 §8's per-person leave-out.
    **D365 done** (staging's Crowd now 1020910), and a rescan no longer waits an hour.
    **Next batch (owner 2026-10-27):** films and series sort by release date too (now: name, date added; other
    videos: recorded). Every sort runs either way: dates newest↔oldest, names A–Z↔Z–A; unknown dates last.
+   **Next batch (owner 2026-10-27):** one Icon component draws every icon (viewBox, aria-hidden, size, class),
+   each icon only its shapes; marks in currentColor, a two-tone one's ground from --icon-ground, set by its
+   region (the three status cues still use fixed tokens); a test holds both; the QR code exempt.
    **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
    **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once); the owner's
    cast icon is `CastIcon` in status-tray.tsx (from cast.svg): use it. And
