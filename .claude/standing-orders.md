@@ -1,22 +1,23 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now: the local-path batch (owner 2026-10-27).** Wave 1 on main and staging (D354 hairpin + path logging,
-   warning kept as built; D355; D352 Q2 + its setting). Building: D356 (owner agreed all five answers as
-   recommended; agent running, touches orpheum-connect too, re-pin connect after main moves). Then ONE make
-   check, commit, deploy staging (check for live playbacks first). Verified on staging 2026-10-27: hairpins
-   named `hairpinned_ipv4`. yoloAI UDP bug report: /yoloai/files/yoloai-bug-udp-ports.md.
+2. **Now: deploy the local-path batch to staging** (main an earlier commit: D352–D356, D358 the cast prompt, the
+   matcher fix; connect pinned an earlier commit): check for live playbacks first, then `./staging quick` and redeploy
+   connectd. Device check owed: VQ76 (the cast prompt on Fire TV and Chrome). yoloAI UDP bug report:
+   /yoloai/files/yoloai-bug-udp-ports.md.
    **Next batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
    series libraries). Staging's "Crowd" (2022) is left wrongly matched on purpose: verify D357 on it.
-   **Next batch, also:** cast receiver on a desktop (owner 2026-10-27, Firefox Mac → Chrome Linux): (a) no
-   controls, as tv-controls.tsx opens only on keys (OK/Up/Down/arrows), never on a mouse move or click: D338 §5
-   unmet on a mouse-driven receiver; (b) Chrome started the cast muted: its autoplay policy refuses sound to a
-   play no gesture on that tab started; check the "turn the sound back on" prompt shows, and build (owner
-   agreed) a tab waiting to receive casts asking once, while it has had no click, "Click to receive casts with
-   sound", which grants its activation; add the Chrome rule to idiosyncrasies.md.
-   **Next batch, also (owner 2026-10-27):** a receiver that takes control back (Back or a double OK) returns to
-   the page it was on before the cast (the owner's Chrome was on the films listing), as Stop casting does
-   (D338 §1): this replaces D338 §6's "its own playback, which plays on there"; record as an amendment to D338.
+   **Next batch, also:** a cast receiver on a desktop opens no controls on a mouse move or click
+   (tv-controls.tsx opens only on keys): D338 §5 unmet on a mouse-driven receiver (owner 2026-10-27).
+   **Next batch, also (owner 2026-10-27, gate work, owner approved):** deterministic subagent cleanup. (1)
+   pre_bash rewrites each subagent command: own process group, an agent-id tag, </dev/null, a time limit on
+   background ones (~30 min); on_subagent_stop kills every process with that tag. Confirm first that a
+   PreToolUse hook may rewrite the command (updatedInput); if not, come back to the owner. (3) a sweeper at
+   each prompt kills or reports processes older than a few hours whose agent finished. (4) a script, run when
+   a turn ends, removes a worktree and its branch once all its commits are in main by patch-id and its tree
+   is clean; one holding anything else is listed, never removed. Evidence: a review agent's `rg` with no path
+   waited on stdin for 12 h (killed 2026-10-27); nine merged worktrees left behind.
+   **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
 
