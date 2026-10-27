@@ -3,9 +3,11 @@
 package backup
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -486,5 +488,68 @@ func TestWrite_RefusesADamagedCopyAndLeavesNothingBehind(t *testing.T) {
 		if strings.HasPrefix(file.Name, "backup-") {
 			t.Errorf("the refused backup left %s behind", file.Name)
 		}
+	}
+}
+
+// cutShortCopier copies the database whole, then fails as a stop that cancels the copy's check does:
+// the snapshot is there, and the error is not a damaged copy's.
+type cutShortCopier struct{ database *store.Database }
+
+func (copier cutShortCopier) BackupInto(ctx context.Context, path string) error {
+	if err := copier.database.BackupInto(ctx, path); err != nil {
+		return err
+	}
+	return fmt.Errorf("check the copy %q: %w", path, context.Canceled)
+}
+
+// A backup whose copy is cut short, its check cancelled as the server stops, leaves no snapshot
+// behind, and a backup in the same second then takes its name: the snapshot left made `orpheum
+// backup` fail with "output file already exists" after a stop that cut the start's scheduled backup
+// short (cmd/orpheum's canary, 2026-10-26).
+func TestWrite_ACopyCutShortLeavesNothingBehind(t *testing.T) {
+	t.Parallel()
+	instance := newServer(t)
+	stem := "backup-" + testTime.Format(timestampLayout)
+	_, err := write(t.Context(), cutShortCopier{instance.database}, instance.directories, stem, false)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("a backup whose check was cancelled: %v, want context.Canceled", err)
+	}
+	files, err := instance.directories.ListBackups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.HasPrefix(file.Name, "backup-") {
+			t.Errorf("the backup cut short left %s behind", file.Name)
+		}
+	}
+	if _, err = Write(t.Context(), instance.database, instance.directories, testTime, false); err != nil {
+		t.Errorf("a backup in the same second as one cut short: %v", err)
+	}
+}
+
+// A backup whose snapshot's name another backup of the same second holds is refused, and leaves that
+// one's snapshot alone: it is the other's, still being made or archived.
+func TestWrite_LeavesTheSnapshotOfAnotherBackupInTheSameSecondAlone(t *testing.T) {
+	t.Parallel()
+	instance := newServer(t)
+	snapshotName := "backup-" + testTime.Format(timestampLayout) + ".snapshot.sqlite"
+	othersPath, err := instance.directories.BackupPath(snapshotName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = instance.database.BackupInto(t.Context(), othersPath); err != nil {
+		t.Fatal(err)
+	}
+	_, err = Write(t.Context(), instance.database, instance.directories, testTime, false)
+	if !errors.Is(err, store.ErrCopyExists) {
+		t.Errorf("a backup whose snapshot's name is taken: %v, want store.ErrCopyExists", err)
+	}
+	files, err := instance.directories.ListBackups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(files, func(file instancedir.BackupFile) bool { return file.Name == snapshotName }) {
+		t.Errorf("the refused backup removed the other's snapshot %s: %+v", snapshotName, files)
 	}
 }

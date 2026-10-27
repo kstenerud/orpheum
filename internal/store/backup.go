@@ -19,12 +19,17 @@ import (
 // database producing a file with no tables). It reads a snapshot on the maintenance connection, so
 // writes go on while it copies (D303 §7). The copy is then checked whole (integrity_check), and one
 // that fails is refused, ErrDamagedCopy, for the caller to remove: a backup that would not restore
-// is no backup (D303 §7, M6).
-// The target must not exist yet. The copy carries sealed ciphertext only; secret.key is never in
-// the database (D194 §4).
+// is no backup (D303 §7, M6), as is a copy cut short, its context ended.
+// The target must not exist yet: one that does is ErrCopyExists, and left as it is, another's. The
+// copy carries sealed ciphertext only; secret.key is never in the database (D194 §4).
 func (database *Database) BackupInto(ctx context.Context, path string) error {
 	if strings.Contains(path, "?") {
 		return fmt.Errorf("back up into %q: a path may not contain '?'", path)
+	}
+	if _, err := os.Lstat(path); err == nil {
+		return fmt.Errorf("back up into %q: %w", path, ErrCopyExists)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("back up into %q: %w", path, err)
 	}
 	if _, err := database.maintenance.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
 		return fmt.Errorf("back up into %q: %w", path, err)
@@ -34,6 +39,9 @@ func (database *Database) BackupInto(ctx context.Context, path string) error {
 
 // ErrDamagedCopy is a backup whose copy fails SQLite's integrity check.
 var ErrDamagedCopy = errors.New("the copy fails its integrity check")
+
+// ErrCopyExists is a backup's copy whose file is there already: another backup's, of the same second.
+var ErrCopyExists = errors.New("a file of the copy's name is there already")
 
 // checkCopy runs integrity_check over the copy at path, which must answer "ok" alone. The copy is
 // opened query_only, not mode=ro: on a read-only file SQLite's integrity_check skips CHECK
