@@ -6,15 +6,19 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Casting } from "./cast-remote.tsx";
+import { Play } from "./play.tsx";
 import {
+  bodyField,
   buttonWithText,
   click,
   mount,
+  playbackCauses,
   servedBy,
   settleUntil,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
 
@@ -80,7 +84,7 @@ describe("the remote of a cast (D337 §5)", () => {
     });
   });
 
-  it("says control was taken back, and offers to play here from where it stood (§9 Q5)", async () => {
+  it("says control was taken back, and offers to play here from where it stood, which it opens at (§9 Q5)", async () => {
     const services = servedBy(
       { "GET /me/casts": [200, { casts: [sent] }], "GET /files/4/up-next": [200, {}] },
       [],
@@ -95,7 +99,7 @@ describe("the remote of a cast (D337 §5)", () => {
     await server.say({ type: "ended", reason: "takenBack" });
     expect(mounted.container.textContent).toContain("Fire TV took control back.");
     await click(buttonWithText(mounted.container, "Play here from 1:01"));
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4, atMs: 61_000 });
   });
 
   it("stops casting at Stop, the receiver told", async () => {
@@ -175,5 +179,40 @@ describe("the remote of a cast (D337 §5)", () => {
     await server.say({ type: "group", seq: 4, group: { ...welcome.group, fileId: 6 } });
     await settleUntil(() => mounted?.container.querySelector("h1")?.textContent === "Bag");
     expect(mounted.container.textContent).toContain("Bag");
+  });
+});
+
+describe("playing here from where a cast stood (§9 Q5)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("starts the film there, not where the server last heard it was, and asks saying so", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
+        "PUT /files/2/preferences": [204, undefined],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    // A Play here mid-film played from 0:00 (staging, 2026-10-27).
+    mounted = await mount(withServices(<Play fileId={2} atMs={982_680} />, services));
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 1, configurable: true });
+    video.dispatchEvent(new Event("loadedmetadata"));
+    expect(video.currentTime).toBeCloseTo(982.68);
+    const asked = heard.filter((each) => each.methodAndPath === "POST /playback");
+    expect(playbackCauses(heard)).toEqual(["castOver"]);
+    expect(asked.map((each) => bodyField(each, "startsAtMs"))).toEqual([982_680]);
   });
 });

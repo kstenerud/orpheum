@@ -183,7 +183,10 @@ export class Watching {
    * The Play page asks how the film plays: the film page's decision when it is fresh and on the
    * film's ladder, else a new one, since the warm-up read the keyframes of a film not cut yet and it
    * may be on its ladder now (D260 §1). Another film being watched is let go of first. Where asked
-   * says where the page starts the playback, each request says so (StartAsked).
+   * says where the page starts the playback, each request says so (StartAsked), and a warm-up, made
+   * and preloaded for where the film resumes, is let go of for a new one asked from there: a Play
+   * here mid-film took the warm-up's, which the server never heard of, and played from 0:00
+   * (staging, 2026-10-27).
    */
   decide(
     fileId: number,
@@ -195,6 +198,10 @@ export class Watching {
     this.warm = undefined;
     const { startsAtMs } = asked;
     if (warm === undefined) {
+      return this.ask(fileId, { playableFormats, ...asked });
+    }
+    if (startsAtMs !== undefined) {
+      this.letGoOf(warm);
       return this.ask(fileId, { playableFormats, ...asked });
     }
     if (this.nowMs() - warm.askedMs >= warmUpKeptMs) {
@@ -245,6 +252,18 @@ export class Watching {
       this.leave(decision.mediaToken);
     }
     return decision;
+  }
+
+  /** Lets go of a warm-up the Play page does not take: its preload, and its playback once decided. */
+  private letGoOf(warm: Warm): void {
+    warm.preload?.stop();
+    warm.decision.then(
+      (decision) => {
+        this.tokens.delete(decision.mediaToken);
+        this.leave(decision.mediaToken);
+      },
+      () => undefined,
+    );
   }
 
   /** Makes fileId the film watched, letting go of the playbacks of the one before. */

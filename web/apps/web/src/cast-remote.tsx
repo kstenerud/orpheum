@@ -333,7 +333,7 @@ function Timeline(props: {
 
 /**
  * The remote once its cast is over: why, in the person's words, and Play here from where it stood
- * (§9 Q5); at the film's end, only why.
+ * (§9 Q5), which the Play page starts from; at the film's end, only why.
  */
 function CastOver(props: {
   readonly cast: Cast;
@@ -351,7 +351,7 @@ function CastOver(props: {
         <button
           type="button"
           onClick={() => {
-            navigation.go({ screen: "play", fileId: cast.fileId });
+            navigation.go({ screen: "play", fileId: cast.fileId, atMs: props.positionMs });
           }}
         >
           {t("cast.playHere", { at: clockText(props.positionMs) })}

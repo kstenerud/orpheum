@@ -25,7 +25,11 @@ export type Route =
   | { readonly screen: "title"; readonly itemId: number }
   /** A series' page: its seasons, or one season's episodes (the owner, 2026-10-07: drill down). */
   | { readonly screen: "series-page"; readonly collectionId: number; readonly season?: number }
-  | { readonly screen: "play"; readonly fileId: number }
+  /**
+   * A file's Play page; with atMs, starting there in place of where the person last left the file:
+   * a cast's remote playing here from where its receiver stood (D337's §9 answers, Q5).
+   */
+  | { readonly screen: "play"; readonly fileId: number; readonly atMs?: number }
   /**
    * The Libraries page (D349 §9.1), which replaces Search: the library chosen ("all" for every one
    * the person reaches, undefined for none chosen yet, which the page itself resolves to the first
@@ -98,7 +102,7 @@ const shapes: readonly Shape[] = [
         : { screen: "series-page", collectionId };
     },
   },
-  { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId) => ({ screen: "play", fileId }) },
+  { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId, search) => playRoute(fileId, search) },
   { pattern: /^\/browse\/?$/u, toRoute: (_, search) => browseRoute(search) },
   { pattern: /^\/identify\/?$/u, toRoute: () => ({ screen: "identify" }) },
   { pattern: /^\/libraries\/?$/u, toRoute: () => ({ screen: "libraries" }) },
@@ -127,6 +131,14 @@ const shapes: readonly Shape[] = [
   })),
   { pattern: /^\/lab\/extend\/player\/?$/u, toRoute: () => ({ screen: "lab-extend-player" }) },
 ];
+
+/** The Play page's route, with where it starts, `at` in ms, where the address says a whole number. */
+function playRoute(fileId: number, search: URLSearchParams): Route {
+  const at = search.get("at") ?? "";
+  return /^\d{1,12}$/u.test(at)
+    ? { screen: "play", fileId, atMs: Number(at) }
+    : { screen: "play", fileId };
+}
 
 /** A library id from the address: a positive whole number, else undefined (not a library). */
 function libraryIdOf(raw: string): number | undefined {
@@ -191,6 +203,10 @@ function queryRouteHref(route: Route): string | undefined {
   if (route.screen === "browse") {
     return browseRouteHref(route);
   }
+  if (route.screen === "play") {
+    const at = route.atMs === undefined ? "" : `?at=${String(Math.round(route.atMs))}`;
+    return `/play/${String(route.fileId)}${at}`;
+  }
   return undefined;
 }
 
@@ -239,9 +255,6 @@ export function routeHref(route: Route): string {
   if (route.screen === "series-page") {
     const season = route.season === undefined ? "" : `?season=${String(route.season)}`;
     return `/series/${String(route.collectionId)}${season}`;
-  }
-  if (route.screen === "play") {
-    return `/play/${String(route.fileId)}`;
   }
   if (route.screen === "person") {
     return `/people/${String(route.userId)}`;

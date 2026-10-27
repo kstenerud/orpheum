@@ -11,6 +11,7 @@
 
 import { seekTo } from "@orpheum/player";
 
+import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
 
@@ -46,7 +47,7 @@ function leaveFullscreen(): boolean {
   if (!(document.fullscreenElement instanceof Element)) {
     return false;
   }
-  document.exitFullscreen().catch(() => undefined);
+  leaveFullScreenAsked(document);
   return true;
 }
 

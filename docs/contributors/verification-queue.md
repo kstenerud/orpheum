@@ -723,3 +723,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   the page had been pressed), "Press OK to turn the sound on" shows over the film, and one OK (or
   any arrow) turns the sound on without pausing it (`logEvent=unmutedTap by=key`).
   (`web/apps/web/src/cast-asked.tsx`, `cast-to.tsx`, `cast-receiver.tsx`, `live.tsx`)
+- [ ] **VQ77** — As VQ76, a cast played full screen on the Fire TV, then on Chrome on Linux.
+  Passes when **one** Back on the Fire TV takes control back (full screen left, the film playing on
+  there), the laptop saying it was taken back, and staging's core log shows
+  `logEvent=fullScreen answer=left`; on Chrome, Escape does the same. Stop casting from the laptop,
+  and the film's end, return each receiver to its page with no "taken back" (the log saying
+  `reason=stopped` or `filmEnded`, no `answer=left`). On Chrome, moving the mouse or clicking shows
+  the player's controls, which hide again about 5 s after the mouse stops; a double click takes
+  control back; with the sound refused, the first click turns the sound on and does nothing else.
+  Chrome's receiver goes full screen at Play (D358 §2). On the laptop, after the receiver took
+  control back at, say, 16:22, *Play here from 16:22* plays from 16:22, and the core log's
+  `a playback started` line says `cause=castOver pageStartsAtMs=982…`, its `play state changed
+  kind=started positionMs=` near it. (`web/apps/web/src/cast-receiver.tsx`, `tv-controls.tsx`,
+  `cast-remote.tsx`, `play.tsx`)

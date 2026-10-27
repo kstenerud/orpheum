@@ -167,7 +167,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 }
 
 // logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
-// or playing it, a press turning it on, full screen entered or refused, and a guest's page asking for
+// or playing it, a press turning it on, full screen entered, refused or left, and a guest's page asking for
 // a tap to continue, each with the page's presses where it says them (D358).
 func (current *session) logSound(ctx context.Context, who *member, from *device, note *PlayerNote) {
 	attributes := current.deviceAttributes(who, from)
@@ -185,7 +185,7 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 			append(attributes, logEvent, eventPlayedWithSound, positionMsAttribute, note.PositionMs,
 				"page", note.Page)...)
 	case NoteFullScreen:
-		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered or refused",
+		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered, refused or left",
 			append(attributes, logEvent, eventFullScreen, "answer", note.Why, "by", note.By)...)
 	case NoteContinueAsked:
 		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",

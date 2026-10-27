@@ -14,6 +14,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "series-page", collectionId: 7, season: 2 },
       { screen: "series-page", collectionId: 7, season: 0 },
       { screen: "play", fileId: 9 },
+      { screen: "play", fileId: 9, atMs: 982_680 },
       { screen: "browse" },
       { screen: "browse", library: "all" },
       { screen: "browse", library: 3 },
@@ -56,6 +57,9 @@ describe("parseRoute and routeHref", () => {
     }
     expect(parseRoute("/", "")).toEqual({ screen: "home" });
     expect(parseRoute("/films", "")).toEqual({ screen: "films" });
+    for (const at of ["?at=-5", "?at=1.5", "?at=soon", "?at="]) {
+      expect(parseRoute("/play/9", at)).toEqual({ screen: "play", fileId: 9 });
+    }
   });
 
   it("reaches the device lab by a short address, with or without a slash, and no other probe", () => {

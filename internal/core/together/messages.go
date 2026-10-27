@@ -186,7 +186,8 @@ const (
 	// NoteFullScreen is a player's stage put full screen ("entered") or the browser refusing it
 	// ("refused"), By the press that asked, absent as the player opened: full screen needs a press
 	// made moments before, and a cast's receiver on a Fire TV stayed out of it with nothing said why
-	// (the owner, 2026-10-27).
+	// (the owner, 2026-10-27). A receiver whose full screen the browser left unasked, by a Fire TV's
+	// Back or Escape, which takes control back as Back does (D338 §6), notes it "left", with no press.
 	NoteFullScreen NoteKind = "fullScreen"
 	// NotePlayedWithSound is a cast's receiver's film starting with its sound on, at PositionMs, Page
 	// what the page's activation was then: with NotePlayedMuted, whether the press that answered the
@@ -318,12 +319,23 @@ func (note PlayerNote) isKnown() bool {
 	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
 	case NoteFullScreen:
-		return note.Track == "" && (note.Why == "entered" || note.Why == "refused") && isPressWord(note.By)
+		return note.Track == "" && isFullScreenWhy(note.Why) &&
+			isPressWord(note.By)
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
 	}
 	return false
 }
+
+// isFullScreenWhy is whether word is what a fullScreen note may say happened: full screen entered
+// or refused, or left by the browser unasked.
+func isFullScreenWhy(word string) bool {
+	return word == "entered" || word == "refused" || word == fullScreenLeft
+}
+
+// fullScreenLeft is a fullScreen note's word for full screen the browser left unasked, which a cast's
+// receiver takes for Back (D338 §6).
+const fullScreenLeft = "left"
 
 // isPressWord is whether word says how a person pressed, as the web client's Press names it: a tap,
 // a click or a key, or "" where it does not say.

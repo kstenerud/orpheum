@@ -31,6 +31,32 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
   }, fullscreenAnswerWithinMs);
 }
 
+/** The pages that asked to leave full screen, until the browser says it changed. */
+const leavingAsked = new WeakSet<Document>();
+
+/**
+ * Leaves full screen at the page's own asking, which isFullScreenLeaveAsked says until the browser's
+ * next fullscreenchange has been heard: a cast's receiver takes control back where the browser leaves
+ * full screen unasked (a Fire TV's Back, Escape; cast-receiver.tsx), and its own leaving, Stop
+ * casting or the film's end, is not that.
+ */
+export function leaveFullScreenAsked(page: Document): void {
+  leavingAsked.add(page);
+  const forget = (): void => {
+    leavingAsked.delete(page);
+  };
+  page.addEventListener("fullscreenchange", forget, { once: true });
+  page.exitFullscreen().catch(() => {
+    page.removeEventListener("fullscreenchange", forget);
+    forget();
+  });
+}
+
+/** Whether the full screen being left now is one the page asked to leave (leaveFullScreenAsked). */
+export function isFullScreenLeaveAsked(page: Document): boolean {
+  return leavingAsked.has(page);
+}
+
 /**
  * How long a browser may take to put the stage full screen before it fills the window instead, in
  * milliseconds: a full-screen change takes a fraction of a second. A justified constant.

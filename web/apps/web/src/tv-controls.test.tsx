@@ -123,4 +123,60 @@ describe("the overlay as drawn", () => {
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
+
+  it("opens at a mouse's move, a click or a tap, as a desktop player does, and hides after its time", async () => {
+    // A cast's receiver on a computer opened no controls to its mouse (the owner, 2026-10-27).
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const videoRef = createRef<HTMLVideoElement>();
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false }); // playing, so the overlay hides
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>,
+      ),
+    );
+    const overlay = mounted.container.querySelector(".tv-controls");
+    let pageNowMs = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => pageNowMs);
+    const hideByTime = (): void => {
+      pageNowMs += 1_000_000;
+      act(() => {
+        video.dispatchEvent(new Event("play"));
+      });
+      act(() => {
+        vi.advanceTimersByTime(10_000); // well past overlayShownForMs, which hides it
+      });
+    };
+    const moveTo = (screenX: number, pointerType = "mouse"): void => {
+      act(() => {
+        document.body.dispatchEvent(
+          new PointerEvent("pointermove", { bubbles: true, pointerType, screenX, screenY: 5 }),
+        );
+      });
+    };
+    const clickWith = (detail: number): void => {
+      act(() => {
+        document.body.dispatchEvent(new MouseEvent("click", { bubbles: true, detail }));
+      });
+    };
+    hideByTime();
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    moveTo(10);
+    moveTo(10); // the browser's own move, the pointer where it was
+    moveTo(30, "touch");
+    clickWith(0); // a key's click, which the overlay hears as the key
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    moveTo(11);
+    expect(overlay?.getAttribute("data-shown")).toBe("all");
+    expect(document.activeElement).not.toBe(mounted.container.querySelector("button"));
+    hideByTime();
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    clickWith(1);
+    expect(overlay?.getAttribute("data-shown")).toBe("all");
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 });

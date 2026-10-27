@@ -15,7 +15,7 @@ import {
 } from "./cast-receiver.tsx";
 import { playedMutedEvent } from "@orpheum/sdk";
 
-import type { CastAnswer } from "./cast-asked.tsx";
+import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
 import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
@@ -470,5 +470,121 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     expect(notesOf(server, "playedWithSound")).toEqual([
       expect.objectContaining({ kind: "playedWithSound", positionMs: 61_000 }),
     ]);
+  });
+});
+
+describe("a receiver's full screen left by the browser, not the page (D338 §6)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    document.body.replaceChildren();
+    Reflect.deleteProperty(document, "fullscreenElement");
+    Reflect.deleteProperty(document, "exitFullscreen");
+  });
+
+  /** A receiver of cast, connected and welcomed, and what it was told and asked. */
+  async function receiving(): Promise<{
+    readonly server: FakeTogetherServer;
+    readonly heard: Heard[];
+    readonly onOver: ReturnType<typeof vi.fn>;
+    readonly onLeave: ReturnType<typeof vi.fn>;
+  }> {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: true }] },
+      heard,
+      "token",
+    );
+    const server = fakeTogetherServer();
+    const video = document.createElement("video");
+    document.body.append(video);
+    const onOver = vi.fn();
+    const onLeave = vi.fn();
+    mounted = await mount(
+      withServices(
+        <CastReceiver
+          receiving={{ cast, onOver, onLeave }}
+          fileId={4}
+          video={video}
+          startPositionMs={0}
+        />,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say(welcome);
+    return { server, heard, onOver, onLeave };
+  }
+
+  /** The page full screen, or not, as the browser says it (fullscreenElement). */
+  function isFullScreen(isIt: boolean): void {
+    Object.defineProperty(document, "fullscreenElement", {
+      value: isIt ? document.documentElement : null,
+      configurable: true,
+    });
+  }
+
+  /** The browser saying the page's full screen changed, and what follows it settled. */
+  async function fullScreenChanged(): Promise<void> {
+    await act(async () => {
+      document.dispatchEvent(new Event("fullscreenchange"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  /** The full-screen notes the receiver sent. */
+  function fullScreenNotes(server: FakeTogetherServer): unknown[] {
+    return server.heard
+      .filter((each) => each["type"] === "note")
+      .map((each) => each["note"])
+      .filter(
+        (note) =>
+          typeof note === "object" && note !== null && Reflect.get(note, "kind") === "fullScreen",
+      );
+  }
+
+  it("takes control back at once when a Fire TV's Back or Escape leaves full screen, telling the log", async () => {
+    // In full screen a Fire TV's first Back only left full screen; a second took control back (the
+    // owner, 2026-10-27).
+    const { server, heard, onOver, onLeave } = await receiving();
+    isFullScreen(false);
+    await fullScreenChanged();
+    expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([
+      { methodAndPath: "POST /me/casts/9/end", body: { reason: "takenBack" } },
+    ]);
+    expect(fullScreenNotes(server)).toEqual([{ kind: "fullScreen", why: "left" }]);
+  });
+
+  it("takes control back once where Escape reaches the page as well as leaving full screen", async () => {
+    const { heard, onOver } = await receiving();
+    press("Escape");
+    isFullScreen(false);
+    await fullScreenChanged();
+    expect(onOver).toHaveBeenCalledOnce();
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toHaveLength(1);
+  });
+
+  it("keeps control where the page itself left full screen, as Stop casting and the film's end do", async () => {
+    const { server, onOver } = await receiving();
+    isFullScreen(true);
+    Object.defineProperty(document, "exitFullscreen", {
+      value: () => Promise.resolve(),
+      configurable: true,
+    });
+    leaveFullScreen(document);
+    isFullScreen(false);
+    await fullScreenChanged();
+    expect(onOver).not.toHaveBeenCalled();
+    expect(fullScreenNotes(server)).toEqual([]);
+    // Only that one leaving was the page's.
+    isFullScreen(true);
+    await fullScreenChanged();
+    expect(onOver).not.toHaveBeenCalled();
+    isFullScreen(false);
+    await fullScreenChanged();
+    expect(onOver).toHaveBeenCalledOnce();
   });
 });

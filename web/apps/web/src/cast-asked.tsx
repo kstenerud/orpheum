@@ -7,6 +7,7 @@ import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { castAnswerWithinMs, endCast } from "./cast.ts";
+import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { useTogether } from "./use-together.ts";
@@ -58,7 +59,7 @@ export function enterFullScreen(page: Document): Promise<FullScreenAnswer> | und
 /** Leaves the full screen enterFullScreen asked for, where the page holds it. */
 export function leaveFullScreen(page: Document): void {
   if (page.fullscreenElement === page.documentElement) {
-    page.exitFullscreen().catch(() => undefined);
+    leaveFullScreenAsked(page);
   }
 }
 

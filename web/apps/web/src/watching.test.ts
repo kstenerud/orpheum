@@ -177,6 +177,33 @@ describe("the film being watched (D258)", () => {
     expect(decision.onLadder).toBeDefined();
   });
 
+  it("lets go of the warm-up, preload and playback, for one asked from where the page starts", async () => {
+    // A Play here mid-film took the film page's warm-up, made for 0:00, which the server never
+    // heard of, and played from 0:00 (staging, 2026-10-27).
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("a"), decided("b")],
+        "DELETE /playback/a": [204, undefined],
+      },
+      heard,
+    );
+    const watching = new Watching(api, () => 0, preloads.start);
+    watching.warmUp(7, playableFormats);
+    await settled(heard);
+    const decision = await watching.decide(7, playableFormats, {
+      cause: "castOver",
+      startsAtMs: 982_680,
+    });
+    expect(decision.mediaToken).toBe("b");
+    expect(preloads.started[0]?.isStopped).toBe(true);
+    expect(await settled(heard)).toContain("DELETE /playback/a");
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(playbackCauses(asked)).toEqual(["filmPage", "castOver"]);
+    expect(asked.map((request) => bodyField(request, "startsAtMs"))).toEqual([undefined, 982_680]);
+  });
+
   it("lets go of the warm-up's playback when it asks again at Play, and asks again for one that failed", async () => {
     const heard: Heard[] = [];
     const { api } = servedBy(

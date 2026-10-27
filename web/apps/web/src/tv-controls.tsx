@@ -89,7 +89,8 @@ function seekOfArrow(command: Command): number | undefined {
  * screen: play or pause, the scrub bar, where the film stands and when it ends. The browser's own
  * controls are in a shadow no remote reaches (the owner, Fire TV, 2026-10-25: "none of the controls
  * on the video player are selectable from the remote"). As the player opens it puts its stage full
- * screen, as a television's player is.
+ * screen, as a television's player is. A mouse's move, a click or a tap opens it too, as a desktop
+ * player's controls do, so a cast's receiver on a computer keeps its controls (D338 §5).
  */
 export function TvControls(props: FilmParts): JSX.Element {
   const { t } = useTranslation();
@@ -100,6 +101,7 @@ export function TvControls(props: FilmParts): JSX.Element {
   const stand = useStanding(videoRef);
   const [shown, setShown] = useState<OverlayShown>("all");
   const notePress = useHiding({ isPaused: stand.isPaused, shown, setShown, overlayRef, videoRef });
+  useOpensAtThePointer(setShown, notePress);
   useFullscreenStage(playRef);
   useCommands(
     "document",
@@ -286,6 +288,52 @@ function useHiding(hiding: {
   return () => {
     lastPressAtRef.current = performance.now();
   };
+}
+
+/**
+ * Opens the whole overlay at a mouse's move, or a click or a tap anywhere on the page, as a desktop
+ * player shows its controls, and hides it as after a press (useHiding): a cast's receiver on a
+ * computer showed no controls to its mouse (the owner, 2026-10-27). A move that did not change the
+ * pointer's place is none (a browser may move it by itself as what lies under it changes), and a
+ * click a key made (no count) is the key's, which the overlay answers as a press already. Focus
+ * stays where it is.
+ */
+function useOpensAtThePointer(
+  setShown: (shown: OverlayShown) => void,
+  notePress: () => void,
+): void {
+  const openRef = useRef(notePress);
+  useEffect(() => {
+    openRef.current = () => {
+      setShown("all");
+      notePress();
+    };
+  });
+  useEffect(() => {
+    let lastPlace: string | undefined;
+    const moved = (event: PointerEvent): void => {
+      if (event.pointerType !== "mouse") {
+        return;
+      }
+      const place = `${String(event.screenX)},${String(event.screenY)}`;
+      const isMoved = lastPlace !== undefined && place !== lastPlace;
+      lastPlace = place;
+      if (isMoved) {
+        openRef.current();
+      }
+    };
+    const clicked = (event: MouseEvent): void => {
+      if (event.detail > 0) {
+        openRef.current();
+      }
+    };
+    document.addEventListener("pointermove", moved);
+    document.addEventListener("click", clicked);
+    return () => {
+      document.removeEventListener("pointermove", moved);
+      document.removeEventListener("click", clicked);
+    };
+  }, []);
 }
 
 /** Where the film stands, its length, and whether it is paused, as the video says them. */

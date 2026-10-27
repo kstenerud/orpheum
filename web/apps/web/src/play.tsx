@@ -552,22 +552,29 @@ function openedAt(decision: PlaybackDecision, at: ReopenAt): Opened {
  * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
  * or paused as it was, while the server answers within about a minute (askUntilAnswered); one lost
  * again within reopenAtMostEveryMs is told. On a device that casts, the film goes on to its receiver
- * instead (D337; plans/cast-to-device.md §9 Q3).
+ * instead (D337; plans/cast-to-device.md §9 Q3). Given atMs, it starts there in place of where the
+ * person last left the file: a cast's remote playing here from where its receiver stood.
  */
-export function Play(props: { readonly fileId: number }): ReactNode {
+export function Play(props: {
+  readonly fileId: number;
+  readonly atMs?: number | undefined;
+}): ReactNode {
   return (
     <PlayOrSendOn fileId={props.fileId}>
-      <PlayHere fileId={props.fileId} />
+      <PlayHere fileId={props.fileId} atMs={props.atMs} />
     </PlayOrSendOn>
   );
 }
 
 /** The Play page playing its film on this device. */
-function PlayHere(props: { readonly fileId: number }): JSX.Element {
+function PlayHere(props: {
+  readonly fileId: number;
+  readonly atMs: number | undefined;
+}): JSX.Element {
   const { t } = useTranslation();
   const receiving = useReceiving(props.fileId);
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
-    useOpenedPlayback(props.fileId, receiving?.cast.positionMs);
+    useOpenedPlayback(props.fileId, firstAskOf(receiving, props.atMs));
   const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
     <PlayView
       key={decision.mediaToken}
@@ -595,6 +602,28 @@ function PlayHere(props: { readonly fileId: number }): JSX.Element {
       {render(shown)}
     </>
   );
+}
+
+/**
+ * Where the Play page's first playback starts in place of the resume position, and why it is asked
+ * for: a cast received, from where its sender stood; a remote's Play here from, from where its
+ * receiver stood (a Play here mid-film played from 0:00, staging 2026-10-27); else nowhere given.
+ */
+function firstAskOf(
+  receiving: Receiving | undefined,
+  atMs: number | undefined,
+): FirstAsk | undefined {
+  if (receiving !== undefined) {
+    const { positionMs } = receiving.cast;
+    return positionMs === undefined ? undefined : { cause: "playPage", atMs: positionMs };
+  }
+  return atMs === undefined ? undefined : { cause: "castOver", atMs };
+}
+
+/** Where the Play page's first playback starts, and why it is asked for. */
+interface FirstAsk {
+  readonly cause: StartCause;
+  readonly atMs: number;
 }
 
 /** What the Play page shows: its decision, or, while the next is asked for, the one held. */
@@ -679,7 +708,7 @@ function useReopening(parts: {
  */
 function useOpenedPlayback(
   fileId: number,
-  firstAtMs: number | undefined,
+  first: FirstAsk | undefined,
 ): {
   readonly opened: Resource<Opened>;
   readonly held: Opened | undefined;
@@ -691,9 +720,9 @@ function useOpenedPlayback(
   const { api, playableFormats } = useServices();
   // Why the next decision is asked for: the page's opening, unless something asked it again; and
   // where the video stood when it did, for the next to start from, when it said.
-  const nextCauseRef = useRef<StartCause>("playPage");
+  const nextCauseRef = useRef<StartCause>(first?.cause ?? "playPage");
   const nextAtRef = useRef<ReopenAt | undefined>(
-    firstAtMs === undefined ? undefined : { positionMs: firstAtMs, isPaused: false },
+    first === undefined ? undefined : { positionMs: first.atMs, isPaused: false },
   );
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
   // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
