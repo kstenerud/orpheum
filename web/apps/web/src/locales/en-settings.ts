@@ -272,6 +272,8 @@ export const enSettingsCatalogue = {
     linkShareForQualityPercent:
       "The share of a link's measured speed a quality may use when choosing one.",
     linkSpeedFreshHours: "How long a measured link speed is trusted for its device on its network.",
+    linkSteadinessRelaxesSeconds:
+      "How long between playbacks a device's caution on a network takes to ease by one level. A device whose last playback there kept switching quality starts the next one cautious, one level less for each of these since.",
     logLevel:
       "How much the server writes to its log, changed at once: debug, info, warn or error. file keeps the level its config file names.",
     loudnessMaxRaiseDb:

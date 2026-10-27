@@ -45,13 +45,6 @@ func (link rememberedLink) newestAt() time.Time {
 // reported above it is kept as it.
 const highestSteadiness = 3
 
-// steadinessRelaxesEvery is how long between playbacks relaxes a remembered steadiness level by
-// one (D352 Q2). A playing player relaxes a level every 10 calm minutes it watched (D352 §3);
-// between playbacks nothing is watched, so the level relaxes six times slower: a film started again
-// within the hour starts as steady as the last ended, and a bad evening is forgotten by the next
-// morning, well before the day the speed is kept.
-const steadinessRelaxesEvery = time.Hour
-
 // linkSpeeds are what players said of their links on real video, the latest of each player on each
 // network (D257 §1): the speed, and the steadiness level a chunked player ended at (D352 Q2). They
 // are kept in memory: a restart forgets them, and the next playback measures again from level 0.
@@ -117,8 +110,10 @@ func (speeds *linkSpeeds) fresh(key speedKey, now time.Time, freshFor time.Durat
 
 // steadiness is the steadiness level a player's next playback on a network starts at (D352 Q2): the
 // one it last reported there within freshFor of now, as its speed is kept, relaxed by one for each
-// steadinessRelaxesEvery since; 0 for none.
-func (speeds *linkSpeeds) steadiness(key speedKey, now time.Time, freshFor time.Duration) int {
+// relaxEvery since (link_steadiness_relaxes_seconds, an hour to start: between playbacks nothing is
+// watched, so a level relaxes six times slower than a playing player's ten calm minutes, D352 §3, and
+// a bad evening is forgotten by the next morning); 0 for none.
+func (speeds *linkSpeeds) steadiness(key speedKey, now time.Time, freshFor, relaxEvery time.Duration) int {
 	speeds.mutex.Lock()
 	defer speeds.mutex.Unlock()
 	link, found := speeds.byKey[key]
@@ -129,7 +124,7 @@ func (speeds *linkSpeeds) steadiness(key speedKey, now time.Time, freshFor time.
 	if since > freshFor {
 		return 0
 	}
-	return max(0, link.steadiness.level-int(since/steadinessRelaxesEvery))
+	return max(0, link.steadiness.level-int(since/relaxEvery))
 }
 
 // playerOf names who measures a link: a device by its id, or a session with no device row, a Watch

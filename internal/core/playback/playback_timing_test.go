@@ -22,10 +22,12 @@ func TestRefreshTiming_IsTheSettingsAndInterestLapsesByIt(t *testing.T) {
 	answers := keyedSettings{}
 	answers[settings.ChunkInterestLapsesAfterSeconds] = 40
 	answers[settings.ChunkCPUCeilingKeptSeconds] = 15
+	answers[settings.LinkSteadinessRelaxesSeconds] = 20
 	service.settings = answers
 	service.refreshTiming(t.Context(), slog.New(slog.DiscardHandler))
 	want := playbackTiming{
 		interestLapsesAfter: 40 * time.Second, cpuCeilingFor: 15 * time.Second, speedFreshFor: speedFreshFor,
+		steadinessRelaxesEvery: 20 * time.Second,
 	}
 	if got := service.timingNow(); got != want {
 		t.Errorf("the timing read is %+v; want %+v, the link speed's, unread, at its start", got, want)

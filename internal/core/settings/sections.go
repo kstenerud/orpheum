@@ -124,6 +124,7 @@ var sectionByKey = map[Key]Section{
 	ChunkSoundKbps:                                 SectionSlowLinks,
 	LinkShareForQualityPercent:                     SectionSlowLinks,
 	LinkSpeedFreshHours:                            SectionSlowLinks,
+	LinkSteadinessRelaxesSeconds:                   SectionSlowLinks,
 	PlayLadderWaitMs:                               SectionSlowLinks,
 	ServerUploadMbps:                               SectionUpload,
 	WebRTCConnectionsPerNetwork:                    SectionRemoteAccess,

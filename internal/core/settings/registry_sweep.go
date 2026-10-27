@@ -43,6 +43,7 @@ const (
 	ChunkInterestLapsesAfterSeconds       Key = "chunk_interest_lapses_after_seconds"
 	ChunkCPUCeilingKeptSeconds            Key = "chunk_cpu_ceiling_kept_seconds"
 	LinkSpeedFreshHours                   Key = "link_speed_fresh_hours"
+	LinkSteadinessRelaxesSeconds          Key = "link_steadiness_relaxes_seconds"
 	ChunkLookaheadSeconds                 Key = "chunk_lookahead_seconds"
 	ChunkRunSpanSeconds                   Key = "chunk_run_span_seconds"
 	ChunkRunSpeedWindowSeconds            Key = "chunk_run_speed_window_seconds"
@@ -228,6 +229,11 @@ func playbackTimingDefinitions() []Definition {
 			"hours a measured link speed stands for its player on its network, after which a link may have "+
 				"changed for a reason no address shows, and a new measurement is waited for (D257 §1)"),
 			"D257 §1: a day, \"counting for less after a day\""),
+		sourced(durationSetting(LinkSteadinessRelaxesSeconds, time.Second, "3600", 600, 86400,
+			"seconds between playbacks after which a device's remembered steadiness on a network relaxes one "+
+				"level: its next playback there starts as steady as its last ended, less a level for each of "+
+				"these since (D352 Q2)"),
+			"D352 Q2: an hour, six times a playing player's ten calm minutes"),
 	}
 }
 

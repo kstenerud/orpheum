@@ -29,6 +29,7 @@ var (
 	interestLapsesAfter = startingPlaybackTiming().interestLapsesAfter
 	cpuCeilingFor       = startingPlaybackTiming().cpuCeilingFor
 	speedFreshFor       = startingPlaybackTiming().speedFreshFor
+	relaxEvery          = startingPlaybackTiming().steadinessRelaxesEvery
 )
 
 // keyedSettings answers each key it has, and fails every other.
