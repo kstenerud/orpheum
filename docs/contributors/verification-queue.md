@@ -758,7 +758,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   control back; on a computer Space pauses after the full-screen button, once focus went back to the
   video after a press on its own controls (Chrome pressed the focused button before the page heard
   Space).
-- [ ] **VQ79** — On the Fire TV stick in Silk's spatial mode, open a film's Play page so it opens out
+- [x] **VQ79** — On the Fire TV stick in Silk's spatial mode, open a film's Play page so it opens out
   of full screen (as a reload of the Play page does). Passes when the player's overlay offers a
   full-screen button the remote moves to beside Play, whose OK puts the film full screen (the
   button then says Leave full screen); with the overlay showing, moving down to the scrub bar and
@@ -767,7 +767,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Fire TV". A device signed in before keeps its name until renamed. (`web/apps/web/src/tv-controls.tsx`,
   `full-screen-button.tsx`, `focus-engine.ts`, `device.ts`)
   Seen 2026-10-27 (the owner, staging): the button goes full screen and back; Left and Right on the
-  scrub bar seek, in full screen and out. Owed: the new device's name.
+  scrub bar seek, in full screen and out. Its last part, the new device's name, moved to VQ84 so this one
+  could be ticked for what was seen.
 - [x] **VQ80** — On staging, D363's overlap: make a series library over a folder inside the films
   library's folder (or a films library over a parent of it). Passes when both are made, one scan of the
   outer folder lists the place once (staging's core log, at debug, says `a folder inside another library
@@ -801,7 +802,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
   and watched marks are as they were. (`internal/store/migrations/0060_…`)
-- [ ] **VQ83** — On staging and on the Fire TV stick, D366: on the Libraries page of a films library,
+- [x] **VQ83** — On staging and on the Fire TV stick, D366: on the Libraries page of a films library,
   the sort chooser offers *Name, A–Z* and *Z–A*, *Newest* and *Oldest released*, *Newest* and *Oldest
   added*, each reachable by the remote. Passes when *Name, Z–A* lists Z first, its address keeps
   `order=descending` across a reload and Back, its alphabet rail runs Z to A and a letter moves the
@@ -811,3 +812,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   *Libraries on Home* takes its titles off Home's rows (Continue Watching, the new films and series)
   while Films and the Libraries page keep them. (`web/apps/web/src/library-browse.tsx`,
   `alphabet-rail.tsx`, `left-out-libraries.tsx`, `internal/core/library/lists_released.go`)
+  Passed 2026-10-27 (the owner, staging): every sort both ways, release date, the rail's direction and
+  Libraries on Home.
+- [ ] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
+  fresh Silk profile). Passes when *Your devices* names it "Silk on Fire TV"; a device signed in before
+  keeps its name until renamed. (`web/apps/web/src/device.ts`, `tv-device.ts`)
