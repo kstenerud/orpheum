@@ -96,6 +96,7 @@ export class PlayReporter {
   private standstills: PlayStandstill[] = [];
   private pathMoves: PlayPathMove[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
+  private readSteadiness: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
   private isRefused = false;
@@ -156,6 +157,15 @@ export class PlayReporter {
   }
 
   /**
+   * Reports the steadiness level of the chunked player, as read says it, with every report from now
+   * on, which the server keeps beside the link's speed for the device's next playback on its
+   * network (D352 Q2); undefined from a player that has none.
+   */
+  reportSteadinessWith(read: () => number | undefined): void {
+    this.readSteadiness = read;
+  }
+
+  /**
    * The player stalled at positionMs (D247 §2), the video then at readyState, paused or not, with
    * what its buffers held and its last error, which say whether it lacked data or could not play
    * what it had (D266); the server is told at once.
@@ -180,6 +190,9 @@ export class PlayReporter {
             ...(diagnosis.steps === undefined || diagnosis.steps === ""
               ? {}
               : { steps: diagnosis.steps }),
+            ...(diagnosis.linkSamples === undefined || diagnosis.linkSamples === ""
+              ? {}
+              : { linkSamples: diagnosis.linkSamples }),
           }),
     });
     this.flush(positionMs);
@@ -235,7 +248,6 @@ export class PlayReporter {
       return;
     }
     const now = this.readMonotonicMs();
-    const linkKbps = this.readLinkKbps();
     const report: PlayReport = {
       reportSeq: this.nextReportSeq(),
       sentMonoMs: now,
@@ -244,7 +256,7 @@ export class PlayReporter {
       events: this.events,
       spans: this.spans,
       ...(this.stalls.length === 0 ? {} : { stalls: this.stalls }),
-      ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+      ...this.linkNow(),
       ...(this.startup === undefined ? {} : { startup: this.startup }),
       ...(this.unplayables.length === 0 ? {} : { unplayables: this.unplayables }),
       ...(this.seeks.length === 0 ? {} : { seeks: this.seeks }),
@@ -281,6 +293,16 @@ export class PlayReporter {
         this.pathMoves = [...(report.pathMoves ?? []), ...this.pathMoves];
       },
     );
+  }
+
+  /** The link's speed and the player's steadiness level as read now, each absent where unsaid. */
+  private linkNow(): Pick<PlayReport, "linkKbps" | "steadiness"> {
+    const linkKbps = this.readLinkKbps();
+    const steadiness = this.readSteadiness();
+    return {
+      ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+      ...(steadiness === undefined ? {} : { steadiness }),
+    };
   }
 
   private recordEvent(event: {

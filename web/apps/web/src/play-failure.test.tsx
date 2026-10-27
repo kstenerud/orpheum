@@ -75,6 +75,7 @@ describe("a playback that fails (D241 §7)", () => {
       isReady: true,
       filmPictureKbps: 4000,
       linkSharePercent: 70,
+      steadiness: 0,
     };
     mounted = await mount(
       withServices(

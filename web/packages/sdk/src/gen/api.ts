@@ -3244,6 +3244,8 @@ export interface components {
             soundCarriedGainDb: number;
             /** Format: int64 */
             startAtBps: number;
+            /** Format: int64 */
+            steadiness: number;
             /** @description The chunked master playlist */
             url: string;
         };
@@ -3917,6 +3919,8 @@ export interface components {
             stalls?: components["schemas"]["StallBody"][] | null;
             standstills?: components["schemas"]["StandstillBody"][] | null;
             startup?: components["schemas"]["StartupBody"];
+            /** Format: int64 */
+            steadiness?: number;
             unplayables?: components["schemas"]["UnplayableBody"][] | null;
         };
         ReportOutputBody: {
@@ -4067,6 +4071,7 @@ export interface components {
             /** Format: int64 */
             fromPositionMs: number;
             isPaused?: boolean;
+            linkSamples?: string;
             /** Format: int64 */
             pictureAfterMs?: number;
             /** Format: int64 */
@@ -4208,6 +4213,7 @@ export interface components {
             audioBuffered?: string;
             isPaused?: boolean;
             lastError?: string;
+            linkSamples?: string;
             /** Format: int64 */
             positionMs: number;
             /** Format: int64 */

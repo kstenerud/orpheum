@@ -3244,6 +3244,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "steadiness": {
+            "format": "int64",
+            "maximum": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
           "url": {
             "description": "The chunked master playlist",
             "type": "string"
@@ -3258,7 +3264,8 @@
           "soundCarriedGainDb",
           "isReady",
           "filmPictureKbps",
-          "linkSharePercent"
+          "linkSharePercent",
+          "steadiness"
         ],
         "type": "object"
       },
@@ -5270,6 +5277,12 @@
           "startup": {
             "$ref": "#/components/schemas/StartupBody"
           },
+          "steadiness": {
+            "format": "int64",
+            "maximum": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
           "unplayables": {
             "items": {
               "$ref": "#/components/schemas/UnplayableBody"
@@ -5778,6 +5791,10 @@
           "isPaused": {
             "type": "boolean"
           },
+          "linkSamples": {
+            "maxLength": 300,
+            "type": "string"
+          },
           "pictureAfterMs": {
             "format": "int64",
             "minimum": 0,
@@ -6245,6 +6262,10 @@
           },
           "lastError": {
             "maxLength": 200,
+            "type": "string"
+          },
+          "linkSamples": {
+            "maxLength": 300,
             "type": "string"
           },
           "positionMs": {

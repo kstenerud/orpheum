@@ -8,6 +8,8 @@ import {
   holdBeforeStepUpMsAt,
   relaxEveryMs,
   Steadiness,
+  steadinessNoter,
+  steadinessOf,
   stepUpHeadroomAt,
   swingWithinHolds,
 } from "./steadiness.ts";
@@ -107,5 +109,28 @@ describe("a link that flakes (D352 §4)", () => {
     steadiness.steppedUp(1000);
     steadiness.dropped(2000);
     expect(steadiness.level()).toBe(1);
+  });
+});
+
+describe("a playback's steadiness remembered (D352 Q2)", () => {
+  it("starts at the level its device last ended at, within the levels, and relaxes from its start", () => {
+    const steadiness = new Steadiness(1000, 2);
+    expect([steadiness.level(), steadiness.holdMs(), steadiness.headroom()]).toEqual([
+      2, 120_000, 1.75,
+    ]);
+    expect(steadiness.relax(1000 + relaxEveryMs)).toBe(
+      "steadiness 2 to 1: 10 min with no swing and no drop",
+    );
+    expect(new Steadiness(0, 9).level()).toBe(highestSteadiness);
+    expect(new Steadiness(0, -1).level()).toBe(0);
+  });
+
+  it("keeps each video's level as its controller last told it, and none for a video never told", () => {
+    const video = {};
+    expect(steadinessOf(video)).toBeUndefined();
+    steadinessNoter(video)(2);
+    steadinessNoter(video)(0);
+    expect(steadinessOf(video)).toBe(0);
+    expect(steadinessOf({})).toBeUndefined();
   });
 });

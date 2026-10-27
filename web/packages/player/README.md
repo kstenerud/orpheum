@@ -40,17 +40,19 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   at level 0 with samples that agree (D352 §2); raises its level, which doubles the hold, at a climb
   that falls back within twice its hold and at a second drop (a chunk given up or a stall) within
   ten minutes, and relaxes it one level for each ten minutes with neither, each Watch Together
-  player its own (`src/steadiness.ts`; D352 §3–§4); holds the film to half the link while voice is
+  player its own (`src/steadiness.ts`; D352 §3–§4), starting at the level its offer says, the one
+  its device last ended at on its network as the core remembers it (D352 Q2); holds the film to half the link while voice is
   live; and counts neither a chunk from the browser's cache, as its Resource Timing says or, where
   it does not, a load under 10 ms, nor one its pace held back as a measure of the link, and times a
   chunk that does from its first byte to its last, never the wait for its first (D247 §9). It
   reports its confident estimate as the link's speed, never from a lone first sample (D352 §1), and
-  notes each choice with what it rests on, and its last five samples for every stall's and seek's
-  report (D352 §5). A quality whose video, asked to play, stands still while its chunks arrive is
+  its steadiness level, with every play report (D352 Q2); and notes each choice with what it rests
+  on, and its last five samples in every stall's and seek's report, in their own `linkSamples`
+  beside the steps (D352 §5). A quality whose video, asked to play, stands still while its chunks arrive is
   given up as one the device cannot play, with every quality above it, and reported (D266).
   `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
-  `diagnosis.test.ts`, `chunked.test.ts`.
+  `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.

@@ -135,7 +135,8 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#options = options;
     this.#link = link;
     this.#changedAtMs = options.monotonicMs();
-    this.#steadiness = new Steadiness(options.monotonicMs());
+    this.#steadiness = new Steadiness(options.monotonicMs(), options.startSteadiness);
+    options.noteSteadiness?.(this.#steadiness.level());
     this.#timers = [
       setInterval(() => {
         this.#lookAtChunk();
@@ -625,6 +626,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   #noteSteadiness(change: string | undefined): void {
     if (change !== undefined) {
       this.#options.noteStep?.(change);
+      this.#options.noteSteadiness?.(this.#steadiness.level());
     }
   }
 

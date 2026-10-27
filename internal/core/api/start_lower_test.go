@@ -82,3 +82,44 @@ func TestPlayback_AViewerRememberedSlowStartsOnALowerQuality(t *testing.T) {
 			second.OnLadder)
 	}
 }
+
+// A device's playback starts at the steadiness level its last playback on this network reported,
+// on its film's ladder or on the lower quality a stall offers it, relaxed by one for each hour
+// since; a level of 0 reported after replaces a steadier one (D352 Q2).
+func TestPlayback_ADeviceStartsAtTheSteadinessItsLastPlaybackOnTheNetworkReported(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	direct := harness.play(t, user, chrome(1))
+	harness.keepFilmOnesTimeline(t)
+	unsteady := reportBody(1, 4_000, 0)
+	unsteady["steadiness"] = 2
+	if answer := harness.report(t, user, direct, unsteady); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	if offered := lowerQualityOf(t, harness.report(t, user, direct, stallReport(2, 12_000))); offered == nil ||
+		offered.Steadiness != 2 {
+		t.Errorf("a stall after reporting steadiness 2 was offered %+v; want it at steadiness 2", offered)
+	}
+	if next := harness.play(t, user, chrome(1)); next.OnLadder == nil || next.OnLadder.Steadiness != 2 {
+		t.Errorf("the next playback starts on %+v; want steadiness 2", next.OnLadder)
+	}
+	if !strings.Contains(harness.logs.String(), `"startsAtSteadiness":2`) {
+		t.Error("the playback's start does not say the steadiness it starts at")
+	}
+	harness.clock.Advance(time.Hour)
+	later := harness.play(t, user, chrome(1))
+	if later.OnLadder == nil || later.OnLadder.Steadiness != 1 {
+		t.Errorf("an hour on, a playback starts on %+v; want steadiness 1, relaxed by one", later.OnLadder)
+	}
+	steady := reportBody(1, 4_000, 0)
+	steady["steadiness"] = 0
+	if answer := harness.report(t, user, later, steady); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	if last := harness.play(t, user, chrome(1)); last.OnLadder == nil || last.OnLadder.Steadiness != 0 {
+		t.Errorf("after reporting steadiness 0, a playback starts on %+v; want steadiness 0", last.OnLadder)
+	}
+}

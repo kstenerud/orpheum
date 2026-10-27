@@ -50,3 +50,54 @@ func TestLinkSpeeds_ForgetsTheStaleAtTheNextMeasurement(t *testing.T) {
 		t.Errorf("after a day, the speeds kept are %v; want only the fresh one", speeds.byKey)
 	}
 }
+
+// A player's steadiness level is kept beside its speed, by player and network, for as long as the
+// speed is; it relaxes by one for each hour since it was reported, and a level of 0 reported after
+// replaces a steadier one (D352 Q2).
+func TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime(t *testing.T) {
+	t.Parallel()
+	speeds := newLinkSpeeds()
+	reportedAt := time.Date(2026, 10, 27, 20, 0, 0, 0, time.UTC)
+	home := speedKey{player: playerOf(3, ""), network: "2001:db8:1:2::/64"}
+	speeds.remember(home, 2000, reportedAt, speedFreshFor)
+	speeds.rememberSteadiness(home, 3, reportedAt, speedFreshFor)
+	for _, each := range []struct {
+		after time.Duration
+		want  int
+	}{{0, 3}, {59 * time.Minute, 3}, {time.Hour, 2}, {2*time.Hour + time.Minute, 1}, {5 * time.Hour, 0}} {
+		if level := speeds.steadiness(home, reportedAt.Add(each.after), speedFreshFor); level != each.want {
+			t.Errorf("%v after steadiness 3 was reported, the level is %d; want %d", each.after, level, each.want)
+		}
+	}
+	if kbps, isKnown := speeds.fresh(home, reportedAt, speedFreshFor); !isKnown || kbps != 2000 {
+		t.Errorf("beside the steadiness, the speed is %d, %t; want 2000 kept", kbps, isKnown)
+	}
+	for _, other := range []speedKey{
+		{player: playerOf(3, ""), network: "203.0.113.7"},
+		{player: playerOf(4, ""), network: "2001:db8:1:2::/64"},
+	} {
+		if level := speeds.steadiness(other, reportedAt, speedFreshFor); level != 0 {
+			t.Errorf("%+v starts at steadiness %d, reported for %+v; want 0", other, level, home)
+		}
+	}
+	speeds.rememberSteadiness(home, 0, reportedAt.Add(time.Minute), speedFreshFor)
+	if level := speeds.steadiness(home, reportedAt.Add(time.Minute), speedFreshFor); level != 0 {
+		t.Errorf("after steadiness 0 was reported, the level is %d; want 0", level)
+	}
+	steadyOnly := speedKey{player: playerOf(5, ""), network: "home"}
+	speeds.rememberSteadiness(steadyOnly, 9, reportedAt, speedFreshFor)
+	if level := speeds.steadiness(steadyOnly, reportedAt, speedFreshFor); level != highestSteadiness {
+		t.Errorf("a level of 9 reported is kept as %d; want the highest, %d", level, highestSteadiness)
+	}
+	if _, isKnown := speeds.fresh(steadyOnly, reportedAt, speedFreshFor); isKnown {
+		t.Error("a player that reported only its steadiness has a speed; want none")
+	}
+	later := reportedAt.Add(speedFreshFor + time.Minute)
+	if level := speeds.steadiness(steadyOnly, later, speedFreshFor); level != 0 {
+		t.Errorf("a day after it was reported, the level is %d; want 0, forgotten as the speed is", level)
+	}
+	speeds.remember(speedKey{player: playerOf(6, ""), network: "home"}, 900, later, speedFreshFor)
+	if _, isKept := speeds.byKey[steadyOnly]; isKept {
+		t.Error("a steadiness a day old is still kept after the next measurement; want it forgotten")
+	}
+}

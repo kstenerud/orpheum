@@ -7,6 +7,7 @@ import {
   playerFoundUnplayableEvent,
   ReportRefused,
   standsStillReportAfterMs,
+  steadinessNoter,
 } from "@orpheum/player";
 import { playerLoadedChunkEvent, playerMovedItselfEvent } from "@orpheum/sdk";
 import { act, createElement } from "react";
@@ -14,12 +15,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Play, PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
+import { stepsOf } from "./steps-of.ts";
 import {
   decisionTimesKept,
   decisionTimesOf,
   noteDecisionTimes,
   sendReport,
-  stepsOf,
   tellUnplayable,
   whenOwnPictureGivenUp,
 } from "./play-state.ts";
@@ -302,6 +303,7 @@ describe("play state", () => {
       isReady: true,
       filmPictureKbps: 2_400,
       linkSharePercent: 70,
+      steadiness: 0,
     };
     const playView = createElement(PlayView, {
       fileId: 2,
@@ -381,6 +383,37 @@ describe("play state", () => {
     };
     expect(startup.firstDataAfterMs).toBeGreaterThanOrEqual(3000);
     expect(startup.playingAfterMs).toBeGreaterThanOrEqual(startup.firstDataAfterMs);
+  });
+
+  it("tells, with each report, the steadiness level its chunked player stands at (D352 Q2)", async () => {
+    const heard: Heard[] = [];
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "steady" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy(
+          {
+            "POST /playback/steady/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/steady/interest": [204, null],
+            "DELETE /playback/steady": [204, null],
+          },
+          heard,
+        ),
+      ),
+    );
+    steadinessNoter(videoOf(mounted))(2);
+    await act(async () => {
+      videoOf(mounted!).dispatchEvent(new Event("playing"));
+      await settle();
+    });
+    const sent = heard.find((request) => request.methodAndPath === "POST /playback/steady/report");
+    expect(sent?.body).toMatchObject({ steadiness: 2 });
   });
 
   it("tells, with its start, what the film page's preload did before it (the owner's test, 2026-10-18)", async () => {
@@ -495,6 +528,19 @@ describe("play state", () => {
     expect(stepsOf(video, () => ({ steps }))).toEqual({ steps });
     expect(stepsOf(video, () => ({ steps: "" }))).toEqual({});
     expect(stepsOf(video, () => undefined)).toEqual({});
+  });
+
+  it("sends the link's last samples with a seek apart from its steps, and nothing when it kept none (D352 §5)", () => {
+    const video = document.createElement("video");
+    const linkSamples = "samples 4 812345B 1203ms fb340ms";
+    expect(stepsOf(video, () => ({ steps: "level 0", linkSamples }))).toEqual({
+      steps: "level 0",
+      linkSamples,
+    });
+    expect(stepsOf(video, () => ({ linkSamples }))).toEqual({ linkSamples });
+    expect(stepsOf(video, () => ({ steps: "level 0", linkSamples: "" }))).toEqual({
+      steps: "level 0",
+    });
   });
 
   it("tells where each pause and hls.js's own skip came from, and each path the page moved to (the owner, 2026-10-17)", async () => {
@@ -624,6 +670,7 @@ describe("play state", () => {
       isReady: false,
       filmPictureKbps: 4000,
       linkSharePercent: 70,
+      steadiness: 0,
     };
     const playView = createElement(PlayView, {
       fileId: 2,

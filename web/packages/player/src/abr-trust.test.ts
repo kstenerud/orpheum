@@ -198,6 +198,18 @@ describe("a link that flakes (D352 §4)", () => {
     expect(scene.steps.at(-1)).toBe("steadiness 1 to 0: 10 min with no swing and no drop");
   });
 
+  it("starts at the level its device last ended at, told as it starts and at each change (D352 Q2)", () => {
+    const { choosing } = choosingFrom(40_000_000, undefined, 2);
+    expect(choosing.steadiness()).toBe(2);
+    expect(scene.steadinessNoted).toEqual([2]);
+    loadAt(choosing, 3, { mbps: 20 });
+    choosing.stalled();
+    choosing.stalled();
+    expect(choosing.steadiness()).toBe(3);
+    waitMs(relaxEveryMs + lookForStepUpEveryMs);
+    expect(scene.steadinessNoted).toEqual([2, 3, 2]);
+  });
+
   it("counts each Watch Together player's drops as its own, the film's own picture kept or not (Q4)", () => {
     scene.isInAGroup = true;
     const flaky = choosingFrom(40_000_000);

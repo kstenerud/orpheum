@@ -31,11 +31,12 @@ export const relaxEveryMs = 600_000;
 export const dropsCountWithinMs = 600_000;
 
 /**
- * A playback's steadiness level, 0 at its start (D352 §3–§4). Each method that can change the level
+ * A playback's steadiness level, at its start the one its device last ended at on its network, as
+ * the server remembers it, 0 for none (D352 §3–§4, Q2). Each method that can change the level
  * returns a note of the change, with what raised or relaxed it, or undefined when it changed nothing.
  */
 export class Steadiness {
-  #level = 0;
+  #level: number;
   /** Since when there has been no swing and no drop: the level relaxes from here. */
   #calmSinceMs: number;
   /** The last step up not yet judged a swing, and the hold it was taken after. */
@@ -43,7 +44,9 @@ export class Steadiness {
   /** The first drop of the drops counting toward a raise. */
   #firstDropAtMs: number | undefined;
 
-  constructor(nowMs: number) {
+  /** startLevel is where it starts, kept within 0 and highestSteadiness; it relaxes from nowMs. */
+  constructor(nowMs: number, startLevel = 0) {
+    this.#level = Math.min(highestSteadiness, Math.max(0, Math.round(startLevel)));
     this.#calmSinceMs = nowMs;
   }
 
@@ -133,4 +136,22 @@ export class Steadiness {
       ? undefined
       : `steadiness ${String(from)} to ${String(this.#level)}: ${why}`;
   }
+}
+
+/** Each video's chunked playback's steadiness level, as its controller last told it. */
+const levels = new WeakMap<object, number>();
+
+/**
+ * What keeps the steadiness level of video's chunked playback, the latest replacing the one before,
+ * for its play reports, which the server keeps beside the link's speed (D352 Q2).
+ */
+export function steadinessNoter(video: object): (level: number) => void {
+  return (level) => {
+    levels.set(video, level);
+  };
+}
+
+/** The steadiness level video's chunked playback last stood at; undefined for a video with none. */
+export function steadinessOf(video: object): number | undefined {
+  return levels.get(video);
 }

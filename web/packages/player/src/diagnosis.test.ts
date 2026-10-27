@@ -11,6 +11,7 @@ import {
   diagnose,
   diagnosisOf,
   rangesText,
+  linkSamplesTextMost,
   samplesNoter,
   stepNoter,
   type DiagnosedHls,
@@ -136,20 +137,20 @@ describe("what a stalled video held, for its report (D266)", () => {
     expect(diagnosisOf(other)).toBeUndefined();
   });
 
-  it("keeps the link's last samples after its choices, which the cut to the server's length keeps (D352 §5)", () => {
+  it("keeps the link's last samples apart from its steps, the latest, at the server's length (D352 §5)", () => {
     const hls = { on: () => undefined } as unknown as DiagnosedHls;
     const video = Object.assign(new EventTarget(), { error: null });
     diagnose(hls, video);
+    expect(diagnosisOf(video)).not.toHaveProperty("linkSamples");
     stepNoter(video)("ceiling 4 to 0: link");
     samplesNoter(video)("samples 4 812345B 1203ms fb340ms");
     samplesNoter(video)("samples 4 812345B 1203ms fb340ms, 0 500000B 400ms fb20ms");
-    expect(diagnosisOf(video)?.steps).toBe(
-      "chose ceiling 4 to 0: link; samples 4 812345B 1203ms fb340ms, 0 500000B 400ms fb20ms",
+    expect(diagnosisOf(video)?.steps).toBe("chose ceiling 4 to 0: link");
+    expect(diagnosisOf(video)?.linkSamples).toBe(
+      "samples 4 812345B 1203ms fb340ms, 0 500000B 400ms fb20ms",
     );
-    for (let index = 0; index < 3; index += 1) {
-      stepNoter(video)("x".repeat(200));
-    }
-    expect(diagnosisOf(video)?.steps?.endsWith("0 500000B 400ms fb20ms")).toBe(true);
+    samplesNoter(video)(`samples ${"x".repeat(400)}`);
+    expect(diagnosisOf(video)?.linkSamples).toHaveLength(linkSamplesTextMost);
     samplesNoter(Object.assign(new EventTarget(), { error: null }))("nothing keeps this");
   });
 

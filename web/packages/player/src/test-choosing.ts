@@ -94,6 +94,8 @@ export interface Scene {
   steps: string[];
   /** The link's samples in a line, each time the choosing told them. */
   samplesNoted: string[];
+  /** The steadiness level, each time the choosing told it. */
+  steadinessNoted: number[];
 }
 
 export const scene: Scene = {
@@ -103,6 +105,7 @@ export const scene: Scene = {
   cachedUrls: new Set<string>(),
   steps: [],
   samplesNoted: [],
+  steadinessNoted: [],
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -123,6 +126,7 @@ export function useScene(vitest: {
     scene.cachedUrls = new Set<string>();
     scene.steps = [];
     scene.samplesNoted = [];
+    scene.steadinessNoted = [];
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -143,10 +147,15 @@ export interface Chosen {
 }
 
 /**
- * A playback's choosing, offered startAtBps and, where the test names one, the share of the link a
- * quality may take; the link estimated by the chunks it measures.
+ * A playback's choosing, offered startAtBps and, where the test names them, the share of the link a
+ * quality may take and the steadiness level it starts at; the link estimated by the chunks it
+ * measures.
  */
-export function choosingFrom(startAtBps: number, shareForQuality?: number): Chosen {
+export function choosingFrom(
+  startAtBps: number,
+  shareForQuality?: number,
+  startSteadiness?: number,
+): Chosen {
   const hls = new FakeHls();
   const fedToHls: [number, number][] = [];
   const givenUp: FollowedChunk[] = [];
@@ -158,6 +167,7 @@ export function choosingFrom(startAtBps: number, shareForQuality?: number): Chos
     {
       startAtBps,
       shareForQuality,
+      startSteadiness,
       monotonicMs: () => scene.nowMs,
       isVoiceLive: () => scene.isVoiceLive,
       isInAGroup: () => scene.isInAGroup,
@@ -165,6 +175,7 @@ export function choosingFrom(startAtBps: number, shareForQuality?: number): Chos
       onUnplayable: (found) => unplayable.push(found),
       noteStep: (step) => scene.steps.push(step),
       noteSamples: (samples) => scene.samplesNoted.push(samples),
+      noteSteadiness: (level) => scene.steadinessNoted.push(level),
     },
     {
       giveUp: (chunk) => givenUp.push(chunk),

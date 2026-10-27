@@ -22372,16 +22372,19 @@ research, §5); keeping one hold for every link (the owner's report).
 - Q1. *A hold of 30 s at level 0, against D247 §9's "a couple of minutes"?* Yes, 30 s at level 0:
   confidence is now the samples' agreement (§2).
 - Q2. *Should a playback start at the steadiness level its device last ended at on that network,
-  remembered as D257 §1 remembers its speed?* Yes. **Owed:** D257 §1's network is the address the
-  core sees a request come from, which the player never learns; what the player knows, the path it
-  plays over (direct to an origin, or WebRTC) and the server, is no network (a phone on Wi-Fi and on
-  LTE both play over WebRTC), so remembering by it would take one network's steadiness for another's,
-  which D257 §1 rules out. Where it is remembered waits for the owner's choice (the build's report,
-  2026-10-27): beside the speed, in the core, reported with the play report and handed back with the
-  offer; or in the browser, keyed by a name of the network the core hands the player.
+  remembered as D257 §1 remembers its speed?* Yes. D257 §1's network is the address the core sees a
+  request come from, which the player never learns, so the owner chose (2026-10-27) to keep it in
+  the core. *As built (2026-10-27):* every play report carries the chunked player's level
+  (`steadiness`), which the core keeps beside the speed, by the same player and network and for the
+  same `link_speed_fresh_hours`, in memory as the speed is; every offer (`LadderBody.steadiness`, at a
+  start and for a stall's lower quality) hands it back, and the controller starts at it and relaxes
+  from there as §3 says. Between playbacks the core relaxes it by one for each hour since it was
+  reported, six times slower than §3's ten calm minutes while playing, since nothing is watched
+  between them: a film started again within the hour starts as steady as the last ended, and a bad
+  evening is forgotten by the next morning, well inside the day the speed is kept.
 - Q3. *§5's samples in the stall and seek reports?* Yes, always, not only at debug level. *As built
-  (2026-10-27):* they ride last in each report's steps, the server's 400 characters, which the core
-  already logs; a field of their own waits for a change of the report's API (code-debt.md).
+  (2026-10-27):* each stall's and seek's `linkSamples`, a field of its own beside the steps, which
+  the core logs (`stallLinkSamples`, `linkSamples`).
 - Q4. *Should a swing or a drop of a Watch Together player raise its level?* Yes: swings and drops
   count per viewer, each Watch Together player its own, the film's own picture kept or not.
 - Q5. *Is replacing hls.js's estimator for our choices acceptable?* Yes: the controller chooses by
@@ -22394,10 +22397,12 @@ research, §5); keeping one hold for every link (the owner's report).
 - 2: web/packages/player/src/link-estimate.test.ts (the estimate and the confident estimate), web/packages/player/src/step-up.test.ts ("climbs to the highest quality consistent samples carry"; "climbs one quality when its samples disagree"), web/packages/player/src/abr-trust.test.ts (the step-up in the controller), web/packages/player/src/abr-measure.test.ts (hls.js's estimator still fed)
 - 3: web/packages/player/src/steadiness.test.ts ("a climb that falls back within twice its hold raises the level and doubles the hold"; "relaxes one level for each ten minutes without a swing or a drop"), web/packages/player/src/abr-trust.test.ts ("a climb that falls back within twice its hold raises the level, and the next climb waits twice as long, one quality")
 - 4: web/packages/player/src/steadiness.test.ts ("a second drop within ten minutes raises the level"), web/packages/player/src/link-estimate.test.ts ("a varying link is targeted near its slowest samples"), web/packages/player/src/abr-trust.test.ts ("counts each Watch Together player's drops as its own")
-- 5: web/packages/player/src/abr.test.ts ("notes each change of its ceiling with why and what it rests on"; "tells the page its last samples"), web/packages/player/src/diagnosis.test.ts ("keeps the link's last samples after its choices")
+- 5: web/packages/player/src/abr.test.ts ("notes each change of its ceiling with why and what it rests on"; "tells the page its last samples"), web/packages/player/src/diagnosis.test.ts ("keeps the link's last samples apart from its steps"), web/packages/player/src/report.test.ts ("tells a stall the link's last samples apart from its steps"), web/apps/web/src/play-state.test.ts ("sends the link's last samples with a seek apart from its steps"), internal/core/api/stall_report_test.go (TestReport_TheLinksSamplesAreLoggedApartFromTheSteps)
+- Q2: internal/core/playback/speeds_test.go (TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime), internal/core/api/start_lower_test.go (TestPlayback_ADeviceStartsAtTheSteadinessItsLastPlaybackOnTheNetworkReported), web/packages/player/src/steadiness.test.ts ("starts at the level its device last ended at"), web/packages/player/src/abr-trust.test.ts ("starts at the level its device last ended at, told as it starts and at each change"), web/packages/player/src/chunked.test.ts ("is the one its offer says"), web/packages/player/src/report.test.ts ("sends the steadiness level with every report"), web/apps/web/src/play-state.test.ts ("tells, with each report, the steadiness level"), web/apps/web/src/moving-down.test.ts ("starts at the steadiness level the offer says")
 
 **Status:** Built 2026-10-27, in the player (`web/packages/player/src`: `abr.ts`, `link-estimate.ts`,
-`steadiness.ts`, `step-up.ts`); Q2's remembered level is owed (above). Every value is a constant, to
+`steadiness.ts`, `step-up.ts`); Q2's remembered level and Q3's own field built the same day, in the
+core (`internal/core/playback/speeds.go`) and the play report. Every value is a constant, to
 be measured on the acceptance's emulated links (D252, D263) and the owner's devices.
 
 ## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one

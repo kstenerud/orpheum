@@ -40,6 +40,11 @@ export interface ChoosingOptions {
   readonly startAtBps: number;
   /** The share of a link a quality may take, as the offer says; linkShareForQuality when absent. */
   readonly shareForQuality?: number | undefined;
+  /**
+   * The steadiness level it starts at, as the offer says: the one its device last ended at on its
+   * network (D352 Q2); 0 when absent.
+   */
+  readonly startSteadiness?: number | undefined;
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
@@ -58,6 +63,8 @@ export interface ChoosingOptions {
    * and seek's report (D352 §5).
    */
   readonly noteSamples?: (samples: string) => void;
+  /** Told the steadiness level as it starts and at each change, for every play report (D352 Q2). */
+  readonly noteSteadiness?: (level: number) => void;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
