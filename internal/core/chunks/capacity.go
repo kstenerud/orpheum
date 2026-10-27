@@ -34,9 +34,14 @@ type speedSample struct {
 func (tracker *runTracker) sample(dir string, first int, now time.Time, madeEndMs int64) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	each, found := tracker.storeLocked(dir).runByFirst[first]
+	known := tracker.storeLocked(dir)
+	each, found := known.runByFirst[first]
 	if !found {
 		return
+	}
+	if each.isAwaitingFirstChunk {
+		known.startupMs, known.hasStartup = now.Sub(each.startedAt).Milliseconds(), true
+		each.isAwaitingFirstChunk = false
 	}
 	each.samples = append(slices.DeleteFunc(each.samples, func(old speedSample) bool {
 		return now.Sub(old.at) > 2*tracker.timing.speedWindow
@@ -46,6 +51,12 @@ func (tracker *runTracker) sample(dir string, first int, now time.Time, madeEndM
 // speedAt is the run's speed at now, film made per wall time over the last window (6.2 is 6.2 times
 // playback), and whether it has been sampled over half the window, long enough to say.
 func (each *run) speedAt(now time.Time, window time.Duration) (float64, bool) {
+	return each.speedOver(now, window, window/2)
+}
+
+// speedOver is the run's speed at now over the last window, and whether its samples there span more
+// than atLeast: a jump judges a run on two chunks made (D353), the capacity watch on half its window.
+func (each *run) speedOver(now time.Time, window, atLeast time.Duration) (float64, bool) {
 	from := slices.IndexFunc(each.samples, func(sample speedSample) bool {
 		return now.Sub(sample.at) <= window
 	})
@@ -53,10 +64,11 @@ func (each *run) speedAt(now time.Time, window time.Duration) (float64, bool) {
 		return 0, false
 	}
 	first, latest := each.samples[from], each.samples[len(each.samples)-1]
-	if latest.at.Sub(first.at) < window/2 {
+	spanned := latest.at.Sub(first.at)
+	if spanned <= 0 || spanned < atLeast {
 		return 0, false
 	}
-	return float64(latest.madeEndMs-first.madeEndMs) / float64(latest.at.Sub(first.at).Milliseconds()), true
+	return float64(latest.madeEndMs-first.madeEndMs) / (float64(spanned) / float64(time.Millisecond)), true
 }
 
 // runningRun is a run a node is making, as the capacity watch sees it.
@@ -92,7 +104,7 @@ func (tracker *runTracker) runningOn(
 	// The interests are asked for outside the tracker's lock: the playbacks keep them under their own.
 	for index, each := range running {
 		if interests, isKnown := interestsOf(fileOfStore(each.dir)); isKnown {
-			running[index].isInUse = tracker.isWanted(each.dir, each.first, interests, keptAheadMs)
+			running[index].isInUse = tracker.isWanted(each.dir, each.first, interests, keptAheadMs, now)
 		}
 	}
 	return running

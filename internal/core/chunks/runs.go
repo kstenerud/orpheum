@@ -39,6 +39,14 @@ type storeRuns struct {
 	// grid is what its chunks are cut on, by which its players' interests are read (D309); nil until
 	// a player asks for it.
 	grid *Grid
+	// lastAsked is the chunk a player last asked for of it, hasAsked whether one has: its own stream's
+	// player waits there, and a run making near it is not one it jumped away from (D353).
+	lastAsked int
+	hasAsked  bool
+	// startupMs is its last run's time from being given to its node to its first chunk made, the cost
+	// of starting another, and hasStartup whether a run whose start the core saw has made one (D353).
+	startupMs  int64
+	hasStartup bool
 }
 
 // run is one run of a store's chunks, first through last, made in order.
@@ -53,6 +61,10 @@ type run struct {
 	startedAt time.Time
 	// samples are the film it had made at moments of its progress, oldest first, for its speed.
 	samples []speedSample
+	// isAwaitingFirstChunk is whether the core saw it given to its node (given) and it has made
+	// nothing since: its first sample is its store's startup. A run learned from its progress, after a
+	// restart, never is: its start is not known.
+	isAwaitingFirstChunk bool
 }
 
 // willMake is whether the run is still to make chunk n.
@@ -187,13 +199,33 @@ func (tracker *runTracker) earliest(dir string) (RunSpan, bool) {
 	return RunSpan{First: found.first, Last: found.last, MadeThrough: found.madeThrough}, true
 }
 
-// begin records a run its handler is giving to nodeID at now: one planned, or one its job tried
-// again after it ended; never one cancelled (cancelLocked), whose node may still say its progress.
+// begin records a run on nodeID at now, as its progress says it is: one the core gave it, or one a
+// core started again learns; never one cancelled (cancelLocked), whose node may still say its
+// progress.
 func (tracker *runTracker) begin(dir string, first, last int, jobID, nodeID int64, now time.Time) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
+	tracker.beginLocked(dir, first, last, jobID, nodeID, now)
+}
+
+// given records a run its handler is giving to nodeID at now (begin): one planned, or one its job
+// tried again after it ended. One given for the first time awaits its first chunk, whose time is its
+// store's startup (D353).
+func (tracker *runTracker) given(dir string, first, last int, jobID, nodeID int64, now time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	if each, isStarted := tracker.beginLocked(dir, first, last, jobID, nodeID, now); isStarted {
+		each.isAwaitingFirstChunk = true
+	}
+}
+
+// beginLocked is begin, its tracker locked: the run, and whether it started at now; nil for one
+// cancelled.
+func (tracker *runTracker) beginLocked(
+	dir string, first, last int, jobID, nodeID int64, now time.Time,
+) (each *run, isStarted bool) {
 	if tracker.cancelledJobs[jobID] {
-		return
+		return nil, false
 	}
 	known := tracker.storeLocked(dir)
 	each, found := known.runByFirst[first]
@@ -204,7 +236,9 @@ func (tracker *runTracker) begin(dir string, first, last int, jobID, nodeID int6
 	each.jobID, each.last, each.nodeID = jobID, last, nodeID
 	if each.startedAt.IsZero() {
 		each.startedAt = now
+		return each, true
 	}
+	return each, false
 }
 
 // madeThrough records that the run of the store from first has made every chunk through last.

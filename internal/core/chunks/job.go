@@ -92,7 +92,7 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	}
 	command.Video = source
 	service.runs.knowStoreID(command.StoreDir, job.ChunkStoreID)
-	service.runs.begin(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID, film.file.NodeID,
+	service.runs.given(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID, film.file.NodeID,
 		service.clock.Now())
 	return service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &command},

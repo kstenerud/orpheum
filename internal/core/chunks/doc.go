@@ -118,13 +118,24 @@
 //     internal/core/playback keeps from its word, its requests and its stall's offer), and a run is
 //     wanted by one playing from a chunk it has not passed, starting within the minute of film after
 //     the first chunk not made from there, or by one stopped, paused or gone from its page, whose
-//     chunk_kept_ahead_seconds ahead it is still making (§7); never by one more than that minute past
-//     the chunk the run makes next, which sought away from it (§2). A player's ask stops the film's
+//     chunk_kept_ahead_seconds ahead it is still making (§7); never by one that jumped away from it
+//     (§2, D353): the first chunk it needs not made is so far past the one the run makes next that
+//     waiting, the gap over the run's speed, costs more than its store's last run took to make its
+//     first chunk; 24 s of film, Jellyfin's rule, while either is unmeasured; never two chunks or
+//     fewer, nor while the chunk last asked of the store is within two chunks of what the run makes.
+//     Each stop for a jump says its numbers at debug. A player's ask stops the film's
 //     unwanted runs before its own is planned (Want), as does
 //     each step of a run, for an interest that lapsed (§3); a run the server starts for a player, as
 //     it starts or stalls, stops nothing. A queued run that begins just past an ask's chunk, with
 //     nothing between, is cancelled for one run from the ask's. A stop says what the players of its
 //     stream want, as does an ask that planned no run. Enforced by
+//     TestStopUnwanted_AJumpAheadOfAMeasuredRunWaitsWhileWaitingCostsLessThanRestarting,
+//     TestStopUnwanted_AJumpIsJudgedByTheStartOfItsStoresLastRun,
+//     TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap,
+//     TestStopUnwanted_ARunIsNeverStoppedForAPlayerTwoChunksPastIt,
+//     TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs,
+//     TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas,
+//     TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy,
 //     TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn,
 //     TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere,
 //     TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant,
@@ -185,6 +196,7 @@
 //   - streams.go: the streams' names, the grid's id and the store's directory.
 //   - offer.go and playlists.go: what a playback is offered, and its playlists.
 //   - files.go: a store's file a player asks for. ensure.go and runs.go: the runs a player's asks
-//     queue, and the chunks known made. job.go: the make_chunks job.
+//     queue, and the chunks known made. job.go: the make_chunks job. interest.go: which runs the
+//     players want; jump.go: when a player jumped away from a run (D353).
 //   - qualities/: the setting chunk_qualities, read and checked by one function.
 package chunks

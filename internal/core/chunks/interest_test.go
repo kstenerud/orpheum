@@ -83,7 +83,8 @@ func TestStopUnwanted_APlayerThatSeeksAwayStopsTheRunItLeft(t *testing.T) {
 }
 
 // A run its player still plays into, or will within a minute of film, goes on however the player
-// moved: forward inside it, or back to a little before it, where a short run fills the gap.
+// moved: forward inside it, nearer than a run not measured yet is left for (24 s, D353), or back to a
+// little before it, where a short run fills the gap.
 func TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
@@ -93,7 +94,7 @@ func TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn(t *testing.T) {
 	wanted.say(playingAt(picture, 10))
 	askedFor(t, service, picture, 10)
 	service.runs.begin(StoreDir(1, picture, mustGrid(t, service).ID()), 10, 39, 21, 1, service.clock.Now())
-	for _, to := range []int{14, 8} {
+	for _, to := range []int{12, 8} {
 		wanted.say(playingAt(picture, to))
 		askedFor(t, service, picture, to)
 	}
