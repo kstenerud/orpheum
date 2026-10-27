@@ -35,7 +35,11 @@
 //     TestRestore_WithTheIncludedKeyOpensSecrets; every table's copy, by the store's
 //     TestBackup_ARestoredCopyReproducesEveryTable.
 //   - A backup whose database copy fails its integrity check is refused and leaves nothing behind
-//     (D303 §7, M6). Enforced by TestWrite_RefusesADamagedCopyAndLeavesNothingBehind.
+//     (D303 §7, M6), as does one whose copy is cut short, its check cancelled by a stop; a copy of
+//     its name there already, another backup's of the same second, is refused and left alone.
+//     Enforced by TestWrite_RefusesADamagedCopyAndLeavesNothingBehind,
+//     TestWrite_ACopyCutShortLeavesNothingBehind and
+//     TestWrite_LeavesTheSnapshotOfAnotherBackupInTheSameSecondAlone.
 //
 // # Read before changing
 //

@@ -57,9 +57,14 @@ func Write(
 	return write(ctx, database, directories, "backup-"+now.UTC().Format(timestampLayout), includeKey)
 }
 
-// write writes the backup stem.tar.gz, as Write says.
+// copier makes the snapshot of the database a backup holds: store.Database.BackupInto.
+type copier interface {
+	BackupInto(ctx context.Context, path string) error
+}
+
+// write writes the backup stem.tar.gz, as Write says, its database's snapshot made by database.
 func write(
-	ctx context.Context, database *store.Database, directories *instancedir.Directories, stem string, includeKey bool,
+	ctx context.Context, database copier, directories *instancedir.Directories, stem string, includeKey bool,
 ) (written Written, err error) {
 	leftOut := serverKeys()
 	if includeKey {
@@ -76,7 +81,10 @@ func write(
 		return Written{}, err
 	}
 	if backupErr := database.BackupInto(ctx, snapshotPath); backupErr != nil {
-		if errors.Is(backupErr, store.ErrDamagedCopy) {
+		// A copy refused or cut short is removed, whatever ended it: one whose check a stop cancelled
+		// was left, and `orpheum backup` in the same second could not take its name (cmd/orpheum's
+		// canary, 2026-10-26). One there before this backup began is another's, and stays.
+		if !errors.Is(backupErr, store.ErrCopyExists) {
 			backupErr = errors.Join(backupErr, directories.RemoveBackupFile(snapshotName))
 		}
 		return Written{}, backupErr
