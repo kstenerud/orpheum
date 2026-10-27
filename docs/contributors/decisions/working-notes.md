@@ -23576,4 +23576,37 @@ and stopped early counted as unfinished again, and a series' progress and Next U
    so restarting a finished film no longer unfinishes it.
 6. **No switch to hide the marks yet**; it waits until someone asks.
 
-**Status:** Decided 2026-10-27.
+**Proven by:**
+- 1: internal/core/api/watched_test.go (TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt: past 90% of a known length, to the end of an unknown one, never unattended or far into an unknown length, still watched after a restart), internal/store/migrate_0062_test.go (TestMigrate_Step0062KeepsWatchedWhatWasFinished); VQ87
+- 2: web/apps/web/src/status-cues.test.tsx ("mark what its person watched with the white check…"), watched-mark.test.tsx (the rows, nothing faded), ui-gallery.test.tsx, icon.test.tsx, colour-tokens.test.ts; TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture; VQ87
+- 3: TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs; watched-mark.test.tsx (a season's row); VQ87
+- 4: TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack, TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs, TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark, TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere; watched-mark.test.tsx ("marks a film watched at once…", the season and the series); VQ87 (by remote)
+- 5: TestWatched_RestartingAFinishedEpisodeKeepsTheSeriesWhereItWas, TestBrowse_AListShowsHowFarThePersonIsThroughEach, TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds, TestMembersAhead_StartAtThePersonsPlaceInTheOrdering, internal/core/interest's TestRaiser_* (Next Up read from the marks)
+- 6: nothing built, as decided
+
+**Status:** Decided 2026-10-27. Built 2026-10-27. The store keeps `title_watched` (step 0062,
+checkpoint 48 unmoved): a person's `watched_at`, NULL while not watched, and `marked_at`, their last
+mark by hand either way; the step keeps watched what was finished until then (a position past the
+household's `finished_after_percent` of a known length, a `completed` event, `purged_watching`'s
+completions). `internal/core/playback/watched.go` writes it: a report played to its finish
+(`keepWatchedByPlay`, from `report.go`), a report with an unattended span marking nothing; and
+`MarkWatched`/`RestoreWatched`, the mark by hand and its Undo, which puts back each title's mark as
+the mark's answer gave it. `internal/core/library/watched.go` reads it (`IsBeforeMark`: a position
+watched at or before the last mark counts for nothing, in Continue Watching, a list's film progress,
+Next Up and where a play resumes, `resume.go`) and says what may be marked: a film, episode or other
+video reached, never an extra (`TitleToMark`), and a series' or season's episodes with a file in the
+person's ordering, present now (`EpisodesToMark`). Next Up orders finished members by when they became
+watched (`Member.FinishedAt`), so a rewatch begun does not move it, the later of several marked at
+once winning. The API (`internal/core/api/watched.go`): `PUT`/`DELETE /items/{id}/watched`,
+`/collections/{id}/watched`, `/collections/{id}/seasons/{season}/watched`, each answering `previous`,
+and `PUT /watched` to put them back; `isWatched` on list entries, Continue Watching's rows, a title,
+a series, its seasons and episodes. The web client (`web/apps/web/src/watched-mark.tsx`): the check
+(`WatchedIcon`, `--color-watched`), the tray's last cue in `status-cues.tsx`, on season and episode
+rows on the tray's patch (`series.tsx`), and *Mark as watched* / *Mark as unwatched* with Undo on a
+title's page (`title.tsx`), a series' top page and a season's page. Measured as D185 §2 did, at the
+reference scale (`refscale_test.go`, a third of the plays finished): a 60-film page's watched marks
+0.05 ms by their keys (D185's live rollup: 0.84 ms); a page of series' progress, now counting watched
+episodes, 15.6 ms against 14.3 ms before, the count dominating, within the 50 ms page budget. As built,
+where the decision left it open: episode rows gained the check, not a progress bar; a series' check on
+its own page counts the episodes the ordering in use lists with a file, as its list's progress does.
+Not seen on a device yet (VQ87).
