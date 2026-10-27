@@ -33,10 +33,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   `stepUpBufferMs` loaded ahead and a link `stepUpHeadroom` times the next quality's rate (D247
   §9); holds the film to half the link while voice is live; and counts neither a chunk from the
   browser's cache, as its Resource Timing says or, where it does not, a load under 10 ms, nor one
-  its pace held back as a measure of the link. A quality whose video,
+  its pace held back as a measure of the link, and times a chunk that does from its first byte to
+  its last, never the wait for its first (D247 §9). A quality whose video,
   asked to play, stands still while its chunks arrive is given up as one the device cannot play,
   with every quality above it, and reported (D266).
-  `abr-choice.test.ts`, `abr.test.ts`, `cache-hit.test.ts`, `step-up.test.ts`.
+  `abr-choice.test.ts`, `abr.test.ts`, `abr-measure.test.ts`, `cache-hit.test.ts`, `step-up.test.ts`.
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.
