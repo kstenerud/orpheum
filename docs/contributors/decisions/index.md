@@ -362,6 +362,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D354](working-notes.md#d354--a-webrtc-pair-that-goes-out-to-the-nat-both-ends-share-and-back-is-named-a-hairpin-warned-of-to-the-admin-and-never-counts-as-home) A WebRTC pair that goes out to the NAT both ends share and back is named a hairpin, warned of to the admin, and never counts as home
 - [D355](working-notes.md#d355--a-playbacks-picture-and-sound-are-each-wanted-from-a-position-of-their-own-moved-by-their-own-asks-and-together-by-a-seek-a-pause-a-resume-and-the-start) A playback's picture and sound are each wanted from a position of their own, moved by their own asks, and together by a seek, a pause, a resume and the start
 - [D356](working-notes.md#d356--an-ipv4-only-cores-devices-at-home-are-recognised-by-the-houses-ipv6-networks-which-the-core-learns-from-devices-that-reached-it-directly-in-the-house-and-tells-its-discovery) An IPv4-only core's devices at home are recognised by the house's IPv6 networks, which the core learns from devices that reached it directly in the house and tells its discovery
+- [D357](working-notes.md#d357--a-rescan-re-runs-the-matcher-on-everything-a-person-did-not-set-per-item-per-library-and-for-all-of-them) A rescan re-runs the matcher on everything a person did not set: per item, per library, and for all of them
 
 ## Archived
 

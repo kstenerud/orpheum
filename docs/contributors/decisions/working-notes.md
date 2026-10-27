@@ -22687,3 +22687,49 @@ line) is tested in orpheum-connect, which `make check-claims` cannot see; each p
 Orpheum test, and the connect tests are named in its own plan when built.
 
 **Status:** Proposed, not built.
+
+## D357 — A rescan re-runs the matcher on everything a person did not set: per item, per library, and for all of them
+
+**Decided** (2026-10-27), by the project owner, after the matcher's fix for a film named exactly as
+the file and another with an article ("Crowd", 2022, matched to "The Crowd" of the same
+year, the owner's staging) reached only titles matched after it: "we're likely to encounter other
+unhandled cases that misidentify things during beta and even after release, requiring us to ship
+fixes." A fix to the matcher reaches the library only when it re-runs; this is how it re-runs.
+
+1. **Three buttons, for an admin.** "Rescan everything" on the Libraries page, over every library
+   whose kind is films or series (not mixed or other); "Rescan" on each such library; and "Rescan
+   this" on a film's or a series' page. A series is rescanned as the one thing identified, its
+   episodes following it (D209).
+2. **A rescan is a scan, then a re-match.** The scope's files are scanned as a manual scan scans them
+   (new, changed and gone files found; a file unchanged on disk is not probed again), and then the
+   matcher runs again on every film and series in the scope, as it would on one never matched: the
+   name and year read from the files and their NFOs, the provider searched again (a clear match
+   keeps no candidates, D301), the matcher as it now is settling it.
+3. **What a person set through the app is left alone:** a match a person chose (D172, D301 §2),
+   every field a person edited (D305's overrides), and anything else set in the app. A match the
+   matcher guessed and no one confirmed is re-matched like any other.
+4. **A different answer replaces the old one, without review** (the owner: "Just change it. If it's
+   wrong, they already have the means to manually fix it"): the new match is kept as the matcher's
+   own would be, a guess marked as one where it is a guess (D301), and corrected from the title's
+   page as any match is. What a person watched stays theirs across the change; the build says where
+   each such record is kept and shows it survives.
+5. **It runs in the background**, as jobs (D231), the Libraries page showing its progress; a second
+   press while one runs over the same scope adds nothing. It costs one provider search per film or
+   series, and a fetch for each whose match changed, within the provider's limits.
+6. **Each change is logged:** the item, its old match and its new one, and what settled it (which of
+   the matcher's tiers, or a guess), and each run's totals (items re-matched, changed, left alone,
+   unsettled), so a report of a wrong match after a rescan is explained from the log alone.
+
+**Verification owed:** staging's "Crowd" (2022), matched to "The Crowd" before the fix
+, is left as it is, so that this decision's first build is checked on it: after "Rescan
+this" it is the film named "Crowd".
+
+**Proven by** (tests to be written):
+- 1: TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther, TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_IsForAnAdminOnly, web/apps/web/src/libraries.test.tsx (the buttons)
+- 2: TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_AFileUnchangedOnDiskIsNotProbedAgain
+- 3: TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone, TestRescan_RematchesAnUnconfirmedGuess
+- 4: TestRescan_ADifferentMatchReplacesTheOld, TestRescan_WhatAPersonWatchedSurvivesAChangedMatch
+- 5: TestRescan_ASecondPressWhileOneRunsAddsNothing
+- 6: TestRescan_LogsEachChangedMatchAndTheRunsTotals
+
+**Status:** Decided 2026-10-27, not built: in the next batch.
