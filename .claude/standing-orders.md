@@ -2,44 +2,25 @@
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
 2. **Done 2026-10-27:** the batch of D360–D362, D361's pages, the Play page's Back: accepted, on nas.example.
-   **Now (owner 2026-10-27: "go ahead with the next batch"):** D363 recorded (overlap, copies, lists). Agents:
-   D363 merged (an earlier commit..d5750f8f; owner accepted its Test-Weakened), on staging (protocol 52, step 0060;
-   Series and shows overlap, 124 each, 124 in all). Media fixes done. Agents now: sorting both ways + release
-   date and per-person home visibility; the Icon component.
    `ssh prod-nas` (192.168.1.250): runs an earlier commit (bundle, branch sandbox-main), root /tank/media.
-   **Next batch, first (decided 2026-10-27; the decision after D362):** libraries may overlap. Model (owner
-   confirmed): the file is the base unit (scanned once, sidecars, watch progress); a file is part of at most
-   one film, one run of episodes, one other video; a view may span files (versions, parts); same kind shares
-   one view, different kinds get their own. Access: any library reaching it. Lift D359's no-overlap rule;
-   remove the "mixed" kind (none exist). Same kind, conflicting sources: a person's match wins, else the
-   NFO; doctor lists conflicts. Deleting a library deletes no item: uncovered items' data becomes reapable,
-   reaped only under storage pressure (existing budgets), oldest first; watch progress stays with the file.
-   Views stay collection members (D160). Migration. Test with staging's empty "shows" library.
-   **With it (owner 2026-10-27):** lists show items, each once however reached (nested folders collapse to
-   the outer). Byte-identical copies are one file at several locations (full read confirms); a person sees
-   and plays only locations their libraries cover, never learns of others; sidecars per location. Different
-   encodes of one other video stay separate (owner: no handling; the admin fixes the files).
-   **After the overlap batch:** an inventory of every decided-but-unbuilt feature (decision statuses, plans,
-   code-debt, the owner's asks; collections' UI, D160) for the owner to choose from.
-   **Once the filed work (icons, D364, own player controls) is done (owner 2026-10-27):** a DRY audit of
-   the TS code: a standard set of UI widgets (buttons, choosers, dialogs, lists, forms...) instead of
-   bespoke ones; findings for the owner, then the consolidation.
-   **Next batch, also (owner 2026-10-27):** a library's setting for whether its items show on the home page.
-   Each person chooses for themselves (owner 2026-10-27), beside D349 §8's per-person leave-out.
-   **D365 done** (staging's Crowd now 1020910), and a rescan no longer waits an hour.
-   **Next batch (owner 2026-10-27):** films and series sort by release date too (now: name, date added; other
-   videos: recorded). Every sort runs either way: dates newest↔oldest, names A–Z↔Z–A; unknown dates last.
-   **Next batch (owner 2026-10-27):** one Icon component draws every icon (viewBox, aria-hidden, size, class),
-   each icon only its shapes; marks in currentColor, a two-tone one's ground from --icon-ground, set by its
-   region (the three status cues still use fixed tokens); a test holds both; the QR code exempt.
-   **Next batch (found 2026-10-27, VQ81):** a play reading a place whose file is gone (renamed, deleted)
-   answers 404 instead of trying the person's next reached place; and a library folder that vanished is
-   not marked unavailable when its scan's listing is refused ("stat movies: no such file"), still "complete".
-   **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
-   **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once); the owner's
-   cast icon is `CastIcon` in status-tray.tsx (from cast.svg): use it. And
-   our own player controls on computers too, replacing Chrome's built-in ones, reachable by arrows (owner
-   chose; loses Chrome's speed menu and picture-in-picture unless we add them).
+   **This batch (owner 2026-10-27: "go ahead with the next batch"), on staging as it lands:**
+   - Done: D363 overlap and copies (owner accepted its Test-Weakened; VQ80 passed, VQ81 mostly), D365
+     runtime matching (Crowd fixed), the rescan's hour-long wait, the player fixes (VQ78 passed; VQ79
+     owes the new device name), the MPEG-TS seek, readthrough's formats.
+   - Agents now: D366 (sorting both ways, release date, each person's Home libraries); the Icon component
+     (one component, currentColor, --icon-ground, a test; the QR code exempt).
+   - Then: one full check-pr, the owner's go, nas.example (step 0060 there is VQ82); then the inventory of every
+     decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
+     D160) for the owner to choose from (owner: "once the overlap batch is done").
+   **Next batch (filed 2026-10-27):**
+   - D364, casting as a session (top-bar Cast, ask once, tray icon on the sender, the remote a page of its
+     own, one place for controls beside Watch Together); `CastIcon` in status-tray.tsx is the owner's icon.
+   - Our own player controls on computers too, replacing Chrome's, reachable by arrows (owner chose).
+   - From VQ81: a play whose file is gone at one place (renamed, deleted) answers 404 instead of trying
+     the person's next reached place; a vanished library folder is not marked unavailable when its scan's
+     listing is refused ("no such file"), still "complete".
+   **After the icons, D364 and our own controls (owner 2026-10-27):** a DRY audit of the TS code toward a
+   standard set of UI widgets, findings first, then the consolidation.
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
