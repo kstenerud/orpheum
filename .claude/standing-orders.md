@@ -1,8 +1,9 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now (owner 2026-10-27):** find why the owner's home playback went over WebRTC through the public IP
-   (11.22.33.144) instead of the LAN (research agent running: local-path-2026-10-27.md). Owner questions open:
+2. **Now (owner 2026-10-27):** the public-IP playback is explained (local-path-2026-10-27.md: Firefox never
+   tries the LAN name; staging's UDP 8443 is not published from the VM; the IPv4-only core can't prove the
+   client is home); waiting on the owner's choice of fixes. Owner questions open:
    D352 Q2 (where the steadiness level is remembered: core beside the speed, or browser keyed by a network
    name the core hands out); D353's per-stream positions (now, or code debt). Done 2026-10-27: audio switch
    at 0, seek wait and backup snapshot, the first measurement (13009698),
