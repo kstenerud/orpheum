@@ -260,18 +260,25 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
   });
 
   // After a click on the browser's own full-screen button, focus on it, Space pressed it again
-  // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video.
+  // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video. Since
+  // D369 the page has the player's own controls in place of the browser's, which Space plays and
+  // pauses on too, once, never pressing the one focused as well.
   it("plays and pauses by Space with focus on the video and its own controls", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     const video = await theFailedVideo();
-    expect(video.controls).toBe(true);
+    expect(video.controls).toBe(false);
     video.focus();
     const playsBefore = play.mock.calls.length;
     await press(" ");
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(video);
+    const fullScreen = document.querySelector<HTMLElement>(".page-controls .full-screen-button");
+    fullScreen?.focus();
+    await press(" ");
+    expect(play.mock.calls.length).toBe(playsBefore + 2);
+    expect(document.fullscreenElement).toBeNull();
   });
 });
 

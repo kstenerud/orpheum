@@ -60,7 +60,9 @@ export type PlayerControl = "play" | "steps" | "timeline" | "sound" | "fullScree
  * The player's bar (D369 §1), one for every device and every source: over a film on this page, a
  * television's or a computer's (their overlays decide when it shows), or a page of its own that
  * commands a film elsewhere (a cast's remote). It draws the controls it is given, in one order: the
- * buttons, whatever aside the page adds at their end before full screen, then the timeline.
+ * buttons, whatever aside the page adds, full screen, then the sound, its volume last in the row, as a
+ * slider keeps Left and Right for itself and an arrow could not pass it to what came after; then the
+ * timeline.
  */
 export function PlayerControls(props: {
   readonly source: PlayerSource;
@@ -95,11 +97,11 @@ export function PlayerControls(props: {
           />
         ) : null}
         {has("steps") ? <Steps source={source} isOverVideo={isOverVideo} /> : null}
+        <span className="player-controls__aside">{props.aside}</span>
+        {has("fullScreen") ? <FullScreenButton /> : null}
         {has("sound") && source.sound !== undefined ? (
           <SoundControls sound={source.sound} isOverVideo={isOverVideo} />
         ) : null}
-        <span className="player-controls__aside">{props.aside}</span>
-        {has("fullScreen") ? <FullScreenButton /> : null}
       </div>
       {has("timeline") ? (
         <Timeline

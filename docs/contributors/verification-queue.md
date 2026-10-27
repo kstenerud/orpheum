@@ -833,3 +833,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   Failed 2026-10-27 (the owner, nas.example): signed out and in again on the Fire TV, it is still listed as
   "Chrome on Android". It signed in through the discovery's page over WebRTC, whose logged user agent is
   empty: the name likely comes from the discovery's sign-in, not device.ts. Fixed in this batch.
+- [ ] **VQ85** — D369, the player's own controls on every device, on staging. Passes when: on a
+  computer, the Play page shows the app's bar over the film and no browser controls; a mouse's move
+  shows it and five still seconds hide it while the film plays; a click on the film pauses
+  and plays it, a double click goes full screen and back; Tab and the arrows reach play, full screen,
+  mute, the volume and the timeline (Down from the film goes to play), Left and Right on the
+  timeline seek 10 s, Space plays and pauses wherever focus is in the player and never presses the
+  button focused too, and the subtitle, audio, boost and sound controls under the film still work;
+  on a phone (an iPhone and an Android), a tap shows the bar without pausing, a finger anywhere on
+  the timeline moves the film there, the volume shows where the phone lets a page set it (not on an
+  iPhone, whose mute alone shows), and full screen fills the screen; on the Fire TV, the overlay
+  behaves as before with its icons drawn (play, pause, full screen) and its 2.75rem buttons readable
+  across the room; and on a cast's remote (a phone casting to the Fire TV or a computer), the remote's
+  play, pause, Back 10 s, Forward 10 s and timeline command the receiver, a drag sent once it rests.
+  The status tray's signs, now 2.75rem wide, are looked at for how they feel (the owner, 2026-10-27).
+  (`web/apps/web/src/page-controls.tsx`, `player-controls.tsx`, `timeline.tsx`, `icon-button.tsx`,
+  `tv-controls.tsx`, `cast-remote.tsx`)

@@ -283,13 +283,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   of text scrolls through it a step at a time before the control past it takes focus; a
   controller's move is shown as a key's is (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
-  Silk's Back too. The player answers over the browser's own controls (`src/player-commands.ts`):
-  play/pause wherever focus is, OK on the video, Space on the video, on the player's own controls
-  over it (the browser's in its shadow too) or on nothing, a 10 s seek by the seeking buttons, the
-  browser's media controls and Left and Right while the video or nothing has focus, and Back leaving
-  full screen before the page; every control under the video is reached by arrows. A television's
-  overlay (`src/tv-controls.tsx`) seeks by Left and Right on its scrub bar, whose arrows are commands
-  (`data-focus-arrows-are-commands`), and offers full screen as a button a remote presses.
+  Silk's Back too. The player answers with its own controls on every device, never the browser's
+  (D369 §2; `src/player-commands.ts`): play/pause wherever focus is, OK on the video, Space on the
+  video, on the player's own controls over it or on nothing, a 10 s seek by the seeking buttons, the
+  browser's media controls and Left and Right while the video, nothing or the player's timeline has
+  focus, and Back leaving full screen before the page; every control over and under the video is
+  reached by arrows. A television's overlay (`src/tv-controls.tsx`) seeks by Left and Right on its
+  timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
+  button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is the same bar over
+  the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
+  by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
+  film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
   `src/player-commands.test.tsx`, `src/tv-controls.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
@@ -309,6 +313,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `--icon-ground`; the region it is drawn in sets both, a status cue's its own class from its tokens.
   `src/icon.test.tsx`; the cues' colours, `src/app-shell.browser.test.tsx`; each icon together at
   `/ui-gallery`, `src/ui-gallery.test.tsx`.
+- **Every colour is a token** (D138 §4), what is drawn over a film too (`--color-on-video`,
+  `--color-video-scrim`, `--color-video-card`, `--color-video-control`, D369 §1): a stylesheet writes
+  none out but `src/tokens.css` and the gallery's made-up posters. `src/colour-tokens.test.ts`.
+- **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
+  `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
+  is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a
+  film or for one elsewhere are one bar, `PlayerControls` (`src/player-controls.tsx`), fed by the
+  video here (`useVideoSource`) or by a cast's remote, the TV overlay, a computer's and a phone's
+  controls and the cast remote alike. `src/icon-button.test.tsx`, `src/timeline.test.tsx`,
+  `src/player-controls.test.tsx`, `src/cast-remote.test.tsx`.
 
 ## Read before changing
 
@@ -328,7 +342,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
-  `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watching.ts` (the film a tab watches: its page's warm-up
+  `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
+  `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
+  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

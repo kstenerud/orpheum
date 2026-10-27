@@ -100,7 +100,10 @@ export function TvControls(props: FilmParts): JSX.Element {
   const source = useVideoSource(videoRef);
   const [shown, setShown] = useState<OverlayShown>("all");
   const notePress = useHiding({ isPaused: source.isPaused, shown, setShown, overlayRef, videoRef });
-  useOpensAtThePointer(setShown, notePress);
+  useOpensAtThePointer(() => {
+    setShown("all");
+    notePress();
+  });
   useFullscreenStage(playRef);
   useCommands(
     "document",
@@ -218,23 +221,17 @@ function useHiding(hiding: {
 }
 
 /**
- * Opens the whole overlay at a mouse's move, or a click or a tap anywhere on the page, as a desktop
- * player shows its controls, and hides it as after a press (useHiding): a cast's receiver on a
- * computer showed no controls to its mouse (the owner, 2026-10-27). A move that did not change the
- * pointer's place is none (a browser may move it by itself as what lies under it changes), and a
+ * Opens a player's controls (open) at a mouse's move, or a click or a tap anywhere on the page, as a
+ * desktop player shows its controls, the overlay hiding them again after its time: a cast's receiver
+ * on a computer showed no controls to its mouse (the owner, 2026-10-27). A move that did not change
+ * the pointer's place is none (a browser may move it by itself as what lies under it changes), and a
  * click a key made (no count) is the key's, which the overlay answers as a press already. Focus
- * stays where it is.
+ * stays where it is. The latest open is called each time.
  */
-function useOpensAtThePointer(
-  setShown: (shown: OverlayShown) => void,
-  notePress: () => void,
-): void {
-  const openRef = useRef(notePress);
+export function useOpensAtThePointer(open: () => void): void {
+  const openRef = useRef(open);
   useEffect(() => {
-    openRef.current = () => {
-      setShown("all");
-      notePress();
-    };
+    openRef.current = open;
   });
   useEffect(() => {
     let lastPlace: string | undefined;
