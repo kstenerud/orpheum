@@ -23258,6 +23258,29 @@ question per session); **keeps** D337 §1, §5's remote and split devices, §6 (
     Together's page, where the controls are; it shows none of its own. How the two tray icons read
     side by side is designed with the build, and shown to the owner before it is built.
 
+**Revised before it was built** (2026-10-27), by the owner's answers to
+[screens-and-guest-rejoin-2026-10-27.md](../design/research/screens-and-guest-rejoin-2026-10-27.md)
+§5 ([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+These points replace §1's top-bar "Cast", §7's tray icon and §11 where they differ:
+
+12. **No Watch Together or Cast item in the top bar.** Their two icons are always in the tray, white while
+    their function is off, blue (perhaps pulsing) while it is on, and they are the entry points.
+13. **Where each icon leads, by what is on:**
+
+    | Watch Together | Casting | Watch Together's icon | Cast's icon |
+    | --- | --- | --- | --- |
+    | off | off | the session setup page | the casting setup page, the devices one can cast to |
+    | on | off | the session's page | the casting setup page; a cast set up, the session's page |
+    | off | on | the session setup page | the casting page: playback controls, End the session |
+    | on | on | the session's page, with Stop casting | the session's page |
+
+14. **Watch Together's icon shows for everyone in a session, host or signed-in guest**, not a guest
+    who joined by a link alone; a signed-in guest browses freely and returns by it.
+15. **Leaving the film no longer stops it for the group**: Stop, or the host playing another film,
+    ends it (D246 §5's stop on leaving is withdrawn). The session's page carries the playback controls (the remote of
+    D369's `PlayerControls`).
+16. **No mini player and no picture-in-picture** without a very compelling reason.
+
 **Status:** Decided 2026-10-27.
 
 ## D365 — Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
@@ -23386,6 +23409,28 @@ Play page's `playUp`, built the same day) and other pages had Back alone.
    on.
 5. **The Play page's Back with nothing behind it keeps going up** (as built 2026-10-27), to the same
    target as its Up.
+
+**Revised before it was built** (2026-10-27), after the research
+([navigation-back-up-2026-10-27.md](../design/research/navigation-back-up-2026-10-27.md)) and the owner's
+answers ([navigation-and-widgets-answers-2026-10-27.md](../design/plans/navigation-and-widgets-answers-2026-10-27.md)):
+the owner objected that "if you're in a video and click up a bunch, then press back, it brings you back
+down again"; no product the research found makes Back go up instead of back. These points replace §2's
+"a control of its own beside Back" and §4:
+
+6. **No on-screen Back** on computers and phones: the browser's, the gesture's and the remote's Back is
+   the history (§1). A TV keeps an on-screen Back in the player's overlay while the app cannot tell TV
+   Bro (whose remote Back never reaches the page) from Silk.
+7. **Up never adds to the history.** If the parent is anywhere behind in the app's history, Up goes back
+   to the nearest copy of it; otherwise Up replaces the current entry with the parent. Back after Up never
+   returns down the branch.
+8. **Up shows where one is and leads up**: on computers and phones a trail (`Series › Copper Kettle › S1E1
+   Pilot`), each part a link, the one before the last the parent; on a TV one "‹ ‹parent's name›", one
+   stop for focus. Top pages show none.
+9. **A series is one page with a season picker**; choosing a season, a sort or a search replaces the
+   history entry, a view of the page, not a level. Returning to the series, by Back or Up, shows the
+   season of the episode one comes back from, that episode focused.
+10. **Dialogs close on Back** where the browser lets the page see it (Escape, a remote's Back), before
+    the page is left.
 
 **Status:** Decided 2026-10-27.
 
