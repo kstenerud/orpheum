@@ -115,6 +115,11 @@ general socket of a signed-in device; that refactor is not needed for the first 
 
 ## 4. The receiver
 
+- **Asking first** ([D358](../../decisions/working-notes.md#d358--a-cast-asks-the-receiving-device-first-device-wants-to-play-film-here-whose-play-is-the-press-that-starts-it-with-sound-and-full-screen)).
+  A cast that arrives shows, over whatever page the tab is on, "‹Device› wants to play ‹Film›
+  here" with **Play** (focused, so a remote's OK answers it) and **Not now**. Play's press is the
+  one that lets the film play with sound and puts the page full screen; Not now, or no answer within
+  a minute, ends the cast as declined or unanswered, and the sender, still playing, says so.
 - **Entering.** The hand-off names the file, the position and the sender's choices (subtitle track,
   audio track, boost, volume). The receiver asks for its own playback (`POST /playback`), so it gets
   the rendition its own browser can play (D2, D124), starts at the sender's position, and takes the
@@ -136,16 +141,17 @@ general socket of a signed-in device; that refactor is not needed for the first 
 - **Full screen and sound without a press are not given.** The Fullscreen API needs a recent user
   activation, and a browser may refuse to start sound without one (iPhone Safari does:
   [idiosyncrasies](../../idiosyncrasies.md#iphone-safari-refuses-a-films-sound-that-no-recent-tap-started-and-a-tap-long-before-does-not-count)).
-  A page started by a message has neither. The receiver fills the window by layout rather than the
-  API (a TV browser's window is the screen already), and if `play()` is refused it shows one line,
-  "Press OK to start", whose press starts it. Whether Silk and TV Bro refuse is a device check
-  (§8 step 3's VQ).
+  A page started by a message has neither: Chrome on Linux and a Fire TV's Silk played the first
+  build's casts muted and out of full screen (the owner, 2026-10-27). D358's Play is that press.
+  The receiver also fills the window by layout, and should the sound still be refused it plays
+  muted with a "turn the sound on" line over the film that any key, OK among them, or a click or a
+  tap answers.
 - **A reload comes back receiving.** The core keeps who receives and who controls, in memory; a
   receiver whose page reloads (Silk reloads on a change of navigation mode, a TV browser killed on
   an input switch and reopened) says hello and is told to receive again.
 - **Progress is the receiver's** (recommended, §9 Q2): it plays, so it reports, as any Play page
-  does. The sender leaves its own playback at the hand-off (`leavePlayback`), so no stale report from
-  it can move the person's position back (D165).
+  does. The sender leaves its own playback at the hand-off (`leavePlayback`), once the receiver has
+  pressed Play (D358 §3), so no stale report from it can move the person's position back (D165).
 
 ## 5. The sender's remote
 
