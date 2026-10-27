@@ -124,8 +124,8 @@ func TestStopUnwanted_AJumpIsJudgedByTheStartOfItsStoresLastRun(t *testing.T) {
 }
 
 // However fast a run would start again, a player no more than two chunks past what it makes leaves
-// it going: its picture and sound, loaded apart, each move its one position (D353). The run makes two
-// seconds of film a second and started in one, so restarting costs less than any wait.
+// it going: a chunk served is known made before the run's progress says it (D353 §4, D355 §4). The
+// run makes two seconds of film a second and started in one, so restarting costs less than any wait.
 func TestStopUnwanted_ARunIsNeverStoppedForAPlayerTwoChunksPastIt(t *testing.T) {
 	t.Parallel()
 	stage := newJumpStage(t, true)
@@ -162,10 +162,11 @@ func TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap(t *testin
 	}
 }
 
-// A run its own stream's player waits on is not stopped by where the other stream moved the player's
-// one position: a picture asked for 40 s past the sound its run has not made yet, as hls.js loads a
-// picture while its sound is late, left the sound's run cut and its asks refused, the sound waiting
-// for want of a run (D353).
+// A run its own stream's player waits on is not stopped by where the other stream is: a picture asked
+// for 40 s past the sound its run has not made yet, as hls.js loads a picture while its sound is late,
+// left the sound's run cut and its asks refused, the sound waiting for want of a run (D353). The
+// picture's ask moves the picture's position alone (D355 §1), and the sound's player is still where
+// it asked.
 func TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
@@ -174,14 +175,14 @@ func TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs(t *t
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
 	grid := mustGrid(t, service).ID()
-	ask := func(stream Stream, n int) {
-		wanted.say(playingAt(picture, n), playingAt(sound, n))
+	ask := func(stream Stream, n int, interests ...Interest) {
+		wanted.say(interests...)
 		if err := service.Want(t.Context(), chunkOf(stream, grid, n)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	ask(sound, 1)
-	ask(picture, 5)
+	ask(sound, 1, playingAt(picture, 1), playingAt(sound, 1))
+	ask(picture, 5, playingAt(picture, 5), playingAt(sound, 1))
 	if len(queue.cancelledFirsts) != 0 {
 		t.Errorf("a picture asked for 40 s past its sound cancelled %v; want the sound's run going on",
 			queue.cancelledFirsts)
@@ -209,9 +210,9 @@ func TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy(t *testing.T) {
 	}
 }
 
-// A sound made alongside a sought picture is where its player waits for it, as its own ask would
-// say: the picture's ask then stops the sound's run where the player was, which the sound's asks
-// there no longer keep (D353), as the minute before D353 did.
+// A sound made alongside a sought picture is where its player waits for it, its position moved there
+// with the picture's (D355 §2): the picture's ask then stops the sound's run where the player was,
+// as the minute before D353 did.
 func TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
@@ -234,5 +235,28 @@ func TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas(t 
 	}
 	if !slices.Equal(queue.cancelledFirsts, []int{1}) {
 		t.Errorf("a picture sought 80 s on cancelled %v; want the sound's run from 1", queue.cancelledFirsts)
+	}
+}
+
+// A player's word that it sought away stops the run it left at once, though the store's last ask was
+// the player's own, near what the run makes, before it sought (D355 §4): each stream's position is
+// its own player's, so a store's last ask, which outlived the seek, no longer keeps the run until the
+// player's first ask where it landed. The run makes ten seconds of film a second and started in five,
+// so a jump 60 s past it restarts.
+func TestStopUnwanted_AWordOfASeekStopsTheRunItLeftThoughTheStoresLastAskWasNearIt(t *testing.T) {
+	t.Parallel()
+	stage := newJumpStage(t, true)
+	stage.makes(1, 1, 5*time.Second)
+	stage.makes(1, 2, time.Second)
+	stage.wanted.say(playingAt(stage.picture, 3))
+	if err := stage.service.Want(t.Context(), chunkOf(stage.picture, stage.grid, 3)); err != nil {
+		t.Fatal(err)
+	}
+	stage.wanted.say(playingAt(stage.picture, 9))
+	if err := stage.service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(stage.queue.cancelledFirsts, []int{1}) {
+		t.Errorf("a word of a seek 60 s past the run cancelled %v; want the run from 1", stage.queue.cancelledFirsts)
 	}
 }

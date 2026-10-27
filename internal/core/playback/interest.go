@@ -31,12 +31,16 @@ const (
 )
 
 // playerInterest is what a playback's player wants of its film's chunks (D309 §1): one picture and
-// its sound, by stream and by store, from a position, and where it stands.
+// its sound, by stream and by store, each from its own position (D355), and where it stands.
 type playerInterest struct {
 	picture, sound       string
 	pictureDir, soundDir string
-	positionMs           int64
-	disposition          Disposition
+	// picturePositionMs and soundPositionMs are where the picture and the sound are wanted from: each
+	// moved by its own stream's asks, both by the player's word, a seek's picture and the start.
+	// hls.js loads the picture up to its buffer ahead of a late sound, and one position, moved by
+	// both, jumped back and forth between them.
+	picturePositionMs, soundPositionMs int64
+	disposition                        Disposition
 }
 
 // Interest is what a player says it wants of its film's chunks (SayInterest): a picture's and a
@@ -69,7 +73,8 @@ func (service *Service) SayInterest(ctx context.Context, token string, holder Ho
 }
 
 // take replaces what a player wanted with what it said: a stream it names that is not the one it
-// wanted is wanted from a store not yet known, until it asks for a file of it.
+// wanted is wanted from a store not yet known, until it asks for a file of it. Its word, said as it
+// starts, seeks, pauses and plays again, moves both its streams to where it plays (D355 §2).
 func (interest *playerInterest) take(said Interest) {
 	if said.PictureStream != "" && said.PictureStream != interest.picture {
 		interest.picture, interest.pictureDir = said.PictureStream, ""
@@ -77,10 +82,16 @@ func (interest *playerInterest) take(said Interest) {
 	if said.SoundStream != "" && said.SoundStream != interest.sound {
 		interest.sound, interest.soundDir = said.SoundStream, ""
 	}
-	interest.positionMs, interest.disposition = said.PositionMs, Playing
+	interest.moveBoth(said.PositionMs)
+	interest.disposition = Playing
 	if said.IsPaused {
 		interest.disposition = Paused
 	}
+}
+
+// moveBoth moves the picture's and the sound's positions together to positionMs (D355 §2).
+func (interest *playerInterest) moveBoth(positionMs int64) {
+	interest.picturePositionMs, interest.soundPositionMs = positionMs, positionMs
 }
 
 // stopUnwanted stops the film's runs no player wants, where the playbacks have chunks.
@@ -92,9 +103,9 @@ func (service *Service) stopUnwanted(ctx context.Context, fileID int64) error {
 }
 
 // InterestsIn is every interest the playbacks of fileID hold now (chunks.Interests): each one's
-// picture and sound, stopped once its player paused or left, and the lower quality and sound a stall
-// made ready for it (D247 §2); none once its player went to another film, or fell silent while
-// playing for chunk_interest_lapses_after_seconds (D309 §3).
+// picture and sound, each from its own position (D355), stopped once its player paused or left,
+// and the lower quality and sound a stall made ready for it (D247 §2); none once its player went to
+// another film, or fell silent while playing for chunk_interest_lapses_after_seconds (D309 §3).
 func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	now := service.clock.Now()
 	lapsesAfter := service.timingNow().interestLapsesAfter
@@ -108,10 +119,13 @@ func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 			continue
 		}
 		isStopped := interest.disposition != Playing
-		for _, stream := range []string{interest.picture, interest.sound} {
-			if stream != "" {
+		for _, wanted := range []struct {
+			stream     string
+			positionMs int64
+		}{{interest.picture, interest.picturePositionMs}, {interest.sound, interest.soundPositionMs}} {
+			if wanted.stream != "" {
 				interests = append(interests, chunks.Interest{
-					StreamName: stream, PositionMs: interest.positionMs, IsStopped: isStopped,
+					StreamName: wanted.stream, PositionMs: wanted.positionMs, IsStopped: isStopped,
 				})
 			}
 		}
@@ -126,26 +140,53 @@ func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	return interests
 }
 
+// askedFile is a file of its film's chunks a player asked for, as its playback's interest reads it
+// (wantFetched): its stream's name and store, where its chunk starts, and whether it is a sound's,
+// a chunk rather than an init, and asked for loading where a seek took the player
+// (chunks.StoreFile.AsSought).
+type askedFile struct {
+	stream, dir                string
+	startMs                    int64
+	isSound, isChunk, isSought bool
+}
+
+// askedFileOf is file as its playback's interest reads it.
+func askedFileOf(file chunks.StoreFile) askedFile {
+	startMs, isChunk := file.StartMs()
+	return askedFile{
+		stream: file.StreamName(), dir: file.StoreDir(), startMs: startMs,
+		isSound: file.IsSound(), isChunk: isChunk, isSought: file.IsSought(),
+	}
+}
+
 // wantFetched reads a playback's interest off a file of its film's chunks its player asked for (D309
-// §1), in the store at dir: its picture or its sound is the file's stream, and the file's chunk,
-// starting at startMs, unless its player said it is paused, is where it now plays from. An init,
-// isChunk false, says nothing of where the player is: its run is made from where the playback last
-// reported, the film's start for a guest that has reported nothing (the owner's VQ38 run,
-// 2026-10-12). A player that asks after it left, as a player page that takes over its film page's
-// token does, plays again. Locked by its caller.
-func (playback *tokenPlayback) wantFetched(isSound bool, stream, dir string, startMs int64, isChunk bool) {
+// §1): its picture or its sound is the file's stream, and the file's chunk, unless its player said it
+// is paused, is where that stream, and only that one, is now wanted from (D355 §1); a picture's chunk
+// asked for where a seek took the player moves its sound there too, as a seek moves both (§2): hls.js
+// asks for the seek's sound only once the picture's first chunk has come, and the sound's run is made
+// alongside the picture from there (chunks.Service.WantAlongside). An init says nothing of where the
+// player is: its run is made from where the playback last reported, the film's start for a guest
+// that has reported nothing (the owner's VQ38 run, 2026-10-12). A player that asks after it left, as
+// a player page that takes over its film page's token does, plays again. Locked by its caller.
+func (playback *tokenPlayback) wantFetched(asked askedFile) {
 	interest := &playback.interest
-	if isSound {
-		interest.sound, interest.soundDir = stream, dir
+	if asked.isSound {
+		interest.sound, interest.soundDir = asked.stream, asked.dir
 	} else {
-		interest.picture, interest.pictureDir = stream, dir
+		interest.picture, interest.pictureDir = asked.stream, asked.dir
 	}
 	if interest.disposition == Paused {
 		return
 	}
 	interest.disposition = Playing
-	if isChunk {
-		interest.positionMs = startMs
+	switch {
+	case !asked.isChunk:
+	case asked.isSound:
+		interest.soundPositionMs = asked.startMs
+	case asked.isSought:
+		interest.moveBoth(asked.startMs)
+	default:
+		interest.picturePositionMs = asked.startMs
 	}
 }
 
@@ -157,7 +198,8 @@ func (service *Service) keepStart(playback *tokenPlayback, onLadder *chunks.Offe
 	if onLadder != nil {
 		playback.isOnTime = onLadder.IsOnTime
 		playback.interest = playerInterest{
-			picture: onLadder.StreamName, sound: onLadder.SoundStreamName, positionMs: onLadder.FromMs,
+			picture: onLadder.StreamName, sound: onLadder.SoundStreamName,
+			picturePositionMs: onLadder.FromMs, soundPositionMs: onLadder.FromMs,
 		}
 	}
 	service.keepStartsNeed(playback, onLadder)

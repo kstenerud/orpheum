@@ -114,31 +114,34 @@
 //     TestIssueToken_HasTheChunksForgetAFilmNoPlaybackIsLeftOf.
 //
 //   - A run goes on while a player wants it, and stops at once when none does (D309 §2): each
-//     player wants one picture and its sound from a position (InterestsBy, which
-//     internal/core/playback keeps from its word, its requests and its stall's offer), and a run is
-//     wanted by one playing from a chunk it has not passed, starting within the minute of film after
+//     player wants one picture and its sound, each from its own position (InterestsBy, which
+//     internal/core/playback keeps from its word, its requests and its stall's offer, D355), and a
+//     run is wanted, judged by the interests in its own stream alone, by one playing from a chunk it
+//     has not passed, starting within the minute of film after
 //     the first chunk not made from there, or by one stopped, paused or gone from its page, whose
 //     chunk_kept_ahead_seconds ahead it is still making (§7); never by one that jumped away from it
 //     (§2, D353): the first chunk it needs not made is so far past the one the run makes next that
 //     waiting, the gap over the run's speed, costs more than its store's last run took to make its
 //     first chunk; 24 s of film, Jellyfin's rule, while either is unmeasured; never two chunks or
-//     fewer, nor while the chunk last asked of the store is within two chunks of what the run makes.
-//     Each stop for a jump says its numbers at debug. A player's ask stops the film's
+//     fewer. Each stop for a jump says its numbers at debug. A player's ask stops the film's
 //     unwanted runs before its own is planned (Want), as does
 //     each step of a run, for an interest that lapsed (§3); a run the server starts for a player, as
 //     it starts or stalls, stops nothing. A queued run that begins just past an ask's chunk, with
 //     nothing between, is cancelled for one run from the ask's. A stop says what the players of its
-//     stream want, as does an ask that planned no run. Enforced by
+//     stream want and where every player of its film wants each stream from, as does an ask that
+//     planned no run. Enforced by
 //     TestStopUnwanted_AJumpAheadOfAMeasuredRunWaitsWhileWaitingCostsLessThanRestarting,
 //     TestStopUnwanted_AJumpIsJudgedByTheStartOfItsStoresLastRun,
 //     TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap,
 //     TestStopUnwanted_ARunIsNeverStoppedForAPlayerTwoChunksPastIt,
 //     TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs,
+//     TestStopUnwanted_AWordOfASeekStopsTheRunItLeftThoughTheStoresLastAskWasNearIt,
 //     TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas,
 //     TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy,
 //     TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn,
 //     TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere,
 //     TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant,
+//     TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted,
 //     TestStopUnwanted_APlayerThatSeeksAwayStopsTheRunItLeft,
 //     TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn,
 //     TestStopUnwanted_APlayerOnMadeChunksWantsTheRunThatMakesWhatFollowsThem,
