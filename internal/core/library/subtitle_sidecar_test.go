@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -87,5 +88,42 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 	world.scan(records[:1], true)
 	if _, err := track(); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("with its video gone the subtitle file still has a track: %v", err)
+	}
+}
+
+// D363 §3: a sidecar beside a copy, attached through the ingest path that reads it, is a track of
+// the file the copy is of, not of the copy's own file id: a play of the file is offered it however
+// it is reached.
+func TestIngest_ASubtitleBesideACopyIsATrackOfTheFileItIsACopyOf(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat")}, true)
+	fileID := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"].ID
+	backupID := librarytest.LibraryOn(t, world.database, world.nodeID,
+		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/backup"})
+	payloadHash, decodeErr := hex.DecodeString(hashOf("heat"))
+	if decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	copyID := librarytest.File(t, world.database, librarytest.FileSpec{
+		LibraryID: backupID, NodeID: world.nodeID, Path: "/backup/Metropolis (1995).mkv", Filing: "copy",
+		CopyOf: fileID, PayloadHash: payloadHash, FirstSeenAt: 3,
+	})
+	// A scan of Backup that still sees its copy (as its own, unrelated scan would) alongside the
+	// subtitle beside it: attachSidecars runs over the two together, as it does in production.
+	backupFacts := nodeproto.ScanBegin{RootPath: "/backup", FilesystemDevice: 7, IsMountPoint: true}
+	backupRecords := []nodeproto.ScanRecord{
+		observedRecord("Metropolis (1995).mkv", "heat"),
+		sidecarRecord("Metropolis (1995).en.srt", nodeproto.SidecarSubtitle, "1\n"),
+	}
+	world.scanOn(backupFacts, backupRecords, true)
+	subtitleID := world.liveFilesByPath()["/backup/Metropolis (1995).en.srt"].ID
+	track, err := store.OrNotFound(world.database.Read().GetSidecarStream(t.Context(), subtitleID))
+	if err != nil {
+		t.Fatalf("the subtitle beside the copy has no track: %v", err)
+	}
+	if track.VideoFile != fileID {
+		t.Errorf("the subtitle's track names video file %d, the copy's own; want %d, the file it is a copy of "+
+			"(copy id %d)", track.VideoFile, fileID, copyID)
 	}
 }
