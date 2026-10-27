@@ -22875,4 +22875,16 @@ the node lists the folders, the core opening none.
 5. **The node protocol is 48:** the byte socket's folder listing (`FolderListing`), and a library
    folder beneath a root named as a command's root, which a node of 47 refuses.
 
-**Status:** Decided 2026-10-27, not built.
+**Proven by:**
+- 1: TestDeepestHolding_IsTheDeepestDirectoryHoldingACleanPathAndNoneForAnother, TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath, TestAdmin_NoLibraryFolderIsAtAboveOrBelowAnothersOnItsNode, TestMediaRoot_AFolderIsARootOfItsOwnReachedWithoutALink, TestHolding_IsTheConfiguredRootAFolderIsAtOrUnderByAPathThatCannotClimbOut, TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot
+- 2: TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside, TestServeFolders_AShareThatHasGoneIsNotAnsweringWithinTheWindow, TestMediaRoot_SubfoldersAreTheRealFoldersButTheHiddenOnes, TestListFolders_AsksTheNodesByteSocket, TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait, TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots, web/apps/web/src/folder-picker.test.tsx
+- 3: TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary, TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot, web/apps/web/src/folder-picker.test.tsx
+- 4: TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink, TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot, TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt, TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere, TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches, TestAdmin_AFolderInsideAConfiguredRootIsListedAndWatchedAsItsRootIs
+- 5: TestProtocolVersion_IsRaisedWithAnyChangeToTheWire
+
+**Status:** Decided 2026-10-27. Built 2026-10-27: the folder rule in
+`internal/platform/pathtree` and `internal/core/library/libraryfolders.go`, the node's folder as a
+root of its own and its listing in `internal/node/confine` and `internal/node/byteserver/folders.go`,
+the API in `internal/core/api/library_folders.go`, the hello, status and watcher's answers in
+`internal/core/nodes` and `internal/core/library/schedule.go`, and the picker in
+`web/apps/web/src/folder-picker.tsx`. Staging's roots move to their parents at its next deploy.
