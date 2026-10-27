@@ -23333,4 +23333,28 @@ rail).
    newest), and stays on the Libraries page and in Films and Series as §8 has it. An item that two
    libraries reach (D363) shows on Home while any library of the person's that reaches it is left in.
 
-**Status:** Decided 2026-10-27.
+**Proven by:**
+- 1: TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear, TestMatch_AFilmIsDatedByItsProvidersReleaseDate, TestFetchAndParse_AFilmsDetails, TestSeries_FetchParseAndItsSeasons, TestMigrate_Step0061DatesEachTitleAndSeriesByItsYear, TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast; VQ83
+- 2: TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast, TestBrowse_OtherVideosRunEitherWay, web/apps/web/src/library-browse.test.tsx, alphabet-rail.test.tsx, router.test.ts; VQ83
+- 3: TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast (pages of two across the dated and the undated, both ways)
+- 4: TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt, web/apps/web/src/alphabet-rail.test.tsx ("the rail follows a name sort's direction"), library-browse.test.tsx; VQ83
+- 5: TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows, web/apps/web/src/account.test.tsx, home.test.tsx; VQ83
+
+**Status:** Decided 2026-10-27. Built 2026-10-27: the release day in
+`internal/store/migrations/0061_films_and_series_are_dated_by_their_release.sql` (`released_on` on
+title and collection, YYYYMMDD with 00 for a month or day unknown, indexed per kind), read by the
+pass in `internal/core/identify/released.go` from an NFO's premiered or aired and TMDB's
+release_date or first_air_date (`internal/core/providers/tmdb/works.go`); each list's other way in
+`internal/store/queries/browse_orders.sql`, read in `internal/core/library/lists.go`,
+`lists_other.go` and `lists_released.go` (the undated after the dated, whichever way), the order
+taken by GET /titles and GET /libraries/{id}/folders (`internal/core/api/browse.go`,
+`library_browsing.go`); Home's libraries in `internal/core/preferences/libraries.go`
+(`left_out_of_home`) and `internal/core/api/library_browsing.go` (`homeReach`, GET
+/titles?home=true), Continue Watching in `internal/core/api/home.go`; the web client's choices in
+`web/apps/web/src/sort-choices.ts`, `library-browse.tsx` (the way in the address), `browse.tsx`,
+`alphabet-rail.tsx` (`fromForLetter`), `left-out-libraries.tsx` and `home.tsx`. As built, where
+the decision left it open: the year a person corrects dates a title by that year alone when the
+source's day is of another; All libraries offers no sort by release date, an other video having
+none; Home's choice stands apart from Films and Series', so a library left out of Films is still on
+Home; Home has no Next Up row yet, so its rows are Continue Watching and the newest films and series.
+Not seen on a device yet (VQ83).
