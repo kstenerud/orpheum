@@ -319,6 +319,12 @@ function labRouteHref(route: Route): string | undefined {
 /** The screens at the site's root: home, and an address that names nothing, which goes there. */
 const rootScreens: ReadonlySet<Route["screen"]> = new Set(["home", "not-found"]);
 
+/** The route an address of this app's names, a path with its query: routeHref's inverse. */
+export function routeOfHref(href: string): Route {
+  const url = new URL(href, "http://orpheum.invalid");
+  return parseRoute(url.pathname, url.search);
+}
+
 /** The address of a route: what parseRoute reads back as the same route. */
 export function routeHref(route: Route): string {
   const withQuery = queryRouteHref(route);

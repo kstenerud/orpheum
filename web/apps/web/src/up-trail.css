@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Where the page is, at its top (D367 §8): above a title's backdrop, which rises into the space
+   over it. */
+.up-trail {
+  position: relative;
+  margin-block-end: var(--space-2);
+}
+
+.up-trail__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.up-trail__crumbs > li + li::before {
+  content: "›";
+  margin-inline-end: var(--space-1);
+  color: var(--color-muted);
+}
+
+.up-trail__crumbs > [aria-current="page"] {
+  color: var(--color-muted);
+}

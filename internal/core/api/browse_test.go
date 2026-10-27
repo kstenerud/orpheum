@@ -129,11 +129,18 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		`"episode":{"seriesId":20,"seriesName":"Brass Arena","seasonNumber":1,"episodeNumber":1}`) {
 		t.Errorf("an episode's detail = %s", episode.body)
 	}
+	// The libraries it is listed in, which its page goes up to (D367 §3).
+	if !strings.Contains(episode.body, `"libraries":[{"id":1,"name":`) {
+		t.Errorf("an episode's detail = %s; want the library listing it", episode.body)
+	}
 	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, api.CodeNotFound)
 
 	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
 	if !strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":1`) {
 		t.Errorf("a series = %d %s; want its one season of one episode", series.status, series.body)
+	}
+	if !strings.Contains(series.body, `"libraries":[{"id":1,"name":`) {
+		t.Errorf("a series = %s; want the library listing its episode", series.body)
 	}
 	season := harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=10", user, nil)
 	if !strings.Contains(season.body, `"name":"Pilot"`) || !strings.Contains(season.body, `"hasLiveFile":true`) {

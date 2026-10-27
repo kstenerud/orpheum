@@ -37,6 +37,7 @@ describe("usePageInterest", () => {
       const services = servedBy(
         {
           "GET /collections/20": [200, series],
+          "GET /collections/20/seasons/1": [200, { episodes: [] }],
           "GET /collections/20/seasons/2": [200, { episodes: [] }],
           "PUT /interest/20": [204, null],
           "DELETE /interest/20": [204, null],

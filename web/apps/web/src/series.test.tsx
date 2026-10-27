@@ -25,7 +25,7 @@ const episode = (
 const loaded = <T,>(value: T) => ({ state: "loaded" as const, value });
 
 describe("SeriesView", () => {
-  it("lists its seasons as the server orders them, each with its still and how many episodes", () => {
+  it("shows one season at a time, the first where nothing is chosen, picked from the rest (D367 §9)", () => {
     const series: SeriesDetail = {
       id: 20,
       kind: "series",
@@ -37,19 +37,18 @@ describe("SeriesView", () => {
         { seasonNumber: 0, episodeCount: 1 },
       ],
     };
-    // The series' page lists its seasons, specials last, each with a still and its count, leading
-    // to its episodes (the owner, 2026-10-07: series, then seasons, then episodes).
+    // One series page whose season is a view, picked by a chooser a remote reaches (D367 §9; the
+    // owner, 2026-10-27), in place of a page of seasons each leading to its own.
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
-    expect(markup.indexOf("Season 1")).toBeLessThan(markup.indexOf("Season 2"));
-    expect(markup.indexOf("Season 2")).toBeLessThan(markup.indexOf("Specials"));
-    expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
-    expect(markup).toContain("Episodes: 2");
-    expect(markup).toContain('href="/series/20?season=1"');
-    // A season's page names the season and leads back to them all; its episodes are read apart.
-    const season = renderToStaticMarkup(withServices(<SeriesView series={series} season={1} />));
-    expect(season).toContain(">Season 1</h2>");
-    expect(season).toContain('href="/series/20"');
-    expect(season).not.toContain("Specials");
+    expect(markup).toContain(">Season 1</h2>");
+    expect(markup).toContain('aria-label="Season: Season 1"');
+    expect(markup).not.toContain("Season 2");
+    expect(markup).not.toContain("Specials");
+    // A season chosen names the season; its episodes are read apart.
+    const season = renderToStaticMarkup(withServices(<SeriesView series={series} season={0} />));
+    expect(season).toContain(">Specials</h2>");
+    expect(season).toContain('aria-label="Season: Specials"');
+    expect(season).not.toContain("Season 1");
   });
 });
 
@@ -104,13 +103,21 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
     expect(first).toContain(">Play S1E1</a>");
   });
 
-  it("offers none when the series has no next episode, nor on a season's page", () => {
+  it("offers none when the series has no next episode, and offers it at every season", () => {
     const none = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(none).not.toContain("/play/");
+    // One page whatever season it shows (D367 §9).
     const season = renderToStaticMarkup(
       withServices(<SeriesView series={{ ...series, nextUp: next }} season={2} />),
     );
-    expect(season).not.toContain("/play/");
+    expect(season).toContain('href="/play/7"');
+  });
+
+  it("shows the season of the next episode where none is chosen", () => {
+    const markup = renderToStaticMarkup(
+      withServices(<SeriesView series={{ ...series, nextUp: { ...next, groupNumber: 2 } }} />),
+    );
+    expect(markup).toContain(">Season 2</h2>");
   });
 
   it("says why it cannot be played now, as its own page does, and offers no Play", () => {

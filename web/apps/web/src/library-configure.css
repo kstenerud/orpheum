@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A library's Configure dialog (library-configure.tsx): each choice, its words under it. */
+.library-configure__choice {
+  margin-block-end: var(--space-4);
+}
+
+.library-configure__text {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted);
+}

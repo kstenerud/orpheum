@@ -142,6 +142,10 @@ type PlaysBody struct {
 	Kind      string            `enum:"movie,episode,extra,other" json:"kind"`
 	LibraryID int64             `doc:"A library its person reaches that covers its file's place, which a person goes back up to; absent for none" json:"libraryId,omitempty"` //nolint:lll // one struct tag
 	Episode   *EpisodePlaceBody `doc:"An episode's series and place; absent for any other" json:"episode,omitempty"`
+	// LibraryName is LibraryID's name, which the Play page's trail shows (D367 §8).
+	LibraryName string `json:"libraryName,omitempty"`
+	// FilmOfExtra is the film an extra belongs to, whose page playing it goes up to (D367 §2).
+	FilmOfExtra *FilmOfExtraBody `json:"filmOfExtra,omitempty"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -294,9 +298,18 @@ func (server *Server) playsBody(
 	if err != nil {
 		return nil, server.libraryError(ctx, "read where a playback's episode is", err)
 	}
-	return &PlaysBody{
-		TitleID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, Episode: episodePlaceBody(place),
-	}, nil
+	plays := &PlaysBody{
+		TitleID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, LibraryName: work.LibraryName,
+		Episode: episodePlaceBody(place),
+	}
+	if work.TitleKind == library.TitleKindExtra {
+		whereabouts, err := dependencies.Browser.Whereabouts(ctx, auth.EveryLibrary(), work.TitleID, true)
+		if err != nil {
+			return nil, server.libraryError(ctx, "read the film a playback's extra belongs to", err)
+		}
+		plays.FilmOfExtra = filmOfExtraBody(whereabouts.FilmOfExtra)
+	}
+	return plays, nil
 }
 
 // logPlaybackStarted says a playback started: whose, which file, and how it is delivered and why,

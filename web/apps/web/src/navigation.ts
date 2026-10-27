@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { isTelevision } from "./tv-device.ts";
-import { parseRoute, routeHref, type Route } from "./router.ts";
+import { parseRoute, routeHref, routeOfHref, type Route } from "./router.ts";
 
 /** What navigation reads and writes: the browser's location and history, or a test's. */
 export interface Place {
@@ -15,6 +15,8 @@ export interface Place {
     /** What the current entry was pushed or replaced with; null for one this app did not write. */
     readonly state: unknown;
     back(): void;
+    /** Moves delta entries through the history, back where negative: Up to a parent behind. */
+    go(delta: number): void;
     pushState(data: unknown, unused: string, url: string): void;
     replaceState(data: unknown, unused: string, url: string): void;
   };
@@ -39,6 +41,15 @@ export interface Navigation {
    * this app's. Whether it went anywhere.
    */
   readonly back: (up?: Route) => boolean;
+  /**
+   * Up (D367 §7): back to the nearest of this app's entries behind whose route isParent says is the
+   * page's parent, however many steps back, so the entries Up passed over leave the back history;
+   * else parent in place of the current address. Never adds an entry, so Back after Up never
+   * returns down the way Up came.
+   */
+  readonly up: (parent: Route, isParent: (route: Route) => boolean) => void;
+  /** The routes of this app's entries behind the current one, the nearest last: what Up can find. */
+  readonly behind: () => readonly Route[];
   /** Where this app is served from ("https://media.example"), for a link to it. */
   readonly origin: () => string;
   /** What follows # in the address, without the #, or "" when nothing does. */
@@ -71,6 +82,24 @@ function depthOf(state: unknown): number {
   const { appDepth } = state;
   return typeof appDepth === "number" && Number.isInteger(appDepth) && appDepth > 0 ? appDepth : 0;
 }
+
+/**
+ * The addresses of this app's entries behind an entry, the nearest last, as its state keeps them:
+ * written at each go, so Up can find a parent behind it however it was reached (D367 §7).
+ */
+function belowOf(state: unknown): readonly string[] {
+  if (typeof state !== "object" || state === null || !("below" in state)) {
+    return [];
+  }
+  const { below } = state;
+  return Array.isArray(below) && below.every((each) => typeof each === "string") ? below : [];
+}
+
+/**
+ * How many addresses behind an entry its state keeps: more than a person climbs back through, few
+ * enough that each entry's state stays small. A justified constant.
+ */
+const belowKept = 50;
 
 /** What an entry's state noted with it, as noteOnEntry kept it; undefined for none. */
 function noteOf(state: unknown): unknown {
@@ -105,39 +134,82 @@ export function createNavigation(
       for (const listener of leavingListeners) {
         listener();
       }
-      place.history.pushState({ appDepth: depth + 1 }, "", routeHref(route));
+      const below = [...belowOf(place.history.state), routeHref(current)].slice(-belowKept);
+      place.history.pushState({ appDepth: depth + 1, below }, "", routeHref(route));
       rereadRoute();
     },
     replace: (route) => {
-      place.history.replaceState({ appDepth: depth }, "", routeHref(route));
+      replaceKeepingBelow(place, depth, route);
       rereadRoute();
     },
+    up: (parent, isParent) => {
+      if (!goBackTo(place, isParent)) {
+        replaceKeepingBelow(place, depth, parent);
+        rereadRoute();
+      }
+    },
+    behind: () => belowOf(place.history.state).map(routeOfHref),
     back: (up) => {
-      if (depth > 0) {
-        // The browser tells the move by popstate, which reads the route again.
-        place.history.back();
-        return true;
+      const went = backOrUp(place, depth, up);
+      if (went === "up") {
+        rereadRoute();
       }
-      if (up === undefined) {
-        return false;
-      }
-      place.history.replaceState({ appDepth: 0 }, "", routeHref(up));
-      rereadRoute();
-      return true;
+      return went !== "nowhere";
     },
     origin: () => place.location.origin,
     fragment: () => place.location.hash.replace(/^#/u, ""),
     subscribe: adderTo(listeners),
     beforeLeaving: adderTo(leavingListeners),
     noteOnEntry: (note) => {
-      const state: unknown = place.history.state;
-      const kept = typeof state === "object" && state !== null ? state : {};
-      const { pathname, search, hash } = place.location;
-      place.history.replaceState({ ...kept, note }, "", pathname + search + hash);
+      noteOn(place, note);
     },
     entryNote: () => noteOf(place.history.state),
     onBase: adderTo(baseListeners),
   };
+}
+
+/**
+ * Back: the entry before where depth says one of this app's is, which popstate then tells; else up
+ * in the current entry's place; else, with no up, nowhere.
+ */
+function backOrUp(place: Place, depth: number, up: Route | undefined): "back" | "up" | "nowhere" {
+  if (depth > 0) {
+    place.history.back();
+    return "back";
+  }
+  if (up === undefined) {
+    return "nowhere";
+  }
+  place.history.replaceState({ appDepth: 0 }, "", routeHref(up));
+  return "up";
+}
+
+/** Puts route in the current entry's place, which keeps its depth and what is behind it. */
+function replaceKeepingBelow(place: Place, depth: number, route: Route): void {
+  const below = belowOf(place.history.state);
+  place.history.replaceState({ appDepth: depth, below }, "", routeHref(route));
+}
+
+/** Keeps note with the current entry, beside what its state holds already. */
+function noteOn(place: Place, note: unknown): void {
+  const state: unknown = place.history.state;
+  const kept = typeof state === "object" && state !== null ? state : {};
+  const { pathname, search, hash } = place.location;
+  place.history.replaceState({ ...kept, note }, "", pathname + search + hash);
+}
+
+/**
+ * Goes back to the nearest of this app's entries behind whose route isIt says, however many steps
+ * back; whether one was. The browser tells the move by popstate, which reads the route again.
+ */
+function goBackTo(place: Place, isIt: (route: Route) => boolean): boolean {
+  const below = belowOf(place.history.state);
+  const at = below.findLastIndex((href) => isIt(routeOfHref(href)));
+  if (at < 0) {
+    return false;
+  }
+  place.history.go(at - below.length);
+  return true;
 }
 
 /** What adds a listener to listeners, and returns its removal. */

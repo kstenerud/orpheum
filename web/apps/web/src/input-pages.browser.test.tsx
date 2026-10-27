@@ -179,7 +179,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(await unreachedInMain()).toEqual([]);
   });
 
-  it("reaches every control of a series' page, opens a season and goes back to it", async () => {
+  // D367 §9: one series page, its season a view picked by a chooser, which adds no step to Back.
+  it("reaches every control of a series' page, and picks a season in its place", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
       walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
@@ -188,7 +189,12 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(document.querySelector("main select")).not.toBeNull();
     expect(await unreachedInMain()).toEqual([]);
     await press("{ArrowDown}");
-    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/series/20?season=1"))).toBe(
+    const isOnPicker = (): boolean =>
+      document.activeElement?.classList.contains("route-chooser__button") === true;
+    expect(await pressUntil("{ArrowDown}", isOnPicker)).toBe(true);
+    await press("{Enter}");
+    await drawn("dialog a");
+    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/series/20?season=2"))).toBe(
       true,
     );
     await press("{Enter}");
@@ -197,10 +203,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       .toEqual({
         screen: "series-page",
         collectionId: 20,
-        season: 1,
+        season: 2,
       });
-    await press("{Escape}");
-    await expect.poll(() => isFocusOnLinkTo("/series/20?season=1")).toBe(true);
+    expect(walking.services.navigation.behind()).toEqual([]);
+    await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
   });
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {

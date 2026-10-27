@@ -23495,7 +23495,47 @@ down again"; no product the research found makes Back go up instead of back. The
 10. **Dialogs close on Back** where the browser lets the page see it (Escape, a remote's Back), before
     the page is left.
 
-**Status:** Decided 2026-10-27.
+**Status:** Decided 2026-10-27. Built 2026-10-27, as revised (§4 replaced by §7, §2's control by §8).
+In `web/apps/web/src`: the history keeps, on each entry, the addresses of this app's entries behind it
+(`navigation.ts`, `below`), and `navigation.up` goes back to the nearest one showing the parent,
+however far (`history.go(-n)`), else puts the parent in the page's place; where each page sits is
+`upward.ts` (a library crumb found behind, as the person came through, else the first of the
+item's libraries by name; a series', a title's and a film's crumbs; the Play page's in
+`play-up.tsx`, the folders' in `library-browse.tsx`'s `folderUpward`); `up-trail.tsx` draws the trail,
+each part an Up (`UpLink`), or on a television one "‹ name", and tells a remote's Back the parent
+(§5); the television's player overlay (`tv-controls.tsx`) shows Up and the one on-screen Back left
+(`back-button.tsx`); a title's, a series', a Play page's, a folder's and the admin's library pages
+show the trail in place of their Back; an episode's series and season links are Ups. The series is
+one page (`series.tsx`) with a season picker (`route-chooser.tsx`, moved out of
+`library-browse.tsx`), its default the season of the person's next episode; a season, a sort, a
+view, a search and an episode ordering replace the entry (`link.tsx`'s `isReplacing`; the ordering's
+push at `series.tsx` was the duplicate entry the research found); an episode's page and its playing
+note the episode reached (`episode-reached.ts`), whose season the series shows, the episode
+focused, when returned to; `app.tsx` keys the series' page by the series alone, so a season changes
+the view rather than drawing a page anew. The server says where an item sits: a title's and a
+series' `libraries` (by name) and an extra's `filmOfExtra` (`internal/core/library/whereabouts.go`,
+`internal/core/api/whereabouts.go`), and a playback's `plays` its `libraryName` and `filmOfExtra`.
+Silk's base under a page opened directly is kept; its Back goes to the parent of the page shown
+(§5). As built, where the decision left it open: a library's list on the Libraries page is a top
+page, with no Up (Libraries is the page that lists it); a film's Play page reads "Films › Heat ›
+Playing", its last part the playing; Films and Series stand as the list a film or series came
+through, as a library's page does; an episode's page goes up to its series, not a season, the
+season being a view; the series' picker lists each season with its episode count and no still.
+D370's marks by hand stay: the whole series' in the series' head at every season, the season's
+over the season shown, a season watched whole showing its check in the picker. Not seen on a device
+yet (VQ91).
+
+**Proven by:**
+- 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
+- 2: web/apps/web/src/upward.test.ts (§3.3, §3.15, §3.17), up-trail.test.tsx, play.test.tsx ("the page above a Play page"), TestPlayback_SaysWhatItPlaysAndWhereItLives, TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm, TestBrowse_ListsDetailsSeriesAndSearch
+- 3: web/apps/web/src/upward.test.ts (§3.18), up-trail.test.tsx ("goes back up to the library the person came through, as they left it", "goes up from a film opened from outside to the first library listing it, by name"), TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm
+- 4: replaced by 7, Up adding no step: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts
+- 5: web/apps/web/src/input-player.browser.test.tsx ("goes up to the film's page by Back", on Silk and a computer), upward.test.ts (§3.9, §3.10); VQ91
+- 6: web/apps/web/src/up-trail.test.tsx ("… and no Back"), play.test.tsx ("offers its trail up to the film's page, first on the page, and no Back of its own"), input-player.browser.test.tsx ("offers Up to the film's page and its own Back, each reached by the arrows", "goes back by its own Back …"); VQ91
+- 7: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts (§3.3–§3.10), up-trail.test.tsx ("goes back to the series behind it, however far, adding no entry"), input-player.browser.test.tsx ("… its Up goes back to the film's page, adding nothing")
+- 8: web/apps/web/src/up-trail.test.tsx ("shows where an episode is …", "is one link up on a television, one stop for focus"), input-player.browser.test.tsx (the Play page's trail, the overlay's Up); VQ91
+- 9: web/apps/web/src/series-page.test.tsx, series.test.tsx, episode-orderings.test.tsx ("keeps a choice, goes to the series' top page and reads it again"), library-browse.test.tsx ("sends the typed query …"), input-player.browser.test.tsx ("a series returned to by Up from an episode of another season"); VQ91
+- 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); VQ91
 
 ## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 

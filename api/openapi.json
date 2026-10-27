@@ -782,6 +782,16 @@
             ],
             "type": "string"
           },
+          "libraries": {
+            "description": "The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)",
+            "items": {
+              "$ref": "#/components/schemas/LibraryNameBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -2148,6 +2158,23 @@
         ],
         "type": "object"
       },
+      "FilmOfExtraBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "FindingBody": {
         "additionalProperties": false,
         "properties": {
@@ -2770,6 +2797,10 @@
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
           },
+          "filmOfExtra": {
+            "$ref": "#/components/schemas/FilmOfExtraBody",
+            "description": "The film an extra belongs to, which its page goes up to (D367); absent for anything else"
+          },
           "followedSource": {
             "type": "string"
           },
@@ -2796,6 +2827,16 @@
               "other"
             ],
             "type": "string"
+          },
+          "libraries": {
+            "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
+            "items": {
+              "$ref": "#/components/schemas/LibraryNameBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
@@ -3600,6 +3641,23 @@
           "changeDetection",
           "isWritable",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "LibraryNameBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -4739,6 +4797,9 @@
             "$ref": "#/components/schemas/EpisodePlaceBody",
             "description": "An episode's series and place; absent for any other"
           },
+          "filmOfExtra": {
+            "$ref": "#/components/schemas/FilmOfExtraBody"
+          },
           "kind": {
             "enum": [
               "movie",
@@ -4752,6 +4813,9 @@
             "description": "A library its person reaches that covers its file's place, which a person goes back up to; absent for none",
             "format": "int64",
             "type": "integer"
+          },
+          "libraryName": {
+            "type": "string"
           },
           "titleId": {
             "format": "int64",

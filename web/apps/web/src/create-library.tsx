@@ -4,13 +4,14 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { BackButton } from "./back-button.tsx";
 import { FolderBrowser } from "./folder-picker.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { UpTrail } from "./up-trail.tsx";
+import { adminLibrariesCrumb } from "./upward.ts";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -428,15 +429,16 @@ export function CreateLibraryForm(props: {
 }
 
 /**
- * Creating a library, a page of its own (D361 §4): the form, sent to the server, and Back to the
- * list. A created library is scanned at once, and its own page shows in this one's place, so Back
+ * Creating a library, a page of its own (D361 §4): the form, sent to the server, and its trail up to
+ * the list (D367 §8). A created library is scanned at once, and its own page shows in this one's place, so Back
  * from there returns to the list, not to a form already sent.
  */
 export function CreateLibraryPage(): JSX.Element {
+  const { t } = useTranslation();
   const { navigation } = useServices();
   return (
     <section className="libraries">
-      <BackButton up={{ screen: "libraries" }} />
+      <UpTrail upward={{ crumbs: [adminLibrariesCrumb(t)], here: t("libraries.createHeading") }} />
       <CreateLibrary
         onCreated={(libraryId) => {
           navigation.replace({ screen: "library", libraryId });

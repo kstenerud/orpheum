@@ -160,20 +160,34 @@ The web client: the browser and phone interface, served embedded by the core. MP
   owner, 2026-10-24). One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
   `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
-- **A title's and a series' page have their own Back at the top** (the owner, 2026-10-24: a TV's
-  browser keeps its back out of the remote's reach): the page before when it was this app's, else
-  up in place of the current one: an episode to its season, a season to its series, a film, an
-  extra or a series to its list. `src/back-button.test.tsx`, `src/navigation.test.ts`.
-- **A Play page's Back goes up to what it plays from** (the owner, 2026-10-27): the page before
-  when it was this app's, else, by what the playback's answer says it plays (`plays`), a film's or
-  an extra's page, an episode's series where it is in the person's ordering, an other video's
-  library's list, and home where it says nothing. A television shows no button, and its remote's
-  Back, at the base laid under a page opened directly, goes to the same place.
-  `src/play.test.tsx`, `src/input-player.browser.test.tsx`.
+- **Back is the history; Up goes to the page's parent and never adds to it** (D367): no page shows a
+  Back of its own on a computer or a phone, the browser's, the gesture's and the remote's being the
+  history's; a television's player overlay keeps one, beside its Up (TV Bro keeps its remote's Back
+  from the page). Up (`navigation.up`) goes back to the nearest entry behind showing the parent,
+  however far, so Back after it never returns down, else puts the parent in the page's place; each
+  entry keeps the addresses of this app's entries behind it (`below`) to find it. Where a page sits is
+  `src/upward.ts`: an episode, and its playing, under its series at its season under its library; a
+  film's playing under the film, an extra and its playing under its film (the server's
+  `filmOfExtra`); a film or a series under the library the person came through, else the first of
+  those listing it by name (the server's `libraries`); an other video under its library's list at its
+  folder, a folder under the one above; Home, Films, Series, a library's list and the account's and
+  admin's tops have no parent. It shows as a trail on a computer or a phone, `Series › Copper Kettle ›
+  S1E1 Pilot`, each part an Up, and as one "‹ Copper Kettle" on a television (`src/up-trail.tsx`). A
+  remote's Back with nothing of the app behind goes to the parent, as does a television's Back at the
+  base laid under a page it opened on. `src/navigation.test.ts`, `src/upward.test.ts` (the research's
+  scenarios over the history), `src/up-trail.test.tsx`, `src/play.test.tsx`,
+  `src/input-player.browser.test.tsx`.
+- **A series is one page; its season, a sort, a view and a search are views of a page, not steps**
+  (D367 §9): choosing one replaces the history's entry (`Link`'s `isReplacing`, `RouteChooser`'s
+  `isAView`); a series' page shows the season chosen, else that of the person's next episode, else
+  the first, by a picker; returned to after one of its episodes' page or playing
+  (`src/episode-reached.ts`), it shows that episode's season with the episode focused.
+  `src/series-page.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
+  `src/input-player.browser.test.tsx`.
 - **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
-  *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; none on a
-  season's page or when there is no next one. `src/series.test.tsx`.
+  *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; at every
+  season, none when there is no next one. `src/series.test.tsx`.
 - **What a person watched shows a white check, the last of a poster's tray of status cues** (D370
   §2, §3), drawn by `Icon` in `--color-watched` on the tray's dark patch and read "Watched": on films,
   series, other videos, Continue Watching's rewatches and a season's and an episode's rows, never on
@@ -185,9 +199,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   never a control on a poster; it changes at once and offers Undo, which puts every mark back as it
   was, never a question. `src/watched-mark.test.tsx`; on devices, VQ89.
 - **A series is shown in the ordering its person chose** (D159 §1, episode-orderings.md §4): a series
-  with more than one offers them on its top page, aired first, each by its label with its kind and
-  how many episodes it holds; a choice is kept on the server and goes to the series' top page, where
-  `?season=N` is a group of the ordering in use (§7 Q10). Its seasons are that ordering's groups,
+  with more than one offers them, aired first, each by its label with its kind and how many episodes
+  it holds; a choice is kept on the server and shows the series at its default season in place of
+  the entry, where `?season=N` is a group of the ordering in use (§7 Q10). Its seasons are that ordering's groups,
   headed by their names ("Disc 1", else "Part 2"); Next Up, an episode's page and Continue Watching
   label an episode there ("Disc 1 · 2", "Episode 812"), its page with its aired place on a second
   line; what the ordering leaves out is listed under *Not in this order* (§7 Q4, Q8). Labels are
@@ -227,16 +241,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   first; films and series sort by release date too (§1); the Libraries page keeps the way in its
   address (`order`, named only when not the sort's own). `src/library-browse.test.tsx`,
   `src/alphabet-rail.test.tsx`, `src/router.test.ts`.
-- **A person leaves a library out of Home on their own account** (D366 §5): every library they
-  reach is on Home until they leave it out (`leftOutOfHomeLibraryIds`), apart from Films and
-  Series' choice; Home's newest rows ask `GET /titles?home=true`, and the server draws Continue
-  Watching the same way. `src/left-out-libraries.tsx`; `src/account.test.tsx`,
+- **A person configures each library for themselves on its own list** (the owner, 2026-10-27): a
+  library's Configure on the Libraries page, for everyone, opens a dialog of their own choices, kept
+  on their account, the one place they are made: Show on Home (D366 §5), every library on Home until
+  left out (`leftOutOfHomeLibraryIds`), Home's newest rows asking `GET /titles?home=true` and the
+  server drawing Continue Watching the same way; and Show in Films or Series (D349 §8), a films or
+  series library in those pages until left out (`leftOutLibraryIds`, `GET`/`PUT /me/preferences`),
+  staying on the Libraries page regardless. Escape or a remote's Back closes it.
+  `src/library-configure.tsx`; `src/library-configure.test.tsx`, `src/library-browse.test.tsx`,
   `src/home.test.tsx`.
-- **A person leaves a library out of Films and Series on their own account** (D349 §8): every
-  `movies`, `shows` or `mixed` library they reach is in, until they leave it out
-  (`leftOutLibraryIds`, `GET`/`PUT /me/preferences`); it stays on the Libraries page regardless.
-  `src/left-out-libraries.tsx`, offered on the account page beside `AutoplaySetting`.
-  `src/account.test.tsx`.
 - **Libraries replaces Search in the top bar** (D349): one page for every library the person
   reaches, the first chosen by name on a fresh visit and the chosen library, the view, the folder,
   the sort and a search query all held in its address (`/browse`), so Back and a reload return to
@@ -245,9 +258,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   either way; an other library lists its videos by recorded date (the
   default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
-  own, with *Up* back out; the library, the view and the sort are each a focusable drop-down
-  (`RouteChooser`, over `modal-dialog.tsx`), since a native `<select>` is unreliable on a
-  television's browser. `src/library-browse.test.tsx`; on devices, VQ72.
+  own, with a trail back out (D367); the library, the view and the sort are each a focusable
+  drop-down (`src/route-chooser.tsx`, over `modal-dialog.tsx`), since a native `<select>` is
+  unreliable on a television's browser. `src/library-browse.test.tsx`; on devices, VQ72.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
@@ -365,7 +378,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
-  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

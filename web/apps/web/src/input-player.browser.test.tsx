@@ -238,6 +238,37 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(document.activeElement).toBe(scrub);
   });
 
+  // D367 §6, §8: Up, "‹ Film 3", and an on-screen Back, since TV Bro's remote Back never reaches the
+  // page and the app cannot tell it from Silk; each reached by the arrows from the overlay's controls.
+  it("offers Up to the film's page and its own Back, each reached by the arrows", async () => {
+    await onAFireTv();
+    const upLink = document.querySelector<HTMLElement>(".tv-controls .tv-controls__up");
+    const back = document.querySelector<HTMLElement>(".tv-controls .back-button");
+    expect(upLink?.textContent).toBe("‹ Film 3");
+    const timeline = document.querySelector<HTMLElement>(".tv-controls .timeline__range");
+    if (timeline === null || upLink === null || back === null) {
+      throw new Error("the overlay draws no timeline, Up or Back");
+    }
+    const reached = await reachedFrom(timeline, press);
+    expect(reached.has(upLink)).toBe(true);
+    expect(reached.has(back)).toBe(true);
+    upLink.focus();
+    await press("{Enter}");
+    await expect
+      .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
+      .toBe(routeHref({ screen: "title", itemId: 103 }));
+  });
+
+  it("goes back by its own Back, up to the film's page with nothing of the app behind", async () => {
+    await onAFireTv();
+    const back = document.querySelector<HTMLElement>(".tv-controls .back-button");
+    back?.focus();
+    await press("{Enter}");
+    await expect
+      .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
+      .toBe(routeHref({ screen: "title", itemId: 103 }));
+  });
+
   // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
   it("plays and pauses by Space on any of its controls", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -248,6 +279,103 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     await press(" ");
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(scrub);
+  });
+});
+
+describe("the Play page's trail, in a computer's browser (D367 §6–§8)", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  it("shows where the film is, with no Back of its own, and its Up goes back to the film's page, adding nothing", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(filmToPlay, "/titles/103"));
+    const { navigation } = walking.services;
+    await expect.poll(() => isDrawn(".title__play")).toBe(true);
+    document.querySelector<HTMLElement>(".title__play")?.click();
+    await theVideo();
+    const crumbs = [...document.querySelectorAll(".up-trail li")].map((each) => each.textContent);
+    expect(crumbs).toEqual(["Library", "Film 3", "Playing"]);
+    expect(document.querySelector(".back-button")).toBeNull();
+    const filmCrumb = [...document.querySelectorAll<HTMLAnchorElement>(".up-trail a")].find(
+      (link) => link.textContent === "Film 3",
+    );
+    filmCrumb?.focus();
+    await press("{Enter}");
+    await expect
+      .poll(() => routeHref(navigation.route()))
+      .toBe(routeHref({ screen: "title", itemId: 103 }));
+    // Back to the film's page, not a new one over the player: Back from here leaves the app.
+    expect(navigation.behind()).toEqual([]);
+  });
+});
+
+describe("a series returned to by Up from an episode of another season (D367 §9)", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+  });
+
+  /** An episode of Long Run (5): its id, and its place. */
+  function episodeOf(id: number, season: number): Record<string, unknown> {
+    return {
+      id,
+      seasonNumber: season,
+      episodeNumber: 1,
+      name: `Episode ${String(id)}`,
+      identificationState: "identified",
+      hasLiveFile: true,
+    };
+  }
+
+  // A binge from season 1 into season 2 left the series' entry at season 1 (§3.7): returning to it
+  // shows season 2, the episode last reached focused, on the same page, not one drawn anew.
+  it("shows that episode's season, the episode focused", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices(
+        {
+          "GET /me": viewer,
+          "GET /client-settings": {},
+          "GET /collections/5": {
+            id: 5,
+            kind: "series",
+            name: "Long Run",
+            art: {},
+            seasons: [1, 2].map((seasonNumber) => ({ seasonNumber, episodeCount: 1 })),
+          },
+          "GET /collections/5/seasons/1": { episodes: [episodeOf(21, 1)] },
+          "GET /collections/5/seasons/2": { episodes: [episodeOf(23, 2)] },
+          "GET /items/23": {
+            id: 23,
+            kind: "episode",
+            name: "Episode 23",
+            identificationState: "identified",
+            art: {},
+            versions: [],
+            extras: [],
+            episode: { seriesId: 5, seriesName: "Long Run", seasonNumber: 2, episodeNumber: 1 },
+          },
+        },
+        "/series/5?season=1",
+      ),
+    );
+    const { navigation } = walking.services;
+    await expect.poll(() => isDrawn('a[href="/titles/21"]')).toBe(true);
+    navigation.go({ screen: "title", itemId: 23 });
+    const seriesCrumb = (): HTMLAnchorElement | undefined =>
+      [...document.querySelectorAll<HTMLAnchorElement>(".up-trail a")].find(
+        (link) => link.textContent === "Long Run",
+      );
+    await expect.poll(() => seriesCrumb() !== undefined).toBe(true);
+    seriesCrumb()?.click();
+    await expect.poll(() => document.activeElement?.getAttribute("href")).toBe("/titles/23");
+    expect(routeHref(navigation.route())).toBe("/series/5?season=2");
+    expect(navigation.behind()).toEqual([]);
   });
 });
 

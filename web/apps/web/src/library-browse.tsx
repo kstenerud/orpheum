@@ -4,7 +4,7 @@ import "./library-browse.css";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useId, useRef, useState, type JSX, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -19,11 +19,14 @@ import { EndOfList } from "./end-of-list.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useItemsInView } from "./items-in-view.ts";
-import { ModalDialog } from "./modal-dialog.tsx";
 import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
+import { UpTrail } from "./up-trail.tsx";
+import type { Upward } from "./upward.ts";
 import { dataOrThrow } from "./problem.ts";
 import type { LibrarySort, Route, SortOrder } from "./router.ts";
+import { LibraryConfigure } from "./library-configure.tsx";
+import { RouteChooser, type Choice } from "./route-chooser.tsx";
 import { QueryResults } from "./search.tsx";
 import { useServices } from "./services.tsx";
 import {
@@ -265,7 +268,7 @@ function LibraryBrowseLayout(props: {
           typedQuery={typedQuery}
           onTypedQueryChange={setTypedQuery}
           onSubmitSearch={() => {
-            navigation.go(routeFor(state, { query: typedQuery.trim() }));
+            navigation.replace(routeFor(state, { query: typedQuery.trim() }));
           }}
         />
         <LibraryBrowseBody
@@ -286,14 +289,6 @@ function LibraryBrowseLayout(props: {
       ) : null}
     </section>
   );
-}
-
-/** One choice among several, each a route: the library chooser's, the view's and the sort's. */
-interface Choice {
-  readonly key: string;
-  readonly label: string;
-  readonly to: Route;
-  readonly isCurrent: boolean;
 }
 
 /** The library chooser's choices: every one the person reaches, by name, then All libraries. */
@@ -372,6 +367,7 @@ function LibraryBrowseBar(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { state, resolved } = props;
+  const chosen = props.libraryOptions.find((library) => library.id === resolved.libraryId);
   return (
     <div className="browse__bar" data-focus-container="">
       <h1 id="browse-heading">{t("browse.libraries")}</h1>
@@ -381,17 +377,20 @@ function LibraryBrowseBar(props: {
         current={resolved.currentLabel}
         options={libraryChoicesOf(state, props.libraryOptions, t)}
       />
+      {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
       {resolved.showsFolders ? (
         <RouteChooser
           fieldLabel={t("browse.view")}
           current={resolved.view === "folders" ? t("browse.viewFolders") : t("browse.viewAll")}
           options={viewChoicesOf(state, resolved, t)}
+          isAView
         />
       ) : null}
       <RouteChooser
         fieldLabel={t("browse.sort")}
         current={sortChoiceLabel(t, resolved)}
         options={sortChoicesOfPage(state, resolved, t)}
+        isAView
       />
       <form
         role="search"
@@ -430,13 +429,22 @@ function LibraryBrowseBody(props: {
   }
   if (resolved.view === "folders" && resolved.libraryId !== undefined) {
     return (
-      <FolderView
-        key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.folder ?? ""}`}
-        libraryId={resolved.libraryId}
-        folder={state.folder}
-        choice={resolved}
-        folderRoute={(folder) => routeFor(state, { folder })}
-      />
+      <>
+        <UpTrail
+          upward={folderUpward(
+            { id: resolved.libraryId, name: resolved.currentLabel },
+            state.folder,
+            (folder) => routeFor(state, { folder }),
+          )}
+        />
+        <FolderView
+          key={`${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.folder ?? ""}`}
+          libraryId={resolved.libraryId}
+          folder={state.folder}
+          choice={resolved}
+          folderRoute={(folder) => routeFor(state, { folder })}
+        />
+      </>
     );
   }
   return (
@@ -448,69 +456,6 @@ function LibraryBrowseBody(props: {
       jump={props.jump}
       listRef={props.listRef}
     />
-  );
-}
-
-/**
- * One choice among several, each a route: a button that opens a focusable drop-down of options
- * (modal-dialog.tsx: "the sort's select will need the same treatment" as a native select does not
- * work reliably on a television's browser, library-browsing.md §5.5), one list for the library, the
- * view and the sort alike.
- */
-function RouteChooser(props: {
-  readonly fieldLabel: string;
-  /**
-   * Whether the field's name shows beside it; a screen reader hears it either way. The library
-   * chooser's does not: what it chooses is plain from its choices (the owner, 2026-10-27).
-   */
-  readonly isFieldLabelShown?: boolean;
-  readonly current: string;
-  readonly options: readonly Choice[];
-}): JSX.Element {
-  const [isOpen, setIsOpen] = useState(false);
-  const fieldId = useId();
-  const close = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-  return (
-    <div className="library-browse__chooser">
-      {props.isFieldLabelShown === false ? null : (
-        <span className="library-browse__chooser-field" id={fieldId}>
-          {props.fieldLabel}
-        </span>
-      )}
-      <button
-        type="button"
-        className="library-browse__chooser-button"
-        aria-expanded={isOpen}
-        {...(props.isFieldLabelShown === false
-          ? { "aria-label": `${props.fieldLabel}: ${props.current}` }
-          : { "aria-describedby": fieldId })}
-        onClick={() => {
-          setIsOpen((wasOpen) => !wasOpen);
-        }}
-      >
-        {props.current}
-      </button>
-      {isOpen ? (
-        <ModalDialog
-          className="modal-dialog--drop-down library-browse__chooser-panel"
-          label={props.fieldLabel}
-          onClose={close}
-          shouldCloseOnOutsidePress
-        >
-          <ul>
-            {props.options.map((option) => (
-              <li key={option.key}>
-                <Link to={option.to} isCurrent={option.isCurrent} onNavigate={close}>
-                  {option.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </ModalDialog>
-      ) : null}
-    </div>
   );
 }
 
@@ -593,11 +538,40 @@ function LibraryGrid(props: {
   );
 }
 
-/** A folder's path with its last segment dropped, undefined at the library's top. */
-function parentFolderOf(folder: string): string | undefined {
-  const parts = folder.split("/").filter((part) => part !== "");
-  parts.pop();
-  return parts.length === 0 ? undefined : parts.join("/");
+/**
+ * Where an other library's folder sits (D367 §2): the library's folders at its top, then each folder
+ * above it, the one directly above its parent; the folder's own name last. The library's top is a
+ * top page.
+ */
+export function folderUpward(
+  library: { readonly id: number; readonly name: string },
+  folder: string | undefined,
+  folderRoute: (folder: string | undefined) => Route,
+): Upward {
+  const { id: libraryId, name: libraryName } = library;
+  const parts = (folder ?? "").split("/").filter((part) => part !== "");
+  const here = parts.at(-1);
+  if (here === undefined) {
+    return { crumbs: [], here: libraryName };
+  }
+  const isFolder =
+    (path: string | undefined) =>
+    (route: Route): boolean =>
+      route.screen === "browse" &&
+      route.library === libraryId &&
+      route.view === "folders" &&
+      route.folder === path;
+  const above = parts.slice(0, -1).map((name, index) => {
+    const path = parts.slice(0, index + 1).join("/");
+    return { label: name, to: folderRoute(path), isIt: isFolder(path) };
+  });
+  return {
+    crumbs: [
+      { label: libraryName, to: folderRoute(undefined), isIt: isFolder(undefined) },
+      ...above,
+    ],
+    here,
+  };
 }
 
 /** A folder's subfolders, each leading into its own (D349 §9.1): its name and how many videos it
@@ -662,13 +636,6 @@ function FolderView(props: {
         const isEmpty = subfolders.length === 0 && titles.length === 0;
         return (
           <>
-            {data.folder === "" ? null : (
-              <p className="library-browse__folder-up">
-                <Link to={props.folderRoute(parentFolderOf(data.folder))}>
-                  {t("browse.folderUp")}
-                </Link>
-              </p>
-            )}
             {isEmpty ? <p className="browse__empty">{t("browse.folderEmpty")}</p> : null}
             {subfolders.length === 0 ? null : (
               <Subfolders subfolders={subfolders} folderRoute={props.folderRoute} />

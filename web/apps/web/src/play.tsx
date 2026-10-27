@@ -18,7 +18,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { BackToTheList } from "./play-up.tsx";
+import { PlayTop } from "./play-up.tsx";
 import { AudioMenu, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import {
   FilmPlayer,
@@ -166,21 +166,21 @@ function PlayerView(
   const offered = useUpNextOffered(fileId, decision.preferences.isAutoplayOn, receiving);
   return (
     <UpNextContext value={offered}>
-      {isOwn ? <BackToTheList plays={props.decision.plays} /> : null}
-      {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
-      <PlayContext value={ways}>
-        {/* A remote's first arrow starts on the video, not the Back above it (focus-navigation.ts). */}
-        <div className="play" data-focus-container="" data-focus-start="">
-          <FilmPlayer
-            decision={props.decision}
-            moved={moved}
-            ladderStartMs={resumePositionMs}
-            composition={pageComposition(props)}
-          />
-          <FrameTimingNote video={video} />
-          {isOwn ? <UnderThePlayer onBare={props.onBare} /> : null}
-        </div>
-      </PlayContext>
+      <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
+        <PlayContext value={ways}>
+          {/* A remote's first arrow starts on the video, not the trail above it (focus-navigation.ts). */}
+          <div className="play" data-focus-container="" data-focus-start="">
+            <FilmPlayer
+              decision={props.decision}
+              moved={moved}
+              ladderStartMs={resumePositionMs}
+              composition={pageComposition(props)}
+            />
+            <FrameTimingNote video={video} />
+            {isOwn ? <UnderThePlayer onBare={props.onBare} /> : null}
+          </div>
+        </PlayContext>
+      </PlayTop>
       <PlaysAlong
         {...{ receiving, fileId, video, cannotKeepUp }}
         startPositionMs={resumePositionMs}

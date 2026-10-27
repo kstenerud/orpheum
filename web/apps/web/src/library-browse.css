@@ -1,58 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* One of the bar's choosers: the library, the view and the sort (library-browse.tsx), each a
-   button that opens a focusable drop-down list of its options (modal-dialog.tsx). */
-.library-browse__chooser {
-  position: relative;
-  display: inline-flex;
-  /* The field's name centred on its button, a gap between: unset, the name sat at the button's top
-     edge and against its side (the owner's Firefox on a Mac, 2026-10-27). */
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.library-browse__chooser-button {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-raised);
-  color: inherit;
-  font: inherit;
-}
-
-.library-browse__chooser-field {
-  color: var(--color-muted);
-}
-
-.library-browse__chooser-panel ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.library-browse__chooser-panel li {
-  display: flex;
-}
-
-.library-browse__chooser-panel a {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  color: inherit;
-  text-decoration: none;
-}
-
-.library-browse__chooser-panel a:hover,
-.library-browse__chooser-panel a[aria-current="page"] {
-  background: var(--color-surface);
-}
-
 /* A folder's subfolders, each leading into its own (D349 §9.1): a name and how many videos it
    holds, in the folders.tsx's own view. */
 .library-browse__subfolders {
@@ -83,8 +30,4 @@
 
 .library-browse__subfolder-count {
   color: var(--color-muted);
-}
-
-.library-browse__folder-up {
-  margin-block-end: var(--space-4);
 }

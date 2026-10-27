@@ -26,10 +26,10 @@ describe("the Libraries page's bar in a real browser", () => {
   it("centres a chooser's name on its button, a gap between them", async () => {
     await page.viewport(1440, 1000);
     walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
-    await expect.poll(() => isDrawn(".library-browse__chooser-field")).toBe(true);
-    for (const chooser of document.querySelectorAll(".library-browse__chooser")) {
-      const field = chooser.querySelector(".library-browse__chooser-field");
-      const button = chooser.querySelector(".library-browse__chooser-button");
+    await expect.poll(() => isDrawn(".route-chooser__field")).toBe(true);
+    for (const chooser of document.querySelectorAll(".route-chooser")) {
+      const field = chooser.querySelector(".route-chooser__field");
+      const button = chooser.querySelector(".route-chooser__button");
       if (field === null || button === null) {
         continue; // the library chooser's name is for a screen reader alone
       }

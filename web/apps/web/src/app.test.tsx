@@ -115,7 +115,7 @@ describe("App", () => {
   it("shows a library's own page and creating one, each at an address of its own (D361)", () => {
     for (const path of ["/libraries/3", "/libraries/new"]) {
       const markup = renderToStaticMarkup(withServices(<App />, testServices("token", path)));
-      expect(markup).toContain('class="back-button"');
+      expect(markup).toContain('class="up-trail"');
       expect(markup).not.toContain("There is nothing at this address.");
     }
   });

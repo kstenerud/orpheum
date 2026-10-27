@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { BackButton } from "./back-button.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -21,6 +20,20 @@ import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
+import { noteEpisodeReached } from "./episode-reached.ts";
+import { i18n } from "./i18n.ts";
+import { UpLink, UpTrail, useLibraryContext } from "./up-trail.tsx";
+import {
+  episodeCrumbs,
+  episodeHere,
+  libraryCrumb,
+  parentOf,
+  seasonOfEpisode,
+  seriesCrumb,
+  titleCrumb,
+  type LibraryContext,
+  type Upward,
+} from "./upward.ts";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
@@ -123,8 +136,9 @@ function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
 }
 
 /**
- * An episode's series and its place, each a link up: one press from an episode reached by search or
- * Continue Watching to its season (research/back-navigation-2026-10-24.md). In an ordering the person
+ * An episode's series and its place, each a link up, an Up adding no step to the history (D367 §7):
+ * one press from an episode reached by search or Continue Watching to its season
+ * (research/back-navigation-2026-10-24.md). In an ordering the person
  * chose over aired, the place is its group there, "Disc 2 · 3", with its aired place as a second line,
  * the number other sites use; one that ordering leaves out says so (episode-orderings.md §7 Q8).
  */
@@ -132,18 +146,16 @@ function EpisodePlaceFacts(props: { readonly place: EpisodePlace }): JSX.Element
   const { t } = useTranslation();
   const { place } = props;
   const series = (
-    <Link to={{ screen: "series-page", collectionId: place.seriesId }}>{place.seriesName}</Link>
+    <UpLink crumb={seriesCrumb(place.seriesId, place.seriesName)}>{place.seriesName}</UpLink>
   );
   if (place.ordering === undefined) {
     return (
       <p>
         {series}
         {t("title.placeBetween")}
-        <Link
-          to={{ screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber }}
-        >
+        <UpLink crumb={seriesCrumb(place.seriesId, place.seriesName, place.seasonNumber)}>
           {t("title.placeSeason", { season: place.seasonNumber })}
-        </Link>
+        </UpLink>
         {t("title.placeEpisode", { number: place.episodeNumber })}
       </p>
     );
@@ -183,9 +195,9 @@ function InOrdering(props: {
   const group = { number: inOrdering.groupNumber, name: inOrdering.groupName };
   return (
     <>
-      <Link to={{ screen: "series-page", collectionId: place.seriesId, season: group.number }}>
+      <UpLink crumb={seriesCrumb(place.seriesId, place.seriesName, group.number)}>
         {groupName(t, place.ordering, group)}
-      </Link>
+      </UpLink>
       {t("title.placeBetween")}
       {inOrdering.numberInGroup}
     </>
@@ -300,26 +312,49 @@ function Extras(props: {
 }
 
 /**
- * The page above a title's: an episode's season, else the films. An extra names no film it belongs
- * to, so its Back goes up to the films only when the history has no page of this app's before it.
+ * Where a title's page sits (D367 §2): an episode under its series, at its season, under the library
+ * it is listed in; an extra under its film; a film or an other video under its library. Before the
+ * title is read, under Films, so a page that cannot be read still has a way up.
  */
-export function titleUp(title: TitleDetail | undefined): Route {
-  const place = title?.episode;
-  return place === undefined ? { screen: "films" } : episodeUp(place);
+export function titleUpward(title: TitleDetail | undefined, context: LibraryContext): Upward {
+  if (title === undefined) {
+    return { crumbs: [libraryCrumb("movie", undefined, context)], here: "" };
+  }
+  const libraries = title.libraries ?? undefined;
+  const place = title.episode;
+  if (place !== undefined) {
+    return {
+      crumbs: episodeCrumbs(place, libraries, context),
+      here: episodeHere(context.t, place, title.name),
+    };
+  }
+  const library = libraryCrumb(title.kind === "other" ? "other" : "movie", libraries, context);
+  const film = title.filmOfExtra;
+  return {
+    crumbs: film === undefined ? [library] : [library, titleCrumb(film.id, film.name)],
+    here: title.name,
+  };
 }
 
-/**
- * The page above an episode: its season in the aired order, else its group in the ordering the
- * person chose, the series' top where that ordering leaves it out.
- */
-export function episodeUp(place: EpisodePlace): Route {
-  if (place.ordering === undefined) {
-    return { screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber };
-  }
-  // In an ordering the person chose, its group there; the series' top for one it leaves out.
-  return place.inOrdering === undefined
-    ? { screen: "series-page", collectionId: place.seriesId }
-    : { screen: "series-page", collectionId: place.seriesId, season: place.inOrdering.groupNumber };
+/** The page above a title's, as titleUpward has it, where nothing is behind it in the history. */
+export function titleUp(
+  title: TitleDetail | undefined,
+  context: LibraryContext = { t: i18n.t, behind: [] },
+): Route {
+  return parentOf(titleUpward(title, context))?.to ?? { screen: "films" };
+}
+
+/** Notes an episode's page shown, which its series' page shows when returned to (D367 §9). */
+function useEpisodeReached(title: TitleDetail | undefined): void {
+  const place = title?.episode;
+  const id = title?.id;
+  const seriesId = place?.seriesId;
+  const season = place === undefined ? undefined : seasonOfEpisode(place);
+  useEffect(() => {
+    if (seriesId !== undefined && id !== undefined) {
+      noteEpisodeReached(seriesId, { season, episodeId: id });
+    }
+  }, [seriesId, season, id]);
 }
 
 /** The titles' pages this tab has shown. */
@@ -341,6 +376,9 @@ export function Title(props: { readonly id: number }): JSX.Element {
   );
   const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);
   usePageInterest(props.id);
+  const shown = title.state === "loaded" ? title.value : undefined;
+  useEpisodeReached(shown);
+  const context = useLibraryContext();
   const warmFileId = title.state === "loaded" ? firstPlayableFile(title.value) : undefined;
   useEffect(() => {
     if (warmFileId !== undefined) {
@@ -365,7 +403,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   };
   return (
     <>
-      <BackButton up={titleUp(title.state === "loaded" ? title.value : undefined)} />
+      <UpTrail upward={titleUpward(shown, context)} />
       <BusyGroup isBusy={retiring.isBusy}>
         <Loaded
           resource={title}

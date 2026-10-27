@@ -2606,6 +2606,8 @@ export interface components {
             isWatched?: boolean;
             /** @enum {string} */
             kind: "series";
+            /** @description The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367) */
+            libraries?: components["schemas"]["LibraryNameBody"][] | null;
             name: string;
             /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
             nextUp?: components["schemas"]["NextUpBody"];
@@ -3081,6 +3083,11 @@ export interface components {
         FilingReportsOutputBody: {
             reports: components["schemas"]["FilingReportEntryBody"][] | null;
         };
+        FilmOfExtraBody: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
         FindingBody: {
             action?: string;
             check: string;
@@ -3276,6 +3283,8 @@ export interface components {
             episode?: components["schemas"]["EpisodePlaceBody"];
             extras: components["schemas"]["ExtraBody"][] | null;
             fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
+            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
             followedSource?: string;
             /** Format: int64 */
             id: number;
@@ -3286,6 +3295,8 @@ export interface components {
             isWatched?: boolean;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "other";
+            /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
+            libraries?: components["schemas"]["LibraryNameBody"][] | null;
             name: string;
             overview?: string;
             /**
@@ -3591,6 +3602,11 @@ export interface components {
             name: string;
             rescan?: components["schemas"]["LibraryRescanBody"];
             roots?: components["schemas"]["RootBody"][] | null;
+        };
+        LibraryNameBody: {
+            /** Format: int64 */
+            id: number;
+            name: string;
         };
         LibraryRescanBody: {
             /** @description Whether a rescan of it waits for its scan before it lists its films and series */
@@ -3987,6 +4003,7 @@ export interface components {
         PlaysBody: {
             /** @description An episode's series and place; absent for any other */
             episode?: components["schemas"]["EpisodePlaceBody"];
+            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "other";
             /**
@@ -3994,6 +4011,7 @@ export interface components {
              * @description A library its person reaches that covers its file's place, which a person goes back up to; absent for none
              */
             libraryId?: number;
+            libraryName?: string;
             /** Format: int64 */
             titleId: number;
         };

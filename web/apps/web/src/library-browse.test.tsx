@@ -132,7 +132,7 @@ describe("the Libraries page (D349)", () => {
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     const bar = mounted.container.querySelector(".browse__bar");
-    const fieldNames = [...(bar?.querySelectorAll(".library-browse__chooser-field") ?? [])].map(
+    const fieldNames = [...(bar?.querySelectorAll(".route-chooser__field") ?? [])].map(
       (field) => field.textContent,
     );
     expect(fieldNames).not.toContain("Library");
@@ -303,6 +303,35 @@ describe("the Libraries page (D349)", () => {
     expect(new URLSearchParams(folder?.query).get("order")).toBe("ascending");
   });
 
+  it("offers a library's own Configure on its list, for everyone, and none on All libraries (the owner, 2026-10-27)", async () => {
+    mounted = await mountBrowse(
+      { library: 1 },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+        "GET /me/preferences": [200, { isDialogueBoostOn: false, isLevellingOn: true }],
+      },
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const configure = buttonWithText(mounted.container, "Configure");
+    expect(configure?.closest(".browse__bar")).not.toBeNull();
+    await click(configure);
+    await settleUntil(() => mounted?.container.querySelector("dialog input") !== null);
+    expect(mounted.container.querySelector("dialog")?.textContent).toContain("Show in Films");
+    mounted.unmount();
+    mounted = await mountBrowse(
+      { library: "all" },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+      },
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    expect(buttonWithText(mounted.container, "Configure")).toBeUndefined();
+  });
+
   it("shows the alphabet rail only sorted by name or file name, never by newest or recorded", async () => {
     mounted = await mountBrowse(
       { library: 1, sort: "added" },
@@ -345,7 +374,8 @@ describe("the Libraries page (D349)", () => {
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     expect(mounted.container.textContent).toContain("Beach");
     expect(mounted.container.textContent).toContain("Picnic");
-    const up = mounted.container.querySelector<HTMLAnchorElement>(".library-browse__folder-up a");
+    const crumbs = mounted.container.querySelectorAll<HTMLAnchorElement>(".up-trail a");
+    const up = crumbs[crumbs.length - 1];
     expect(up?.getAttribute("href")).toContain("folder=2024");
     expect(up?.getAttribute("href")).not.toContain("folder=2024%2FSummer");
     const folderRequest = heard.find((each) => each.methodAndPath === "GET /libraries/5/folders");
@@ -376,6 +406,16 @@ describe("the Libraries page (D349)", () => {
     await enter(mounted.container.querySelector("input[type=search]"), "heat");
     await submit(mounted.container.querySelector("form[role=search]"));
     expect(services.navigation.route()).toEqual({ screen: "browse", library: 1, query: "heat" });
+    // A search is a view of the list: it takes the entry's place, adding no step (D367 §9).
+    expect(services.navigation.behind()).toEqual([]);
+    // So is a sort.
+    await click(buttonWithText(mounted.container, "Name, A–Z"));
+    const newest = [...mounted.container.querySelectorAll<HTMLAnchorElement>("dialog a")].find(
+      (link) => link.textContent === "Newest added",
+    );
+    await click(newest);
+    expect(services.navigation.route()).toMatchObject({ screen: "browse", sort: "added" });
+    expect(services.navigation.behind()).toEqual([]);
   });
 
   it("searches only the library chosen (GET /search's own library parameter)", async () => {

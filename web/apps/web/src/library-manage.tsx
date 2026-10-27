@@ -5,7 +5,6 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AddRoot } from "./add-root.tsx";
-import { BackButton } from "./back-button.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { idempotent } from "./idempotent.ts";
@@ -24,6 +23,8 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { RepointRoot, type Place } from "./repoint-root.tsx";
 import { RootWarning } from "./root-warning.tsx";
 import { useServices } from "./services.tsx";
+import { UpTrail } from "./up-trail.tsx";
+import { adminLibrariesCrumb } from "./upward.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -595,8 +596,8 @@ function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
 }
 
 /**
- * One library's own page, where the admin manages it (D361 §2), at `/libraries/<id>`: Back to the
- * list, and the library, read with the list and kept up to date as it is; an id no library has
+ * One library's own page, where the admin manages it (D361 §2), at `/libraries/<id>`: its trail up
+ * to the list (D367 §8), and the library, read with the list and kept up to date as it is; an id no library has
  * says so.
  */
 export function LibraryPage(props: { readonly libraryId: number }): JSX.Element {
@@ -628,7 +629,15 @@ export function LibraryPage(props: { readonly libraryId: number }): JSX.Element 
   );
   return (
     <section className="libraries">
-      <BackButton up={{ screen: "libraries" }} />
+      <UpTrail
+        upward={{
+          crumbs: [adminLibrariesCrumb(t)],
+          here:
+            libraries.state === "loaded"
+              ? (libraries.value.find((each) => each.id === props.libraryId)?.name ?? "")
+              : "",
+        }}
+      />
       <BusyGroup isBusy={actions.isActing}>
         <Loaded
           resource={libraries}
