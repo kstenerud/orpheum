@@ -23181,7 +23181,19 @@ second file, shown twice
 - 11: TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack
 - 12: TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage, TestMigrate_Step0060RefusesAMixedLibrary, TestMigrate_FreshSchemaEqualsTheGolden, web/apps/web/src/libraries.test.tsx; VQ82
 
-**Status:** Decided 2026-10-27.
+**Status:** Decided 2026-10-27. Built 2026-10-27: the schema in
+`internal/store/migrations/0060_libraries_overlap_and_a_file_is_found_at_places.sql` (places, coverage
+views, `file_filing`, `copy_of`, `whole_file_hash`, `item.filing_library_id`, the mixed kind refused);
+scanning each place once in `internal/core/library/scanroots.go`, `scans.go`, `schedule.go` and
+`libraryfolders.go`; copies in `internal/core/library/copies.go`, `places_of_file.go`,
+`internal/node/agent/wholehash.go` and `internal/nodeproto/wholehash.go` (protocol 52); access by
+place in `internal/core/library/reach.go`, `playable.go` (`PlaceToRead`), `detail.go` and the
+queries' `version_library`; governance and adoption in `internal/core/identify/adopt.go` and
+`ListIdentifyFiles`; NFO precedence in `internal/core/identify/load.go`; the doctor in
+`internal/core/library/doctor.go` and `internal/core/api/doctor.go`; a delete or retire keeping its
+files in `internal/core/library/retire.go`, the artwork ceiling's `classUncovered` in
+`internal/core/artwork/ceiling.go`; the mixed kind gone from `web/apps/web/src/create-library.tsx`
+and `libraries.tsx`. Not seen on a device yet (VQ80, VQ81, VQ82).
 
 ## D364 — Casting is a session with a device: while it lasts, whatever the person plays plays there, and the sending device shows it in the tray
 
