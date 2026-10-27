@@ -11,6 +11,7 @@ import {
   diagnose,
   diagnosisOf,
   rangesText,
+  samplesNoter,
   stepNoter,
   type DiagnosedHls,
 } from "./diagnosis.ts";
@@ -133,6 +134,23 @@ describe("what a stalled video held, for its report (D266)", () => {
     const other = Object.assign(new EventTarget(), { error: null });
     stepNoter(other)("nothing keeps this");
     expect(diagnosisOf(other)).toBeUndefined();
+  });
+
+  it("keeps the link's last samples after its choices, which the cut to the server's length keeps (D352 §5)", () => {
+    const hls = { on: () => undefined } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    stepNoter(video)("ceiling 4 to 0: link");
+    samplesNoter(video)("samples 4 812345B 1203ms fb340ms");
+    samplesNoter(video)("samples 4 812345B 1203ms fb340ms, 0 500000B 400ms fb20ms");
+    expect(diagnosisOf(video)?.steps).toBe(
+      "chose ceiling 4 to 0: link; samples 4 812345B 1203ms fb340ms, 0 500000B 400ms fb20ms",
+    );
+    for (let index = 0; index < 3; index += 1) {
+      stepNoter(video)("x".repeat(200));
+    }
+    expect(diagnosisOf(video)?.steps?.endsWith("0 500000B 400ms fb20ms")).toBe(true);
+    samplesNoter(Object.assign(new EventTarget(), { error: null }))("nothing keeps this");
   });
 
   it("keeps how hls.js placed each playlist's first chunk, telling the video, and whether it may load", () => {

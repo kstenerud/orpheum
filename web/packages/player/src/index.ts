@@ -50,7 +50,7 @@ export { stallAfterMs, watchStalls } from "./stalls.ts";
 export { standsStillReportAfterMs, watchStandingStill } from "./standstill.ts";
 export type { Standstill, StandingMedia } from "./standstill.ts";
 export type { Stall, WatchedMedia } from "./stalls.ts";
-export { holdBeforeStepUpMs, nextCap, stepUpBufferMs, stepUpHeadroom } from "./step-up.ts";
+export { nextCap, stepUpBufferMs, stepUpHeadroom } from "./step-up.ts";
 export type { StepUpState } from "./step-up.ts";
 export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";
 export type { SubtitleLayer } from "./subtitles.ts";

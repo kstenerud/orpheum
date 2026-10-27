@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import Hls, { Events, Fragment, PlaylistLevelType } from "hls.js";
 
-import { orpheumAbr } from "./abr.ts";
+import { orpheumAbr } from "./abr-controller.ts";
 import { arrivalMs } from "./abr-choice.ts";
 
 /** A picture chunk of level 0, sn and loaded bytes as given, timed as loading says. */
@@ -60,6 +60,14 @@ describe("how the controller measures the link inside hls.js (D247 §9, D265 §7
       id: PlaylistLevelType.MAIN,
     });
     expect(hls.bandwidthEstimate).toBeCloseTo(8_400_000, -4);
+    // The controller's own estimate times it the same, reported from its second sample (D352 §1).
+    const second = pictureChunk(1, 210_000, { start: 2000, first: 3500, end: 3700 });
+    hls.trigger(Events.FRAG_BUFFERED, {
+      stats: second.stats,
+      frag: second,
+      part: null,
+      id: PlaylistLevelType.MAIN,
+    });
     expect(abr.choosing()?.linkKbps()).toBeCloseTo(8400, 0);
     hls.destroy();
   });
