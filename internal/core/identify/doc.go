@@ -229,6 +229,32 @@
 //     somewhere in the period's last quarter by its id, never with the setting at 0, and never an
 //     item with a failure of its own; a person's refresh is queued whenever asked (D213 §3).
 //     TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod.
+//   - An admin's rescan, of every library of films or series, of one, or of one film or series,
+//     scans its scope's files as a manual scan scans them, and only once that scan is over matches
+//     each film and series in it again, as one never matched: from the name, year and ids its files
+//     and NFOs give, read as a pass reads them with its match set aside (files_say.go), never the
+//     name its old match stored (D357 §1, §2).
+//     TestRescan_ScansThenRematchesFromTheFilesNameAndYear, TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther,
+//     TestRescan_OneItemRescansItsFilesAndRematchesIt, TestRescan_AFileUnchangedOnDiskIsNotProbedAgain
+//     (internal/core/library).
+//   - A rescan leaves alone a match a person chose and every field a person edited, and matches
+//     again a guess no one confirmed (D357 §3). TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone,
+//     TestRescan_RematchesAnUnconfirmedGuess.
+//   - A rescan's different answer replaces the old one without review: the old match's ids go but
+//     those the files give, a series' old season listings with them, and the answer is marked a guess
+//     where it is one, else cleared of one; a search that no longer settles leaves the item as a
+//     first match would, named from its files again (D357 §4).
+//     TestRescan_ADifferentMatchReplacesTheOld, TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow,
+//     TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain. The item keeps its title and
+//     its files, so what a person watched, kept by file, stays theirs.
+//     TestRescan_WhatAPersonWatchedSurvivesAChangedMatch.
+//   - A rescan is kept as a scan is, in cache.db (rescan, rematch), one a scope at a time: a second
+//     press while one runs over the same scope, or over the library a film is in, adds nothing
+//     (D357 §5). Its matches are the fetch_metadata jobs of its items, whichever runs reading the
+//     rematch, queued by the rescans' sweep. TestRescan_ASecondPressWhileOneRunsAddsNothing.
+//   - Each match a rescan changes is logged with the item, its old match, its new one and the rule
+//     that settled it, and each rescan's totals when it ends (D357 §6).
+//     TestRescan_LogsEachChangedMatchAndTheRunsTotals.
 //
 // # Read before changing
 //
@@ -244,6 +270,7 @@
 //   - docs/contributors/design/plans/episode-orderings.md: a series' orderings.
 //   - D231 §3, §4: work derived from persistent.db by sweeps; an item's own failure and a person's
 //     refresh are facts, not job rows.
+//   - D357: an admin's rescan, which matches again what a person did not set.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.
 //
@@ -257,7 +284,8 @@
 //     localart.go: the images beside the media; artwork.go: what the pass reports of the images
 //     it found, for the artwork service; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
-//     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
+//     enters. match.go: the matcher and the fetch_metadata job's handler; settle.go: how a search's
+//     candidates settle a match, by which rule; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh, the
 //     rolling refresh, and the fetch sweeps (first matches, requests, rechecks). orderings.go: a
 //     series' episode groups as orderings, fetched and derived; missing.go: the sweep that fills in
@@ -267,6 +295,9 @@
 //   - identifytest/: the fake TMDB that this package's tests and the API's share. The tests that
 //     drive a library through it are package identify_test (identifytest imports identify);
 //     export_test.go names what they read of the package's own.
+//   - rescan.go: an admin's rescans, their sweep and their jobs (D357); rematch.go: a rescan's
+//     match of one film or series; files_say.go: what a library's files say each is, its match set
+//     aside.
 //   - retire.go: hiding a deleted library's titles with their history (D231 §7);
 //     series_return.go: a series found again by a provider id its files give (D208 §2).
 package identify

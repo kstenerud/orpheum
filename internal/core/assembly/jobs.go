@@ -65,6 +65,7 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
 			[]string{
 				sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses, sweepMissing,
+				sweepRescans,
 			},
 			nil,
 		},
@@ -142,7 +143,8 @@ func (services *Services) newRunner(runnerSpec jobRunner) *jobs.Runner {
 }
 
 // The sweeps, by what they derive (D231 §3): the first match of each film and series with no
-// answer yet; the refreshes people asked for that no fetch has answered; the one recheck of each
+// answer yet; the refreshes people asked for that no fetch has answered; the matches an admin's
+// rescans owe, each listed once its scan is over (D357); the one recheck of each
 // image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
 // §3); every library identified again from persistent.db, each item's season listings and images
 // owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
@@ -152,6 +154,7 @@ const (
 	sweepMissing          = "what should have been fetched"
 	sweepReconsidered     = "ambiguous matches reconsidered"
 	sweepRefreshRequests  = "refreshes people asked for"
+	sweepRescans          = "rescans"
 	sweepRechecks         = "rechecks of missing images"
 	sweepRollingRefresh   = "rolling refresh"
 	sweepPasses           = "identification passes"
@@ -254,7 +257,9 @@ const scheduledBackupCheckEvery = 5 * time.Minute
 
 // sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
 func sweepsAfterAPass() []string {
-	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs}
+	return []string{
+		sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs, sweepRescans,
+	}
 }
 
 // AddSweeps gives the queue every sweep that derives the server's work from persistent.db (D231 §3),
@@ -282,6 +287,8 @@ func (services *Services) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
+		// An admin's rescans: each listed once its scan is over, its matches queued (D357).
+		{Name: sweepRescans, Derive: services.rescans.Advance, Every: derivedWorkEvery},
 		// A little at a time, hourly and at start, never after each pass (D335 §3).
 		{Name: sweepMissing, Derive: services.refresher.QueueMissing, Every: derivedWorkEvery},
 		{

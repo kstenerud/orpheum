@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -280,19 +279,7 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 	if err != nil {
 		return fmt.Errorf("clear item %d's guess: %w", itemID, err)
 	}
-	return chooser.dropCandidates(ctx, itemID)
-}
-
-// dropCandidates forgets an item's kept candidates: chosen from, or searched for under a name or
-// year that is no longer the item's, so the next look searches again.
-func (chooser *Chooser) dropCandidates(ctx context.Context, itemID int64) error {
-	err := chooser.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.DeleteMatchCandidates(ctx, itemID)
-	})
-	if err != nil {
-		return fmt.Errorf("drop item %d's candidates: %w", itemID, err)
-	}
-	return nil
+	return chooser.matcher.dropCandidates(ctx, itemID)
 }
 
 // isSearchField is whether a field is one a search for candidates is made with: changing it makes
@@ -327,7 +314,7 @@ func (chooser *Chooser) SetOverride(ctx context.Context, itemID int64, field, va
 		return fmt.Errorf("override item %d's %s: %w", itemID, field, err)
 	}
 	if isSearchField(field) {
-		if err := chooser.dropCandidates(ctx, itemID); err != nil {
+		if err := chooser.matcher.dropCandidates(ctx, itemID); err != nil {
 			return err
 		}
 	}
@@ -356,7 +343,7 @@ func (chooser *Chooser) ClearOverride(ctx context.Context, itemID int64, field s
 		return fmt.Errorf("item %d's %s: %w", itemID, field, ErrNoOverride)
 	}
 	if isSearchField(field) {
-		if err := chooser.dropCandidates(ctx, itemID); err != nil {
+		if err := chooser.matcher.dropCandidates(ctx, itemID); err != nil {
 			return err
 		}
 	}
@@ -407,7 +394,12 @@ func (chooser *Chooser) rederive(ctx context.Context, item target) error {
 
 // readTarget reads the title or series an id names.
 func (chooser *Chooser) readTarget(ctx context.Context, itemID int64) (target, error) {
-	queries := chooser.matcher.database.Read()
+	return chooser.matcher.readTarget(ctx, itemID)
+}
+
+// readTarget reads the title or series an id names.
+func (matcher *Matcher) readTarget(ctx context.Context, itemID int64) (target, error) {
+	queries := matcher.database.Read()
 	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)

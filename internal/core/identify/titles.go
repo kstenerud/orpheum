@@ -147,6 +147,7 @@ func (filer *libraryFiler) claimTitleByProviderID(
 func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
 	identificationByTitle, reasonByTitle := map[int64]string{}, map[int64]string{}
 	for titleID, specs := range filer.evidence {
+		filer.noteFilesSay(titleID, specs)
 		resolution, err := filer.resolveWithMatch(ctx, titleID, bestEvidence(specs))
 		if err != nil {
 			return err

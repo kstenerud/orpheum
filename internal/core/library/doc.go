@@ -320,5 +320,7 @@
 //     holds it (this package writes the file table, schema.md).
 //   - art.go: the images an item shows; clean.go: cleaning a node's text where it enters (D211);
 //     readable.go: why a file cannot be read now (D241 §3); retire.go: retiring a node, a root
-//     or a file (D231 §7, D241 §5); move.go: a root that moved, repointed (D241 §6).
+//     or a file (D231 §7, D241 §5); move.go: a root that moved, repointed (D241 §6);
+//     rescan_scans.go: the scans a rescan asks for, of a library or of the folders holding one
+//     film's or series' files, and whether they are over (D357 §2).
 package library

@@ -126,6 +126,36 @@ func (q *Queries) DeleteSeasonListings(ctx context.Context, arg DeleteSeasonList
 	return err
 }
 
+const forgetItemProviderIDsBut = `-- name: ForgetItemProviderIDsBut :exec
+DELETE FROM item_provider_id
+WHERE item_id = ?1
+  AND (provider || ':' || provider_id) NOT IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
+`
+
+type ForgetItemProviderIDsButParams struct {
+	ItemID   int64
+	KeptJSON string
+}
+
+// A rescan's answer replaces every id an earlier match recorded: only the ids the item's files and
+// NFOs give stay, as provider:id in the JSON array kept_json (D357 section 4).
+func (q *Queries) ForgetItemProviderIDsBut(ctx context.Context, arg ForgetItemProviderIDsButParams) error {
+	_, err := q.db.ExecContext(ctx, forgetItemProviderIDsBut, arg.ItemID, arg.KeptJSON)
+	return err
+}
+
+const getItemName = `-- name: GetItemName :one
+SELECT name FROM item_text WHERE item_id = ?1 AND is_original = 1
+`
+
+// A film's or series' name as it is shown, what a rescan's log names it by (D357 section 6).
+func (q *Queries) GetItemName(ctx context.Context, itemID int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getItemName, itemID)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const getProviderResponse = `-- name: GetProviderResponse :one
 SELECT body_gzip
 FROM provider_response

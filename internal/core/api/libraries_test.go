@@ -276,6 +276,12 @@ func (nodes *fakeNodes) Request(_ context.Context, _ int64, root string, _ int64
 	return nil
 }
 
+// RequestUnder keeps a folder whose scan was asked for, as root:folder.
+func (nodes *fakeNodes) RequestUnder(_ context.Context, _ int64, root, scope string, _ int64) error {
+	nodes.scanned = append(nodes.scanned, root+":"+scope)
+	return nil
+}
+
 // commandWait bounds a test's wait for the node's next command: long past any honest wait on a
 // loaded machine, short of the package's ten-minute timeout, whose report names only the test.
 const commandWait = time.Minute

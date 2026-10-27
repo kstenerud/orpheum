@@ -234,6 +234,9 @@ func wholeReadsAllowed() map[string]string {
 		"cache.ListArtServed":          "the artwork ceiling's sweep reads when every image was served, once a day",
 		"cache.ListNodeAttempts":       few + "nodes' attempts",
 		"cache.ListScans":              few + "scans at a time, one per root",
+		"cache.ListRescans":            few + "rescans at a time, one per library or item an admin pressed (D357)",
+		"cache.ListRematches": "the rescans' sweep queues every film and series they wait on, which a rescan's " +
+			"jobs delete as they run (D357)",
 		// Small tables the planner reads whole by the committed statistics (D303, DL15).
 		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
 			"reference scale), and sorts a page of them",

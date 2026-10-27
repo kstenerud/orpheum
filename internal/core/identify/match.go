@@ -131,6 +131,12 @@ func (matcher *Matcher) idInHand(ctx context.Context, provider Provider, kind st
 	for _, row := range ids {
 		byProvider[row.Provider] = row.ProviderID
 	}
+	return idOfIDs(ctx, provider, kind, byProvider)
+}
+
+// idOfIDs is the provider's id among ids, by provider, if they hold one: the provider's own, or one
+// it finds from an IMDb or TVDB id.
+func idOfIDs(ctx context.Context, provider Provider, kind string, byProvider map[string]string) (string, error) {
 	if id := byProvider[provider.Name()]; id != "" {
 		return id, nil
 	}
@@ -263,158 +269,29 @@ func (matcher *Matcher) keptCandidates(ctx context.Context, itemID int64) ([]Can
 	return candidates, provider, nil
 }
 
-// settledBy is how a match was settled: not at all, by one clear winner, or guessed among several
-// whose names match (D301), which is marked as a guess until a person confirms or corrects it.
-type settledBy int
-
-const (
-	unsettled settledBy = iota
-	clearly
-	byGuess
-)
-
-// settleMatch is the candidate a query's search settles on, and how (D172, D301). A series' year is
-// checked where its folder or tvshow.nfo gives one (D209).
-//
-// It looks in tiers, the next only when the one before found none: the name and the year; the name
-// and a year one off, as a film's year at TMDB is often its first showing's, the year before its
-// release (Larkhollow, 1997, is TMDB's 1998); and a candidate whose whole name begins the
-// query's, word by word, in the year, as a release name carries a subtitle the provider's does not
-// ("Wild Rex 2 The Dust Road" is TMDB's "Wild Rex 2", 1981). One candidate in a tier is a clear
-// winner, but for a film with no year, which is a guess. Several are settled by a guess (the
-// owner's NAS, 2026-10-15, where 85 titles waited for a choice, many plain to them): with no year
-// the oldest, with one the most voted (Disney's The Thief of Bagdad over another of 1992), and TMDB's order
-// after. With no candidate named as the query, a work released under another name is guessed
-// (underAnotherName, D307 §1).
-func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Candidate, settledBy) {
-	for index, tier := range matchTiers(query) {
-		var found []Candidate
-		for _, candidate := range candidates {
-			if tier(candidate) {
-				found = append(found, candidate)
-			}
-		}
-		found = namedExactly(query, found)
-		switch {
-		case len(found) == 1 && (query.Year != 0 || !isYearExpected):
-			return found[0], clearly
-		case len(found) == 1 || len(found) > 1 && index != yearOffTier:
-			return likeliest(found, query.Year == 0), byGuess
-		case len(found) > 1:
-			// Several a year off the file's are none of its year: a person's choice (D301 §1).
-			return Candidate{}, unsettled
-		}
-	}
-	if near, found := nearlyNamed(query, candidates); found {
-		return near, byGuess
-	}
-	if other, found := underAnotherName(query, candidates); found {
-		return other, byGuess
-	}
-	return Candidate{}, unsettled
-}
-
-// namedExactly is those of found named as the query is, its leading article and all, when any is and
-// others are named so only once an article is set aside: a file's "Crowd" is TMDB's
-// "Crowd", not "The Crowd" of the same year (the owner's staging, 2026-10-27). With none
-// so named, or all, it is found as it is.
-func namedExactly(query Query, found []Candidate) []Candidate {
-	if len(found) < 2 {
-		return found
-	}
-	want := textindex.SameWork(strings.Join(wordsOf(query.Name), " "))
-	var exact []Candidate
-	for _, candidate := range found {
-		for _, name := range []string{candidate.Name, candidate.OriginalName} {
-			if name != "" && textindex.SameWork(strings.Join(wordsOf(name), " ")) == want {
-				exact = append(exact, candidate)
-				break
-			}
-		}
-	}
-	if len(exact) == 0 {
-		return found
-	}
-	return exact
-}
-
-// searchFoundTheWorkAtMost is how many candidates a search whose names all differ from the query's
-// may find for it to have found the work under another name, rather than works with the words in
-// theirs (D307 §1).
-const searchFoundTheWorkAtMost = 2
-
-// underAnotherName is the guess among candidates none of whose names is the query's, a work released
-// under another name in another country (D307 §1: "Kaito Kumo" is TMDB's "Kaito the 3rd"): with a
-// year, the one candidate of that year; with none, the oldest of the one or two the search found.
-func underAnotherName(query Query, candidates []Candidate) (Candidate, bool) {
-	if query.Year != 0 {
-		var ofTheYear []Candidate
-		for _, candidate := range candidates {
-			if candidate.Year == query.Year {
-				ofTheYear = append(ofTheYear, candidate)
-			}
-		}
-		if len(ofTheYear) == 1 {
-			return ofTheYear[0], true
-		}
-		return Candidate{}, false
-	}
-	if len(candidates) == 0 || len(candidates) > searchFoundTheWorkAtMost {
-		return Candidate{}, false
-	}
-	return likeliest(candidates, true), true
-}
-
-// yearOffTier is matchTiers' tier of a year one off, whose several are never guessed between.
-const yearOffTier = 1
-
-// likeliest is the guess among candidates whose names all match (D301): the oldest when the name
-// gave no year, then the most voted, then the first in the provider's order. A candidate with no
-// year is never the oldest.
-func likeliest(found []Candidate, isOldestFirst bool) Candidate {
-	best := found[0]
-	for _, candidate := range found[1:] {
-		if isOldestFirst && candidate.Year != best.Year {
-			if candidate.Year != 0 && (best.Year == 0 || candidate.Year < best.Year) {
-				best = candidate
-			}
-			continue
-		}
-		if candidate.Votes > best.Votes {
-			best = candidate
-		}
-	}
-	return best
-}
-
-// matchTiers are settleMatch's tiers, in order: the name and the year; the name and a year one
-// off; the name beginning the query's, word by word, in its year.
-func matchTiers(query Query) []func(Candidate) bool {
-	want := workName(query.Name)
-	named := func(candidate Candidate) bool {
-		return workName(candidate.Name) == want || workName(candidate.OriginalName) == want
-	}
-	withinYears := func(candidate Candidate, years int) bool {
-		return query.Year == 0 || (candidate.Year >= query.Year-years && candidate.Year <= query.Year+years)
-	}
-	return []func(Candidate) bool{
-		func(candidate Candidate) bool { return named(candidate) && withinYears(candidate, 0) },
-		func(candidate Candidate) bool {
-			return named(candidate) && query.Year != 0 && withinYears(candidate, 1)
-		},
-		func(candidate Candidate) bool {
-			return query.Year != 0 && candidate.Year == query.Year &&
-				(beginsByWords(query.Name, candidate.Name) || beginsByWords(query.Name, candidate.OriginalName))
-		},
-	}
-}
-
 // accept fetches the work, stores the response and re-derives the title from it, identified by
 // the matcher or confirmed by a person. A title that turns out to be one already in the library
 // joins it.
 func (matcher *Matcher) accept(
 	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id, identification string,
 ) error {
+	return matcher.acceptAnswer(ctx, provider, title, answer{id: id, identification: identification})
+}
+
+// answer is the work a match settled on, and by whom: identified by the matcher or confirmed by a
+// person. A rescan's answer replaces every id an earlier match recorded, keeping only those its
+// files give, keptIDs (D357 §4); nil keeps them all.
+type answer struct {
+	id             string
+	identification string
+	keptIDs        map[string]string
+}
+
+// acceptAnswer is accept, of an answer.
+func (matcher *Matcher) acceptAnswer(
+	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, settled answer,
+) error {
+	id, identification := settled.id, settled.identification
 	body, err := provider.Fetch(ctx, title.Kind, id)
 	if err != nil {
 		return fmt.Errorf("fetch %s %s: %w", provider.Name(), id, err)
@@ -436,6 +313,7 @@ func (matcher *Matcher) accept(
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		found := titleMatch{
 			provider: provider.Name(), id: metadata.ID, identification: identification, artwork: metadata.Artwork,
+			keptIDs: settled.keptIDs,
 		}
 		owed = Report{}
 		return matcher.recordMatch(ctx, queries, found, title, bodyGzip, derivation{sorter: sorter, report: &owed})
@@ -462,6 +340,9 @@ type titleMatch struct {
 	identification string
 	// artwork is the work's images, whose refs a rematch keeps of the item's earlier ones.
 	artwork []ImageRef
+	// keptIDs, when not nil, are the only ids of the title's that stay: a rescan's new answer
+	// replaces every id the old one recorded (D357 §4).
+	keptIDs map[string]string
 }
 
 // recordMatch stores a match's response and re-derives the title from it, as a pass would.
@@ -471,6 +352,11 @@ func (matcher *Matcher) recordMatch(
 ) error {
 	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
+	if found.keptIDs != nil {
+		if err := forgetIDsBut(ctx, queries, title.ID, found.keptIDs); err != nil {
+			return err
+		}
+	}
 	if found.identification == identificationConfirmed {
 		forget := sqlcgen.DeleteItemProviderIDsAtProviderParams{ItemID: title.ID, Provider: provider}
 		err := queries.DeleteItemProviderIDsAtProvider(ctx, forget)
@@ -661,6 +547,19 @@ func (matcher *Matcher) keepCandidates(
 	return nil
 }
 
+// dropCandidates forgets an item's kept candidates: chosen from, searched for under a name or year
+// that is no longer the item's, so the next look searches again, or of a match settled clearly
+// (D301).
+func (matcher *Matcher) dropCandidates(ctx context.Context, itemID int64) error {
+	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		return queries.DeleteMatchCandidates(ctx, itemID)
+	})
+	if err != nil {
+		return fmt.Errorf("drop item %d's candidates: %w", itemID, err)
+	}
+	return nil
+}
+
 // refile files a title's live files by its identification, as the pass would.
 func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identification, reason string) error {
 	files, err := queries.ListLiveFilesOfTitle(ctx, titleID)
@@ -699,6 +598,11 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	hasRequest := err == nil
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return fmt.Errorf("read item %d's refresh request: %w", job.ItemID, err)
+	}
+	if rematch, isWaiting, rematchErr := matcher.pendingRematch(ctx, job.ItemID); rematchErr != nil {
+		return rematchErr
+	} else if isWaiting {
+		return matcher.handleRematch(ctx, job.ItemID, rematch)
 	}
 	var outcome Outcome
 	if args.IsRefresh || hasRequest {
@@ -768,5 +672,10 @@ func (matcher *Matcher) RecordFailure(ctx context.Context, job jobs.Job, failure
 	}
 	matcher.logger.WarnContext(ctx, "an item could not be fetched; it waits for a person", "itemId", job.ItemID,
 		"failure", failure)
+	if rematch, isWaiting, rematchErr := matcher.pendingRematch(ctx, job.ItemID); rematchErr != nil {
+		return rematchErr
+	} else if isWaiting {
+		return matcher.endRematch(ctx, job.ItemID, rematch.RescanID, rematchFailed)
+	}
 	return nil
 }

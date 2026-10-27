@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 42
+-- cache schema version 43
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,6 +110,39 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   votes       INTEGER,                   -- D301: the most voted settles a year shared
   PRIMARY KEY (item_id, rank)
 ) STRICT;
+
+-- D357: an admin's rescan in progress, of one library or of one film or series in it: its scope's
+-- files scanned, then every film and series in it matched again from what its files say. Kept as a
+-- scan is, from the request to its end; lost with cache.db, it is asked for again.
+CREATE TABLE rescan (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  library_id  INTEGER NOT NULL,          -- persistent.db's library
+  item_id     INTEGER,                   -- the one film or series it rescans; NULL for the whole library
+  requested_at INTEGER NOT NULL,
+  -- When its scan was over and its films and series were listed to match again; NULL while it scans.
+  listed_at   INTEGER,
+  item_count  INTEGER NOT NULL DEFAULT 0,  -- the films and series it listed
+  -- Of them, those matched again: to another work, to the same, left alone (a person's choice,
+  -- an NFO's), left unsettled (several, or none, to choose from), or failed.
+  changed_count   INTEGER NOT NULL DEFAULT 0,
+  unchanged_count INTEGER NOT NULL DEFAULT 0,
+  left_alone_count INTEGER NOT NULL DEFAULT 0,
+  unsettled_count INTEGER NOT NULL DEFAULT 0,
+  failed_count    INTEGER NOT NULL DEFAULT 0
+) STRICT;
+-- One rescan of a scope at a time: a second press while one runs adds nothing (D357 section 5).
+CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));
+
+-- D357: a film or series a rescan matches again, and what its files and NFOs say it is, read once
+-- the scan was over: the fetch_metadata job that runs for it, whichever, matches it from these.
+CREATE TABLE rematch (
+  item_id     INTEGER PRIMARY KEY,       -- persistent.db's film or series
+  rescan_id   INTEGER NOT NULL REFERENCES rescan(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,             -- the name and year to search for
+  year        INTEGER NOT NULL,          -- 0 for none
+  ids_json    TEXT NOT NULL              -- JSON: the provider ids they give, by provider
+) STRICT;
+CREATE INDEX rematch_of_rescan ON rematch(rescan_id);
 
 CREATE TABLE art_served (                                  -- D212 section 6: recency, to the day
   source_sha256_hex TEXT PRIMARY KEY,    -- an image's directory under cache/art/

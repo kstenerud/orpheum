@@ -17,7 +17,7 @@ import {
   withChangeDetection,
   withRootChosen,
 } from "./create-library.tsx";
-import { LibraryCard, rootAnswerRequest } from "./libraries.tsx";
+import { LibraryCard, rootAnswerRequest, type Library } from "./libraries.tsx";
 import { withServices } from "./test-services.tsx";
 
 type Root = components["schemas"]["RootBody"];
@@ -164,6 +164,42 @@ describe("libraries", () => {
     });
     expect(reading).toContain("Scanning… 312 files found, 12 of 40 new or changed read.");
     expect(reading).toContain("It scans again when this one ends.");
+  });
+
+  it("offers a rescan of a library of films or of series, never a mixed or other one, and shows how far it is (D357)", () => {
+    const card = (kind: Library["kind"], rescan?: Library["rescan"]): string =>
+      renderToStaticMarkup(
+        withServices(
+          <LibraryCard
+            note=""
+            onScan={ignore}
+            onRescan={ignore}
+            onAnswer={ignore}
+            onDelete={ignore}
+            library={{
+              id: 3,
+              name: "Films",
+              kind,
+              metadataSource: kind === "other" ? "nfo" : "tmdb",
+              changeDetection: "manual",
+              isWritable: false,
+              createdAt: 1,
+              ...(rescan === undefined ? {} : { rescan }),
+            }}
+          />,
+        ),
+      );
+    expect(card("movies")).toContain(">Rescan</button>");
+    expect(card("shows")).toContain(">Rescan</button>");
+    expect(card("mixed")).not.toContain(">Rescan</button>");
+    expect(card("other")).not.toContain(">Rescan</button>");
+    expect(card("movies")).not.toContain("Rescanning");
+    expect(card("movies", { isScanning: true, itemCount: 0, matchedCount: 0 })).toContain(
+      "Rescanning… scanning first.",
+    );
+    expect(card("movies", { isScanning: false, itemCount: 40, matchedCount: 12 })).toContain(
+      "Rescanning… 12 of 40 films and series matched again.",
+    );
   });
 
   it("says a disk is gone by its mount point's path, and approves removals by the root's (D208)", () => {

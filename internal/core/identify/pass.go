@@ -322,6 +322,9 @@ type libraryFiler struct {
 	// recordedByFile is when each of an other library's files says it was recorded, as its probe
 	// read it, for those that say (D349 §4).
 	recordedByFile map[int64]int64
+	// filesSay, when a rescan reads the library, collects what each film's and series' files say
+	// it is, its match set aside (filesSayOf); nil in every other pass.
+	filesSay map[int64]filesQuery
 }
 
 // identifyUnits files units in turn. With changedAtStart a count of rows the writer had changed
@@ -414,6 +417,7 @@ func (filer *libraryFiler) identify(ctx context.Context) error {
 		return err
 	}
 	for _, seriesID := range slices.Sorted(maps.Keys(filer.seriesSpecByID)) {
+		filer.noteSeriesFilesSay(seriesID, filer.seriesSpecByID[seriesID])
 		if err := filer.resolveSeries(ctx, seriesID, filer.seriesSpecByID[seriesID]); err != nil {
 			return err
 		}

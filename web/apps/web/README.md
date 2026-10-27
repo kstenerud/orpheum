@@ -112,6 +112,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   check code; a typed one's check code is made of the key, the nonce the TV committed to and the
   core's. `loader-device-code.test.tsx`, `loader-pages.test.tsx`, `device-activation.test.tsx`, and
   the SDK's `device-code.test.ts`.
+- **An admin rescans from the Libraries page and from a film's or series' page** (D357): "Rescan
+  everything", and "Rescan" on a library of films or of series alone, never a mixed or other one,
+  whose card shows how far its rescan is, scanning first, then the films and series matched again;
+  and "Rescan this" beside "Identified incorrectly", for an admin alone. Each says whether it
+  started, or one already runs. `libraries.test.tsx`, `rescan.test.tsx`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A poster or still whose image does not load shows its blank and asks for it again** on the
@@ -276,7 +281,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
   (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
-  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
+  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`; "Rescan everything", each library's "Rescan" and how far its rescan is, D357), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8), `watching.ts` (the film a tab watches: its page's warm-up
