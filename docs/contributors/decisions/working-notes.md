@@ -22749,3 +22749,44 @@ this" it is the film named "Crowd".
 - 6: TestRescan_LogsEachChangedMatchAndTheRunsTotals
 
 **Status:** Decided 2026-10-27, not built: in the next batch.
+
+## D358 — A cast asks the receiving device first: "‹Device› wants to play ‹Film› here", whose Play is the press that starts it with sound and full screen
+
+**Decided** (2026-10-27), by the project owner, after casting from Firefox on a Mac to Chrome on
+Linux, and to a Fire TV's Silk, played the film with no sound and out of full screen, with no
+apparent way to turn the sound on (staging's log, 06:54:59 and 07:02:50 UTC: `logEvent=playedMuted`
+on each receiver). A cast starts its film from a message, not a press on the receiving tab: a
+browser plays sound only on a page that has been pressed (sticky activation), and puts a page full
+screen only within moments of a press (transient activation)
+([idiosyncrasies](../idiosyncrasies.md)).
+A press at the moment the cast arrives is the only reliable way to have both. **Amends**
+[D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back),
+whose casts started with no confirmation and whose §9 answers held the fading "Controlled from" line
+enough, and the sender's hand-off at the moment it casts (D337's §9 answers: "the sender leaves its
+playback at the hand-off"); keeps
+[D338](#d338--a-cast-goes-to-the-devices-tab-in-front-its-receiver-keeps-a-televisions-controls-and-leaves-by-back-or-a-double-ok-and-stop-casting-returns-it-to-the-page-it-was-on).
+
+1. **The receiver asks.** When a cast arrives, the receiving tab shows, over whatever page it is on,
+   "‹Device› wants to play ‹Film› here", with **Play**, focused so a remote's OK answers it, and
+   **Not now**. A click or a tap on either answers it too.
+2. **Play is the press.** In Play's own handler the receiver asks for full screen and opens the
+   film, which plays with sound by the activation the press gave the page. What each did is logged
+   on the server: the sound allowed or refused, full screen entered or refused, and by what press.
+3. **Not now declines.** The sender is told the cast was declined, shows "‹Device› declined", and
+   keeps playing: it hands its playback off only once the receiver has pressed Play, never as it
+   casts.
+4. **No answer in a minute is no.** After one minute (a justified constant) the prompt closes and
+   the sender is told no one answered, and keeps playing.
+5. **A refused sound can still be turned on by remote.** Should the browser still refuse the sound
+   after Play (a policy, a browser that wants its press on the video itself), the film plays muted as
+   now, and its "turn the sound on" prompt shows over the film and is answered by a key press, OK
+   among them, as well as by a click or a tap.
+
+**Proven by** (tests to be written):
+- 1: web/apps/web/src/cast-asked.test.tsx
+- 2: web/apps/web/src/cast-asked.test.tsx, TestHub_LogsThePagesActivationAndThePressThatAnswered
+- 3: web/apps/web/src/cast-to.test.tsx, TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy
+- 4: web/apps/web/src/cast-asked.test.tsx, web/apps/web/src/cast-to.test.tsx
+- 5: web/apps/web/src/cast-receiver.test.tsx
+
+**Status:** Decided 2026-10-27; not built.
