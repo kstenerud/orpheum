@@ -23577,10 +23577,10 @@ and stopped early counted as unfinished again, and a series' progress and Next U
 6. **No switch to hide the marks yet**; it waits until someone asks.
 
 **Proven by:**
-- 1: internal/core/api/watched_test.go (TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt: past 90% of a known length, to the end of an unknown one, never unattended or far into an unknown length, still watched after a restart), internal/store/migrate_0062_test.go (TestMigrate_Step0062KeepsWatchedWhatWasFinished); VQ87
-- 2: web/apps/web/src/status-cues.test.tsx ("mark what its person watched with the white check…"), watched-mark.test.tsx (the rows, nothing faded), ui-gallery.test.tsx, icon.test.tsx, colour-tokens.test.ts; TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture; VQ87
-- 3: TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs; watched-mark.test.tsx (a season's row); VQ87
-- 4: TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack, TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs, TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark, TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere; watched-mark.test.tsx ("marks a film watched at once…", the season and the series); VQ87 (by remote)
+- 1: internal/core/api/watched_test.go (TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt: past 90% of a known length, to the end of an unknown one, never unattended or far into an unknown length, still watched after a restart), internal/store/migrate_0062_test.go (TestMigrate_Step0062KeepsWatchedWhatWasFinished); VQ89
+- 2: web/apps/web/src/status-cues.test.tsx ("mark what its person watched with the white check…"), watched-mark.test.tsx (the rows, nothing faded), ui-gallery.test.tsx, icon.test.tsx, colour-tokens.test.ts; TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture; VQ89
+- 3: TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs; watched-mark.test.tsx (a season's row); VQ89
+- 4: TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack, TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs, TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark, TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere; watched-mark.test.tsx ("marks a film watched at once…", the season and the series); VQ89 (by remote)
 - 5: TestWatched_RestartingAFinishedEpisodeKeepsTheSeriesWhereItWas, TestBrowse_AListShowsHowFarThePersonIsThroughEach, TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds, TestMembersAhead_StartAtThePersonsPlaceInTheOrdering, internal/core/interest's TestRaiser_* (Next Up read from the marks)
 - 6: nothing built, as decided
 
@@ -23609,4 +23609,4 @@ reference scale (`refscale_test.go`, a third of the plays finished): a 60-film p
 episodes, 15.6 ms against 14.3 ms before, the count dominating, within the 50 ms page budget. As built,
 where the decision left it open: episode rows gained the check, not a progress bar; a series' check on
 its own page counts the episodes the ordering in use lists with a file, as its list's progress does.
-Not seen on a device yet (VQ87).
+Not seen on a device yet (VQ89).
