@@ -25,7 +25,8 @@
    **Next batch (owner 2026-10-27):** films and series sort by release date too (now: name, date added; other
    videos: recorded). Every sort runs either way: dates newest↔oldest, names A–Z↔Z–A; unknown dates last.
    **Player fixes done** (an earlier commit + focus fix): VQ78 passed; VQ79 owes the new device name.
-   **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once). And
+   **Batch after (owner 2026-10-27):** D364, casting as a session (top-bar Cast, tray icon, ask once); the owner's
+   cast icon is `CastIcon` in status-tray.tsx (from cast.svg): use it. And
    our own player controls on computers too, replacing Chrome's built-in ones, reachable by arrows (owner
    chose; loses Chrome's speed menu and picture-in-picture unless we add them).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
