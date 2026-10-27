@@ -6434,6 +6434,12 @@
               "hls"
             ],
             "type": "string"
+          },
+          "startsAtMs": {
+            "description": "Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [

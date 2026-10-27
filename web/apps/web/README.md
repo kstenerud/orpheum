@@ -41,6 +41,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   and under a film on its ladder alike (D222); over the original, where its track has a centre, it
   starts off, and turned on it is kept and the film asked for again from where the video stands,
   with the cause boostChosen (D336 §3). `src/sound.test.tsx`.
+- **A playback the page asks for again goes on from where its video stands** (D230 §5, D336 §3):
+  another audio track, a fetched subtitle, the original chosen or the boost turned on asks with its
+  cause and where the video is, which the page starts from in place of the resume position
+  answered, and which the request carries for the server's log (`startsAtMs`). A film whose track
+  was changed 2:46 in started again at 0:00, the log saying only resumePositionMs=0 (staging,
+  2026-10-26). `src/sound.test.tsx`.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves

@@ -4276,6 +4276,11 @@ export interface components {
              * @enum {string}
              */
             preferredDelivery?: "direct" | "hls";
+            /**
+             * Format: int64
+             * @description Where the page starts this playback, in ms, when it asks again from where its video stood, for the log; absent where it starts at the resume position
+             */
+            startsAtMs?: number;
         };
         StartPlaybackOutputBody: {
             audioTracks: components["schemas"]["AudioTrackBody"][] | null;
