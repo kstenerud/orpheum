@@ -768,12 +768,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   `full-screen-button.tsx`, `focus-engine.ts`, `device.ts`)
   Seen 2026-10-27 (the owner, staging): the button goes full screen and back; Left and Right on the
   scrub bar seek, in full screen and out. Owed: the new device's name.
-- [ ] **VQ80** — On staging, D363's overlap: make a series library over a folder inside the films
+- [x] **VQ80** — On staging, D363's overlap: make a series library over a folder inside the films
   library's folder (or a films library over a parent of it). Passes when both are made, one scan of the
   outer folder lists the place once (staging's core log, at debug, says `a folder inside another library
   folder is scanned within it`), each library's page lists its own kind, *All libraries* and Home show
   each film and series once, and adding to the films library a folder beneath its own is refused as
   already covered. (`internal/core/library/scans.go`, `scanroots.go`, `libraryfolders.go`)
+  Passed 2026-10-27 (the lead, on staging, as the owner asked): a films library over Crowd's
+  folder inside Films' was made and scanned within it (`a folder inside another library folder is
+  scanned within it`, scope the folder); both list Crowd as item 5056, All films lists 325 films
+  and no item twice; adding that folder to Films was refused (`the library already covers that
+  path`); an other library over the same folder gave the file an other video of its own (5421).
 - [ ] **VQ81** — On staging, D363's copies: copy a film byte for byte to a second folder that a second
   films library covers, and scan it. Passes when, after the copies' sweep (the pass after the scan, or
   within `read_through_sweep_every_hours`), the core log says `one file at two places from now on`, the
@@ -782,6 +787,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   folder's disk unplugged, a person reaching both still plays it, from the copy. A re-encode put
   there instead stays a film's second version, and a file of the same payload with other bytes is
   logged `and other bytes: they stay two files`. (`internal/core/library/copies.go`, `playable.go`)
+  Seen 2026-10-27 (the lead, on staging): the copy merged within half a second (`one file at two
+  places from now on`, copy 12304 into file 12168), each library lists Sync Fig as item 5285, the
+  doctor names both paths (and found two real pairs: The Pumbletons S28E14 and S28E15 are one file, and
+  two Insex videos); a person whose role reached only the copy's library saw the film, no path, and
+  played it, and with the copy renamed away was refused (404) though the original stood: only the
+  reached place is read. Not seen: the fall-back to the copy. A file renamed away, or its library
+  folder made to vanish, is not an unavailable place (only a node away, a root or disk missing or not
+  answering is), so a play of the original's place answered 404 rather than reading the copy; and the
+  vanished folder's scan was given up without marking the folder unavailable. Filed for the next
+  batch. Owed: the owner's unplugged-disk case, on a disk.
 - [ ] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
