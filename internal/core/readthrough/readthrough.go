@@ -244,12 +244,13 @@ func decodeArgs(encoded string) (readThroughArgs, error) {
 }
 
 // hasIndexReader is whether the file at path, as its node reported it, is of a container the node
-// reads an index of keyframes from, by its extension: Matroska's cues and an MP4's sync samples
-// (internal/node/container). Any other, AVI, MPEG-TS and the rest, is read through ahead of the
+// reads an index of keyframes from, by its extension: Matroska's cues and the sync samples of an
+// MP4 or one of its ISO family, QuickTime, Flash's F4V and 3GPP's (internal/node/container, which
+// knows them by their ftyp box). Any other, AVI, MPEG-TS and the rest, is read through ahead of the
 // sweep (D269 §4); a Matroska file without cues is found out at its first play.
 func hasIndexReader(path []byte) bool {
 	switch strings.ToLower(filepath.Ext(string(path))) {
-	case ".mkv", ".mk3d", ".webm", ".mp4", ".m4v", ".mov":
+	case ".mkv", ".mk3d", ".webm", ".mp4", ".m4v", ".mov", ".qt", ".f4v", ".3gp", ".3g2":
 		return true
 	}
 	return false
