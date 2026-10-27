@@ -12,19 +12,21 @@ import (
 
 // playbackTiming is how long the service holds what its players tell it: a playing player's
 // interest in its chunks with it silent (D309 §3), a quality ceiling for a node that could not make
-// it fast enough (D309 §6, D286 §4), and a measured link speed (D257 §1). They are settings, kept here
+// it fast enough (D309 §6, D286 §4), a measured link speed (D257 §1), and how fast a remembered
+// steadiness level relaxes between playbacks (D352 Q2). They are settings, kept here
 // as of the last look at the upload (KeepUnderShare), so the paths that read them, which have no
 // context and hold the tokens' lock, never wait on the database (the constants sweep, 2026-10-20).
 type playbackTiming struct {
-	interestLapsesAfter, cpuCeilingFor, speedFreshFor time.Duration
+	interestLapsesAfter, cpuCeilingFor, speedFreshFor, steadinessRelaxesEvery time.Duration
 }
 
 // startingPlaybackTiming is each at its setting's starting value.
 func startingPlaybackTiming() playbackTiming {
 	return playbackTiming{
-		interestLapsesAfter: settings.StartingDuration(settings.ChunkInterestLapsesAfterSeconds),
-		cpuCeilingFor:       settings.StartingDuration(settings.ChunkCPUCeilingKeptSeconds),
-		speedFreshFor:       settings.StartingDuration(settings.LinkSpeedFreshHours),
+		interestLapsesAfter:    settings.StartingDuration(settings.ChunkInterestLapsesAfterSeconds),
+		cpuCeilingFor:          settings.StartingDuration(settings.ChunkCPUCeilingKeptSeconds),
+		speedFreshFor:          settings.StartingDuration(settings.LinkSpeedFreshHours),
+		steadinessRelaxesEvery: settings.StartingDuration(settings.LinkSteadinessRelaxesSeconds),
 	}
 }
 
@@ -46,6 +48,7 @@ func (service *Service) refreshTiming(ctx context.Context, logger *slog.Logger) 
 		{settings.ChunkInterestLapsesAfterSeconds, &timing.interestLapsesAfter},
 		{settings.ChunkCPUCeilingKeptSeconds, &timing.cpuCeilingFor},
 		{settings.LinkSpeedFreshHours, &timing.speedFreshFor},
+		{settings.LinkSteadinessRelaxesSeconds, &timing.steadinessRelaxesEvery},
 	} {
 		key, into := read.key, read.into
 		value, err := service.settings.Duration(ctx, key)

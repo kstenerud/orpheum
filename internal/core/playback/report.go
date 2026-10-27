@@ -178,7 +178,8 @@ func (service *Service) Report(
 	link := speedKey{
 		player: playerOf(playback.deviceID, playback.sessionKey), network: clientnet.Of(report.ClientAddress),
 	}
-	freshFor := service.timingNow().speedFreshFor
+	timing := service.timingNow()
+	freshFor := timing.speedFreshFor
 	service.speeds.remember(link, report.LinkKbps, now, freshFor)
 	if report.Steadiness != nil {
 		service.speeds.rememberSteadiness(link, *report.Steadiness, now, freshFor)
@@ -189,7 +190,7 @@ func (service *Service) Report(
 		return answer, err
 	}
 	answer.LowerQuality = &offer
-	answer.LowerQualitySteadiness = service.speeds.steadiness(link, now, freshFor)
+	answer.LowerQualitySteadiness = service.speeds.steadiness(link, now, freshFor, timing.steadinessRelaxesEvery)
 	answer.IsLowerQualityReady, err = service.chunks.IsReadyAt(
 		ctx, chunksPlaybackOf(playback), offer, report.PositionMs)
 	if err != nil {

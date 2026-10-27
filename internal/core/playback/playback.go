@@ -251,9 +251,10 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	service.keepStart(&playback, started.OnLadder)
+	timing := service.timingNow()
 	started.Steadiness = service.speeds.steadiness(
 		speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)},
-		service.clock.Now(), service.timingNow().speedFreshFor)
+		service.clock.Now(), timing.speedFreshFor, timing.steadinessRelaxesEvery)
 	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)
