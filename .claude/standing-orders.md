@@ -9,7 +9,8 @@
      owes the new device name), the MPEG-TS seek, readthrough's formats.
    - Icon component done; D366 done (staging, step 0061; VQ83 passed). Brave on
      the Mac: all fine (owner, 2026-10-27). Every agent of the batch is in: check-pr runs.
-   - Then: one full check-pr, the owner's go, nas.example (step 0060 there is VQ82); then the inventory of every
+   - check-pr passed (778 s); nas.example deployed 2026-10-27 19:36 (steps 0060, 0061 ran; 22 play positions
+     kept; VQ82 the owner's look at Continue Watching). NOW: the inventory of every
      decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
      D160) for the owner to choose from (owner: "once the overlap batch is done"), with EVERYTHING queued
      beside it, the next batch's items included: the owner decides what happens when (owner 2026-10-27).
