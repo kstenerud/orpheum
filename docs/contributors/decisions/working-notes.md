@@ -23305,3 +23305,32 @@ not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's len
 file's, none fitting it, stay a person's choice as D301 §1 had them; runtimes are read only where
 several are admitted and a file's length is known, so a film matched before its file is probed is
 ranked by year and votes alone.
+
+## D366 — Every sort runs either way, films and series also sort by release date, and each person chooses which libraries fill their Home
+
+**Decided** (2026-10-27), by the project owner: "One more thing I want in the next batch: The ability
+to sort by date", then "sorting needs to handle newest to oldest, oldest to newest, a-z, z-a"; and of
+Home: "whether a library's items show up on the home page … It's a choice each person makes."
+Until now a films or series library sorted by name or by date added, an other library also by
+recorded date and file name
+([D349 §4](#d349--libraries-are-browsed-on-a-page-of-their-own-which-replaces-search-a-kind-other-holds-the-videos-that-are-never-identified-films-and-series-gather-every-library-of-theirs-but-those-a-person-leaves-out)),
+each one way only, and Home drew on every library a person reaches. **Keeps** D349 §2 (the sort is
+in the page's address), §8 (a person leaves a library out of Films and Series) and §9 (the alphabet
+rail).
+
+1. **Films and series sort by release date too:** a film's release date, a series' first air date,
+   as the source gives them, the year alone where no day is known.
+2. **Every sort runs either way.** Dates newest to oldest or oldest to newest; names and file names
+   A–Z or Z–A. The direction is part of the sort the page's chooser offers and its address keeps
+   (D349 §2), each sort with the default direction it has now (dates newest first, names A–Z).
+3. **What a sort cannot place goes last, whichever way it runs:** an item with no date at the end of
+   a sort by date, newest first or oldest first.
+4. **The alphabet rail follows a name sort's direction** (D349 §9): Z–A lists its letters Z to A; a
+   date sort shows none.
+5. **Each person chooses which libraries fill their Home,** beside D349 §8's choice for Films and
+   Series, kept on their account and made on their own settings: every library they reach is on it
+   by default; one they leave out adds nothing to any row of Home (Continue Watching, Next Up, the
+   newest), and stays on the Libraries page and in Films and Series as §8 has it. An item that two
+   libraries reach (D363) shows on Home while any library of the person's that reaches it is left in.
+
+**Status:** Decided 2026-10-27.
