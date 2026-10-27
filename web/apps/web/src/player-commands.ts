@@ -2,9 +2,10 @@
 
 /**
  * The player's answers to a remote's, a keyboard's and a controller's commands (input-layer.tsx;
- * controller-input-2026-10-25.md §6.1 item 4), over the browser's own controls: play/pause plays and
+ * controller-input-2026-10-25.md §6.1 item 4), with the player's own controls (D369): play/pause plays and
  * pauses wherever focus is; the seeking buttons and the browser's media controls seek; Left and Right
- * seek while the video has focus or nothing does, as a TV's player does with its controls hidden; OK
+ * seek while the video has focus or nothing does, as a TV's player does with its controls hidden, or
+ * its timeline; OK
  * on the video plays and pauses it; Back leaves full screen first, and only then the page. A menu or
  * dialog open over it answers Back before the player hears it.
  */
@@ -13,6 +14,7 @@ import { seekTo } from "@orpheum/player";
 import { useEffect } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
+import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
 
@@ -37,10 +39,23 @@ function seekBy(video: HTMLVideoElement, byMs: number): void {
   seekTo(video, Math.min(Math.max(video.currentTime * 1000 + byMs, 0), durationMs));
 }
 
-/** Whether the arrows are the video's own now: it has focus, or nothing has. */
+/**
+ * Whether the arrows are the video's own now: it has focus, or nothing has, or the player's own
+ * timeline over it, whose Left and Right are commands (arrowsAreCommandsAttribute), as a computer's
+ * bar has it (page-controls.tsx). A television's overlay answers its own timeline's before this.
+ */
 function isVideosToSeek(video: HTMLVideoElement): boolean {
   const focused = document.activeElement;
-  return focused === null || focused === document.body || focused === video;
+  if (focused === null || focused === document.body || focused === video) {
+    return true;
+  }
+  return focused.hasAttribute(arrowsAreCommandsAttribute) && isInThePlayersControls(focused, video);
+}
+
+/** Whether element is in the player's own controls over video (playerControlsAttribute). */
+function isInThePlayersControls(element: Element, video: HTMLVideoElement): boolean {
+  const controls = element.closest(`[${playerControlsAttribute}]`);
+  return controls !== null && controls.parentElement?.contains(video) === true;
 }
 
 /** Leaves full screen where the page is in it; whether it was. */
@@ -111,8 +126,7 @@ function isSpaceThePlayers(video: HTMLVideoElement): boolean {
   if (focused === null || focused === document.body || focused === video) {
     return true;
   }
-  const controls = focused.closest(`[${playerControlsAttribute}]`);
-  return controls !== null && controls.parentElement?.contains(video) === true;
+  return isInThePlayersControls(focused, video);
 }
 
 /**

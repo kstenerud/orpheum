@@ -31,6 +31,21 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
   }, fullscreenAnswerWithinMs);
 }
 
+/**
+ * A full-screen button's press, or a double click on the film: out of full screen it puts the
+ * player's stage full screen (fillTheScreen), from the press the Fullscreen API needs; in full screen
+ * it leaves, as the page's own asking (leaveFullScreenAsked), so a cast's receiver keeps its cast.
+ */
+export function toggleFullScreen(stage: Element | null | undefined, page: Document): void {
+  if (page.fullscreenElement instanceof Element) {
+    leaveFullScreenAsked(page);
+    return;
+  }
+  if (stage instanceof HTMLElement) {
+    fillTheScreen(stage, page);
+  }
+}
+
 /** The pages that asked to leave full screen, until the browser says it changed. */
 const leavingAsked = new WeakSet<Document>();
 

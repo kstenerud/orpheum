@@ -15,7 +15,10 @@ import { VolumeRange } from "./volume-range.tsx";
  * "iOS: an element's volume is read-only to the page").
  */
 export function useIsVolumeSettable(): boolean {
-  const [isSettable] = useState(() => canSetVolume(document.createElement("video")));
+  // A page drawn with no document, as a test draws it to markup, is taken to be able to.
+  const [isSettable] = useState(
+    () => typeof document === "undefined" || canSetVolume(document.createElement("video")),
+  );
   return isSettable;
 }
 

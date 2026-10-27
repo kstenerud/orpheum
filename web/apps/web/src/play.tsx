@@ -228,17 +228,18 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
 }
 
 /**
- * How the Play page composes its player: the browser's controls, or a television's own bar, and
- * playing at once unless it waits.
+ * How the Play page composes its player: the player's own controls on every device, never the
+ * browser's (D369 §2), and playing at once unless it waits.
  */
 function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
-  // On a television the player's own bar, which a remote reaches, and full screen at once; on a
-  // computer or a phone the browser's own controls (the owner, 2026-10-25).
+  // On a television the player's overlay, which a remote reaches, and full screen at once; on a
+  // computer or a phone the player's bar, which the arrows and Tab reach as well as a mouse or a
+  // finger: the browser's own were in a shadow the arrows could not reach (the owner, 2026-10-27).
   // A cast's receiver, on any device, has a television's controls alone, over the film filling the
   // window (D338 §5).
   const hasTelevisionControls = isTelevision(navigator.userAgent) || props.receiving !== undefined;
   return {
-    hasControls: !hasTelevisionControls,
+    hasControls: false,
     over: overTheFilm(hasTelevisionControls),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,

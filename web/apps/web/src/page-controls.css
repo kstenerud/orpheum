@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A computer's and a phone's player controls (page-controls.tsx): the bar along the film's bottom,
+   over it, in full screen too, on a scrim that fades up into the film. Hidden, it fades out and
+   lets presses through to the film; a key's focus in it keeps it in view. */
+.page-controls {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: var(--space-6) var(--space-4) var(--space-3);
+  border-end-start-radius: var(--radius-card);
+  border-end-end-radius: var(--radius-card);
+  background: linear-gradient(to top, var(--color-video-scrim), transparent);
+  color: var(--color-on-video);
+  transition: opacity var(--duration-quick);
+}
+
+.page-controls[data-shown="none"]:not(:has(:focus-visible)) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Full screen, the film's corners are the screen's. */
+.film-player__stage:fullscreen .page-controls,
+.film-player__stage--fills-window .page-controls {
+  border-radius: 0;
+}
