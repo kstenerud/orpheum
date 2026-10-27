@@ -29,6 +29,7 @@ import { Timeline } from "./timeline.tsx";
 import { MicrophoneIcon } from "./together-voice.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
+import { WatchedIcon } from "./watched-mark.tsx";
 
 /** The poster tones the cues are shown over: a pale poster, a mid one, a dark one and a busy one. */
 const tones = ["light", "medium", "dark", "busy"] as const;
@@ -61,6 +62,8 @@ const states: readonly { readonly key: string; readonly subject: CueSubject }[] 
     key: "gallery.stillReadingAndGuessed",
     subject: { unavailable: { reason: "still_reading", nodeName: "nas" }, isGuessed: true },
   },
+  { key: "gallery.watched", subject: { isWatched: true } },
+  { key: "gallery.guessedAndWatched", subject: { isGuessed: true, isWatched: true } },
 ];
 
 /**
@@ -186,6 +189,7 @@ function IconsAndButtons(): JSX.Element {
           <UncertainMatchIcon isRinged={false} />
           <StillReadingIcon isRinged={true} />
           <StillReadingIcon isRinged={false} />
+          <WatchedIcon />
         </p>
         <p className="ui-gallery__icons">
           <MenuIcon />

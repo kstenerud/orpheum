@@ -121,8 +121,20 @@
 //     Enforced by TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile.
 //
 //   - A playback starts where the person left the file, unless that is before in_progress_after_percent
-//     or after finished_after_percent of a known length; an unknown length is never read as
-//     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
+//     or after finished_after_percent of a known length, or was watched before they last marked its
+//     title by hand (D370 §4); an unknown length is never read as finished. Enforced by
+//     TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength and
+//     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api).
+//
+//   - A title is watched per person (D370 §1): a report that plays one of its files past
+//     finished_after_percent of a known length, or to its end, makes every film, episode and other
+//     video the file is filed as watched, never an extra, and never a report of unattended watching or
+//     a far position in a file of unknown length; playing it again keeps it watched. A mark by hand
+//     marks titles watched, or unwatched, and answers with each one's mark before, which
+//     RestoreWatched puts back: its Undo (§4). Only this package writes title_watched
+//     (TestArch_EachTableHasOneWritingPackage). Enforced by
+//     TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt and
+//     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api).
 //
 //   - A media token grants nothing alone: its bytes are served only to the person and session
 //     that started the playback, and only until it has been idle for media_token_idle_expiry_hours (D217
@@ -157,6 +169,7 @@
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback.
+//   - D370: whether a person watched a title, kept per person, by playing and by hand.
 //   - D230: the last language chosen in a work follows its unwatched files; D24: what a choice is.
 //   - D157: a position belongs to the File. D355: a playback's picture and sound are wanted each from
 //     its own position, apart from the one it reports and resumes from.
@@ -174,7 +187,8 @@
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback, finding a direct
 //     playback's bytes, and a playback's subtitles through internal/core/subtitles. chunks.go: a playback as its
 //     film's chunks are served to it, through internal/core/chunks (D247 §10). report.go: the play report, its
-//     log and the guarded position. resume.go: where a playback starts. hide.go: hiding a work from
+//     log and the guarded position. resume.go: where a playback starts. watched.go: a title watched
+//     by playing to its finish, and marked by hand with its undo (D370). hide.go: hiding a work from
 //     Continue Watching, which library's home.go lists. choices.go: a person's choices in a file,
 //     kept through internal/core/preferences, a file's audio tracks, and the subtitle tracks
 //     internal/core/subtitles offers. Next Up comes after M3.

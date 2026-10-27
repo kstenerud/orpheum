@@ -36,7 +36,8 @@ type EntryBody struct {
 	Unavailable          *UnavailableBody `json:"unavailable,omitempty"`
 	WatchedPercent       int64            `doc:"How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known" json:"watchedPercent,omitempty"` //nolint:lll // one struct tag
 	EpisodeCount         int64            `doc:"How many episodes a series has with a file, in the ordering the person watches it in; absent for a film" json:"episodeCount,omitempty"`                                                                                                                //nolint:lll // one struct tag
-	FinishedEpisodeCount int64            `doc:"How many of those episodes the person finished; absent when none, and for a film" json:"finishedEpisodeCount,omitempty"`                                                                                                                               //nolint:lll // one struct tag
+	FinishedEpisodeCount int64            `doc:"How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film" json:"finishedEpisodeCount,omitempty"`                                                                                                  //nolint:lll // one struct tag
+	IsWatched            bool             `doc:"Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)" json:"isWatched,omitempty"`                                                                    //nolint:lll // one struct tag
 }
 
 // RecordedBody is when an other video was recorded, where that came from, and its file's name (D349
@@ -64,7 +65,7 @@ func entryBody(entry library.Entry, nodeName func(nodeID int64) string) EntryBod
 		NoPosterStillSha256: entry.NoPosterStillSha256,
 		Recorded:            recordedBody(entry.Other), Unavailable: unavailableBody(entry.Unreadable, nodeName),
 		WatchedPercent: entry.WatchedPercent, EpisodeCount: entry.EpisodeCount,
-		FinishedEpisodeCount: entry.FinishedEpisodeCount,
+		FinishedEpisodeCount: entry.FinishedEpisodeCount, IsWatched: entry.IsWatched,
 	}
 }
 
@@ -204,6 +205,7 @@ type ItemDetailOutput struct {
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
 		Unavailable         *UnavailableBody  `doc:"Why none of its files can be read now; absent when one can" json:"unavailable,omitempty"`                         //nolint:lll // one struct tag
+		IsWatched           bool              `doc:"Whether the person watched it, by playing it to its finish or by hand (D370)" json:"isWatched,omitempty"`         //nolint:lll // one struct tag
 	}
 }
 
@@ -220,6 +222,7 @@ type EpisodeBody struct {
 	StillSha256         string `doc:"Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"stillSha256,omitempty"` //nolint:lll // one struct tag
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
+	IsWatched   bool             `doc:"Whether the person watched it, by playing it to its finish or by hand (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 }
 
 // SeasonBody is one season of a series, a group of the ordering its person watches it in, as its page
@@ -229,6 +232,7 @@ type SeasonBody struct {
 	Name         string `doc:"The ordering's name for it (Disc 2); absent where it names none, as aired names no season" json:"name,omitempty"` //nolint:lll // one struct tag
 	EpisodeCount int64  `json:"episodeCount"`
 	StillSha256  string `doc:"Its first episode's still that has one" json:"stillSha256,omitempty"`
+	IsWatched    bool   `doc:"Whether the person watched every one of its episodes with a file (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 }
 
 // CollectionOutput is a series with its seasons, the groups of the ordering its person watches it in,
@@ -252,6 +256,7 @@ type CollectionOutput struct {
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                        //nolint:lll // one struct tag
 		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                      //nolint:lll // one struct tag
 		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"` //nolint:lll // one struct tag
+		IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`   //nolint:lll // one struct tag
 	}
 }
 
@@ -438,6 +443,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	body.Art = artBody(detail.Art)
 	body.Episode = episodePlaceBody(detail.Episode)
 	body.Unavailable = unavailableBody(detail.Unreadable, server.nodeNamer(ctx, dependencies))
+	body.IsWatched = detail.IsWatched
 	if detail.Unreadable != nil && detail.Unreadable.Reason == library.StillReading {
 		// Its page open, its files are read before what else waits, so Play works soon (D304 §4).
 		if readErr := dependencies.Playback.ReadWhenViewed(ctx, detail.ID); readErr != nil {
@@ -493,7 +499,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	for _, season := range series.Seasons {
 		body.Seasons = append(body.Seasons, SeasonBody{
 			SeasonNumber: season.Number, Name: season.Name, EpisodeCount: season.EpisodeCount,
-			StillSha256: season.StillSha256,
+			StillSha256: season.StillSha256, IsWatched: season.IsWatched,
 		})
 	}
 	body.Orderings = make([]OrderingBody, 0, len(series.Orderings))
@@ -504,6 +510,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 		})
 	}
 	body.NotInOrderingCount = series.NotInOrderingCount
+	body.IsWatched = series.IsWatched
 	body.Art = artBody(series.Art)
 	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.Reach, principal.UserID, series.ID,
 		series.Ordering)
@@ -576,6 +583,7 @@ func (server *Server) episodePageOutput(
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			IdentificationState: episode.IdentificationState,
 			HasLiveFile:         episode.Available, StillSha256: page.StillSha256ByEpisodeID[episode.TitleID],
+			IsWatched: page.IsWatchedByEpisodeID[episode.TitleID],
 		})
 	}
 	output.Body.NextCursor = page.NextCursor

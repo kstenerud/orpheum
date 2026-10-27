@@ -10,7 +10,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // continueWatching is the owner's Continue Watching, by the API.
@@ -30,11 +29,9 @@ func (harness testHarness) continueWatching(t *testing.T, sessionToken string) [
 // would.
 func (harness testHarness) setPositionReadAt(t *testing.T, fileID, positionMs, positionReadAt int64) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
-		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
-		 VALUES (1, %d, %d, 1, %d, %d)
-		 ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms,
-		   position_read_at = excluded.position_read_at`, fileID, positionMs, positionReadAt, positionReadAt))
+	librarytest.Watch(t, harness.database, librarytest.WatchSpec{
+		FileID: fileID, PositionMs: positionMs, ReadAt: positionReadAt,
+	})
 }
 
 // rowsOf names Continue Watching's rows: each work's id and the file it resumes.

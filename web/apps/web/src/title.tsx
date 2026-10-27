@@ -31,6 +31,7 @@ import { firstPlayableFile } from "./first-playable.ts";
 import { Loaded } from "./loaded.tsx";
 import { groupName, placeCode } from "./episode-place.ts";
 import { Remembered, useRemembered } from "./remembered.ts";
+import { MarkWatched } from "./watched-mark.tsx";
 
 // Where they were before a screen that shows no title used them: a title's page loads with the player
 // (later-screens.tsx), and they do not (the audit of 2026-10-25, W1).
@@ -74,6 +75,8 @@ export function TitleView(props: {
   readonly onRetireFile?: (fileId: number) => void;
   /** Told a film's match was corrected, an admin's (D301 §2): the page reads it again. */
   readonly onMatchCorrected?: () => void;
+  /** Told it was marked watched or unwatched by hand (D370 §4): the page reads it again. */
+  readonly onWatchedChanged?: () => void;
 }): JSX.Element {
   const { title } = props;
   return (
@@ -92,6 +95,14 @@ export function TitleView(props: {
       ) : null}
       {title.kind === "extra" ? null : <FilingReportButton itemId={title.id} />}
       <StatusNotes subject={title} />
+      {/* An extra is a different work, never marked watched (D370 §2, D162). */}
+      {title.kind === "extra" || props.onWatchedChanged === undefined ? null : (
+        <MarkWatched
+          target={{ kind: "title", id: title.id }}
+          isWatched={title.isWatched === true}
+          onChanged={props.onWatchedChanged}
+        />
+      )}
       <Versions
         versions={title.versions ?? []}
         isPlayable={title.unavailable === undefined}
@@ -365,7 +376,12 @@ export function Title(props: { readonly id: number }): JSX.Element {
         <Loaded
           resource={title}
           render={(value) => (
-            <TitleView title={value} onRetireFile={retireFile} onMatchCorrected={reload} />
+            <TitleView
+              title={value}
+              onRetireFile={retireFile}
+              onMatchCorrected={reload}
+              onWatchedChanged={reload}
+            />
           )}
         />
       </BusyGroup>

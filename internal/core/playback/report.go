@@ -264,7 +264,8 @@ func hasPlayedBy(playback tokenPlayback, report Report) bool {
 }
 
 // keepReport writes a new report: its events and spans to the log, and the position through the
-// guard, once the playback has played, this report included (hasPlayed).
+// guard, once the playback has played, this report included (hasPlayed); and, played to its finish,
+// its titles watched (D370 §1).
 func (service *Service) keepReport(
 	ctx context.Context, playback tokenPlayback, userID, deviceID, nowMs int64, report Report,
 ) error {
@@ -298,6 +299,9 @@ func (service *Service) keepReport(
 			DeviceID: log.deviceID, UpdatedAt: nowMs, PositionReadAt: watchedAt,
 		})
 		if err != nil {
+			return err
+		}
+		if err := service.keepWatchedByPlay(ctx, queries, userID, playback.fileID, watchedAt, report); err != nil {
 			return err
 		}
 		// A reported playback has started its file, which plays again with what it used (D230 §2).

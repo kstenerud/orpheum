@@ -24,4 +24,6 @@
 //   - fixture.go: Node, LibraryOn and NodeWithLibrary, and Scan, which frames a scan's records.
 //   - catalog.go: Item, Title, Version, File, Probe and Stream, the builders for the catalog's own
 //     tables; a schema rename to one of their columns is made once, here.
+//   - watching.go: Watch, a person's position in a file as a play report leaves it, the file's
+//     titles watched once it is finished (D370).
 package librarytest

@@ -116,8 +116,11 @@ type Entry struct {
 	// 0 when it would not, or its file's length is not known.
 	WatchedPercent int64
 	// EpisodeCount is how many episodes a series has with a live file, in the ordering its person
-	// watches it in, and FinishedEpisodeCount how many of them they finished; 0 for a film.
+	// watches it in, and FinishedEpisodeCount how many of them they watched (D370 §5); 0 for a film.
 	EpisodeCount, FinishedEpisodeCount int64
+	// IsWatched is whether its person watched it: a film or other video by playing or by hand, a series
+	// once every episode it counts is (D370 §1, §3).
+	IsWatched bool
 }
 
 // OtherFacts are an other video's: when it was recorded, where that came from (tag, name, file or

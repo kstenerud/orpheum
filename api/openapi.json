@@ -749,6 +749,10 @@
             "description": "Whether its match is a guess no person confirmed (D301)",
             "type": "boolean"
           },
+          "isWatched": {
+            "description": "Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)",
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "series"
@@ -1523,7 +1527,7 @@
             "type": "integer"
           },
           "finishedEpisodeCount": {
-            "description": "How many of those episodes the person finished; absent when none, and for a film",
+            "description": "How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film",
             "format": "int64",
             "type": "integer"
           },
@@ -1535,6 +1539,10 @@
             "type": "string"
           },
           "isGuessed": {
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)",
             "type": "boolean"
           },
           "kind": {
@@ -1603,6 +1611,10 @@
           },
           "identificationState": {
             "type": "string"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
+            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -2458,6 +2470,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "isWatched": {
+            "description": "Whether the person watched it before, and watches it again (D370)",
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -2744,6 +2760,10 @@
           },
           "isGuessed": {
             "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
             "type": "boolean"
           },
           "kind": {
@@ -5667,6 +5687,25 @@
         ],
         "type": "object"
       },
+      "RestoreWatchedInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/WatchedStateBody"
+            },
+            "maxItems": 10000,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "states"
+        ],
+        "type": "object"
+      },
       "RetireNodeInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6008,6 +6047,10 @@
           "episodeCount": {
             "format": "int64",
             "type": "integer"
+          },
+          "isWatched": {
+            "description": "Whether the person watched every one of its episodes with a file (D370)",
+            "type": "boolean"
           },
           "name": {
             "description": "The ordering's name for it (Disc 2); absent where it names none, as aired names no season",
@@ -8067,6 +8110,48 @@
         ],
         "type": "object"
       },
+      "WatchedMarkOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "previous": {
+            "description": "Each title's mark as it stood before; PUT /watched with them undoes the mark",
+            "items": {
+              "$ref": "#/components/schemas/WatchedStateBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "previous"
+        ],
+        "type": "object"
+      },
+      "WatchedStateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "markedAt": {
+            "description": "When the person last marked it by hand, in Unix milliseconds; absent for never",
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "watchedAt": {
+            "description": "When it became watched, in Unix milliseconds; absent while it was not",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titleId"
+        ],
+        "type": "object"
+      },
       "WebRTCPathBody": {
         "additionalProperties": false,
         "properties": {
@@ -9390,6 +9475,230 @@
         "summary": "A page of one season's episodes, in the ordering the person watches the series in",
         "tags": [
           "Browse"
+        ]
+      }
+    },
+    "/collections/{id}/seasons/{season}/watched": {
+      "delete": {
+        "operationId": "markSeasonUnwatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "description": "0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a season with a file unwatched by hand (D370)",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "put": {
+        "operationId": "markSeasonWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "description": "0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a season with a file watched by hand (D370)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/collections/{id}/watched": {
+      "delete": {
+        "operationId": "markSeriesUnwatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a series with a file, in the ordering the person watches it in, unwatched by hand (D370)",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "put": {
+        "operationId": "markSeriesWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a series with a file, in the ordering the person watches it in, watched by hand (D370)",
+        "tags": [
+          "Playback"
         ]
       }
     },
@@ -11287,6 +11596,106 @@
         "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357)",
         "tags": [
           "Identification"
+        ]
+      }
+    },
+    "/items/{id}/watched": {
+      "delete": {
+        "operationId": "markTitleUnwatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark a film, episode or other video unwatched by hand: as never watched (D370)",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "put": {
+        "operationId": "markTitleWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark a film, episode or other video watched by hand: it leaves Continue Watching and plays next from its start (D370)",
+        "tags": [
+          "Playback"
         ]
       }
     },
@@ -16245,6 +16654,51 @@
         "summary": "Give a person a role, their whole access, from their next request (admin; D243 §4)",
         "tags": [
           "Accounts"
+        ]
+      }
+    },
+    "/watched": {
+      "put": {
+        "operationId": "restoreWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreWatchedInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
+        "tags": [
+          "Playback"
         ]
       }
     }

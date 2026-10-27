@@ -13,7 +13,8 @@ import (
 )
 
 // resumePositionMs is where the person's playback of a file starts (play-state.md): where they left it,
-// when that is partway through the file by the resume thresholds, and otherwise the beginning.
+// when that is partway through the file by the resume thresholds and was watched after they last
+// marked its title by hand (D370 §4), and otherwise the beginning.
 func (service *Service) resumePositionMs(ctx context.Context, userID, fileID, durationMs int64) (int64, error) {
 	stored, err := store.OrNotFound(service.database.Read().GetPlayPosition(ctx, sqlcgen.GetPlayPositionParams{
 		UserID: userID, FileID: fileID,
@@ -28,7 +29,12 @@ func (service *Service) resumePositionMs(ctx context.Context, userID, fileID, du
 	if err != nil {
 		return 0, err
 	}
-	if !thresholds.IsPartwayThrough(stored.PositionMs, durationMs) {
+	var markedAt *int64
+	if stored.MarkedAt > 0 {
+		markedAt = &stored.MarkedAt
+	}
+	if library.IsBeforeMark(stored.PositionReadAt, markedAt) ||
+		!thresholds.IsPartwayThrough(stored.PositionMs, durationMs) {
 		return 0, nil
 	}
 	return stored.PositionMs, nil

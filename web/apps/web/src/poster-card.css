@@ -133,7 +133,9 @@
   white-space: nowrap;
 }
 
-.poster-card__cues > .poster-cue {
+/* A cue's dark patch, the tray's; the watched check's on a season's or an episode's row too (D370 §2). */
+.poster-card__cues > .poster-cue,
+.watched-row-mark {
   display: inline-flex;
   padding: var(--space-1);
   border-radius: var(--radius-control);

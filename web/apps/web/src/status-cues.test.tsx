@@ -16,6 +16,7 @@ describe("the status cues", () => {
       "cannotPlay",
       "uncertainMatch",
       "stillReading",
+      "watched",
     ]);
   });
 
@@ -33,6 +34,21 @@ describe("the status cues", () => {
       expect(markup.indexOf("This may be identified incorrectly")).toBeGreaterThan(warning);
     }
     expect(renderToStaticMarkup(withServices(<StatusTray subject={{}} />))).toBe("");
+  });
+
+  it("mark what its person watched with the white check, the tray's last, read as Watched (D370 §2)", () => {
+    // As the API's schema types it, so a schema without it does not type-check.
+    const isWatched: components["schemas"]["EntryBody"]["isWatched"] = true;
+    const watchedAndGuessed = { isGuessed: true, isWatched };
+    const tray = renderToStaticMarkup(withServices(<StatusTray subject={watchedAndGuessed} />));
+    expect(tray).toContain("watched-icon");
+    expect(tray).toContain('<span class="poster-cue__name">Watched</span>');
+    expect(tray.indexOf("watched-icon")).toBeGreaterThan(tray.indexOf("uncertain-match-icon"));
+    const notes = renderToStaticMarkup(withServices(<StatusNotes subject={watchedAndGuessed} />));
+    expect(notes).toContain("<span>Watched</span>");
+    expect(renderToStaticMarkup(withServices(<StatusTray subject={{ isWatched: false }} />))).toBe(
+      "",
+    );
   });
 
   it("mark a title still being read with its own cue, not the cannot-play warning (D304 §4)", () => {

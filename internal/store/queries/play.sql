@@ -3,9 +3,18 @@
 -- state changes, and the watched spans.
 
 -- name: GetPlayPosition :one
-SELECT position_ms, report_seq, device_id, updated_at, position_read_at
+-- A person's position in a file, and the latest of their marks by hand of the titles it is filed as,
+-- 0 for none: a position watched at or before it is not where the file resumes (D370 section 4).
+SELECT play_position.position_ms, play_position.report_seq, play_position.device_id, play_position.updated_at,
+  play_position.position_read_at,
+  CAST(coalesce((
+    SELECT max(title_watched.marked_at) FROM file_filing
+    CROSS JOIN version ON version.id = file_filing.version_id
+    CROSS JOIN title_watched ON title_watched.user_id = play_position.user_id
+      AND title_watched.title_id = version.title_id
+    WHERE file_filing.file_id = play_position.file_id), 0) AS INTEGER) AS marked_at
 FROM play_position
-WHERE user_id = sqlc.arg(user_id) AND file_id = sqlc.arg(file_id);
+WHERE play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = sqlc.arg(file_id);
 
 -- name: MovePlayPosition :exec
 -- The guard: a report moves the position only when the watching it describes is later than the
@@ -45,7 +54,8 @@ ORDER BY happened_at, id;
 -- name: ListRecentPlayPositions :many
 -- A person's positions in live files of live films, episodes and other videos (D349), most recent
 -- watching first, with each file's length where its probe knows it and when its work was last hidden:
--- what Continue Watching is chosen from. Extras are left out (D162). A position is the file's, at
+-- what Continue Watching is chosen from, with when the person last marked its title by hand, before
+-- which a position does not count (D370 section 4). Extras are left out (D162). A position is the file's, at
 -- whichever place it was played (D363 section 10): it shows with each title a library the person
 -- reaches lists the file in, named by the first of its places they reach (section 8).
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
@@ -57,7 +67,7 @@ SELECT play_position.file_id, play_position.position_ms, play_position.position_
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
     ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
-  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at
+  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at, title_watched.marked_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN file_filing ON file_filing.file_id = file.id
@@ -66,6 +76,7 @@ JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode',
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
+LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = title.id
 WHERE play_position.user_id = sqlc.arg(user_id)
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
@@ -82,13 +93,14 @@ LIMIT sqlc.arg(max_rows);
 SELECT version.title_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  progress_hide.hidden_at
+  progress_hide.hidden_at, title_watched.marked_at
 FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS listed
 CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file.id
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
+LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = version.title_id
 ORDER BY play_position.position_read_at DESC;
 
 -- name: HideProgress :exec
@@ -114,6 +126,9 @@ DELETE FROM play_position WHERE user_id = sqlc.arg(user_id);
 
 -- name: DeleteProgressHidesOfUser :exec
 DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeleteTitlesWatchedOfUser :exec
+DELETE FROM title_watched WHERE user_id = sqlc.arg(user_id);
 
 -- A removed file deleted past its keeping leaves what was watched of it on its version (D306
 -- section 8), a film's or an episode's before an other video's (D363 section 5): how often each person
@@ -194,3 +209,77 @@ UPDATE play_event SET file_id = sqlc.arg(to_file) WHERE file_id = sqlc.arg(from_
 
 -- name: MovePlaySpansToFile :exec
 UPDATE play_span SET file_id = sqlc.arg(to_file) WHERE file_id = sqlc.arg(from_file);
+
+-- Whether a person has watched a title (D370): kept per person and per title, set by playing one of
+-- its files to its finish and by hand, and a mark by hand a fresh start for where it resumes.
+
+-- name: GetFileDuration :one
+-- How long a file plays, where its probe knows it: whether a position finished it (D370 section 1).
+SELECT duration_ms FROM file_probe WHERE file_id = sqlc.arg(file_id);
+
+-- name: MarkWatchedByPlay :exec
+-- A person played a file to its finish (D370 section 1): each film, episode or other video it is filed
+-- as becomes watched, unless it already is, or a mark by hand came after the watching.
+INSERT INTO title_watched (user_id, title_id, watched_at)
+SELECT DISTINCT CAST(sqlc.arg(user_id) AS INTEGER), version.title_id, CAST(sqlc.arg(watched_at) AS INTEGER)
+FROM file_filing
+CROSS JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
+CROSS JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
+WHERE file_filing.file_id = sqlc.arg(file_id)
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = excluded.watched_at
+-- Only when it changes something (D303, DL9), and never over a later mark by hand.
+WHERE title_watched.watched_at IS NULL
+  AND (title_watched.marked_at IS NULL OR title_watched.marked_at < excluded.watched_at);
+
+-- name: MarkTitlesWatched :exec
+-- A person marks titles watched by hand (D370 section 4): watched from now unless they were already,
+-- and marked now, so the positions watched before it are no longer where they resume.
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(sqlc.arg(user_id) AS INTEGER), title.id, CAST(sqlc.arg(marked_at) AS INTEGER),
+  CAST(sqlc.arg(marked_at) AS INTEGER)
+FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS marked
+CROSS JOIN title ON title.id = marked.value AND title.kind IN ('movie', 'episode', 'other')
+WHERE true
+ON CONFLICT (user_id, title_id) DO UPDATE SET
+  watched_at = coalesce(title_watched.watched_at, excluded.watched_at), marked_at = excluded.marked_at
+-- Only when it changes something (D303, DL9).
+WHERE title_watched.watched_at IS NULL OR title_watched.marked_at IS NOT excluded.marked_at;
+
+-- name: MarkTitlesUnwatched :exec
+-- A person marks titles unwatched by hand (D370 section 4): as never watched, the positions watched
+-- before it no longer where they resume.
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(sqlc.arg(user_id) AS INTEGER), title.id, NULL, CAST(sqlc.arg(marked_at) AS INTEGER)
+FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS marked
+CROSS JOIN title ON title.id = marked.value AND title.kind IN ('movie', 'episode', 'other')
+WHERE true
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = NULL, marked_at = excluded.marked_at
+-- Only when it changes something (D303, DL9).
+WHERE title_watched.watched_at IS NOT NULL OR title_watched.marked_at IS NOT excluded.marked_at;
+
+-- name: RestoreTitlesWatched :exec
+-- An undo puts titles' marks back as they were before a mark by hand (D370 section 4): each named
+-- [title id, watched_at, marked_at], one of the two times at least.
+INSERT INTO title_watched (user_id, title_id, watched_at, marked_at)
+SELECT CAST(sqlc.arg(user_id) AS INTEGER), title.id, json_extract(restored.value, '$[1]'),
+  json_extract(restored.value, '$[2]')
+FROM json_each(CAST(sqlc.arg(states_json) AS TEXT)) AS restored
+CROSS JOIN title ON title.id = json_extract(restored.value, '$[0]') AND title.kind IN ('movie', 'episode', 'other')
+WHERE json_extract(restored.value, '$[1]') IS NOT NULL OR json_extract(restored.value, '$[2]') IS NOT NULL
+ON CONFLICT (user_id, title_id) DO UPDATE SET watched_at = excluded.watched_at, marked_at = excluded.marked_at
+-- Only when it changes something (D303, DL9).
+WHERE title_watched.watched_at IS NOT excluded.watched_at OR title_watched.marked_at IS NOT excluded.marked_at;
+
+-- name: DeleteTitlesWatched :exec
+-- An undo forgets the marks of titles that had none before a mark by hand.
+DELETE FROM title_watched
+WHERE user_id = sqlc.arg(user_id)
+  AND title_id IN (SELECT value FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)));
+
+-- name: ListTitlesWatched :many
+-- A person's marks of some titles, those that have one: when each became watched, NULL while it is
+-- not, and when they last marked it by hand. The titles drive, by CROSS JOIN.
+SELECT title_watched.title_id, title_watched.watched_at, title_watched.marked_at
+FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS listed
+CROSS JOIN title_watched ON title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = listed.value
+ORDER BY title_watched.title_id;

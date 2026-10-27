@@ -163,6 +163,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
   *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; none on a
   season's page or when there is no next one. `src/series.test.tsx`.
+- **What a person watched shows a white check, the last of a poster's tray of status cues** (D370
+  §2, §3), drawn by `Icon` in `--color-watched` on the tray's dark patch and read "Watched": on films,
+  series, other videos, Continue Watching's rewatches and a season's and an episode's rows, never on
+  an extra, and nothing fades or greys what it marks; a series or season once its person watched every
+  episode. A title's page says it beside the check, among its status notes. `src/status-cues.test.tsx`,
+  `src/watched-mark.test.tsx`, `src/ui-gallery.test.tsx`; on devices, VQ87.
+- **A person marks a video, a season or a whole series watched or unwatched on its page** (D370 §4):
+  *Mark as watched*, or *Mark as unwatched* once it is, a button like any other that a remote reaches,
+  never a control on a poster; it changes at once and offers Undo, which puts every mark back as it
+  was, never a question. `src/watched-mark.test.tsx`; on devices, VQ87.
 - **A series is shown in the ordering its person chose** (D159 §1, episode-orderings.md §4): a series
   with more than one offers them on its top page, aired first, each by its label with its kind and
   how many episodes it holds; a choice is kept on the server and goes to the series' top page, where
@@ -344,7 +354,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
-  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watching.ts` (the film a tab watches: its page's warm-up
+  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `left-out-libraries.tsx` (the libraries they leave out of Films and Series, D349 §8, and out of Home, D366 §5), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

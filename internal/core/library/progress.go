@@ -15,8 +15,8 @@ import (
 // withProgress gives a page's entries how far userID is through each (the owner, 2026-10-25: "for
 // series, the progress bar at the bottom shows how far along they have watched"): a film the percent
 // of its file Continue Watching would resume it at, by the same rule; a series how many of its
-// episodes they finished, of how many it has, in the ordering they watch it in, the members Next Up
-// reads with the same thresholds. A constant number of statements, in one read, whatever the page.
+// episodes they watched, of how many it has, in the ordering they watch it in; and whether they
+// watched each (D370). A constant number of statements, in one read, whatever the page.
 func (browser *Browser) withProgress(ctx context.Context, reach auth.Reach, userID int64, page Page) (Page, error) {
 	if len(page.Entries) == 0 {
 		return page, nil
@@ -37,7 +37,7 @@ func (browser *Browser) withProgress(ctx context.Context, reach auth.Reach, user
 	err = browser.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
 		if len(series) > 0 {
 			viewer := Viewer{UserID: userID, Reach: reach}
-			seriesErr := seriesProgress(ctx, queries, thresholds, viewer, seriesIDs, series)
+			seriesErr := seriesProgress(ctx, queries, viewer, seriesIDs, series)
 			if seriesErr != nil {
 				return seriesErr
 			}
@@ -61,7 +61,8 @@ func (browser *Browser) withProgress(ctx context.Context, reach auth.Reach, user
 }
 
 // filmsProgress sets each film's WatchedPercent: of its positions, most recent first, the first
-// Continue Watching resumes at, when its file's length is known.
+// Continue Watching resumes at, when its file's length is known; and whether its person watched it
+// (D370 §1).
 func filmsProgress(
 	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, userID int64, ids []int64,
 	entries []Entry,
@@ -80,6 +81,9 @@ func filmsProgress(
 	decided := map[int64]bool{}
 	percent := map[int64]int64{}
 	for _, row := range rows {
+		if IsBeforeMark(row.PositionReadAt, row.MarkedAt) {
+			continue // marked by hand since: a fresh start (D370 §4)
+		}
 		if _, seen := latestWatchedAt[row.TitleID]; !seen {
 			latestWatchedAt[row.TitleID] = row.PositionReadAt
 		}
@@ -92,18 +96,22 @@ func filmsProgress(
 			percent[row.TitleID] = row.PositionMs * 100 / row.DurationMs
 		}
 	}
+	watched, err := watchedTitles(ctx, queries, userID, ids)
+	if err != nil {
+		return err
+	}
 	for index := range entries {
 		entries[index].WatchedPercent = percent[entries[index].ID]
+		entries[index].IsWatched = watched[entries[index].ID]
 	}
 	return nil
 }
 
 // seriesProgress sets each series' EpisodeCount and FinishedEpisodeCount, in the ordering its viewer
 // watches it in (ViewingOrderings): its members with a file at a place they reach, and those of them
-// with a file they finished, as Next Up counts a member finished (MembersOf).
+// they watched, by playing or by hand (D370 §5); and IsWatched once they watched every one (§3).
 func seriesProgress(
-	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, viewer Viewer,
-	ids []int64, entries []Entry,
+	ctx context.Context, queries *sqlcgen.Queries, viewer Viewer, ids []int64, entries []Entry,
 ) error {
 	reach, userID := viewer.Reach, viewer.UserID
 	orderings, err := ViewingOrderings(ctx, queries, userID, ids)
@@ -120,35 +128,19 @@ func seriesProgress(
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	counts, err := queries.CountOrderingMembers(ctx, sqlcgen.CountOrderingMembersParams{
-		OrderingsJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		UserID: userID, OrderingsJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
 		return fmt.Errorf("count the episodes of %d series: %w", len(ids), err)
 	}
-	positions, err := queries.ListOrderingMemberPositions(ctx, sqlcgen.ListOrderingMemberPositionsParams{
-		OrderingsJSON: string(encoded), UserID: userID,
-	})
-	if err != nil {
-		return fmt.Errorf("read user %d's positions in %d series: %w", userID, len(ids), err)
-	}
-	memberCount := map[int64]int64{}
+	byID := map[int64]sqlcgen.CountOrderingMembersRow{}
 	for _, row := range counts {
-		memberCount[row.CollectionID] = row.MemberCount
-	}
-	type member struct{ seriesID, titleID int64 }
-	finished := map[member]bool{}
-	finishedCount := map[int64]int64{}
-	for _, row := range positions {
-		each := member{seriesID: row.CollectionID, titleID: row.TitleID}
-		if finished[each] || !thresholds.IsFinished(row.PositionMs, row.DurationMs) {
-			continue
-		}
-		finished[each] = true
-		finishedCount[row.CollectionID]++
+		byID[row.CollectionID] = row
 	}
 	for index := range entries {
-		id := entries[index].ID
-		entries[index].EpisodeCount, entries[index].FinishedEpisodeCount = memberCount[id], finishedCount[id]
+		count := byID[entries[index].ID]
+		entries[index].EpisodeCount, entries[index].FinishedEpisodeCount = count.MemberCount, count.WatchedCount
+		entries[index].IsWatched = count.MemberCount > 0 && count.WatchedCount == count.MemberCount
 	}
 	return nil
 }

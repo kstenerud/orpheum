@@ -10,8 +10,8 @@ import (
 )
 
 // ForgetWatchingOf deletes a removed person's own watching: their spans and events, their places
-// in files, what deleted files left of their watching and what they hid from Continue Watching
-// (D173 §4.6, D306 §8). It writes through queries, the
+// in files, what deleted files left of their watching, what they hid from Continue Watching and what
+// they watched (D173 §4.6, D306 §8, D370). It writes through queries, the
 // transaction that removes them (auth.RemoveUser).
 func ForgetWatchingOf(ctx context.Context, queries *sqlcgen.Queries, userID int64) error {
 	for what, forget := range map[string]func(context.Context, int64) error{
@@ -20,6 +20,7 @@ func ForgetWatchingOf(ctx context.Context, queries *sqlcgen.Queries, userID int6
 		"positions":     queries.DeletePlayPositionsOfUser,
 		"kept watching": queries.DeletePurgedWatchingOfUser,
 		"hidden titles": queries.DeleteProgressHidesOfUser,
+		"watched marks": queries.DeleteTitlesWatchedOfUser,
 	} {
 		if err := forget(ctx, userID); err != nil {
 			return fmt.Errorf("delete user %d's %s: %w", userID, what, err)
