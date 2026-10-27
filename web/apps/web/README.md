@@ -89,7 +89,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-ready.test.tsx`,
   `src/cast-return.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
-  `src/watching.test.ts`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76, VQ77 and VQ88.
+  `src/watching.test.ts`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76, VQ77 and VQ90.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.
