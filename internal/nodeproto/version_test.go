@@ -108,6 +108,9 @@ var wireShapeByVersion = map[int]string{
 	// where, and its answer say the video has no frame that is not black (D362): a node of 49 would
 	// read no image.
 	50: "1d260c54ce86fb96af1f06e595f53bb362aba9c8104f367c7fb69c6536c57c33",
+	// 51 has a copied picture's run of an MPEG-TS film seek before its first keyframe and say so,
+	// IsPictureSeekBeforeKeyframe: a node of 50 would refuse the seek.
+	51: "d78a38096c2d2735143fe24c8481d3c7cb927b198226f7663b02404b8b53d0d7",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

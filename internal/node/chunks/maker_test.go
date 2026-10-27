@@ -135,6 +135,35 @@ func TestMake_PutsEachChunkAtItsTimeAsFFmpegFinishesIt(t *testing.T) {
 	}
 }
 
+// An MPEG-TS picture's run seeks at or before its first keyframe, FFmpeg seeking it to a frame, not
+// a keyframe (idiosyncrasies.md): the film's first run from the film's start, a later one from
+// before its keyframe; each makes its chunks.
+func TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe(t *testing.T) {
+	t.Parallel()
+	first := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+	first.FirstChunk, first.BoundsMs = 0, []int64{0, 10_010, 20_020}
+	later := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+	later.PictureSeekMs = 93_844
+	for name, command := range map[string]nodeproto.MakeChunks{"the film's first": first, "a later": later} {
+		command.IsPictureSeekBeforeKeyframe = true
+		if name == "the film's first" {
+			command.PictureSeekMs = 0
+		}
+		lastOfRun := command.FirstChunk + len(command.BoundsMs) - 2
+		fake := &fakeFFmpeg{raw: map[int][]byte{}}
+		for n := command.FirstChunk; n <= lastOfRun; n++ {
+			fake.raw[n] = rawOf(24000, fragmentOf(0, 240, 0))
+			fake.numbers = append(fake.numbers, n)
+		}
+		maker, _, _ := makerOver(t, fake)
+		if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.ts"}, command, nil); err != nil ||
+			last != lastOfRun {
+			t.Errorf("%s run seeking to %d ms made through %d, %v; want %d", name, command.PictureSeekMs, last, err,
+				lastOfRun)
+		}
+	}
+}
+
 // A sound's lead-in is dropped, and each chunk starts after the run's samples before it, from the
 // run's start less the encoder's priming (slow-links.md §10).
 func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
@@ -198,12 +227,18 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	seekPastTheNextChunk.PictureSeekMs = seekPastTheNextChunk.BoundsMs[1]
 	seekingQuality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
 	seekingQuality.PictureSeekMs = 103_854
+	beforeButPast := run(picture)
+	beforeButPast.IsPictureSeekBeforeKeyframe = true
+	qualityBefore := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
+	qualityBefore.IsPictureSeekBeforeKeyframe = true
 	for name, command := range map[string]nodeproto.MakeChunks{
 		"a store outside the shape": climbing, "bounds not rising": falling,
 		"a sound with no track": soundless, "a lead-in on a picture": leadInOnAPicture,
-		"a picture seeking at its keyframe":      seekAtTheKeyframe,
-		"a picture seeking past its first chunk": seekPastTheNextChunk,
-		"a quality with a picture's seek":        seekingQuality,
+		"a picture seeking at its keyframe":                  seekAtTheKeyframe,
+		"a picture seeking past its first chunk":             seekPastTheNextChunk,
+		"a quality with a picture's seek":                    seekingQuality,
+		"a picture to seek before its keyframe seeking past": beforeButPast,
+		"a quality told to seek before its keyframe":         qualityBefore,
 	} {
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)

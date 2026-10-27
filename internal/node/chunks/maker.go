@@ -118,12 +118,16 @@ func check(command nodeproto.MakeChunks) error {
 }
 
 // checkSeek refuses a copied picture whose seek is not past its first keyframe and before its
-// second chunk, and any other stream with a picture's seek.
+// second chunk, or, when it seeks before the keyframe (MPEG-TS), not at or before it; and any other
+// stream with a picture's seek.
 func checkSeek(command nodeproto.MakeChunks) error {
 	isPicture := command.Stream.Kind == nodeproto.StreamPicture
 	seekMs := command.PictureSeekMs
-	if isSeekPastFirstKeyframe := seekMs > command.BoundsMs[0] && seekMs < command.BoundsMs[1]; isPicture !=
-		isSeekPastFirstKeyframe {
+	isSeekRight := seekMs > command.BoundsMs[0] && seekMs < command.BoundsMs[1]
+	if command.IsPictureSeekBeforeKeyframe {
+		isSeekRight = seekMs >= 0 && seekMs <= command.BoundsMs[0]
+	}
+	if isPicture != isSeekRight || !isPicture && command.IsPictureSeekBeforeKeyframe {
 		return fmt.Errorf("%w: a %s seeking to %d ms", ErrBadRun, command.Stream.Kind, seekMs)
 	}
 	return nil

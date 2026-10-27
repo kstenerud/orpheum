@@ -108,7 +108,12 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
-		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex), "-c:v", "copy")
+		// make_zero: a copy's times start at its first keyframe whichever side of it the seek is. One
+		// seeking past it, as into MP4 or Matroska, starts below zero and is moved up to it anyway; one
+		// seeking before it, as into MPEG-TS, would start as far after zero as the seek was before the
+		// keyframe, and the list would time every raw file that much late (idiosyncrasies.md).
+		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex), "-c:v", "copy",
+			"-avoid_negative_ts", "make_zero")
 		if command.VideoCodec == "hevc" {
 			arguments = append(arguments, "-tag:v", "hvc1")
 		}

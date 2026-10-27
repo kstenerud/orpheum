@@ -39,6 +39,14 @@
 //     TestGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
 //     TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut.
 //
+//   - A copied picture's run seeks past its first keyframe, midway to the next, so FFmpeg lands on
+//     it; an MPEG-TS film's, which FFmpeg seeks to a frame and not a keyframe, before it, midway back
+//     to the one before or at the film's start, and says so (idiosyncrasies.md). Enforced by
+//     TestHandleMakeChunks_APictureRunSeeksPastItsFirstKeyframe,
+//     TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe,
+//     TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext and
+//     TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore.
+//
 //   - A film's grid is its main picture's timeline, a cover's never, by its bytes' payload hash;
 //     while there is none it says so without an error, and a film FFmpeg could not read through,
 //     or with no picture, cannot be cut. Enforced by

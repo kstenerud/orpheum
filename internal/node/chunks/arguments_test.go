@@ -85,6 +85,25 @@ func TestArguments_WriteNoTimecodeTrackBesideTheStream(t *testing.T) {
 	}
 }
 
+// A copied picture's times start at zero at its first keyframe, which side of it the seek is: an
+// MPEG-TS run seeks before the keyframe, and its copy would otherwise start as far after zero as the
+// seek was before it, its raw files listed that much late (idiosyncrasies.md).
+func TestArguments_ACopiedPictureIsTimedFromItsFirstKeyframe(t *testing.T) {
+	t.Parallel()
+	transport := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+	transport.IsPictureSeekBeforeKeyframe, transport.PictureSeekMs = true, 93_844
+	arguments := Arguments(execx.Film{Path: "/a.ts"}, "/r", transport, encode.EncoderX264)
+	if shift := valueOf(arguments, "-avoid_negative_ts"); shift != "make_zero" {
+		t.Errorf("the copy's times are shifted by %q; want make_zero", shift)
+	}
+	if start := valueOf(arguments, "-ss"); start != "93.844" {
+		t.Errorf("the run reads from %s, want its seek before the keyframe, 93.844", start)
+	}
+	if cuts := valueOf(arguments, "-segment_times"); cuts != "9.960,13.714,23.682" {
+		t.Errorf("the cuts are %s, want 9.960,13.714,23.682, from the run's first keyframe", cuts)
+	}
+}
+
 // A copied HEVC picture is tagged hvc1, which Safari requires (cut-a §6).
 func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 	t.Parallel()
