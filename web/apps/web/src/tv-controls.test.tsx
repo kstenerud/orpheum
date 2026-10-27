@@ -113,7 +113,7 @@ describe("the overlay as drawn", () => {
     if (stage !== null) {
       stage.requestFullscreen = asked;
     }
-    const button = mounted.container.querySelector<HTMLButtonElement>(".tv-controls__full-screen");
+    const button = mounted.container.querySelector<HTMLButtonElement>(".full-screen-button");
     act(() => {
       button?.click();
     });

@@ -1,0 +1,37 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A button that is an icon alone (icon-button.tsx): one size everywhere, a fingertip's, the status
+   tray's too (D369 §1); its colour is the region's, and over a film the film's. */
+.icon-button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--size-control);
+  min-width: var(--size-control);
+  height: var(--size-control);
+  min-height: var(--size-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+}
+
+/* A hover is a pointer's, as base.css's. */
+@media (hover: hover) {
+  .icon-button:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+  }
+}
+
+/* An icon it draws, a little smaller than the button, so the button's ground shows round it. */
+.icon-button > .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.icon-button--over-video,
+.icon-button--over-video:hover:not(:disabled) {
+  border-radius: var(--radius-pill);
+  background: var(--color-video-control);
+  color: var(--color-on-video);
+}

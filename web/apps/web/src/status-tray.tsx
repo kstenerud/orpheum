@@ -6,6 +6,7 @@ import { createElement, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "./icon.tsx";
+import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -117,17 +118,15 @@ function TogetherStatus(): JSX.Element {
   };
   return (
     <div className="status-tray__item">
-      <button
-        type="button"
+      <IconButton
         className="status-tray__button"
-        aria-label={t("status.together")}
-        aria-expanded={isOpen}
+        label={t("status.together")}
+        icon={<TogetherIcon />}
+        isExpanded={isOpen}
         onClick={() => {
           setIsOpen(!isOpen);
         }}
-      >
-        <TogetherIcon />
-      </button>
+      />
       {isOpen ? (
         <ModalDialog
           className="status-tray__panel modal-dialog--drop-down"

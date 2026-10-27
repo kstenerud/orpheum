@@ -9,9 +9,11 @@ import { useTranslation } from "react-i18next";
 import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import { FullScreenButton } from "./full-screen-button.tsx";
+import { IconButton } from "./icon-button.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
+import { PauseIcon, PlayIcon } from "./player-icons.tsx";
 
 /**
  * How long the overlay stays after the last press while the film plays, in milliseconds: a TV
@@ -189,20 +191,18 @@ function PlayButton(props: {
   const { t } = useTranslation();
   const { playRef, videoRef, isPaused } = props;
   return (
-    <button
+    <IconButton
       ref={playRef}
-      type="button"
-      className="tv-controls__play"
-      aria-label={isPaused ? t("tvControls.play") : t("tvControls.pause")}
+      isOverVideo
+      label={isPaused ? t("tvControls.play") : t("tvControls.pause")}
+      icon={isPaused ? <PlayIcon /> : <PauseIcon />}
       onClick={() => {
         const video = videoRef.current;
         if (video !== null) {
           answerPlayerCommand(video, "playPause");
         }
       }}
-    >
-      <span aria-hidden="true">{isPaused ? "▶" : "❚❚"}</span>
-    </button>
+    />
   );
 }
 
