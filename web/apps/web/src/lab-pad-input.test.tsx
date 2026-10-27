@@ -220,7 +220,9 @@ describe("the button test's controllers", () => {
         padLayout: "xbox",
       }),
     ]);
-    // The first arrow starts our navigation at the tiles, as a key's does.
+    // The first arrow starts our navigation at the tiles, as a key's does: the focus moves a frame
+    // after the event is heard, which a loaded machine may not give before the check.
+    await settleUntil(() => document.activeElement?.classList.contains("lab__tile") === true);
     expect(document.activeElement?.classList.contains("lab__tile")).toBe(true);
     pad.lean([0, 0, 0, 0]);
     await aFewFrames();
@@ -233,6 +235,7 @@ describe("the button test's controllers", () => {
     expect(eventsOf(heard, "gamepad")).toEqual([
       expect.objectContaining({ button: "down", padButtonName: "dpadDown" }),
     ]);
+    await settleUntil(() => document.activeElement?.classList.contains("lab__tile") === true);
     expect(document.activeElement?.classList.contains("lab__tile")).toBe(true);
   });
 
