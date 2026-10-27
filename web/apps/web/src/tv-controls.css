@@ -30,19 +30,6 @@
   gap: var(--space-4);
 }
 
-.tv-controls__play,
-.tv-controls__full-screen {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--color-video-control);
-  color: var(--color-on-video);
-  font-size: 1.25rem;
-}
-
 .tv-controls__ends {
   margin-inline-start: auto;
   font-size: var(--font-size-small);

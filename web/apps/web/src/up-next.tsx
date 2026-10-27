@@ -18,7 +18,9 @@ import { useTranslation } from "react-i18next";
 import { moveOnOrLeave, type Receiving } from "./cast-receiver.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
+import { IconButton } from "./icon-button.tsx";
 import { useCommands } from "./input-layer.tsx";
+import { CloseIcon } from "./player-icons.tsx";
 import { Still } from "./poster.tsx";
 import {
   noteAutoplayed,
@@ -304,14 +306,13 @@ function OfferWords(props: {
 function DismissButton(props: { readonly onDismiss: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <button
-      type="button"
+    <IconButton
+      isOverVideo
       className="up-next__dismiss"
-      aria-label={t("upNext.dismiss")}
+      label={t("upNext.dismiss")}
+      icon={<CloseIcon />}
       onClick={props.onDismiss}
-    >
-      <span aria-hidden="true">{"×"}</span>
-    </button>
+    />
   );
 }
 

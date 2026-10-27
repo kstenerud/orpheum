@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fillTheScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
+import { IconButton } from "./icon-button.tsx";
+import { FullScreenIcon, LeaveFullScreenIcon } from "./player-icons.tsx";
 
 /**
  * The television player overlay's full screen, a control a remote moves to and presses like its
@@ -18,11 +20,12 @@ export function FullScreenButton(): JSX.Element {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isFullScreen = useIsFullScreen();
   return (
-    <button
+    <IconButton
       ref={buttonRef}
-      type="button"
-      className="tv-controls__full-screen"
-      aria-label={isFullScreen ? t("tvControls.leaveFullScreen") : t("tvControls.fullScreen")}
+      isOverVideo
+      className="full-screen-button"
+      label={isFullScreen ? t("tvControls.leaveFullScreen") : t("tvControls.fullScreen")}
+      icon={isFullScreen ? <LeaveFullScreenIcon /> : <FullScreenIcon />}
       onClick={() => {
         if (document.fullscreenElement instanceof Element) {
           leaveFullScreenAsked(document);
@@ -33,9 +36,7 @@ export function FullScreenButton(): JSX.Element {
           fillTheScreen(stage, document);
         }
       }}
-    >
-      <span aria-hidden="true">{isFullScreen ? "⤡" : "⤢"}</span>
-    </button>
+    />
   );
 }
 

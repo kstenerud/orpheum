@@ -12,15 +12,16 @@
   position: relative;
 }
 
+/* Each sign the size of every icon button (D369 §1: the owner, 2026-10-27, "Let's try sizing them
+   the same as the others and see how that feels"; they were a narrower 2.25rem, from 2026-10-11).
+   The warning sign is a link to its page, sized here as IconButton sizes the rest. */
 .status-tray__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Narrower than other controls, so the signs and the menu sit close together (the owner,
-     2026-10-11), still a comfortable target at 36 px. */
-  min-width: 2.25rem;
+  min-width: var(--size-control);
   min-height: var(--size-control);
-  padding: var(--space-1);
+  padding: 0;
   border: 0;
   border-radius: var(--radius-control);
   background: none;
