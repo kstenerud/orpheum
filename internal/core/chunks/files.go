@@ -105,8 +105,9 @@ func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.Stre
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
 // or, for the init, from the chunk the playback is at. The film's runs no player wants stop first
-// (StopUnwanted, D309 §2): its player's interest moved as it asked. A run the server starts for a
-// player, as it starts or stalls, stops nothing: its interest is recorded once the run is on its way.
+// (StopUnwanted, D309 §2): its player's interest moved as it asked, and a chunk's store knows its
+// stream's player waits there (asked, D353). A run the server starts for a player, as it starts or
+// stalls, stops nothing: its interest is recorded once the run is on its way.
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// A store's init is made by any run of it: one on its way makes it, and an init asked for from
 	// where a playback last reported, the film's start for a guest who has reported nothing, cut the
@@ -114,6 +115,9 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// it (the owner's VQ38 run, 2026-10-12).
 	if file.isInit && service.runs.hasRun(file.storeDir) {
 		return nil
+	}
+	if !file.isInit {
+		service.runs.asked(file.storeDir, file.chunk)
 	}
 	if err := service.StopUnwanted(ctx, file.fileID); err != nil {
 		return err
@@ -124,8 +128,8 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 // WantAlongside makes sure sound is made from where picture is, a file of a picture asked for where
 // a seek took its player (AsSought), as if the sound were asked for there too: hls.js asks for a
 // seek's sound only once its picture's first chunk has come, and the sound's run, started then, kept
-// the player waiting 5 s more (the owner's test, 2026-10-12). A sound of another film or grid is
-// left alone.
+// the player waiting 5 s more (the owner's test, 2026-10-12). The sound's store knows its player
+// waits there, as for its own ask (asked, D353). A sound of another film or grid is left alone.
 //
 // A picture's init moves no sound: it says nothing of where its player is, only where the playback
 // last reported, the film's start for one that jumped before its report, and started the sound there,
@@ -134,6 +138,7 @@ func (service *Service) WantAlongside(ctx context.Context, picture, sound StoreF
 	if !picture.isSought || picture.isInit || sound.fileID != picture.fileID || sound.kind != picture.kind {
 		return nil
 	}
+	service.runs.asked(sound.storeDir, picture.runFrom)
 	return service.askedFor(ctx, sound.fileID, sound.kind, sound.stream, picture.runFrom)
 }
 

@@ -22388,3 +22388,67 @@ research, §5); keeping one hold for every link (the owner's report).
 - 5: web/packages/player/src/abr.test.ts (the notes), TestReport_LogsALinksLastSamples in internal/core/api
 
 **Status:** Proposed, not built.
+
+## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one
+
+**Decided** (2026-10-27), by the project owner, replacing the fixed minute the fix for the owner's
+The Unknown (staging, 2026-10-26) gave D309 §2: a run was no longer a player's once the first chunk
+the player needed lay more than the look-ahead (`chunk_lookahead_seconds`, 60 s) past what the run
+made next. A minute is a guess: a fast run gets there in seconds, and a slow one makes the player
+wait the whole minute of film. It amends D309 §2 (a place a player sought away from), and follows
+Jellyfin's rule for a run not yet measured (`segmentGapRequiringTranscodingChange = 24 /
+state.SegmentLength`, Jellyfin.Api/Controllers/DynamicHlsController.cs).
+
+1. **A run is stopped for a jump when waiting for it costs more than restarting.** Waiting costs the
+   film between what the run makes next and the first chunk the player needs not made (the gap)
+   over the run's speed, film made per wall time; restarting costs the time a new run takes to make
+   its first chunk (the startup). The run is no longer the player's when gap / speed > startup, and
+   the player's ask then stops it and starts a run where it landed; a run planned for an ask is
+   refused by the same rule, so an init asked for from where the playback last reported, far behind
+   the player, starts nothing there.
+2. **Both are measured from what the core already sees,** on the sanctioned clock, with no change to
+   the node. The speed is the run's own, from its progress over the last
+   `chunk_run_speed_window_seconds`, as soon as two chunks made span any time (the capacity watch,
+   D250 §6, still waits for half the window): it is the run being judged that the player would wait
+   for. The startup is its store's (one film's stream on one grid) most recent run's, from the core
+   giving the run to its node to its first chunk made: a new run at the jump is of that same source,
+   recipe and node, as loaded as now, so the last one says best what it costs. A run the core learned
+   from its progress, after a restart, has no start the core saw and gives none.
+3. **Until a run is measured,** no speed yet or its store no startup, the gap past which the player
+   jumped away is Jellyfin's 24 s of film.
+4. **A player's own nearby asks never stop its run.** The threshold, measured or not, is never under
+   two chunks past what the run makes next: a player's picture and sound, loaded apart, each move its
+   one position (D309 §1), and hls.js loads a sound at most one fragment past the picture it is
+   loading (audio-stream-controller.ts, "up to one fragment ahead of main"); one chunk for that and
+   one of slack. And a run making within those two chunks of the chunk last asked for of its store is
+   never one its player jumped away from, wherever the other stream moved the position: hls.js loads
+   a picture without waiting for its sound, so a picture 30 s ahead of a late sound (its buffer)
+   moved the position past the sound's run by more than 24 s, cut the run the sound waited on, and
+   refused the sound's ask its run (the restart loop the minute had kept off). A sound made alongside
+   a sought picture, made from where the picture landed, is asked for there.
+5. **Each stop for a jump is logged, at debug,** with the chunk the run made next, the chunk the
+   player needed, the gap, the speed, the startup, the threshold and whether it was measured or
+   Jellyfin's 24 s, so a report is explained from the log alone.
+
+**Values:** the 24 s and the two chunks are constants (`unmeasuredJumpGapMs`, `jumpFloorChunks` in
+internal/core/chunks): the first governs only a run's first seconds, before its second chunk, and
+the second follows hls.js, not the server; no admin could judge either. No new setting.
+
+**In the code:** the test of a run its player will reach within a minute had its player move forward
+40 s into a run that made nothing yet, kept by the minute; by §3 that run now restarts, so its jump
+is 20 s, within the 24 s, and the 40 s jump is the measured tests' (a run of 10x that started in 5 s
+is waited for; one that started in 1 s is not).
+
+**Open question for the owner:** §4's second half, the store's last ask, is the agent's: the two
+chunks alone did not cover a picture loaded ahead of a late sound. The cleaner answer is a position
+per stream in the playback (each stream's own asks move its own, a seek or a pause moves both), which
+changes D309 §1's one position; is that wanted instead?
+
+**Proven by:**
+- 1: TestStopUnwanted_AJumpAheadOfAMeasuredRunWaitsWhileWaitingCostsLessThanRestarting, TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn, TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere
+- 2: TestStopUnwanted_AJumpIsJudgedByTheStartOfItsStoresLastRun, TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap
+- 3: TestStopUnwanted_ARunLearnedFromItsProgressIsJudgedByJellyfinsGap, TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn
+- 4: TestStopUnwanted_ARunIsNeverStoppedForAPlayerTwoChunksPastIt, TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs, TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas
+- 5: TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy
+
+**Status:** Decided 2026-10-27.
