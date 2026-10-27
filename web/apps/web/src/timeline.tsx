@@ -49,13 +49,13 @@ export function Timeline(props: {
   /** The film's length; 0 while not known. */
   readonly durationMs: number;
   readonly onSeek: (atMs: number) => void;
-  readonly isDisabled?: boolean;
+  readonly isDisabled?: boolean | undefined;
   /** How long a drag rests before it seeks, in ms; 0, or none, seeks at each move. */
-  readonly settleMs?: number;
+  readonly settleMs?: number | undefined;
   /** Whether Left and Right are the player's commands rather than the slider's own steps. */
-  readonly hasArrowsAsCommands?: boolean;
+  readonly hasArrowsAsCommands?: boolean | undefined;
   /** The slider, for a player that moves focus to it or asks whether it has it. */
-  readonly inputRef?: RefObject<HTMLInputElement | null>;
+  readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
 }): JSX.Element {
   const { label, atMs, durationMs, onSeek, isDisabled, settleMs, hasArrowsAsCommands } = props;
   const ownRef = useRef<HTMLInputElement | null>(null);

@@ -24,7 +24,7 @@ export function FullScreenButton(): JSX.Element {
       ref={buttonRef}
       isOverVideo
       className="full-screen-button"
-      label={isFullScreen ? t("tvControls.leaveFullScreen") : t("tvControls.fullScreen")}
+      label={isFullScreen ? t("playerControls.leaveFullScreen") : t("playerControls.fullScreen")}
       icon={isFullScreen ? <LeaveFullScreenIcon /> : <FullScreenIcon />}
       onClick={() => {
         if (document.fullscreenElement instanceof Element) {

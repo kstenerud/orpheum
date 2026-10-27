@@ -3,18 +3,14 @@
 import "./tv-controls.css";
 
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
-import { seekTo } from "@orpheum/player";
 import { useTranslation } from "react-i18next";
 
 import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
-import { FullScreenButton } from "./full-screen-button.tsx";
-import { IconButton } from "./icon-button.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
-import { PauseIcon, PlayIcon } from "./player-icons.tsx";
-import { Timeline } from "./timeline.tsx";
+import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 
 /**
  * How long the overlay stays after the last press while the film plays, in milliseconds: a TV
@@ -97,14 +93,13 @@ function seekOfArrow(command: Command): number | undefined {
  * player's controls do, so a cast's receiver on a computer keeps its controls (D338 §5).
  */
 export function TvControls(props: FilmParts): JSX.Element {
-  const { t } = useTranslation();
   const { videoRef } = props;
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const stand = useStanding(videoRef);
+  const source = useVideoSource(videoRef);
   const [shown, setShown] = useState<OverlayShown>("all");
-  const notePress = useHiding({ isPaused: stand.isPaused, shown, setShown, overlayRef, videoRef });
+  const notePress = useHiding({ isPaused: source.isPaused, shown, setShown, overlayRef, videoRef });
   useOpensAtThePointer(setShown, notePress);
   useFullscreenStage(playRef);
   useCommands(
@@ -138,42 +133,26 @@ export function TvControls(props: FilmParts): JSX.Element {
       data-focus-container=""
       data-player-controls=""
     >
-      <div className="tv-controls__buttons">
-        <PlayButton playRef={playRef} videoRef={videoRef} isPaused={stand.isPaused} />
-        <EndsAt leftMs={stand.durationMs === 0 ? undefined : stand.durationMs - stand.atMs} />
-        <FullScreenButton />
-      </div>
-      <Timeline
-        inputRef={scrubRef}
-        label={t("tvControls.where")}
-        atMs={stand.atMs}
-        durationMs={stand.durationMs}
+      <PlayerControls
+        source={source}
+        controls={["play", "fullScreen", "timeline"]}
+        isOverVideo
+        playRef={playRef}
+        timelineRef={scrubRef}
         hasArrowsAsCommands
-        onSeek={(ms) => {
-          seekVideo(videoRef, ms);
-        }}
+        aside={
+          <EndsAt leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs} />
+        }
       />
     </div>
   );
-}
-
-/** Moves the video in videoRef to atMs, where there is one. */
-function seekVideo(videoRef: RefObject<HTMLVideoElement | null>, atMs: number): void {
-  const video = videoRef.current;
-  if (video !== null) {
-    seekTo(video, atMs);
-  }
 }
 
 /** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
 function EndsAt(props: { readonly leftMs: number | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { leftMs } = props;
-  return (
-    <span className="tv-controls__ends">
-      {leftMs === undefined ? "" : t("tvControls.endsAt", { time: endsAt(leftMs) })}
-    </span>
-  );
+  return <>{leftMs === undefined ? "" : t("playerControls.endsAt", { time: endsAt(leftMs) })}</>;
 }
 
 /**
@@ -188,30 +167,6 @@ function isOnAnotherControlOverTheFilm(overlay: HTMLElement | null): boolean {
     !(focused instanceof HTMLVideoElement) &&
     stage?.contains(focused) === true &&
     overlay?.contains(focused) !== true
-  );
-}
-
-/** Play or pause, the overlay's first control, which focus goes to as the overlay opens. */
-function PlayButton(props: {
-  readonly playRef: RefObject<HTMLButtonElement | null>;
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-  readonly isPaused: boolean;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { playRef, videoRef, isPaused } = props;
-  return (
-    <IconButton
-      ref={playRef}
-      isOverVideo
-      label={isPaused ? t("tvControls.play") : t("tvControls.pause")}
-      icon={isPaused ? <PlayIcon /> : <PauseIcon />}
-      onClick={() => {
-        const video = videoRef.current;
-        if (video !== null) {
-          answerPlayerCommand(video, "playPause");
-        }
-      }}
-    />
   );
 }
 
@@ -306,39 +261,6 @@ function useOpensAtThePointer(
       document.removeEventListener("click", clicked);
     };
   }, []);
-}
-
-/** Where the film stands, its length, and whether it is paused, as the video says them. */
-function useStanding(videoRef: RefObject<HTMLVideoElement | null>): {
-  readonly atMs: number;
-  readonly durationMs: number;
-  readonly isPaused: boolean;
-} {
-  const [stand, setStand] = useState({ atMs: 0, durationMs: 0, isPaused: true });
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) {
-      return undefined;
-    }
-    const heard = (): void => {
-      setStand({
-        atMs: video.currentTime * 1000,
-        durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
-        isPaused: video.paused,
-      });
-    };
-    // Read at the video's own events, the first as soon as it knows its length.
-    const events = ["loadedmetadata", "timeupdate", "durationchange", "play", "pause", "seeked"];
-    for (const each of events) {
-      video.addEventListener(each, heard);
-    }
-    return () => {
-      for (const each of events) {
-        video.removeEventListener(each, heard);
-      }
-    };
-  }, [videoRef]);
-  return stand;
 }
 
 /**

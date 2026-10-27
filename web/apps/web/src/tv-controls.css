@@ -20,19 +20,8 @@
   display: none;
 }
 
-.tv-controls[data-shown="scrub"] .tv-controls__buttons {
+.tv-controls[data-shown="scrub"] .player-controls__buttons {
   visibility: hidden;
-}
-
-.tv-controls__buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.tv-controls__ends {
-  margin-inline-start: auto;
-  font-size: var(--font-size-small);
 }
 
 /* The stage full screen, as a television's player opens, or filling the window where the browser

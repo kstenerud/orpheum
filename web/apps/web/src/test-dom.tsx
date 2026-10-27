@@ -288,6 +288,16 @@ export async function enter(input: Element | null | undefined, text: string): Pr
   });
 }
 
+/**
+ * The button named name in container, as a screen reader names it: by its aria-label, else its
+ * text. An icon button (icon-button.tsx) has no text, its name its label.
+ */
+export function buttonNamed(container: HTMLElement, name: string): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll("button")].find(
+    (each) => (each.getAttribute("aria-label") ?? each.textContent) === name,
+  );
+}
+
 /** The button whose text is text, in container. */
 export function buttonWithText(
   container: HTMLElement,

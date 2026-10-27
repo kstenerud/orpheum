@@ -17,11 +17,16 @@ export const enPlay = {
     autoplayText:
       "As an episode ends, its Up next counts down and plays the next one. Any press stops the count.",
   },
-  tvControls: {
+  playerControls: {
     play: "Play",
     pause: "Pause",
+    back: "Back 10 s",
+    forward: "Forward 10 s",
     where: "Where the film stands",
     endsAt: "Ends at {{time}}",
+    mute: "Mute",
+    unmute: "Sound on",
+    volume: "Volume",
     fullScreen: "Full screen",
     leaveFullScreen: "Leave full screen",
   },
