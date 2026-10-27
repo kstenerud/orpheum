@@ -23520,7 +23520,9 @@ Silk's base under a page opened directly is kept; its Back goes to the parent of
 page, with no Up (Libraries is the page that lists it); a film's Play page reads "Films › Heat ›
 Playing", its last part the playing; Films and Series stand as the list a film or series came
 through, as a library's page does; an episode's page goes up to its series, not a season, the
-season being a view; the series' picker lists each season with its episode count and no still.
+season being a view; the series' picker sits in its head beside the ordering, where a remote's
+arrows reach it among the series' other choices (under the episodes' heading, the walk found Play and
+the ordering out of the arrows' reach), and lists each season with its episode count and no still.
 D370's marks by hand stay: the whole series' in the series' head at every season, the season's
 over the season shown, a season watched whole showing its check in the picker. Not seen on a device
 yet (VQ91).
