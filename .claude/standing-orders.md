@@ -3,7 +3,7 @@
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
 2. **Done 2026-10-27:** the overlap batch (D363, D365, D366, icons, player fixes): check-pr passed, on nas.example.
    `ssh prod-nas` (192.168.1.250): runs an earlier commit (bundle, branch sandbox-main), root /tank/media.
-   Owed by the owner: VQ82 (Continue Watching on nas.example), VQ84 (Fire TV's new name), VQ81's disk case.
+   VQ82 passed. Owed by the owner: VQ81's disk case.
    **This batch (owner 2026-10-27: "go with your proposed batch", from inventory-2026-10-27.md):**
    - Phase 1, agents: (a) VQ81's two bugs (a gone file falls back to the person's next reached place; a
      vanished library folder is marked unavailable); (b) D368, the top rung's own sound + the play line's
@@ -13,6 +13,11 @@
      leaving the film no longer stops it; no mini player); D367 revised (Up never adds history: back to the
      nearest parent behind, else replace; one series page with a season picker preselecting the season
      left; a trail on computers and phones, "‹ Parent" on TVs); the library Configure dialog.
+   - Folded in (owner 2026-10-27, serious): (d) the Fire TV still named "Chrome on Android" (VQ84 failed;
+     its sign-in was through the discovery's page); no way to sign out on the Fire TV; a device removed
+     elsewhere keeps showing its page until touched (should clear at once); and then lands on the core's
+     sign-in, not the discovery's. (e) Watched marks: research now (watched-marks-2026-10-27.md); built in
+     this batch unless it needs the owner, else next batch. The owner sleeps: the batch runs overnight.
    - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
      words, the warning sign's page, the uncertain match: queued, not this batch).
    - End: one check-pr, the owner's go, nas.example.
