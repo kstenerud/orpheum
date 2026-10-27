@@ -73,14 +73,24 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
   };
 }
 
-/** A request as the messages that carry it: its head, its body in pieces, and an empty end. */
-export async function requestMessages(request: Request): Promise<(string | ArrayBuffer)[]> {
+/**
+ * A request as the messages that carry it: its head, its body in pieces, and an empty end. The head
+ * carries the browser's user agent, as a request over HTTP does: a Request's headers never hold it,
+ * and every playback over WebRTC was logged with userAgent="" (local-path-2026-10-27.md §4 item 7).
+ */
+export async function requestMessages(
+  request: Request,
+  userAgent: string = globalThis.navigator.userAgent,
+): Promise<(string | ArrayBuffer)[]> {
   const body = request.body === null ? undefined : await request.arrayBuffer();
   const url = new URL(request.url);
   const headers: Record<string, string[]> = {};
   request.headers.forEach((value, name) => {
     headers[name] = [...(headers[name] ?? []), value];
   });
+  if (headers["user-agent"] === undefined && userAgent !== "") {
+    headers["user-agent"] = [userAgent];
+  }
   const head: RequestHead = { method: request.method, path: url.pathname + url.search, headers };
   const messages: (string | ArrayBuffer)[] = [JSON.stringify(head)];
   for (let start = 0; body !== undefined && start < body.byteLength; start += maxMessageBytes) {

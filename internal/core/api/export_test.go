@@ -33,6 +33,7 @@ var (
 	CompressedOperations = compressedOperations
 	DiscoveryLink        = discoveryLink
 	FilmReadingFinding   = filmReadingFinding
+	HairpinFinding       = hairpinFinding
 	HardwareFinding      = hardwareFinding
 	IsDirectPath         = isDirectPath
 	NodeBuildFinding     = nodeBuildFinding

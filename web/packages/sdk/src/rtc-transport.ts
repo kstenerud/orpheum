@@ -9,6 +9,7 @@
  * sends each request on the one with the fewest under way; making them is rtc-connect.ts.
  */
 
+import { candidatePairsOf, type CandidatePairSeen } from "./rtc-pairs.ts";
 import { abortReason, channelOf, sendOnChannel, type ChannelLike } from "./rtc-request.ts";
 
 /**
@@ -27,6 +28,8 @@ export interface PeerLike {
    * longer than disconnectedGraceMs. A test's peer may never tell.
    */
   onGone?(listener: () => void): void;
+  /** Its candidate pairs as the browser sees them (rtc-pairs.ts); a test's peer may have none. */
+  candidatePairs?(): Promise<CandidatePairSeen[]>;
 }
 
 /**
@@ -54,6 +57,7 @@ export function peerOf(peer: RTCPeerConnection): PeerLike {
     close: () => {
       peer.close();
     },
+    candidatePairs: async () => candidatePairsOf((await peer.getStats()).values()),
     onGone: (listener) => {
       let isGone = false;
       let grace: ReturnType<typeof setTimeout> | undefined;
@@ -323,6 +327,14 @@ export class RtcTransport {
       link.sockets -= 1;
       this.closeWhenIdle(link);
     });
+  }
+
+  /**
+   * The candidate pairs of the connection the transport holds longest, as the browser sees them, or
+   * none while it holds none or its connections cannot say.
+   */
+  async candidatePairs(): Promise<readonly CandidatePairSeen[]> {
+    return (await this.links[0]?.peer.candidatePairs?.()) ?? [];
   }
 
   /** Closes every connection, and opens no more. */

@@ -38,6 +38,9 @@ func TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses(t *testing.T) 
 		{false, elsewhere, own, rtcapi.PathDirectIPv6, false},
 		{true, "192.168.1.20:50000", nil, rtcapi.PathDirectIPv4, true},
 		{true, "192.168.1.20:50000", nil, rtcapi.PathRelayed, false},
+		// A hairpin's carrier address is many households', even one named a home network (D354 §4).
+		{true, "11.22.33.144:51234", nil, rtcapi.PathHairpinnedIPv4, false},
+		{false, "11.22.33.144:51234", nil, rtcapi.PathPunchedIPv4, false},
 	} {
 		if got := isHomeOverWebRTC(each.isHomeAddress, each.remote, each.own, each.path); got != each.want {
 			t.Errorf("isHomeOverWebRTC(%v, %s, %v, %s) = %v; want %v",

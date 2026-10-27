@@ -24,10 +24,13 @@ import (
 // the address, it travels wherever the session socket does, directly or over a WebRTC data channel
 // (D273 §8), with nothing new in the transports.
 
-// The keys a live connection's and a cast's log lines name their person and device by.
+// The keys log lines name a person, their device and its browser by: a live connection's, a cast's
+// and a page's.
 const (
 	logKeyUserID   = "userId"
 	logKeyDeviceID = "deviceId"
+	// The browser's own words for itself (ClientFacts).
+	logKeyUserAgent = "userAgent"
 )
 
 // isLiveHello is whether a device's first message opens a live connection rather than a session's.

@@ -80,8 +80,10 @@ describe("the WebRTC transport", () => {
     expect(channel.sentHead()).toEqual({
       method: "POST",
       path: "/api/v1/things?x=1",
-      headers: { authorization: ["Bearer t"] },
+      // The browser's user agent rides in the head, as over HTTP (local-path-2026-10-27.md §4 item 7).
+      headers: { authorization: ["Bearer t"], "user-agent": [navigator.userAgent] },
     });
+    expect(navigator.userAgent).not.toBe("");
     const sizes = channel.sent.slice(1).map((message) => (message as ArrayBuffer).byteLength);
     expect(sizes).toEqual([maxMessageBytes, 10, 0]);
   });

@@ -73,6 +73,53 @@ describe("a core's direct paths (W2c)", () => {
     expect(Date.now() - started).toBeLessThan(400);
   });
 
+  it("tells what came of each name once the race is decided, in the discovery's order", async () => {
+    const send = hosts({
+      "lan.core.example": "never",
+      "v6.core.example": 200,
+      "v4.core.example": 502,
+    });
+    const told: unknown[] = [];
+    const urls = [
+      "https://lan.core.example",
+      "https://v6.core.example",
+      "https://gone.core.example",
+    ];
+    expect(
+      await firstDirectPath(urls, send, {
+        answerMs: 50,
+        betterMs: 10,
+        tell: (outcomes) => {
+          told.push(outcomes);
+        },
+      }),
+    ).toBe("https://v6.core.example");
+    // The LAN name had not answered when the grace ran out; the race went on without it.
+    expect(told).toEqual([
+      [
+        { url: "https://lan.core.example", outcome: "not waited for" },
+        { url: "https://v6.core.example", outcome: "answered" },
+        { url: "https://gone.core.example", outcome: "failed: TypeError: Failed to fetch" },
+      ],
+    ]);
+    told.length = 0;
+    await firstDirectPath(["https://lan.core.example", "https://v4.core.example"], send, {
+      answerMs: 50,
+      tell: (outcomes) => {
+        told.push(outcomes);
+      },
+    });
+    expect(told).toEqual([
+      [
+        { url: "https://lan.core.example", outcome: "failed: no answer within 50 ms" },
+        {
+          url: "https://v4.core.example",
+          outcome: "failed: Error: https://v4.core.example answered 502",
+        },
+      ],
+    ]);
+  });
+
   it("sends the page's request to the core's name, path and query kept, with no cookie", async () => {
     const asked: string[] = [];
     const send = directFetch("https://v4.core.example", hosts({ "v4.core.example": 200 }, asked));

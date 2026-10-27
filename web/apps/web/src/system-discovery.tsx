@@ -372,7 +372,8 @@ function PortMappingView(props: { readonly mapping: PortMapping }): JSX.Element 
 
 /**
  * How the WebRTC connections since the core started reached it (D274 §3): directly, punched
- * through its NAT, relayed, or not at all; nothing before the first.
+ * through its NAT, out to a NAT both ends share and back (D354), relayed, or not at all; nothing
+ * before the first.
  */
 function WebRTCPaths(props: { readonly paths: readonly WebRTCPath[] }): JSX.Element | null {
   const { t } = useTranslation();

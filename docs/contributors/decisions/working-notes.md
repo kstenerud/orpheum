@@ -22468,3 +22468,62 @@ changes D309 §1's one position; is that wanted instead?
 - 5: TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy
 
 **Status:** Decided 2026-10-27.
+
+## D354 — A WebRTC pair that goes out to the NAT both ends share and back is named a hairpin, warned of to the admin, and never counts as home
+
+**Decided** (2026-10-27), by the project owner, approving recommendations B and C of
+[local-path-2026-10-27.md](../design/research/local-path-2026-10-27.md), which found why the owner's
+playback from a laptop in the house went out through the carrier and back (2026-10-26): the laptop's
+checks to the core's LAN UDP port never arrived, so ICE settled on a pair whose two ends were the
+carrier's one DS-Lite address, which every log line called an ordinary `punched_ipv4`. **Amends**
+[D274](#d274--a-core-is-reached-first-by-what-needs-nothing-from-its-owner-webrtc-through-the-discovery-direct-paths-are-upgrades-and-a-relay-waits-for-demand)
+§3 (the paths counted) and sharpens
+[D300](#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address)
+§3 (home over WebRTC).
+
+1. **A hairpin is its own path.** A selected pair that is neither direct nor relayed, over IPv4, whose
+   core's end (server- or peer-reflexive) has the client's address, is `hairpinned_ipv4`, not
+   `punched_ipv4`: the core's public address is the client's, so the pair goes out to the NAT both sit
+   behind and back. It is counted with the others on the System page, and its log line is a warning
+   naming both ends by type and address.
+2. **The admin is warned.** While a hairpin stands, the doctor's finding *WebRTC from devices at home*
+   (on /doctor and the System page) warns: *"devices at home reach this server through your provider,
+   not your network: UDP port <port> at <LAN address> is not reachable"*, with how many connections
+   hairpinned, from which address and when last, and the action: publish the UDP port from the
+   server's machine and let it through its firewall. A core taking WebRTC at no LAN port is told to set
+   `webrtc.udp_port` and `discovery.lan_addresses` instead.
+3. **The warning clears** on the first direct pair (`direct_ipv4` or `direct_ipv6`) whose client's end
+   is in the home networks after the last hairpin, or **a week after the last hairpin** with none
+   since, and with the core's restart, as the path counts do. A direct pair from the house is the
+   proof the warning asks for: a device in the house reached the core across its network. A week
+   without one says whoever hairpinned has gone: a household whose port is unreachable hairpins every
+   time it plays, so it renews the warning daily, while a visitor, or another household behind the same
+   carrier address, does not. A shorter wait would hide a standing fault between evenings of use; no
+   wait at all would keep a stranger's one hairpin up for good. The week is a constant
+   (`HairpinWarningLasts`), not a setting: no admin could judge it better.
+4. **A hairpin never counts as home** (D297 §6, D300 §3): its client's address is a NAT's public one,
+   and a carrier's shared address is many households. It is not a direct path, so a request over it
+   carries no admin even when its address is named in `server.home_networks`.
+5. **The page and the core say why a path was taken** (the research's §4 items 1–3 and 7). A page at a
+   discovery's origin tells the core's log once per reach (`POST /client-paths`, signed in, bounded,
+   only logged): the browser's family, whether it uses the LAN name, its local-network permission, how
+   many names and LAN names the discovery offered, what came of each in the first race (answered,
+   failed and how, not waited for, or left out and why), the path taken, and over WebRTC its first
+   connection's candidate pairs as the browser's `getStats()` gives them, read 5 s after reaching so
+   the pair to the core's LAN address has had time to fail: the selected pair, then those to the core's
+   host candidates, each end by type, protocol and address. The core's connection line names its own
+   end too, by type and address, and a request over WebRTC carries the browser's user agent in its
+   head, so a playback over it names the browser and the device, not `userAgent=""`.
+
+**Not decided here:** the research's option D (the discovery judging "at home" for an IPv4-only core)
+is the owner's design question, and its option E (an ICE restart aimed at the host pair) waits for
+these reports to show a house's LAN pair losing races it could have won.
+
+**Proven by:**
+- 1: TestPathOf_IsToldByTheCoresEndOfThePair, TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse, web/apps/web/src/system-discovery.test.tsx
+- 2: TestHairpinFinding_WarnsThatDevicesAtHomeReachTheServerThroughTheProvider, TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse
+- 3: TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse, TestHairpinWarning_LapsesAWeekAfterTheLastHairpin
+- 4: TestIsDirectPath_CountsNoRelayedOrFailedPath, TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses
+- 5: TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs, TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress, TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels, web/apps/web/src/path-choice.test.ts, web/apps/web/src/kept-path.test.ts, web/packages/sdk/src/rtc-pairs.test.ts, web/packages/sdk/src/direct-path.test.ts, web/packages/sdk/src/rtc-transport.test.ts
+
+**Status:** Decided 2026-10-27.

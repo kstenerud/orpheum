@@ -90,6 +90,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         webrtcPaths: [
           { path: "direct_ipv6", count: 0 },
           { path: "punched_ipv4", count: 3 },
+          { path: "hairpinned_ipv4", count: 2 },
           { path: "failed", count: 1 },
         ],
         portMapping: {
@@ -128,6 +129,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
   expect(text).toContain("through the router's NAT over IPv4: 3");
   expect(text).toContain("failed to connect: 1");
+  // A hairpin is told apart from a punch: its devices are likely at home, coming the long way (D354).
+  expect(text).toContain("out through the provider and back over IPv4");
   expect(text).not.toContain("directly over IPv6");
 });
 

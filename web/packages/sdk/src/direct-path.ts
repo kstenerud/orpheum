@@ -26,23 +26,31 @@ export const betterPathGraceMs = 1000;
  * answers its health, or undefined when none does within wait: each is asked at once, so a LAN name
  * that a phone away from home cannot reach costs no more than the wait; once one answers, a better
  * one is waited for at most betterMs, and not at all when every better one has failed. The waits are
- * directPathWaitMs and betterPathGraceMs unless a test names others.
+ * directPathWaitMs and betterPathGraceMs unless a test names others. Once the race is decided, its
+ * tell hears what came of each name, in urls' order: why the page took the path it took was otherwise
+ * said nowhere (local-path-2026-10-27.md §4 item 1).
  */
 export function firstDirectPath(
   urls: readonly string[],
   send: typeof fetch = fetch,
-  waits: { readonly answerMs?: number; readonly betterMs?: number } = {},
+  waits: {
+    readonly answerMs?: number;
+    readonly betterMs?: number;
+    readonly tell?: ((outcomes: readonly DirectOutcome[]) => void) | undefined;
+  } = {},
 ): Promise<string | undefined> {
-  const { answerMs: waitMs = directPathWaitMs, betterMs = betterPathGraceMs } = waits;
+  const { answerMs: waitMs = directPathWaitMs, betterMs = betterPathGraceMs, tell } = waits;
   return new Promise((resolve) => {
     const answered: (string | undefined)[] = urls.map(() => undefined);
     const failed = urls.map(() => false);
+    const outcomes = urls.map((url): DirectOutcome => ({ url, outcome: notWaitedFor }));
     let isDone = false;
     let grace: ReturnType<typeof setTimeout> | undefined;
     const finish = (): void => {
       if (!isDone) {
         isDone = true;
         clearTimeout(grace);
+        tell?.(outcomes.map((each) => ({ ...each })));
         resolve(answered.find((origin) => origin !== undefined));
       }
     };
@@ -61,16 +69,39 @@ export function firstDirectPath(
       void healthOf(url, send, waitMs).then(
         (origin) => {
           answered[index] = origin;
+          outcomes[index] = { url, outcome: "answered" };
           decide();
         },
-        () => {
+        (problem: unknown) => {
           failed[index] = true;
+          outcomes[index] = { url, outcome: failureOf(problem, waitMs) };
           decide();
         },
       );
     });
     decide();
   });
+}
+
+/** What came of one of a race's names: "answered", "failed: " and how, or notWaitedFor. */
+export interface DirectOutcome {
+  readonly url: string;
+  readonly outcome: string;
+}
+
+/** The outcome of a name the race was decided without, still unanswered then. */
+export const notWaitedFor = "not waited for";
+
+/** The longest a failure's words are kept for its outcome. */
+const failureMost = 200;
+
+/** How a name failed, for its outcome: no answer within waitMs, or the failure's own words. */
+function failureOf(problem: unknown, waitMs: number): string {
+  if (problem instanceof DOMException && problem.name === "TimeoutError") {
+    return `failed: no answer within ${String(waitMs)} ms`;
+  }
+  const words = problem instanceof Error ? `${problem.name}: ${problem.message}` : String(problem);
+  return `failed: ${words}`.slice(0, failureMost);
 }
 
 /** The origin of url when its core answers its health within waitMs; it rejects otherwise. */

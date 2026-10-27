@@ -222,8 +222,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.
 		"echoReachability",
-		// A page's failure, which is only logged and answers nothing.
-		"reportClientProblem",
+		// A page's failure, or how it chose its path to the core, which are only logged and answer nothing.
+		"reportClientProblem", "reportClientPath",
 		// What a lab page measured on a device, which is only logged and answers its name in the log or
 		// nothing.
 		"reportLabResult", "reportLabInputEvents",
