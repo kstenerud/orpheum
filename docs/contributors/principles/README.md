@@ -22,6 +22,8 @@ work they bear on, and one that bears on two kinds of work is listed under both.
   fails fast, the final run finishes
 - [§25](25-velocity-is-a-resource.md) — Velocity is a resource, and the dev cycle's time costs it
   quadratically
+- [§26](26-poor-code-is-a-recurring-tax.md) — Poor code is a recurring tax; an improvement seen is
+  recorded, and fixed in a batch
 
 ## Data and the user's files
 

@@ -66,5 +66,5 @@ run would, and a run per commit is the cost principle §25 forbids). Done: F15, 
 F17 the gate lock, F8 a broken probe's output kept, F9 the statistics compared on every reference
 run, F18 moved helpers followed, F11b decisions' **Proven by:** (conventions.md), F2 the owed
 check-pr shown at a session's start, F13 the standing orders at every prompt, F14 the SubagentStop
-hook, and principle §25 (the commit after an earlier commit). Open: F12 (generated handoffs), F1 (the gate
-container).
+hook, and principle §25; F12 `make handoff` (scripts/handoff.py) and principle §26 with
+code-debt.md (the commit after an earlier commit). Open: F1 (the gate container).

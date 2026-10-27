@@ -354,6 +354,10 @@ pr-step-%:
 	@$(PYTHON) scripts/check_pr_steps.py record $* -- $(MAKE) --no-print-directory BASE='$(BASE)' $*
 
 .PHONY: mark-applied
+.PHONY: handoff
+handoff: ## The state a next session needs, quoted from the records (decisions, VQ, debts, git), not from memory
+	@$(PYTHON) scripts/handoff.py
+
 mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner took, the branch gates' base
 	@$(PYTHON) scripts/branch_base.py --mark '$(or $(REV),HEAD)'
 
