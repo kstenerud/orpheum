@@ -72,6 +72,8 @@ spot: hooks ## Spot check while working: tests of what changed since BASE (defau
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
 check-verbose: check-tools web-deps go-warm ## The gate with every step's output
+	@# The tree as the gate starts: only that tree, unchanged at the end, is recorded as passed.
+	@$(PYTHON) scripts/check_stamp.py begin
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
 	@# The browser-mode tests after the rest, never beside it: beside a cold Go build their Firefox
 	@# failed to connect in vitest's 60 s twice, and they took 65 s for 10 s of tests (2026-10-20).

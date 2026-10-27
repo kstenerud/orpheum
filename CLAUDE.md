@@ -36,6 +36,7 @@ naming it on the command line. The wall is the branch gate, which fails any chan
 lacks the owner's `Gate-Changed:` trailer.
 
 **For the owner:** a session started with `ORPHEUM_ALLOW_GATE_EDIT=1` may edit gates, and one
-started with `ORPHEUM_ALLOW_DEPS=1` may add dependencies. Both are read from Claude Code's own
+started with `ORPHEUM_ALLOW_DEPS=1` may add dependencies. `1` covers the session alone: its subagents,
+which inherit the environment, stay refused unless the value is `agents`. Both are read from Claude Code's own
 environment, which nothing the agent runs can change. Use them for sessions whose job is gate or
 dependency work, not for feature work.

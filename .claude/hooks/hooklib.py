@@ -72,14 +72,18 @@ def deny(reason: str) -> None:
     )
 
 
-def owner_allows(variable: str) -> bool:
+def owner_allows(variable: str, event: dict[str, Any] | None = None) -> bool:
     """An override the owner sets when launching a session for gate or dependency work.
 
     It is read from Claude Code's own environment, which a command the agent runs cannot
-    change.
+    change. A subagent inherits that environment, so `1` alone would let every agent the session
+    starts edit gates too (an agent edited internal/archtest/ unrefused, 2026-10-26): `1` allows the
+    session itself, whose events carry no `agent_id`; `agents` allows its subagents as well.
     """
-    return os.environ.get(variable) == "1"
-
+    value = os.environ.get(variable)
+    if event is not None and event.get("agent_id"):
+        return value == "agents"
+    return value in ("1", "agents")
 
 def check_pr_running() -> dict[str, str] | None:
     """The check-pr run that holds this project's lock (scripts/check_pr_snapshot.py), as it recorded

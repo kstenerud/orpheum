@@ -589,16 +589,40 @@ class CheckStamp(unittest.TestCase):
             (root / "a.go").write_text("package a\n\nvar x = 1\n")
             with mock_argv(["check_stamp.py", "fresh"]):
                 self.assertEqual(stamp.main(), 1, "no gate has passed yet")
+            with mock_argv(["check_stamp.py", "begin"]):
+                self.assertEqual(stamp.main(), 0)
             with mock_argv(["check_stamp.py", "write"]):
                 self.assertEqual(stamp.main(), 0)
             with mock_argv(["check_stamp.py", "fresh"]):
                 self.assertEqual(stamp.main(), 1, "the index is not the tree the gate passed on")
+            with mock_argv(["check_stamp.py", "matches"]):
+                self.assertEqual(stamp.main(), 0, "the working tree is the one the gate passed on")
             subprocess.run(["git", "add", "-A"], check=True, env=env)
             with mock_argv(["check_stamp.py", "fresh"]):
                 self.assertEqual(stamp.main(), 0, "committing exactly the checked tree")
             (root / "b.go").write_text("package a\n")
             with mock_argv(["check_stamp.py", "fresh"]):
                 self.assertEqual(stamp.main(), 1, "a file appeared since the gate passed")
+        finally:
+            os.chdir(cwd)
+
+    def test_a_tree_edited_while_the_gate_ran_is_not_recorded_as_passed(self):
+        """The stamp race (gate-throughput A, 2026-10-26): only the tree the gate began on, unchanged."""
+        root = git_repo({"a.go": "package a\n"})
+        cwd = Path.cwd()
+        try:
+            os.chdir(root)
+            with mock_argv(["check_stamp.py", "begin"]):
+                stamp.main()
+            (root / "a.go").write_text("package a\n\nvar edited = 1\n")  # an edit while the gate runs
+            with mock_argv(["check_stamp.py", "write"]):
+                self.assertEqual(stamp.main(), 0)
+            with mock_argv(["check_stamp.py", "matches"]):
+                self.assertEqual(stamp.main(), 1, "the edited tree was never checked")
+            with mock_argv(["check_stamp.py", "write"]):
+                stamp.main()
+            with mock_argv(["check_stamp.py", "matches"]):
+                self.assertEqual(stamp.main(), 1, "a write with no begin records nothing")
         finally:
             os.chdir(cwd)
 

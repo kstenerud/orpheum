@@ -4,10 +4,14 @@
 # ABOUTME: need not run the gate a second time (the Stop hook has just run it).
 """The tree `make check` last passed on.
 
-`write` records the working tree as git would commit it with `git add -A` (tracked files and
-untracked ones not ignored). `fresh` succeeds only when the tree being committed, the index, is
+`begin` notes the working tree as the gate starts, and `write` records it as passed only if the tree
+is still that one when the gate ends: an edit made while the gate ran (a subagent in the same tree, an
+editor's save) was recorded as passed, and a commit of it skipped the gate (2026-10-26). The tree is
+the one git would commit with `git add -A` (tracked files and untracked ones not ignored). `fresh` succeeds only when the tree being committed, the index, is
 that same tree and the working tree has not changed since: the gate already passed on exactly
-what the commit records. Anything else, a partial commit or an edit since, runs the gate.
+what the commit records. Anything else, a partial commit or an edit since, runs the gate. `matches`
+succeeds when the working tree is the one the gate passed on, whatever the index: the Stop hook's
+question, so a turn that committed a checked tree does not run the gate on it again.
 """
 
 from __future__ import annotations
@@ -45,19 +49,39 @@ def stamp_path() -> Path:
     return Path(_git("rev-parse", "--git-path", "orpheum-check-passed"))
 
 
+def begun_path() -> Path:
+    return Path(_git("rev-parse", "--git-path", "orpheum-check-begun"))
+
+
+def passed_tree() -> str | None:
+    stamp = stamp_path()
+    return stamp.read_text().strip() if stamp.exists() else None
+
+
 def main() -> int:
     action = sys.argv[1] if len(sys.argv) > 1 else ""
+    if action == "begin":
+        begun_path().write_text(working_tree_id() + "\n")
+        return 0
     if action == "write":
-        stamp_path().write_text(working_tree_id() + "\n")
+        begun = begun_path()
+        started = begun.read_text().strip() if begun.exists() else None
+        begun.unlink(missing_ok=True)
+        now = working_tree_id()
+        if started != now:
+            stamp_path().unlink(missing_ok=True)
+            print("check_stamp: the tree changed while the gate ran, so it is not recorded as passed")
+            return 0
+        stamp_path().write_text(now + "\n")
         return 0
     if action == "fresh":
-        stamp = stamp_path()
-        if not stamp.exists():
-            return 1
-        passed = stamp.read_text().strip()
+        passed = passed_tree()
         committing = _git("write-tree")  # the index being committed, as the hook's git sets it
-        return 0 if passed == working_tree_id() == committing else 1
-    print("usage: check_stamp.py write|fresh", file=sys.stderr)
+        return 0 if passed is not None and passed == working_tree_id() == committing else 1
+    if action == "matches":
+        passed = passed_tree()
+        return 0 if passed is not None and passed == working_tree_id() else 1
+    print("usage: check_stamp.py begin|write|fresh|matches", file=sys.stderr)
     return 2
 
 
