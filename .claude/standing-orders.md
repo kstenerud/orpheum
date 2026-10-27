@@ -3,7 +3,9 @@
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
 2. **Done 2026-10-27:** the batch of D360–D362, D361's pages, the Play page's Back: accepted, on nas.example.
    **Now (owner 2026-10-27: "go ahead with the next batch"):** D363 recorded (overlap, copies, lists). Agents:
-   D363 build. Media fixes done (an earlier commit TS seek, an earlier commit readthrough; staging, protocol 51). After D363 lands: sorting both ways + release date, and per-person home visibility.
+   D363 merged (an earlier commit..d5750f8f; owner accepted its Test-Weakened), on staging (protocol 52, step 0060;
+   Series and shows overlap, 124 each, 124 in all). Media fixes done. Agents now: sorting both ways + release
+   date and per-person home visibility; the Icon component.
    `ssh prod-nas` (192.168.1.250): runs an earlier commit (bundle, branch sandbox-main), root /tank/media.
    **Next batch, first (decided 2026-10-27; the decision after D362):** libraries may overlap. Model (owner
    confirmed): the file is the base unit (scanned once, sidecars, watch progress); a file is part of at most

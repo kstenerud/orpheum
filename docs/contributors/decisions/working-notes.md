@@ -23181,7 +23181,7 @@ second file, shown twice
 - 11: TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack
 - 12: TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage, TestMigrate_Step0060RefusesAMixedLibrary, TestMigrate_FreshSchemaEqualsTheGolden, web/apps/web/src/libraries.test.tsx; VQ82
 
-**Status:** Decided 2026-10-27. Built 2026-10-27: the schema in
+**Status:** Decided 2026-10-27. Built 2026-10-27 (an earlier commit; the owner accepted its Test-Weakened changes): the schema in
 `internal/store/migrations/0060_libraries_overlap_and_a_file_is_found_at_places.sql` (places, coverage
 views, `file_filing`, `copy_of`, `whole_file_hash`, `item.filing_library_id`, the mixed kind refused);
 scanning each place once in `internal/core/library/scanroots.go`, `scans.go`, `schedule.go` and
