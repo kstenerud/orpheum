@@ -23219,3 +23219,36 @@ question per session); **keeps** D337 §1, §5's remote and split devices, §6 (
    video that was playing.
 
 **Status:** Decided 2026-10-27.
+
+## D365 — Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
+
+**Decided** (2026-10-27), by the project owner: "I'm fine with preferring the candidate whose runtime
+fits best. We could also look at the popularity of a film as a heuristic." The case: staging's
+*Crowd.2022.1080p.WEBRip* (92.1 minutes) was matched to TMDB 1120937, an obscure 2022
+*Crowd* of 88 minutes, by
+[D301 §1](#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page)'s
+"most votes among those of that year"; the film it is, TMDB 1020910 (92 minutes), TMDB dates 2023,
+its festival premiere 2022. A rule only passing over a candidate the file's length contradicts could
+not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's length by as much.
+**Revises** D301 §1 for films; series keep it, an episode's length saying little of its series.
+
+1. **A film's candidates are ranked by how their runtime fits the file's duration**, where the file's
+   duration and a candidate's runtime are both known: a candidate **fits** when they differ by at most
+   3 minutes or 3% of the runtime, the larger; one whose runtime is unknown neither fits nor
+   contradicts; one that differs by more contradicts. Fitting candidates come first, then those of
+   unknown runtime, then those that contradict. A fit only orders candidates whose names match (D172's
+   tiers); it never makes a match of a name that does not.
+2. **A year in the file's name or its NFO admits the candidates of that year and of a year either
+   side**, since a premiere and a release, or a release in two countries, fall in different years;
+   within one class of fit, the candidate of the named year comes before one a year off. With no year,
+   all the name's candidates are admitted.
+3. **Within that, the most popular is taken**: the most votes at the source, as D301 §1 has for a year
+   given; with no year in the name, the oldest, as D301 §1 has (Disney's *The Thief of Bagdad* over a later one),
+   the fit coming first.
+4. **The runtimes are fetched once and kept**: a candidate's runtime is read from the source's details
+   of it, as the matcher reads the rest, kept with the candidate (cache.db's `match_candidate`), and
+   fetched again only when the candidate is.
+5. **The choice says why** in the log: each candidate's year, runtime, votes and class of fit, and the
+   one taken, so a wrong guess explains itself.
+
+**Status:** Decided 2026-10-27.

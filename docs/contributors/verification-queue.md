@@ -762,3 +762,5 @@ An item is ticked only by the person who did it, and only with what they saw.
   in as a new device (sign out first, or from a fresh Silk profile): *Your devices* names it "Silk on
   Fire TV". A device signed in before keeps its name until renamed. (`web/apps/web/src/tv-controls.tsx`,
   `full-screen-button.tsx`, `focus-engine.ts`, `device.ts`)
+  Seen 2026-10-27 (the owner, staging): the button goes full screen and back; Left and Right on the
+  scrub bar seek, in full screen and out. Owed: the new device's name.
