@@ -810,10 +810,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   renamed away the admin's play read the copy (206; runs moved to the copy's place, logged), and the
   original's library folder made to vanish scanned as `unreadable`, nothing removed. Still owed: the
   owner's unplugged disk.
-- [ ] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
+- [x] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
   and watched marks are as they were. (`internal/store/migrations/0060_…`)
+  Passed 2026-10-27 (the owner, nas.example at an earlier commit): Continue Watching looks the same as before.
 - [x] **VQ83** — On staging and on the Fire TV stick, D366: on the Libraries page of a films library,
   the sort chooser offers *Name, A–Z* and *Z–A*, *Newest* and *Oldest released*, *Newest* and *Oldest
   added*, each reachable by the remote. Passes when *Name, Z–A* lists Z first, its address keeps
@@ -829,3 +830,6 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
   fresh Silk profile). Passes when *Your devices* names it "Silk on Fire TV"; a device signed in before
   keeps its name until renamed. (`web/apps/web/src/device.ts`, `tv-device.ts`)
+  Failed 2026-10-27 (the owner, nas.example): signed out and in again on the Fire TV, it is still listed as
+  "Chrome on Android". It signed in through the discovery's page over WebRTC, whose logged user agent is
+  empty: the name likely comes from the discovery's sign-in, not device.ts. Fixed in this batch.
