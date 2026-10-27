@@ -265,6 +265,11 @@ func (batch *ingestBatch) recordFiling(
 		if err != nil {
 			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
 		}
+		// No longer a video, it is no kind of library's video either: a filing a pass gave it before
+		// would outlive the row's own and say it is listed or unidentified (D163, D363 §6).
+		if err = batch.queries.DeleteFilingsOfFile(ctx, existing.ID); err != nil {
+			return fmt.Errorf("drop %s's filings as a video: %w", located.text, err)
+		}
 		return nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
