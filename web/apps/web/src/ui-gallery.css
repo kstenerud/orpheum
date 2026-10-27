@@ -42,6 +42,33 @@
   gap: var(--space-3);
 }
 
+/* A film's black ground, for the player's widgets drawn over one: a stage's shape, the bar along its
+   bottom; or a strip, for one button. */
+.ui-gallery__film {
+  position: relative;
+  max-width: 40rem;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  background: var(--color-video-background);
+}
+
+/* The bar along the film's bottom, on its scrim, as a computer's player draws it (page-controls.css). */
+.ui-gallery__bar {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: var(--space-6) var(--space-4) var(--space-3);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  background: linear-gradient(to top, var(--color-video-scrim), transparent);
+  color: var(--color-on-video);
+}
+
+.ui-gallery__film--strip {
+  display: inline-flex;
+  aspect-ratio: auto;
+  padding: var(--space-2);
+}
+
 /* The blank poster's mark, whose size is a share of the poster it sits in, at a poster's width. */
 .ui-gallery__blank-mark {
   display: flex;

@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The player's icons (player-icons.tsx), an icon's size wherever they are drawn. */
+.player-icons__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
