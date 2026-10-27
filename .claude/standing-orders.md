@@ -19,6 +19,10 @@
    - From VQ81: a play whose file is gone at one place (renamed, deleted) answers 404 instead of trying
      the person's next reached place; a vanished library folder is not marked unavailable when its scan's
      listing is refused ("no such file"), still "complete".
+   - The ladder's top rung plays the film's own sound, copied (5.1 where the device plays it), lower rungs the
+     chunk_sound_kbps stereo (owner 2026-10-27: nas.example's Chrome play heard "AAC stereo 96 kb/s, transcoded
+     from AAC stereo" at the top rung); HLS audio groups per variant; test a switch's blip on devices. And
+     the play line's `delivery=direct` on a chunked play says what was sent (startsOnLadderKbps was set).
    **After the icons, D364 and our own controls (owner 2026-10-27):** a DRY audit of the TS code toward a
    standard set of UI widgets, findings first, then the consolidation.
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
