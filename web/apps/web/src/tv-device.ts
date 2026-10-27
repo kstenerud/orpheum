@@ -12,9 +12,19 @@ export function isTelevision(userAgent: string): boolean {
   return televisionPattern.test(userAgent);
 }
 
+/** A Fire TV's model code, which its user agent names it by: AFTSSS, AFTKA, AFTMM... */
+const fireTvPattern = /\bAFT[A-Z0-9]+\b/u;
+
+/** Whether this browser runs on a Fire TV, by the model code its user agent names it by. */
+export function isFireTv(userAgent: string): boolean {
+  return fireTvPattern.test(userAgent);
+}
+
 /** The words a television's or a streaming stick's user agent says of itself. */
-const televisionPattern =
-  /\bAFT[A-Z0-9]+\b|Android TV|GoogleTV|Google TV|\bCrKey\b|Tizen|Web0S|webOS|BRAVIA|SmartTV|SMART-TV|HbbTV|\bAppleTV\b/iu;
+const televisionPattern = new RegExp(
+  `${fireTvPattern.source}|Android TV|GoogleTV|Google TV|\\bCrKey\\b|Tizen|Web0S|webOS|BRAVIA|SmartTV|SMART-TV|HbbTV|\\bAppleTV\\b`,
+  "iu",
+);
 
 /** What isBrowserFullscreen reads of a window and its browser. */
 export interface BrowserWindow {

@@ -7,7 +7,12 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BarePlayer } from "./bare-player.tsx";
-import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
+import {
+  answerPlayerCommand,
+  playerControlsAttribute,
+  seekStepMs,
+  usePlayerCommands,
+} from "./player-commands.ts";
 import { mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -117,6 +122,84 @@ describe("the bare player's answers to a remote's commands", () => {
     });
     expect(arrow.defaultPrevented).toBe(true);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
+    mounted.unmount();
+  });
+});
+
+/** What answers the commands for video, as the Play page and the bare player do. */
+function PlayerOf(props: { readonly video: HTMLVideoElement }): null {
+  usePlayerCommands(props.video);
+  return null;
+}
+
+/** Presses Space on what has focus, down and up, and whether each was taken from the browser. */
+function pressSpace(isRepeat = false): {
+  readonly isDownTaken: boolean;
+  readonly isUpTaken: boolean;
+} {
+  const target = document.activeElement ?? document.body;
+  const down = new KeyboardEvent("keydown", {
+    key: " ",
+    bubbles: true,
+    cancelable: true,
+    repeat: isRepeat,
+  });
+  const up = new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true });
+  act(() => {
+    target.dispatchEvent(down);
+    target.dispatchEvent(up);
+  });
+  return { isDownTaken: down.defaultPrevented, isUpTaken: up.defaultPrevented };
+}
+
+/** Gives element focus, as a click or a remote's move would. */
+function focusOn(element: HTMLElement): void {
+  act(() => {
+    // eslint-disable-next-line no-param-reassign -- focusable, as the player's video is made
+    element.tabIndex = -1;
+    element.focus();
+  });
+}
+
+describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.restoreAllMocks();
+  });
+
+  // Chrome pressed the browser's full-screen button a click had left focus on, and a cast's
+  // receiver, its video with no browser controls, did nothing.
+  it("plays and pauses wherever focus is in the player, and nowhere else", async () => {
+    const stage = document.createElement("div");
+    const video = videoAt(30);
+    const controls = document.createElement("div");
+    controls.setAttribute(playerControlsAttribute, "");
+    const scrub = document.createElement("input");
+    scrub.type = "range";
+    const upNext = document.createElement("button");
+    const outside = document.createElement("button");
+    controls.append(scrub);
+    stage.append(video, controls, upNext);
+    document.body.append(stage, outside);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    Object.defineProperty(video, "paused", { configurable: true, value: true });
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    for (const focused of [video, scrub]) {
+      focusOn(focused);
+      expect(pressSpace()).toEqual({ isDownTaken: true, isUpTaken: true });
+    }
+    act(() => {
+      scrub.blur();
+    });
+    expect(pressSpace().isDownTaken).toBe(true);
+    expect(play).toHaveBeenCalledTimes(3);
+    expect(pressSpace(true).isDownTaken).toBe(true); // held down: once is enough
+    expect(play).toHaveBeenCalledTimes(3);
+    for (const focused of [upNext, outside]) {
+      focusOn(focused);
+      expect(pressSpace()).toEqual({ isDownTaken: false, isUpTaken: false });
+    }
+    expect(play).toHaveBeenCalledTimes(3);
     mounted.unmount();
   });
 });

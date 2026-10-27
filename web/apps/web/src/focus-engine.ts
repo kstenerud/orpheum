@@ -279,9 +279,15 @@ export function caretOf(element: Element): Caret | undefined {
 }
 
 /**
+ * The attribute that marks a range whose Left and Right are commands, not its own steps: a player's
+ * scrub bar, whose arrows the player answers by seeking (tv-controls.tsx), as a TV's player does.
+ */
+export const arrowsAreCommandsAttribute = "data-focus-arrows-are-commands";
+
+/**
  * Whether an arrow in direction is element's own rather than ours: a text field's, by its caret
  * (isArrowTheFields), and every arrow while it composes; a range's Left and Right, which move its
- * value, Up and Down leaving it.
+ * value, Up and Down leaving it, but a range marked arrowsAreCommandsAttribute.
  */
 export function isArrowTheElements(
   element: Element,
@@ -293,5 +299,10 @@ export function isArrowTheElements(
     return isComposing || isArrowTheFields(direction, caret);
   }
   const isAcross = direction === "left" || direction === "right";
-  return element instanceof HTMLInputElement && element.type === "range" && isAcross;
+  return (
+    element instanceof HTMLInputElement &&
+    element.type === "range" &&
+    isAcross &&
+    !element.hasAttribute(arrowsAreCommandsAttribute)
+  );
 }

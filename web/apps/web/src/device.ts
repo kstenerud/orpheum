@@ -2,6 +2,8 @@
 
 import type { components } from "@orpheum/sdk";
 
+import { isFireTv } from "./tv-device.ts";
+
 /**
  * How this client names itself when it signs in (D217 §8): the person can rename it later. Its
  * fields are the API's own, so a renamed field fails to compile. previousDeviceId is the device
@@ -9,10 +11,14 @@ import type { components } from "@orpheum/sdk";
  */
 export type NewDevice = components["schemas"]["NewDeviceBody"] & { readonly platform: "web" };
 
-/** The browser's name, from its user agent: the first that matches, so Edge is not Chrome. */
+/**
+ * The browser's name, from its user agent: the first that matches, so Edge is not Chrome, nor Silk,
+ * whose agent says "like Chrome".
+ */
 function browserOf(userAgent: string): string | undefined {
   const browsers: readonly (readonly [RegExp, string])[] = [
     [/\bEdg(A|iOS)?\//, "Edge"],
+    [/\bSilk\//, "Silk"],
     [/\b(Firefox|FxiOS)\//, "Firefox"],
     [/\bSamsungBrowser\//, "Samsung Internet"],
     [/\b(Chrome|CriOS)\//, "Chrome"],
@@ -21,8 +27,15 @@ function browserOf(userAgent: string): string | undefined {
   return browsers.find(([pattern]) => pattern.test(userAgent))?.[1];
 }
 
-/** The system's name, from the user agent: Android before Linux, iPhone before Mac. */
+/**
+ * The system's name, from the user agent: a Fire TV by its model code before Android, whose Fire OS
+ * is (staging's device 33, a Fire TV, was "Chrome on Android"), Android before Linux, iPhone before
+ * Mac.
+ */
 function systemOf(userAgent: string): string | undefined {
+  if (isFireTv(userAgent)) {
+    return "Fire TV";
+  }
   const systems: readonly (readonly [RegExp, string])[] = [
     [/\bAndroid\b/, "Android"],
     [/\biPhone\b/, "iPhone"],

@@ -26,6 +26,7 @@ import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
+import { answerPlayerCommand } from "./player-commands.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
@@ -462,7 +463,9 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
  * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
  * hears it, or as a step back from the receiver's own history entry, kept as it starts; OK or a tap
  * twice within doublePressWithinMs, the second press taken from the page; and full screen left
- * unasked (useFullScreenLeftLeaves). Control is taken back once, however many of them come.
+ * unasked (useFullScreenLeftLeaves). Control is taken back once, however many of them come. A
+ * mouse's click on the video pauses or plays it (pauseOrPlayAtAClick), which a second click making
+ * it a double undoes, the film going on as it was.
  */
 function useLeavingPresses(
   navigation: Navigation,
@@ -495,12 +498,18 @@ function useLeavingPresses(
       },
       { isCapture: true },
     );
+    let pausedOrPlayedByFirst: HTMLVideoElement | undefined;
     const onClick = (event: MouseEvent): void => {
       const now = performance.now();
       // A click a key made (detail 0), or one following OK as the same press, is not a tap.
-      if (event.detail === 0 || now - lastSelectAt <= samePressWithinMs || !isSecondPress(now)) {
+      if (event.detail === 0 || now - lastSelectAt <= samePressWithinMs) {
         return;
       }
+      if (!isSecondPress(now)) {
+        pausedOrPlayedByFirst = pauseOrPlayAtAClick(event);
+        return;
+      }
+      undoPauseOrPlay(pausedOrPlayedByFirst);
       event.preventDefault();
       event.stopPropagation();
       takeBackRef.current();
@@ -517,6 +526,32 @@ function useLeavingPresses(
       window.removeEventListener("popstate", onBack);
     };
   }, [navigation, takeBackRef]);
+}
+
+/**
+ * Pauses or plays the video a mouse's click lands on, as a click on an ordinary page's video does,
+ * whose browser controls answer it; the receiver's video has a television's controls instead (D338
+ * §5), and a video with no browser controls does nothing at a click (the owner, Chrome, 2026-10-27).
+ * A tap opens the controls alone, as an ordinary page's on a phone does. Returns the video it paused
+ * or played, if any.
+ */
+function pauseOrPlayAtAClick(event: MouseEvent): HTMLVideoElement | undefined {
+  const { target } = event;
+  if (!(target instanceof HTMLVideoElement) || pressOf(event) !== "click") {
+    return undefined;
+  }
+  answerPlayerCommand(target, "playPause");
+  return target;
+}
+
+/**
+ * Undoes the pause or play a double click's first click made (pauseOrPlayAtAClick), so the double
+ * click that takes control back leaves the film as it was, playing on here (D338 §6).
+ */
+function undoPauseOrPlay(video: HTMLVideoElement | undefined): void {
+  if (video !== undefined) {
+    answerPlayerCommand(video, "playPause");
+  }
 }
 
 /** What calls once the latest given call, however often it is called itself. */
