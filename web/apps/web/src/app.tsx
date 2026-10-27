@@ -227,13 +227,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     return <Title key={route.itemId} id={route.itemId} />;
   }
   if (route.screen === "series-page") {
-    return (
-      <Series
-        key={`${String(route.collectionId)}/${String(route.season)}`}
-        id={route.collectionId}
-        season={route.season}
-      />
-    );
+    return <Series key={route.collectionId} id={route.collectionId} season={route.season} />;
   }
   if (route.screen === "play") {
     return (

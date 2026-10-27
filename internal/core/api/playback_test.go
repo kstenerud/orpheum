@@ -292,9 +292,16 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 	harness.shelveDVDOrder(t) // Metropolis (10, file 1); episodes 21-24 of series 20, files 2-5
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 30, Library: 1, Kind: "other", AddedAt: 3})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 6, TitleID: 30, CreatedAt: 3})
+	// Metropolis's trailer, an extra, which goes up to Metropolis's page (D367 §2).
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 31, Library: 1, Kind: "extra", AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 8, TitleID: 31, CreatedAt: 3})
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO extra_relation
+		(owner_title, extra_title, extra_type, asserted_by)
+		VALUES (10, 31, 'trailer', 'scanner')`)
 	for _, file := range []librarytest.FileSpec{
 		{ID: 6, Path: "/m/Home/Beach.mkv", PayloadHash: []byte{0x06}, Filing: "listed", VersionID: 6},
 		{ID: 7, Path: "/m/Unknown.mkv", PayloadHash: []byte{0x07}, Filing: "unidentified"},
+		{ID: 8, Path: "/m/Metropolis (1995)/Trailer.mkv", PayloadHash: []byte{0x08}, Filing: "listed", VersionID: 8},
 	} {
 		file.LibraryID, file.NodeID, file.SizeBytes = 1, 1, 10
 		librarytest.File(t, harness.database, file)
@@ -302,7 +309,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 	// Each a video a browser plays as it is.
 	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}}]}`
-	for fileID := int64(1); fileID <= 7; fileID++ {
+	for fileID := int64(1); fileID <= 8; fileID++ {
 		librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: fileID, ProbeJSON: mp4, DurationMs: 1000})
 	}
 	seen := func(fileID int64) string {
@@ -311,11 +318,17 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 			return "nothing"
 		}
 		text := fmt.Sprintf("%s %d in library %d", plays.Kind, plays.TitleID, plays.LibraryID)
+		if plays.LibraryID != 0 && plays.LibraryName == "" {
+			text += ", unnamed"
+		}
 		if episode := plays.Episode; episode != nil {
 			text += fmt.Sprintf(", series %d season %d %q", episode.SeriesID, episode.SeasonNumber, episode.Ordering)
 			if in := episode.InOrdering; in != nil {
 				text += fmt.Sprintf(" group %d", in.GroupNumber)
 			}
+		}
+		if film := plays.FilmOfExtra; film != nil {
+			text += fmt.Sprintf(", of film %d %q", film.ID, film.Name)
 		}
 		return text
 	}
@@ -324,6 +337,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 		4: `episode 23 in library 1, series 20 season 1 ""`,
 		6: "other 30 in library 1",
 		7: "nothing",
+		8: `extra 31 in library 1, of film 10 "Metropolis"`,
 	} {
 		if got := seen(fileID); got != want {
 			t.Errorf("file %d plays %s; want %s", fileID, got, want)

@@ -49,7 +49,11 @@ const inDVDOrder: SeriesDetail = { ...inAired, ordering: "tmdb:dvd" };
 describe("a series in the ordering its person chose (episode-orderings.md §4)", () => {
   it("heads its seasons with the ordering's groups, labels Next Up there, and lists what it leaves out", () => {
     const markup = renderToStaticMarkup(withServices(<SeriesView series={inDVDOrder} />));
-    expect(markup.indexOf("Disc 1")).toBeLessThan(markup.indexOf("Part 2"));
+    // One page whose season is picked (D367 §9): the season of Next Up first, by its group's name.
+    expect(markup).toContain(">Disc 1</h2>");
+    expect(
+      renderToStaticMarkup(withServices(<SeriesView series={inDVDOrder} season={2} />)),
+    ).toContain(">Part 2</h2>");
     expect(markup).toContain(">Play Disc 1 · 2</a>");
     expect(markup).toContain(">Not in this order</h2>");
     expect(markup).not.toContain("Season 1");
@@ -95,9 +99,10 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
       withServices(<SeriesView series={{ ...inAired, orderings: [aired] }} />),
     );
     expect(onlyAired).not.toContain("<select");
+    // One page whatever its season (D367 §9): the choice is offered at every season.
     expect(
       renderToStaticMarkup(withServices(<SeriesView series={inDVDOrder} season={1} />)),
-    ).not.toContain("<select");
+    ).toContain("<select");
   });
 
   it("keeps a choice, goes to the series' top page and reads it again (§7 Q10)", async () => {
@@ -106,6 +111,7 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
       {
         "PUT /collections/20/preferences": [204, null],
         "GET /collections/20/not-in-order": [200, { episodes: [] }],
+        "GET /collections/20/seasons/1": [200, { episodes: [] }],
       },
       heard,
       "token",
@@ -130,6 +136,9 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
       ["PUT /collections/20/preferences", { episodeOrdering: "aired" }],
     ]);
     expect(services.navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
+    // In place of the season it was at, a view of the same page, not a second copy of it behind
+    // (D367 §9; navigation-back-up-2026-10-27.md §3.23).
+    expect(services.navigation.behind()).toHaveLength(1);
     expect(reads).toBe(1);
   });
 });

@@ -3,7 +3,51 @@
 import { describe, expect, it } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
+import type { Route } from "./router.ts";
 import { fakePlace, testOrigin } from "./test-services.tsx";
+
+describe("navigation's Up (D367 §7)", () => {
+  const isSeries = (route: Route): boolean =>
+    route.screen === "series-page" && route.collectionId === 5;
+
+  it("keeps the addresses of this app's entries behind each one it adds, the nearest last", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "series-page", collectionId: 5 });
+    navigation.replace({ screen: "series-page", collectionId: 5, season: 2 });
+    navigation.go({ screen: "title", itemId: 12 });
+    expect(navigation.behind()).toEqual([
+      { screen: "home" },
+      { screen: "series-page", collectionId: 5, season: 2 },
+    ]);
+    // A reload reads them from the entry's state, as the browser keeps it.
+    expect(createNavigation(place, false).behind()).toHaveLength(2);
+  });
+
+  it("goes back to the nearest parent behind, however far, so Back after it never comes down", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "series-page", collectionId: 5 });
+    navigation.go({ screen: "title", itemId: 12 });
+    navigation.go({ screen: "play", fileId: 30 });
+    navigation.up({ screen: "series-page", collectionId: 5, season: 2 }, isSeries);
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 5 });
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+    navigation.back();
+    expect(navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("puts the parent in place of the page where none is behind, adding no entry", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "play", fileId: 30 });
+    navigation.up({ screen: "series-page", collectionId: 5, season: 2 }, isSeries);
+    expect(place.addresses).toEqual(["/", "/series/5?season=2"]);
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+    navigation.back();
+    expect(navigation.route()).toEqual({ screen: "home" });
+  });
+});
 
 describe("createNavigation", () => {
   it("reads the address, moves to a route and hears the back button", () => {

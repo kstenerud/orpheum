@@ -93,7 +93,7 @@ describe("playing a file", () => {
       ),
     );
     expect(named).toMatch(
-      /<\/button><h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="" data-focus-start="">/u,
+      /<\/nav><h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="" data-focus-start="">/u,
     );
     const unnamed = renderToStaticMarkup(
       withServices(
@@ -103,17 +103,23 @@ describe("playing a file", () => {
     expect(unnamed).not.toContain("play__title");
   });
 
-  it("offers a Back to the list the film was chosen from, first on the page (the owner, 2026-10-27)", () => {
+  it("offers its trail up to the film's page, first on the page, and no Back of its own (D367 §6, §8)", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
           fileId={2}
-          decision={directDecision({ titleName: "Metropolis" })}
+          decision={directDecision({
+            titleName: "Metropolis",
+            plays: { titleId: 10, kind: "movie", libraryId: 1, libraryName: "Films" },
+          })}
           onDecideAgain={() => undefined}
         />,
       ),
     );
-    expect(markup).toMatch(/^<button type="button" class="back-button">Back<\/button>/u);
+    expect(markup).toMatch(
+      /^<nav class="up-trail" aria-label="Where you are"><ol class="up-trail__crumbs"><li><a href="\/browse\?library=1">Films<\/a><\/li><li><a href="\/titles\/10">Metropolis<\/a><\/li><li aria-current="page">Playing<\/li><\/ol><\/nav>/u,
+    );
+    expect(markup).not.toContain("back-button");
   });
 
   it("says a film to convert that came with no ladder cannot be converted, rather than play it (D344)", () => {
@@ -207,7 +213,7 @@ describe("where a player moving to a lower quality goes on from", () => {
 });
 
 describe("the page above a Play page, where its Back goes with no page of this app behind it", () => {
-  it("is a film's own page and an extra's", () => {
+  it("is a film's own page, an extra's film's, and an extra's own where its film is not said", () => {
     expect(playUp({ titleId: 10, kind: "movie", libraryId: 1 })).toEqual({
       screen: "title",
       itemId: 10,
@@ -216,6 +222,10 @@ describe("the page above a Play page, where its Back goes with no page of this a
       screen: "title",
       itemId: 12,
     });
+    // D367 §2: an extra goes up to the film it belongs to.
+    expect(
+      playUp({ titleId: 12, kind: "extra", libraryId: 1, filmOfExtra: { id: 10, name: "Metropolis" } }),
+    ).toEqual({ screen: "title", itemId: 10 });
   });
 
   it("is an episode's series at its season, or at its group in the ordering the person chose", () => {

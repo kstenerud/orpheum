@@ -14,6 +14,7 @@ import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
 import { enWatched } from "./en-watched.ts";
 import { enOrderings } from "./en-orderings.ts";
+import { enNavigation } from "./en-navigation.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
@@ -33,6 +34,7 @@ export const en = {
   ...enWatched,
   ...enOrderings,
   ...enLab,
+  ...enNavigation,
   waits: {
     underAMinute: "less than a minute",
     aMinute: "about a minute",
@@ -210,12 +212,6 @@ export const en = {
     wrongPassword: "That is not your current password. Check it and try again.",
     notOnThisDevice:
       "This device was activated by a code, so it can watch and host but not change your password, remove devices or activate others. Do that on a device you signed in to with your password.",
-    librariesHeading: "Films and Series libraries",
-    librariesText:
-      "Films and Series gather every library below. Leave one out to keep its titles off those pages; it stays on the Libraries page.",
-    homeLibrariesHeading: "Libraries on Home",
-    homeLibrariesText:
-      "Home shows what you are watching and what is new from every library below. Leave one out to keep it off Home; it stays in Films, Series and the Libraries page.",
   },
   activate: {
     heading: "Activate a device",
@@ -305,7 +301,6 @@ export const en = {
     view: "View",
     viewAll: "All",
     viewFolders: "Folders",
-    folderUp: "Up",
     folderEmpty: "This folder holds no videos.",
     searchLabel: "Search the library chosen, or every one",
     searchSubmit: "Search",
@@ -324,8 +319,8 @@ export const en = {
   title: {
     runtime: "{{minutes}} min",
     season: "Season {{season}}",
-    episodeCount: "Episodes: {{count}}",
-    allSeasons: "All seasons",
+    seasonChoice: "Season",
+    seasonWithCount: "{{season}} · episodes: {{count}}",
     placeBetween: " · ",
     placeSeason: "season {{season}}",
     placeEpisode: ", episode {{number}}",

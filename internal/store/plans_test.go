@@ -266,6 +266,10 @@ func wholeReadsAllowed() map[string]string {
 		"IsArtworkReached":     folders + "whether a person reaches an image",
 		"IsFileReached":        folders + "whether a person reaches a file",
 		"IsItemReached":        folders + "whether a person reaches an item",
+		"ListLibrariesOfItem":  folders + "the libraries a title's or a series' page goes up to (D367)",
+		// No index leads from an extra to its film: the relation's few rows (a film's handful of extras)
+		// are read once as an extra's page or playing opens (D367 section 2).
+		"GetFilmOfExtra": "the extras' relations, few, read as an extra's page or playing opens (D367)",
 		"ListArtworkSourceSha256s": folders + "the artwork ceiling's daily sweep, for the images of what no " +
 			"library lists",
 		"ListEpisodesNotInOrdering":            folders + "a series' episodes an ordering leaves out",

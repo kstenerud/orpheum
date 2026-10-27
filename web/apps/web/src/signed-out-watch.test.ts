@@ -32,6 +32,10 @@ function recordingNavigation(went: Route[]): Navigation {
       }
       return up !== undefined;
     },
+    up: (parent) => {
+      went.push(parent);
+    },
+    behind: () => [],
     origin: () => testOrigin,
     fragment: () => "",
     subscribe: () => () => undefined,

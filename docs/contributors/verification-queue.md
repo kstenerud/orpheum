@@ -913,3 +913,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   and returns to the session by it. (`web/apps/web/src/status-tray.tsx`, `cast-remote.tsx`,
   `cast-to.tsx`, `cast-ready.tsx`, `cast-receiver.tsx`, `together-plays.tsx`, `live.tsx`,
   `internal/core/live/registry.go`, `internal/core/api/casts.go`)
+- [ ] **VQ91** — D367, Back and Up, and a library's Configure, on staging. Passes when, on a computer
+  or a phone, no page shows a Back of its own and each page below the top shows its trail
+  (`Series › Copper Kettle › S1E1 Pilot`), each part leading up: (1) Continue Watching on Home → play an
+  episode → the browser's (or the gesture's) Back returns Home; played again, the trail's series
+  shows the series at that episode's season, and Back from there returns Home, never to the player;
+  (2) a series at season 1 → play its last episode and let Up next (or its button) go on into season
+  2 → the trail's series shows season 2 with that episode focused, and Back leaves the series for
+  the page before it; (3) a series' season picker, a sort or a search on the Libraries page add no
+  step to Back; (4) on the Fire TV, reload on a playing film, then press the remote's Back at once,
+  before any other key: it goes to the film's page, not out of Silk, and the player's overlay
+  shows "‹ ‹film›" and Back, both reached by the arrows, each leaving the player (and, in TV Bro, its
+  Back too, since its remote's never reaches the page); (5) a library's Configure on its Libraries
+  page, opened by a click and by the remote's OK, shows Show in Films (or Series) for a films (or
+  series) library and Show on Home, each changing that page and Home at once; Escape, the remote's
+  Back and Close shut it, and the account page no longer lists libraries. On an iPhone's installed
+  app, the edge swipe goes back, from the player too. (`web/apps/web/src/navigation.ts`, `upward.ts`,
+  `up-trail.tsx`, `series.tsx`, `play-up.tsx`, `tv-controls.tsx`, `library-configure.tsx`)

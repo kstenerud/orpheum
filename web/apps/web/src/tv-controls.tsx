@@ -10,6 +10,7 @@ import type { FilmParts } from "./film-player.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
+import { OverlayUpAndBack } from "./play-up.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 
 /**
@@ -136,6 +137,7 @@ export function TvControls(props: FilmParts): JSX.Element {
       data-focus-container=""
       data-player-controls=""
     >
+      <OverlayUpAndBack />
       <PlayerControls
         source={source}
         controls={["play", "fullScreen", "timeline"]}

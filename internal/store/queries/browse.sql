@@ -547,3 +547,33 @@ WHERE library_place.library_id = sqlc.arg(library_id)
       AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
         < (library_place.copy_of IS NOT NULL, library_place.first_seen_at, library_place.place_id))
 ORDER BY library_place.path;
+
+-- name: ListLibrariesOfItem :many
+-- The live libraries that list an item, a title by one of its versions, a series by one of its
+-- episodes' (D363 section 8), by name: the libraries a person goes up to from its page (D367
+-- section 3).
+SELECT library.id, library.name
+FROM library
+WHERE library.removed_at IS NULL AND library.id IN (
+  SELECT version_library.library_id
+  FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+  WHERE version.title_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+  UNION
+  SELECT version_library.library_id
+  FROM collection_member
+  CROSS JOIN version ON version.title_id = collection_member.member_title
+  CROSS JOIN version_library ON version_library.version_id = version.id
+  WHERE collection_member.collection_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+)
+ORDER BY library.name, library.id;
+
+-- name: GetFilmOfExtra :one
+-- The title an extra belongs to, the lowest where several hold it, with its name: the page an
+-- extra's goes up to (D367 section 2).
+SELECT extra_relation.owner_title, item_text.name
+FROM extra_relation
+JOIN item ON item.id = extra_relation.owner_title
+LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_title AND item_text.is_original = 1
+WHERE extra_relation.extra_title = sqlc.arg(extra_title) AND item.removed_at IS NULL
+ORDER BY extra_relation.owner_title
+LIMIT 1;

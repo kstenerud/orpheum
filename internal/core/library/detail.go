@@ -402,11 +402,13 @@ func (browser *Browser) episodePage(
 type FileWork struct {
 	TitleID int64
 	// TitleKind is its title's kind (TitleKindMovie and the rest); "" for a file filed as no title.
-	TitleKind  string
-	Name       string
-	Path       string
-	LibraryID  int64
-	DurationMs int64
+	TitleKind string
+	Name      string
+	Path      string
+	LibraryID int64
+	// LibraryName is LibraryID's name, which the Play page's trail shows (D367 §8); "" for none.
+	LibraryName string
+	DurationMs  int64
 }
 
 // WorkOfFile is what a file is, the library named one reach reaches; library.ErrNoFile for one there
@@ -433,6 +435,13 @@ func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID
 			work.LibraryID = libraryID
 			break
 		}
+	}
+	if work.LibraryID != 0 {
+		library, err := queries.GetLibrary(ctx, work.LibraryID)
+		if err != nil {
+			return FileWork{}, fmt.Errorf("read the name of library %d: %w", work.LibraryID, err)
+		}
+		work.LibraryName = library.Name
 	}
 	return work, nil
 }

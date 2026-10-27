@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* Above a title's backdrop, which rises into the space over it. */
+/* A television player overlay's Back (D367 §6), beside its Up. */
 .back-button {
   position: relative;
-  margin-block-end: var(--space-2);
 }

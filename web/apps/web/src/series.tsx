@@ -3,12 +3,17 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { useCallback, useId, useState, type JSX } from "react";
+import { useCallback, useEffect, useId, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
-import { BackButton } from "./back-button.tsx";
-import type { Route } from "./router.ts";
+import { episodeReachedOf, letGoOfEpisodeReached, type EpisodeReached } from "./episode-reached.ts";
+import { restoreWhenDrawn } from "./focus-memory.ts";
+import { focusAndShow } from "./focus-navigation.ts";
+import { RouteChooser } from "./route-chooser.tsx";
+import { routeHref } from "./router.ts";
+import { UpTrail, useLibraryContext } from "./up-trail.tsx";
+import { libraryCrumb } from "./upward.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
 import { FilingReportButton } from "./filing-report.tsx";
@@ -45,15 +50,17 @@ function seasonName(t: TFunction, series: SeriesDetail, season: Season): string 
 }
 
 /**
- * A series' page: its art and what it is about, then its seasons, each leading to its episodes; or,
- * with season chosen, that season's episodes. A series of one season shows its episodes at once.
- * Every season's episodes on one page, the seasons only headings, was too long a list to find one
- * in (the owner, 2026-10-07: series, then seasons, then episodes). The seasons are the groups of the
- * ordering the person watches the series in, which a series of more than one offers to change; the
- * episodes that ordering leaves out follow them (episode-orderings.md §4, §7 Q4).
+ * A series' page, one page whatever season it shows (D367 §9): its art and what it is about, then one
+ * season's episodes, the season chosen by a picker, which changes the view and adds no step to the
+ * history; with none chosen, the season of the person's next episode, else the first. Every season's
+ * episodes on one page, the seasons only headings, was too long a list to find one in (the owner,
+ * 2026-10-07). The seasons are the groups of the ordering the person watches the series in, which a
+ * series of more than one offers to change; the episodes that ordering leaves out follow them
+ * (episode-orderings.md §4, §7 Q4).
  */
 export function SeriesView(props: {
   readonly series: SeriesDetail;
+  /** The season chosen, by the address or by an episode returned from; undefined for the default. */
   readonly season?: number | undefined;
   /** Told the series' match was corrected, an admin's (D301 §2): the page reads it again. */
   readonly onMatchCorrected?: () => void;
@@ -65,6 +72,7 @@ export function SeriesView(props: {
   const { series } = props;
   const seasons = series.seasons ?? [];
   const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
+  const shown = shownSeasonOf(series, props.season);
   return (
     <article className="series">
       <div className="series__head">
@@ -74,19 +82,19 @@ export function SeriesView(props: {
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
           {series.overview === undefined ? null : <p>{series.overview}</p>}
           <StatusNotes subject={series} />
-          {props.season === undefined && series.nextUp !== undefined ? (
+          {series.nextUp === undefined ? null : (
             <NextUpPlay
               nextUp={series.nextUp}
               ordering={series.ordering}
               isOnlyGroup={seasons.length === 1}
             />
-          ) : null}
-          {props.season === undefined ? (
-            <OrderingChoice series={series} onChosen={props.onOrderingChosen} />
-          ) : null}
-          {props.season === undefined ? (
-            <SeriesMark series={series} onChanged={onWatchedChanged} />
-          ) : null}
+          )}
+          <OrderingChoice series={series} onChosen={props.onOrderingChosen} />
+          <SeriesMark series={series} onChanged={onWatchedChanged} />
+          {/* Among the series' choices, where a remote's arrows reach it with them (D367 §9). */}
+          {shown === undefined || seasons.length === 1 ? null : (
+            <SeasonPicker series={series} shown={shown} />
+          )}
           {props.onMatchCorrected === undefined ? null : (
             <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
           )}
@@ -123,7 +131,7 @@ function useMarksCounted(
   ];
 }
 
-/** A whole series' Mark as watched, on its top page (D370 §4). */
+/** A whole series' Mark as watched, in its head (D370 §4). */
 function SeriesMark(props: {
   readonly series: SeriesDetail;
   readonly onChanged: (() => void) | undefined;
@@ -139,8 +147,8 @@ function SeriesMark(props: {
 }
 
 /**
- * A season's Mark as watched, on its page (D370 §4); none for a series of one season, marked whole
- * from its head.
+ * A season's Mark as watched, over the season the page shows (D370 §4); none for a series of one
+ * season, marked whole from its head.
  */
 function SeasonMark(props: {
   readonly series: SeriesDetail;
@@ -167,8 +175,19 @@ function SeasonMark(props: {
 }
 
 /**
- * Below a series' head: its seasons, each leading to its episodes, or the season chosen, or the one
- * season of a series that has one; then, on its top page, the episodes its ordering leaves out.
+ * The season a series' page shows: the one chosen, where the series has it; else the season of the
+ * person's next episode; else the first. Undefined for a series with no season.
+ */
+function shownSeasonOf(series: SeriesDetail, chosen: number | undefined): Season | undefined {
+  const seasons = series.seasons ?? [];
+  const numbered = (number: number | undefined): Season | undefined =>
+    seasons.find((season) => season.seasonNumber === number);
+  return numbered(chosen) ?? numbered(series.nextUp?.groupNumber) ?? seasons[0];
+}
+
+/**
+ * Below a series' head: the season shown, picked in the head, with its Mark as watched; then the
+ * episodes its ordering leaves out.
  */
 function SeriesSeasons(props: {
   readonly series: SeriesDetail;
@@ -179,29 +198,17 @@ function SeriesSeasons(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { series } = props;
-  const seasons = series.seasons ?? [];
-  const shown =
-    seasons.length === 1
-      ? seasons[0]
-      : seasons.find((season) => season.seasonNumber === props.season);
-  const isTop = props.season === undefined || seasons.length === 1;
+  const shown = shownSeasonOf(series, props.season);
   return (
     <>
-      {shown === undefined ? (
-        <SeasonList series={series} seasons={seasons} />
-      ) : (
+      {shown === undefined ? null : (
         <section aria-labelledby={`season-${String(shown.seasonNumber)}`}>
-          {seasons.length === 1 ? null : (
-            <Link to={{ screen: "series-page", collectionId: series.id }}>
-              {t("title.allSeasons")}
-            </Link>
-          )}
           <h2 id={`season-${String(shown.seasonNumber)}`}>{seasonName(t, series, shown)}</h2>
           <SeasonMark series={series} season={shown} onChanged={props.onWatchedChanged} />
           <SeasonEpisodes key={props.marks} seriesId={series.id} season={shown.seasonNumber} />
         </section>
       )}
-      {isTop && (series.notInOrderingCount ?? 0) > 0 ? (
+      {(series.notInOrderingCount ?? 0) > 0 ? (
         <section aria-labelledby="not-in-order">
           <h2 id="not-in-order">{t("ordering.notInThisOrder")}</h2>
           <NotInOrderEpisodes seriesId={series.id} />
@@ -247,8 +254,9 @@ export function NextUpPlay(props: {
 /**
  * The orderings a series has, to choose the one the person watches it in (D159 §1): offered only when
  * it has more than one, aired first, each by its label with its kind and how many of the series'
- * episodes it holds (or its provider lists, before it holds any). A choice keeps it and goes to the
- * series' top page, where a season of the order left means nothing (episode-orderings.md §7 Q10);
+ * episodes it holds (or its provider lists, before it holds any). A choice keeps it and shows the
+ * series at its default season, a season of the order left meaning nothing (episode-orderings.md §7
+ * Q10);
  * one chosen before its contents were fetched says it is being fetched until it is (§4).
  */
 export function OrderingChoice(props: {
@@ -280,7 +288,8 @@ export function OrderingChoice(props: {
                 body: { episodeOrdering: chosen },
               }),
             );
-            navigation.go({ screen: "series-page", collectionId: series.id });
+            // Another ordering is a view of the same series: no step in the history (D367 §9).
+            navigation.replace({ screen: "series-page", collectionId: series.id });
             props.onChosen?.();
           });
         }}
@@ -318,36 +327,33 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
 }
 
 /**
- * A series' seasons, each with its first episode's still and how many episodes it has, and the
- * check once its person watched every one (D370 §3).
+ * The picker of a series' seasons, each by its name and how many episodes it holds, with the check
+ * once its person watched every one (D370 §3): a choice is a view of the series, which replaces the
+ * history's entry (D367 §9).
  */
-function SeasonList(props: {
+function SeasonPicker(props: {
   readonly series: SeriesDetail;
-  readonly seasons: readonly Season[];
+  readonly shown: Season;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { series } = props;
   return (
-    <ol className="series__episodes">
-      {props.seasons.map((season) => (
-        <li key={season.seasonNumber}>
-          <Link
-            to={{
-              screen: "series-page",
-              collectionId: props.series.id,
-              season: season.seasonNumber,
-            }}
-            className="series__episode"
-          >
-            <Still sourceSha256={season.stillSha256} className="series__still" />
-            <span>{seasonName(t, props.series, season)}</span>
-            <span className="series__absent">
-              {t("title.episodeCount", { count: season.episodeCount })}
-            </span>
-            {season.isWatched === true ? <WatchedRowMark /> : null}
-          </Link>
-        </li>
-      ))}
-    </ol>
+    <RouteChooser
+      fieldLabel={t("title.seasonChoice")}
+      isFieldLabelShown={false}
+      current={seasonName(t, series, props.shown)}
+      options={(series.seasons ?? []).map((season) => ({
+        key: String(season.seasonNumber),
+        label: t("title.seasonWithCount", {
+          season: seasonName(t, series, season),
+          count: season.episodeCount,
+        }),
+        to: { screen: "series-page", collectionId: series.id, season: season.seasonNumber },
+        isCurrent: season.seasonNumber === props.shown.seasonNumber,
+        aside: season.isWatched === true ? <WatchedRowMark /> : undefined,
+      }))}
+      isAView
+    />
   );
 }
 
@@ -496,21 +502,42 @@ function EpisodeList(props: {
   );
 }
 
-/**
- * The page above a series' page: with a season chosen, the series' seasons, unless it has one season,
- * whose episodes its own page shows; else the series.
- */
-export function seriesUp(id: number, season: number | undefined, series?: SeriesDetail): Route {
-  const isOneSeason = series !== undefined && (series.seasons ?? []).length === 1;
-  return season === undefined || isOneSeason
-    ? { screen: "series" }
-    : { screen: "series-page", collectionId: id };
-}
-
 /** The series' pages this tab has shown. */
 const rememberedSeries = new Remembered<SeriesDetail>();
 
-/** A series' page, loaded by its id: its seasons, or the season chosen. */
+/**
+ * Returning to a series from one of its episodes (D367 §9): the season of the episode last reached,
+ * its page or its playing, in place of the season the entry held, and that episode focused once
+ * drawn; the season the address names otherwise. Returns the season to show.
+ */
+function useSeasonReturnedTo(seriesId: number, season: number | undefined): number | undefined {
+  const { navigation } = useServices();
+  const [arrival] = useState<EpisodeReached | undefined>(() => episodeReachedOf(seriesId));
+  // The arrival's season, shown until the address holds it; then the address's, the picker's.
+  const [arriving, setArriving] = useState(arrival);
+  if (arriving !== undefined && arriving.season === season) {
+    setArriving(undefined);
+  }
+  useEffect(() => {
+    if (arrival === undefined) {
+      return undefined;
+    }
+    letGoOfEpisodeReached(seriesId, arrival);
+    const at = arrival.season;
+    navigation.replace(
+      at === undefined
+        ? { screen: "series-page", collectionId: seriesId }
+        : { screen: "series-page", collectionId: seriesId, season: at },
+    );
+    const episode = routeHref({ screen: "title", itemId: arrival.episodeId });
+    return restoreWhenDrawn({ href: episode, ordinal: 0 }, document.body, (element) => {
+      focusAndShow(element, false);
+    });
+  }, [arrival, seriesId, navigation]);
+  return arriving === undefined ? season : arriving.season;
+}
+
+/** A series' page, loaded by its id, at the season chosen or returned to. */
 export function Series(props: {
   readonly id: number;
   readonly season?: number | undefined;
@@ -528,20 +555,25 @@ export function Series(props: {
     useBackgroundChangesPoller(),
   );
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
-  // A season's page is that season's look; a series of one season shows its episodes on the
-  // series' own page, whose look is the series', the same episodes.
-  usePageInterest(props.id, props.season);
+  const season = useSeasonReturnedTo(props.id, props.season);
+  // A season chosen is that season's look; the default the series' own.
+  usePageInterest(props.id, season);
+  const context = useLibraryContext();
+  const value = series.state === "loaded" ? series.value : undefined;
   return (
     <>
-      <BackButton
-        up={seriesUp(props.id, props.season, series.state === "loaded" ? series.value : undefined)}
+      <UpTrail
+        upward={{
+          crumbs: [libraryCrumb("series", value?.libraries ?? undefined, context)],
+          here: value?.name ?? "",
+        }}
       />
       <Loaded
         resource={series}
-        render={(value) => (
+        render={(shown) => (
           <SeriesView
-            series={value}
-            season={props.season}
+            series={shown}
+            season={season}
             onMatchCorrected={reload}
             onOrderingChosen={reload}
             onWatchedChanged={reload}

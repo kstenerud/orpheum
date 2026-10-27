@@ -19,6 +19,11 @@ export function Link(props: {
    * jsx-a11y-x refuses.
    */
   readonly onNavigate?: () => void;
+  /**
+   * Whether following it replaces the current entry in the history rather than adding one: a view
+   * of the same page, a season or a sort (D367 §9).
+   */
+  readonly isReplacing?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { navigation } = useServices();
@@ -27,7 +32,11 @@ export function Link(props: {
       event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
     if (isPlain) {
       event.preventDefault();
-      navigation.go(props.to);
+      if (props.isReplacing === true) {
+        navigation.replace(props.to);
+      } else {
+        navigation.go(props.to);
+      }
       props.onNavigate?.();
     }
   };

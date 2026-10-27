@@ -10,10 +10,11 @@ import type { Route } from "./router.ts";
 import { useServices } from "./services.tsx";
 
 /**
- * A drill-down page's Back, at its top: the page before when it was this app's, else up to the
- * page above, up. A browser on a TV keeps its own back out of reach of the remote (the owner,
- * 2026-10-24: TV Bro), so a page one drilled into needs its own way out. A remote's, a keyboard's
- * or a controller's Back goes where it does while it shows (input-layer.tsx).
+ * An on-screen Back: the page before when it was this app's, else up to the page above, up. Only a
+ * television's player overlay shows one (D367 §6): TV Bro keeps its remote's Back from the page, and
+ * the app cannot tell it from Silk, whose remote's Back is the history's; a computer's and a phone's
+ * Back is the browser's, the gesture's or the remote's own. A remote's, a keyboard's or a
+ * controller's Back goes where it does while it shows (input-layer.tsx).
  */
 export function BackButton(props: { readonly up: Route }): JSX.Element {
   const { t } = useTranslation();

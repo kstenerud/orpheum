@@ -131,6 +131,30 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 	return i, err
 }
 
+const getFilmOfExtra = `-- name: GetFilmOfExtra :one
+SELECT extra_relation.owner_title, item_text.name
+FROM extra_relation
+JOIN item ON item.id = extra_relation.owner_title
+LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_title AND item_text.is_original = 1
+WHERE extra_relation.extra_title = ?1 AND item.removed_at IS NULL
+ORDER BY extra_relation.owner_title
+LIMIT 1
+`
+
+type GetFilmOfExtraRow struct {
+	OwnerTitle int64
+	Name       *string
+}
+
+// The title an extra belongs to, the lowest where several hold it, with its name: the page an
+// extra's goes up to (D367 section 2).
+func (q *Queries) GetFilmOfExtra(ctx context.Context, extraTitle int64) (GetFilmOfExtraRow, error) {
+	row := q.db.QueryRowContext(ctx, getFilmOfExtra, extraTitle)
+	var i GetFilmOfExtraRow
+	err := row.Scan(&i.OwnerTitle, &i.Name)
+	return i, err
+}
+
 const getPlaceInOrdering = `-- name: GetPlaceInOrdering :one
 SELECT position.group_number, position.number_in_group,
   (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
@@ -671,6 +695,54 @@ func (q *Queries) ListLibrariesOfFile(ctx context.Context, fileID int64) ([]int6
 			return nil, err
 		}
 		items = append(items, library_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibrariesOfItem = `-- name: ListLibrariesOfItem :many
+SELECT library.id, library.name
+FROM library
+WHERE library.removed_at IS NULL AND library.id IN (
+  SELECT version_library.library_id
+  FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+  WHERE version.title_id = ?1 AND version.removed_at IS NULL
+  UNION
+  SELECT version_library.library_id
+  FROM collection_member
+  CROSS JOIN version ON version.title_id = collection_member.member_title
+  CROSS JOIN version_library ON version_library.version_id = version.id
+  WHERE collection_member.collection_id = ?1 AND version.removed_at IS NULL
+)
+ORDER BY library.name, library.id
+`
+
+type ListLibrariesOfItemRow struct {
+	ID   int64
+	Name string
+}
+
+// The live libraries that list an item, a title by one of its versions, a series by one of its
+// episodes' (D363 section 8), by name: the libraries a person goes up to from its page (D367
+// section 3).
+func (q *Queries) ListLibrariesOfItem(ctx context.Context, itemID int64) ([]ListLibrariesOfItemRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibrariesOfItem, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibrariesOfItemRow{}
+	for rows.Next() {
+		var i ListLibrariesOfItemRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

@@ -20,8 +20,20 @@
   display: none;
 }
 
-.tv-controls[data-shown="scrub"] .player-controls__buttons {
+.tv-controls[data-shown="scrub"] .player-controls__buttons,
+.tv-controls[data-shown="scrub"] .tv-controls__leave {
   visibility: hidden;
+}
+
+/* The way out of the player (D367 §6, §8): Up, "‹ Copper Kettle", and Back, above the bar. */
+.tv-controls__leave {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.tv-controls__up {
+  color: inherit;
 }
 
 /* The stage full screen, as a television's player opens, or filling the window where the browser

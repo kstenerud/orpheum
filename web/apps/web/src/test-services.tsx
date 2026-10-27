@@ -50,6 +50,14 @@ export function fakePlace(start: string): FakePlace {
           popstate();
         }
       },
+      go: (delta) => {
+        const to = at + delta;
+        if (delta !== 0 && to >= 0 && to < addresses.length) {
+          at = to;
+          show(addresses[at] ?? "/");
+          popstate();
+        }
+      },
       pushState: (data, _unused, to) => {
         addresses.length = at + 1;
         states.length = at + 1;
