@@ -120,6 +120,43 @@ func TestMatch_ALeadingArticleIsNoPartOfTheName(t *testing.T) {
 	}
 }
 
+// A name matched both as it is and with an article set aside is the one named exactly: the file's
+// "Crowd" is TMDB's "Crowd", not the better voted "The Crowd" of its year, and the
+// other way round; matched clearly, no guess (the owner's staging, 2026-10-27).
+func TestMatch_ANameMatchedExactlyWinsOverOneMatchedWithAnArticleAside(t *testing.T) {
+	t.Parallel()
+	for _, each := range []struct {
+		file, query, want string
+	}{
+		{"Crowd (2022).mkv", "Crowd", "31"},
+		{"The Crowd (2022).mkv", "The Crowd", "32"},
+	} {
+		lib := newTestLibrary(t, "movies", "tmdb")
+		plain := lib.provider.Add(identify.Metadata{
+			ID: "31", Name: "Crowd", OriginalName: "Crowd", Year: 2022,
+		})
+		plain.Votes = 50
+		withArticle := lib.provider.Add(identify.Metadata{
+			ID: "32", Name: "The Crowd", OriginalName: "The Crowd", Year: 2022,
+		})
+		withArticle.Votes = 5000
+		if each.want == "32" {
+			plain.Votes, withArticle.Votes = 5000, 50
+		}
+		lib.provider.Searches[identifytest.SearchKey(each.query, 2022)] = []identify.Candidate{withArticle, plain}
+		lib.scan(videoRecord(each.file))
+		if outcome := lib.matchFileTitle(each.file); outcome != identify.OutcomeMatched {
+			t.Fatalf("%s: outcome %s, want matched", each.file, outcome)
+		}
+		if !slices.Contains(lib.provider.Calls, "fetch "+each.want) {
+			t.Errorf("%s: %s was not fetched as its match: %v", each.file, each.want, lib.provider.Calls)
+		}
+		if lib.isGuessed(lib.titlesByPath()[each.file].TitleID) {
+			t.Errorf("%s is marked a guess; want it matched clearly by its exact name", each.file)
+		}
+	}
+}
+
 // isGuessed is whether an item's match is marked a guess.
 func (lib *testLibrary) isGuessed(itemID int64) bool {
 	lib.t.Helper()

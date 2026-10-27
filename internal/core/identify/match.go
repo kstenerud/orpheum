@@ -294,6 +294,7 @@ func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Cand
 				found = append(found, candidate)
 			}
 		}
+		found = namedExactly(query, found)
 		switch {
 		case len(found) == 1 && (query.Year != 0 || !isYearExpected):
 			return found[0], clearly
@@ -311,6 +312,30 @@ func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Cand
 		return other, byGuess
 	}
 	return Candidate{}, unsettled
+}
+
+// namedExactly is those of found named as the query is, its leading article and all, when any is and
+// others are named so only once an article is set aside: a file's "Crowd" is TMDB's
+// "Crowd", not "The Crowd" of the same year (the owner's staging, 2026-10-27). With none
+// so named, or all, it is found as it is.
+func namedExactly(query Query, found []Candidate) []Candidate {
+	if len(found) < 2 {
+		return found
+	}
+	want := textindex.SameWork(strings.Join(wordsOf(query.Name), " "))
+	var exact []Candidate
+	for _, candidate := range found {
+		for _, name := range []string{candidate.Name, candidate.OriginalName} {
+			if name != "" && textindex.SameWork(strings.Join(wordsOf(name), " ")) == want {
+				exact = append(exact, candidate)
+				break
+			}
+		}
+	}
+	if len(exact) == 0 {
+		return found
+	}
+	return exact
 }
 
 // searchFoundTheWorkAtMost is how many candidates a search whose names all differ from the query's
