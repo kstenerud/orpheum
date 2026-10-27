@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -67,10 +69,17 @@ func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, co
 }
 
 // runList lists under one of the node's roots, or a library folder inside one. A root the node was
-// not given is refused, whatever the core asks (D107); a listing stopped partway says so with its
-// records, and never that it is complete.
+// not given is refused, whatever the core asks (D107), and so is a folder reached through a link; a
+// library folder that cannot be opened, gone or unreadable, is listed as a root that could not be
+// read (scan.FolderNotOpened); a listing stopped partway says so with its records, and never that it
+// is complete.
 func (agent *Agent) runList(ctx context.Context, command nodeproto.List) nodeproto.Listing {
 	root, done, err := agent.mediaRootOf(command.RootPath)
+	if err != nil && !errors.Is(err, errNotGiven) && !errors.Is(err, confine.ErrNotARealFolder) {
+		agent.logger.WarnContext(ctx, "a library folder could not be opened; it is listed as unreadable",
+			"rootPath", command.RootPath, "err", err)
+		return nodeproto.Listing{Records: scan.FolderNotOpened(command.RootPath, os.Geteuid(), os.Getegid(), err)}
+	}
 	if err != nil {
 		agent.logger.WarnContext(ctx, "refused a listing", "rootPath", command.RootPath, "err", err)
 		return nodeproto.Listing{Refusal: err.Error()}

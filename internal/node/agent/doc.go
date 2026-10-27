@@ -40,7 +40,9 @@
 //     a run reads a file named under it (D359 §1, §4).
 //     TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink,
 //     TestAgent_RefusesALibraryFolderReachedThroughALinkOrClimbingOutOfItsRoot,
-//     TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot.
+//     TestAgent_ReadsThroughAVideoNamedUnderALibraryFolderInsideARoot. A library folder that is gone
+//     is listed as a root that could not be read, never refused, so the core keeps its files and
+//     marks it unavailable (D241 §2). TestAgent_ListsALibraryFolderThatIsGoneAsARootThatCouldNotBeRead.
 //   - A listing or an examining holds no slot, only its device's reader; an examining, which reads in
 //     the node's own process, waits between files while it is paused (D240 §5, §6).
 //     TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice,

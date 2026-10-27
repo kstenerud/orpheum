@@ -59,6 +59,23 @@ func NewScanner(roots []*confine.MediaRoot, prober Prober, options Options) *Sca
 	return &Scanner{roots: roots, prober: prober, options: options}
 }
 
+// FolderNotOpened is the listing of a library folder inside a root that could not be opened, for
+// cause: gone, or not readable. It begins and completes as the folder's listing, with an error of
+// the root's scope between, as a root whose facts cannot be read is listed: that withholds every
+// removal, and the core marks the folder unavailable until a listing reads it (D40, D241 §2). A
+// vanished folder's listing was refused instead, and the folder left as complete (staging,
+// 2026-10-27, VQ81). Its uid and gid are the node's effective ids, as Options holds them.
+func FolderNotOpened(rootPath string, uid, gid int, cause error) []nodeproto.ScanRecord {
+	return []nodeproto.ScanRecord{
+		{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: rootPath, UID: uid, GID: gid}},
+		{Type: nodeproto.RecordError, Error: &nodeproto.ScanError{
+			Path: toNodePath("."), Scope: nodeproto.ScopeRoot, Code: classify(cause), OccurrenceCount: 1,
+			PlatformError: platformError(cause, nil),
+		}},
+		{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: rootPath, ErrorCount: 1}},
+	}
+}
+
 // location is where an entry is read from — a media root and a path inside it — and the path
 // it is reported under, relative to the root being listed. They differ below a followed link.
 type location struct {
