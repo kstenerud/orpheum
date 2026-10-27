@@ -50,7 +50,7 @@
   border-color: var(--color-status);
   background: var(--color-status);
   color: var(--color-on-status);
-  box-shadow: 0 0 0 calc(var(--level, 0) * 0.65rem) rgb(124 200 255 / 35%);
+  box-shadow: 0 0 0 calc(var(--level, 0) * 0.65rem) var(--color-status-ring);
 }
 
 .together-voice__talk[data-starting] {

@@ -46,7 +46,23 @@
   --color-status: #7cc8ff;
   /* Words and icons on the status blue (D281 §7's Talk button, on). */
   --color-on-status: #04263d;
+  /*
+   * What is drawn over a film, whatever the page's own colours (D369): the film's black ground; the
+   * words and icons over it; a scrim along a bar of controls, strongest at the edge it fades from; a
+   * card over the film (Up next, a receiver's lines); and a control's ground there.
+   */
   --color-video-background: #000000;
+  --color-on-video: #ffffff;
+  --color-video-scrim: rgb(0 0 0 / 85%);
+  --color-video-card: rgb(0 0 0 / 80%);
+  --color-video-control: rgb(255 255 255 / 12%);
+  /* A small shade over a poster's art, under a cue or a progress bar, so it reads on any art. */
+  --color-art-shade: rgb(0 0 0 / 55%);
+  /* What dims the page behind a modal dialog; a drop-down dims it less, its screen kept in view. */
+  --color-backdrop: rgb(0 0 0 / 65%);
+  --color-backdrop-light: rgb(0 0 0 / 35%);
+  /* The Talk button's level ring, the status blue (--color-status) seen through. */
+  --color-status-ring: rgb(124 200 255 / 35%);
   --color-qr-background: #ffffff;
   --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);
   --shadow-card-hover: 0 6px 18px rgb(0 0 0 / 55%);

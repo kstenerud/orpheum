@@ -72,13 +72,13 @@
   margin: 0 var(--space-2) var(--space-2);
   border: 0;
   border-radius: var(--radius-pill);
-  background: rgb(0 0 0 / 55%);
+  background: var(--color-art-shade);
   appearance: none;
 }
 
 .poster-card__art > progress::-webkit-progress-bar {
   border-radius: var(--radius-pill);
-  background: rgb(0 0 0 / 55%);
+  background: var(--color-art-shade);
 }
 
 .poster-card__art > progress::-webkit-progress-value {
@@ -137,7 +137,7 @@
   display: inline-flex;
   padding: var(--space-1);
   border-radius: var(--radius-control);
-  background: rgb(0 0 0 / 55%);
+  background: var(--color-art-shade);
   line-height: 0;
 }
 

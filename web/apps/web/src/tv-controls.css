@@ -12,8 +12,8 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-7) var(--space-6) var(--space-5);
-  background: linear-gradient(to top, rgb(0 0 0 / 85%), transparent);
-  color: #fff;
+  background: linear-gradient(to top, var(--color-video-scrim), transparent);
+  color: var(--color-on-video);
 }
 
 .tv-controls[data-shown="none"] {
@@ -38,8 +38,8 @@
   height: 3rem;
   border: 0;
   border-radius: var(--radius-pill);
-  background: rgb(255 255 255 / 12%);
-  color: #fff;
+  background: var(--color-video-control);
+  color: var(--color-on-video);
   font-size: 1.25rem;
 }
 
@@ -74,7 +74,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: #000;
+  background: var(--color-video-background);
 }
 
 .film-player__stage--fills-window .film-player__video {
@@ -87,7 +87,7 @@
 .film-player__stage:fullscreen {
   display: grid;
   place-items: center;
-  background: #000;
+  background: var(--color-video-background);
 }
 
 .film-player__stage:fullscreen .film-player__video {

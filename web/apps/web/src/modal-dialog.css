@@ -31,10 +31,10 @@
 }
 
 .modal-dialog::backdrop {
-  background: rgb(0 0 0 / 65%);
+  background: var(--color-backdrop);
 }
 
 /* A drop-down's backdrop is dimmed less: the screen it came from stays in view behind it. */
 .modal-dialog--drop-down::backdrop {
-  background: rgb(0 0 0 / 35%);
+  background: var(--color-backdrop-light);
 }
