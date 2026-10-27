@@ -22,9 +22,11 @@ import {
   forgetHousehold,
   changedFrom,
   goneFrom,
-  households,
+  listedHouseholds,
   markHouseholdGone,
+  markHouseholdSignedOut,
   rememberHousehold,
+  signedOutFrom,
   switchedFrom,
   type Household,
 } from "./loader-households.ts";
@@ -99,7 +101,13 @@ export function startAtLoaderOrigin(at: AtLoaderOrigin): JSX.Element | undefined
   if (gone !== undefined) {
     markHouseholdGone(storage, gone);
   }
-  const kept = households(storage).filter((household) => household.isGone !== true);
+  const signedOut = signedOutFrom(location.search, at.referrer, (coreId) =>
+    clientAddressOf(config, coreId),
+  );
+  if (signedOut !== undefined) {
+    markHouseholdSignedOut(storage, signedOut);
+  }
+  const kept = listedHouseholds(storage);
   const scanned = scannedAt(location);
   if (wentToTheOne(at, kept, scanned)) {
     return undefined;
@@ -140,9 +148,9 @@ function LoaderPage(props: {
   const { at, scanned } = props;
   const [isJoining, setIsJoining] = useState(!props.isListFirst && scanned === undefined);
   const [isUsingCode, setIsUsingCode] = useState(false);
-  // A household gone is kept for the warning a realm sign-in gives (D312 §2), never listed.
-  const live = (): readonly Household[] =>
-    households(at.storage).filter((household) => household.isGone !== true);
+  // A household gone or signed out of is kept for the warning a realm sign-in gives (D312 §2),
+  // never listed.
+  const live = (): readonly Household[] => listedHouseholds(at.storage);
   const [listed, setListed] = useState(live);
   if (isUsingCode) {
     return (

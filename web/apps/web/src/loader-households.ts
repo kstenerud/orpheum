@@ -22,6 +22,12 @@ export interface Household {
    * realm sign-in that finds another core for its realm warns first (D312 §2).
    */
   readonly isGone?: boolean;
+  /**
+   * Whether its person signed out there, or was signed out: kept, as one gone is, not gone to, where
+   * only the core's own sign-in waited, the page offering the discovery's sign-in instead (the
+   * owner's Fire TV, 2026-10-27).
+   */
+  readonly isSignedOut?: boolean;
 }
 
 /** Where the list is kept. */
@@ -53,6 +59,7 @@ function householdOf(kept: unknown): Household | undefined {
     name: stringField(kept, "name") ?? "",
     lastUsedAt,
     isGone: Reflect.get(kept, "isGone") === true,
+    isSignedOut: Reflect.get(kept, "isSignedOut") === true,
   };
 }
 
@@ -83,6 +90,13 @@ function keep(refusable: StringStorage | undefined, kept: readonly Household[]):
   );
 }
 
+/** The households kept that the list shows and goes to: neither gone nor signed out of. */
+export function listedHouseholds(refusable: StringStorage | undefined): readonly Household[] {
+  return households(refusable).filter(
+    (household) => household.isGone !== true && household.isSignedOut !== true,
+  );
+}
+
 /**
  * Keeps household as the last used, in place of any entry for the same core; a name it does not say
  * keeps the one the entry had.
@@ -102,6 +116,7 @@ export function rememberHousehold(
       ...household,
       name: household.name === "" ? (earlier?.name ?? "") : household.name,
       isGone: false,
+      isSignedOut: false,
     },
     ...others.filter((entry) => !isReplaced(entry)),
   ]);
@@ -113,6 +128,16 @@ export function markHouseholdGone(refusable: StringStorage | undefined, coreId: 
     refusable,
     households(refusable).map((entry) =>
       entry.coreId === coreId ? { ...entry, isGone: true } : entry,
+    ),
+  );
+}
+
+/** Keeps the household of coreId as signed out of: its realm and fingerprint kept, not gone to. */
+export function markHouseholdSignedOut(refusable: StringStorage | undefined, coreId: string): void {
+  keep(
+    refusable,
+    households(refusable).map((entry) =>
+      entry.coreId === coreId ? { ...entry, isSignedOut: true } : entry,
     ),
   );
 }
@@ -216,9 +241,52 @@ export function goneFrom(
   referrer: string,
   clientOriginOf: (coreId: string) => string | undefined,
 ): string | undefined {
-  const coreId = new URLSearchParams(search).get(goneParameter) ?? "";
-  const origin = clientOriginOf(coreId);
-  return origin !== undefined && isFromOrigin(referrer, origin) ? coreId : undefined;
+  return coreTold(goneParameter, { search, referrer, clientOriginOf });
+}
+
+/**
+ * The query parameter a client origin names its core by when its person signed out there, or was
+ * signed out, the device removed.
+ */
+export const signedOutParameter = "signedout";
+
+/**
+ * The address of the loader's page at loaderOrigin, telling it its person signed out of the household
+ * of coreId: the list goes to it no more, and the page offers the discovery's sign-in, not the core's
+ * own a client origin with no session shows.
+ */
+export function signedOutAddress(loaderOrigin: string, coreId: string): string {
+  const query = new URLSearchParams({ [signedOutParameter]: coreId });
+  return `${loaderOrigin}/?${query.toString()}`;
+}
+
+/**
+ * The core a request for the loader's page says was signed out of, taken only from that core's own
+ * client origin, as goneFrom takes one gone.
+ */
+export function signedOutFrom(
+  search: string,
+  referrer: string,
+  clientOriginOf: (coreId: string) => string | undefined,
+): string | undefined {
+  return coreTold(signedOutParameter, { search, referrer, clientOriginOf });
+}
+
+/**
+ * The core the query's parameter names, when the page that sent it is that core's own client
+ * origin, as its referrer says; undefined for any other.
+ */
+function coreTold(
+  parameter: string,
+  told: {
+    readonly search: string;
+    readonly referrer: string;
+    readonly clientOriginOf: (coreId: string) => string | undefined;
+  },
+): string | undefined {
+  const coreId = new URLSearchParams(told.search).get(parameter) ?? "";
+  const origin = told.clientOriginOf(coreId);
+  return origin !== undefined && isFromOrigin(told.referrer, origin) ? coreId : undefined;
 }
 
 /** Whether a request for the loader's page asks for the list however many it holds. */
