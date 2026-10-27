@@ -311,7 +311,6 @@ export function LibraryCard(props: {
   readonly onAddRoot?: (to: Place) => void;
   readonly onChangeDetection?: (choice: ChangeDetection) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { library } = props;
   return (
     <article aria-labelledby={`library-${String(library.id)}`}>
@@ -338,33 +337,54 @@ export function LibraryCard(props: {
       />
       <FilingCounts library={library} />
       {library.rescan === undefined ? null : <RescanProgress rescan={library.rescan} />}
-      <p>
-        <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
-        <button type="button" onClick={props.onScan}>
-          {(library.roots ?? []).some((root) => root.scan !== undefined)
-            ? t("libraries.scanAgainAfter")
-            : t("libraries.scan")}
-        </button>{" "}
-        {props.onRescan !== undefined && isRescannable(library) ? (
-          <>
-            <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
-              {t("libraries.rescan")}
-            </button>{" "}
-          </>
-        ) : null}
-        <ConfirmButton
-          label={t("libraries.delete")}
-          consequence={t("libraries.deleteConsequence")}
-          confirmLabel={t("libraries.deleteConfirm")}
-          onConfirm={props.onDelete}
-        />
-      </p>
+      <LibraryButtons
+        library={library}
+        onScan={props.onScan}
+        onDelete={props.onDelete}
+        {...(props.onRescan === undefined ? {} : { onRescan: props.onRescan })}
+      />
       {props.note === "" ? null : <output>{props.note}</output>}
     </article>
   );
 }
 
-/** What an admin does with libraries, and what each last said. */
+/**
+ * A library's files, its scan, its rescan for a library of films or of series (D357), and deleting
+ * it, confirmed first.
+ */
+function LibraryButtons(props: {
+  readonly library: Library;
+  readonly onScan: () => void;
+  readonly onRescan?: () => void;
+  readonly onDelete: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { library } = props;
+  return (
+    <p>
+      <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
+      <button type="button" onClick={props.onScan}>
+        {(library.roots ?? []).some((root) => root.scan !== undefined)
+          ? t("libraries.scanAgainAfter")
+          : t("libraries.scan")}
+      </button>{" "}
+      {props.onRescan !== undefined && isRescannable(library) ? (
+        <>
+          <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
+            {t("libraries.rescan")}
+          </button>{" "}
+        </>
+      ) : null}
+      <ConfirmButton
+        label={t("libraries.delete")}
+        consequence={t("libraries.deleteConsequence")}
+        confirmLabel={t("libraries.deleteConfirm")}
+        onConfirm={props.onDelete}
+      />
+    </p>
+  );
+}
+
 /**
  * Each library's note, and its actions run one at a time: a library's own note says what went
  * wrong with it, and the request only makes every library's buttons wait (D244 §4).
