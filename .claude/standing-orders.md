@@ -11,7 +11,9 @@
      libraries). Brave on the Mac: all fine (owner, 2026-10-27).
    - Then: one full check-pr, the owner's go, nas.example (step 0060 there is VQ82); then the inventory of every
      decided-but-unbuilt feature (decision statuses, plans, code-debt, the owner's asks; collections' UI,
-     D160) for the owner to choose from (owner: "once the overlap batch is done").
+     D160) for the owner to choose from (owner: "once the overlap batch is done"), with EVERYTHING queued
+     beside it, the next batch's items included: the owner decides what happens when (owner 2026-10-27).
+     The next batch below is a proposal until then.
    **Next batch (filed 2026-10-27):**
    - D364, casting as a session (top-bar Cast, ask once, tray icon on the sender, the remote a page of its
      own, one place for controls beside Watch Together); `CastIcon` in status-tray.tsx is the owner's icon.
