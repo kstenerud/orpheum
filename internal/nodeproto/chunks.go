@@ -79,6 +79,11 @@ type MakeChunks struct {
 	// time and not to a keyframe, so a copy from past the keyframe would start at the next one
 	// (docs/contributors/idiosyncrasies.md).
 	IsPictureSeekBeforeKeyframe bool `json:"isPictureSeekBeforeKeyframe,omitempty"`
+	// IsSoundInterleaved says a sound run's track is interleaved in super-blocks, as RealMedia
+	// carries cook, ATRAC3, SIPR and RealAudio 28.8: FFmpeg's demuxer loses the super-block a seek
+	// lands in, so the node seeks further before the run, and not at all from the film's start
+	// (docs/contributors/idiosyncrasies.md).
+	IsSoundInterleaved bool `json:"isSoundInterleaved,omitempty"`
 }
 
 // MakeChunksReport is the node's word on how a run ended.

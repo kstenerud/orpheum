@@ -81,6 +81,9 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	if !isPlanned {
 		return service.plannedNone(ctx, asked, dir)
 	}
+	if refused := service.refuseGivenUp(dir, first); refused != nil {
+		return refused
+	}
 	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
 	if err != nil {
 		service.runs.forget(dir, first)

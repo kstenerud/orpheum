@@ -37,20 +37,39 @@ func runStartMs(command nodeproto.MakeChunks) int64 {
 // pre-rolls; the decode trims to the run's start by its decoded timestamps.
 const soundSeekEarlyMs = 2_000
 
+// interleavedSoundSeekEarlyMs is soundSeekEarlyMs for a sound interleaved in super-blocks
+// (nodeproto.MakeChunks.IsSoundInterleaved): FFmpeg's RealMedia demuxer, its seek landing on a
+// picture's keyframe partway through a super-block, drops or garbles the sound until the next
+// super-block, and at times the one after, which a cook super-block of about two seconds put past a
+// run's start (idiosyncrasies.md). Ten seconds is past two of the longest.
+const interleavedSoundSeekEarlyMs = 10_000
+
 // seekMs is where FFmpeg is told to seek: a copied picture's seek, past its first keyframe, so
 // FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); a sound's soundSeekEarlyMs before its
-// run's start, which its filter trims to (soundTrimMs); otherwise the run's start, which a decode
-// trims to exactly, and from which a sound copied copies what FFmpeg lands on, a little before it.
+// run's start, or an interleaved one's interleavedSoundSeekEarlyMs, which its filter trims to
+// (soundTrimMs); otherwise the run's start, which a decode trims to exactly, and from which a
+// sound copied copies what FFmpeg lands on, a little before it.
 func seekMs(command nodeproto.MakeChunks) int64 {
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
 		return command.PictureSeekMs
 	case nodeproto.StreamSound:
+		if command.IsSoundInterleaved {
+			return max(0, runStartMs(command)-interleavedSoundSeekEarlyMs)
+		}
 		return max(0, runStartMs(command)-soundSeekEarlyMs)
 	case nodeproto.StreamQuality, nodeproto.StreamSoundCopied:
 		return runStartMs(command)
 	}
 	return runStartMs(command)
+}
+
+// isSeeking is whether FFmpeg is told to seek at all: always, but for an interleaved sound decoded
+// from the film's start, which is read from it unsought, as a seek to the start loses the first
+// super-block as any seek loses the one it lands in (idiosyncrasies.md). A sound copied is never
+// interleaved RealAudio, which no browser plays (D368), and seeks as it always does whatever it says.
+func isSeeking(command nodeproto.MakeChunks) bool {
+	return command.Stream.Kind != nodeproto.StreamSound || !command.IsSoundInterleaved || seekMs(command) > 0
 }
 
 // soundTrimMs is how much a sound's decode drops before its run's start: what it was decoded early.
@@ -128,7 +147,10 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	if command.Stream.Kind == nodeproto.StreamSoundCopied {
 		arguments = append(arguments, "-copyts", "-start_at_zero")
 	}
-	arguments = append(arguments, "-ss", seconds(seekMs(command)), "-to", seconds(end))
+	if isSeeking(command) {
+		arguments = append(arguments, "-ss", seconds(seekMs(command)))
+	}
+	arguments = append(arguments, "-to", seconds(end))
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:

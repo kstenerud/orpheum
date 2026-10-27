@@ -45,7 +45,10 @@
 //     TestHandleMakeChunks_APictureRunSeeksPastItsFirstKeyframe,
 //     TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe,
 //     TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext and
-//     TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore.
+//     TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore. A sound run of a RealMedia
+//     film's cook, ATRAC3, SIPR or 28.8, interleaved in super-blocks, says so, as FFmpeg loses the
+//     super-block a seek lands in. Enforced by
+//     TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe.
 //
 //   - A film's grid is its main picture's timeline, a cover's never, by its bytes' payload hash;
 //     while there is none it says so without an error, and a film FFmpeg could not read through,
@@ -203,7 +206,11 @@
 //     TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays. A run refused because its film is not
 //     at the place it read is tried again at once at a copy beside it, which the runs after it read
 //     until a scan sees the film there again (D363 §8).
-//     TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesideIt.
+//     TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesideIt. A store whose
+//     runs FFmpeg failed on twice at the same chunk makes no run from there again until its film is
+//     forgotten (ForgetFile): its players are refused, ErrCannotBeMade, and FFmpeg's word is logged
+//     once. Enforced by TestEnsure_AChunkWhoseRunsFailedTwiceIsNotMadeAgain; through the API, the
+//     refusal is a 422 by TestChunks_AChunkThatCannotBeMadeIsRefusedForGood (internal/core/api).
 //
 //   - It reads the timelines and never writes them: internal/core/readthrough writes
 //     video_timeline. Enforced by TestArch_EachTableHasOneWritingPackage.

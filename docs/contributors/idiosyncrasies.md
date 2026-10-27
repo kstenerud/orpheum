@@ -110,6 +110,7 @@ User-Agent (D263; the User-Agent is logged only).
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
+| A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
 | Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt` | [Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`](#each-output-file-starts-its-fmp4-times-at-zero-and-upstream-has-no-flag-for-absolute-tfdt) |
@@ -1590,6 +1591,42 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   chunks packet for packet. **[source]** `libavformat/mpegts.c`, `mpegts_get_dts`; `libavformat/seek.c`,
   `ff_gen_search`. **[web]** a search for the behaviour found only general advice that a stream copy
   starts at a keyframe (2026-10-27).
+
+### A seek into RealMedia loses the interleaved sound's super-block it lands in
+
+- **Symptom:** a RealMedia film with RealVideo 4 and cook stereo sound never started in Chrome: the
+  player waited on sound chunk 0 (425) while the node failed every run of it, "raw 00000.mp4 holds
+  0 to 1818 ms of the run, not its chunk's 0 to 3236 ms", and the core queued it again every 4.4 s
+  (file 15102 on nas.example, 2026-10-27). Where no cut fell in the hole, the run passed and its sound was
+  silently moved earlier by what was lost.
+- **Cause:** RealMedia carries cook (and ATRAC3, SIPR and RealAudio 28.8) interleaved in
+  super-blocks of about two seconds: each packet holds a slice of each of the block's frames, so the
+  demuxer decodes a block only once it has every packet, and times it by the first
+  (`ff_rm_parse_packet`, `ff_rm_retrieve_cache`). A seek lands on a picture's keyframe from the
+  index, partway through a block, and `rm_read_seek` resets the packets cached but not the count of
+  packets gathered (`sub_packet_cnt`): the rest of that block is lost, or assembled with the next
+  into noise, and at times the next block too. `-ss 0` seeks as well, to the first picture's
+  keyframe, past the sound's first packet, so a run from the film's start lost its first block.
+  `asetpts=PTS-STARTPTS` then moved the sound that was left to the run's start, or the hole fell
+  across a cut and the segment muxer cut early.
+- **What we do:** the core says a RealMedia film's cook, ATRAC3, SIPR or 28.8 sound is interleaved
+  (`nodeproto.MakeChunks.IsSoundInterleaved`, set in `internal/core/chunks/job.go`); the node decodes
+  such a sound from ten seconds before its run, not two, past two of the longest blocks, and trims to
+  the run as for any sound, and one within ten seconds of the film's start it reads from the start
+  without `-ss` (`internal/node/chunks/arguments.go`). Chunks stay cut at the source's keyframes
+  (D247 §10).
+- **Evidence:** **[measured]** FFmpeg 8.1.2 (fdproxy) on FFmpeg's own cook samples (fetched for
+  diagnosis, never committed): `-ss 0` on a 44.1 kHz stereo cook film with 1.857 s blocks decoded
+  0.08 to 1.85 s and then 3.715 s on, and its sound run listed `00000.mp4,0.000000,1.818250` against
+  a cut at 3.236 s, the error seen on nas.example; read without `-ss` it listed `0.000000,3.238934`.
+  Seeking two seconds before 16.6, 20 and 24 s, its decode from there was offset and unlike a
+  decode from the start; six seconds before, every one matched. A film the test writes, RealVideo 2.0
+  with RealAudio 28.8 interleaved as cook is (the pinned FFmpeg encodes no interleaved RealAudio),
+  loses its first 2.56 s block at `-ss 0` and the block a mid-film seek lands in:
+  `TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun` (integration tier).
+  **[source]** `libavformat/rmdec.c`, `rm_read_seek`, `ff_rm_parse_packet`. **[web]** an audio
+  player built on FFmpeg met cook seeking alike and decodes from before the time, counting samples
+  ([FFmpegAudioKit#2](https://github.com/enefry/FFmpegAudioKit/pull/2), 2026-10-27).
 
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
