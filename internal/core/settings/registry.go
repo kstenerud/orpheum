@@ -50,8 +50,6 @@ const (
 	PlayPriorityKeptSeconds                        Key = "play_priority_kept_seconds"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
-	ScanVideoExtensions                            Key = "scan_video_extensions"
-	ScanSubtitleExtensions                         Key = "scan_subtitle_extensions"
 	ScanVideosPerExamineBatch                      Key = "scan_videos_per_examine_batch"
 	JobAttemptLimit                                Key = "job_attempt_limit"
 	FinishedJobsKeptDays                           Key = "finished_jobs_kept_days"
@@ -393,24 +391,6 @@ func backupDefinitions() []Definition {
 // scanDefinitions are what a scan reads, and how much of it a node reads in one go (D240 §8).
 func scanDefinitions() []Definition {
 	return []Definition{
-		sourced(Definition{
-			Key: ScanVideoExtensions, Kind: KindString,
-			StartJSON: json.RawMessage(`"mkv,mp4,m4v,avi,divx,mov,wmv,ts,m2ts,mts,webm,mpg,mpeg,vob,flv,ogv,3gp"`),
-			Pattern:   regexp.MustCompile(extensionsPattern),
-			Description: "the extensions, lower case and comma-separated, of the files a scan reads as " +
-				"videos (D240 §8)",
-		}, "the containers FFmpeg reads that people keep films in: Matroska and MP4 first, the broadcast and "+
-			"disc formats (ts, m2ts, mts, vob, mpg), and the older ones still found in libraries (avi and its "+
-			".divx, wmv, flv, 3gp); a file with another extension is never probed, so a missing one hides films, "+
-			"and an extra one costs a probe of each such file. Carried over from the node's video_extensions"),
-		sourced(Definition{
-			Key: ScanSubtitleExtensions, Kind: KindString, StartJSON: json.RawMessage(`"srt,ass,ssa,vtt"`),
-			Pattern: regexp.MustCompile(extensionsPattern),
-			Description: "the extensions, lower case and comma-separated, of the text subtitle files a scan " +
-				"reads beside their videos (D240 §8)",
-		}, "the text subtitle formats the node converts to ASS and WebVTT (D217 §6): SubRip, ASS and SSA, and "+
-			"WebVTT; image subtitles are read inside a video, not beside it. Carried over from the node's "+
-			"subtitle_extensions"),
 		sourced(integerSetting(ScanVideosPerExamineBatch, "10", 1, 1000,
 			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
 				"is read again (D240 §8)"),
@@ -745,10 +725,6 @@ func sourced(definition Definition, startSource string) Definition {
 	definition.StartSource = startSource
 	return definition
 }
-
-// extensionsPattern is a setting's list of file extensions: lower case, without the dot,
-// comma-separated.
-const extensionsPattern = `^[a-z0-9]{1,10}(,[a-z0-9]{1,10}){0,99}$`
 
 // day is the unit of a setting whose key ends _days.
 const day = 24 * time.Hour

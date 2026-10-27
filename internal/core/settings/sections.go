@@ -74,8 +74,6 @@ var sectionByKey = map[Key]Section{
 	ReadThroughSweepEveryHours:                     SectionLibraries,
 	RemovedFilesKeptDays:                           SectionLibraries,
 	ScanRootErrorLimit:                             SectionLibraries,
-	ScanSubtitleExtensions:                         SectionLibraries,
-	ScanVideoExtensions:                            SectionLibraries,
 	ScanVideosPerExamineBatch:                      SectionLibraries,
 	ScanWithheldRemovalsNamed:                      SectionLibraries,
 	ScanWithholdRemovalsOverFiles:                  SectionLibraries,

@@ -619,7 +619,7 @@ built.*
 waiting between files while it is paused for play (node protocol 14, then 15 without the scan
 command, the scan's records on the report, or the status's activity). A scan is a `scan` job, which
 lists the root, compares the listing by the library's rules (`scan_video_extensions`,
-`scan_subtitle_extensions`) and queues `examine` jobs of `scan_videos_per_examine_batch` videos of one
+`scan_subtitle_extensions`; *since 2026-10-27, constants in the core's code, D360*) and queues `examine` jobs of `scan_videos_per_examine_batch` videos of one
 folder each; it completes, applying its removals, after the last, and one asked for meanwhile runs
 once more after it (D236 §3). `cache.db`'s `scan` and `scan_batch` hold a scan in progress (version
 26); a scan whose listing the core had taken when it stopped starts again. The node's
