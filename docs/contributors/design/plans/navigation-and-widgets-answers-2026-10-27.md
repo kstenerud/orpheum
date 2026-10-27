@@ -40,3 +40,33 @@ decisions they feed are written (the Up decision's revision; the widget set's).
    before last the Up); on a TV only "‹ Copper Kettle", one stop for focus.
 
 The owner agreed every other answer and recommendation above (2026-10-27).
+
+## Screens, casting and Watch Together (answers to screens-and-guest-rejoin-2026-10-27.md §5)
+
+1. **Leaving the film no longer stops it for the group:** correct; Stop, or the host playing another
+   film, ends it.
+2. **No mini player and no picture-in-picture**, "without a very compelling reason".
+3. **What Watch Together and Cast lead to, by what is on** (the owner's table):
+
+   | Watch Together | Casting | Watch Together leads to | Casting leads to |
+   | --- | --- | --- | --- |
+   | off | off | the session setup page | the casting setup page: the devices one can cast to |
+   | on | off | the session's page | the casting setup page; once a cast is set up, the session's page (as on/on) |
+   | off | on | the session setup page | the casting page: playback controls and a way to end the session |
+   | on | on | the session's page, with an extra button to stop casting | the same: the session's page |
+
+4. **The Watch Together icon shows for anyone in a session, host or guest, unless a transient guest**;
+   a signed-in guest browses freely and returns by the icon. **No Watch Together or Cast items in the
+   top bar:** the two icons are always shown, white when off, blue while their function is on (perhaps
+   pulsing), and they are the entry points.
+5. **The uncertain-match page explains nothing of why**: "The user won't care. All they want is options
+   for making it certain": "Yes, this is right", or a choice of the candidates that would be right.
+6. **The guest's words: agreed** (the owner, shown the full picture). New or changed:
+   - A used link opened in another browser: "This link has already been used, maybe in another app's
+     browser. Open it there, or ask ‹host› for a new one." (The server says "used" apart from the other
+     refusals; never by whom.)
+   - Under Leave: "To come back, open your link again in this browser."
+   - Leave asks first: "Leave the session? You'll need a new link from ‹host› to come back." [Leave], the
+     irreversible red, [Stay].
+   - After leaving: "You left the session. To join again, ask ‹host› for a new link."
+   Every other word the guest sees stays as it is (web/apps/web/src/locales/en-together.ts).
