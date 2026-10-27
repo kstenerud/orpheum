@@ -1,22 +1,20 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Now: deploy the local-path batch to staging** (main an earlier commit: D352–D356, D358 the cast prompt, the
-   matcher fix; connect pinned an earlier commit): check for live playbacks first, then `./staging quick` and redeploy
-   connectd. Device check owed: VQ76 (the cast prompt on Fire TV and Chrome). yoloAI UDP bug report:
-   /yoloai/files/yoloai-bug-udp-ports.md.
-   **Next batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
+2. **Now: the next batch** (the local-path batch is on staging, main an earlier commit; VQ76 the cast prompt works on
+   Fire TV: ask, full screen, sound, double OK). In order: subagent cleanup (building), then the rest below.
+   **This batch (owner 2026-10-27):** build D357, the rescan + re-match (per item, per library, all film and
    series libraries). Staging's "Crowd" (2022) is left wrongly matched on purpose: verify D357 on it.
-   **Next batch, also:** a cast receiver on a desktop opens no controls on a mouse move or click
+   **This batch, also:** a cast receiver on a desktop opens no controls on a mouse move or click
    (tv-controls.tsx opens only on keys): D338 §5 unmet on a mouse-driven receiver (owner 2026-10-27).
-   **Next batch, also (owner 2026-10-27, gate work, owner approved):** deterministic subagent cleanup. (1)
-   pre_bash rewrites each subagent command: own process group, an agent-id tag, </dev/null, a time limit on
-   background ones (~30 min); on_subagent_stop kills every process with that tag. Confirm first that a
-   PreToolUse hook may rewrite the command (updatedInput); if not, come back to the owner. (3) a sweeper at
-   each prompt kills or reports processes older than a few hours whose agent finished. (4) a script, run when
-   a turn ends, removes a worktree and its branch once all its commits are in main by patch-id and its tree
-   is clean; one holding anything else is listed, never removed. Evidence: a review agent's `rg` with no path
-   waited on stdin for 12 h (killed 2026-10-27); nine merged worktrees left behind.
+   **This batch, first (owner 2026-10-27, gate work):** deterministic subagent cleanup (tag + kill at stop,
+   sweep at each prompt, merged worktrees removed at a turn's end). Building.
+   **This batch, also (owner 2026-10-27):** after the receiver takes control back, the sender's "Play here from
+   ‹position›" plays the film from 0:00, not where the receiver was (like bug 1's playback asked for without
+   its position).
+   **This batch, also (owner 2026-10-27):** on Fire TV the receiver's first Back only leaves full screen (Silk
+   takes the key); a second takes control back. Leaving full screen we did not ask for, while receiving,
+   counts as Back. Then VQ76 can be ticked.
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
