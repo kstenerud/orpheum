@@ -69,7 +69,7 @@ describe("the overlay as drawn", () => {
     mounted = undefined;
   });
 
-  it("is play and a scrub bar a remote reaches, with no rewind or fast-forward", async () => {
+  it("is play, full screen and a scrub bar a remote reaches, with no rewind or fast-forward", async () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
     mounted = await mount(
@@ -79,7 +79,52 @@ describe("the overlay as drawn", () => {
     );
     expect(mounted.container.querySelector('button[aria-label="Play"]')).not.toBeNull();
     expect(mounted.container.querySelector('input[type="range"]')).not.toBeNull();
-    expect(mounted.container.querySelectorAll("button")).toHaveLength(1);
+    const buttons = [...mounted.container.querySelectorAll("button")];
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Play",
+      "Full screen",
+    ]);
+  });
+
+  it("puts the stage full screen from its full-screen button's press, and leaves from it in full screen", async () => {
+    // A Fire TV whose player opened out of full screen offered no way into it (the owner, 2026-10-27).
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", document.createElement("video"));
+    let fullscreenElement: Element | null = null;
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => fullscreenElement,
+    });
+    const left = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: left });
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>,
+      ),
+    );
+    const stage = mounted.container.querySelector<HTMLElement>(".film-player__stage");
+    const asked = vi.fn(() => {
+      fullscreenElement = stage;
+      document.dispatchEvent(new Event("fullscreenchange"));
+      return Promise.resolve();
+    });
+    if (stage !== null) {
+      stage.requestFullscreen = asked;
+    }
+    const button = mounted.container.querySelector<HTMLButtonElement>(".tv-controls__full-screen");
+    act(() => {
+      button?.click();
+    });
+    expect(asked).toHaveBeenCalledOnce();
+    expect(button?.getAttribute("aria-label")).toBe("Leave full screen");
+    act(() => {
+      button?.click();
+    });
+    expect(left).toHaveBeenCalledOnce();
+    Reflect.deleteProperty(document, "fullscreenElement");
+    Reflect.deleteProperty(document, "exitFullscreen");
   });
 
   it("leaves OK to another control over the film, Up next, and its hiding leaves focus there", async () => {

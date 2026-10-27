@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
+import { FullScreenButton } from "./full-screen-button.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
@@ -93,7 +94,6 @@ function seekOfArrow(command: Command): number | undefined {
  * player's controls do, so a cast's receiver on a computer keeps its controls (D338 §5).
  */
 export function TvControls(props: FilmParts): JSX.Element {
-  const { t } = useTranslation();
   const { videoRef } = props;
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
@@ -127,14 +127,17 @@ export function TvControls(props: FilmParts): JSX.Element {
     { isCapture: true },
   );
   return (
-    <div ref={overlayRef} className="tv-controls" data-shown={shown} data-focus-container="">
+    <div
+      ref={overlayRef}
+      className="tv-controls"
+      data-shown={shown}
+      data-focus-container=""
+      data-player-controls=""
+    >
       <div className="tv-controls__buttons">
         <PlayButton playRef={playRef} videoRef={videoRef} isPaused={stand.isPaused} />
-        <span className="tv-controls__ends">
-          {stand.durationMs === 0
-            ? ""
-            : t("tvControls.endsAt", { time: endsAt(stand.durationMs - stand.atMs) })}
-        </span>
+        <EndsAt leftMs={stand.durationMs === 0 ? undefined : stand.durationMs - stand.atMs} />
+        <FullScreenButton />
       </div>
       <ScrubBar
         scrubRef={scrubRef}
@@ -148,6 +151,17 @@ export function TvControls(props: FilmParts): JSX.Element {
         }}
       />
     </div>
+  );
+}
+
+/** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
+function EndsAt(props: { readonly leftMs: number | undefined }): JSX.Element {
+  const { t } = useTranslation();
+  const { leftMs } = props;
+  return (
+    <span className="tv-controls__ends">
+      {leftMs === undefined ? "" : t("tvControls.endsAt", { time: endsAt(leftMs) })}
+    </span>
   );
 }
 
@@ -193,8 +207,11 @@ function PlayButton(props: {
 }
 
 /**
- * The scrub bar, a control a remote moves to, whose Left and Right seek through the overlay (its
- * own arrow steps are kept from moving it twice), and the film's times.
+ * The scrub bar, a control a remote moves to, whose Left and Right are commands the overlay answers
+ * by seeking (arrowsAreCommandsAttribute), its own steps prevented with the key, and the film's
+ * times. A range keeps its arrows from the input layer by default, and its own keydown's
+ * preventDefault had the layer leave them alone too, so they did nothing (the owner's Fire TV,
+ * 2026-10-27).
  */
 function ScrubBar(props: {
   readonly scrubRef: RefObject<HTMLInputElement | null>;
@@ -216,11 +233,7 @@ function ScrubBar(props: {
         value={Math.round(atMs / 1000)}
         aria-label={t("tvControls.where")}
         aria-valuetext={clockText(atMs)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-            event.preventDefault();
-          }
-        }}
+        data-focus-arrows-are-commands=""
         onChange={(event) => {
           onSeekTo(Number(event.currentTarget.value) * 1000);
         }}

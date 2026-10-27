@@ -121,6 +121,48 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     expect(onLeave).not.toHaveBeenCalled();
   });
 
+  // A click on the receiver's video did nothing in Chrome, its video having a television's controls
+  // and none of the browser's (the owner, 2026-10-27).
+  it("pauses or plays at a mouse's click on the video, which a double click undoes as it leaves", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const { onLeave } = await controlled();
+    const video = document.createElement("video");
+    document.body.append(video);
+    let isPaused = false;
+    Object.defineProperty(video, "paused", { configurable: true, get: () => isPaused });
+    vi.spyOn(video, "pause").mockImplementation(() => {
+      isPaused = true;
+    });
+    vi.spyOn(video, "play").mockImplementation(() => {
+      isPaused = false;
+      return Promise.resolve();
+    });
+    const clickWith = (pointerType: string): void => {
+      act(() => {
+        video.dispatchEvent(
+          new PointerEvent("click", { bubbles: true, cancelable: true, detail: 1, pointerType }),
+        );
+      });
+    };
+    clickWith("mouse");
+    expect(isPaused).toBe(true);
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    clickWith("touch"); // a tap opens the controls alone, as on an ordinary page on a phone
+    expect(isPaused).toBe(true);
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    clickWith("mouse");
+    expect(isPaused).toBe(false);
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    clickWith("mouse");
+    expect(isPaused).toBe(true);
+    expect(onLeave).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(doublePressWithinMs - 1);
+    clickWith("mouse");
+    expect(isPaused).toBe(false); // playing on, as before the double click
+    expect(onLeave).toHaveBeenCalledOnce();
+    video.remove();
+  });
+
   it("leaves at a tap twice, counting no click a key made nor the click following OK", async () => {
     vi.useFakeTimers({ toFake: ["performance"] });
     const { onLeave } = await controlled();

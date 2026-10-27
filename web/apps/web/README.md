@@ -62,7 +62,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the sound still be refused, the first key, click or tap turns it on, and does nothing else. The
   page leads the cast's
   session of one from where the sender stood, fills the window and shows a television's player
-  controls, which a mouse's move, a click or a tap opens as well as a remote's keys, and a fading
+  controls, which a mouse's move, a click or a tap opens as well as a remote's keys, a mouse's
+  click on its video pausing or playing it as on an ordinary page, and a fading
   *Controlled from* line; its controls, media keys and seeks stay its own;
   Back (a Fire TV's history step too, and full screen left by the browser, not the page: a Fire
   TV's Back or Escape in full screen, told to the log), or OK or a click or tap twice within 500 ms,
@@ -271,10 +272,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   controller's move is shown as a key's is (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
   Silk's Back too. The player answers over the browser's own controls (`src/player-commands.ts`):
-  play/pause wherever focus is, OK on the video, a 10 s seek by the seeking buttons, the browser's
-  media controls and Left and Right while the video or nothing has focus, and Back leaving full
-  screen before the page; every control under the video is reached by arrows.
-  `src/player-commands.test.tsx`, `src/input-player.browser.test.tsx`,
+  play/pause wherever focus is, OK on the video, Space on the video, on the player's own controls
+  over it (the browser's in its shadow too) or on nothing, a 10 s seek by the seeking buttons, the
+  browser's media controls and Left and Right while the video or nothing has focus, and Back leaving
+  full screen before the page; every control under the video is reached by arrows. A television's
+  overlay (`src/tv-controls.tsx`) seeks by Left and Right on its scrub bar, whose arrows are commands
+  (`data-focus-arrows-are-commands`), and offers full screen as a button a remote presses.
+  `src/player-commands.test.tsx`, `src/tv-controls.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
   `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,

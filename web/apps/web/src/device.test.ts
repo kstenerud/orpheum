@@ -28,6 +28,21 @@ describe("naming this device", () => {
     expect(named("something else")).toBe("A web browser");
   });
 
+  it("names a Fire TV's Silk, whose agent says Android and like Chrome, by its model code", () => {
+    // Staging's device 33, a Fire TV Stick, was named "Chrome on Android" (the owner, 2026-10-27).
+    const named = (userAgent: string): string => deviceFrom(userAgent).name;
+    expect(
+      named(
+        "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36",
+      ),
+    ).toBe("Silk on Fire TV");
+    expect(
+      named(
+        "Mozilla/5.0 (Linux; Android 7.1.2; AFTKA) AppleWebKit/537.36 (KHTML, like Gecko) Silk/131.4.1 like Chrome/131.0.6778.260 Safari/537.36",
+      ),
+    ).toBe("Silk on Fire TV");
+  });
+
   it("says it is a web client", () => {
     expect(deviceFrom("").platform).toBe("web");
   });

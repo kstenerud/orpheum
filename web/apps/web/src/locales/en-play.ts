@@ -22,6 +22,8 @@ export const enPlay = {
     pause: "Pause",
     where: "Where the film stands",
     endsAt: "Ends at {{time}}",
+    fullScreen: "Full screen",
+    leaveFullScreen: "Leave full screen",
   },
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",

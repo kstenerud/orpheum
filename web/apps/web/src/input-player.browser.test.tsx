@@ -204,3 +204,94 @@ describe("a Play page opened with no page of this app behind it", () => {
     });
   }
 });
+
+describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  /** The Play page as a Fire TV's Silk opens it, full screen refused, and its video. */
+  async function onAFireTv(): Promise<HTMLVideoElement> {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
+    vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+    await page.viewport(960, 480);
+    walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
+    return await theFailedVideo();
+  }
+
+  // Left and Right on the focused scrub bar did nothing on the owner's Fire TV (2026-10-27): the
+  // range kept its arrows from the input layer, and its own keydown's preventDefault had the layer
+  // leave them alone.
+  it("seeks by Left and Right on the scrub bar, focus staying there", async () => {
+    const video = await onAFireTv();
+    const positionAt = standsAt(video, 30);
+    const scrub = document.querySelector<HTMLInputElement>(".tv-controls__scrub");
+    scrub?.focus();
+    expect(document.activeElement).toBe(scrub);
+    await press("{ArrowRight}");
+    expect(positionAt()).toBeCloseTo(30 + seekStepMs / 1000, 1);
+    await press("{ArrowLeft}{ArrowLeft}");
+    expect(positionAt()).toBeCloseTo(30 - seekStepMs / 1000, 1);
+    expect(document.activeElement).toBe(scrub);
+  });
+
+  // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
+  it("plays and pauses by Space on any of its controls", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    await onAFireTv();
+    const scrub = document.querySelector<HTMLInputElement>(".tv-controls__scrub");
+    scrub?.focus();
+    const playsBefore = play.mock.calls.length;
+    await press(" ");
+    expect(play.mock.calls.length).toBe(playsBefore + 1);
+    expect(document.activeElement).toBe(scrub);
+  });
+});
+
+describe("Space on an ordinary Play page, in a computer's browser", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  // After a click on the browser's own full-screen button, focus on it, Space pressed it again
+  // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video.
+  it("plays and pauses by Space with focus on the video and its own controls", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
+    const video = await theFailedVideo();
+    expect(video.controls).toBe(true);
+    video.focus();
+    const playsBefore = play.mock.calls.length;
+    await press(" ");
+    expect(play.mock.calls.length).toBe(playsBefore + 1);
+    expect(document.activeElement).toBe(video);
+  });
+});
+
+/** A Fire TV Stick's Silk, as the owner's says itself. */
+const fireTvSilk =
+  "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";
+
+/**
+ * Has video stand atS seconds into a ten-minute film, moved only by the player's seeks, as the walk
+ * serves no media; returns where it stands, in seconds.
+ */
+function standsAt(video: HTMLVideoElement, atS: number): () => number {
+  let positionS = atS;
+  Object.defineProperty(video, "duration", { configurable: true, get: () => 600 });
+  Object.defineProperty(video, "currentTime", {
+    configurable: true,
+    get: () => positionS,
+    set: (toS: number) => {
+      positionS = toS;
+    },
+  });
+  return () => positionS;
+}

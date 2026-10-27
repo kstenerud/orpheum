@@ -745,3 +745,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   it was on; a mouse move showed Chrome's controls; each side played on from the right place
   (`cause=castOver pageStartsAtMs=763013` at 14:07). Seen beside it, filed for the next batch: on
   Chrome's receiver neither a click on the video nor Space pauses it; only the pause button does.
+- [ ] **VQ78** — On Chrome on a computer, play a film on its ordinary Play page, click the video's
+  own full-screen button, then press Space. Passes when Space pauses the film and Space again plays
+  it, full screen staying as it is; Space on the video after a click on it does the same, and Space
+  on a control under the player (a menu, a button) still presses that control. Then cast a film to
+  Chrome on Linux and press Play there: a mouse's click on the film pauses it and another plays it,
+  the controls opening; Space pauses and plays it with focus anywhere in the player (on the video,
+  the overlay's play button or its scrub bar); a double click still takes control back with the film
+  playing on; with the sound refused, the first click only turns the sound on.
+  (`web/apps/web/src/player-commands.ts`, `cast-receiver.tsx`)
+- [ ] **VQ79** — On the Fire TV stick in Silk's spatial mode, open a film's Play page so it opens out
+  of full screen (as a reload of the Play page does). Passes when the player's overlay offers a
+  full-screen button the remote moves to beside Play, whose OK puts the film full screen (the
+  button then says Leave full screen); with the overlay showing, moving down to the scrub bar and
+  pressing Left and Right seek back and forward 10 s each, focus staying on the bar. Sign the Fire TV
+  in as a new device (sign out first, or from a fresh Silk profile): *Your devices* names it "Silk on
+  Fire TV". A device signed in before keeps its name until renamed. (`web/apps/web/src/tv-controls.tsx`,
+  `full-screen-button.tsx`, `focus-engine.ts`, `device.ts`)
