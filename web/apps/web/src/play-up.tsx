@@ -40,7 +40,9 @@ function homeCrumb(context: LibraryContext): Crumb {
  * library; a film's under the film's page, and an extra's under its film's (the owner, 2026-10-27:
  * "Would it be better to go back to the non-fullscreen page?"); an other video's under its library's
  * list; home where the server does not say what it plays, or names no library of the person's over an
- * other video's file (D363 §6).
+ * other video's file (D363 §6). What plays names its own page, an episode's, an extra's or a video's,
+ * where the trail's last part links to (the owner, 2026-10-28: "The last part of the trail should
+ * also be selectable to get back to the info page"); a film's page is already its parent.
  */
 export function playUpward(
   plays: Plays,
@@ -55,11 +57,11 @@ export function playUpward(
     plays.libraryId === undefined
       ? undefined
       : [{ id: plays.libraryId, name: plays.libraryName ?? context.t("browse.library") }];
+  // What plays, its info page, which the trail's last part links to (the owner, 2026-10-28).
+  const herePage = titleCrumb(plays.titleId, name);
   if (plays.episode !== undefined) {
-    return {
-      crumbs: episodeCrumbs(plays.episode, libraries, context),
-      here: episodeHere(context.t, plays.episode, name),
-    };
+    const here = episodeHere(context.t, plays.episode, name);
+    return { crumbs: episodeCrumbs(plays.episode, libraries, context), here, herePage };
   }
   if (plays.kind === "other") {
     return {
@@ -67,12 +69,13 @@ export function playUpward(
         libraries === undefined ? homeCrumb(context) : libraryCrumb("other", libraries, context),
       ],
       here: name,
+      herePage,
     };
   }
   const library = libraryCrumb("movie", libraries, context);
   const film = plays.filmOfExtra;
   if (film !== undefined) {
-    return { crumbs: [library, titleCrumb(film.id, film.name)], here: name };
+    return { crumbs: [library, titleCrumb(film.id, film.name)], here: name, herePage };
   }
   // The film's own page is its parent, under its own name; playing it is the step below.
   return { crumbs: [library, titleCrumb(plays.titleId, name)], here: context.t("trail.playing") };

@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The backdrop runs to the page's edges and fades into it: the words sit on the page, never on art. */
+/*
+ * The backdrop runs to the page's edges and fades into it: the words sit on the page, never on art.
+ * It starts under the page's trail (up-trail.tsx), not up at the banner: risen into the trail's
+ * space, its mask, which makes it a layer of its own, drew it over the trail's lower half (the
+ * owner, 2026-10-28).
+ */
 .title__backdrop {
   display: block;
   width: calc(100% + 2 * var(--space-page));
   max-width: none;
   height: clamp(10rem, 40vh, 28rem);
-  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-page)) calc(-1 * var(--space-7));
+  margin: 0 calc(-1 * var(--space-page)) calc(-1 * var(--space-7));
   object-fit: cover;
   mask-image: linear-gradient(to bottom, black 55%, transparent);
 }
