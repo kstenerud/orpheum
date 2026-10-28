@@ -77,6 +77,9 @@
 }
 
 .app-shell__nav {
+  /* How far apart the banner's icons stand on a phone: three quarters of a fingertip square. */
+  --size-banner-sign-phone: calc(var(--size-control) * 0.75);
+
   display: flex;
   flex: 1 1 100%;
   align-items: center;
@@ -118,6 +121,19 @@
   flex: none;
 }
 
+/* A place for watching drawn as its icon (place-icons.tsx), a fingertip square wide. */
+.app-shell__watching a.app-shell__place-icon {
+  display: grid;
+  place-items: center;
+  min-width: var(--size-control);
+  padding-inline: 0;
+}
+
+.app-shell__place-glyph {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .app-shell__watching a,
 .app-shell__menu > summary {
   display: block;
@@ -143,9 +159,6 @@
 
 /* The status tray and the menu, together at the banner's end. */
 .app-shell__end {
-  /* How far apart its signs stand on a phone: three quarters of a fingertip square. */
-  --size-banner-sign-phone: calc(var(--size-control) * 0.75);
-
   display: flex;
   flex: none;
   align-items: center;
@@ -315,21 +328,15 @@
     gap: 0;
   }
 
-  /* Two rows: the tray and the menu at the top's end, and below them the way home and the places
-     for watching together (the owner, 2026-10-28). */
-  .app-shell__nav {
-    flex-wrap: wrap;
-  }
-
-  .app-shell__end {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-    order: -1;
-  }
-
+  /* One row: the way home and the places for watching, as icons, then the tray and the menu (the
+     owner, 2026-10-28: "using just icons for the top bar links so that they can all go on one
+     line"), each icon three quarters of a fingertip square from the next. */
   .app-shell__places {
-    flex-basis: 100%;
-    gap: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .app-shell__watching a.app-shell__place-icon {
+    min-width: var(--size-banner-sign-phone);
   }
 
   .app-shell__menu > summary {

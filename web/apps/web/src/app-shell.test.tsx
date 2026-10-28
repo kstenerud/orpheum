@@ -32,7 +32,10 @@ describe("AppShell", () => {
     expect(markup).toMatch(
       /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><nav class="app-shell__nav" aria-label="Main"><div class="app-shell__places"><p class="app-shell__title"><a href="\/" class="app-shell__home"><picture><source media="\(max-width: 599px\)" srcSet="\/favicon\.svg"\/><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/picture><\/a><\/p>/u,
     );
-    expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
+    // A place for watching is its icon, named for a screen reader and a pointer's hover (2026-10-28).
+    expect(markup).toContain(
+      '<li aria-current="page"><a href="/films" class="app-shell__place-icon" aria-label="Films" title="Films"><svg',
+    );
     // No Watch Together or Cast in the top bar: their signs in the status tray (D364 §12).
     expect(markup).not.toContain('<a href="/watch-together">Watch Together</a>');
     expect(markup).toContain('href="/watch-together" class="status-tray__button');
