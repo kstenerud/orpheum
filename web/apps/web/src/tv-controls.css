@@ -47,6 +47,21 @@
   background: var(--color-video-background);
 }
 
+/* Under a stage filling the window nothing of the page is drawn, as in full screen: a cast's
+   receiver has no full screen, and the page beneath kept changing and repainting under the film on
+   a weak stick (the efficiency audit's finding 3). Hidden, not removed, so the page keeps its state
+   and shows again as it was when the stage closes. What lies over the film outside its stage stays:
+   the receiver's lines (cast.css) and a dialog. */
+body:has(.film-player__stage--fills-window) {
+  visibility: hidden;
+}
+
+.film-player__stage--fills-window,
+.cast-receiver,
+dialog[open] {
+  visibility: visible;
+}
+
 .film-player__stage--fills-window .film-player__video {
   width: 100%;
   height: 100%;

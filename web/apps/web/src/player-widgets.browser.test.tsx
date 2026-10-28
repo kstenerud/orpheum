@@ -9,6 +9,7 @@
 import "./tokens.css";
 import "./base.css";
 import "./cast.css";
+import "./status-tray.css";
 import "./title.css";
 import "./up-next.css";
 import "./i18n.ts";
@@ -134,6 +135,44 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
           "hidden",
         );
         expect(getComputedStyle(found(overlay, ".timeline")).visibility).toBe("visible");
+      },
+    );
+  });
+
+  it("draws nothing of the page under a stage filling the window, nor a pulse beside a film, and shows the page as it was after (the efficiency audit, finding 3)", async () => {
+    await drawn(
+      <>
+        <header className="app-shell__banner">
+          <button type="button" className="status-tray__button status-tray__button--on">
+            <svg className="status-tray__icon" aria-label="Watch Together" />
+          </button>
+        </header>
+        <main>
+          <input aria-label="kept" defaultValue="typed" />
+          <div className="film-player__stage">
+            <div className="film-player__video" />
+          </div>
+        </main>
+        <div className="cast-receiver">
+          <output className="cast-receiver__note">{"·"}</output>
+        </div>
+      </>,
+      (mounted) => {
+        const visibilityOf = (selector: string): string =>
+          getComputedStyle(found(mounted.container, selector)).visibility;
+        expect(getComputedStyle(found(mounted.container, ".status-tray__icon")).animationName).toBe(
+          "none",
+        );
+        expect(visibilityOf(".app-shell__banner")).toBe("visible");
+        const stage = found(mounted.container, ".film-player__stage");
+        stage.classList.add("film-player__stage--fills-window");
+        expect(visibilityOf(".app-shell__banner")).toBe("hidden");
+        expect(visibilityOf("input")).toBe("hidden");
+        expect(visibilityOf(".film-player__video")).toBe("visible");
+        expect(visibilityOf(".cast-receiver__note")).toBe("visible");
+        stage.classList.remove("film-player__stage--fills-window");
+        expect(visibilityOf(".app-shell__banner")).toBe("visible");
+        expect(found(mounted.container, "input")).toHaveProperty("value", "typed");
       },
     );
   });
