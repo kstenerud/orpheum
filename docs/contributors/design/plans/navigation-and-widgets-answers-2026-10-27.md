@@ -112,4 +112,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   is taken for a specials folder (`identify.isBonusFolder` matches "Christmas Specials" anywhere in the
   name), so `seriesFromFolders` passes over it and names the series "", and TMDB finds no match for an
   empty name. Fix: a bonus folder is one whose whole name is specials or extras, and a series' name
-  never comes out empty while a folder above it has one.
+  never comes out empty while a folder above it has one. The owner adds (2026-10-28): "If a folder
+  contains a bunch of subfolders that look like seasons, it must be the parent folder of a series, so
+  it shouldn't be subject to the specials naming rule; only its children." The parser reads one path
+  at a time, so the path's own evidence is used: a folder holding a season folder ("…/Series 1/…") is
+  the series' folder, never its specials; where a scan has the siblings, several season folders under
+  one folder say so the more surely.
