@@ -215,3 +215,16 @@ had leaned on.
   field's #1c1c20, web/apps/web/src/base.css `input::placeholder`), the same grey as secondary text.
   Give them their own token, clearly dimmer than any real value (and perhaps italic), checked on the
   TV at a distance as well as on a computer.
+
+## A first film after an update freezing on the Fire TV (the owner, 2026-10-28)
+
+- **Next batch, to investigate:** Nosferatu (file 5671), the first film cast to the Fire TV 22 s after its
+  page reloaded onto a new staging build (18:23:39), froze twice for seconds while its sound played on:
+  135 frames shown in a 10 s report where 240 were due, then 25 of 186 dropped; its first data took
+  7.4 s (pieces not yet made). Its picture is ordinary (H.264 High, level 4.0, 4 reference frames,
+  1.8 Mb/s, 1920×1036). Played again later, and after plain reloads, it dropped 2% or less; earlier
+  first films after a deploy (13:22, 15:33) were also the worst of their runs. So a cold start after an
+  update — new code to compile, a new service worker installing, the server's pieces cold — not the
+  film. Find what the page and service worker do in the minute after an update and defer it while a
+  film starts; a start after a plain reload shows small hiccups at most (3% of frames dropped in its
+  first 8 s, file 5670, 18:39).
