@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-// A group with no leader starts moving from where it stands at once, as the host's command plays it,
-// with no lead and no run-up: whoever plays catches up to it (D371 §2, §6), as one with a leader
-// plays as its leader does.
+// A group with no leader, its one player's page hidden (D372 §5), starts moving from where it stands
+// at once, as the host's command plays it, with no lead and no run-up: whoever plays catches up to
+// it (D371 §2, §6), as one with a leader plays as its leader does.
 func TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands(t *testing.T) {
 	t.Parallel()
 	for _, fromMs := range []int64{0, 600_000} {
 		stage := newStage(t)
 		guestDevice, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
-		stage.report(t, guestDevice, 0, false, true)
+		stage.hide(t, guestDevice, true)
 		panel, box := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 		stage.hub.Handle(t.Context(), panel, Inbound{
 			Type: MessageCommand, Command: CommandChangeItem, FileID: 7, PositionMs: fromMs,

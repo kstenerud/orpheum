@@ -23,12 +23,28 @@
 //   - Starts no goroutine: a device's reading and writing are the API's, and the hub sends to a
 //     device through the Sender it attached with, which must never block. Review-only (standards/go.md,
 //     Concurrency); the race detector runs in make test-all.
-//   - A session has at most one leader, the screen that is the film (D371 §1, §3): the host's device
-//     that plays, the newest attached or the one that put the film on; as it leaves, the host's
-//     newest other player leads, or none does, and a group that stood for it plays on for whoever
-//     plays still. No guest's device and no panel leads. The roster says who leads, and each change
-//     of leader is logged with why. Enforced by TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves
-//     and TestHub_NoGuestNorPanelLeads.
+//   - A session has at most one leader, the screen that is the film (D371 §1). The host's devices
+//     are preferred (D372 §3): the host's device that plays, the newest attached or the one that put
+//     the film on; as it leaves, the host's newest other player. While none of the host's can lead,
+//     the player present longest without a break leads, a guest's as readily, by the moment the
+//     core saw it arrive, to the microsecond, ties to the lower id (D372 §1); a device that comes
+//     back is present only since (§2). A host's player coming back while a guest's leads a film
+//     follows until it plays within the drift a follower leaves alone, then leads (§3). No panel
+//     and no hidden page leads (§6). The roster says who leads, and each change of leader is logged
+//     with why and the new leader's seniority. Enforced by
+//     TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves,
+//     TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan,
+//     TestHub_TheLeadPassesToThePlayerPresentLongest,
+//     TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack and
+//     TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads.
+//   - A leader whose connection closes or goes silent, whose page its browser hides, or whose member
+//     is removed is gone, and the lead passes at once; a leader's stall is not (D372 §5). Leading
+//     carries the clock only: every right stays the host's or the link's (§4). Enforced by
+//     TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot and
+//     TestHub_AGuestsLeadingPlayerCarriesTheClockOnly.
+//   - With no one left who can lead, a Watch Together group that plays pauses where it stands, and
+//     ends by its idle end; a cast is left to its receiver's return (D372 §7). Enforced by
+//     TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle.
 //   - The group's position is its leader's, which nothing steers (D371 §1): each state the leader
 //     reports while the group plays places the group where it is, a stall of the leader's holds the
 //     group where it stands, and a group to play (a film put on, a play, a seek) stands where it is
@@ -124,6 +140,8 @@
 //   - D371: a session's leader plays as a device plays alone; everyone else catches up to it, and a
 //     cast takes its sender's part. It revises D250 §2–§3 (no sync points but the leader's) and
 //     D247 §4 (no group waits for a stalled viewer).
+//   - D372: the lead passes to the longest-present player while the host's screen is gone, and a
+//     person is in one session at most.
 //   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
@@ -142,7 +160,8 @@
 //   - hub.go: sessions, memberships and devices. links.go: the links a person joins by, and the
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
-//   - group.go: the group's state machine: the commands, the leader, and following it.
+//   - group.go: the group's state machine: the commands, and following the leader.
+//   - leader.go: who leads, and how the lead passes (D371, D372).
 //   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
 //   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).
 package together

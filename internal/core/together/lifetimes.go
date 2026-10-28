@@ -53,7 +53,7 @@ func (hub *Hub) EndStale(lifetimes Lifetimes) []int64 {
 			continue
 		}
 		if idle := now.Sub(each.lastActiveAt); idle >= lifetimes.Idle {
-			each.logger.Info("watch together: a session ended, idle", "sessionId", id, "idleFor", idle.String())
+			each.logger.Info("watch together: a session ended, idle", sessionIDAttribute, id, "idleFor", idle.String())
 			each.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "idle"})
 			delete(hub.sessions, id)
 			ended = append(ended, id)

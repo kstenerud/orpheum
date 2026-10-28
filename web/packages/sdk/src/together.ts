@@ -21,7 +21,7 @@ export type GroupEvent =
   | "stopped"
   | "leaderPlays"
   | "waitingFor"
-  | "leaderLeft";
+  | "everyoneLeft";
 
 const groupEvents: readonly GroupEvent[] = [
   "played",
@@ -32,7 +32,7 @@ const groupEvents: readonly GroupEvent[] = [
   "stopped",
   "leaderPlays",
   "waitingFor",
-  "leaderLeft",
+  "everyoneLeft",
 ];
 
 /** The group as the server tells it: what plays, where, how fast, and the named event that made it so. */

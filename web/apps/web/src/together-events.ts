@@ -27,7 +27,7 @@ const eventKeys: Readonly<Record<Exclude<GroupEvent, "seeked">, string>> = {
   leaderPlays: "leaderPlays",
   changedRate: "changedRate",
   waitingFor: "waitingFor",
-  leaderLeft: "leaderLeft",
+  everyoneLeft: "everyoneLeft",
 };
 
 /**

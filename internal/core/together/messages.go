@@ -350,6 +350,12 @@ type VoiceStats struct {
 // positionMsAttribute names a position, in ms, in a log line.
 const positionMsAttribute = "positionMs"
 
+// sessionIDAttribute and leaderDeviceIDAttribute are the log's names for a session and its leader.
+const (
+	sessionIDAttribute      = "sessionId"
+	leaderDeviceIDAttribute = "leaderDeviceId"
+)
+
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
@@ -577,7 +583,10 @@ type Inbound struct {
 	LoadsFaster float64 `json:"loadsFaster,omitempty"`
 	// Playback, in a state, is how the device's player plays the film (D371 §4); nil where it does
 	// not say.
-	Playback   *Playback     `json:"playback,omitempty"`
+	Playback *Playback `json:"playback,omitempty"`
+	// PageHidden, in a state, is the device's page hidden by its browser, its film paused: a
+	// handheld's, a locked phone's. Such a device cannot lead (D372 §5).
+	PageHidden bool          `json:"pageHidden,omitempty"`
 	Command    CommandKind   `json:"command,omitempty"`
 	Rate       float64       `json:"rate,omitempty"`
 	FileID     int64         `json:"fileId,omitempty"`
@@ -724,9 +733,9 @@ const (
 	// EventWaitingFor is the group standing where its leader is, the leader stalled or paused by its
 	// browser: the group's position is the leader's (D371 §1).
 	EventWaitingFor EventKind = "waitingFor"
-	// EventLeaderLeft is the group playing on, from where it stood for its leader, for those who play
-	// still, its leader gone with no other of the host's players to lead (D371 §3, D364 §15).
-	EventLeaderLeft EventKind = "leaderLeft"
+	// EventEveryoneLeft is the group paused where it stands, its leader gone with no one left who
+	// can lead: every player gone, its page elsewhere or hidden (D372 §7).
+	EventEveryoneLeft EventKind = "everyoneLeft"
 )
 
 // Rights are what a guest may do to playback, each given or withheld by the host in their link
