@@ -347,6 +347,10 @@ func TestReport_APausesContextAndThePagesPathMovesAreLogged(t *testing.T) {
 		map[string]any{"kind": "seeked", "positionMs": 9_251, "happenedMonoMs": 991_000, "context": map[string]any{
 			"skippedBy": "hole",
 		}},
+		// A Fire TV's second start 0.6 s after its first, and what it played on from (2026-10-28).
+		map[string]any{"kind": "started", "positionMs": 9_300, "happenedMonoMs": 991_600, "context": map[string]any{
+			"readyState": 4, "startedAfter": "waiting", "stoodMs": 180,
+		}},
 	}
 	body["pathMoves"] = []any{map[string]any{"to": "WebRTC", "happenedMonoMs": 989_500}}
 	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
@@ -356,6 +360,7 @@ func TestReport_APausesContextAndThePagesPathMovesAreLogged(t *testing.T) {
 	for _, want := range []string{
 		`"kind":"paused","positionMs":9000,"isPageHidden":true`, `"mediaSessionAction":"pause"`,
 		`"audioBuffered":"8.000-12.000"`, `"kind":"seeked","positionMs":9251`, `"skippedBy":"hole"`,
+		`"kind":"started","positionMs":9300`, `"startedAfter":"waiting","stoodMs":180`,
 		`"msg":"a player's page moved to another path to the core"`, `"to":"WebRTC","happenedMonoMs":989500`,
 	} {
 		if !strings.Contains(logged, want) {

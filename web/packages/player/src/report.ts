@@ -116,12 +116,12 @@ export class PlayReporter {
     private readonly readMonotonicMs: () => number = () => Math.round(performance.now()),
   ) {}
 
-  /** Playing began or resumed at positionMs. */
-  recordStarted(positionMs: number): void {
+  /** Playing began or resumed at positionMs, with what was true as it did. */
+  recordStarted(positionMs: number, context?: PlayEventContext): void {
     const now = this.readMonotonicMs();
     this.hasStarted = true;
     this.openSpan ??= { fromPositionMs: positionMs, startedMonoMs: now };
-    this.recordEvent({ kind: "started", positionMs, happenedMonoMs: now });
+    this.recordEvent({ kind: "started", positionMs, happenedMonoMs: now, context });
   }
 
   /** Playing stopped at positionMs, with what was true of the page then. */

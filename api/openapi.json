@@ -1841,6 +1841,21 @@
             ],
             "type": "string"
           },
+          "startedAfter": {
+            "description": "What a start played on from: its play, a wait for data, a seek",
+            "enum": [
+              "play",
+              "waiting",
+              "seeking"
+            ],
+            "type": "string"
+          },
+          "stoodMs": {
+            "description": "How long before a start what it played on from came, in ms",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "videoBuffered": {
             "maxLength": 400,
             "type": "string"

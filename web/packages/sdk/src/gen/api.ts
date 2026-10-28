@@ -2981,6 +2981,16 @@ export interface components {
              * @enum {string}
              */
             skippedBy?: "hole" | "nudge";
+            /**
+             * @description What a start played on from: its play, a wait for data, a seek
+             * @enum {string}
+             */
+            startedAfter?: "play" | "waiting" | "seeking";
+            /**
+             * Format: int64
+             * @description How long before a start what it played on from came, in ms
+             */
+            stoodMs?: number;
             videoBuffered?: string;
         };
         ExtraBody: {
