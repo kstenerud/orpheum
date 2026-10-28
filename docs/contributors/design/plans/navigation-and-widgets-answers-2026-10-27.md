@@ -133,3 +133,17 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   shows it again with a Copy button until it is used or withdrawn. A copy of the database can then use
   an unused link; withdrawing or using it ends that. Unused links expire after 7 days (the owner,
   2026-10-28: "unused invitation links expire after 7 days").
+- **Later (the owner, 2026-10-28, "Some other issues to deal with later"):**
+  - "When I first connect with a fire tv, I get a message 'Your browser is asking to reach devices on
+    your network', but the browser doesn't surface anything asking for permissions." The local-network
+    note (local-network-note.tsx, D354) shows on Silk, which asks nothing: the note should show only
+    where the browser will ask (or say what to do on a browser that asks nothing).
+  - "Adding a device should be a role privilege." (To settle when taken up: which act it means, signing
+    a new device in by a code or a link, and the default for each role.)
+  - Translated titles: "We need a way to solve the problem of translated titles. For example Blind and
+    Ugly (tt0567890) and I Just Never Did (tt0678901)." A file named by an English translation of a
+    foreign film's title finds no match by its original title: search TMDB's alternative and translated
+    titles too, or the English title.
+  - "Leaving KT (tt0890123) is an interesting problem because the scan's extracted title puts a space
+    between the D and C." A dotted name's initials ("Leaving K.T.") come out spaced; a run of single
+    letters should join back ("D C" → "DC", as "S.H.I.E.L.D." would).
