@@ -39,7 +39,8 @@ export function UpLink(props: {
 
 /**
  * Where the page is and the way up (D367 §8): on a computer or a phone a trail, "Series › Copper Kettle
- * › S1E1 Pilot", each ancestor a link up to it, the one before the last the parent; on a television
+ * › S1E1 Pilot", each ancestor a link up to it, the one before the last the parent, the last a link
+ * too where the page shows something with a page of its own, a Play page's episode; on a television
  * one "‹ Copper Kettle", one stop for focus. A top page has none. A remote's Back with nothing of the
  * app behind goes to the parent too (D367 §5), as does a television's Back at the base laid under a
  * page it opened on.
@@ -71,7 +72,13 @@ function ShownTrail(props: { readonly upward: Upward; readonly parent: Crumb }):
             <UpLink crumb={crumb}>{crumb.label}</UpLink>
           </li>
         ))}
-        <li aria-current="page">{upward.here}</li>
+        <li aria-current="page">
+          {upward.herePage === undefined ? (
+            upward.here
+          ) : (
+            <UpLink crumb={upward.herePage}>{upward.here}</UpLink>
+          )}
+        </li>
       </ol>
     </nav>
   );

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* Where the page is, at its top (D367 §8): above a title's backdrop, which rises into the space
-   over it. */
+/* Where the page is, at its top (D367 §8); a title's backdrop starts below it (title.css). */
 .up-trail {
-  position: relative;
   margin-block-end: var(--space-2);
 }
 

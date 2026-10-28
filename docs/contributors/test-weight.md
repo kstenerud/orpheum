@@ -655,6 +655,21 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   line ("Isolate N workers spawned … faster with isolate: false") naming a large N with few of the
   files near vitest's `testTimeout`, which the default project's own isolation still protects.
 
+### 33. A walk's Play page waiting out the cast check it is never answered
+
+- **Mechanism:** a Play page waits up to `sendingKnownWithinMs` (3 s, `cast-to.tsx`) to hear from
+  the live connection whether this device casts before it asks for its playback; the walk
+  (`test-walk.tsx`) opens no live connection, so every Play page it mounts waits the whole 3 s.
+- **Instance** (2026-10-28): each browser-mode test that opens a Play page, in
+  `input-player.browser.test.tsx` and `up-trail.browser.test.tsx`, pays 3 s before `POST
+  /playback` (measured by the walk's heard requests, timed); about 3.0 to 3.4 s of each such test.
+- **Why it was invisible:** the wait is a product timeout, not a test helper's, and a passing test
+  takes it as the time a page needs to load.
+- **Fix (owed):** the walk's services tell the Play page at once that this device casts nothing, as
+  the live connection does a round trip after a page loads.
+- **Warning sign:** a walk test of a Play page whose first request after the page's own comes 3 s
+  late.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

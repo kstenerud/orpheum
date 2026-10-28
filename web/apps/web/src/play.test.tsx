@@ -122,6 +122,37 @@ describe("playing a file", () => {
     expect(markup).not.toContain("back-button");
   });
 
+  it("names what plays as a link to its own page, an episode's, an extra's or a video's (the owner, 2026-10-28)", () => {
+    const trailOf = (plays: Parameters<typeof directDecision>[0]): string => {
+      const markup = renderToStaticMarkup(
+        withServices(
+          <PlayView fileId={2} decision={directDecision(plays)} onDecideAgain={() => undefined} />,
+        ),
+      );
+      return /<li aria-current="page">(.*?)<\/li>/u.exec(markup)?.[1] ?? "";
+    };
+    const episode = { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 };
+    expect(
+      trailOf({
+        titleName: "Low Water",
+        plays: { titleId: 23, kind: "episode", libraryId: 1, episode },
+      }),
+    ).toBe('<a href="/titles/23">S2E3 Low Water</a>');
+    expect(
+      trailOf({
+        titleName: "Making Metropolis",
+        plays: { titleId: 12, kind: "extra", libraryId: 1, filmOfExtra: { id: 10, name: "Metropolis" } },
+      }),
+    ).toBe('<a href="/titles/12">Making Metropolis</a>');
+    expect(
+      trailOf({ titleName: "Holiday 2019", plays: { titleId: 30, kind: "other", libraryId: 4 } }),
+    ).toBe('<a href="/titles/30">Holiday 2019</a>');
+    // A film's page is its playing's parent, already a link before "Playing".
+    expect(
+      trailOf({ titleName: "Metropolis", plays: { titleId: 10, kind: "movie", libraryId: 1 } }),
+    ).toBe("Playing");
+  });
+
   it("says a film to convert that came with no ladder cannot be converted, rather than play it (D344)", () => {
     const markup = renderToStaticMarkup(
       withServices(
