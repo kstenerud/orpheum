@@ -192,8 +192,18 @@ From research/network-stack-audit-2026-10-28.md and research/webrtc-throughput-r
    fallback when the LAN name does not answer. The owner is "not against" it; write the D-proposal.
 2. **This batch:** the efficiency audit's cheap fixes (research/web-client-efficiency-audit-2026-10-28.md
    findings 1, 2, 3, 4-defer-up-next, 5, 7).
-3. **Next batch:** WebRTC tuning for paths away from home, tested against the TV: pacing in the core with
-   larger per-channel queue limits, the window-growth step for direct paths, and a log line of each
-   connection's SCTP figures at its end.
-4. **Held:** asking for an unused video stream so Chrome enlarges the data channel's receive buffer
-   (2.5–3× on a desktop): only if the LAN origin is not enough.
+3. **Next batch:** WebRTC tuning for Chromium browsers, tested on the Mac in Chrome (target: Firefox's
+   figure on the same Mac) and the Fire TV: pacing in the core with larger per-channel queue limits, the
+   window-growth step for direct paths, and a log line of each connection's SCTP figures at its end.
+4. **Next batch too** (the owner, 2026-10-28, "yes", revising "only if the LAN origin is not enough"):
+   asking for an unused video stream so Chrome enlarges the data channel's receive buffer (2.5–3× on a
+   desktop in the review).
+5. **Next batch, to look at:** in Safari the relay's leg ran at 80 Mb/s against 108 for the page's own
+   requests, its first byte after about a second: whether Safari needs the relay at all on the LAN name.
+
+The devices' own Throughput runs (staging, 2026-10-28, 32 MiB, Mb/s, app requests / film pieces):
+Mac Safari over HTTPS at the LAN name 108 / 80; Mac Firefox over WebRTC 106 / 102; Mac Chrome over
+WebRTC 23 / 18; old Fire TV (Silk) over WebRTC 36 / 29, over HTTPS at the LAN name 190 / 204. Only the
+Chromium browsers are slow over WebRTC, on a fast Mac as on the stick: Chrome's data channel (its fixed
+64 KiB receive socket buffer with pion's unpaced bursts), not the device's processor, which the review
+had leaned on.
