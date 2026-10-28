@@ -104,3 +104,6 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 7. **Thumbnails while seeking: eventually**, on the wanted-features list; earlier "if it can be pulled out
    as part of the revamped single video file scan".
 8. **Holding Left or Right speeds up by growing steps** (Kodi's), not by rates.
+- **Next batch:** "when playing back via remote control: The controller side should get information
+  about playback, such as the transcoding and bandwidth choices" (the receiver's decision, quality and
+  link, shown on the controlling device).
