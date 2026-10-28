@@ -935,6 +935,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-throughput": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The throughput test's body: bytes of no meaning, for a lab page to time its loads by (webrtc-throughput-2026-10-28.md) */
+        get: operations["getLabThroughput"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries": {
         parameters: {
             query?: never;
@@ -3557,7 +3574,7 @@ export interface components {
              * @description Which lab page measured it
              * @enum {string}
              */
-            probe: "device" | "remote" | "extend" | "cast" | "receiver";
+            probe: "device" | "remote" | "extend" | "cast" | "receiver" | "throughput";
             /** @description What it measured, as the page assembled it */
             result: {
                 [key: string]: unknown;
@@ -7444,6 +7461,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabResultOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLabThroughput: {
+        parameters: {
+            query?: {
+                /** @description How many bytes the body holds */
+                bytes?: number;
+                /** @description Which way the page loads it, for the log */
+                leg?: "transport" | "relay" | "lan";
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
                 };
             };
             /** @description Error */

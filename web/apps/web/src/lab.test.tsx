@@ -87,7 +87,7 @@ describe("the device lab", () => {
   it("is at /lab: a menu of its probes, each a big link, the cast probe's opened by its own load", async () => {
     const markup = await screenAt("/lab");
     expect(markup).toContain('id="lab-heading">Device lab<');
-    for (const probe of ["device", "input", "remote", "extend", "cast"]) {
+    for (const probe of ["device", "input", "remote", "extend", "throughput", "cast"]) {
       expect(markup).toContain(`href="/lab/${probe}"`);
     }
     // No key shows untranslated.
@@ -99,9 +99,10 @@ describe("the device lab", () => {
     expect(await screenAt("/lab/input")).toContain('id="lab-input-heading"');
     expect(await screenAt("/lab/remote")).toContain('id="lab-remote-heading"');
     expect(await screenAt("/lab/extend")).toContain('id="lab-extend-heading"');
+    expect(await screenAt("/lab/throughput")).toContain('id="lab-throughput-heading"');
     expect(await screenAt("/lab/cast")).toContain('id="lab-cast-heading"');
     expect(await appAt("/lab/input")).toContain('class="app-shell"');
-    for (const path of ["/lab/input", "/lab/extend", "/lab/cast"]) {
+    for (const path of ["/lab/input", "/lab/extend", "/lab/throughput", "/lab/cast"]) {
       expect(await screenAt(path)).not.toMatch(/>lab\./u);
     }
   });

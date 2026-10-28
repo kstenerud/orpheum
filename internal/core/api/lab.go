@@ -34,8 +34,8 @@ const labResultIDLength = 8
 type LabResultInput struct {
 	AuthorizationHeader
 	Body struct {
-		Probe  string         `doc:"Which lab page measured it" enum:"device,remote,extend,cast,receiver" json:"probe"`        //nolint:lll // one struct tag
-		Result map[string]any `doc:"What it measured, as the page assembled it"                                 json:"result"` //nolint:lll // one struct tag
+		Probe  string         `doc:"Which lab page measured it" enum:"device,remote,extend,cast,receiver,throughput" json:"probe"` //nolint:lll // one struct tag
+		Result map[string]any `doc:"What it measured, as the page assembled it"                                 json:"result"`     //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -62,26 +62,38 @@ func (server *Server) registerLab() {
 		DefaultStatus: http.StatusNoContent,
 		MaxBodyBytes:  labResultBytesAtMost,
 	}, server.reportLabInputEvents)
+	server.registerLabThroughput()
 }
+
+// labThroughputProbe is the throughput test's name among the lab pages.
+const labThroughputProbe = "throughput"
 
 // requireDeviceTests signs the caller in and refuses them while the admin has the device tests
 // off (should_offer_device_tests): every lab endpoint's one gate.
 func (server *Server) requireDeviceTests(ctx context.Context, authorization string) (auth.Principal, error) {
+	_, principal, err := server.deviceTestsCaller(ctx, authorization)
+	return principal, err
+}
+
+// deviceTestsCaller is requireDeviceTests, answering the server's dependencies too.
+func (server *Server) deviceTestsCaller(
+	ctx context.Context, authorization string,
+) (*Dependencies, auth.Principal, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
 	if err != nil {
-		return auth.Principal{}, err
+		return nil, auth.Principal{}, err
 	}
 	isOffered, err := dependencies.Settings.Bool(ctx, settings.ShouldOfferDeviceTests)
 	if err != nil {
-		return auth.Principal{}, server.settingsError(ctx, "read "+string(settings.ShouldOfferDeviceTests), err)
+		return nil, auth.Principal{}, server.settingsError(ctx, "read "+string(settings.ShouldOfferDeviceTests), err)
 	}
 	if !isOffered {
 		// As a server that serves no client or takes no WebRTC connection says so: there is no
 		// such thing here while it is off.
-		return auth.Principal{}, newError(http.StatusNotFound, CodeNotFound,
+		return nil, auth.Principal{}, newError(http.StatusNotFound, CodeNotFound,
 			"device tests are turned off on this server")
 	}
-	return principal, nil
+	return dependencies, principal, nil
 }
 
 func (server *Server) reportLabResult(ctx context.Context, input *LabResultInput) (*LabResultOutput, error) {
@@ -95,9 +107,17 @@ func (server *Server) reportLabResult(ctx context.Context, input *LabResultInput
 	}
 	output := &LabResultOutput{}
 	output.Body.ID = rand.Text()[:labResultIDLength]
-	server.logger.InfoContext(ctx, "a lab page sent its results", "labResultId", output.Body.ID,
-		"probe", input.Body.Probe, "userId", principal.UserID, "deviceId", principal.DeviceID,
-		"userAgent", input.userAgent, "result", json.RawMessage(result))
+	attributes := []any{
+		"labResultId", output.Body.ID,
+		"probe", input.Body.Probe, logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID,
+		"userAgent", input.userAgent, "result", json.RawMessage(result),
+	}
+	if input.Body.Probe == labThroughputProbe {
+		// Its own words, so the lead finds a device's figures by them (webrtc-throughput-2026-10-28.md).
+		server.logger.InfoContext(ctx, "a throughput test ran", attributes...)
+		return output, nil
+	}
+	server.logger.InfoContext(ctx, "a lab page sent its results", attributes...)
 	return output, nil
 }
 

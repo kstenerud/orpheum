@@ -23,6 +23,8 @@ export const enLab = {
       extendWhat: "Put a test film on a second screen, and sound on two outputs at once",
       cast: "Cast",
       castWhat: "Cast to a Chromecast: Google's receiver or ours (opens on its own)",
+      throughput: "Throughput",
+      throughputWhat: "How fast this device loads from the server, each way it can",
     },
     send: "Send to server",
     sending: "Sending…",
@@ -31,6 +33,25 @@ export const enLab = {
     yes: "yes",
     no: "no",
     unknown: "unknown",
+    throughput: {
+      heading: "Throughput",
+      explain:
+        "Press Run to load 32 MB from the server three ways, one after another: as the app's requests go, as a film's pieces go, and from the server's address at home when one is typed below. Each shows its speed; all are sent to the server's log when they end.",
+      lanAddress: "The server's address at home (optional)",
+      lanAddressExample: "https://192-168-1-10.….orpheum-app.com:8443",
+      run: "Run",
+      running: "Running…",
+      leg: {
+        transport: "As the app's requests go",
+        relay: "As a film's pieces go",
+        lan: "From the address at home",
+      },
+      notRun: "not run yet",
+      skipped: "skipped: no address typed",
+      failed: "failed: {{why}}",
+      result:
+        "{{rate}} Mbit/s: {{seconds}} s in all, the first byte after {{firstByte}} ms, over {{over}}",
+    },
     device: {
       heading: "Device report",
       explain:

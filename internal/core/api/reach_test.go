@@ -243,8 +243,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A page's failure, or how it chose its path to the core, which are only logged and answer nothing.
 		"reportClientProblem", "reportClientPath",
 		// What a lab page measured on a device, which is only logged and answers its name in the log or
-		// nothing.
-		"reportLabResult", "reportLabInputEvents",
+		// nothing, and the throughput test's body, bytes of no meaning.
+		"reportLabResult", "reportLabInputEvents", "getLabThroughput",
 		// A player's word that it left its own playback, by a token only its holder may use (D258 §2):
 		// it answers nothing (TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor).
 		"leavePlayback",

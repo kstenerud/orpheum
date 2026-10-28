@@ -3471,7 +3471,8 @@
               "remote",
               "extend",
               "cast",
-              "receiver"
+              "receiver",
+              "throughput"
             ],
             "type": "string"
           },
@@ -12109,6 +12110,73 @@
           }
         },
         "summary": "What a lab page measured on a device, for the server's log (tv-device-tests.md)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/lab-throughput": {
+      "get": {
+        "operationId": "getLabThroughput",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many bytes the body holds",
+            "explode": false,
+            "in": "query",
+            "name": "bytes",
+            "schema": {
+              "default": 33554432,
+              "description": "How many bytes the body holds",
+              "format": "int64",
+              "maximum": 268435456,
+              "minimum": 1048576,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Which way the page loads it, for the log",
+            "explode": false,
+            "in": "query",
+            "name": "leg",
+            "schema": {
+              "description": "Which way the page loads it, for the log",
+              "enum": [
+                "transport",
+                "relay",
+                "lan"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "The body"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The throughput test's body: bytes of no meaning, for a lab page to time its loads by (webrtc-throughput-2026-10-28.md)",
         "tags": [
           "Running it"
         ]
