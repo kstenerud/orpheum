@@ -126,3 +126,11 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   page goes (its view and sort choosers stay), changing library being the icon's, the trail leading
   back to the library's list; (4) on a TV it closes as any chooser does (Back, Left/Right) and scrolls
   within its height cap. A household with many libraries (15 or more) may later want a grid page instead.
+- **Next batch (the owner, 2026-10-28):** "When I send out an invite link for someone to create an
+  account on my core, it only shows the invite link once ... it would be nice to be able to see the
+  currently issued link." Chosen: "Keep invite links like Watch Together links" (D267 §5): the core
+  keeps each unused invitation link (today only its SHA-256, `invitation_link`), and the people page
+  shows it again with a Copy button until it is used or withdrawn. A copy of the database can then use
+  an unused link; withdrawing or using it ends that. Open, to put to the owner when it is built: an
+  expiry for unused links (the lead suggested 7 days; the owner chose the Watch Together model without
+  saying).
