@@ -49,7 +49,8 @@ export interface PlayerState {
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps
- *   once chunks measured it, from the quality of fromQualityKbps, absent for the first it plays;
+ *   once chunks measured it, from the quality of fromQualityKbps, absent for the first it plays,
+ *   with why its bitrate controller chose it and the link's samples then (QualitySwitched);
  * - soundMoved: moved its sound from earlierFromMs earlier than its picture to earlierMs, why
  *   (SoundMovedBy), with the latency Web Audio measured then, latencyMs, and whether the move threw
  *   the sound loaded away (isFlushed), what moved it to earlierFromMs (fromWhy) and the latency the
@@ -120,6 +121,10 @@ export type PlayerNote =
       readonly qualityKbps: number;
       readonly linkEstimateKbps: number | undefined;
       readonly fromQualityKbps?: number;
+      /** Why its bitrate controller chose the quality, free text, at most qualitySwitchedTextMost. */
+      readonly why?: string;
+      /** The link's samples when it chose it (the player's samplesText). */
+      readonly linkSamples?: string;
     }
   | {
       readonly kind: "soundMoved";

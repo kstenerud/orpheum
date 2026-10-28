@@ -15,6 +15,7 @@ import {
 import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 
 import { isRecovered } from "./abr-controller.ts";
+import type { ChoiceWhy } from "./abr-options.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
 
 /** A prepared rendition playing in a video element. */
@@ -390,16 +391,22 @@ export function measuredKbps(
  * Tells video what hls.js loads, for a Watch Together player's log: each chunk, by
  * playerLoadedChunkEvent, with how long it took and how fast, and each quality it begins playing,
  * by playerSwitchedQualityEvent, with the quality it played before, none for its first, and its
- * link's estimate then, by linkEstimateKbps, hls.js's once a chunk loaded where none is given. A
- * viewer's iPhone froze every few seconds and nothing said what it loaded, or how fast (staging,
- * 2026-10-06). A Fire TV's first quality read as a switch to the top on a link of 5000 kb/s, hls.js's
- * starting value, its own controller having measured nothing (the owner's cast, staging, 2026-10-28).
+ * link's estimate then, by its controller's linkKbps, hls.js's once a chunk loaded where it has
+ * none, and why its controller chose it, with the link's samples then, where its whyChose says
+ * (ChoiceWhy). A viewer's iPhone froze every few seconds and nothing said what it loaded, or how fast
+ * (staging, 2026-10-06). A Fire TV's first quality read as a switch to the top on a link of 5000
+ * kb/s, hls.js's starting value, its own controller having measured nothing (the owner's cast,
+ * staging, 2026-10-28).
  */
 export function tellLoading(
   hls: LoadingHls,
   video: Pick<EventTarget, "dispatchEvent">,
-  linkEstimateKbps: () => number | undefined = measuredKbps(hls),
+  controller: {
+    readonly linkKbps: () => number | undefined;
+    readonly whyChose?: (level: number) => ChoiceWhy | undefined;
+  } = { linkKbps: measuredKbps(hls) },
 ): void {
+  const { linkKbps: linkEstimateKbps, whyChose = () => undefined } = controller;
   hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
     const { frag } = data;
     const isVideo = frag.type === PlaylistLevelType.MAIN;
@@ -420,10 +427,15 @@ export function tellLoading(
   let playedKbps: number | undefined;
   hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
     const qualityKbps = (hls.levels[data.level]?.bitrate ?? 0) / 1000;
+    const chose = whyChose(data.level);
     const switched: QualitySwitched = {
       qualityKbps,
       linkEstimateKbps: linkEstimateKbps(),
       ...(playedKbps === undefined ? {} : { fromQualityKbps: playedKbps }),
+      ...(chose === undefined ? {} : { why: chose.why }),
+      ...(chose === undefined || chose.linkSamples === ""
+        ? {}
+        : { linkSamples: chose.linkSamples }),
     };
     playedKbps = qualityKbps;
     video.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));

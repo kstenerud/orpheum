@@ -14,7 +14,7 @@ import {
   type PlaybackFailure,
 } from "./failure.ts";
 import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
-import type { ChoosingOptions } from "./abr-options.ts";
+import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import {
   failOnFatal,
@@ -352,15 +352,21 @@ function followGroupSoundAndStalls(
  * link as its own bitrate controller measured it, its confident estimate, and none before it has
  * (D352 §1): hls.js's estimate, which our controller samples only as it does, read as hls.js's
  * starting value, 5000 kb/s, on a Fire TV whose controller had measured nothing (the owner's cast,
- * staging, 2026-10-28). Returns that estimate, in kbit/s.
+ * staging, 2026-10-28); and why the controller chose it (whyChose), which a switch's line in the
+ * core's log never said (the same Fire TV's Nosferatu, 15:33). Returns that estimate, in kbit/s.
  */
 export function tellChunkedLoading(
   hls: LoadingHls,
   video: Pick<EventTarget, "dispatchEvent">,
-  choosing: () => { readonly linkKbps: () => number | undefined } | undefined,
+  choosing: () =>
+    | {
+        readonly linkKbps: () => number | undefined;
+        readonly whyChose: (level: number) => ChoiceWhy | undefined;
+      }
+    | undefined,
 ): () => number | undefined {
   const linkKbps = (): number | undefined => choosing()?.linkKbps();
-  tellLoading(hls, video, linkKbps);
+  tellLoading(hls, video, { linkKbps, whyChose: (level) => choosing()?.whyChose(level) });
   return linkKbps;
 }
 

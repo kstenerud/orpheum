@@ -51,7 +51,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   reports its confident estimate as the link's speed, never from a lone first sample (D352 §1), and
   its steadiness level, with every play report (D352 Q2); and notes each choice with what it rests
   on, and its last five samples in every stall's and seek's report, in their own `linkSamples`
-  beside the steps (D352 §5). A quality whose video, asked to play, stands still while its chunks arrive is
+  beside the steps (D352 §5), and tells each switch of quality why it was chosen, with the samples
+  then, for a Watch Together player's note (`whyChose`). A quality whose video, asked to play, stands still while its chunks arrive is
   given up as one the device cannot play, with every quality above it, and reported (D266).
   `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,

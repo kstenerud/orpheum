@@ -240,7 +240,9 @@ type PlayerNote struct {
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
 	// Why is a seek's ("catchUp", "hold", "skip"; a leader's "join", "command" or "undone", D371 §1,
 	// D372 §4) or a
-	// reconnection's ("closed", "silent").
+	// reconnection's ("closed", "silent"); a qualitySwitched note's is free text, why the player's
+	// bitrate controller chose the quality ("first", a chunk given up with its bytes and wait and the
+	// estimate after, a step up, the link), at most diagnosisTextMost.
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
 	Track      string `json:"track,omitempty"`
@@ -254,6 +256,12 @@ type PlayerNote struct {
 	QualityKbps      int64 `json:"qualityKbps,omitempty"`
 	LinkEstimateKbps int64 `json:"linkEstimateKbps,omitempty"`
 	FromQualityKbps  int64 `json:"fromQualityKbps,omitempty"`
+	// LinkSamples are a qualitySwitched note's link samples when its controller chose the quality,
+	// each its quality, bytes, time to arrive and wait for its first byte, at most diagnosisTextMost:
+	// a Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its link estimated at 69 kb/s though its
+	// chunks had loaded at 14-18 Mb/s, and nothing in the log said why (the owner's cast, staging,
+	// 2026-10-28).
+	LinkSamples string `json:"linkSamples,omitempty"`
 	// OfflineMs is how long a reconnecting device was without its socket.
 	OfflineMs int64 `json:"offlineMs,omitempty"`
 	// Voice is a voiceStats note's call, as its receiver measured it (D262 §1).
@@ -370,8 +378,10 @@ func isNoteWord(word string) bool {
 // isKnown is whether the note is one the server logs: a known kind, carrying only known words.
 func (note PlayerNote) isKnown() bool {
 	switch note.Kind {
-	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteReconnected:
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
+	case NoteQualitySwitched:
+		return note.Track == "" && len(note.Why) <= diagnosisTextMost && len(note.LinkSamples) <= diagnosisTextMost
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall, NoteVoiceTalk:
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteGroupFollowed:

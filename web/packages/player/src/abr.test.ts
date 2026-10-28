@@ -7,7 +7,10 @@ import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } fr
 import { lookAtChunkEveryMs, lookForStepUpEveryMs } from "./abr.ts";
 import { commonStartForMs } from "./abr-choice.ts";
 import { isBeingMade, isRecovered, loadAgainFrom, orpheumAbr } from "./abr-controller.ts";
-import { failOnFatal } from "./hls.ts";
+import type { QualitySwitched } from "@orpheum/sdk";
+
+import { tellChunkedLoading } from "./chunked.ts";
+import { failOnFatal, type LoadingHls } from "./hls.ts";
 import { linkSamplesKept } from "./link-estimate.ts";
 import { holdBeforeStepUpMsAt } from "./steadiness.ts";
 import { stepUpBufferMs } from "./step-up.ts";
@@ -144,6 +147,46 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(scene.steps[3]).toMatch(
       /^ceiling 0 to 1: stepped up; confident \d+ kb\/s .*, 20\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
+  });
+
+  it("tells each switch of quality why it was chosen: first, then a chunk given up, its bytes, its wait and the estimate after (staging, Nosferatu, 2026-10-28)", () => {
+    const { hls, choosing } = choosingFrom(40_000_000);
+    const listeners = new Map<string, (event: unknown, data: unknown) => void>();
+    const told: QualitySwitched[] = [];
+    tellChunkedLoading(
+      {
+        levels: hls.levels,
+        bandwidthEstimate: 0,
+        on: ((event: string, listener: (event: unknown, data: unknown) => void) => {
+          listeners.set(event, listener);
+        }) as LoadingHls["on"],
+      },
+      {
+        dispatchEvent: (event) => {
+          told.push((event as CustomEvent<QualitySwitched>).detail);
+          return true;
+        },
+      },
+      () => choosing,
+    );
+    const switchedTo = (level: number): void => {
+      listeners.get(Hls.Events.LEVEL_SWITCHED)?.(undefined, { level });
+    };
+    switchedTo(choosing.firstLevel());
+    const chunk = chunkAt(3);
+    choosing.loading(chunk);
+    chunk.stats.loaded = 750_000; // its first byte's time unknown: none counted as arrived
+    scene.nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    switchedTo(choosing.nextLevel());
+    expect(told[0]).toEqual({ qualityKbps: 36_208.176, linkEstimateKbps: undefined, why: "first" });
+    expect(told[1]?.fromQualityKbps).toBe(36_208.176);
+    expect(told[1]?.qualityKbps).toBe(696);
+    expect(told[1]?.why).toMatch(
+      /^gave up a chunk of 3: 750000 B in 6000 ms; confident 0 kb\/s \(mean 0, error none, 1 sample\), /u,
+    );
+    // The sample it took: a chunk with no byte counted arrived is one byte over the wait.
+    expect(told[1]?.linkSamples).toBe("samples 3 1B 6000ms fb6000ms");
   });
 
   it("tells the page its last samples, each its quality, bytes, time to arrive and wait for its first byte (D352 §5)", () => {

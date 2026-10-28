@@ -18,7 +18,13 @@ import {
   underCeiling,
   voiceCeiling,
 } from "./abr-choice.ts";
-import type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
+import type {
+  ChoiceWhy,
+  ChoosingHls,
+  ChoosingLink,
+  ChoosingOptions,
+  FollowedChunk,
+} from "./abr-options.ts";
 import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
 import { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs } from "./step-up.ts";
@@ -116,6 +122,10 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
   #forced: number | undefined;
   #lastChosen = -1;
+  /** Why each quality was last chosen, by level, for the switch to it (whyChose). */
+  readonly #whyChosen = new Map<number, ChoiceWhy>();
+  /** Why the ceiling stands where it does: "first" until it changes, then its last change's reason. */
+  #ceilingWhy = "first";
   /**
    * The link as its last chunks measured it, which every choice reads (D352 §2): hls.js's estimate,
    * weighted by each chunk's seconds, held one slow first sample of 1008 kb/s for minutes on a
@@ -166,21 +176,26 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** The quality the first chunk is of. */
   firstLevel(): number {
-    this.#lastChosen = this.#clamped(this.#ceilingNow());
-    return this.#lastChosen;
+    return this.#choose(this.#clamped(this.#ceilingNow()), () => this.#ceilingWhy);
+  }
+
+  /**
+   * Why level was last chosen, and the link's samples then, for the switch to it (ChoiceWhy);
+   * undefined for a level never chosen.
+   */
+  whyChose(level: number): ChoiceWhy | undefined {
+    return this.#whyChosen.get(level);
   }
 
   /** The quality the next chunk is of: a forced one, else the steady choice, under voice's ceiling. */
   nextLevel(): number {
     if (this.#forced !== undefined) {
-      this.#lastChosen = this.#forced;
-      return this.#forced;
+      return this.#choose(this.#forced, () => "forced by hls.js");
     }
     const linkBps = this.#linkBps();
     const inTheGroup = this.#groupsChoice(linkBps);
     if (inTheGroup !== undefined) {
-      this.#lastChosen = this.#clamped(inTheGroup);
-      return this.#lastChosen;
+      return this.#choose(this.#clamped(inTheGroup.level), () => inTheGroup.why);
     }
     const ceiling = this.#ceilingNow();
     const carried = steadyLevel({
@@ -203,8 +218,20 @@ export class Choosing<Chunk extends FollowedChunk> {
     const level = this.#options.isVoiceLive()
       ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
       : steady;
-    this.#lastChosen = this.#clamped(level);
-    return this.#lastChosen;
+    const clamped = this.#clamped(level);
+    return this.#choose(clamped, () => {
+      const ceilingNow = this.#ceilingNow();
+      let why = this.#ceilingWhy;
+      if (held !== undefined) {
+        why = `held at ${String(held)}: link carries ${String(carried)}, ${this.#holdText()}`;
+      } else if (carried < ceilingNow) {
+        why = `link carries ${String(carried)} under ceiling ${String(ceilingNow)}; ${this.#stateText()}`;
+      }
+      if (level < steady) {
+        why = `voice live, ${String(steady)} to ${String(level)}; ${why}`;
+      }
+      return clamped === level ? why : `${why}; clamped from ${String(level)}`;
+    });
   }
 
   /**
@@ -219,16 +246,20 @@ export class Choosing<Chunk extends FollowedChunk> {
    * The quality its group has it play, if any: the film's own picture while its link carries it
    * (D286 §2), or, for a while after a jump, the common quality (§3); never one found unplayable.
    */
-  #groupsChoice(linkBps: number | undefined): number | undefined {
+  #groupsChoice(
+    linkBps: number | undefined,
+  ): { readonly level: number; readonly why: string } | undefined {
     const unplayableFrom = this.#unplayableFrom ?? Number.POSITIVE_INFINITY;
     const kept =
       this.#options.isInAGroup?.() === true ? keptOwnPicture(this.#hls.levels, linkBps) : undefined;
     if (kept !== undefined && kept < unplayableFrom) {
-      return kept;
+      return { level: kept, why: "its group's: the film's own picture, its link carrying it" };
     }
     const common = commonStartLevel(this.#hls.levels);
     const isCommon = this.#options.monotonicMs() < this.#commonUntilMs && common >= 0;
-    return isCommon && common < unplayableFrom ? common : undefined;
+    return isCommon && common < unplayableFrom
+      ? { level: common, why: "its group's: the common quality after its group jumped" }
+      : undefined;
   }
 
   /** The quality hls.js forced, or -1. */
@@ -447,14 +478,12 @@ export class Choosing<Chunk extends FollowedChunk> {
       firstByteMs: judged.hasArrived ? loading.first - loading.start : givenUpMs,
       arrivedMs: givenUpMs,
     });
-    this.#lower(
-      chosen,
-      () =>
-        `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(nowMs - judged.sinceMs)} ms;` +
-        ` ${this.#stateText()}`,
-    );
+    const why =
+      `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(nowMs - judged.sinceMs)} ms;` +
+      ` ${this.#stateText()}`;
+    this.#lower(chosen, () => why);
     this.#noteSteadiness(this.#steadiness.dropped(nowMs));
-    this.#lastChosen = chosen;
+    this.#choose(chosen, () => why);
     this.#link.giveUp(chunk);
   }
 
@@ -572,8 +601,9 @@ export class Choosing<Chunk extends FollowedChunk> {
     });
     const allowed = Math.min(raised, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
     if (allowed > ceiling) {
+      this.#ceilingWhy = `stepped up; ${this.#stateText()}`;
       this.#options.noteStep?.(
-        `ceiling ${String(ceiling)} to ${String(allowed)}: stepped up; ${this.#stateText()}`,
+        `ceiling ${String(ceiling)} to ${String(allowed)}: ${this.#ceilingWhy}`,
       );
       this.#ceiling = allowed;
       this.#changedAtMs = nowMs;
@@ -644,6 +674,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     );
     if (lowered < ceiling) {
       this.#ceiling = lowered;
+      this.#ceilingWhy = `started; ${this.#stateText()}`;
       this.#changedAtMs = this.#options.monotonicMs();
     }
   }
@@ -712,10 +743,29 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (level >= this.#ceilingNow()) {
       return false;
     }
-    this.#options.noteStep?.(`ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${why()}`);
+    this.#ceilingWhy = why();
+    this.#options.noteStep?.(
+      `ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${this.#ceilingWhy}`,
+    );
     this.#ceiling = level;
     this.#changedAtMs = this.#options.monotonicMs();
     return true;
+  }
+
+  /**
+   * Chooses level for the next chunk, and keeps why, with the link's samples then, when it is a
+   * change, for the switch to it (whyChose): a switch's line in the core's log said nothing of why
+   * (staging, Nosferatu, 2026-10-28).
+   */
+  #choose(level: number, why: () => string): number {
+    if (level !== this.#lastChosen) {
+      this.#whyChosen.set(level, {
+        why: why(),
+        linkSamples: samplesText(this.#estimate.samples()),
+      });
+    }
+    this.#lastChosen = level;
+    return level;
   }
 
   #clamped(level: number): number {

@@ -196,7 +196,7 @@ describe("playing a prepared rendition", () => {
           return true;
         },
       },
-      () => controller.kbps,
+      { linkKbps: () => controller.kbps },
     );
     fire(Hls.Events.FRAG_LOADED, {
       frag: {
