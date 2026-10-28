@@ -48,6 +48,7 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "together-voice__icon",
     "settings__icon",
     "settings__icon",
+    "route-chooser__chevron",
     "poster__clapperboard",
     ...Array.from({ length: 9 }, () => "player-icons__icon"),
   ]);

@@ -23524,8 +23524,18 @@ season being a view; the series' picker sits in its head beside the ordering, wh
 arrows reach it among the series' other choices (under the episodes' heading, the walk found Play and
 the ordering out of the arrows' reach), and lists each season with its episode count and no still.
 D370's marks by hand stay: the whole series' in the series' head at every season, the season's
-over the season shown, a season watched whole showing its check in the picker. Not seen on a device
-yet (VQ91).
+over the season shown, a season watched whole showing its check in the picker. Fixed after the
+owner's checks on staging (2026-10-28): a title's backdrop, which rose into the space above it and
+whose mask made it a layer of its own, was drawn over the trail's lower half ("the info page banner
+covers half of the trail text"); it now starts below the trail (`title.css`). A Play page's last
+part, what plays, is a link to its own page, an episode's, an extra's or an other video's
+(`Upward`'s `herePage`, an Up per §7), the owner: "When I play a video, there's no way to go directly
+back to the info page. The last part of the trail should also be selectable to get back to the info
+page"; a film's playing keeps "Films › Metropolis › Playing", its film's name already that link. A
+television's overlay keeps the one Up to the parent, an episode's series. Each chooser
+(`route-chooser.tsx`) shows a down chevron at its button's end and says it opens a dialog
+(`aria-haspopup`), the owner: "The choice box UI items look no different from a regular button".
+Not seen on a device yet (VQ91).
 
 **Proven by:**
 - 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
@@ -23535,8 +23545,8 @@ yet (VQ91).
 - 5: web/apps/web/src/input-player.browser.test.tsx ("goes up to the film's page by Back", on Silk and a computer), upward.test.ts (§3.9, §3.10); VQ91
 - 6: web/apps/web/src/up-trail.test.tsx ("… and no Back"), play.test.tsx ("offers its trail up to the film's page, first on the page, and no Back of its own"), input-player.browser.test.tsx ("offers Up to the film's page and its own Back, each reached by the arrows", "goes back by its own Back …"); VQ91
 - 7: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts (§3.3–§3.10), up-trail.test.tsx ("goes back to the series behind it, however far, adding no entry"), input-player.browser.test.tsx ("… its Up goes back to the film's page, adding nothing")
-- 8: web/apps/web/src/up-trail.test.tsx ("shows where an episode is …", "is one link up on a television, one stop for focus"), input-player.browser.test.tsx (the Play page's trail, the overlay's Up); VQ91
-- 9: web/apps/web/src/series-page.test.tsx, series.test.tsx, episode-orderings.test.tsx ("keeps a choice, goes to the series' top page and reads it again"), library-browse.test.tsx ("sends the typed query …"), input-player.browser.test.tsx ("a series returned to by Up from an episode of another season"); VQ91
+- 8: web/apps/web/src/up-trail.test.tsx ("shows where an episode is …", "is one link up on a television, one stop for focus"), input-player.browser.test.tsx (the Play page's trail, the overlay's Up), up-trail.browser.test.tsx (nothing drawn over the trail; a Play page's last part leads to what plays' page), play.test.tsx ("names what plays as a link to its own page …"); VQ91
+- 9: web/apps/web/src/series-page.test.tsx, series.test.tsx, episode-orderings.test.tsx ("keeps a choice, goes to the series' top page and reads it again"), library-browse.test.tsx ("sends the typed query …"), input-player.browser.test.tsx ("a series returned to by Up from an episode of another season"), route-chooser.test.tsx and library-browse.browser.test.tsx (the picker's chevron); VQ91
 - 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); VQ91
 
 ## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track

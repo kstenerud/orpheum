@@ -172,11 +172,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   those listing it by name (the server's `libraries`); an other video under its library's list at its
   folder, a folder under the one above; Home, Films, Series, a library's list and the account's and
   admin's tops have no parent. It shows as a trail on a computer or a phone, `Series › Copper Kettle ›
-  S1E1 Pilot`, each part an Up, and as one "‹ Copper Kettle" on a television (`src/up-trail.tsx`). A
+  S1E1 Pilot`, each part an Up, a Play page's last part, what plays, a link to its own page, and as
+  one "‹ Copper Kettle" on a television (`src/up-trail.tsx`), nothing drawn over it, a title's backdrop
+  below it. A
   remote's Back with nothing of the app behind goes to the parent, as does a television's Back at the
   base laid under a page it opened on. `src/navigation.test.ts`, `src/upward.test.ts` (the research's
   scenarios over the history), `src/up-trail.test.tsx`, `src/play.test.tsx`,
-  `src/input-player.browser.test.tsx`.
+  `src/input-player.browser.test.tsx`, `src/up-trail.browser.test.tsx`.
 - **A series is one page; its season, a sort, a view and a search are views of a page, not steps**
   (D367 §9): choosing one replaces the history's entry (`Link`'s `isReplacing`, `RouteChooser`'s
   `isAView`); a series' page shows the season chosen, else that of the person's next episode, else
@@ -260,7 +262,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
   own, with a trail back out (D367); the library, the view and the sort are each a focusable
   drop-down (`src/route-chooser.tsx`, over `modal-dialog.tsx`), since a native `<select>` is
-  unreliable on a television's browser. `src/library-browse.test.tsx`; on devices, VQ72.
+  unreliable on a television's browser, its button marked by a down chevron as opening a list.
+  `src/library-browse.test.tsx`, `src/route-chooser.test.tsx`,
+  `src/library-browse.browser.test.tsx`; on devices, VQ72.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered

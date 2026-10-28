@@ -40,6 +40,30 @@ describe("the Libraries page's bar in a real browser", () => {
       expect(box.left - name.right, field.textContent).toBeGreaterThanOrEqual(4);
     }
   });
+
+  // The owner, 2026-10-28: a chooser looked "no different from a regular button, so there's no way
+  // to know that it would bring up a choice list".
+  it("marks each chooser by a chevron at its button's end, drawn inside it, after its choice", async () => {
+    await page.viewport(1440, 1000);
+    walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
+    await expect.poll(() => isDrawn(".route-chooser__button")).toBe(true);
+    const buttons = [...document.querySelectorAll(".route-chooser__button")];
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      const chevron = button.querySelector("svg.route-chooser__chevron");
+      expect(chevron, button.textContent).not.toBeNull();
+      const box = button.getBoundingClientRect();
+      const mark = chevron?.getBoundingClientRect() ?? new DOMRect();
+      expect(mark.width, button.textContent).toBeGreaterThanOrEqual(16);
+      expect(mark.height, button.textContent).toBeGreaterThanOrEqual(16);
+      expect(mark.left, button.textContent).toBeGreaterThanOrEqual(box.left);
+      expect(mark.right, button.textContent).toBeLessThanOrEqual(box.right);
+      expect(mark.top, button.textContent).toBeGreaterThanOrEqual(box.top);
+      expect(mark.bottom, button.textContent).toBeLessThanOrEqual(box.bottom);
+      // At the end, after the choice's words.
+      expect(button.lastElementChild, button.textContent).toBe(chevron);
+    }
+  });
 });
 
 /** A server with one films library holding one film, as the Libraries page asks it. */

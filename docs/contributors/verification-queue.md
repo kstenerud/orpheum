@@ -928,8 +928,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   page, opened by a click and by the remote's OK, shows Show in Films (or Series) for a films (or
   series) library and Show on Home, each changing that page and Home at once; Escape, the remote's
   Back and Close shut it, and the account page no longer lists libraries. On an iPhone's installed
-  app, the edge swipe goes back, from the player too. (`web/apps/web/src/navigation.ts`, `upward.ts`,
-  `up-trail.tsx`, `series.tsx`, `play-up.tsx`, `tv-controls.tsx`, `library-configure.tsx`)
+  app, the edge swipe goes back, from the player too. (6) The owner's checks of 2026-10-28: on a
+  film's page with a backdrop, on the computer, the phone and the Fire TV, the trail stands whole
+  above the backdrop, nothing drawn over its words; playing an episode on the computer and the
+  phone, its name, the trail's last part, is a link that leads to the episode's page in one press
+  while it plays, and on a film's Play page its name before "Playing" does the same for the film
+  (on the Fire TV the overlay's "‹ ‹film›" leads to the film's page); every chooser (the Libraries
+  page's library, view and sort, a series' season) shows a down chevron at its button's end.
+  (`web/apps/web/src/navigation.ts`, `upward.ts`, `up-trail.tsx`, `series.tsx`, `play-up.tsx`,
+  `tv-controls.tsx`, `library-configure.tsx`, `title.css`, `route-chooser.tsx`)
 - [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
   Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
   receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's
