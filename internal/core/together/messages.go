@@ -201,6 +201,13 @@ const (
 	// (the owner, 2026-10-27). A receiver whose full screen the browser left unasked, by a Fire TV's
 	// Back or Escape, which takes control back as Back does (D338 §6), notes it "left", with no press.
 	NoteFullScreen NoteKind = "fullScreen"
+	// NoteSoundMoved is a player moving its sound from EarlierFromMs earlier than its picture to
+	// EarlierMs, Why what moved it ("remembered", the latency its device kept; "measured", Web Audio's
+	// latency measured, LatencyMs; "offset", its person's offset; "direct", its sound found playing
+	// with no Web Audio after all), and IsFlushed whether it threw the sound loaded away: a Fire TV's
+	// start waited twice as its move for Web Audio's latency threw its sound away, and nothing said
+	// when or by how much the move changed (the owner's cast, staging, 2026-10-28).
+	NoteSoundMoved NoteKind = "soundMoved"
 	// NotePlayedWithSound is a cast's receiver's film starting with its sound on, at PositionMs, Page
 	// what the page's activation was then: with NotePlayedMuted, whether the press that answered the
 	// cast let it play with sound (D358 §2).
@@ -278,6 +285,13 @@ type PlayerNote struct {
 	// how long since its follower last changed its rate, absent when it never has.
 	LoadedAheadMs     int64 `json:"loadedAheadMs,omitempty"`
 	SinceRateChangeMs int64 `json:"sinceRateChangeMs,omitempty"`
+	// EarlierFromMs and EarlierMs are a soundMoved note's move of its sound, from and to, in ms
+	// earlier than its picture; LatencyMs, Web Audio's latency as measured then, 0 where it was not;
+	// IsFlushed, whether the move threw the sound loaded away.
+	EarlierFromMs int64 `json:"earlierFromMs,omitempty"`
+	EarlierMs     int64 `json:"earlierMs,omitempty"`
+	LatencyMs     int64 `json:"latencyMs,omitempty"`
+	IsFlushed     bool  `json:"isFlushed,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -340,6 +354,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownFollowing()
 	case NoteBuffering:
 		return note.isKnownBuffering()
+	case NoteSoundMoved:
+		return note.isKnownSoundMoved()
 	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
 	case NoteFullScreen:
@@ -385,7 +401,7 @@ func (note PlayerNote) isKnownSound() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
 		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen,
-		NoteGroupFollowed, NoteBuffering: // isKnown reads them
+		NoteGroupFollowed, NoteBuffering, NoteSoundMoved: // isKnown reads them
 	}
 	return false
 }
@@ -401,6 +417,19 @@ func isGroupHeldBy(word string) bool {
 func (note PlayerNote) isKnownBuffering() bool {
 	return note.Track == "" && slices.Contains([]string{"notCaughtUp", "seeking", "notReady", "waiting"}, note.Why) &&
 		note.PositionMs >= 0 && note.LoadedAheadMs >= 0 && note.SinceRateChangeMs >= 0
+}
+
+// soundShiftMost is the furthest a player moves its sound earlier, in ms: the web player's
+// longestSoundShiftMs.
+const soundShiftMost = 2000
+
+// isKnownSoundMoved is whether a soundMoved note is one the server logs: a known cause, and each move
+// and latency within what a player can make.
+func (note PlayerNote) isKnownSoundMoved() bool {
+	isShift := func(ms int64) bool { return ms >= 0 && ms <= soundShiftMost }
+	return note.Track == "" && slices.Contains([]string{"remembered", "measured", "offset", "direct"}, note.Why) &&
+		isShift(note.EarlierFromMs) && isShift(note.EarlierMs) && note.EarlierFromMs != note.EarlierMs &&
+		note.LatencyMs >= 0 && note.LatencyMs <= soundShiftMost
 }
 
 // isKnownFollowing is whether a note of how a follower follows its group is one the server logs: a
@@ -424,7 +453,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
 		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound,
-		NoteBuffering: // isKnown reads them
+		NoteBuffering, NoteSoundMoved: // isKnown reads them
 	}
 	return false
 }
@@ -444,7 +473,8 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
 		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
-		NotePlayedWithSound, NoteGroupFollowed, NoteBuffering: // not voice's: isKnown reads them
+		NotePlayedWithSound, NoteGroupFollowed, NoteBuffering,
+		NoteSoundMoved: // not voice's: isKnown reads them
 	}
 	return false
 }

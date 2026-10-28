@@ -38,6 +38,8 @@ const clientKeys = new Set([
   "orpheum.cast.sending",
   // The page a cast took the tab over from, which it goes back to as casting ends (cast-return.ts).
   "orpheum.cast.returnTo",
+  // The latency of this device's sound through Web Audio, as last measured (sound-latency.ts).
+  "orpheum.sound.latencyMs",
 ]);
 
 /**

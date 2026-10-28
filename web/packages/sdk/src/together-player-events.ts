@@ -7,6 +7,7 @@
  */
 
 import type { TogetherConnection } from "./together-connection.ts";
+import type { SoundMovedBy } from "./together-notes.ts";
 
 /**
  * The event a player fires at its video as it moves the video itself, before the seeking that
@@ -127,6 +128,66 @@ export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
         ...(typeof fromQualityKbps === "number" ? { fromQualityKbps } : {}),
       }
     : undefined;
+}
+
+/**
+ * The event a player fires at its video as it moves its sound earlier than its picture, for a
+ * device that plays its sound late (audio-shift.ts in the player): a SoundMoved in its detail, which
+ * a following player tells the server for its log. A Fire TV's start waited twice as its move for
+ * Web Audio's latency threw its sound away, and nothing said when the move changed or by how much
+ * (the owner's cast, staging, 2026-10-28).
+ */
+export const playerMovedSoundEvent = "orpheumplayermovedsound";
+
+/**
+ * A move of a player's sound, as playerMovedSoundEvent tells it: from earlierFromMs earlier than
+ * its picture to earlierMs, why, the latency Web Audio measured then, absent where the sound is not
+ * through it or not yet measured, and whether the move threw the sound loaded away, to load it
+ * again at the new move.
+ */
+export interface SoundMoved {
+  readonly earlierFromMs: number;
+  readonly earlierMs: number;
+  readonly why: SoundMovedBy;
+  readonly latencyMs?: number;
+  readonly isFlushed: boolean;
+}
+
+/** The words a SoundMoved's why may be. */
+const soundMovedBys: readonly string[] = ["remembered", "measured", "offset", "direct"];
+
+/** Whether word is a SoundMovedBy. */
+function isSoundMovedBy(word: unknown): word is SoundMovedBy {
+  return typeof word === "string" && soundMovedBys.includes(word);
+}
+
+/** A playerMovedSoundEvent's move, or undefined when the event carries none. */
+export function soundMovedOf(event: Event): SoundMoved | undefined {
+  const { earlierFromMs, earlierMs, why, latencyMs, isFlushed } =
+    detailWith(event, ["earlierFromMs", "earlierMs", "why", "isFlushed"]) ?? {};
+  return typeof earlierFromMs === "number" &&
+    typeof earlierMs === "number" &&
+    isSoundMovedBy(why) &&
+    typeof isFlushed === "boolean" &&
+    (latencyMs === undefined || typeof latencyMs === "number")
+    ? {
+        earlierFromMs,
+        earlierMs,
+        why,
+        isFlushed,
+        ...(latencyMs === undefined ? {} : { latencyMs }),
+      }
+    : undefined;
+}
+
+/** Notes for the server's log each move of its sound the player tells of. */
+export function noteSoundMoved(connection: TogetherConnection): (event: Event) => void {
+  return (event) => {
+    const moved = soundMovedOf(event);
+    if (moved !== undefined) {
+      connection.note({ kind: "soundMoved", ...moved });
+    }
+  };
 }
 
 /**

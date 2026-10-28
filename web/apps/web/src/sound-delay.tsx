@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { TFunction } from "i18next";
-import { canMoveSoundEarlier, longestSoundOffsetMs, soundOffset } from "@orpheum/player";
+import {
+  canMoveSoundEarlier,
+  longestSoundOffsetMs,
+  newAudioContext,
+  soundOffset,
+} from "@orpheum/player";
 import { reportFailure } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
 import { problemText } from "./problem.ts";
+import { soundLatencyMemory } from "./sound-latency.ts";
 import { useServices } from "./services.tsx";
 
 /** How much each press moves the sound, in milliseconds. */
@@ -55,7 +61,7 @@ export function SoundOffsetControl(props: {
   useEffect(() => {
     const video = props.videoRef.current;
     if (video !== null) {
-      soundOffset(video).setMs(offsetMs);
+      soundOffset(video, newAudioContext, soundLatencyMemory()).setMs(offsetMs);
     }
   }, [offsetMs, props.videoRef]);
   const deviceId = session.deviceId();

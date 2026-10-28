@@ -18,10 +18,11 @@ export {
   canSetVolume,
   gainAfterVolume,
   longestSoundOffsetMs,
+  newAudioContext,
   soundOffset,
   soundRouteOf,
 } from "./gain.ts";
-export type { Gain, SoundOffset, SoundRoute } from "./gain.ts";
+export type { Gain, SoundLatencyMemory, SoundOffset, SoundRoute } from "./gain.ts";
 export { canMoveSoundEarlier } from "./audio-shift.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";

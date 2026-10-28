@@ -36,6 +36,7 @@ const (
 	eventGroupFollowed      = "groupFollowed"
 	eventFollowedOnlyPlayer = "followedOnlyPlayer"
 	eventPlayerBuffering    = "playerBuffering"
+	eventSoundMoved         = "soundMoved"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
@@ -186,6 +187,9 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NoteBuffering:
 		current.logBuffering(ctx, who, from, note)
 		return true
+	case NoteSoundMoved:
+		current.logSoundMoved(ctx, who, from, note)
+		return true
 	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked:
 		current.logSound(ctx, who, from, note)
 		return true
@@ -208,6 +212,20 @@ func (current *session) logBuffering(ctx context.Context, who *member, from *dev
 		attributes = append(attributes, "sinceRateChangeMs", note.SinceRateChangeMs)
 	}
 	current.logger.InfoContext(ctx, "watch together: a player began holding its group up", attributes...)
+}
+
+// logSoundMoved logs, at info, a player moving its sound earlier than its picture: from and to, in ms,
+// what moved it, Web Audio's latency as measured then where it was, and whether the move threw the
+// sound loaded away. A Fire TV's start waited twice as its move for Web Audio's latency threw its sound
+// away, and nothing said when or by how much the move changed (the owner's cast, staging, 2026-10-28).
+func (current *session) logSoundMoved(ctx context.Context, who *member, from *device, note *PlayerNote) {
+	attributes := append(current.deviceAttributes(who, from), logEvent, eventSoundMoved,
+		"earlierFromMs", note.EarlierFromMs, "earlierMs", note.EarlierMs, "why", note.Why,
+		"flushed", note.IsFlushed)
+	if note.LatencyMs > 0 {
+		attributes = append(attributes, "latencyMs", note.LatencyMs)
+	}
+	current.logger.InfoContext(ctx, "watch together: a player moved its sound", attributes...)
 }
 
 // logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
@@ -236,7 +254,8 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
-		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed, NoteBuffering: // logAtInfo logs them
+		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed, NoteBuffering,
+		NoteSoundMoved: // logAtInfo logs them
 	}
 }
 

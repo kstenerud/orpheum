@@ -971,3 +971,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   from. Before the fix both showed no finished chunk in `linkSamples` and `linkKbps=0` in every
   report (staging logs, 2026-10-27 and 28). (`web/packages/player/src/cache-hit.ts`, `chunked.ts`,
   `hls.ts`; `internal/core/together/player_log.go`)
+- [ ] **VQ96** — a cast to the Fire TV after its first starts with no stall, its sound in step, on
+  staging. Passes when, the Mac casting to the Fire TV (Silk) a converted film (a ladder) with
+  levelling on, once to teach the device its latency and then three times more, from its start and
+  from its middle: (1) the second and later casts start and play on with no wait, and no
+  `playerBuffering` line with `loadedAheadMs=0` in the core's log in their first 20 s; (2) the sound
+  is in step with the lips from the start; (3) the core's log has the first cast's `soundMoved`
+  line, `why=measured` with `flushed=true` and a `latencyMs` of about 330, and for a later cast no
+  `soundMoved` line with `flushed=true` unless its `latencyMs` is 40 ms or more from what was kept
+  (a later cast's `why=remembered` move, `flushed=false`, is logged only where the player had
+  joined its session before it was made). Before the fix every start threw its
+  sound away once or twice, a wait of about 2.5 s each (staging, 2026-10-28, 07:18).
+  (`web/packages/player/src/gain.ts`, `audio-shift.ts`; `web/apps/web/src/sound-latency.ts`;
+  `internal/core/together/player_log.go`)

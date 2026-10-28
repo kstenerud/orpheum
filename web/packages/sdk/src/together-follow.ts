@@ -26,6 +26,8 @@ import {
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
   noteQualitySwitched,
+  playerMovedSoundEvent,
+  noteSoundMoved,
   type ChunkLoaded,
 } from "./together-player-events.ts";
 import {
@@ -768,6 +770,7 @@ export function followGroup(
       },
     ] as const,
     [playerSwitchedQualityEvent, noteQualitySwitched(connection)] as const,
+    [playerMovedSoundEvent, noteSoundMoved(connection)] as const,
   ];
   for (const [event, listener] of listeners) {
     media.addEventListener(event, listener);

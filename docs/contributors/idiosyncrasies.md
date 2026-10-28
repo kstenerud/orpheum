@@ -787,6 +787,18 @@ User-Agent (D263; the User-Agent is logged only).
   without levelling is offered the ladder's sound unlevelled, so no Web Audio is needed to take its
   gain back out. Under the video, the frame timing (`frame-timing.ts`) says what the
   browser knows; for a film playing its own file, Play in a bare player tests the video alone.
+  Each change of the move throws the sound loaded away, and hls.js loads it again: on a Fire TV
+  (Silk), whose Web Audio measures 331 to 347 ms (43 ms base), moving the sound as a cast began
+  stalled it about 2.5 s, twice in one start as the latency was read again (the owner's casts,
+  staging, 2026-10-28; keeping the next 8 s instead, an earlier commit, made the start worse and was
+  reverted). So the device keeps the latency last measured in its own storage
+  (`orpheum.sound.latencyMs`, `web/apps/web/src/sound-latency.ts`), and a later playback moves its
+  sound by it from its first chunk; a latency measured within `soundLatencyChangeIgnoredMs` (40 ms,
+  EBU R37's bound for sound ahead of its picture) of the one in effect moves nothing, a larger change
+  moves once and is kept, and an output latency of 0, not yet measured, is not read. A device's first
+  playback still throws its sound away once, as it learns its latency. Each move is a `soundMoved`
+  note in the core's log, with its from, to, cause, latency and whether it threw the sound away
+  (the owner chose this, 2026-10-28; VQ96).
 - **Left as it is:** a film playing a *prepared copy* with levelling off still takes the copy's
   carried gain back out through Web Audio, so on such a TV its sound comes out late by the context's
   latency. A prepared copy is played only when the ladder cannot start (no grid within

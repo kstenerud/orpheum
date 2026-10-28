@@ -71,6 +71,13 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   the element's life, with every channel kept. And where a page cannot set the volume, as on iOS,
   no gain is applied, since there Web Audio follows the silent switch (D226 §4): `gainAfterVolume`
   checks the element itself. `gain.test.ts`.
+- **A sound through Web Audio is moved earlier by the latency its device remembers until one is
+  measured, and a measured latency moves it again only when it differs from the one in effect by
+  `soundLatencyChangeIgnoredMs` or more**, which is then kept in the memory the app hands in
+  (`SoundLatencyMemory`; the package reads no storage itself), so a device's later playbacks start
+  with no sound thrown away; every move is told the element, from where to where, why and whether it
+  threw the sound away (`playerMovedSoundEvent`), for a Watch Together player's log (the owner,
+  2026-10-28; idiosyncrasies.md, the TCL TV's entry). `gain-latency.test.ts`.
 
 ## Read before changing
 
