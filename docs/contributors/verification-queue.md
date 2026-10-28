@@ -1139,17 +1139,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`waiting`) or a seek (`seeking`, with `skippedBy` on a `kind=seeked` line if hls.js made it) came
   between, which decides the cause the first commit could not. (`web/apps/web/src/play-state.ts`,
   `internal/core/api/report_context.go`)
-- [ ] **VQ113** — a Fire TV loads its chunks over WebRTC as fast as its LAN carries them, not one
-  64 KiB piece for each round trip through its busy page (staging, 2026-10-28: on `path=direct_ipv4`
-  every chunk loaded at 15–18 Mb/s at most whatever its size, about 30 ms a piece, and 1.5–5 Mb/s in
-  a playback's first seconds), on staging. Passes when, the Fire TV (Silk) on the LAN's direct path
-  playing three films from their Play pages, the third after the first two ended at their top
-  quality: the core's `playerNoted` lines with `kind=chunkLoaded` for device 60 carry `loadedKbps`
-  well above 18000 for chunks
-  of a megabyte or more; the "a playback started playing" line's `linkKbps` is above 18000 from the
-  second film; and the third film's first chunk is of its top quality, as its remembered link says,
-  with no step down in its first minute. The Mac in Firefox and in Chrome, on WebRTC, plays a film
-  and seeks twice across it with no stall and no error. (`web/packages/sdk/src/rtc-media.ts`)
 - [ ] **VQ114** — a player's start rests on a lone first chunk no more (staging, 2026-10-28: device
   60, file 5766, its first chunk at 28384 kb/s gave `nextChunkLoadMs=653`, it played with 1.07 s
   loaded, its next chunk loaded at 9636 kb/s and it ran dry a second in, `startedAfter=waiting`), on
