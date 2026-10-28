@@ -1174,3 +1174,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   or a step up), the stall and seek reports show the sound's buffer reaching as far as the picture's
   after the change, no `startedAfter=waiting` follows it, and the sound plays on across it with no
   gap or blip heard. (`web/packages/player/src/abr.ts`, `link-estimate.ts`, `hls.ts`)
+- [ ] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
+  devices (webrtc-throughput-2026-10-28.md: in Chrome and Firefox here, one connection carried
+  25–30 Mb/s at a 50 ms round trip against 240 and more over HTTP, its window cut by the browser's
+  own UDP socket overflowing; the Fire TV saw 15–30 Mb/s), on staging with Device tests on. Do: on
+  the Fire TV (Silk) and on the Mac (Chrome, then Firefox), each reached through the discovery on
+  WebRTC, open Device tests, then Throughput, type the core's LAN address (its LAN name over HTTPS
+  as the discovery publishes it, such as `https://192-168-1-199.<core id>.<zone>:8443`), press
+  Run and note the three rates. Passes when each device's core log has its `a throughput test ran`
+  line with all three legs (or a leg's failure in words) and three `a throughput test's body was
+  sent` lines, and the lead has read them: the transport and the relay alike near 15–30 Mb/s on the
+  TV with the LAN name several times faster confirms the WebRTC path as the limit (the research's
+  §4, fixes 1 and 2); the relay well below the transport puts it in the relay; all three alike puts
+  it in the TV's link. (`web/apps/web/src/lab-throughput.tsx`,
+  `internal/core/api/lab_throughput.go`)
