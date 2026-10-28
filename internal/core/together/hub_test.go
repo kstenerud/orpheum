@@ -212,7 +212,7 @@ func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 	stage := playing(t)
 	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
 	seq := hostBox.last(MessageGroup).Seq
-	stage.hub.Detach(guestDevice)
+	stage.hub.Detach(guestDevice, GoneClosed)
 	if hostBox.last(MessageGroup).Seq != seq || hostBox.last(MessageGroup).Group.State != GroupPlaying {
 		t.Errorf("the guest's device dropped: %+v; want the group playing on, unchanged", hostBox.last(MessageGroup))
 	}
@@ -243,7 +243,7 @@ func TestHub_TheRosterListsTheMembersInTheOrderTheyJoined(t *testing.T) {
 			!slices.IsSortedFunc(roster, func(one, other MemberView) int { return cmp.Compare(one.ID, other.ID) }) {
 			t.Fatalf("the roster %+v; want the host and then each member in the order they joined", roster)
 		}
-		stage.hub.Detach(attached)
+		stage.hub.Detach(attached, GoneClosed)
 	}
 }
 

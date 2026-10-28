@@ -111,9 +111,14 @@ ready and buffers as it needs, and is never held, sought to the group's place, r
 is, a stall of the leader's holds the group where it stands (`Waiting`, event `waitingFor`), and a
 group to play (a film put on, a play, a seek) stands where it is until its leader plays, then plays
 from there at once (event `leaderPlays`). Another device's play, pause or seek, a cast's remote's or
-a guest's, the leader carries out as its own press. As the leader leaves, the host's newest other
-player leads, or none does, and a group that stood for it plays on for whoever plays still (event
-`leaderLeft`). Without a leader the group plays on the server's clock. A player is
+a guest's, the leader carries out as its own press. **The lead passes down the line**
+([D372](../../decisions/working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most)
+§1–§7): while none of the host's devices can lead, the player present longest without a break
+leads, a guest's as readily, by the moment the core saw it arrive (again as it comes back); a
+leader whose connection closes or goes silent, or whose page its browser hides, is gone, and the
+lead passes at once; the host's player coming back follows until it plays in step, then leads
+again; leading carries the clock, never a host's right. With no one left who can lead, the group
+pauses where it stands (event `everyoneLeft`). A player is
 ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than

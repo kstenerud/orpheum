@@ -97,8 +97,13 @@ type session struct {
 	isCast bool
 	group  group
 	// leaderID is the device that leads the session, the screen that is the film (D371 §1): the
-	// host's device that plays, the newest attached or the one that put the film on; 0 while none.
+	// host's device that plays, the newest attached or the one that put the film on, else the player
+	// present longest (D372 §1; leader.go); 0 while none.
 	leaderID int64
+	// driftLeftAlone is how far off the group a follower is left alone (together_drift_left_alone_ms,
+	// D250 §1), as the last device to attach brought it: within it, a host's device that came back
+	// plays in step and takes the lead back (D372 §3).
+	driftLeftAlone time.Duration
 	// snapSeeksBeyond is how far a seek must jump to be snapped to a keyframe: a jump along the
 	// timeline is imprecise, and no one notices it land a little early, but a short skip, 5 to 15 s by
 	// a key or a button, snapped back to where it started would never move on (D285 §1). The
@@ -174,7 +179,13 @@ type device struct {
 	// playback is how its player last said it plays the film: delivered as it is or converted, at
 	// which quality, on what link (D371 §4); nil until it says.
 	playback *Playback
-	send     Sender
+	// arrivedAt is its seniority: when the core saw it arrive, at microsecond resolution, and again
+	// each time its page is shown after it was hidden (D372 §1, §2).
+	arrivedAt time.Time
+	// isPageHidden is its page's word that its browser hid it, its film paused (a locked phone): it
+	// cannot lead while it is (D372 §5).
+	isPageHidden bool
+	send         Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering, round trip and playback,
@@ -345,6 +356,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	hosted.endLinksOf(ejected)
 	delete(hosted.members, memberID)
 	hosted.touch(hub.clock.Now())
+	hosted.leaderStillHere(hub.clock.Now(), false, goneRemoved)
 	hosted.sendRoster()
 	return nil
 }
@@ -366,6 +378,7 @@ func (hub *Hub) Leave(credential string) error {
 	left.endLinksOf(leaving)
 	delete(left.members, leaving.id)
 	left.touch(hub.clock.Now())
+	left.leaderStillHere(hub.clock.Now(), false, goneRemoved)
 	left.sendRoster()
 	return nil
 }
@@ -438,16 +451,20 @@ func (hub *Hub) Attach(
 	if tuning.SnapSeeksBeyondMs > 0 {
 		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
 	}
-	hub.lastID++
-	attachedDevice := &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
-	attachedMember.devices[hub.lastID] = attachedDevice
-	if attachedMember.isHost && role.plays() {
-		attached.lead(attachedMember, attachedDevice, leadAttached) // the newest of the host's players leads
+	if tuning.LeaveDriftUpToMs > 0 {
+		attached.driftLeftAlone = time.Duration(tuning.LeaveDriftUpToMs) * time.Millisecond
 	}
+	hub.lastID++
+	now := hub.clock.Now()
+	attachedDevice := &device{
+		id: hub.lastID, role: role, canSetRate: canSetRate, send: send, arrivedAt: seniorityAt(now),
+	}
+	attachedMember.devices[hub.lastID] = attachedDevice
+	attached.arrived(now, attachedMember, attachedDevice, true)
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
-		Rights: new(attachedMember.rightsHeld()), Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(),
+		Rights: new(attachedMember.rightsHeld()), Group: attached.groupView(now), Roster: attached.roster(),
 		Tuning: &tuning,
 	})
 	attached.sendRoster()
@@ -456,10 +473,10 @@ func (hub *Hub) Attach(
 	}, nil
 }
 
-// Detach removes a device whose connection ended. The group never stops for it (D371 §2): its
-// member stays, and it catches up once it is back. The leader leaving makes another of the host's
-// players the leader, or none (leaderLeft).
-func (hub *Hub) Detach(attachment Attachment) {
+// Detach removes a device whose connection ended, because it closed or went silent. The group never
+// stops for it (D371 §2): its member stays, and it catches up once it is back, its seniority new.
+// The leader leaving hands the lead on at once (leaderGone, D372 §5).
+func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	detached, found := hub.sessions[attachment.SessionID]
@@ -476,7 +493,7 @@ func (hub *Hub) Detach(attachment Attachment) {
 	}
 	delete(left.devices, attachment.DeviceID)
 	if gone.id == detached.leaderID {
-		detached.leaderLeft(hub.clock.Now(), left)
+		detached.leaderGone(hub.clock.Now(), left.isHost, because)
 	}
 	detached.sendRoster()
 }
@@ -534,13 +551,19 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	}
 }
 
-// takeState takes what a device says of itself, and everyone is told: the leader's state places the
-// group (followLeader), and no one else's moves it, a follower's trouble its own to catch up on
-// (D371 §2). Its first word that even its lowest quality is beyond its link is logged.
+// takeState takes what a device says of itself, and everyone is told: whether its page is hidden,
+// which hands on a lead (D372 §5); a host's device in step taking the lead back from a guest's
+// (§3); the leader's state places the group (followLeader), and no one else's moves it, a
+// follower's trouble its own to catch up on (D371 §2). Its first word that even its lowest quality
+// is beyond its link is logged.
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
 	current.logPlayer(ctx, now, who, from, message)
 	from.takeState(message)
+	if message.Type == MessageState {
+		current.takeVisibility(now, who, from, message.PageHidden)
+		current.takeLeadInStep(now, who, from, message)
+	}
 	if message.Type == MessageState && from.id == current.leaderID {
 		current.followLeader(ctx, now, who, from, message)
 	}

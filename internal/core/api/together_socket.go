@@ -105,7 +105,11 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		writeOutbox(ctx, connection, outbox, cancel)
 	}()
 	ended := readInto(ctx, connection, dependencies.Together, attachment, time.Duration(server.togetherSilence.Load()))
-	dependencies.Together.Detach(attachment) // nothing is sent to it after this
+	gone := together.GoneClosed
+	if errors.Is(ended, errSilent) {
+		gone = together.GoneSilent
+	}
+	dependencies.Together.Detach(attachment, gone) // nothing is sent to it after this
 	server.logger.InfoContext(ctx, "watch together: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
 	<-written

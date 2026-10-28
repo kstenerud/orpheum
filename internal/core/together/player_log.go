@@ -45,7 +45,7 @@ const (
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
 func (current *session) deviceAttributes(who *member, from *device) []any {
-	return []any{"sessionId", current.id, "memberId", who.id, "deviceId", from.id}
+	return []any{sessionIDAttribute, current.id, "memberId", who.id, "deviceId", from.id}
 }
 
 // logPlayer logs, at debug, a state that says a device's player began or stopped playing or
@@ -129,7 +129,7 @@ func (current *session) logCatchUp(
 		return false
 	}
 	attributes := append(current.deviceAttributes(who, from), logEvent, eventFollowerCaughtUp,
-		"leaderDeviceId", current.leaderID, positionMsAttribute, note.PositionMs)
+		leaderDeviceIDAttribute, current.leaderID, positionMsAttribute, note.PositionMs)
 	if note.Kind == NoteNudged {
 		attributes = append(attributes, "by", "nudge", "behindMs", note.DriftMs, "rate", note.Rate)
 	} else {

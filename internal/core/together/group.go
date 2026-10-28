@@ -111,7 +111,7 @@ func (current *session) playingState() GroupState {
 // stands where the film is put on until its leader plays, and no one else is waited for (D371 §2).
 func (current *session) changeItem(now time.Time, sender *member, from *device, fileID int64, position time.Duration) {
 	if sender.isHost && from.role.plays() {
-		current.lead(sender, from, leadPutOn)
+		current.lead(now, sender, from, leadPutOn)
 	}
 	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
 	current.change(now, current.playingState(), EventChangedItem, sender.id)
@@ -169,14 +169,7 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 		return
 	}
 	isPlaying := message.Playing && !message.Buffering
-	position := time.Duration(message.PositionMs) * time.Millisecond
-	if isPlaying {
-		rttMs := from.rttMs
-		if message.RTTMs > 0 {
-			rttMs = message.RTTMs
-		}
-		position += time.Duration(float64(time.Duration(rttMs)*time.Millisecond/2) * current.group.rate)
-	}
+	position := current.reportedPosition(from, message)
 	switch {
 	case state == GroupPlaying && isPlaying:
 		stepped := position - current.positionAt(now)
@@ -193,70 +186,18 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 	}
 }
 
-// The reasons a session's leader changes, as its log says them.
-const (
-	// A host's device that plays attaching: the newest leads.
-	leadAttached = "attached"
-	// A host's device putting a film on: the screen that is the film.
-	leadPutOn = "putOn"
-	// The leader leaving: the host's newest other device that plays leads, or none.
-	leadLeft = "leaderLeft"
-)
-
-// leader is the session's leader, the device that is the film (D371 §1); nil while none leads.
-func (current *session) leader() *device {
-	if current.leaderID == 0 {
-		return nil
-	}
-	for _, each := range current.members {
-		if attached, found := each.devices[current.leaderID]; found {
-			return attached
+// reportedPosition is where a device's state says its player is as the state reaches the server: a
+// playing one half its round trip on from where it said.
+func (current *session) reportedPosition(from *device, message Inbound) time.Duration {
+	position := time.Duration(message.PositionMs) * time.Millisecond
+	if message.Playing && !message.Buffering {
+		rttMs := from.rttMs
+		if message.RTTMs > 0 {
+			rttMs = message.RTTMs
 		}
+		position += time.Duration(float64(time.Duration(rttMs)*time.Millisecond/2) * current.group.rate)
 	}
-	return nil
-}
-
-// lead makes the device the session's leader (D371 §3), logging who leads now and why.
-func (current *session) lead(who *member, leading *device, why string) {
-	if leading.id == current.leaderID {
-		return
-	}
-	current.leaderID = leading.id
-	current.logger.Info("watch together: the session's leader changed", logEvent, eventLeaderChanged,
-		"sessionId", current.id, "leaderDeviceId", leading.id, "leaderMemberId", who.id, "why", why)
-}
-
-// leaderLeft takes the leader's leaving: the host's newest other device that plays leads (D371 §3),
-// or none does, and a group that stood for the leader then plays on from where it stood for whoever
-// plays still, as a session plays on as its host leaves the film (D364 §15). With no one to play to,
-// it stands, until a player attaches and leads it.
-func (current *session) leaderLeft(now time.Time, host *member) {
-	current.leaderID = 0
-	var newest *device
-	for _, attached := range host.devices {
-		if attached.role.plays() && (newest == nil || attached.id > newest.id) {
-			newest = attached
-		}
-	}
-	if newest != nil {
-		current.lead(host, newest, leadLeft)
-		return
-	}
-	current.logger.Info("watch together: the session's leader changed", logEvent, eventLeaderChanged,
-		"sessionId", current.id, "leaderDeviceId", 0, "why", leadLeft)
-	if current.group.state == GroupWaiting && current.isAnyPlayer() {
-		current.change(now, GroupPlaying, EventLeaderLeft, host.id)
-	}
-}
-
-// isAnyPlayer is whether some device attached plays the film.
-func (current *session) isAnyPlayer() bool {
-	for _, each := range current.members {
-		if each.hasPlayer() {
-			return true
-		}
-	}
-	return false
+	return position
 }
 
 // change moves the group to state, naming the event and who caused it, and tells every device.
@@ -291,9 +232,9 @@ func (current *session) announce(
 func (current *session) logChange(now time.Time) {
 	attributes := []any{
 		logEvent, eventGroupChanged,
-		"sessionId", current.id, "state", string(current.group.state), "event", string(current.group.event),
+		sessionIDAttribute, current.id, "state", string(current.group.state), "event", string(current.group.event),
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
-		positionMsAttribute, current.positionAt(now).Milliseconds(), "leaderDeviceId", current.leaderID,
+		positionMsAttribute, current.positionAt(now).Milliseconds(), leaderDeviceIDAttribute, current.leaderID,
 	}
 	current.logger.Info("watch together: the group changed", attributes...)
 }

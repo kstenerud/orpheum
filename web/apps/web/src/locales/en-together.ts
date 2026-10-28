@@ -95,7 +95,7 @@ export const enTogether = {
       stopped: "{{name}} stopped the film",
       waitingFor: "Waiting for {{name}}'s player at {{at}}",
       leaderPlays: "{{name}}'s screen plays from {{at}}",
-      leaderLeft: "{{name}}'s screen left; playing on from {{at}}",
+      everyoneLeft: "Everyone's screen left; paused at {{at}}",
       changedRate: "{{name}} changed the speed",
     },
   },

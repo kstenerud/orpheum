@@ -100,8 +100,8 @@ func TestHub_ASessionIdleForItsIdleEndIsEnded(t *testing.T) {
 func TestHub_AGroupPlayingToNoPlayerIsIdle(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
-	stage.hub.Detach(stage.host)
-	stage.hub.Detach(stage.guestDevice)
+	stage.hub.Detach(stage.host, GoneClosed)
+	stage.hub.Detach(stage.guestDevice, GoneClosed)
 	stage.clock.Advance(StartingIdleEnd)
 	if ended := stage.hub.EndStale(startingLifetimes()); len(ended) != 1 {
 		t.Errorf("a group with every player gone for the idle end: EndStale ended %v; want it", ended)
