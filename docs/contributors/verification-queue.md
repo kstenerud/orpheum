@@ -1013,7 +1013,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   choice, else its first place, never its Close; (8) opening and closing a chooser on a series' page
   scrolled down, and Up to its Close, leave the page where it was, the picker in view after Back; (4)
   holds from the Close too; and should Left or Right leave a list open, the core's log has a client
-  problem "a drop-down stayed open at …" saying which layer took the key: note it here.
+  problem "a drop-down stayed open at …" saying which layer took the key: note it here. Then, the
+  owner the same day ("try to make them overlap the chooser somehow, so that it's obvious what they
+  belong to"): (9) on the Fire TV and a computer, a chooser's list opens at its button, its current
+  choice over the button, inside the screen, for a chooser near the screen's bottom too; the menu
+  at its icon; (10) on a phone, a chooser's list is a pop-up over its button, not the screen's
+  middle; (11) the Films and Series pages' sort, and a library's files' Show, are the same chooser.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays

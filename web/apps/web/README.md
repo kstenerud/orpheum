@@ -290,13 +290,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   a button, the chooser's with its chevron and the menu's its icon alone, that opens a modal list
   (`modal-dialog.tsx`) of places and its own Close after them; a press outside it closes it and
   presses nothing under it; it closes on a place pressed, Escape, Back of either kind, Left or
-  Right, focus back on its button. **Every modal dialog closes on the browser's own Back** (D367
+  Right, wherever focus is in it, focus back on its button. It opens at its button
+  (`drop-down-place.ts`): on a big screen its current choice over the button, as a select's list;
+  on a phone's width a pop-up over the button; inside the screen either way; focused on its current
+  place, never its Close; and its opening and closing never move the page. The Films and Series
+  pages' sort and a library's files' Show are choosers too (`ActionChooser`). **Every modal dialog closes on the browser's own Back** (D367
   §10), a Fire TV's remote Back in Silk being a step of the history: an entry held over the page's
   while it is open (`navigation.ts`'s `holdBack`), which a close another way takes away and a choice
   that moves the page takes away first, so the history is as it would be with nothing open.
   `src/navigation.test.ts`, `src/route-chooser.test.tsx`, `src/app-shell.test.tsx`,
   `src/series-page.test.tsx`, `src/input-pages.browser.test.tsx`,
-  `src/app-shell.browser.test.tsx`; on devices, VQ97.
+  `src/app-shell.browser.test.tsx`, `src/drop-down.browser.test.tsx`, `src/drop-down.test.tsx`,
+  `src/modal-dialog.browser.test.tsx`; on devices, VQ97.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
@@ -414,7 +419,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
-  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

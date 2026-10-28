@@ -23634,6 +23634,21 @@ difference being that there's no extra visual indicator that it's a dropdown", a
 menu should be modal": a press outside it closes it and presses nothing under it, focus stays in it
 while it is open, its icon has no chevron. It opens over the page, as a chooser's list does, where
 it dropped from its icon before. Not seen on a device yet (VQ97).
+§10 revised after the owner's next check on the Fire TV (2026-10-28): "the chooser opening a window
+in a different location feels weird. The sort chooser on the films page was missed in the revamp,
+but it feels so much nicer on a big screen. Maybe we should do the pop-up version only on small
+screens, and try to make them overlap the chooser somehow, so that it's obvious what they belong
+to." A drop-down's list now opens at its button (`drop-down-place.ts`): on a big screen, a
+television's or a computer's, as a select's list, its current choice laid over the button, the list
+as wide as the button at least and scrolled within itself where the screen's edge leaves it no
+room; on a phone's (app-shell.css's 599 px breakpoint, `phone-width.ts`), a pop-up whose top is the
+button's; either way inside the screen, moved up or across where it must be. The menu opens so at
+its icon. It opens on its current choice, never its Close; Left and Right close it from its Close
+too; and its opening and closing never move the page, which a list laid out at the page's top had
+scrolled (idiosyncrasies.md). The Films and Series pages' sort and a library's files' filing, still
+native selects, are choosers of the same drop-down (`route-chooser.tsx`'s `ActionChooser`, the page
+keeping the choice); a series' ordering, a preference kept on the server, stays a select for the
+owner to decide. Not seen on a device yet (VQ97).
 
 **Proven by:**
 - 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
@@ -23645,7 +23660,7 @@ it dropped from its icon before. Not seen on a device yet (VQ97).
 - 7: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts (§3.3–§3.10), up-trail.test.tsx ("goes back to the series behind it, however far, adding no entry"), input-player.browser.test.tsx ("… its Up goes back to the film's page, adding nothing")
 - 8: web/apps/web/src/up-trail.test.tsx ("shows where an episode is …", "is one link up on a television, one stop for focus"), input-player.browser.test.tsx (the Play page's trail, the overlay's Up), up-trail.browser.test.tsx (nothing drawn over the trail; a Play page's last part leads to what plays' page), play.test.tsx ("names what plays as a link to its own page …"); VQ91
 - 9: web/apps/web/src/series-page.test.tsx, series.test.tsx, episode-orderings.test.tsx ("keeps a choice, goes to the series' top page and reads it again"), library-browse.test.tsx ("sends the typed query …"), input-player.browser.test.tsx ("a series returned to by Up from an episode of another season"), route-chooser.test.tsx and library-browse.browser.test.tsx (the picker's chevron); VQ91
-- 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); the browser's own Back: navigation.test.ts ("an entry held over the page while something is open over it"), route-chooser.test.tsx ("a chooser's open list"), app-shell.test.tsx ("closes the open menu on the browser's own Back …", "… on Left or Right …"), series-page.test.tsx, input-pages.browser.test.tsx ("closes the open menu by the browser's own Back …", "closes a season picker's list by the browser's own Back …", "closes the open menu by Left and by Right …"), app-shell.browser.test.tsx ("takes a press outside the open menu itself …"); VQ91, VQ97
+- 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); the browser's own Back: navigation.test.ts ("an entry held over the page while something is open over it"), route-chooser.test.tsx ("a chooser's open list"), app-shell.test.tsx ("closes the open menu on the browser's own Back …", "… on Left or Right …"), series-page.test.tsx, input-pages.browser.test.tsx ("closes the open menu by the browser's own Back …", "closes a season picker's list by the browser's own Back …", "closes the open menu by Left and by Right …"), app-shell.browser.test.tsx ("takes a press outside the open menu itself …", "opens the menu at its icon …"), drop-down.browser.test.tsx ("opens at its button …"), input-pages.browser.test.tsx ("opens a season picker mid-page on its season …", "closes a season picker's list by Left and by Right from its Close …"), modal-dialog.browser.test.tsx ("gives focus back to its opener without moving the page …"), drop-down.test.tsx; VQ91, VQ97
 
 ## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 

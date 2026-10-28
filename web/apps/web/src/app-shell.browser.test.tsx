@@ -315,6 +315,41 @@ describe("the shell, laid out by a real browser", () => {
     });
   });
 
+  // The owner, 2026-10-28: a list opened elsewhere "feels weird"; the menu opens at its icon.
+  it.each([
+    { name: "a Fire TV's Silk", width: 960, height: 480 },
+    { name: "a phone", width: 390, height: 740 },
+  ])("opens the menu at its icon, inside the screen, on $name", async ({ width, height }) => {
+    await page.viewport(width, height);
+    await drawn(
+      <AppShell
+        isAdmin={true}
+        canHostWatchTogether={true}
+        currentScreen="films"
+        onSignOut={() => undefined}
+        signedInAs={{ name: "owner", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>,
+      async ({ container }) => {
+        await userEvent.click(page.getByRole("button", { name: "Menu" }));
+        const [menu, icon] = [
+          boxOf(container.querySelector("dialog")),
+          boxOf(container.querySelector(".app-shell__menu-button")),
+        ];
+        const roundingPx = 1;
+        expect(menu.left).toBeLessThanOrEqual(icon.right + roundingPx);
+        expect(menu.right).toBeGreaterThanOrEqual(icon.left - roundingPx);
+        expect(menu.top).toBeLessThanOrEqual(icon.bottom + roundingPx);
+        expect(menu.bottom).toBeGreaterThanOrEqual(icon.top - roundingPx);
+        expect(menu.left).toBeGreaterThanOrEqual(0);
+        expect(menu.top).toBeGreaterThanOrEqual(0);
+        expect(menu.right).toBeLessThanOrEqual(width);
+        expect(menu.bottom).toBeLessThanOrEqual(height);
+      },
+    );
+  });
+
   it("keeps every place of the open menu on the screen of a Fire TV's Silk, Sign out the last", async () => {
     // Silk's page on a Fire TV is 960 by 480 below its address bar: an admin's full menu ran past its
     // bottom, Sign out with it, out of the remote's sight (the owner's Fire TV, 2026-10-27).

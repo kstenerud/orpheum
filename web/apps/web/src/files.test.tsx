@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { groupByReason, Files, ReasonGroups, type SeenFile } from "./files.tsx";
-import { mount, servedBy, type Heard } from "./test-dom.tsx";
+import { buttonWithText, click, mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const file = (
@@ -74,6 +74,22 @@ describe("the files screen", () => {
     expect(heard[0]?.methodAndPath).toBe("GET /files");
     expect(asked.get("libraryId")).toBe("3");
     expect(mounted.container.textContent).toContain("/media/1.mkv");
+    mounted.unmount();
+  });
+
+  // The owner, 2026-10-28: the choosers a page's view is chosen by are one drop-down.
+  it("shows one filing chosen in its Show chooser, the app's drop-down", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /files": [200, { files: [] }] }, heard);
+    const mounted = await mount(withServices(<Files libraryId={3} />, services));
+    const chooser = mounted.container.querySelector(".route-chooser__button");
+    expect(chooser?.textContent).toBe("Everything");
+    await click(chooser);
+    await click(buttonWithText(mounted.container, "Could not be read"));
+    expect(new URLSearchParams(heard.at(-1)?.query).get("filing")).toBe("errored");
+    expect(mounted.container.querySelector(".route-chooser__button")?.textContent).toBe(
+      "Could not be read",
+    );
     mounted.unmount();
   });
 });

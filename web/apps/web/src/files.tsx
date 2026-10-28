@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { EndOfList } from "./end-of-list.tsx";
+import { ActionChooser } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { usePages, type Page } from "./use-pages.ts";
@@ -101,21 +102,18 @@ export function Files(props: { readonly libraryId: number }): JSX.Element {
   return (
     <section aria-labelledby="files-heading">
       <h1 id="files-heading">{t("files.heading")}</h1>
-      <label>
-        {t("common.show")}
-        <select
-          value={filingFilter}
-          onChange={(event) => {
-            setFilingFilter(filingChoices.find((choice) => choice === event.target.value) ?? "");
-          }}
-        >
-          {filingChoices.map((choice) => (
-            <option key={choice} value={choice}>
-              {choice === "" ? t("files.all") : filingName(t, choice)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ActionChooser
+        fieldLabel={t("common.show")}
+        current={filingFilter === "" ? t("files.all") : filingName(t, filingFilter)}
+        options={filingChoices.map((choice) => ({
+          key: choice === "" ? "all" : choice,
+          label: choice === "" ? t("files.all") : filingName(t, choice),
+          isCurrent: choice === filingFilter,
+          onChoose: () => {
+            setFilingFilter(choice);
+          },
+        }))}
+      />
       <FilePages
         key={`${String(props.libraryId)}/${filingFilter}`}
         libraryId={props.libraryId}

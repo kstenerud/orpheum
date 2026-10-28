@@ -10,7 +10,6 @@ import { Browse, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
   buttonWithText,
-  choose,
   click,
   mount,
   servedBy,
@@ -158,7 +157,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
       (each) => each.methodAndPath === "GET /titles/letters",
     ).length;
     expect(lettersAsksByName).toBe(1);
-    await choose(mounted.container.querySelector("select"), "added");
+    await chooseSort(mounted.container, "Newest added");
     await settleUntil(
       () => heard.filter((each) => each.methodAndPath === "GET /titles").length >= 2,
     );
@@ -169,6 +168,12 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
     );
   });
 });
+
+/** Chooses the sort labelled label in the page's sort chooser, opened for it. */
+async function chooseSort(container: HTMLElement, label: string): Promise<void> {
+  await click(container.querySelector(".route-chooser__button"));
+  await click(buttonWithText(container, label));
+}
 
 describe("the rail follows a name sort's direction (D366 §4)", () => {
   let mounted: Mounted | undefined;
@@ -200,7 +205,8 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
-    const options = [...mounted.container.querySelectorAll("option")].map(
+    await click(mounted.container.querySelector(".route-chooser__button"));
+    const options = [...mounted.container.querySelectorAll("dialog li button")].map(
       (each) => each.textContent,
     );
     expect(options).toEqual([
@@ -211,7 +217,7 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       "Newest added",
       "Oldest added",
     ]);
-    await choose(mounted.container.querySelector("select"), "name:descending");
+    await click(buttonWithText(mounted.container, "Name, Z–A"));
     await settleUntil(() => titlesHeard(heard).length >= 2);
     expect(new URLSearchParams(titlesHeard(heard)[1]?.query).get("order")).toBe("descending");
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);

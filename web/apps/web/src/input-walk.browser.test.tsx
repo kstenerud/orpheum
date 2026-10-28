@@ -63,7 +63,9 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     // The list's order, at the bar's end, then the film below it, then along its row to the first.
-    await expect.poll(() => document.activeElement?.tagName).toBe("SELECT");
+    await expect
+      .poll(() => document.activeElement?.classList.contains("route-chooser__button"))
+      .toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedTile()).not.toBe("");
     await userEvent.keyboard("{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
@@ -201,7 +203,8 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     expect(document.activeElement?.matches(":focus-visible")).toBe(true);
   });
 
-  it("steps through a list's choices by OK, which a controller's press may not open", async () => {
+  // The Films page's sort is the app's own drop-down (the owner, 2026-10-28), not a select.
+  it("chooses the Films page's sort by a controller, its OK opening the list and choosing in it", async () => {
     const pad = xboxPad();
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.pad] });
     const heard: string[] = [];
@@ -210,10 +213,16 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     globalThis.dispatchEvent(new Event("gamepadconnected"));
     await pressPad(pad, padButtons.down);
-    expect(document.activeElement?.tagName).toBe("SELECT");
+    expect(document.activeElement?.classList.contains("route-chooser__button")).toBe(true);
+    await pressPad(pad, padButtons.ok);
+    await expect.poll(() => document.activeElement?.textContent).toBe("Name, A–Z");
+    expect(document.querySelector("dialog")).not.toBeNull();
+    await pressPad(pad, padButtons.down);
     await pressPad(pad, padButtons.ok);
     // The next choice after Name, A–Z is Name, Z–A (D366 §2).
-    await expect.poll(() => document.querySelector("select")?.value).toBe("name:descending");
+    await expect
+      .poll(() => document.querySelector(".route-chooser__button")?.textContent)
+      .toBe("Name, Z–A");
     await expect
       .poll(() => heard.filter((each) => each === "GET /titles").length)
       .toBeGreaterThan(1);

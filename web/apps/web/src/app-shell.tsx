@@ -13,14 +13,13 @@ import { Link } from "./link.tsx";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
+import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 /** The laurel alone, which the page's favicon is, served beside the client (index.html). */
 const markOnly = "/favicon.svg";
-/** A phone's width, as app-shell.css's own breakpoint. */
-const PHONE_WIDTH = "(max-width: 599px)";
 
 /**
  * The places for watching: the way home, which stays put, and the other places beside it in the room
@@ -51,7 +50,7 @@ function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
             into it (the owner, 2026-10-28: "reduce the orpheum text to just the logo when the screen
             is small"). */}
         <picture>
-          <source media={PHONE_WIDTH} srcSet={markOnly} />
+          <source media={phoneWidthQuery} srcSet={markOnly} />
           <img className="app-shell__logo" src={logo} alt={productName} />
         </picture>
       </Link>
