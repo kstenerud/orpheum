@@ -11,7 +11,7 @@ import {
   playbackFailureText,
 } from "./film-player.tsx";
 import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
-import { playUp } from "./play-up.tsx";
+import { playUp, playUpward } from "./play-up.tsx";
 import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
@@ -122,14 +122,18 @@ describe("playing a file", () => {
     expect(markup).not.toContain("back-button");
   });
 
-  it("names what plays as a link to its own page, an episode's, an extra's or a video's (the owner, 2026-10-28)", () => {
+  it("puts what plays' own page last before the playing, a press up (the owner, 2026-10-28)", () => {
     const trailOf = (plays: Parameters<typeof directDecision>[0]): string => {
       const markup = renderToStaticMarkup(
         withServices(
           <PlayView fileId={2} decision={directDecision(plays)} onDecideAgain={() => undefined} />,
         ),
       );
-      return /<li aria-current="page">(.*?)<\/li>/u.exec(markup)?.[1] ?? "";
+      const crumbs = /<ol class="up-trail__crumbs">(.*?)<\/ol>/u.exec(markup)?.[1] ?? "";
+      return [...crumbs.matchAll(/<li[^>]*>(.*?)<\/li>/gu)]
+        .map((part) => part[1])
+        .slice(-2)
+        .join(" › ");
     };
     const episode = { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 };
     expect(
@@ -137,20 +141,19 @@ describe("playing a file", () => {
         titleName: "Low Water",
         plays: { titleId: 23, kind: "episode", libraryId: 1, episode },
       }),
-    ).toBe('<a href="/titles/23">S2E3 Low Water</a>');
+    ).toBe('<a href="/titles/23">S2E3 Low Water</a> › Playing');
     expect(
       trailOf({
         titleName: "Making Metropolis",
         plays: { titleId: 12, kind: "extra", libraryId: 1, filmOfExtra: { id: 10, name: "Metropolis" } },
       }),
-    ).toBe('<a href="/titles/12">Making Metropolis</a>');
+    ).toBe('<a href="/titles/12">Making Metropolis</a> › Playing');
     expect(
       trailOf({ titleName: "Holiday 2019", plays: { titleId: 30, kind: "other", libraryId: 4 } }),
-    ).toBe('<a href="/titles/30">Holiday 2019</a>');
-    // A film's page is its playing's parent, already a link before "Playing".
+    ).toBe('<a href="/titles/30">Holiday 2019</a> › Playing');
     expect(
       trailOf({ titleName: "Metropolis", plays: { titleId: 10, kind: "movie", libraryId: 1 } }),
-    ).toBe("Playing");
+    ).toBe('<a href="/titles/10">Metropolis</a> › Playing');
   });
 
   it("says a film to convert that came with no ladder cannot be converted, rather than play it (D344)", () => {
@@ -244,24 +247,38 @@ describe("where a player moving to a lower quality goes on from", () => {
 });
 
 describe("the page above a Play page, where its Back goes with no page of this app behind it", () => {
-  it("is a film's own page, an extra's film's, and an extra's own where its film is not said", () => {
+  it("is what plays' own page, a film's, an extra's, an episode's or an other video's", () => {
     expect(playUp({ titleId: 10, kind: "movie", libraryId: 1 })).toEqual({
       screen: "title",
       itemId: 10,
     });
-    expect(playUp({ titleId: 12, kind: "extra", libraryId: 1 })).toEqual({
-      screen: "title",
-      itemId: 12,
-    });
-    // D367 §2: an extra goes up to the film it belongs to.
     expect(
       playUp({ titleId: 12, kind: "extra", libraryId: 1, filmOfExtra: { id: 10, name: "Metropolis" } }),
-    ).toEqual({ screen: "title", itemId: 10 });
-  });
-
-  it("is an episode's series at its season, or at its group in the ordering the person chose", () => {
+    ).toEqual({ screen: "title", itemId: 12 });
     const aired = { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 };
     expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: aired })).toEqual({
+      screen: "title",
+      itemId: 23,
+    });
+    expect(playUp({ titleId: 30, kind: "other", libraryId: 4 })).toEqual({
+      screen: "title",
+      itemId: 30,
+    });
+  });
+
+  it("has above it an extra's film, an episode's series at its season or group, an other video's library", () => {
+    const grandparent = (plays: Parameters<typeof playUpward>[0]): unknown =>
+      playUpward(plays, "", { t: i18n.t, behind: [] }).crumbs.at(-2)?.to;
+    expect(
+      grandparent({
+        titleId: 12,
+        kind: "extra",
+        libraryId: 1,
+        filmOfExtra: { id: 10, name: "Metropolis" },
+      }),
+    ).toEqual({ screen: "title", itemId: 10 });
+    const aired = { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 };
+    expect(grandparent({ titleId: 23, kind: "episode", libraryId: 1, episode: aired })).toEqual({
       screen: "series-page",
       collectionId: 20,
       season: 2,
@@ -271,25 +288,24 @@ describe("the page above a Play page, where its Back goes with no page of this a
       ordering: "tmdb:dvd",
       inOrdering: { groupNumber: 1, numberInGroup: 4 },
     };
-    expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: inDVDOrder })).toEqual({
+    expect(
+      grandparent({ titleId: 23, kind: "episode", libraryId: 1, episode: inDVDOrder }),
+    ).toEqual({
       screen: "series-page",
       collectionId: 20,
       season: 1,
     });
     // An ordering that leaves it out: the series' top.
     const leftOut = { ...aired, ordering: "tmdb:dvd" };
-    expect(playUp({ titleId: 23, kind: "episode", libraryId: 1, episode: leftOut })).toEqual({
+    expect(grandparent({ titleId: 23, kind: "episode", libraryId: 1, episode: leftOut })).toEqual({
       screen: "series-page",
       collectionId: 20,
     });
-  });
-
-  it("is an other video's library's list, or home when no library of the person's covers it", () => {
-    expect(playUp({ titleId: 30, kind: "other", libraryId: 4 })).toEqual({
+    expect(grandparent({ titleId: 30, kind: "other", libraryId: 4 })).toEqual({
       screen: "browse",
       library: 4,
     });
-    expect(playUp({ titleId: 30, kind: "other" })).toEqual({ screen: "home" });
+    expect(grandparent({ titleId: 30, kind: "other" })).toEqual({ screen: "home" });
   });
 
   it("is home where the server does not say what it plays: a file filed as no title, an older server", () => {

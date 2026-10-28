@@ -76,6 +76,11 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 - Fixed in the batch: the banner covers half the trail; from the Play page no one press reaches the info
   page ("the last part of the trail should also be selectable to get back to the info page"); the choice
   boxes look like plain buttons.
+- Then, revising D367 §2: "it always leaves a trail that goes back to the info page before going any
+  further back ... because you go through an info page to get to the playback page in all cases,
+  including episodes. ... The only exception is direct-play links, such as continue watching. These
+  leave a different 'back' trail that goes directly back to the continue watching page." A Play page's
+  parent is what plays' own page on every device; Back stays the history. Built in the batch.
 - **Next batch:** "I'm not sure I like having the season selection done as a choice box. Jellyfin actually
   shows posters for the seasons in the season page" (revises D367 §9's picker). And "these
   unlikely-to-be-used UI items should be under a vertical '…' selector so that they don't clutter the UI"

@@ -23527,12 +23527,16 @@ D370's marks by hand stay: the whole series' in the series' head at every season
 over the season shown, a season watched whole showing its check in the picker. Fixed after the
 owner's checks on staging (2026-10-28): a title's backdrop, which rose into the space above it and
 whose mask made it a layer of its own, was drawn over the trail's lower half ("the info page banner
-covers half of the trail text"); it now starts below the trail (`title.css`). A Play page's last
-part, what plays, is a link to its own page, an episode's, an extra's or an other video's
-(`Upward`'s `herePage`, an Up per §7), the owner: "When I play a video, there's no way to go directly
-back to the info page. The last part of the trail should also be selectable to get back to the info
-page"; a film's playing keeps "Films › Metropolis › Playing", its film's name already that link. A
-television's overlay keeps the one Up to the parent, an episode's series. Each chooser
+covers half of the trail text"); it now starts below the trail (`title.css`). The owner: "When I
+play a video, there's no way to go directly back to the info page", then, revising §2's Play page
+(2026-10-28): "jellyfin ... always leaves a trail that goes back to the info page before going any
+further back. That makes sense, because you go through an info page to get to the playback page in
+all cases, including episodes. ... The only exception is direct-play links, such as continue
+watching", whose Back goes straight back to the list (§1, as built). So a Play page's parent is
+always what plays' own page, an episode's, an extra's, an other video's as a film's: "Series › Ted
+Lasso › S1E1 Pilot › Playing", the television's overlay "‹ S1E1 Pilot", and a Back with nothing
+behind goes there too (§5); Up from that page goes on to the series at its season, an extra's film,
+an other video's library. Each chooser
 (`route-chooser.tsx`) shows a down chevron at its button's end and says it opens a dialog
 (`aria-haspopup`), the owner: "The choice box UI items look no different from a regular button".
 Not seen on a device yet (VQ91).

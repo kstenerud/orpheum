@@ -269,6 +269,8 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
   });
 
   it("pauses at once as its remote pauses, though its page is hidden, telling the log it followed at once (the owner, 2026-10-28)", async () => {
+    // The clock stands still, so "at once" is 0 ms however loaded the machine.
+    vi.useFakeTimers({ toFake: ["performance"] });
     const { server, video } = await receiver();
     // A computer's video, playing: its hidden page plays on (pauseWhenHidden pauses a handheld's alone).
     const isPaused = playingVideo(video, 70);
