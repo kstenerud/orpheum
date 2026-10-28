@@ -90,6 +90,12 @@ type StartGateBody struct {
 	LoadedAheadMs    *int64 `json:"loadedAheadMs,omitempty"    minimum:"0" required:"false"`
 	WaitedForAheadMs *int64 `json:"waitedForAheadMs,omitempty" minimum:"0" required:"false"`
 	NextChunkLoadMs  *int64 `json:"nextChunkLoadMs,omitempty"  minimum:"0" required:"false"`
+	// NextChunkLoadFrom is what the next chunk's expected load rested on: the player's confident
+	// estimate of its link, the link its device last measured on its network, its first chunk's speed
+	// where that was lower, or none, so it waited refillAheadMs. A lone fast first chunk let a Fire TV
+	// start with 1 s loaded (staging, 2026-10-28).
+	//nolint:lll // one struct tag
+	NextChunkLoadFrom string `enum:"confident,remembered,firstSample,none" json:"nextChunkLoadFrom,omitempty" required:"false"`
 }
 
 // attributes are the start gate's for the log: each that was told.
@@ -103,6 +109,9 @@ func (gate StartGateBody) attributes() []any {
 	}
 	if gate.NextChunkLoadMs != nil {
 		attributes = append(attributes, "nextChunkLoadMs", *gate.NextChunkLoadMs)
+	}
+	if gate.NextChunkLoadFrom != "" {
+		attributes = append(attributes, "nextChunkLoadFrom", gate.NextChunkLoadFrom)
 	}
 	return attributes
 }
@@ -266,17 +275,30 @@ type LadderBody struct {
 	// Steadiness is the steadiness level the player starts at (D352 §3): the one its last playback on
 	// this network ended at, relaxed by the time since; 0 for none remembered (D352 Q2).
 	Steadiness int `json:"steadiness" maximum:"3" minimum:"0"`
+	// RememberedLinkKbps is, at a playback's start, the link its device last measured on this
+	// network (D257 §1), which its player's start rule sets against its first chunk's speed until its
+	// own estimate is confident: one fast first chunk let a Fire TV start with 1 s loaded, its next
+	// chunk taking four times what that chunk promised (staging, 2026-10-28). Absent for none, and
+	// on a lower quality offered after a stall.
+	RememberedLinkKbps *int64 `json:"rememberedLinkKbps,omitempty" minimum:"1" required:"false"`
 }
 
 // ladderBody is a place on a film's ladder offered to the playback a media token names, by its
-// chunks' master playlist, whether it is ready, and the steadiness level its player starts at.
-func ladderBody(token string, offer chunks.Offer, isReady bool, steadiness int) *LadderBody {
-	return &LadderBody{
+// chunks' master playlist, whether it is ready, the steadiness level its player starts at and the
+// link its device last measured on its network, 0 for none.
+func ladderBody(
+	token string, offer chunks.Offer, isReady bool, steadiness int, rememberedLinkKbps int64,
+) *LadderBody {
+	body := &LadderBody{
 		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 		QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
 		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
 		LinkSharePercent: offer.LinkSharePercent, Steadiness: steadiness,
 	}
+	if rememberedLinkKbps > 0 {
+		body.RememberedLinkKbps = &rememberedLinkKbps
+	}
+	return body
 }
 
 // StopBody is the admin's stop of a playback, and what they said.
@@ -331,7 +353,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	if offer := answer.LowerQuality; offer != nil {
 		output.Body.LowerQuality = ladderBody(
-			input.Token, *offer, answer.IsLowerQualityReady, answer.LowerQualitySteadiness)
+			input.Token, *offer, answer.IsLowerQualityReady, answer.LowerQualitySteadiness, 0)
 	}
 	return output, nil
 }

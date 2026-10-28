@@ -66,7 +66,7 @@ function asTheFireTvWas(video: HTMLVideoElement): {
       isPaused = true;
     },
   });
-  tellNextChunkLoadMs(video, () => 2300);
+  tellNextChunkLoadMs(video, () => ({ loadMs: 2300, from: "confident" }));
   return {
     plays: () => plays,
     load: (loaded) => {
@@ -126,7 +126,12 @@ describe("the Play page's start (the owner, 2026-10-28)", () => {
     expect(fireTv.plays()).toBe(1);
     await fire(video, "playing");
     expect(reportsOf(heard)[0]).toMatchObject({
-      startup: { loadedAheadMs: 11_970, waitedForAheadMs: 3450, nextChunkLoadMs: 2300 },
+      startup: {
+        loadedAheadMs: 11_970,
+        waitedForAheadMs: 3450,
+        nextChunkLoadMs: 2300,
+        nextChunkLoadFrom: "confident",
+      },
     });
   });
 

@@ -21,6 +21,7 @@ func TestReport_AStartAndASeekSayHowMuchWasLoadedAheadAndThatTheyWaitedForIt(t *
 	body["startup"] = map[string]any{
 		"decidedAfterMs": 180, "firstDataAfterMs": 2400, "playingAfterMs": 4700,
 		"loadedAheadMs": 11_970, "waitedForAheadMs": 3450, "nextChunkLoadMs": 2300,
+		"nextChunkLoadFrom": "remembered",
 	}
 	body["seeks"] = []map[string]any{{
 		"fromPositionMs": 2_759_000, "toPositionMs": 1_461_000, "readyAfterMs": 6900,
@@ -32,7 +33,7 @@ func TestReport_AStartAndASeekSayHowMuchWasLoadedAheadAndThatTheyWaitedForIt(t *
 	logged := harness.logs.String()
 	for _, want := range []string{
 		`"playingAfterMs":4700,"linkKbps":0,"preloadSteps":"","loadedAheadMs":11970,` +
-			`"waitedForAheadMs":3450,"nextChunkLoadMs":2300`,
+			`"waitedForAheadMs":3450,"nextChunkLoadMs":2300,"nextChunkLoadFrom":"remembered"`,
 		`"readyAfterMs":6900,"isPaused":false,"linkKbps":0,"loadedAheadMs":10400,"waitedForAheadMs":10000`,
 	} {
 		if !strings.Contains(logged, want) {

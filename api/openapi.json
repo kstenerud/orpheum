@@ -3525,6 +3525,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "rememberedLinkKbps": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
           "soundCarriedGainDb": {
             "format": "double",
             "type": "number"
@@ -6338,6 +6343,15 @@
             "minimum": 0,
             "type": "integer"
           },
+          "nextChunkLoadFrom": {
+            "enum": [
+              "confident",
+              "remembered",
+              "firstSample",
+              "none"
+            ],
+            "type": "string"
+          },
           "nextChunkLoadMs": {
             "format": "int64",
             "minimum": 0,
@@ -7164,6 +7178,15 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "nextChunkLoadFrom": {
+            "enum": [
+              "confident",
+              "remembered",
+              "firstSample",
+              "none"
+            ],
+            "type": "string"
           },
           "nextChunkLoadMs": {
             "format": "int64",

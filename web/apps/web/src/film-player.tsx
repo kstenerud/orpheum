@@ -582,7 +582,7 @@ export function useChunkedPlayback(
   readonly cannotKeepUp: CannotKeepUp | undefined;
 } {
   const { positionMs, startAudioRef } = starting;
-  const { url, startAtBps, linkSharePercent, steadiness } = starting.offer;
+  const { url, startAtBps, linkSharePercent, steadiness, rememberedLinkKbps } = starting.offer;
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
@@ -595,7 +595,7 @@ export function useChunkedPlayback(
     const playback = playChunked(video, url, {
       onFailed,
       ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
-      ...startOn({ startAtBps, linkSharePercent, steadiness }, positionMs),
+      ...startOn({ startAtBps, linkSharePercent, steadiness, rememberedLinkKbps }, positionMs),
       monotonicMs,
     });
     playbackRef.current = playback;
@@ -620,6 +620,7 @@ export function useChunkedPlayback(
     startAtBps,
     linkSharePercent,
     steadiness,
+    rememberedLinkKbps,
     positionMs,
     onFailed,
     startAudioRef,

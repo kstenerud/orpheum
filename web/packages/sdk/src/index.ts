@@ -233,7 +233,7 @@ export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export { loadedAheadMsOf, startGateOf } from "./start-gate.ts";
 export { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "./ready-ahead.ts";
-export type { ReadyAhead } from "./ready-ahead.ts";
+export type { NextChunkLoad, NextChunkLoadFrom, ReadyAhead } from "./ready-ahead.ts";
 export type { GatedMedia, StartGate, StartWait } from "./start-gate.ts";
 export {
   catchUpSeekEvent,

@@ -439,6 +439,12 @@ export function playChunked(
      * ended at on its network (D352 Q2); 0 when absent.
      */
     readonly startSteadiness?: number | undefined;
+    /**
+     * The link its device last measured on its network, in kbit/s, as the playback's offer says
+     * (D257 §1), which its start rule sets against its first chunk's speed until its own estimate
+     * is confident (next-chunk.ts); absent for none.
+     */
+    readonly rememberedLinkKbps?: number | undefined;
     /** Where in the film it starts: where the player was when it stalled. */
     readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;
@@ -480,7 +486,7 @@ export function playChunked(
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
-  stops.push(tellNextChunkLoad(hls, video, linkKbps));
+  stops.push(tellNextChunkLoad(hls, video, { ...options, confidentKbps: linkKbps }));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

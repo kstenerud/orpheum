@@ -38,7 +38,7 @@ function loadedAhead(aheadMs: number, nextChunkLoadMs?: number): FakeMedia {
   media.currentTime = 60;
   media.loaded = [[59, 60 + aheadMs / 1000]];
   if (nextChunkLoadMs !== undefined) {
-    tellNextChunkLoadMs(media, () => nextChunkLoadMs);
+    tellNextChunkLoadMs(media, () => ({ loadMs: nextChunkLoadMs, from: "confident" }));
   }
   return media;
 }
@@ -126,7 +126,7 @@ describe("which ready rule a player says it is ready by (the owner, 2026-10-12)"
         },
       }),
     );
-    tellNextChunkLoadMs(media, () => 2000);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 2000, from: "confident" }));
     media.fire("seeking");
     connection.reportState();
     expect(reports.at(-1)).toMatchObject({
@@ -230,7 +230,7 @@ describe("a hole in what a player held for its group's wait loaded (the owner's 
       [1551.21 + holeS, 1554.72],
     ];
     // Its next chunk 2 s away: ready on 3 s ahead, more than it loaded before the hole.
-    tellNextChunkLoadMs(media, () => 2000);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 2000, from: "confident" }));
     const { connection, reports } = fakeConnection({
       ...paused,
       state: "Waiting",

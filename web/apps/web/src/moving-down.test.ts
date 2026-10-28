@@ -120,6 +120,17 @@ describe("where a chunked player starts on an offer", () => {
     });
   });
 
+  it("knows the link the offer says its device last measured on its network, for its start rule (D257 §1)", () => {
+    expect(startOn({ ...offer, rememberedLinkKbps: 9636 }, 0)).toEqual({
+      startAtBps: 1_896_000,
+      linkSharePercent: 70,
+      startPositionS: 0,
+      startSteadiness: 0,
+      rememberedLinkKbps: 9636,
+    });
+    expect(startOn(offer, 0)).not.toHaveProperty("rememberedLinkKbps");
+  });
+
   it("starts at the steadiness level the offer says its device last ended at (D352 Q2)", () => {
     expect(startOn({ ...offer, steadiness: 2 }, 0)).toEqual({
       startAtBps: 1_896_000,

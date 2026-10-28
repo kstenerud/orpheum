@@ -46,6 +46,39 @@ func TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork(t *
 	}
 }
 
+// A playback's start tells its player the link its device last measured on this network, within a
+// day, which its start rule sets against its first chunk's speed: a Fire TV's first chunk loaded at
+// 28 Mb/s on a link that then carried 9.6, and it started with 1 s loaded and ran dry (staging,
+// 2026-10-28). A device never measured, and a measurement a day old, are told none (D257 §1).
+func TestPlayback_AStartTellsItsPlayerTheLinkItsDeviceLastMeasuredOnTheNetwork(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	first := harness.play(t, user, chrome(1))
+	if first.OnLadder == nil || first.OnLadder.RememberedLinkKbps != nil {
+		t.Fatalf("a device never measured starts on %+v; want no remembered link", first.OnLadder)
+	}
+	measured := reportBody(1, 4_000, 0)
+	measured["linkKbps"] = 9636
+	if answer := harness.report(t, user, first, measured); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	second := harness.play(t, user, chrome(1))
+	if second.OnLadder == nil || second.OnLadder.RememberedLinkKbps == nil ||
+		*second.OnLadder.RememberedLinkKbps != 9636 {
+		t.Errorf("after measuring 9636 kb/s, the next playback starts on %+v; want it told 9636", second.OnLadder)
+	}
+	if !strings.Contains(harness.logs.String(), `"rememberedLinkKbps":9636`) {
+		t.Error("the playback's start does not say the link it remembered")
+	}
+	harness.clock.Advance(25 * time.Hour)
+	if stale := harness.play(t, user, chrome(1)); stale.OnLadder == nil || stale.OnLadder.RememberedLinkKbps != nil {
+		t.Errorf("a day after the measurement, a playback starts on %+v; want no remembered link", stale.OnLadder)
+	}
+}
+
 // A Watch Together viewer, who has no device row, is remembered by their session on their network,
 // and their next playback of the session's film starts lower too (D257).
 func TestPlayback_AViewerRememberedSlowStartsOnALowerQuality(t *testing.T) {
