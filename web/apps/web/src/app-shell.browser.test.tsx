@@ -103,6 +103,19 @@ describe("the shell, laid out by a real browser", () => {
           const [mark, end] = [boxOf(logo), boxOf(container.querySelector(".app-shell__end"))];
           expect(mark.right).toBeLessThanOrEqual(end.left);
           expect(end.right).toBeLessThanOrEqual(width);
+          // The tray's signs and the menu's icon a quarter closer than a fingertip square apart.
+          const signs = [
+            ...container.querySelectorAll(
+              ".app-shell__end .status-tray__button, .app-shell__end summary",
+            ),
+          ];
+          expect(signs.length).toBeGreaterThanOrEqual(3);
+          const centres = signs.map((sign) => boxOf(sign).left + boxOf(sign).width / 2);
+          const fingertip =
+            2.75 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+          for (const [index, centre] of centres.slice(1).entries()) {
+            expect(centre - (centres[index] ?? 0)).toBeCloseTo(fingertip * 0.75, 0);
+          }
           // The realm is the menu's to say, and the places for watching fit the row with no lab.
           expect(
             container.querySelector(".app-shell__end .app-shell__realm")?.getBoundingClientRect()
