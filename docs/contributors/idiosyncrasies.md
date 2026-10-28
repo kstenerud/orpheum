@@ -787,13 +787,6 @@ User-Agent (D263; the User-Agent is logged only).
   without levelling is offered the ladder's sound unlevelled, so no Web Audio is needed to take its
   gain back out. Under the video, the frame timing (`frame-timing.ts`) says what the
   browser knows; for a film playing its own file, Play in a bare player tests the video alone.
-  A change of the move keeps the sound already loaded for the next `soundKeptAtShiftS` (8 s) ahead
-  of the playhead and throws away only what lies beyond, which hls.js loads again at the new move:
-  the sound is off by the change for those seconds, then skips once into place. Throwing the whole
-  sound buffer away, as the first build did, stalled a Fire TV (Silk) at every start, where Web
-  Audio's 331 ms (43 ms base, 288 ms output) moved the sound as it began to play: hls.js loaded the
-  next 18 s of sound again and the video waited 2.5 s with nothing ahead (the owner's cast, staging,
-  2026-10-28; the owner chose the skip over the stall, 2026-10-28: option 2; VQ95).
 - **Left as it is:** a film playing a *prepared copy* with levelling off still takes the copy's
   carried gain back out through Web Audio, so on such a TV its sound comes out late by the context's
   latency. A prepared copy is played only when the ladder cannot start (no grid within
