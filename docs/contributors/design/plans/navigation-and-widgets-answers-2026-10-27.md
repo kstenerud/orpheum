@@ -210,7 +210,7 @@ had leaned on.
 
 ## Example text in text boxes (the owner, 2026-10-28)
 
-- **Next batch:** "The example text in text boxes is too bright. At first I mistook it for a pre-filled
+- **Fixed in the batch (the owner: "fold it into this batch"):** "The example text in text boxes is too bright. At first I mistook it for a pre-filled
   field and tried to delete its contents." Placeholders are drawn in `--color-muted` (#a3a3ad on the
   field's #1c1c20, web/apps/web/src/base.css `input::placeholder`), the same grey as secondary text.
   Give them their own token, clearly dimmer than any real value (and perhaps italic), checked on the
