@@ -18,6 +18,13 @@ export const linkSamplesKept = 5;
  */
 export const samplesAgreeWithinError = 0.2;
 
+/**
+ * How many samples must be kept before the single most extreme prediction error is set aside
+ * (predictionError): all linkSamplesKept, so what is left rests on three errors at least, and two
+ * slow samples of five still count (D352 §4).
+ */
+export const trimsErrorFromSamples = linkSamplesKept;
+
 /** One chunk that measured the link: its quality, its bytes, how long they took to arrive, and its first byte's wait. */
 export interface LinkSample {
   readonly level: number;
@@ -48,9 +55,9 @@ export function harmonicMean(speedsBps: readonly number[]): number | undefined {
  * which every choice of quality reads (D352 §2): pessimistic about a slow sample, and rid of it
  * linkSamplesKept chunks later, where hls.js's, weighted by each chunk's seconds, held one slow first
  * sample for minutes (the research, §1.4). Its **confident estimate** is the estimate divided by one
- * plus the largest error of its own predictions over those samples, how far each fell from the
- * estimate that stood before it, as a share of the sample (RobustMPC's discount): a link whose
- * chunks vary is targeted near its slowest (§4).
+ * plus the error of its own predictions over those samples (predictionError), how far each fell
+ * from the estimate that stood before it, as a share of the sample (RobustMPC's discount): a link
+ * whose chunks vary is targeted near its slowest (§4), but one slow chunk among five is no spread.
  */
 export class LinkEstimate {
   #samples: Kept[] = [];
@@ -85,27 +92,34 @@ export class LinkEstimate {
   }
 
   /**
-   * The largest error of the estimate's predictions of the samples kept, as a share of each
-   * sample; undefined while no kept sample had an estimate before it.
+   * The error of the estimate's predictions of the samples kept, each as a share of its sample: the
+   * largest, but once trimsErrorFromSamples are kept, the largest after the single most extreme is
+   * set aside; undefined while no kept sample had an estimate before it. One sample out
+   * of five ruled it before: a Fire TV's 376 KB in 1200 ms among four at 9.7–22.6 Mb/s made it
+   * 460%, the confident estimate 1315 kb/s, and the ceiling fell from its top quality to its second
+   * lowest (staging, Nosferatu, 2026-10-28).
    */
-  largestError(): number | undefined {
-    const errors = this.#samples.flatMap((sample) =>
-      sample.predictedBps === undefined
-        ? []
-        : [Math.abs(sample.predictedBps - sample.bps) / Math.max(sample.bps, 1)],
-    );
-    return errors.length === 0 ? undefined : Math.max(...errors);
+  predictionError(): number | undefined {
+    const errors = this.#samples
+      .flatMap((sample) =>
+        sample.predictedBps === undefined
+          ? []
+          : [Math.abs(sample.predictedBps - sample.bps) / Math.max(sample.bps, 1)],
+      )
+      .sort((first, second) => first - second); // flatMap's own array
+    const counted = this.#samples.length >= trimsErrorFromSamples ? errors.slice(0, -1) : errors;
+    return counted.at(-1);
   }
 
-  /** The estimate divided by one plus its largest error; the estimate itself while there is no error to read. */
+  /** The estimate divided by one plus its prediction error; the estimate itself while there is no error to read. */
   confidentBps(): number | undefined {
     const estimate = this.estimateBps();
-    return estimate === undefined ? undefined : estimate / (1 + (this.largestError() ?? 0));
+    return estimate === undefined ? undefined : estimate / (1 + (this.predictionError() ?? 0));
   }
 
-  /** Whether the samples kept agree: their largest prediction error at most samplesAgreeWithinError. */
+  /** Whether the samples kept agree: their prediction error at most samplesAgreeWithinError. */
   agrees(): boolean {
-    const error = this.largestError();
+    const error = this.predictionError();
     return error !== undefined && error <= samplesAgreeWithinError;
   }
 
@@ -125,7 +139,7 @@ export function estimateText(estimate: LinkEstimate): string {
   if (mean === undefined || confident === undefined) {
     return "unmeasured";
   }
-  const error = estimate.largestError();
+  const error = estimate.predictionError();
   const errorText = error === undefined ? "none" : `${String(Math.round(error * 100))}%`;
   const kept = estimate.kept();
   return (

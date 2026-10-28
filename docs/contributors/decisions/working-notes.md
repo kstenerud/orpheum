@@ -22440,6 +22440,36 @@ research, §5); keeping one hold for every link (the owner's report).
 core (`internal/core/playback/speeds.go`) and the play report. Every value is a constant, to
 be measured on the acceptance's emulated links (D252, D263) and the owner's devices.
 
+**Revised 2026-10-28** by the owner ("yes", agreeing the lead's two fixes for the batch), after a
+Fire TV playing Nosferatu (staging, file 5671, device 60) stepped down on one slow sample: 20 s in, its
+five samples were 191842 B in 159 ms, 895044 in 393, 555018 in 349, **376471 in 1200** and 801491 in
+284; the one slow sample made §2's largest error 460%, the confident estimate 1315 kb/s (mean 7362),
+and starting's end (§1) lowered the ceiling from the film's own picture to q700k432p with 37.3 s
+loaded ahead. The step down changed the sound too (D368), which threw the loaded sound away and
+stalled the TV 1172 ms. Two changes:
+
+1. **Plenty loaded holds the quality.** A step down exists so the player does not run dry. While
+   **20 s** is loaded ahead (`holdsQualityAheadS`, the step-up's own `stepUpBufferMs`: what is
+   enough to climb on is enough to stay on), no reading of the link lowers the quality loading,
+   neither the next chunk's choice (D265 §4) nor the ceiling, at starting's end or after; once less
+   is loaded, the link decides on the evidence then. A chunk given up (D265 §3, already weighed
+   against what is loaded), a stall, a force by hls.js and a quality found unplayable (D266) still
+   lower it. The note says so: `started, ceiling 3 kept, held at 3: link carries 1, 37.3 s loaded
+   ahead (holds from 20 s); …`, and after starting `ceiling 3 held at 3: link carries 1, …`, once
+   until the link decides again (§5). A constant, as every value here is.
+2. **One sample of five sets no spread.** Once five samples are kept, the confident estimate's
+   divisor (§2) is the largest prediction error after the single most extreme is set aside
+   (`predictionError`, `trimsErrorFromSamples`): the Fire TV's five give 69% (with one sample before
+   them) where they gave 404–460%. Two slow samples of five still count, so §4's varying link is
+   still targeted near its slowest; with fewer than five kept every error counts, and a lone first
+   sample still decides nothing (§1). The harmonic mean is unchanged, so a link that falls is still
+   followed at once.
+
+*Proven by:* web/packages/player/src/abr-trust.test.ts ("keeps its quality at starting's end with
+37.3 s loaded, and decides once less is loaded"; "holds the quality loading against a slow link
+while the hold is loaded, and says so once"), web/packages/player/src/link-estimate.test.ts ("is not
+ruled by one slow sample of five: the most extreme error is set aside"); VQ116.
+
 ## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one
 
 **Decided** (2026-10-27), by the project owner, replacing the fixed minute the fix for the owner's

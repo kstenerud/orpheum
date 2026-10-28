@@ -122,8 +122,9 @@ describe("choosing a chunked playback's quality (D265)", () => {
     ]);
     loadAt(choosing, 2, { mbps: 1, seconds: 2 }); // a slow chunk
     choosing.nextLevel();
+    // One slow sample of five is no spread (predictionError): the mean falls, the error stays.
     expect(scene.steps[1]).toBe(
-      "ceiling 2 to 1: link; confident 556 kb/s (mean 2778, error 400%, 5 samples), 0.0 s ahead," +
+      "ceiling 2 to 1: link; confident 2778 kb/s (mean 2778, error 0%, 5 samples), 0.0 s ahead," +
         " steadiness 0, hold 30 s",
     );
     const chunk = chunkAt(1);

@@ -21,7 +21,7 @@ import {
 import type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
 import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
 import { Steadiness } from "./steadiness.ts";
-import { nextCap } from "./step-up.ts";
+import { nextCap, stepUpBufferMs } from "./step-up.ts";
 
 /** How far, in seconds, a video's position must move to be playing, not standing still. */
 const movedAtLeastS = 0.1;
@@ -40,6 +40,18 @@ export const lookForStepUpEveryMs = 10_000;
  */
 export const startingSamples = 4;
 export const startingPlayedMs = 20_000;
+
+/**
+ * How much loaded ahead holds the quality loading, in seconds: while at least this much is loaded,
+ * no reading of the link lowers it, neither the next chunk's choice nor the ceiling, at starting's
+ * end or after; the link decides again once less is loaded, on the evidence then. A step down exists
+ * so the player does not run dry, and with this much loaded it is not about to: a Fire TV with
+ * 37.3 s loaded fell from its top quality to its second lowest on one slow sample, and the change
+ * of sound with it threw its loaded sound away and stalled it (staging, Nosferatu, 2026-10-28). The
+ * step-up's own (stepUpBufferMs): what is enough to climb on is enough to stay on, and a climb that
+ * does not hold is followed down once the buffer it spent falls under it.
+ */
+export const holdsQualityAheadS = stepUpBufferMs / 1000;
 
 /**
  * How many chunks must have measured the link before it is reported, and so remembered for the
@@ -117,6 +129,8 @@ export class Choosing<Chunk extends FollowedChunk> {
    * startingPlayedMs, a choice below the ceiling does not lower it (D352 §1).
    */
   #isStarting = true;
+  /** Whether the hold of the quality loading (holdsQualityAheadS) was noted since it began. */
+  #isHoldNoted = false;
   /** How long the video has played, in ms, and where it was at the last look. */
   #playedMs = 0;
   #lastPosition: { readonly positionS: number; readonly atMs: number } | undefined;
@@ -169,17 +183,23 @@ export class Choosing<Chunk extends FollowedChunk> {
       return this.#lastChosen;
     }
     const ceiling = this.#ceilingNow();
-    const steady = steadyLevel({
+    const carried = steadyLevel({
       levels: this.#hls.levels,
       ceiling,
       linkBps,
       bufferAheadS: this.#bufferAheadS(),
       shareForQuality: this.#options.shareForQuality,
     });
-    // While starting, a choice below the ceiling is the next chunk's alone (D352 §1).
-    if (!this.#isStarting && this.#lower(steady, () => `link; ${this.#stateText()}`)) {
+    const held = this.#heldAbove(carried, ceiling);
+    if (held !== undefined) {
+      this.#noteHeldOnce(
+        () => `ceiling ${String(ceiling)} held at ${String(held)}: link carries ${String(carried)}`,
+      );
+    } else if (!this.#isStarting && this.#lower(carried, () => `link; ${this.#stateText()}`)) {
+      // While starting, a choice below the ceiling is the next chunk's alone (D352 §1).
       this.#noteSteadiness(this.#steadiness.steppedDown(this.#options.monotonicMs()));
     }
+    const steady = held ?? carried;
     const level = this.#options.isVoiceLive()
       ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
       : steady;
@@ -609,17 +629,54 @@ export class Choosing<Chunk extends FollowedChunk> {
       linkShare(this.#bufferAheadS(), this.#options.shareForQuality) *
         (this.#estimate.confidentBps() ?? 0),
     );
-    const change =
-      carried < ceiling
-        ? `ceiling ${String(ceiling)} to ${String(carried)}`
+    const held = this.#heldAbove(carried, ceiling);
+    const lowered = held ?? carried;
+    let change =
+      lowered < ceiling
+        ? `ceiling ${String(ceiling)} to ${String(lowered)}`
         : `ceiling ${String(ceiling)} kept`;
+    if (held !== undefined) {
+      change += `, held at ${String(held)}: link carries ${String(carried)}, ${this.#holdText()}`;
+      this.#isHoldNoted = true;
+    }
     this.#options.noteStep?.(
       `started, ${change}; ${this.#stateText()}; ${samplesText(this.#estimate.samples())}`,
     );
-    if (carried < ceiling) {
-      this.#ceiling = carried;
+    if (lowered < ceiling) {
+      this.#ceiling = lowered;
       this.#changedAtMs = this.#options.monotonicMs();
     }
+  }
+
+  /**
+   * The quality held where the link carries only carried, under ceiling: the quality loading, no
+   * higher than ceiling, while holdsQualityAheadS is loaded ahead and carried is below it; undefined
+   * when nothing holds and the link decides.
+   */
+  #heldAbove(carried: number, ceiling: number): number | undefined {
+    const loading = Math.min(this.#lastChosen, ceiling);
+    if (loading <= carried || this.#bufferAheadS() < holdsQualityAheadS) {
+      this.#isHoldNoted = false;
+      return undefined;
+    }
+    return loading;
+  }
+
+  /** Notes a hold after starting, once from when it begins until the link decides again (D352 §5). */
+  #noteHeldOnce(why: () => string): void {
+    if (this.#isStarting || this.#isHoldNoted) {
+      return;
+    }
+    this.#isHoldNoted = true;
+    this.#options.noteStep?.(`${why()}, ${this.#holdText()}; ${this.#stateText()}`);
+  }
+
+  /** Why a quality is held, for its note: what is loaded ahead, and from how much it holds. */
+  #holdText(): string {
+    return (
+      `${this.#bufferAheadS().toFixed(1)} s loaded ahead` +
+      ` (holds from ${String(holdsQualityAheadS)} s)`
+    );
   }
 
   /** Notes a change of the steadiness level, if there was one (D352 §5). */

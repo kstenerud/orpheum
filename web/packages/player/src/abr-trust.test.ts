@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  holdsQualityAheadS,
   lookAtChunkEveryMs,
   lookForStepUpEveryMs,
   startingPlayedMs,
@@ -14,6 +15,7 @@ import { stepUpBufferMs } from "./step-up.ts";
 import {
   chunkAt,
   choosingFrom,
+  load,
   loadAt,
   pastStarting,
   playFor,
@@ -132,6 +134,68 @@ describe("the step-up (D352 §2)", () => {
   });
 });
 
+describe("a playback with plenty loaded ahead, which holds its quality (the owner, 2026-10-28)", () => {
+  /** A ladder like Nosferatu's on staging: its own picture at 9018 kb/s on top, q700k432p second. */
+  const nosferatu = [
+    { bitrate: 600_000, averageBitrate: 450_000 },
+    { bitrate: 1_000_000, averageBitrate: 800_000 },
+    { bitrate: 3_000_000, averageBitrate: 2_200_000 },
+    { bitrate: 30_000_000, averageBitrate: 9_018_000 },
+  ];
+
+  /** The Fire TV's five samples as its stall report gave them, bytes and ms to arrive. */
+  const fireTvSamples = [
+    [191_842, 159],
+    [895_044, 393],
+    [555_018, 349],
+    [376_471, 1200],
+    [801_491, 284],
+  ] as const;
+
+  it("keeps its quality at starting's end with 37.3 s loaded, and decides once less is loaded", () => {
+    const { hls, choosing } = choosingFrom(40_000_000);
+    hls.levels = nosferatu;
+    expect(choosing.firstLevel()).toBe(3);
+    hls.mainForwardBufferInfo = { len: 37.3 };
+    for (const [bytes, arrivedMs] of fireTvSamples) {
+      load(choosing, 3, { bytes, loadMs: arrivedMs + 50 });
+      expect(choosing.nextLevel()).toBe(3); // the slow one included
+    }
+    playFor(hls, startingPlayedMs + lookAtChunkEveryMs);
+    expect(choosing.isStarting()).toBe(false);
+    expect(scene.steps[0]).toMatch(
+      /^started, ceiling 3 kept, held at 3: link carries [0-2], 37\.3 s loaded ahead \(holds from 20 s\); confident \d+ kb\/s/u,
+    );
+    expect(choosing.nextLevel()).toBe(3);
+    hls.setVideoAside();
+    // Less than the hold loaded: the link decides, on the evidence then.
+    hls.mainForwardBufferInfo = { len: holdsQualityAheadS - 5 };
+    expect(choosing.nextLevel()).toBe(2);
+    expect(scene.steps.at(-1)).toMatch(/^ceiling 3 to 2: link; confident \d+ kb\/s/u);
+  });
+
+  it("holds the quality loading against a slow link while the hold is loaded, and says so once", () => {
+    const chosen = choosingFrom(40_000_000);
+    const { hls, choosing } = chosen;
+    pastStarting(chosen, 3, 20);
+    expect(choosing.nextLevel()).toBe(3);
+    hls.mainForwardBufferInfo = { len: holdsQualityAheadS };
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 });
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 });
+    expect(choosing.nextLevel()).toBe(3);
+    expect(choosing.nextLevel()).toBe(3);
+    expect(scene.steps.slice(1)).toEqual([
+      expect.stringMatching(
+        /^ceiling 3 held at 3: link carries 1, 20\.0 s loaded ahead \(holds from 20 s\); confident \d+ kb\/s/u,
+      ),
+    ]);
+    expect(choosing.steadiness()).toBe(0);
+    hls.mainForwardBufferInfo = { len: holdsQualityAheadS - 0.1 };
+    expect(choosing.nextLevel()).toBe(1);
+    expect(scene.steps.at(-1)).toMatch(/^ceiling 3 to 1: link; /u);
+  });
+});
+
 describe("a playback that swings (D352 §3)", () => {
   it("a climb that falls back within twice its hold raises the level, and the next climb waits twice as long, one quality", () => {
     const chosen = choosingFrom(1_000_000);
@@ -144,12 +208,14 @@ describe("a playback that swings (D352 §3)", () => {
     hls.currentLevel = 3;
     choosing.switched();
     waitMs(lookAtChunkEveryMs);
+    hls.mainForwardBufferInfo = { len: holdsQualityAheadS - 1 }; // the climb spent its buffer
     loadAt(choosing, 3, { mbps: 2 }); // the link falls back
     expect(choosing.nextLevel()).toBe(2);
     expect(choosing.steadiness()).toBe(1);
     expect(scene.steps.at(-1)).toMatch(/^steadiness 0 to 1: a swing, \d+ s after a step up$/u);
     hls.currentLevel = 2;
     choosing.switched();
+    hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
     for (let index = 0; index < linkSamplesKept; index += 1) {
       loadAt(choosing, 2, { mbps: 20 });
     }
