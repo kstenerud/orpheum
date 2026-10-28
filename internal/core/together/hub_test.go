@@ -103,7 +103,7 @@ func (stage sessionStage) join(t *testing.T) Joined {
 	if err != nil {
 		t.Fatal(err)
 	}
-	joined, err := stage.hub.Join(made.Secret, "partner", nil)
+	joined, err := stage.hub.Join(made.Secret, "partner", nil, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		joined, err := stage.hub.Join(made.Secret, "Gran", nil)
+		joined, err := stage.hub.Join(made.Secret, "Gran", nil, Leaving{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -385,11 +385,11 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	guest, err := stage.hub.Join(made.Secret, "Gran", nil)
+	guest, err := stage.hub.Join(made.Secret, "Gran", nil, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(made.Secret, "stranger", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(made.Secret, "stranger", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a second join by one link = %v; want ErrNoSession", err)
 	}
 	for _, member := range hostBox.last(MessageRoster).Roster {
@@ -409,7 +409,7 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	if err = stage.hub.RemoveLink(stage.opened.SessionID, stage.owner.UserID, unused.LinkID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(unused.Secret, "cousin", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(unused.Secret, "cousin", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a join by a withdrawn link = %v; want ErrNoSession", err)
 	}
 }
@@ -448,7 +448,7 @@ func TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	guest, err := stage.hub.Join(first.Secret, "partner", nil)
+	guest, err := stage.hub.Join(first.Secret, "partner", nil, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +462,7 @@ func TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed(t *testing.T) {
 	if err != nil {
 		t.Errorf("the guest's credential before the new link is used = %v; want it still to admit them", err)
 	}
-	chrome, err := stage.hub.Join(moved.Secret, "partner on chrome", nil)
+	chrome, err := stage.hub.Join(moved.Secret, "partner on chrome", nil, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed(t *testing.T) {
 	if err = stage.hub.Eject(session, host, guest.MemberID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(again.Secret, "someone", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(again.Secret, "someone", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a new link for a guest since removed = %v; want it to admit no one", err)
 	}
 }
@@ -503,28 +503,6 @@ func (stage sessionStage) wantMovedAway(t *testing.T, credential string, old *in
 	})
 	if len(details.Links) != 1 || details.Links[0].ID != linkID || !details.Links[0].Rights.CanSeek || !isRenamed {
 		t.Errorf("the session = %+v; want the new link alone, with the place's rights, and the guest renamed", details)
-	}
-}
-
-// A host has one session: opening again gives it back, with a new credential for a reloaded page,
-// and the old one still names the host's devices already attached (D246 §5).
-func TestHub_OpeningAgainGivesTheHostTheirSession(t *testing.T) {
-	t.Parallel()
-	stage := newStage(t)
-	again, err := stage.hub.Open(stage.owner)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if again.SessionID != stage.opened.SessionID || again.IsNew ||
-		again.MembershipCredential == stage.opened.MembershipCredential {
-		t.Errorf("opening again = %+v; want the same session, not new, with a new credential", again)
-	}
-	_, err = stage.hub.Attach(again.MembershipCredential, RoleVideo, true, nil, testTuning, (&inbox{}).send)
-	if err != nil {
-		t.Errorf("the new credential = %v; want it to admit the host", err)
-	}
-	if _, isViewer := stage.hub.ViewerOf(again.MembershipCredential); isViewer {
-		t.Error("the host's credential reads as a viewer's; the host plays as themselves")
 	}
 }
 

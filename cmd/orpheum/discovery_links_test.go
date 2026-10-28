@@ -49,7 +49,7 @@ func TestLinksOf_TheDiscoveryFindsTheCoreByWatchTogethersLinksAndLocators(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	joined, err := sessions.Join(used.Secret, "Pat", nil)
+	joined, err := sessions.Join(used.Secret, "Pat", nil, together.Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -48,7 +48,10 @@ const (
 	// which ends every playback, or the playback ended. The player starts it again from where it is.
 	CodePlaybackGone Code = "playback_gone"
 	CodeMigrating    Code = "migrating"
-	CodeInternal     Code = "internal"
+	// CodeInAnotherSession is a join to a Watch Together session refused because its person is in
+	// another, which they have not said to leave; its detail says whose (D372 §8).
+	CodeInAnotherSession Code = "in_another_session"
+	CodeInternal         Code = "internal"
 )
 
 // codes are every Code, in the order above: the one list the API document's ProblemBody names.
@@ -58,7 +61,7 @@ func codes() []Code {
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
 		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeNoRoomToMake, CodePlaybackGone,
-		CodeMigrating, CodeInternal,
+		CodeMigrating, CodeInAnotherSession, CodeInternal,
 	}
 }
 
@@ -104,8 +107,18 @@ func problemDetails() []problemDetail {
 		QuotaExhaustedDetailBody{},
 		ProviderRefusalDetailBody{},
 		MediaUnreachableDetailBody{},
+		InAnotherSessionDetailBody{},
 	}
 }
+
+// InAnotherSessionDetailBody is in_another_session's detail: whose the other session is, for the
+// question "Leave ‹session› to join this one?" (D372 §8).
+type InAnotherSessionDetailBody struct {
+	HostName string `doc:"The other session's host" json:"hostName"`
+	IsHost   bool   `doc:"Whether the other session is the person's own" json:"isHost"`
+}
+
+func (InAnotherSessionDetailBody) problemCode() Code { return CodeInAnotherSession }
 
 // MediaUnreachableDetailBody is media_unreachable's detail: why the file cannot be read now, on
 // which machine, the folder or disk missing, and since when (D241 §4).

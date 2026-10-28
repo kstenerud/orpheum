@@ -2496,6 +2496,24 @@
         ],
         "type": "object"
       },
+      "InAnotherSessionDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "hostName": {
+            "description": "The other session's host",
+            "type": "string"
+          },
+          "isHost": {
+            "description": "Whether the other session is the person's own",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hostName",
+          "isHost"
+        ],
+        "type": "object"
+      },
       "InProgressBody": {
         "additionalProperties": false,
         "properties": {
@@ -3035,6 +3053,11 @@
       "JoinTogetherInputBody": {
         "additionalProperties": false,
         "properties": {
+          "heldCredential": {
+            "description": "A membership this browser keeps, of another session",
+            "maxLength": 100,
+            "type": "string"
+          },
           "name": {
             "description": "How the others see you",
             "maxLength": 100,
@@ -3045,6 +3068,10 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          },
+          "shouldLeaveOther": {
+            "description": "Leave the other session you are in, which a join is refused for otherwise (in_another_session)",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4391,10 +4418,6 @@
       "OpenTogetherOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "isNew": {
-            "description": "Started now, rather than one the host already had",
-            "type": "boolean"
-          },
           "membershipCredential": {
             "type": "string"
           },
@@ -4405,8 +4428,7 @@
         },
         "required": [
           "sessionId",
-          "membershipCredential",
-          "isNew"
+          "membershipCredential"
         ],
         "type": "object"
       },
@@ -5097,6 +5119,37 @@
               },
               "detail": {
                 "$ref": "#/components/schemas/MediaUnreachableDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "in_another_session"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/InAnotherSessionDetailBody"
               },
               "failedHop": {
                 "description": "The leg of the request that failed, for reachability errors",
@@ -15737,7 +15790,7 @@
             "description": "Error"
           }
         },
-        "summary": "Start a Watch Together session, nothing playing, or have back the one you host (D246 §5)",
+        "summary": "Start a Watch Together session, nothing playing, ending the one you host and leaving one you joined (D246 §5, D372 §8)",
         "tags": [
           "Watch Together"
         ]

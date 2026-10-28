@@ -310,10 +310,13 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
+	first := harness.openTogether(t, admin)
 	opened := harness.openTogether(t, admin)
-	if again := harness.openTogether(t, admin); again.Body.SessionID != opened.Body.SessionID || again.Body.IsNew {
-		t.Errorf("opening again = %+v; want the session the host already has", again.Body)
+	if opened.Body.SessionID == first.Body.SessionID {
+		t.Errorf("opening again = %+v; want a new session, the one the host had ended (D372 §8)", opened.Body)
 	}
+	wantError(t, harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", first.Body.SessionID), admin, nil),
+		http.StatusNotFound, api.CodeNotFound)
 	made := harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
 		"name": "watchers", "capabilities": []string{}, "libraries": []map[string]any{},
 	})
@@ -623,4 +626,44 @@ func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) 
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/together/join", "",
 		map[string]any{"secret": made.Body.Secret, "name": "Kim"}), http.StatusNotFound, api.CodeNotFound)
+}
+
+// Joining another session while in one is refused, in_another_session, its detail whose the other
+// is, until the join says to leave it: then the person leaves it and joins (D372 §8).
+func TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	theirs := harness.openTogether(t, partner)
+	held := harness.joinByLink(t, partner, theirs.Body.SessionID, "a friend", "Sam")
+	mine := harness.openTogether(t, admin)
+	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", mine.Body.SessionID), admin,
+		map[string]string{"hostNote": "Sam"})
+	var link api.TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	asked := map[string]any{"secret": link.Body.Secret, "name": "Sam", "heldCredential": held.Body.MembershipCredential}
+	refused := harness.do(t, http.MethodPost, "/together/join", "", asked)
+	wantError(t, refused, http.StatusConflict, api.CodeInAnotherSession)
+	var problem struct {
+		Error struct {
+			Detail api.InAnotherSessionDetailBody `json:"detail"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil ||
+		problem.Error.Detail != (api.InAnotherSessionDetailBody{HostName: "partner", IsHost: false}) {
+		t.Errorf("the refusal's detail = %+v (%v); want the partner's session", problem.Error.Detail, err)
+	}
+	asked["shouldLeaveOther"] = true
+	if joined := harness.do(t, http.MethodPost, "/together/join", "", asked); joined.status != http.StatusOK {
+		t.Fatalf("joining, saying to leave = %d %s", joined.status, joined.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/together/leave", held.Body.MembershipCredential, nil),
+		http.StatusNotFound, api.CodeNotFound)
 }

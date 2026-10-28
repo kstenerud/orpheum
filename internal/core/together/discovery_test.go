@@ -35,7 +35,7 @@ func TestLiveLinks_AreTheUnusedLinksAndEachMembershipDeviceIsFoundByItsLocator(t
 	if locators := stage.hub.LiveLocators(); len(locators) != 0 {
 		t.Errorf("before anyone joined the locators are %v; want none, the host's device having its own", locators)
 	}
-	joined, err := stage.hub.Join(made.Secret, "Pat", nil)
+	joined, err := stage.hub.Join(made.Secret, "Pat", nil, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestLiveLocators_EndWithTheSessionAndEachDeviceHasItsOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	partner := Person{UserID: 2, Name: "partner"}
-	joined, err := stage.hub.Join(made.Secret, "Pat", &partner)
+	joined, err := stage.hub.Join(made.Secret, "Pat", &partner, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}

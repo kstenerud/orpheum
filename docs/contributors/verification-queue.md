@@ -1097,3 +1097,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   `leaderSeniority` the moment it was unlocked; (3) a stall of the leader's (its link throttled)
   holds the group (`waitingFor`) and does not move the lead. (`internal/core/together/leader.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)
+- [ ] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
+  guest by link alone on the iPhone, in the Mac's session, opens a link to a second session (another
+  person hosting it on a computer's browser) in a new tab and is asked "Leave ‹host›'s session to
+  join this one?"; Don't join leaves them in the first, Leave and join takes them out of it (the
+  Mac's roster drops them) and into the second; (2) the Mac's host, signed in, opening a link to
+  the second session is asked "Leave your own session to join this one? It ends for everyone in it."
+  and, saying so, their guests' pages say the host ended it; (3) a host pressing Start a session
+  while hosting one on another device of theirs (the session lost from this tab) ends the old one,
+  its guests told it ended, and the core's log says `a person left a session for another`.
+  (`internal/core/together/places.go`; `web/apps/web/src/together-join.tsx`)

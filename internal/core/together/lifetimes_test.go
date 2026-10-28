@@ -24,7 +24,7 @@ func TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed(t *testing.T) {
 		t.Fatal(err)
 	}
 	stage.clock.Advance(StartingLinkLifetime - time.Minute)
-	cousin, err := stage.hub.Join(inTime.Secret, "Cousin", nil)
+	cousin, err := stage.hub.Join(inTime.Secret, "Cousin", nil, Leaving{})
 	if err != nil {
 		t.Fatalf("a join within the link's hour = %v; want admitted", err)
 	}
@@ -32,7 +32,7 @@ func TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed(t *testing.T) {
 		t.Errorf("before its hour is up the discovery finds %d links; want the aunt's", len(live))
 	}
 	stage.clock.Advance(time.Minute)
-	if _, err = stage.hub.Join(late.Secret, "Aunt", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(late.Secret, "Aunt", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a join an hour after the link was made = %v; want ErrNoSession", err)
 	}
 	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)
@@ -51,7 +51,7 @@ func TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed(t *testing.T) {
 		t.Fatal(err)
 	}
 	stage.clock.Advance(10 * time.Minute)
-	if _, err = stage.hub.Join(short.Secret, "Neighbour", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(short.Secret, "Neighbour", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a join past the lifetime the setting gave = %v; want ErrNoSession", err)
 	}
 }
@@ -90,7 +90,7 @@ func TestHub_ASessionIdleForItsIdleEndIsEnded(t *testing.T) {
 	if _, found := stage.hub.ViewerOf(stage.guest.MembershipCredential); found {
 		t.Error("the guest's credential still admits them to an ended session")
 	}
-	if _, err = stage.hub.Join(waiting.Secret, "Friend", nil); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(waiting.Secret, "Friend", nil, Leaving{}); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a join by the ended session's link = %v; want ErrNoSession", err)
 	}
 }

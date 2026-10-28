@@ -14,6 +14,10 @@ export const enTogether = {
       "This browser cannot keep in step with the others. On an iPhone or iPad, update to iOS 17.1 or later, then open the link again.",
     name: "Your name",
     join: "Join",
+    leaveOtherToJoin: "Leave {{host}}'s session to join this one?",
+    leaveOwnToJoin: "Leave your own session to join this one? It ends for everyone in it.",
+    leaveAndJoin: "Leave and join",
+    stayInOther: "Don't join",
     badLink:
       "This link does not work: invitations are short-lived, and this one has expired, was used already or was withdrawn, or the session is over. Ask the person who sent it for a new one.",
     viewerHeading: "Watching together",

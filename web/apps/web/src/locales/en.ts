@@ -130,6 +130,7 @@ export const en = {
     noRoomToMake:
       "The server cannot make this quality as fast as it plays while it makes others for other viewers. Try again in a while.",
     migrating: "The server is starting up, or updating. It will answer in a moment.",
+    inAnotherSession: "You are in another Watch Together session. Leave it to join this one.",
     setupRequired: "The server has not been set up yet.",
     internal:
       "Something went wrong on the server. Try again; if it keeps happening, the server's log says why.",
