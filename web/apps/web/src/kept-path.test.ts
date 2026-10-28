@@ -4,9 +4,11 @@
 import { RtcTransport } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Reached } from "./discovery-start.ts";
+import type { Reached, Reaching } from "./discovery-start.ts";
 import { betterPathFirstMs, betterPathMostMs, keepPath } from "./kept-path.ts";
+import { loaderOver, type AtClientOrigin } from "./loader-at-client-origin.tsx";
 import { pairsSettleMs, type PathChoice } from "./path-choice.ts";
+import { createSession } from "./session.ts";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -254,6 +256,47 @@ describe("the kept path", () => {
     kept.close();
     globalThis.fetch = realFetch;
     expect(peer.isClosed).toBe(true);
+  });
+
+  it("tells the client the kind of path in use, WebRTC until it moves to a name (the efficiency audit, finding 1)", async () => {
+    vi.useFakeTimers();
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    const webrtc: Reached = { kind: "webrtc", transport: new RtcTransport([closingPeer()]) };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => Promise.resolve(new Response("{}"));
+    const reaching: Reaching = {
+      first: webrtc,
+      choice: {
+        browser: "chrome",
+        isLanNameUsed: false,
+        localNetwork: "granted",
+        directOffered: 0,
+        lanOffered: 0,
+        names: [],
+        reached: "webrtc",
+      },
+      another: () => Promise.resolve(webrtc),
+      better: (current: Reached) => Promise.resolve(current === webrtc ? home : undefined),
+      onLocalNetworkGranted: () => () => undefined,
+      onLocalNetworkAsking: () => () => undefined,
+    };
+    const session = createSession(undefined);
+    const kept = keepPath(reaching, session);
+    kept.carried.catch(() => undefined);
+    const loader = loaderOver({ loaderOrigin: "https://app.orpheum-app.com" } as AtClientOrigin, {
+      core: { coreId: "k7xq2", fingerprint: "a-fingerprint", realm: undefined },
+      session,
+      kept,
+      reaching,
+    });
+    expect(loader.pathInUse?.()).toBe("webrtc");
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs);
+    expect(loader.pathInUse?.()).toBe("direct");
+    kept.close();
+    globalThis.fetch = realFetch;
   });
 
   it("closes its WebRTC transport when the page leaves for good, and keeps it for the back button", () => {

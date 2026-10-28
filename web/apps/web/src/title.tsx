@@ -360,9 +360,23 @@ function useEpisodeReached(title: TitleDetail | undefined): void {
 /** The titles' pages this tab has shown. */
 const rememberedTitles = new Remembered<TitleDetail>();
 
+/**
+ * Warms up fileId, the first file a title's page plays, while the page shows it (D258 §1); its
+ * preload is made only where the page's media do not go over WebRTC (D260 §3's revision of
+ * 2026-10-28).
+ */
+function useWarmsUp(fileId: number | undefined): void {
+  const { api, playableFormats, pathMoves } = useServices();
+  useEffect(() => {
+    if (fileId !== undefined) {
+      watchingOf(api).warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
+    }
+  }, [api, playableFormats, pathMoves, fileId]);
+}
+
 /** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
 export function Title(props: { readonly id: number }): JSX.Element {
-  const { api, playableFormats } = useServices();
+  const { api } = useServices();
   const [loaded, reload] = useResource(
     `title/${String(props.id)}`,
     async (signal) =>
@@ -379,12 +393,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const shown = title.state === "loaded" ? title.value : undefined;
   useEpisodeReached(shown);
   const context = useLibraryContext();
-  const warmFileId = title.state === "loaded" ? firstPlayableFile(title.value) : undefined;
-  useEffect(() => {
-    if (warmFileId !== undefined) {
-      watchingOf(api).warmUp(warmFileId, playableFormats());
-    }
-  }, [api, playableFormats, warmFileId]);
+  useWarmsUp(title.state === "loaded" ? firstPlayableFile(title.value) : undefined);
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {

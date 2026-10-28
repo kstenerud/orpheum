@@ -182,7 +182,7 @@ function heldAt(at: AtClientOrigin): Parameters<typeof forgetRefusedKey>[0] {
 }
 
 /** The loader's interface over a kept path, for the client to take. */
-function loaderOver(
+export function loaderOver(
   at: AtClientOrigin,
   reached: {
     readonly core: KeptCore;
@@ -199,6 +199,7 @@ function loaderOver(
     fetch: kept.fetch,
     openTogetherSocket: kept.openTogetherSocket,
     onPathMove: kept.onPathMove,
+    pathInUse: kept.pathInUse,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
     session,
     setMediaCredentials: kept.setMediaCredentials,

@@ -20,6 +20,7 @@ import {
 } from "./test-dom.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { Loaded, Title, TitleView, type TitleDetail } from "./title.tsx";
+import { createPathMoves } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
 
 const heat: TitleDetail = {
@@ -242,6 +243,50 @@ describe("Title", () => {
     const unplayable = await mount(withServices(<Title id={11} />, services));
     unplayable.unmount();
     expect(warming()).toEqual(["GET /items/11"]);
+  });
+
+  it("preloads its film in a hidden video on HTTP, and not where its media go over WebRTC (the efficiency audit, finding 1)", async () => {
+    const onLadder = {
+      url: "/api/v1/bytes/media/chunks/a/master.m3u8",
+      startAtBps: 4_000_000,
+      qualityKbps: 2400,
+      height: 1080,
+      isBelowTheLowest: false,
+      soundCarriedGainDb: 0,
+      isReady: false,
+      filmPictureKbps: 2400,
+    };
+    // The hidden videos a film page started, the warm-up's decision answered on the film's ladder.
+    const hiddenVideos = async (isOverWebrtc: boolean): Promise<number> => {
+      const heard: Heard[] = [];
+      const services = servedBy(
+        {
+          "GET /items/10": [200, heat],
+          "POST /playback": [
+            200,
+            { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a", onLadder },
+          ],
+          "PUT /interest/10": [204, null],
+          "DELETE /interest/10": [204, null],
+        },
+        heard,
+      );
+      const pathMoves = { ...createPathMoves(), isOverWebrtc: () => isOverWebrtc };
+      const page = await mount(withServices(<Title id={10} />, { ...services, pathMoves }));
+      await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /playback"));
+      // The decision's answer is read, and the preload started from it, a moment after.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      page.unmount();
+      const found = document.body.querySelectorAll("video[hidden]");
+      for (const video of found) {
+        video.remove();
+      }
+      return found.length;
+    };
+    expect(await hiddenVideos(false)).toBe(1);
+    expect(await hiddenVideos(true)).toBe(0);
   });
 
   it("says its film's work should come first while it is shown, and that it left (D324 §1)", async () => {

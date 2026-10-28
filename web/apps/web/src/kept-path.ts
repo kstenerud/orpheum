@@ -34,6 +34,8 @@ export interface KeptPath {
   readonly openTogetherSocket: OpenTogetherSocket;
   /** Tells listener each time the requests move to another path; returns its removal. */
   readonly onPathMove: (listener: (to: string) => void) => () => void;
+  /** The kind of path the requests and the media go over now. */
+  readonly pathInUse: () => Reached["kind"];
   /** Names what media loads are signed in with. */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
   /**
@@ -145,6 +147,7 @@ export function keepPath(
         moveListeners.delete(listener);
       };
     },
+    pathInUse: () => inUse.kind,
     setMediaCredentials: (named) => {
       credentials = named;
     },
