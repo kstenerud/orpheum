@@ -239,3 +239,29 @@ had leaned on.
   playing from there, which makes it feel like it didn't work." The marker (and the time shown) should
   move to the pressed place at once and stay there while the seek loads.
 - **A full VoiceOver pass** once the UI is final (the owner, 2026-10-28), VQ89's "Watched" among it.
+
+## From the lead's overnight checks (2026-10-28), next batch unless the owner folds one
+
+- **Owner to decide: a given-up chunk's sample (D352).** A chunk given up counts as a sample of the bytes
+  that came over the time waited, at least 1 B; one such sample among four at 16 Mb/s makes the harmonic
+  mean about 20 bit/s for the next five chunks. Nosferatu on the Fire TV fell from 9018 to 696 kb/s 2.3 s into
+  play on a 69 kb/s estimate and stayed 75 s (staging, 15:33:05). The switch's note now carries the
+  controller's `why` and `linkSamples`, so the next case says which sample did it.
+- **Owner to decide: a film's first seconds before its second keyframe.** In 17 films on staging (14
+  films, 3 episodes) the first keyframe sits before the film's start, discarded, and the chunk grid starts
+  at the next one, 1–10 s in, so those seconds never play (VQ119's agent, 2026-10-28).
+- **Owner to decide: the series ordering** stays a native select (it saves a preference, with its own
+  busy and failure states) or becomes a chooser like the others.
+- **The Mac's Firefox refused A Woman of Paris's own HEVC picture** (`bufferAppendNoProgress`, nothing held)
+  where Firefox on Linux plays it; the fallback to 800p worked. Find why, and whether other HEVC films
+  do the same there.
+- **The remembered link is lost at each deploy** (`rememberedLinkKbps=0` on the first start after one);
+  and a start waited 10 s on a confident estimate of 753 kb/s (18:24:01) where the film before had
+  measured 17 Mb/s.
+- **After a throttle is lifted, a desktop playback stayed at 360p for 50 s and once stood still at
+  1231.3 s for 50 s** (headless Chromium with DevTools throttling; a second run played on).
+- **A drop-down in a short window** (1920×600) moves up 22 px to stay on screen, its choice no longer over
+  its button's centre.
+- **A WARN "a request that only reads wrote to the database"** from `forgetAttempt` when the boost stopped
+  an own-sound run (20:57:08), where every other such line is DEBUG with a reason.
+- **Pages keep asking every 5 s for a Watch Together session that no longer exists.**
