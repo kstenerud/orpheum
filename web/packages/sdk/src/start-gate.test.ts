@@ -87,6 +87,32 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     expect(gate.lastWait()).toBeUndefined();
   });
 
+  it("starts a film from its beginning, its first picture loaded from 0.08 s, not from 0", () => {
+    // Season 2's first episode on the Mac and a film on the Fire TV never started by themselves
+    // (staging, 2026-10-28: buffered 0.08–12.08 s, the position 0): the start read nothing loaded
+    // where it stood, and a paused player steps over no gap, so the wait never ended.
+    const media = new FakeMedia();
+    media.currentTime = 0;
+    media.loaded = [[0.08, 12.08]];
+    media.readyState = 4;
+    tellNextChunkLoadMs(media, () => ({ loadMs: 500, from: "confident" }));
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(1);
+  });
+
+  it("starts a film of 10 s loaded whole, its last sample ending a hair before its duration", () => {
+    // The browser tier's warm-up film never started (2026-10-28): 9.999999 s loaded ahead of its
+    // first picture, short of the 10 s wait, and loaded to 10.083333 s of 10.083334.
+    const media = new FakeMedia();
+    media.currentTime = 0;
+    media.duration = 10.083_334;
+    media.loaded = [[0.083_334, 10.083_333]];
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(1);
+  });
+
   it("waits longer on a slow link: its next 10 s chunk loading at 0.8 times", () => {
     const media = new FakeMedia();
     media.currentTime = 30;
