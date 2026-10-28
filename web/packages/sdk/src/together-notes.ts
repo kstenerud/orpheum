@@ -39,7 +39,7 @@ export interface PlayerState {
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps
- *   once a chunk measured it;
+ *   once chunks measured it, from the quality of fromQualityKbps, absent for the first it plays;
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
  *   (nothing was heard on it);
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
@@ -98,6 +98,7 @@ export type PlayerNote =
       readonly kind: "qualitySwitched";
       readonly qualityKbps: number;
       readonly linkEstimateKbps: number | undefined;
+      readonly fromQualityKbps?: number;
     }
   | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
   | {

@@ -88,6 +88,7 @@ User-Agent (D263; the User-Agent is logged only).
 | It never aborts a slow chunk when stepping down to level 0 | [It never aborts a slow chunk when stepping down to level 0](#it-never-aborts-a-slow-chunk-when-stepping-down-to-level-0) |
 | After an abandon, it resets the estimator to a nominal bitrate | [After an abandon, it resets the estimator to a nominal bitrate](#after-an-abandon-it-resets-the-estimator-to-a-nominal-bitrate) |
 | #5826 reads a throttled 1 Mb/s link as 404 MB/s. | [There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)](#there-is-no-cache-hit-filter-a-chunk-from-the-browsers-cache-reads-as-link-speed-hlsjs5826-open) |
+| Chrome or Silk on WebRTC never measured its link: no finished chunk in `linkSamples`, `linkKbps=0`. | [Chromium times a service worker's own response as a cache hit](#chromium-times-a-service-workers-own-response-as-a-cache-hit) |
 | The `abrController` config type is nominal, so a custom controller must subclass | [The `abrController` config type is nominal, so a custom controller must subclass](#the-abrcontroller-config-type-is-nominal-so-a-custom-controller-must-subclass) |
 | The base constructor calls the virtual `registerListeners()` before the subclass's fields exist | [The base constructor calls the virtual `registerListeners()` before the subclass's fields exist](#the-base-constructor-calls-the-virtual-registerlisteners-before-the-subclasss-fields-exist) |
 | `EwmaBandWidthEstimator` is exported as a type only | [`EwmaBandWidthEstimator` is exported as a type only](#ewmabandwidthestimator-is-exported-as-a-type-only) |
@@ -1161,6 +1162,34 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   under-10 ms guess. Adopted 2026-10-08 (the owner).
 
 
+### Chromium times a service worker's own response as a cache hit
+
+- **Technology:** Resource Timing in Chromium (Chrome 156 on a Mac, Silk 138 on a Fire TV; Chromium
+  1243 under Playwright), for a load a service worker answered with a `Response` it built.
+- **Symptom:** a page on WebRTC, whose service worker builds every chunk's response from the page's
+  transport (`web/packages/sdk/src/rtc-media.ts`), never measured its link: in every report from the
+  Mac's Chrome and the Fire TV, `linkSamples` held no chunk that finished, only one given up, and
+  `linkKbps` was 0; Firefox, on the same path, measured every chunk (staging logs, 2026-10-27 and 28).
+- **Cause:** the entry for such a response says `transferSize: 0` with its `decodedBodySize`, and
+  `deliveryType: "cache"`, as a real cache hit's does; `workerStart` is above 0. `cache-hit.ts` took
+  it for a chunk from the browser's cache, and the controller counted none (D265 §7). Firefox gives
+  the same response a `decodedBodySize` of 0, which was already read as saying nothing. A page's own
+  cache hit, its service worker passing the load on, reads exactly alike in Chromium: nothing in the
+  entry tells the two apart.
+- **What we do:** a load a service worker took (`workerStart` above 0) that transferred nothing says
+  nothing (`fromCacheBy`, `web/packages/player/src/cache-hit.ts`), and the under-10 ms guess decides,
+  as for a browser that does not say. A cache hit on such a page loads in a millisecond or two.
+- **Evidence:** [staging] 2026-10-27/28, as above. **[source]** a page and worker under Playwright's
+  Chromium 1243 and Firefox 1543, 2026-10-28: Chromium's entry for a 300 KB worker-built response
+  `transferSize 0, decodedBodySize 300000, workerStart 32.8, deliveryType "cache"`; Firefox's
+  `transferSize 0, decodedBodySize 0, workerStart 0`. **[web]** the
+  [Resource Timing spec](https://w3c.github.io/resource-timing/) leaves the sizes of a load a service
+  worker answered under-specified; Chromium's
+  [41494176](https://issues.chromium.org/issues/41494176) has navigation's sizes not working with a
+  service worker (searched 2026-10-28).
+- **VQ94.**
+
+
 ### The `abrController` config type is nominal, so a custom controller must subclass
 
 - **Cause:** `config.ts:402` types the field `typeof AbrController`, which has private members. A class written
@@ -1345,7 +1374,11 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **Symptom:** a phone reported its link as 500, then 5000 kb/s (hls.js's starting values), and the core
   remembered that.
 - **What we do:** `measuredKbps` is undefined until `FRAG_LOADED`. `web/packages/player/src/hls.ts:143-156`;
-  `abr.ts:352`.
+  `abr.ts:352`. A `FRAG_LOADED` is no sample, though: a chunked playback's quality notes tell its own
+  controller's estimate instead (`tellChunkedLoading`, `chunked.ts`), since a Fire TV whose controller
+  had measured nothing told `linkEstimateKbps=5000`, hls.js's default raised to its first level's
+  BANDWIDTH up to `abrEwmaDefaultEstimateMax` (`level-controller.ts`), at its first quality
+  (staging, 2026-10-28).
 - **Evidence:** [staging] 2026-10-07. **Borderline:** this is a documented default.
   **[web]** [hls.js#5949](https://github.com/video-dev/hls.js/issues/5949), "Improving initial video quality
   based on previous sessions": closed, answered (checked 2026-10-08), someone persisting

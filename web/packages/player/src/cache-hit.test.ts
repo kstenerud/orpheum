@@ -61,6 +61,21 @@ describe("telling a chunk from the browser's cache", () => {
     expect(fromCache("/c/5.m4s")).toBeUndefined();
   });
 
+  it("says nothing of a load a service worker answered with nothing transferred, as Chromium tells one it built", () => {
+    // Chromium's entry for a chunk the worker built from the page's WebRTC transport (Chromium 1243,
+    // 2026-10-28): the cache hit's transferSize of 0, for a body it has.
+    const fromCache = fromCacheBy(
+      timingsOf({
+        "/c/6.m4s": [{ transferSize: 0, decodedBodySize: 300_000, workerStart: 32.8 }],
+        "/c/7.m4s": [{ transferSize: 300_300, decodedBodySize: 300_000, workerStart: 36.5 }],
+        "/c/8.m4s": [{ transferSize: 0, decodedBodySize: 300_000, workerStart: 0 }],
+      }),
+    );
+    expect(fromCache("/c/6.m4s")).toBeUndefined();
+    expect(fromCache("/c/7.m4s")).toBe(false);
+    expect(fromCache("/c/8.m4s")).toBe(true);
+  });
+
   it("empties the page's timing buffer each time it fills, once however many playbacks ask", () => {
     const timings = timingsOf({});
     fromCacheBy(timings);

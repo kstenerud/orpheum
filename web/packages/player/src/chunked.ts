@@ -29,6 +29,7 @@ import {
   tellLoading,
   tellOwnMoves,
   type HlsPlayback,
+  type LoadingHls,
 } from "./hls.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
@@ -334,6 +335,23 @@ function followGroupSoundAndStalls(
 }
 
 /**
+ * Tells video what a chunked playback's hls.js loads (tellLoading), each quality it begins with the
+ * link as its own bitrate controller measured it, its confident estimate, and none before it has
+ * (D352 §1): hls.js's estimate, which our controller samples only as it does, read as hls.js's
+ * starting value, 5000 kb/s, on a Fire TV whose controller had measured nothing (the owner's cast,
+ * staging, 2026-10-28). Returns that estimate, in kbit/s.
+ */
+export function tellChunkedLoading(
+  hls: LoadingHls,
+  video: Pick<EventTarget, "dispatchEvent">,
+  choosing: () => { readonly linkKbps: () => number | undefined } | undefined,
+): () => number | undefined {
+  const linkKbps = (): number | undefined => choosing()?.linkKbps();
+  tellLoading(hls, video, linkKbps);
+  return linkKbps;
+}
+
+/**
  * Plays url with the element's own HLS where the page has no MSE, knowing nothing of its qualities,
  * or fails as unsupported where it has neither; undefined where hls.js plays it.
  */
@@ -459,9 +477,8 @@ export function playChunked(
   const startAudio = options.startAudioRenditionIndex;
   const chooseAudio = keepAudioRendition(hls, startAudio === 0 ? undefined : startAudio);
   tellOwnMoves(hls, video);
-  tellLoading(hls, video);
+  const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
-  const linkKbps = (): number | undefined => abr.choosing()?.linkKbps();
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

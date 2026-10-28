@@ -122,6 +122,21 @@ describe("what a stalled video held, for its report (D266)", () => {
     expect(diagnosisOf(video)?.steps?.startsWith("playlist 4 loading; ")).toBe(true);
   });
 
+  it("keeps a buffer thrown away as a step: a sound moved earlier is loaded again", () => {
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+    } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    const flushing = { startOffset: 0, endOffset: Number.POSITIVE_INFINITY };
+    listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, type: "audio" });
+    listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, startOffset: 12.5, type: null });
+    expect(diagnosisOf(video)?.steps).toBe("audio flushed from 0.00; all flushed from 12.50");
+  });
+
   it("keeps the player's own last three choices after its steps, and none for a video not diagnosed", () => {
     const hls = { on: () => undefined } as unknown as DiagnosedHls;
     const video = Object.assign(new EventTarget(), { error: null });

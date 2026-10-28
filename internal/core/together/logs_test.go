@@ -65,11 +65,17 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteNudged, PositionMs: 30_000, DriftMs: 380, Rate: 1.1, ReturnCostMs: 220,
 	}})
+	// A switch says the quality it came from: a Fire TV's first quality read as a switch to the top
+	// (the owner's cast, staging, 2026-10-28).
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteQualitySwitched, QualityKbps: 2000, LinkEstimateKbps: 4200, FromQualityKbps: 15_635,
+	}})
 	logged := stage.logs.String()
 	for _, want := range []string{
 		`kind=sought positionMs=50000 toMs=124000 why=catchUp`,
 		`kind=chunkLoaded loadMs=5200 filmMs=10200 loadedKbps=2300 qualityKbps=1200 track=video`,
 		`kind=nudged positionMs=30000 driftMs=380 returnCostMs=220 rate=1.1`,
+		`kind=qualitySwitched qualityKbps=2000 linkEstimateKbps=4200 fromQualityKbps=15635`,
 	} {
 		isNoted := strings.Contains(logged, "logEvent=playerNoted")
 		if !isNoted || !strings.Contains(logged, want) {
@@ -85,7 +91,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
 		}
 	}
-	if strings.Count(stage.logs.String(), "logEvent=playerNoted") != 3 {
+	if strings.Count(stage.logs.String(), "logEvent=playerNoted") != 4 {
 		t.Errorf("an unknown note was logged:\n%s", stage.logs)
 	}
 }

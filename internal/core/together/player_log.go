@@ -96,6 +96,7 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 		{"loadedKbps", note.LoadedKbps},
 		{"qualityKbps", note.QualityKbps},
 		{"linkEstimateKbps", note.LinkEstimateKbps},
+		{"fromQualityKbps", note.FromQualityKbps},
 		{"offlineMs", note.OfflineMs},
 	} {
 		if field.value != 0 {
