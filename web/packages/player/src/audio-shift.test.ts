@@ -20,7 +20,6 @@ import {
   shiftDecodeTime,
   shiftingFragmentLoader,
   SoundShift,
-  soundKeptAtShiftS,
   timescaleOf,
 } from "./audio-shift.ts";
 
@@ -141,7 +140,7 @@ describe("moving a chunked playback's sound earlier (the owner's TCL TV, 2026-10
     expect(decodeTimeOf(loaded("picture/7", "main", 7), 0)).toBe(160_000);
   });
 
-  it("starts each playback where the element's sound is wanted, and throws the sound past the kept window away at a change", () => {
+  it("starts each playback where the element's sound is wanted, and throws the sound's buffer away at a change", () => {
     const video = document.createElement("video");
     moveSoundEarlier(video, 300);
     const flushed: unknown[] = [];
@@ -162,86 +161,10 @@ describe("moving a chunked playback's sound earlier (the owner's TCL TV, 2026-10
     expect(flushed).toEqual([
       [
         Hls.Events.BUFFER_FLUSHING,
-        { startOffset: soundKeptAtShiftS, endOffset: Number.POSITIVE_INFINITY, type: "audio" },
+        { startOffset: 0, endOffset: Number.POSITIVE_INFINITY, type: "audio" },
       ],
     ]);
     stop();
     expect(canMoveSoundEarlier(video)).toBe(false);
-  });
-
-  it("keeps the sound loaded for the next seconds at a change, and moves only what loads after (a Fire TV's start, 2026-10-28)", () => {
-    // The sound loaded from the playhead at 100 s to 130 s, as hls.js holds it, and the flushes
-    // hls.js is asked for, applied to it as its buffer controller does.
-    let loadedSound: [number, number][] = [[100, 130]];
-    const flushes: { startOffset: number; endOffset: number }[] = [];
-    const flushing: string = Hls.Events.BUFFER_FLUSHING;
-    const hls = {
-      trigger: (event: string, data: { startOffset: number; endOffset: number }) => {
-        if (event === flushing) {
-          flushes.push(data);
-          loadedSound = loadedSound.flatMap(([from, to]): [number, number][] =>
-            [
-              [from, Math.min(to, data.startOffset)] as [number, number],
-              [Math.max(from, data.endOffset), to] as [number, number],
-            ].filter(([kept, until]) => until > kept),
-          );
-        }
-        return true;
-      },
-    };
-    const video = document.createElement("video");
-    Object.defineProperty(video, "currentTime", { value: 100 });
-    const shift = new SoundShift();
-    const stop = shift.attach(hls, video);
-    // Web Audio's latency on the Fire TV: 43 ms base and 288 ms output.
-    moveSoundEarlier(video, 331);
-    expect(shift.earlierMs).toBe(331);
-    expect(flushes).toHaveLength(1);
-    // Nothing near the playhead is thrown away: the sound plays on from what it has.
-    expect(flushes.every((flush) => flush.startOffset >= 100 + soundKeptAtShiftS)).toBe(true);
-    expect(loadedSound).toEqual([[100, 100 + soundKeptAtShiftS]]);
-    // What loads after, beyond the kept window, comes at the new shift.
-    const Shifting = shiftingFragmentLoader(
-      class Stand implements Loader<LoaderContext> {
-        context: LoaderContext | null = null;
-        stats: LoaderStats = new LoadStats();
-        destroy(): void {
-          this.context = null;
-        }
-        abort(): void {
-          this.context = null;
-        }
-        load(
-          context: LoaderContext,
-          _config: LoaderConfiguration,
-          callbacks: LoaderCallbacks<LoaderContext>,
-        ): void {
-          const data = context.url === "init" ? init(48_000) : fragment(108 * 48_000, 0);
-          callbacks.onSuccess({ url: context.url, data }, this.stats, context, null);
-        }
-      },
-      () => shift.earlierMs,
-    );
-    let decodeTime = 0;
-    for (const [url, sn] of [
-      ["init", "initSegment"],
-      ["sound/54", 54],
-    ] as const) {
-      new Shifting({} as HlsConfig).load(
-        { url, frag: { type: "audio", sn } } as unknown as FragmentLoaderContext,
-        {} as LoaderConfiguration,
-        {
-          onSuccess: (response) => {
-            if (sn !== "initSegment") {
-              decodeTime = decodeTimeOf(response.data as ArrayBuffer, 0);
-            }
-          },
-          onError: () => undefined,
-          onTimeout: () => undefined,
-        },
-      );
-    }
-    expect(decodeTime).toBe(108 * 48_000 - 0.331 * 48_000);
-    stop();
   });
 });

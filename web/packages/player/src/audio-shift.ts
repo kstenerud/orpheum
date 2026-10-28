@@ -257,25 +257,9 @@ export function shiftingFragmentLoader(
 }
 
 /**
- * How far ahead of the playhead a chunked playback keeps the sound it has when its shift changes,
- * in seconds. What lies beyond is thrown away and loaded again at the new shift; what lies within
- * plays at the old one, so the sound is off by the change for these seconds, then skips once into
- * place where the first chunk loaded again begins. Throwing all of it away stalled a Fire TV at
- * every start: its sound, moved 331 ms earlier for Web Audio's latency as it began to play, had
- * nothing loaded ahead while hls.js loaded it again, and the video waited 2.5 s (the owner's cast,
- * staging, 2026-10-28; the owner chose this, 2026-10-28: option 2). Eight seconds holds a chunk
- * (2 s, nodeproto's StartingSegmentLengthSeconds), since the chunk loaded again begins up to one
- * chunk before the window's end; the longest shift (longestSoundShiftMs, 2 s), by which that chunk
- * may land earlier still; and 4 s to fetch it, past the Fire TV's 2.5 s; so the skip lands ahead of
- * the playhead, and the sound never runs dry.
- */
-export const soundKeptAtShiftS = 8;
-
-/**
  * One chunked playback's shift of its sound: what its fragment loader reads (shiftingFragmentLoader),
- * and, once attached to its hls.js and element, what moveSoundEarlier sets. A change keeps the
- * sound's buffer for soundKeptAtShiftS ahead of the playhead and throws the rest away, which loads
- * again at its new time.
+ * and, once attached to its hls.js and element, what moveSoundEarlier sets. A change throws the
+ * sound's buffer away, so the sound loads again at its new time.
  */
 export class SoundShift {
   /** How much earlier the sound is moved, in ms. */
@@ -291,7 +275,7 @@ export class SoundShift {
         }
         this.earlierMs = ms;
         hls.trigger(HlsEvents.BUFFER_FLUSHING, {
-          startOffset: element.currentTime + soundKeptAtShiftS,
+          startOffset: 0,
           endOffset: Number.POSITIVE_INFINITY,
           type: "audio",
         });
