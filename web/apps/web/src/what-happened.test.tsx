@@ -36,6 +36,18 @@ it("says what happened at a dead end: the server, the addresses tried, what fail
   ).toContain("Server: not found\nAddresses tried: none\nWhat failed: refused");
 });
 
+it("names each alternative and cause behind what failed, an AggregateError's empty message hiding none", () => {
+  const problem = new AggregateError([
+    new Error("the client could not start", {
+      cause: new Error("the core refused the offer: the offer's proof does not hold"),
+    }),
+    new Error("no name answered"),
+  ]);
+  expect(whatHappened({ coreId: "k7xq2", addressesTried: [], problem }, "x")).toContain(
+    "What failed: the client could not start; because the core refused the offer: the offer's proof does not hold; no name answered",
+  );
+});
+
 it("copies what happened, and says so, or that it could not, leaving the text to select", async () => {
   const copied: string[] = [];
   mounted = await mount(

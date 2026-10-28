@@ -105,7 +105,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   connection's offers are proven and its answers taken only when the core signed them by the key the
   link's fingerprint names; each core's credentials are kept under its id. A core that turns the
   device away for its network's share (rtcapi's `Verdict`) is said so, with a way to try again,
-  never as a network that cannot reach it, and a remembered one stays remembered. Every WebRTC
+  never as a network that cannot reach it, and a remembered one stays remembered. A core that
+  refuses the key the device remembered for it (its offer's proof does not hold, as once the device
+  was removed) is no dead end either: what the device held is forgotten and its person signs in
+  again, at the discovery's realm sign-in, which says why, and what happened names the refusal.
+  Every WebRTC
   transport a page used is closed with its path, when its hand-off fails, and when the page leaves
   for good. `discovery-gate.test.tsx`, `kept-path.test.ts`, `loader-pages.test.tsx`,
   `session.test.ts`, and the SDK's `discovery.test.ts`. Once signed in, the page tells the core's log

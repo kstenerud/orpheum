@@ -19,8 +19,7 @@ export function whatHappened(
   },
   userAgent: string,
 ): string {
-  const failed =
-    reached.problem instanceof Error ? reached.problem.message : String(reached.problem);
+  const failed = failedText(reached.problem);
   return [
     "Orpheum could not reach its server.",
     `Server: ${reached.coreId ?? "not found"}`,
@@ -28,6 +27,27 @@ export function whatHappened(
     `What failed: ${failed}`,
     `Browser: ${userAgent}`,
   ].join("\n");
+}
+
+/**
+ * What failed, as text: the problem's message, each alternative an AggregateError holds and each
+ * cause behind it, a few deep. An AggregateError's own message is often empty, and said alone it
+ * hid a core's refusal of the device's key behind "What failed:" and nothing (the owner's Fire TV,
+ * 2026-10-28).
+ */
+function failedText(problem: unknown, depth = 0): string {
+  if (!(problem instanceof Error)) {
+    return String(problem);
+  }
+  const parts = problem.message === "" ? [] : [problem.message];
+  if (depth < 4 && problem instanceof AggregateError) {
+    const alternatives: readonly unknown[] = Array.from<unknown>(problem.errors);
+    parts.push(...alternatives.map((each) => failedText(each, depth + 1)));
+  }
+  if (depth < 4 && problem.cause !== undefined) {
+    parts.push(`because ${failedText(problem.cause, depth + 1)}`);
+  }
+  return parts.join("; ");
 }
 
 /**

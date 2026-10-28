@@ -61,12 +61,16 @@ export interface KeptCore {
   readonly realm?: string | undefined;
 }
 
-/** How a page at a discovery's origin starts. */
+/**
+ * How a page at a discovery's origin starts. With nothing, keyRefusedBy names the core whose client
+ * origin sent the page here because that core refused the key this device remembered for it, which
+ * the realm sign-in says (the owner's Fire TV, 2026-10-28).
+ */
 export type Start =
   | { readonly kind: "link"; readonly link: LinkFragment }
   | { readonly kind: "remembered"; readonly core: KeptCore }
   | { readonly kind: "handoff"; readonly core: KeptCore; readonly handOff: HandOff }
-  | { readonly kind: "none" };
+  | { readonly kind: "none"; readonly keyRefusedBy?: string | undefined };
 
 /**
  * A realm sign-in the discovery's loader handed on to the core's client origin (D308 §4): the code
