@@ -14,12 +14,6 @@ export function Link(props: {
   /** Whether it leads to the page shown now, marked for the eye and a screen reader alike. */
   readonly isCurrent?: boolean;
   /**
-   * Told of a plain click followed, after go: a drop-down's own list closes itself this way
-   * (library-browse.tsx's RouteChooser), rather than a non-interactive wrapper taking the press
-   * jsx-a11y-x refuses.
-   */
-  readonly onNavigate?: () => void;
-  /**
    * Whether following it replaces the current entry in the history rather than adding one: a view
    * of the same page, a season or a sort (D367 §9).
    */
@@ -37,7 +31,6 @@ export function Link(props: {
       } else {
         navigation.go(props.to);
       }
-      props.onNavigate?.();
     }
   };
   return (

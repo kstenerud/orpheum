@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /* A chooser (route-chooser.tsx): the Libraries page's library, view and sort, a series' season,
-   each a button that opens a focusable drop-down list of its options (modal-dialog.tsx). */
+   each a button that opens a focusable drop-down list of its options (drop-down.tsx). */
 .route-chooser {
   position: relative;
   display: inline-flex;
@@ -33,30 +33,4 @@
 
 .route-chooser__field {
   color: var(--color-muted);
-}
-
-.route-chooser__panel ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.route-chooser__panel li {
-  display: flex;
-}
-
-.route-chooser__panel a {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  color: inherit;
-  text-decoration: none;
-}
-
-.route-chooser__panel a:hover,
-.route-chooser__panel a[aria-current="page"] {
-  background: var(--color-surface);
 }

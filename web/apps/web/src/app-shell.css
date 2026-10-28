@@ -151,7 +151,7 @@
 }
 
 .app-shell__watching a,
-.app-shell__menu > summary {
+.app-shell__menu-button {
   display: block;
   padding: var(--space-2) var(--space-3) var(--space-3);
   border-block-end: 2px solid transparent;
@@ -163,12 +163,12 @@
 }
 
 .app-shell__watching a:hover,
-.app-shell__menu > summary:hover {
+.app-shell__menu-button:hover {
   color: var(--color-text);
 }
 
 .app-shell__watching [aria-current="page"] a,
-.app-shell__menu--current > summary {
+.app-shell__menu--current .app-shell__menu-button {
   border-block-end-color: var(--color-accent);
   color: var(--color-text);
 }
@@ -191,78 +191,35 @@
   white-space: nowrap;
 }
 
-/* The one menu at the banner's end, behind three lines; the browser's own triangle is hidden. */
+/* The one menu at the banner's end, behind three lines (drop-down.tsx, with no chevron). */
 .app-shell__menu {
-  position: relative;
   flex: none;
 }
 
-.app-shell__menu > summary {
+.app-shell__menu-button {
   display: flex;
   align-items: center;
-  list-style: none;
+  min-height: auto;
+  border-inline: 0;
+  border-block-start: 0;
+  border-radius: 0;
+  background: none;
+}
+
+@media (hover: hover) {
+  .app-shell__menu-button:hover:not(:disabled) {
+    background: none;
+  }
 }
 
 /* The menu's icon as close to the status tray's signs as they are to each other. */
-.app-shell__end .app-shell__menu > summary {
+.app-shell__end .app-shell__menu-button {
   padding-inline: var(--space-2);
-}
-
-.app-shell__menu > summary::-webkit-details-marker {
-  display: none;
 }
 
 .app-shell__menu-icon {
   width: 1.5rem;
   height: 1.5rem;
-}
-
-/*
- * What a menu holds: a raised list under its name, at the window's end. No taller than the screen
- * below the banner, scrolling within itself where its places need more: under the sticky banner a
- * longer list ran past the screen's bottom, which no scroll of the page reaches, and on a Fire TV's
- * 480 pixels an admin's Sign out was out of sight (the owner, 2026-10-27).
- */
-.app-shell__menu > ul {
-  position: absolute;
-  inset-block-start: 100%;
-  inset-inline-end: 0;
-  z-index: 2;
-  display: grid;
-  max-block-size: calc(100svh - var(--banner-height, 3.75rem) - var(--space-2));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  min-width: 13rem;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-raised);
-}
-
-.app-shell__menu a,
-.app-shell__menu button {
-  display: block;
-  width: 100%;
-  min-height: auto;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--color-text);
-  font-weight: normal;
-  text-align: start;
-  text-decoration: none;
-}
-
-.app-shell__menu a:hover,
-.app-shell__menu button:hover:not(:disabled) {
-  background: var(--color-border);
-  color: var(--color-text);
-}
-
-.app-shell__menu [aria-current="page"] a {
-  color: var(--color-accent);
 }
 
 /* The realm, under who is signed in: on a phone alone, where the banner has no room for it. */
@@ -326,7 +283,7 @@
     min-width: var(--size-banner-sign-phone);
   }
 
-  .app-shell__end .app-shell__menu > summary {
+  .app-shell__end .app-shell__menu-button {
     padding-inline: calc((var(--size-banner-sign-phone) - 1.5rem) / 2);
   }
 
@@ -355,7 +312,7 @@
     min-width: var(--size-banner-sign-phone);
   }
 
-  .app-shell__menu > summary {
+  .app-shell__menu-button {
     padding: var(--space-1) var(--space-2);
   }
 }
@@ -375,7 +332,7 @@
   }
 
   .app-shell__watching a,
-  .app-shell__menu > summary {
+  .app-shell__menu-button {
     padding: var(--space-4) var(--space-3);
   }
 }

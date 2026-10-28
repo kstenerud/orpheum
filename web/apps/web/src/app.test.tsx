@@ -65,6 +65,7 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
     "token",
   );
   const mounted = await mount(withServices(<App />, services));
+  await click(mounted.container.querySelector(".app-shell__menu-button"));
   await click(buttonWithText(mounted.container, "Sign out"));
   const isSignedOut = services.session.token() === undefined;
   const notice = mounted.container.querySelector("output")?.textContent ?? undefined;
@@ -269,6 +270,8 @@ describe("App", () => {
         "token",
       );
       const mounted = await mount(withServices(<App />, services));
+      // The menu's places are drawn while it is open (drop-down.tsx).
+      await click(mounted.container.querySelector(".app-shell__menu-button"));
       const hasGallery = mounted.container.querySelector('a[href="/ui-gallery"]') !== null;
       mounted.unmount();
       return hasGallery;

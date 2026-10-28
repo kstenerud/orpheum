@@ -23540,6 +23540,28 @@ an other video's library. Each chooser
 (`route-chooser.tsx`) shows a down chevron at its button's end and says it opens a dialog
 (`aria-haspopup`), the owner: "The choice box UI items look no different from a regular button".
 Not seen on a device yet (VQ91).
+§10 on a Fire TV, after the owner's check (2026-10-28): "with the chooser widget I can only exit
+without choosing by pressing the back button, which actually brings me back a page". Silk's remote
+Back is a step of the history, never a key the page hears (idiosyncrasies.md), so a dialog closed
+on Escape and a remote's Back key but not there. Every modal dialog, a chooser's list and the menu
+among them, now holds an entry of the same address over the page's own while it is open
+(`navigation.ts`'s `holdBack`, `modal-dialog.tsx`): the browser's Back steps off it, which closes
+the dialog and leaves the page where it was; closed any other way, the dialog takes its entry away
+again; a choice that goes, replaces or goes up takes it away first, so the history is what it would
+be with nothing open, and Up's search behind (`below`) never meets it. It is done on every browser,
+not by feature detection: the page cannot tell a Back that is a key from one that is a step until
+it comes, nor TV Bro from Silk (§6), and a phone's Back gesture and a computer's Back button closing
+an open dialog first is what those platforms do. One trace is left: the entry a closed list held
+stays ahead of the page, as a browser keeps any entry Back left, and Forward onto it steps straight
+back off it. Each list also has a Close after its places, which a remote's arrows reach, and Left or
+Right closes it, the owner the same day: "We can also make it so that moving left/right while in a
+chooser or menu closes it"; the press closes the list alone, focus back on its button, and the next
+press moves on from there. The banner's menu, which was a `<details>`, is the chooser's widget
+(`drop-down.tsx`'s `DropDown`), the owner: "the menu should share code with it, the only real
+difference being that there's no extra visual indicator that it's a dropdown", and "the drop-down
+menu should be modal": a press outside it closes it and presses nothing under it, focus stays in it
+while it is open, its icon has no chevron. It opens over the page, as a chooser's list does, where
+it dropped from its icon before. Not seen on a device yet (VQ97).
 
 **Proven by:**
 - 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
@@ -23551,7 +23573,7 @@ Not seen on a device yet (VQ91).
 - 7: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts (§3.3–§3.10), up-trail.test.tsx ("goes back to the series behind it, however far, adding no entry"), input-player.browser.test.tsx ("… its Up goes back to the film's page, adding nothing")
 - 8: web/apps/web/src/up-trail.test.tsx ("shows where an episode is …", "is one link up on a television, one stop for focus"), input-player.browser.test.tsx (the Play page's trail, the overlay's Up), up-trail.browser.test.tsx (nothing drawn over the trail; a Play page's last part leads to what plays' page), play.test.tsx ("names what plays as a link to its own page …"); VQ91
 - 9: web/apps/web/src/series-page.test.tsx, series.test.tsx, episode-orderings.test.tsx ("keeps a choice, goes to the series' top page and reads it again"), library-browse.test.tsx ("sends the typed query …"), input-player.browser.test.tsx ("a series returned to by Up from an episode of another season"), route-chooser.test.tsx and library-browse.browser.test.tsx (the picker's chevron); VQ91
-- 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); VQ91
+- 10: web/apps/web/src/modal-dialog.test.tsx ("closes on a remote's Back, as on Escape, before Back goes anywhere"), library-configure.test.tsx ("closes on a remote's Back, and by its Close"); the browser's own Back: navigation.test.ts ("an entry held over the page while something is open over it"), route-chooser.test.tsx ("a chooser's open list"), app-shell.test.tsx ("closes the open menu on the browser's own Back …", "… on Left or Right …"), series-page.test.tsx, input-pages.browser.test.tsx ("closes the open menu by the browser's own Back …", "closes a season picker's list by the browser's own Back …", "closes the open menu by Left and by Right …"), app-shell.browser.test.tsx ("takes a press outside the open menu itself …"); VQ91, VQ97
 
 ## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 

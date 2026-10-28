@@ -22,4 +22,8 @@ export const enNavigation = {
     yoursAlone: "These are your own choices; no one else's pages change.",
     close: "Close",
   },
+  /** A chooser's or the menu's open list (drop-down.tsx). */
+  dropDown: {
+    close: "Close",
+  },
 };

@@ -984,3 +984,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   sound away once or twice, a wait of about 2.5 s each (staging, 2026-10-28, 07:18).
   (`web/packages/player/src/gain.ts`, `audio-shift.ts`; `web/apps/web/src/sound-latency.ts`;
   `internal/core/together/player_log.go`)
+- [ ] **VQ97** — D367 §10, a remote's Back closes a chooser and the menu without leaving the page, on
+  the Fire TV (Silk, spatial navigation on), on staging. Passes when: (1) on a series' page, the
+  season picker opened by OK, the remote's Back closes its list, the series' page staying with the
+  picker focused, and a second Back then goes back the way the person came; (2) the same for the
+  Libraries page's library, view and sort choosers; (3) the banner's menu, opened by OK, closes on
+  Back with its icon focused, the page staying; (4) Left or Right in an open chooser or the menu
+  closes it, focus on its button; (5) each list's Close, after its places, is reached by Down and
+  closes it; (6) a season chosen, then Back, goes back past the series as the series' entry was
+  replaced, and a library chosen, then Back, returns to the library before. The owner, 2026-10-28:
+  "with the chooser widget I can only exit without choosing by pressing the back button, which
+  actually brings me back a page." (`web/apps/web/src/navigation.ts`'s `holdBack`,
+  `modal-dialog.tsx`, `drop-down.tsx`, `route-chooser.tsx`, `app-shell.tsx`)

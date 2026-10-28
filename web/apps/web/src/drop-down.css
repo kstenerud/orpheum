@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A drop-down's open list (drop-down.tsx): a chooser's choices and the banner's menu alike, over the
+   page as a modal dialog (modal-dialog.css), no taller than the screen and scrolling within itself
+   where its places need more, so on a Fire TV's 480 pixels an admin's Sign out stays in sight (the
+   owner, 2026-10-27). */
+.drop-down__list {
+  min-width: 13rem;
+  padding: var(--space-2);
+}
+
+.drop-down__places > ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.drop-down__places li {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.drop-down__places a,
+.drop-down__places button {
+  display: block;
+  width: 100%;
+  min-height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: normal;
+  text-align: start;
+  text-decoration: none;
+}
+
+.drop-down__places a:hover,
+.drop-down__places button:hover:not(:disabled),
+.drop-down__places [aria-current="page"] a,
+.drop-down__places a[aria-current="page"] {
+  background: var(--color-surface);
+}
+
+/* The current place, the menu's (app-shell.tsx), in the accent as well. */
+.drop-down__places [aria-current="page"] a {
+  color: var(--color-accent);
+}
+
+/* Its Close, after its places and a line, closing it with no choice made. */
+.drop-down__places > .drop-down__close {
+  margin-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border);
+  border-radius: 0;
+  color: var(--color-muted);
+}

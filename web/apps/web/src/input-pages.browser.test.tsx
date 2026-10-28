@@ -17,7 +17,9 @@ import { page, userEvent } from "vitest/browser";
 
 import { chooseOk, okChoice } from "./controller-choice.ts";
 import { focusTargetsIn } from "./focus-engine.ts";
+import { createNavigation } from "./navigation.ts";
 import { createSession } from "./session.ts";
+import { fakePlace } from "./test-services.tsx";
 import {
   filmDetail,
   films,
@@ -119,14 +121,14 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"))).toBe(true);
     expect(await pressUntil("{ArrowRight}", () => focusedName() === "Menu")).toBe(true);
     await press("{Enter}");
-    expect(document.querySelector("details")?.open).toBe(true);
+    expect(isDrawn("dialog")).toBe(true);
     expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/this-device"))).toBe(true);
     await press("{Enter}");
     await drawn("#this-device-heading");
     await press("{Escape}");
     await drawn(".poster-grid .poster-card__link");
     await expect.poll(focusedName).toBe("Menu");
-    expect(document.querySelector("details")?.open).toBe(false);
+    expect(document.querySelector("dialog")).toBeNull();
   });
 
   it("closes the open menu by Back, keeping its icon, before going anywhere", async () => {
@@ -137,10 +139,50 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
     await press("{Enter}{ArrowDown}");
-    expect(isFocusIn("details ul")).toBe(true);
+    expect(isFocusIn("dialog ul")).toBe(true);
     await press("{Escape}");
-    expect(document.querySelector("details")?.open).toBe(false);
+    expect(document.querySelector("dialog")).toBeNull();
     expect(focusedName()).toBe("Menu");
+    expect(walking.services.navigation.route()).toEqual({ screen: "films" });
+  });
+
+  // The owner's Fire TV, 2026-10-28: Silk's remote Back is a step of the history, never a key; "with
+  // the chooser widget I can only exit without choosing by pressing the back button, which actually
+  // brings me back a page."
+  it("closes the open menu by the browser's own Back, a history step, keeping its icon and the page", async () => {
+    await page.viewport(width, height);
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "films" });
+    walking = await mountApp({ ...walkServices(signedIn), navigation });
+    await drawn(".poster-grid .poster-card__link");
+    await press("{ArrowDown}");
+    await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
+    await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
+    await press("{Enter}{ArrowDown}");
+    expect(isFocusIn("dialog ul")).toBe(true);
+    place.history.back();
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(focusedName()).toBe("Menu");
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+  });
+
+  it("closes the open menu by Left and by Right, focus on its icon, Down still moving within it", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(signedIn));
+    await drawn(".poster-grid .poster-card__link");
+    await press("{ArrowDown}");
+    await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
+    await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
+    for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
+      await press("{Enter}{ArrowDown}{ArrowDown}");
+      expect(isFocusIn("dialog ul"), arrow).toBe(true);
+      await press(arrow);
+      expect(document.querySelector("dialog"), arrow).toBeNull();
+      // Focus goes back to the icon once the dialog has closed, a frame after the press.
+      await expect.poll(focusedName, { message: arrow }).toBe("Menu");
+    }
     expect(walking.services.navigation.route()).toEqual({ screen: "films" });
   });
 
@@ -207,6 +249,43 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       });
     expect(walking.services.navigation.behind()).toEqual([]);
     await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
+  });
+
+  it("closes a season picker's list by the browser's own Back, a history step, choosing nothing, and by its Close", async () => {
+    await page.viewport(width, height);
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "series-page", collectionId: 20 });
+    walking = await mountApp({
+      ...walkServices({ ...signedIn, "GET /collections/20": glassTide }),
+      navigation,
+    });
+    await drawn(".title__play");
+    const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
+    // The chooser shows its chevron, the menu none (the owner, 2026-10-28).
+    expect(picker?.querySelector(".route-chooser__chevron")).not.toBeNull();
+    expect(document.querySelector(".app-shell__menu-button .route-chooser__chevron")).toBeNull();
+    picker?.focus();
+    await press("{Enter}");
+    await drawn("dialog a");
+    place.history.back();
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(picker);
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+    // Its Close, the last of it, reached by the arrows.
+    await press("{Enter}");
+    await drawn("dialog a");
+    expect(
+      await pressUntil(
+        "{ArrowDown}",
+        () => document.activeElement?.classList.contains("drop-down__close") === true,
+      ),
+    ).toBe(true);
+    await press("{Enter}");
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(picker);
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
   });
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {
