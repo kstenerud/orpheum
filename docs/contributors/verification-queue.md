@@ -1188,3 +1188,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   §4, fixes 1 and 2); the relay well below the transport puts it in the relay; all three alike puts
   it in the TV's link. (`web/apps/web/src/lab-throughput.tsx`,
   `internal/core/api/lab_throughput.go`)
+- [ ] **VQ118** — the efficiency audit's cheap fixes make a Fire TV's playback lighter
+  (web-client-efficiency-audit-2026-10-28.md, findings 1, 2 and 3), on staging. Do, before the
+  batch is deployed and again after, the same way each time: (1) cast from the Mac to the Fire TV
+  (Silk) a converted film (a ladder) from where it was left, three times, Watch Together off, and
+  note from the core's log each cast's `a player dropped frames` lines in its first two minutes and
+  its `a playback started playing` line's `playingAfterMs`; (2) on the Fire TV reached through the
+  discovery on WebRTC, open a converted film's page, wait 15 s, press Play, three films. Passes when
+  (1) the casts after drop fewer frames than those before (fewer `a player dropped frames` lines,
+  or smaller counts on them) and start no later; and (2) each film's `a playback started playing`
+  line after has no `preloadSteps`, and the core's log (the requests at debug) has none of the
+  film's first chunks asked for twice, once on its page and again after Play, as before it was
+  (the preload's ~10 s fetched on the film page and again by the Play page). Note
+  `playingAfterMs` before and after for (2) too. (`web/apps/web/src/watching.ts`,
+  `frame-timing.ts`, `tv-controls.css`, `status-tray.css`)
