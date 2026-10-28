@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { diagnosisOf } from "./diagnosis.ts";
+import { framesBetween, type FramesShown } from "./frames.ts";
 import type { components } from "@orpheum/sdk";
 
 // The report's shapes are the API's, generated into the SDK, so a field the server renames is
@@ -97,6 +98,9 @@ export class PlayReporter {
   private pathMoves: PlayPathMove[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private readSteadiness: () => number | undefined = () => undefined;
+  private readFrames: () => FramesShown | undefined = () => undefined;
+  /** The frames counted when the last report was sent, from which the next counts. */
+  private framesSent: FramesShown | undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
   private isRefused = false;
@@ -163,6 +167,16 @@ export class PlayReporter {
    */
   reportSteadinessWith(read: () => number | undefined): void {
     this.readSteadiness = read;
+  }
+
+  /**
+   * Reports the frames the video showed and dropped since the last report, as read counts them
+   * from its start, with every report from now on, so a burst of dropped frames shows in the log
+   * near when it happened (the owner, 2026-10-28); none where read says undefined.
+   */
+  reportFramesWith(read: () => FramesShown | undefined): void {
+    this.readFrames = read;
+    this.framesSent = read();
   }
 
   /**
@@ -248,7 +262,9 @@ export class PlayReporter {
       return;
     }
     const now = this.readMonotonicMs();
+    const framesBefore = this.framesSent;
     const report: PlayReport = {
+      ...this.framesSinceSent(),
       reportSeq: this.nextReportSeq(),
       sentMonoMs: now,
       positionMs: Math.max(0, Math.round(positionMs)),
@@ -283,6 +299,7 @@ export class PlayReporter {
           return;
         }
         // Kept for the next report, which is numbered afresh: the server took none of this one.
+        this.framesSent = framesBefore;
         this.events = [...report.events, ...this.events];
         this.spans = [...report.spans, ...this.spans];
         this.stalls = [...(report.stalls ?? []), ...this.stalls];
@@ -293,6 +310,17 @@ export class PlayReporter {
         this.pathMoves = [...(report.pathMoves ?? []), ...this.pathMoves];
       },
     );
+  }
+
+  /** The frames shown and dropped since the last report sent, absent where none are counted. */
+  private framesSinceSent(): Pick<PlayReport, "totalFrames" | "droppedFrames"> {
+    const now = this.readFrames();
+    if (now === undefined) {
+      return {};
+    }
+    const since = framesBetween(this.framesSent, now);
+    this.framesSent = now;
+    return { totalFrames: since.total, droppedFrames: since.dropped };
   }
 
   /** The link's speed and the player's steadiness level as read now, each absent where unsaid. */

@@ -102,6 +102,7 @@ var sectionByKey = map[Key]Section{
 	TMDBRequestsPerSecond:                          SectionMetadata,
 	FinishedAfterPercent:                           SectionPlayback,
 	HLSSegmentLengthSeconds:                        SectionPlayback,
+	ReadyAheadOfNextChunkPercent:                   SectionPlayback,
 	LoudnessMaxRaiseDB:                             SectionPlayback,
 	LoudnessTargetLUFS:                             SectionPlayback,
 	MediaTokenIdleExpiryHours:                      SectionPlayback,

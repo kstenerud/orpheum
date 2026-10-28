@@ -12,7 +12,8 @@ import {
   loadingHoldOf,
   playerLoadedChunkEvent,
 } from "./together-player-events.ts";
-import { Refill, seekReadyAheadMs } from "./together-refill.ts";
+import { Refill } from "./together-refill.ts";
+import { readyAheadOfNextChunkPercent, tellNextChunkLoadMs } from "./ready-ahead.ts";
 import type { PlayerNote } from "./together-notes.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
@@ -28,64 +29,58 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** A video at 60 s, with aheadMs of film loaded there, able to play it. */
-function loadedAhead(aheadMs: number): FakeMedia {
+/**
+ * A video at 60 s, with aheadMs of film loaded there, able to play it; its player expecting its next
+ * chunk to take nextChunkLoadMs to load, where given.
+ */
+function loadedAhead(aheadMs: number, nextChunkLoadMs?: number): FakeMedia {
   const media = new FakeMedia();
   media.currentTime = 60;
   media.loaded = [[59, 60 + aheadMs / 1000]];
+  if (nextChunkLoadMs !== undefined) {
+    tellNextChunkLoadMs(media, () => nextChunkLoadMs);
+  }
   return media;
 }
 
+/** A chunk of picture of 10 s that took 3 s to load. */
+const pictureChunk = {
+  track: "video",
+  loadMs: 3000,
+  filmMs: 10_000,
+  loadedKbps: 11_000,
+  qualityKbps: 36_208,
+} as const;
+
 describe("when a player is ready again (seek-resync-2026-10-12.md)", () => {
-  it("is ready a few seconds into a seek when its link carries the film well faster than it plays", () => {
+  it("is ready after a seek once what it loaded outlasts its next chunk's load, by the margin (the owner, 2026-10-28)", () => {
     const refill = new Refill();
-    refill.chunkLoaded({
-      track: "video",
-      loadMs: 3000,
-      filmMs: 10_000,
-      loadedKbps: 11_000,
-      qualityKbps: 36_208,
-    });
+    refill.chunkLoaded(pictureChunk);
     refill.heard("seeking", loadedAhead(0));
-    expect(refill.isShort(loadedAhead(seekReadyAheadMs - 100))).toBe(true);
-    expect(refill.isShort(loadedAhead(seekReadyAheadMs))).toBe(false);
+    const readyOnMs = (2000 * readyAheadOfNextChunkPercent) / 100;
+    expect(refill.isShort(loadedAhead(readyOnMs - 100, 2000))).toBe(true);
+    expect(refill.isShort(loadedAhead(readyOnMs, 2000))).toBe(false);
+    // The Marrowgate shape: 1.57 s loaded, its next chunk 2.3 s away.
+    expect(refill.isShort(loadedAhead(1570, 2300))).toBe(true);
   });
 
-  it("needs ten seconds after a stall, a catch-up's seek, or a seek on a link only just keeping up", () => {
+  it("needs ten seconds after a stall, a catch-up's seek, or a seek whose player cannot say how long its next chunk takes", () => {
     const stalled = new Refill();
-    stalled.chunkLoaded({
-      track: "video",
-      loadMs: 3000,
-      filmMs: 10_000,
-      loadedKbps: 11_000,
-      qualityKbps: 36_208,
-    });
+    stalled.chunkLoaded(pictureChunk);
     stalled.heard("waiting", loadedAhead(0));
-    expect(stalled.isShort(loadedAhead(seekReadyAheadMs))).toBe(true);
-    expect(stalled.isShort(loadedAhead(refillAheadMs))).toBe(false);
+    expect(stalled.isShort(loadedAhead(5000, 2000))).toBe(true);
+    expect(stalled.isShort(loadedAhead(refillAheadMs, 2000))).toBe(false);
 
     const caughtUp = new Refill();
-    caughtUp.chunkLoaded({
-      track: "video",
-      loadMs: 3000,
-      filmMs: 10_000,
-      loadedKbps: 11_000,
-      qualityKbps: 36_208,
-    });
+    caughtUp.chunkLoaded(pictureChunk);
     caughtUp.sought("catchUp");
     caughtUp.heard("seeking", loadedAhead(0));
-    expect(caughtUp.isShort(loadedAhead(seekReadyAheadMs))).toBe(true);
+    expect(caughtUp.isShort(loadedAhead(5000, 2000))).toBe(true);
 
-    const slowLink = new Refill();
-    slowLink.chunkLoaded({
-      track: "video",
-      loadMs: 8000,
-      filmMs: 10_000,
-      loadedKbps: 4000,
-      qualityKbps: 3000,
-    });
-    slowLink.heard("seeking", loadedAhead(0));
-    expect(slowLink.isShort(loadedAhead(seekReadyAheadMs))).toBe(true);
+    const unmeasured = new Refill();
+    unmeasured.heard("seeking", loadedAhead(0));
+    expect(unmeasured.isShort(loadedAhead(refillAheadMs - 100))).toBe(true);
+    expect(unmeasured.isShort(loadedAhead(refillAheadMs))).toBe(false);
   });
 });
 
@@ -131,9 +126,13 @@ describe("which ready rule a player says it is ready by (the owner, 2026-10-12)"
         },
       }),
     );
+    tellNextChunkLoadMs(media, () => 2000);
     media.fire("seeking");
     connection.reportState();
-    expect(reports.at(-1)).toMatchObject({ readyOnMs: seekReadyAheadMs, loadsFaster: 3.4 });
+    expect(reports.at(-1)).toMatchObject({
+      readyOnMs: (2000 * readyAheadOfNextChunkPercent) / 100,
+      loadsFaster: 3.4,
+    });
   });
 });
 
@@ -230,6 +229,8 @@ describe("a hole in what a player held for its group's wait loaded (the owner's 
       [1547.76, 1551.21],
       [1551.21 + holeS, 1554.72],
     ];
+    // Its next chunk 2 s away: ready on 3 s ahead, more than it loaded before the hole.
+    tellNextChunkLoadMs(media, () => 2000);
     const { connection, reports } = fakeConnection({
       ...paused,
       state: "Waiting",

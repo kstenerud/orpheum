@@ -9,7 +9,7 @@ import {
   standsStillReportAfterMs,
   steadinessNoter,
 } from "@orpheum/player";
-import { playerLoadedChunkEvent, playerMovedItselfEvent } from "@orpheum/sdk";
+import { playerLoadedChunkEvent, playerMovedItselfEvent, startGateOf } from "@orpheum/sdk";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -66,6 +66,15 @@ function videoOf(shown: Mounted): HTMLVideoElement {
     throw new Error("no video");
   }
   return video;
+}
+
+/**
+ * Whether the page plays video at once, as it begins to load: its start gate is asked to play it,
+ * and waits, with nothing loaded yet (useStartsWithEnoughAhead).
+ */
+function isPlayedAtOnce(video: HTMLVideoElement): boolean {
+  video.dispatchEvent(new Event("loadstart"));
+  return startGateOf(video).isWaiting();
 }
 
 /** Lets the requests a test's events started answer, and what they start in turn. */
@@ -178,7 +187,7 @@ describe("play state", () => {
       ),
     );
     const lost = videoOf(mounted);
-    expect(lost.autoplay).toBe(true);
+    expect(isPlayedAtOnce(lost)).toBe(true);
     Object.defineProperty(lost, "readyState", { value: 4 });
     Object.defineProperty(lost, "currentTime", { value: 754.5, writable: true });
     await act(async () => {
@@ -192,7 +201,7 @@ describe("play state", () => {
     expect(causes).toEqual(["playPage", "playbackGone"]);
     const again = videoOf(mounted);
     expect(again).not.toBe(lost);
-    expect(again.autoplay).toBe(false); // the person had paused it
+    expect(isPlayedAtOnce(again)).toBe(false); // the person had paused it
     expect(mounted.container.querySelector('[role="alert"]')).toBe(null);
     Object.defineProperty(again, "readyState", { value: 4 });
     await act(async () => {
@@ -252,7 +261,7 @@ describe("play state", () => {
     });
     const again = videoOf(mounted);
     expect(again).not.toBe(lost);
-    expect(again.autoplay).toBe(true);
+    expect(isPlayedAtOnce(again)).toBe(true);
     expect(mounted.container.querySelector("output")).toBe(null);
     Object.defineProperty(again, "readyState", { value: 4 });
     await act(async () => {

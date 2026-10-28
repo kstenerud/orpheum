@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { diagnosisOf, rangesText } from "./diagnosis.ts";
+import { framesShownOf, type FrameCountingMedia } from "./frames.ts";
 
 /**
  * How long a video asked to play may keep its position without saying it waits before it is told
@@ -52,12 +53,8 @@ export type StandingMedia = Pick<
   | "videoHeight"
   | "muted"
   | "volume"
-> & {
-  readonly getVideoPlaybackQuality?: () => Pick<
-    VideoPlaybackQuality,
-    "totalVideoFrames" | "droppedVideoFrames"
-  >;
-};
+> &
+  FrameCountingMedia;
 
 /** What the video shows as it has stood still forMs, for the server's log. */
 export function standstillOf(
@@ -66,7 +63,7 @@ export function standstillOf(
   isPageHidden: boolean,
 ): Standstill {
   const diagnosis = diagnosisOf(media);
-  const quality = media.getVideoPlaybackQuality?.();
+  const frames = framesShownOf(media);
   const elementError = media.error;
   return {
     positionMs: Math.max(0, Math.round(media.currentTime * 1000)),
@@ -87,9 +84,7 @@ export function standstillOf(
         : `media error ${String(elementError.code)}: ${elementError.message}`.slice(0, 200)),
     videoWidth: media.videoWidth,
     videoHeight: media.videoHeight,
-    ...(quality === undefined
-      ? {}
-      : { decodedFrames: quality.totalVideoFrames, droppedFrames: quality.droppedVideoFrames }),
+    ...(frames === undefined ? {} : { decodedFrames: frames.total, droppedFrames: frames.dropped }),
     isMuted: media.muted,
     volume: media.volume,
     isPageHidden,

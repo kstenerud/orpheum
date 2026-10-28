@@ -8,10 +8,12 @@
 import type { SyncTuning } from "./together.ts";
 
 /**
- * After a stall or a seek, a player is ready again only with this much of the film loaded ahead of
- * it. Ready at its first frame, a player whose link is slower than the film plays that frame and
- * stalls again, and a group that waits for it plays and freezes in turn without end (the owner's
- * first test, 2026-10-05). Alone, the browser waits for more itself; in a group, this is that wait.
+ * After a stall, a player is ready again only with this much of the film loaded ahead of it, and
+ * after a seek or at its start where its player cannot say how long its next chunk takes to load
+ * (ready-ahead.ts). Ready at its first frame, a player whose link is slower than the film plays that
+ * frame and stalls again, and a group that waits for it plays and freezes in turn without end (the
+ * owner's first test, 2026-10-05). The browser does not wait for more itself: it plays at canplay
+ * (idiosyncrasies.md).
  */
 export const refillAheadMs = 10_000;
 
@@ -64,7 +66,13 @@ export function isInStep(media: FollowedMedia, expectedMs: number, tuning: SyncT
  * up to the film's end, or all the browser will load while it is paused, since the browser has
  * stopped loading and waiting longer gains nothing.
  */
-export function hasRefilled(media: FollowedMedia, aheadMs = refillAheadMs): boolean {
+export function hasRefilled(
+  media: Pick<
+    FollowedMedia,
+    "readyState" | "networkState" | "buffered" | "currentTime" | "duration"
+  >,
+  aheadMs = refillAheadMs,
+): boolean {
   if (media.readyState < haveFutureData) {
     return false;
   }
@@ -99,7 +107,7 @@ export const playedAcrossHoleS = 0.1;
  * The end, in seconds, of what the player loaded where it is, read on across holes no wider than
  * playedAcrossHoleS; undefined where it loaded nothing.
  */
-function loadedEndS(media: FollowedMedia): number | undefined {
+function loadedEndS(media: Pick<FollowedMedia, "buffered" | "currentTime">): number | undefined {
   const { buffered, currentTime } = media;
   let endS: number | undefined = undefined;
   for (let index = 0; index < buffered.length; index++) {
@@ -129,7 +137,9 @@ export function isLoadedThrough(media: FollowedMedia, fromMs: number, throughMs:
 }
 
 /** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
-export function loadedEndMs(media: FollowedMedia): number | undefined {
+export function loadedEndMs(
+  media: Pick<FollowedMedia, "buffered" | "currentTime">,
+): number | undefined {
   const endS = loadedEndS(media);
   return endS === undefined ? undefined : endS * 1000;
 }

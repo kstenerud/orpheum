@@ -57,6 +57,7 @@ import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
+import { startGateOf, type StartGate } from "./start-gate.ts";
 import { bufferingCauseOf, bufferingNote, HoldingNotes } from "./together-buffering.ts";
 import {
   checkDriftEveryMs,
@@ -152,6 +153,10 @@ class GroupFollower {
   readonly #leader: GroupLeader;
   /** How it plays its film, for a cast's remote (D371 §4). */
   readonly #playback: PlaybackTold;
+  /** The wait before it plays while it leads, as a player alone waits (start-gate.ts). */
+  readonly #startGate: StartGate;
+  /** Ends its start gate's standing aside, which it does while it follows, its follower moving it. */
+  readonly #stopStandingAside: () => void;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -159,14 +164,20 @@ class GroupFollower {
     this.#options = options;
     this.#loading = new GroupLoading(media, connection);
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
+    const startGate = startGateOf(media);
+    this.#startGate = startGate;
+    this.#stopStandingAside = startGate.standAsideWhile(() => !this.#isLeading());
     this.#leader = new GroupLeader({
       media,
       connection,
       ownMoves: this.#ownMoves,
       monotonicMs: options.monotonicMs,
       play: () => {
-        this.#startPlaying();
+        startGate.play(() => {
+          this.#startPlaying();
+        });
       },
+      startGate,
     });
     this.#playback = new PlaybackTold(options.delivery);
   }
@@ -188,7 +199,7 @@ class GroupFollower {
       positionMs: positionMsOf(this.#media),
       isPlaying: !this.#media.paused,
       isBuffering,
-      readyOnMs: this.#refill.readyOnMs(),
+      readyOnMs: this.#refill.readyOnMs(this.#media),
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
       ...(playback === undefined ? {} : { playback }),
       ...(this.#options.page?.visibilityState === "hidden" ? { isPageHidden: true } : {}),
@@ -316,9 +327,13 @@ class GroupFollower {
     }
   }
 
-  /** Whether event is of a seek or pause the follower made itself, not its person: no command. */
+  /**
+   * Whether event is of a seek or pause the follower made itself, or its start gate did holding a
+   * seek until enough is loaded, not its person: no command.
+   */
   #isOwnMove(event: string): boolean {
-    return this.#ownMoves.heard(event, this.#options.monotonicMs());
+    const isMarked = this.#ownMoves.heard(event, this.#options.monotonicMs());
+    return isMarked || (event === "pause" && this.#startGate.isOwnPause());
   }
 
   /**
@@ -415,6 +430,7 @@ class GroupFollower {
   readonly stop = (): void => {
     clearTimeout(this.#pendingCommand);
     this.#loading.stop();
+    this.#stopStandingAside();
   };
 
   /**

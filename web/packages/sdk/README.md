@@ -58,8 +58,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   §6), and only the host's own play, pause and seek become commands, never its following's: a
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
   given up and noted (D268 §4). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`.
-- **After a stall or a seek, a following player is ready again only with `refillAheadMs` loaded
-  ahead**, the film's end, or all the browser will load, read on across a hole no wider than
+- **After a stall a following player is ready again only with `refillAheadMs` loaded ahead, and after
+  a seek once what it loaded outlasts its next chunk's expected load by `ready_ahead_of_next_chunk_percent`**
+  (`readyAheadOf`, `src/ready-ahead.ts`: the one rule every player starts by, its player telling the
+  next chunk's load, `refillAheadMs` where it cannot; the owner, 2026-10-28), the film's end, or all
+  the browser will load, read on across a hole no wider than
   `playedAcrossHoleS`, which hls.js steps over as the video plays and a paused one never does (the
   owner's cast to Firefox, 2026-10-28, whose group waited for good on a hole of 60 ms); a player
   holding its group up says why, as it begins to while the group plays and once for each wait it
@@ -69,6 +72,15 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   load `refillAheadMs`, up to `waitAheadAtMostMs`, where a viewer waits paused for the group to
   arrive (D250 §4); and while the group waits it reports its state at every check, so the server
   can end the wait on time (D250 §3). `src/together-follow.test.ts`.
+- **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
+  plays on after a seek, only once what it loaded ahead outlasts its next chunk's load by the same
+  rule** (`readyAheadOf`), waiting before its `play()`, never playing, pausing and playing again: one
+  start gate for each element (`startGateOf`, `src/start-gate.ts`), shared by its page and its
+  leader, which plays a start or a seek's hold once enough is loaded, pauses a playing element as it
+  seeks to where too little is (`isOwnPause`, so no pause is told or sent for it), plays at once
+  where the browser loads no more while paused, gives its wait up to a person's own play and to a
+  group's pause, and stands aside while its element follows a group. A leader says it buffers, and
+  does not play, while its start waits. `src/start-gate.test.ts`, `src/together-refill.test.ts`.
 - **A page's live connection** (D337 §2) is the session socket's address with a hello of its own,
   the session token in the hello alone; the hello says whether the tab is in front, and the page
   says it again as that changes (D338 §2); it keeps the person's devices connected now, those with a
@@ -151,6 +163,8 @@ for Watch Together:
   `src/client.ts`.
 - What this browser can play: `src/playable-formats.ts`.
 - Waiting for a file the server is still making (`whenReady`, `textWhenReady`): `src/ready.ts`.
+- How much a player waits to have loaded before it plays: `src/ready-ahead.ts`; the wait itself,
+  before a start or a seek plays: `src/start-gate.ts`.
 - Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`), and writing a failure's
   cause to the console (`reportFailure`, the one place the client logs): `src/problem.ts`.
 - Watch Together: the wire messages and the browser's socket, `src/together.ts`; the

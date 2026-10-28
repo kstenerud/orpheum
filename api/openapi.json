@@ -723,6 +723,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "readyAheadOfNextChunkPercent": {
+            "format": "int64",
+            "type": "integer"
+          },
           "screenRefreshFailedWaitSeconds": {
             "format": "int64",
             "type": "integer"
@@ -748,7 +752,8 @@
           "screenRefreshFailedWaitSeconds",
           "interestSaidEverySeconds",
           "shouldShowDeveloperPages",
-          "shouldOfferDeviceTests"
+          "shouldOfferDeviceTests",
+          "readyAheadOfNextChunkPercent"
         ],
         "type": "object"
       },
@@ -5649,6 +5654,11 @@
       "ReportInputBody": {
         "additionalProperties": false,
         "properties": {
+          "droppedFrames": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/EventBody"
@@ -5735,6 +5745,11 @@
           "steadiness": {
             "format": "int64",
             "maximum": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "totalFrames": {
+            "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
@@ -6303,6 +6318,16 @@
             "maxLength": 300,
             "type": "string"
           },
+          "loadedAheadMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nextChunkLoadMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "pictureAfterMs": {
             "format": "int64",
             "minimum": 0,
@@ -6323,6 +6348,11 @@
             "type": "string"
           },
           "toPositionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waitedForAheadMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -7115,6 +7145,16 @@
             "minimum": 0,
             "type": "integer"
           },
+          "loadedAheadMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nextChunkLoadMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "playingAfterMs": {
             "format": "int64",
             "minimum": 0,
@@ -7126,6 +7166,11 @@
           },
           "sound": {
             "$ref": "#/components/schemas/StartupSoundBody"
+          },
+          "waitedForAheadMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [

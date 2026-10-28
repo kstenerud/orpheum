@@ -11,6 +11,7 @@
  * jump, a start's play, pause and play (D371).
  */
 
+import type { StartGate } from "./start-gate.ts";
 import type { GroupView, PlaybackReport, SyncTuning } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import type { GroupNow } from "./together-lead.ts";
@@ -26,8 +27,13 @@ export interface LeaderParts {
   /** The follower's marks on its own moves, so its carrying out is never taken for a person's. */
   readonly ownMoves: Pick<OwnMoves, "mark">;
   readonly monotonicMs: () => number;
-  /** Plays the player, muted if the browser will not play it with sound. */
+  /**
+   * Plays the player, muted if the browser will not play it with sound, once its start gate has
+   * enough loaded ahead (start-gate.ts).
+   */
   readonly play: () => void;
+  /** Its player's start gate: whether a play waits on it, and giving that play up. */
+  readonly startGate: Pick<StartGate, "isWaiting" | "cancel">;
 }
 
 /** A leading player: what of its group's changes it carries out, and whether it loads. */
@@ -76,10 +82,13 @@ export class GroupLeader {
     this.#playOrPauseAs(where.group);
   }
 
-  /** Whether its player cannot play on now: loading or seeking, which holds its group where it is. */
+  /**
+   * Whether its player cannot play on now: loading, seeking, or waiting for enough loaded ahead to
+   * start on, which holds its group where it is.
+   */
   isLoading(): boolean {
-    const { media } = this.#parts;
-    return media.readyState < haveFutureData || media.seeking;
+    const { media, startGate } = this.#parts;
+    return media.readyState < haveFutureData || media.seeking || startGate.isWaiting();
   }
 
   /** Why it cannot play on now, while it cannot (isLoading). */
@@ -118,6 +127,9 @@ export class GroupLeader {
     const { media, ownMoves, monotonicMs, play } = this.#parts;
     if (media.playbackRate !== group.rate) {
       media.playbackRate = group.rate;
+    }
+    if (group.state === "Paused") {
+      this.#parts.startGate.cancel(); // a start waiting to play stays paused
     }
     if (group.state === "Paused" && !media.paused) {
       ownMoves.mark("pause", monotonicMs());

@@ -1,0 +1,297 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  readyAheadOfNextChunkPercent,
+  setReadyAheadPercent,
+  tellNextChunkLoadMs,
+} from "./ready-ahead.ts";
+import { startCheckEveryMs, startGateOf } from "./start-gate.ts";
+import { everyRight, type RosterDevice, type RosterMember } from "./together.ts";
+import type { TogetherConnection } from "./together-connection.ts";
+import { followGroup } from "./together-follow.ts";
+import { refillAheadMs } from "./together-media.ts";
+import { playerLoadedChunkEvent, playerMovedItselfEvent } from "./together-player-events.ts";
+import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  setReadyAheadPercent(readyAheadOfNextChunkPercent);
+});
+
+/**
+ * The owner's Marrowgate Family on a Fire TV (staging, 2026-10-28): resumed at 1798.9 s, its first
+ * chunk loaded from 1794.96 s to 1800.47 s, canplay said; its next chunk, 10.4 s of film, about
+ * 10 MB at some 9 Mb/s, expected to take 2.3 s.
+ */
+function marrowgateResumed(): FakeMedia {
+  const media = new FakeMedia();
+  media.currentTime = 1798.9;
+  media.loaded = [[1794.96, 1800.47]];
+  media.readyState = 4;
+  tellNextChunkLoadMs(media, () => 2300);
+  return media;
+}
+
+/** A play the gate makes, counted. */
+function countedPlay(media: FakeMedia): { readonly how: () => void; readonly plays: () => number } {
+  let plays = 0;
+  return {
+    how: () => {
+      plays += 1;
+      void media.play();
+    },
+    plays: () => plays,
+  };
+}
+
+describe("a player alone starts only once what it loaded outlasts its next chunk's load (start-gate.ts)", () => {
+  it("does not play the Addams shape, 1.6 s loaded with its next chunk 2.3 s away, until more arrives", () => {
+    const media = marrowgateResumed();
+    const gate = startGateOf(media);
+    const play = countedPlay(media);
+    gate.play(play.how);
+    media.fire("canplay");
+    vi.advanceTimersByTime(2000);
+    expect(play.plays()).toBe(0);
+    expect(media.paused).toBe(true);
+    expect(gate.isWaiting()).toBe(true);
+    // The next chunk arrives: 12 s ahead.
+    media.loaded = [[1794.96, 1810.87]];
+    media.fire(playerLoadedChunkEvent);
+    expect(play.plays()).toBe(1);
+    expect(media.paused).toBe(false);
+    expect(gate.lastWait()).toEqual({
+      waitedForAheadMs: (2300 * readyAheadOfNextChunkPercent) / 100,
+      nextChunkLoadMs: 2300,
+    });
+    vi.advanceTimersByTime(2000);
+    expect(play.plays()).toBe(1);
+  });
+
+  it("starts at once on a fast link with small chunks: 1 s loaded, its next 2 s chunk loading at 10 times", () => {
+    const media = new FakeMedia();
+    media.currentTime = 30;
+    media.loaded = [[28, 31]];
+    tellNextChunkLoadMs(media, () => 200);
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    expect(play.plays()).toBe(1);
+    expect(gate.lastWait()).toBeUndefined();
+  });
+
+  it("waits longer on a slow link: its next 10 s chunk loading at 0.8 times", () => {
+    const media = new FakeMedia();
+    media.currentTime = 30;
+    media.loaded = [[30, 40]];
+    tellNextChunkLoadMs(media, () => 12_500);
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    const readyOnMs = (12_500 * readyAheadOfNextChunkPercent) / 100;
+    media.loaded = [[30, 30 + (readyOnMs - 100) / 1000]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(play.plays()).toBe(0);
+    media.loaded = [[30, 30 + (readyOnMs + 1) / 1000]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(play.plays()).toBe(1);
+  });
+
+  it("waits by the server's margin once the page sets it", () => {
+    setReadyAheadPercent(300);
+    const media = new FakeMedia();
+    media.currentTime = 30;
+    media.loaded = [[30, 30 + 4.5]]; // enough at 150%, of a 2 s load
+    tellNextChunkLoadMs(media, () => 2000);
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(0);
+    media.loaded = [[30, 36.001]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(play.plays()).toBe(1);
+  });
+
+  it("waits for refillAheadMs where its player cannot say how long its next chunk takes", () => {
+    const media = new FakeMedia();
+    media.currentTime = 30;
+    media.loaded = [[30, 30 + (refillAheadMs - 100) / 1000]];
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    expect(play.plays()).toBe(0);
+    media.loaded = [[30, 30 + refillAheadMs / 1000]];
+    media.fire("progress");
+    expect(play.plays()).toBe(1);
+    expect(gate.lastWait()).toEqual({ waitedForAheadMs: refillAheadMs });
+  });
+
+  it("plays at once where the browser loads no more while it is paused", () => {
+    const media = marrowgateResumed();
+    media.networkState = 1; // NETWORK_IDLE: preload stopped at the metadata
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(1);
+  });
+
+  it("gives its wait up when the person plays it themselves, playing nothing more", () => {
+    const media = marrowgateResumed();
+    const play = countedPlay(media);
+    const gate = startGateOf(media);
+    gate.play(play.how);
+    void media.play(); // the person's press
+    media.fire("play");
+    media.loaded = [[1794.96, 1810.87]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(play.plays()).toBe(0);
+    expect(gate.isWaiting()).toBe(false);
+  });
+});
+
+describe("a player alone plays on after a seek only once what it loaded outlasts its next chunk's load", () => {
+  /** A playing film at 60 s, all of 0-120 s loaded, its next chunk 2 s away, which the gate started. */
+  function playingStarted(): { media: FakeMedia; plays: () => number } {
+    const media = new FakeMedia();
+    media.currentTime = 60;
+    media.loaded = [[0, 120]];
+    tellNextChunkLoadMs(media, () => 2000);
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    media.fire("play");
+    return { media, plays: play.plays };
+  }
+
+  it("is paused as it seeks where little is loaded, by its own pause, and played on once enough is", () => {
+    const { media, plays } = playingStarted();
+    const gate = startGateOf(media);
+    media.currentTime = 1000;
+    media.seeking = true;
+    media.fire("seeking");
+    expect(media.paused).toBe(true);
+    expect(gate.isOwnPause()).toBe(true);
+    media.fire("pause");
+    media.seeking = false;
+    media.loaded = [
+      [0, 120],
+      [998, 1001],
+    ];
+    media.fire("seeked");
+    expect(plays()).toBe(1); // only the start's
+    media.loaded = [
+      [0, 120],
+      [998, 1003.001],
+    ];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(plays()).toBe(2);
+    expect(media.paused).toBe(false);
+    expect(gate.lastWait()).toEqual({ waitedForAheadMs: 3000, nextChunkLoadMs: 2000 });
+  });
+
+  it("plays on through a seek into what it loaded, never paused", () => {
+    const { media, plays } = playingStarted();
+    media.currentTime = 90;
+    media.seeking = true;
+    media.fire("seeking");
+    expect(media.paused).toBe(false);
+    expect(plays()).toBe(1);
+  });
+
+  it("plays on through the player's own step over a gap", () => {
+    const { media } = playingStarted();
+    media.fire(playerMovedItselfEvent);
+    media.currentTime = 120.05;
+    media.seeking = true;
+    media.fire("seeking");
+    expect(media.paused).toBe(false);
+  });
+});
+
+/** This device, 8, in the roster. */
+const thisDevice = 8;
+
+/** A device of the roster, leading its session or not. */
+function device(id: number, role: string, isLeader = false): RosterDevice {
+  return { id, role, isBuffering: false, cannotKeepUp: undefined, status: "watching", isLeader };
+}
+
+/** connection, its snapshot's roster the devices given, this device among them. */
+function withRoster(
+  connection: TogetherConnection,
+  devices: readonly RosterDevice[],
+): TogetherConnection {
+  const member: RosterMember = { id: 1, name: "owner", isHost: true, devices };
+  return {
+    ...connection,
+    snapshot: () => ({ ...connection.snapshot(), deviceId: thisDevice, roster: [member] }),
+  };
+}
+
+/** A cast's receiver at the Marrowgate shape, following its session as led by isLeading. */
+function receiverAtMarrowgate(
+  isLeading: boolean,
+): { media: FakeMedia } & ReturnType<typeof fakeConnection> {
+  const media = marrowgateResumed();
+  const fake = fakeConnection({ ...paused, state: "Idle", fileId: 0 });
+  const roster = [
+    device(thisDevice, "video", isLeading),
+    device(33, isLeading ? "panel" : "video", !isLeading),
+  ];
+  followGroup(media, withRoster(fake.connection, roster), {
+    fileId: 5,
+    leads: everyRight,
+    monotonicMs: () => 0,
+  });
+  return { media, ...fake };
+}
+
+describe("a session's leader starts only with enough loaded ahead, and says so truthfully", () => {
+  it("waits before its first play, saying it buffers and does not play until it plays", () => {
+    const { media, setGroup, connection, reports, commands } = receiverAtMarrowgate(true);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "Waiting", event: "changedItem" }, 0);
+    expect(media.paused).toBe(true);
+    connection.reportState();
+    expect(reports.at(-1)).toMatchObject({ isPlaying: false, isBuffering: true });
+    media.loaded = [[1794.96, 1810.87]];
+    media.fire(playerLoadedChunkEvent);
+    expect(media.paused).toBe(false);
+    media.fire("play");
+    media.fire("playing");
+    expect(reports.at(-1)).toMatchObject({ isPlaying: true, isBuffering: false });
+    expect(commands).toEqual([]);
+  });
+
+  it("never plays a start its group paused while it waited", () => {
+    const { media, setGroup } = receiverAtMarrowgate(true);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "Waiting", event: "changedItem" }, 0);
+    setGroup({ ...paused, positionMs: 1_798_900, state: "Paused", event: "paused" }, 500);
+    media.loaded = [[1794.96, 1810.87]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(media.paused).toBe(true);
+  });
+
+  it("sends no pause for everyone as it holds its own seek until enough is loaded", () => {
+    const { media, setGroup, commands } = receiverAtMarrowgate(true);
+    media.loaded = [[0, 7200]];
+    setGroup({ ...paused, positionMs: 1_798_900, state: "Playing", event: "played" }, 0);
+    media.fire("play");
+    expect(media.paused).toBe(false);
+    media.loaded = [[1790, 1800.47]];
+    media.currentTime = 600;
+    media.seeking = true;
+    media.fire("seeking");
+    media.fire("pause");
+    expect(media.paused).toBe(true);
+    expect(commands.filter((command) => command.command === "pause")).toEqual([]);
+  });
+
+  it("stands aside while it follows another device's lead: its follower plays it", () => {
+    const { media } = receiverAtMarrowgate(false);
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(1);
+  });
+});

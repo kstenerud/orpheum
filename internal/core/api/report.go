@@ -48,6 +48,12 @@ type ReportInput struct {
 		Standstills []StandstillBody `json:"standstills,omitempty" required:"false"`
 		// PathMoves are the paths to the core the page moved to since its last report (PathMoveBody).
 		PathMoves []PathMoveBody `json:"pathMoves,omitempty" maxItems:"20" required:"false"`
+		// TotalFrames and DroppedFrames are the frames the video showed or dropped, and those it
+		// dropped, since the player's last report, as its browser counts them
+		// (getVideoPlaybackQuality); absent where the browser counts none. A stutter on a Fire TV
+		// showed in no log (the owner, 2026-10-28).
+		TotalFrames   *int64 `json:"totalFrames,omitempty"   minimum:"0" required:"false"`
+		DroppedFrames *int64 `json:"droppedFrames,omitempty" minimum:"0" required:"false"`
 	}
 	ClientFacts
 }
@@ -72,6 +78,33 @@ type SeekBody struct {
 	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
 	// LinkSamples are the link's last samples when the seek was ready (LinkSamplesBody).
 	LinkSamples string `json:"linkSamples,omitempty" maxLength:"300" required:"false"`
+	StartGateBody
+}
+
+// StartGateBody is how much film a player had loaded ahead as it played, and, where it waited for
+// it before it played, the film loaded ahead it waited for and the next chunk's expected load time
+// that was set against, where its player said one: a player that is not a follower starts, and plays
+// on after a seek, only once what it loaded outlasts loading its next chunk, with a margin, and a
+// Fire TV that played at once with 1.4 s loaded stalled (the owner's cast, staging, 2026-10-28).
+type StartGateBody struct {
+	LoadedAheadMs    *int64 `json:"loadedAheadMs,omitempty"    minimum:"0" required:"false"`
+	WaitedForAheadMs *int64 `json:"waitedForAheadMs,omitempty" minimum:"0" required:"false"`
+	NextChunkLoadMs  *int64 `json:"nextChunkLoadMs,omitempty"  minimum:"0" required:"false"`
+}
+
+// attributes are the start gate's for the log: each that was told.
+func (gate StartGateBody) attributes() []any {
+	var attributes []any
+	if gate.LoadedAheadMs != nil {
+		attributes = append(attributes, "loadedAheadMs", *gate.LoadedAheadMs)
+	}
+	if gate.WaitedForAheadMs != nil {
+		attributes = append(attributes, "waitedForAheadMs", *gate.WaitedForAheadMs)
+	}
+	if gate.NextChunkLoadMs != nil {
+		attributes = append(attributes, "nextChunkLoadMs", *gate.NextChunkLoadMs)
+	}
+	return attributes
 }
 
 // StandstillBody is what a video showed when, asked to play and not waiting, it had kept its
@@ -133,6 +166,7 @@ type StartupBody struct {
 	// TV Bro played every film's sound half a second late, YouTube's in time, and nothing in the log
 	// said why (2026-10-24).
 	Sound *StartupSoundBody `json:"sound,omitempty" required:"false"`
+	StartGateBody
 }
 
 // StartupSoundBody is how a player's sound reaches the speakers: through Web Audio for its gain or
@@ -290,6 +324,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	server.logUnplayables(ctx, reporter, input.Body.Unplayables)
 	server.logSeeks(ctx, reporter, input.Body.Seeks, input.Body.LinkKbps)
 	server.logStandstills(ctx, reporter, input.Body.Standstills, input.Body.LinkKbps)
+	server.logDroppedFrames(ctx, reporter, input.Body.TotalFrames, input.Body.DroppedFrames, input.Body.PositionMs)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -345,10 +380,10 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 	if startup == nil {
 		return
 	}
-	server.logger.InfoContext(ctx, "a playback started playing", "userId", reporter.holder.UserID,
-		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+	server.logger.InfoContext(ctx, "a playback started playing", append(append(reporter.logAttributes(),
 		"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
-		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps)
+		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps),
+		startup.attributes()...)...)
 	if sound := startup.Sound; sound != nil {
 		server.logger.InfoContext(ctx, "a playback's sound", "userId", reporter.holder.UserID,
 			"deviceId", reporter.deviceID, "isThroughWebAudio", sound.IsThroughWebAudio,
@@ -399,6 +434,7 @@ func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []S
 		if seek.LinkSamples != "" {
 			attributes = append(attributes, "linkSamples", seek.LinkSamples)
 		}
+		attributes = append(attributes, seek.attributes()...)
 		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
 	}
 }
@@ -424,6 +460,26 @@ func (server *Server) logStandstills(
 		}
 		server.logger.InfoContext(ctx, "a playing player's position stood still", attributes...)
 	}
+}
+
+// droppedFramesLoggedAbove is the share of a report's frames that, dropped, is logged: a smooth
+// playback drops none, and one frame in a ten-second report of 24 fps film (240 frames) is 0.4%,
+// which no one sees, while three or more are a visible stutter. A justified constant: it chooses only
+// what the log says, nothing the player does.
+const droppedFramesLoggedAbove = 0.01
+
+// logDroppedFrames says where a player dropped more than droppedFramesLoggedAbove of the frames it
+// showed since its last report, with how many of how many, so a burst of stutter shows in the log
+// near when it happened (the owner, 2026-10-28).
+func (server *Server) logDroppedFrames(
+	ctx context.Context, reporter reporter, totalFrames, droppedFrames *int64, positionMs int64,
+) {
+	if totalFrames == nil || droppedFrames == nil || *totalFrames <= 0 ||
+		float64(*droppedFrames) <= droppedFramesLoggedAbove*float64(*totalFrames) {
+		return
+	}
+	server.logger.InfoContext(ctx, "a player dropped frames", append(reporter.logAttributes(),
+		"positionMs", positionMs, "droppedFrames", *droppedFrames, "totalFrames", *totalFrames)...)
 }
 
 // stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether

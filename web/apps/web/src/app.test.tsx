@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -280,6 +281,38 @@ describe("App", () => {
     expect(await offersGallery(false)).toBe(false);
     // Unread, the setting is off.
     expect(await offersGallery(undefined)).toBe(false);
+  });
+
+  it("has every player wait by the server's margin on its next chunk's load (the owner, 2026-10-28)", async () => {
+    const services = servedBy(
+      {
+        ...backgroundAnswers,
+        "GET /client-settings": [
+          200,
+          {
+            screenRefreshFirstWaitSeconds: 2,
+            screenRefreshLongestWaitSeconds: 30,
+            screenRefreshFailedWaitSeconds: 5,
+            interestSaidEverySeconds: 30,
+            shouldShowDeveloperPages: false,
+            shouldOfferDeviceTests: false,
+            readyAheadOfNextChunkPercent: 300,
+          },
+        ],
+        "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+      },
+      [],
+      "token",
+    );
+    const video = {};
+    tellNextChunkLoadMs(video, () => 1000);
+    const mounted = await mount(withServices(<App />, services));
+    await settleUntil(() => readyAheadOf(video).aheadMs === 3000);
+    expect(readyAheadOf(video).aheadMs).toBe(3000);
+    mounted.unmount();
+    setReadyAheadPercent(150);
   });
 
   it("says when an address names nothing", () => {
