@@ -37,6 +37,8 @@ export const enGallery = {
     confirm: "Delete something",
     confirmConsequence: "Nothing is deleted: this is the gallery.",
     confirmYes: "Delete it",
+    chooser: "A chooser",
+    chooserCurrent: "The choice made",
     player: "The player's widgets",
     iconButton: "An icon button",
     iconButtonOverVideo: "An icon button over a film",

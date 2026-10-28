@@ -21,6 +21,7 @@ import {
   SoundIcon,
 } from "./player-icons.tsx";
 import { Clapperboard } from "./poster.tsx";
+import { ChevronDownIcon, RouteChooser } from "./route-chooser.tsx";
 import { AboutIcon, ResetIcon } from "./server-settings.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
 import { CastIcon, TogetherIcon } from "./status-tray.tsx";
@@ -192,59 +193,88 @@ function PostersOfTone(props: { readonly tone: (typeof tones)[number] }): JSX.El
 
 /** The icons alone, every one the app draws, and the buttons. */
 function IconsAndButtons(): JSX.Element {
-  const { t } = useTranslation();
   return (
     <>
-      <section aria-labelledby="gallery-icons">
-        <h2 id="gallery-icons">{t("gallery.icons")}</h2>
-        <p className="ui-gallery__icons">
-          <WarningIcon />
-          <UncertainMatchIcon isRinged={true} />
-          <UncertainMatchIcon isRinged={false} />
-          <StillReadingIcon isRinged={true} />
-          <StillReadingIcon isRinged={false} />
-          <WatchedIcon />
-        </p>
-        <p className="ui-gallery__icons">
-          <MenuIcon />
-          <TogetherIcon />
-          <CastIcon />
-          <MicrophoneIcon isOn={true} />
-          <MicrophoneIcon isOn={false} />
-          <AboutIcon />
-          <ResetIcon />
-          <span className="ui-gallery__blank-mark">
-            <Clapperboard />
-          </span>
-        </p>
-        <p className="ui-gallery__icons">
-          <PlayIcon />
-          <PauseIcon />
-          <SeekBackIcon />
-          <SeekForwardIcon />
-          <SoundIcon />
-          <MutedIcon />
-          <FullScreenIcon />
-          <LeaveFullScreenIcon />
-          <CloseIcon />
-        </p>
-      </section>
-      <section aria-labelledby="gallery-buttons">
-        <h2 id="gallery-buttons">{t("gallery.buttons")}</h2>
-        <p className="ui-gallery__buttons">
-          <button type="button">{t("gallery.button")}</button>
-          <button type="button" disabled>
-            {t("gallery.buttonDisabled")}
-          </button>
-        </p>
-        <ConfirmButton
-          label={t("gallery.confirm")}
-          consequence={t("gallery.confirmConsequence")}
-          confirmLabel={t("gallery.confirmYes")}
-          onConfirm={() => undefined}
-        />
-      </section>
+      <Icons />
+      <Buttons />
     </>
+  );
+}
+
+/** The icons alone, every one the app draws. */
+function Icons(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="gallery-icons">
+      <h2 id="gallery-icons">{t("gallery.icons")}</h2>
+      <p className="ui-gallery__icons">
+        <WarningIcon />
+        <UncertainMatchIcon isRinged={true} />
+        <UncertainMatchIcon isRinged={false} />
+        <StillReadingIcon isRinged={true} />
+        <StillReadingIcon isRinged={false} />
+        <WatchedIcon />
+      </p>
+      <p className="ui-gallery__icons">
+        <MenuIcon />
+        <TogetherIcon />
+        <CastIcon />
+        <MicrophoneIcon isOn={true} />
+        <MicrophoneIcon isOn={false} />
+        <AboutIcon />
+        <ResetIcon />
+        <ChevronDownIcon />
+        <span className="ui-gallery__blank-mark">
+          <Clapperboard />
+        </span>
+      </p>
+      <p className="ui-gallery__icons">
+        <PlayIcon />
+        <PauseIcon />
+        <SeekBackIcon />
+        <SeekForwardIcon />
+        <SoundIcon />
+        <MutedIcon />
+        <FullScreenIcon />
+        <LeaveFullScreenIcon />
+        <CloseIcon />
+      </p>
+    </section>
+  );
+}
+
+/** The buttons: plain, disabled, one that asks first, and a chooser. */
+function Buttons(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="gallery-buttons">
+      <h2 id="gallery-buttons">{t("gallery.buttons")}</h2>
+      <p className="ui-gallery__buttons">
+        <button type="button">{t("gallery.button")}</button>
+        <button type="button" disabled>
+          {t("gallery.buttonDisabled")}
+        </button>
+      </p>
+      <ConfirmButton
+        label={t("gallery.confirm")}
+        consequence={t("gallery.confirmConsequence")}
+        confirmLabel={t("gallery.confirmYes")}
+        onConfirm={() => undefined}
+      />
+      <RouteChooser
+        fieldLabel={t("gallery.chooser")}
+        current={t("gallery.chooserCurrent")}
+        options={[
+          {
+            key: "gallery",
+            label: t("gallery.chooserCurrent"),
+            to: { screen: "ui-gallery" },
+            isCurrent: true,
+          },
+        ]}
+        isAView
+      />
+    </section>
   );
 }
 

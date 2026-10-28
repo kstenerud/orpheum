@@ -4,6 +4,7 @@ import "./route-chooser.css";
 
 import { useCallback, useId, useState, type JSX, type ReactNode } from "react";
 
+import { Icon } from "./icon.tsx";
 import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import type { Route } from "./router.ts";
@@ -19,7 +20,9 @@ export interface Choice {
 }
 
 /**
- * One choice among several, each a route: a button that opens a focusable drop-down of options
+ * One choice among several, each a route: a button, marked by a chevron as opening a list (the
+ * owner, 2026-10-28: it looked "no different from a regular button"), that opens a focusable
+ * drop-down of options
  * (modal-dialog.tsx: a native select does not work reliably on a television's browser,
  * library-browsing.md §5.5), one list for the Libraries page's library, view and sort and a series'
  * season alike. A choice of a view of the page, a sort or a season, replaces the history's entry,
@@ -52,6 +55,7 @@ export function RouteChooser(props: {
       <button
         type="button"
         className="route-chooser__button"
+        aria-haspopup="dialog"
         aria-expanded={isOpen}
         {...(props.isFieldLabelShown === false
           ? { "aria-label": `${props.fieldLabel}: ${props.current}` }
@@ -61,31 +65,58 @@ export function RouteChooser(props: {
         }}
       >
         {props.current}
+        <ChevronDownIcon />
       </button>
       {isOpen ? (
-        <ModalDialog
-          className="modal-dialog--drop-down route-chooser__panel"
+        <ChoicesList
           label={props.fieldLabel}
+          options={props.options}
+          isAView={props.isAView === true}
           onClose={close}
-          shouldCloseOnOutsidePress
-        >
-          <ul>
-            {props.options.map((option) => (
-              <li key={option.key}>
-                <Link
-                  to={option.to}
-                  isCurrent={option.isCurrent}
-                  isReplacing={props.isAView === true}
-                  onNavigate={close}
-                >
-                  {option.label}
-                  {option.aside}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </ModalDialog>
+        />
       ) : null}
     </div>
+  );
+}
+
+/** A chooser's open list: its options, each a link, in a drop-down a press outside closes. */
+function ChoicesList(props: {
+  readonly label: string;
+  readonly options: readonly Choice[];
+  readonly isAView: boolean;
+  readonly onClose: () => void;
+}): JSX.Element {
+  return (
+    <ModalDialog
+      className="modal-dialog--drop-down route-chooser__panel"
+      label={props.label}
+      onClose={props.onClose}
+      shouldCloseOnOutsidePress
+    >
+      <ul>
+        {props.options.map((option) => (
+          <li key={option.key}>
+            <Link
+              to={option.to}
+              isCurrent={option.isCurrent}
+              isReplacing={props.isAView}
+              onNavigate={props.onClose}
+            >
+              {option.label}
+              {option.aside}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </ModalDialog>
+  );
+}
+
+/** A chooser's mark: a chevron pointing down, to the list it opens. */
+export function ChevronDownIcon(): JSX.Element {
+  return (
+    <Icon className="route-chooser__chevron">
+      <path d="M5.6 8.3 12 14.7l6.4-6.4 1.4 1.4-7.8 7.8-7.8-7.8z" />
+    </Icon>
   );
 }
