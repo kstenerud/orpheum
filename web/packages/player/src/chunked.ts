@@ -51,6 +51,17 @@ export const chunkFirstByteWaitMs = 30_000;
 export const chunkAskAgainCount = 90;
 
 /**
+ * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
+ * in seconds: three of the player's 10 s steps back (seekStepMs) and a Watch Together follower's
+ * jump back of a second or less, its chunk on the ten-second grid kept with it, so a step back plays
+ * at once. hls.js keeps everything played by default (Infinity), so a 1 GB Fire TV Stick would hold
+ * a film's played minutes up to Chromium's limit for a source's buffer, about 150 MB of video, which
+ * a film's own picture at 20 Mb/s reaches in a minute, and then evict at every append (the efficiency
+ * audit's finding 5, web-client-efficiency-audit-2026-10-28.md). A justified constant.
+ */
+export const keptBehindS = 30;
+
+/**
  * The event a chunked playback's video is sent when it gives up a quality as one this device
  * cannot play, its detail an UnplayableQuality, for the play report to tell the core (D266).
  */
@@ -275,6 +286,7 @@ export function chunkedHlsConfig(options: {
     testBandwidth: false,
     capLevelToPlayerSize: false,
     startPosition: options.startPositionS,
+    backBufferLength: keptBehindS,
     fragLoadPolicy: chunkLoadPolicy,
     ...(options.loadsAheadAtMostS === undefined
       ? {}

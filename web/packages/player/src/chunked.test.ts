@@ -17,6 +17,7 @@ import {
   ceilingHeader,
   chunkedHlsConfig,
   choosingOptionsOf,
+  keptBehindS,
   paceHeader,
   playerFoundUnplayableEvent,
   sendUnplayable,
@@ -100,6 +101,14 @@ describe("how far a chunked playback loads ahead (D260 §3)", () => {
       startPosition: 40,
       maxBufferLength: 10,
       maxMaxBufferLength: 10,
+    });
+  });
+});
+
+describe("how much a chunked playback keeps behind where it plays (the efficiency audit, finding 5)", () => {
+  it("keeps keptBehindS of what was played, not hls.js's everything", () => {
+    expect(chunkedHlsConfig({ startPositionS: 40 })).toMatchObject({
+      backBufferLength: keptBehindS,
     });
   });
 });
