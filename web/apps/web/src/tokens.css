@@ -23,6 +23,11 @@
   --color-border: #3a3a42;
   --color-text: #f3eee4;
   --color-muted: #a3a3ad;
+  /*
+   * A text box's example text: dimmer than secondary text and slanted (base.css), so it never reads as
+   * a value to delete (the owner, 2026-10-28, who took the muted grey for a pre-filled field).
+   */
+  --color-placeholder: #6b6b75;
   --color-accent: #ffa891;
   --color-accent-hover: #ffc2b2;
   --color-on-accent: #2e0e06;
