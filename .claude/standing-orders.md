@@ -30,8 +30,8 @@
      person; VQ104–106; §9–10 next batch); the start rule (film ahead outlasts next chunk's fetch × 1.5,
      on the remembered link, VQ110–114); dropped frames logged; the WebRTC relay cap (skew-safe, VQ115).
      No ABR drop with ≥20 s loaded + robust spread; a sound switch keeps loaded sound (VQ116).
-     Owner, after the network reviews: the efficiency audit's cheap fixes this batch (after the TV's
-     Throughput run on WebRTC); LAN-origin tab at home + WebRTC tuning next batch (plan file, last section).
+     The efficiency audit's six cheap fixes and dimmer placeholders: on staging (VQ118). LAN-origin tab at
+     home + Chrome WebRTC fixes next batch (plan file, last sections). Prod connect: repackage (loader 2).
      Owner VQs owed: 85–100 open (84 passed, its package on prod-api).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
