@@ -100,7 +100,7 @@ from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach o
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
-from revert_red_clean import clean_failure, probe_kind, runs_clean
+from revert_red_clean import clean_failure, failed_pass_clean, probe_kind, runs_clean
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope
 from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
@@ -484,12 +484,20 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             for path in (change.path, *unit):
                 restore(tree, head, path)
             kind = probe_kind(attempt.command, attempt.label, attempt.env)
+            combined = done.stdout + done.stderr
+            failed_runs = [] if attempt.compile_only or is_build_failure(combined) else \
+                known_red.runs_of(known_red.failed_tests(combined, go_module(toplevel())))
+            again, said = failed_pass_clean(failed_runs, lambda command: timed(
+                TIMINGS, change.path, f"{kind_of(command, '', env)}, nothing reverted", None,
+                functools.partial(run_whole_group, command, tree, timeout, env)))
+            if again is False:
+                return Outcome(change.path, "PROBE_BROKEN", f"the tests that failed{attempt.label} fail here with "
+                               f"nothing reverted too, so its red says nothing; with nothing reverted:\n{said}")
             clean = functools.partial(run_whole_group, attempt.command, tree, timeout, env)
-            if not runs_clean(tree, kind, lambda: timed(TIMINGS, change.path, f"{kind}, nothing reverted", None, clean), head):
+            if again is None and not runs_clean(tree, kind, lambda: timed(TIMINGS, change.path, f"{kind}, nothing reverted", None, clean), head):
                 failed = clean_failure(tree, kind)
                 return Outcome(change.path, "PROBE_BROKEN", f"its probe{attempt.label} fails here with nothing "
                                "reverted too, so its red says nothing" + (f"; with nothing reverted:\n{failed}" if failed else ""))
-            combined = done.stdout + done.stderr
             if attempt.compile_only or is_build_failure(combined):
                 red = Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
             else:

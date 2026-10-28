@@ -60,8 +60,9 @@ class AddedFileProbe(unittest.TestCase):
             outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(f"{SRC}/sign.tsx", "A"), 60)
         self.assertEqual(ran[0], [*web.PROBE_RUN, "apps/web/src/list.test.tsx", "apps/web/src/row.test.tsx",
                                   "packages/sdk/src/api.test.ts"])
-        # The same run once more with the file back, which passes, so the red stands; never the whole suite.
-        self.assertEqual((outcome.verdict, ran[1:]), ("RED_TEST", ran[:1]),
+        # The test file that failed once more with the file back, which passes, so the red stands;
+        # never the whole suite (the owner, 2026-10-28: only the tests that failed run again).
+        self.assertEqual((outcome.verdict, ran[1:]), ("RED_TEST", [[*web.PROBE_RUN, "apps/web/src/row.test.tsx"]]),
                          "red from the importing tests, no whole suite")
         self.assertTrue((repo.root / SRC / "sign.tsx").exists(), "the file is put back")
 

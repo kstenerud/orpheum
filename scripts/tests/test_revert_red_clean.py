@@ -13,6 +13,7 @@ from unittest import mock
 SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS))
 import revert_red_clean as clean  # noqa: E402
+import revert_red_known as known  # noqa: E402
 
 HERMETIC = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
@@ -66,6 +67,32 @@ class CleanRuns(unittest.TestCase):
     def test_with_no_commit_named_nothing_is_kept(self):
         self.assertTrue(clean.runs_clean(self.tree, "go package", mock.Mock(return_value=done(0))))
         self.assertFalse(clean.kept_path(self.tree).exists())
+
+
+class FailedAgain(unittest.TestCase):
+    """A red's failed tests, run again with nothing reverted, must pass for it to count (2026-10-28)."""
+
+    def runs(self):
+        return known.runs_of({"go": {"./internal/a": ["TestA"]}, "python": ["test_b.py"]})
+
+    def test_a_red_counts_when_its_failed_tests_pass_with_nothing_reverted(self):
+        run = mock.Mock(return_value=done(0))
+        self.assertEqual(clean.failed_pass_clean(self.runs(), run), (True, ""))
+        self.assertEqual(run.call_args_list[0].args[0][-3:], ["-run", "^(TestA)$", "./internal/a"])
+        self.assertEqual(run.call_args_list[1].args[0][-1], "scripts/tests/test_b.py")
+
+    def test_a_red_whose_failed_tests_fail_anyway_says_nothing_and_shows_why(self):
+        run = mock.Mock(side_effect=[done(0), subprocess.CompletedProcess([], 1, "", "flaky under load")])
+        passed, said = clean.failed_pass_clean(self.runs(), run)
+        self.assertFalse(passed)
+        self.assertIn("flaky under load", said)
+
+    def test_a_run_past_its_timeout_has_not_passed(self):
+        run = mock.Mock(side_effect=subprocess.TimeoutExpired(["go"], 1))
+        self.assertEqual(clean.failed_pass_clean(self.runs(), run), (False, "it ran past its timeout"))
+
+    def test_with_no_failed_tests_named_the_kinds_clean_run_decides(self):
+        self.assertEqual(clean.failed_pass_clean([], mock.Mock()), (None, ""))
 
 
 if __name__ == "__main__":

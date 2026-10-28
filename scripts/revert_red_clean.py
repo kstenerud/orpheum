@@ -15,6 +15,14 @@ A pass is also kept on disk, by the worktree, the commit its tree holds, the kin
 it again: these runs were most of 1670 s of a check-pr's probing that no timing named (the caching
 audit's finding 5, 2026-10-28). Each is timed as a run of its own kind, "<kind>, nothing reverted".
 A failure is never kept: it is asked again.
+
+**The tests that failed, again** (the owner, 2026-10-28, "go with your recommendations"): that run
+once per worktree and kind proved only that the environment works; a red from a test that fails
+under load, or at HEAD, still counted for every file after the first. So a red whose failed tests
+its output names (Go's, vitest's, the gate scripts') now has just those run again with nothing
+reverted, a few seconds: they must pass for it to count. That catches a broken environment too,
+A45's, since those tests then fail as well. Only a red whose tests cannot be named (a build that
+fails, a compile, the browser tier, output it cannot read) still takes the run once per kind above.
 """
 
 from __future__ import annotations
@@ -112,3 +120,20 @@ def clean_failure(tree: str, kind: str) -> str:
     """The end of what the clean run of kind in tree printed when it failed, or "" when it passed."""
     with _LOCK:
         return _FAILED_OUTPUT.get((tree, kind), "")
+
+
+def failed_pass_clean(failed: list, run: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> tuple[bool | None, str]:
+    """Whether the runs of a red's failed tests (failed, revert_red_known.runs_of's) all pass with
+    nothing reverted, run by run, and the end of what a failing one printed (F8); None when there are
+    none to run, and the kind's clean run decides."""
+    if not failed:
+        return None, ""
+    for attempt in failed:
+        try:
+            done = run(attempt.command)
+        except subprocess.TimeoutExpired:
+            return False, "it ran past its timeout"
+        if done.returncode != 0:
+            output = (done.stdout or "") + (done.stderr or "")
+            return False, "\n".join(output.strip().splitlines()[-KEPT_LINES:])
+    return True, ""
