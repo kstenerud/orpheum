@@ -23854,7 +23854,9 @@ following it as just another follower: the receiver's ready page plays the group
 guest's part (`FollowsTheGroupHere`, `cast-ready.tsx`, `together-viewer.tsx`), the guest's own
 page, which now holds the live connection, leaves the film to it and holds the group's controls its
 rights give, and the casting page leads to the session's page. Built 2026-10-28. Revisits D88,
-D247, D250, D268, D282 and D364 as above, and D283 §2–§3 and D285 §1 with them.
+D247, D250, D268, D282 and D364 as above, and D283 §2–§3 and D285 §1 with them. Revisited by D372
+the same day: its §3, and the resolved points on which device leads, the leader leaving and which
+part a cast takes.
 
 Resolved in the build, where the decision left it open (say if any should go otherwise):
 - **Which of the host's devices leads**: the newest that plays as it attaches, and the one that puts
@@ -23956,7 +23958,69 @@ session's page (to find the next film, the owner's case) is §6: a device not pl
 cannot lead, so the lead passes, and the host's device on its return catches up, then leads again
 (§3); a host whose film plays on a device they cast to keeps that device leading as they browse.
 
-**Status:** Decided 2026-10-28; §1–§8 to build in this batch, §9–§10 in the next. Revisits D371 §3
-(the host's screen leads; a guest's never did) and its resolved points "which of the host's devices
-leads", "the leader leaving a group that stood for it" and "which part a cast takes" (one session at
-most leaves one to take).
+**Status:** Decided 2026-10-28; §9–§10 not built (the next batch); §1–§8 built 2026-10-28.
+The lead (`internal/core/together/leader.go`): each device's seniority is the core's clock as it attaches, to
+the microsecond (`arrivedAt`), stamped again as its page is shown after its browser hid it; a device
+leads only while it plays the film on a page its browser shows (`canLead`); the host's player leads
+as it attaches while the host's leads or none does or nothing is on, a guest's player while none
+leads (`arrived`); a leader whose connection closes or goes silent (`Detach` with `GoneClosed`,
+`GoneSilent`), whose page is hidden (a state's `pageHidden`, `takeVisibility`) or whose member is
+removed hands the lead at once to the host's newest other player, else the most senior
+(`leaderGone`, `nextLeader`); a host's player that came back while a guest's leads a film takes the
+lead back once its state is in step (`takeLeadInStep`, `inStep`); with no one left who can lead, a
+Watch Together group pauses where it stands (event `everyoneLeft`, replacing D371's `leaderLeft`).
+Each `leaderChanged` line says `why` (`attached`, `putOn`, `noneLed`, `hostInStep`, `leaderGone`),
+`goneBecause` and `goneLeaderWasHost` for a leader gone, the previous leader, whether the new one is
+the host's, its `leaderSeniority` and `leaderPresentMs`. The web client: a follower on a handheld
+says `pageHidden` in its state as its page hides and tells its state as it is shown; the host's
+player following a guest's lead tells its state each second (`isHostAwaitingLead`); a guest's
+leading player undoes a move its link withholds (`GroupLeader.undo`, a `sought` note
+`why=undone`) (`web/packages/sdk/src/together-follow.ts`, `together-leader.ts`,
+`together-connection.ts`). One session per person (`internal/core/together/places.go`): `Open`
+ends the session the person hosts and takes them out of one they joined; `Join` is refused with
+`InAnotherSessionError`, the API's `in_another_session` (409, its detail the other session's
+`hostName` and `isHost`), until the join says `shouldLeaveOther`, the person known by their sign-in
+or by the membership the browser keeps (`heldCredential`); the Join form asks first
+(`web/apps/web/src/together-join.tsx`); `TogetherPart` takes the one session the person is in, and
+`Opened.IsNew` is gone. Revisits D371 §3 (the host's screen leads; a guest's never did) and its
+resolved points "which of the host's devices leads" (still so among the host's own), "the leader
+leaving a group that stood for it" (the group now stands for the next leader, or pauses with no
+one) and "which part a cast takes" (one session at most leaves one to take).
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **"Silent past a short limit"** is the session socket's existing limit, three of the client's
+  15 s pings (`silenceLimit`, 45 s), after which the device is dropped and the lead passes at once;
+  no new number. A locked phone is caught sooner by its page's `pageHidden`.
+- **Hidden** is said only by a handheld's page, where hiding pauses the film
+  (`pageThatPausesWhenHidden`): a computer's hidden tab plays on, and may lead.
+- **"In step"** is the follower correction's own threshold for needing no correction,
+  `together_drift_left_alone_ms` (D250 §1), as the newest device brought it: ready, playing as the
+  group plays (or held as it stands), within that of the group's position, its round trip allowed
+  for. A host's player taking the lead back moves no one, and the group announces nothing.
+- **The host's player attaching while a guest's leads and nothing is on** leads at once: there is
+  nothing to jump. A host's player shown again after it was hidden is a return: it follows until in
+  step, as one that reconnects does.
+- **Everyone gone** is no device left that can lead (all gone, or every page hidden): a group that
+  plays, or stands for its leader, pauses where it stands (`everyoneLeft`, "Everyone's screen left;
+  paused at …"); a paused session ends by its idle end as before. A cast is not paused: a session of
+  one, its receiver's return takes up where it stood.
+- **A guest's leading player and its rights**: a pause or a jump its person makes that their link
+  withholds is undone on that player, back to where the group is, rather than standing the group
+  for it.
+- **Starting a session while a guest in another** leaves that one too, without asking: starting
+  one "signals an intent to end the old one", and a person is in one at most.
+- **The join's protocol**: the core refuses with `in_another_session` and the join is sent again
+  with `shouldLeaveOther`; leaving a session one hosts ends it for everyone, and the question says
+  so ("Leave your own session to join this one? It ends for everyone in it."). A guest by link alone
+  is known by the membership the browser keeps as the link's page loads (a link pasted into a tab
+  already on another session's page forgets it first, as before, and is not asked).
+
+**Proven by:**
+- 1: TestHub_TheLeadPassesToThePlayerPresentLongest, TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves; VQ104
+- 2: TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack, web/packages/sdk/src/together-lead-passes.test.ts ("tells its session as its page is hidden, where hiding pauses its film, and as it is shown again"); VQ105
+- 3: TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads, TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, web/packages/sdk/src/together-lead-passes.test.ts ("follows as the host's player come back while a guest's leads, telling its state each second until it leads"); VQ104
+- 4: TestHub_AGuestsLeadingPlayerCarriesTheClockOnly, TestHub_LogsALeadingGuestsUndoneMove, web/packages/sdk/src/together-lead-passes.test.ts ("puts back where the group is a guest's leading player its person paused without the right"); VQ104
+- 5: TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-connection.test.ts ("tells the group, in its state, that its page is hidden"); VQ105
+- 6: TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-lead-passes.test.ts ("says nothing of a hidden page where hiding pauses nothing")
+- 7: TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle, TestHub_AGroupPlayingToNoPlayerIsIdle; VQ104
+- 8: TestHub_StartingASessionEndsTheOneThePersonHostsAndLeavesTheOneTheyJoined, TestHub_JoiningAnotherSessionIsRefusedUntilThePersonSaysToLeaveTheirs, TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn, TestTogether_OnlyAHostOpensMakesLinksAndEnds, web/apps/web/src/together-join.test.tsx ("asks first whether to leave the other, and joins, leaving it, only when told to"); VQ106
