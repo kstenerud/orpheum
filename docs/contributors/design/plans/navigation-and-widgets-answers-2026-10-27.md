@@ -70,6 +70,10 @@ The owner agreed every other answer and recommendation above (2026-10-27).
      irreversible red, [Stay].
    - After leaving: "You left the session. To join again, ask ‹host› for a new link."
    Every other word the guest sees stays as it is (web/apps/web/src/locales/en-together.ts).
+7. **A guest away from the session's page** (D372 §9–§10, the owner, 2026-10-28): a signed-in guest stays
+   a member while elsewhere, even playing another film only they see, shown away in the roster, and
+   catches up to the shared film on coming back; a guest by link alone may leave the page and come back
+   while the session lasts and they are not removed. Builds on item 4; D372 §1–§8 are this batch's.
 
 ## Seen on staging (the owner, 2026-10-28)
 
