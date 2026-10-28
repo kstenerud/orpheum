@@ -238,7 +238,8 @@ type PlayerNote struct {
 	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
 	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
-	// Why is a seek's ("catchUp", "hold", "skip"; a leader's "join" or "command", D371 §1) or a
+	// Why is a seek's ("catchUp", "hold", "skip"; a leader's "join", "command" or "undone", D371 §1,
+	// D372 §4) or a
 	// reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
@@ -359,8 +360,8 @@ const (
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "skip", "join", "command", "closed", "silent", "video", "audio", "direct", "udp",
-		"tcp", "tls":
+	case "", "catchUp", "hold", "skip", "join", "command", "undone", "closed", "silent", "video", "audio", "direct",
+		"udp", "tcp", "tls":
 		return true
 	}
 	return false

@@ -39,11 +39,14 @@ export function sendAfterMs(command: GroupCommand): number {
   return command.command === "pause" ? browserPauseWindowMs : scrubPauseWindowMs;
 }
 
-/** Calls hidden each time page is hidden, if there is a page; returns the stopping. */
-export function whenHidden(page: ShownPage | undefined, hidden: () => void): () => void {
+/** Calls changed each time page is hidden or shown, if there is a page; returns the stopping. */
+export function whenVisibilityChanges(
+  page: ShownPage | undefined,
+  changed: (isHidden: boolean) => void,
+): () => void {
   const onVisibility = (): void => {
-    if (page?.visibilityState === "hidden") {
-      hidden();
+    if (page !== undefined) {
+      changed(page.visibilityState === "hidden");
     }
   };
   page?.addEventListener("visibilitychange", onVisibility);
