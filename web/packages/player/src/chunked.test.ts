@@ -303,7 +303,7 @@ describe("the link a chunked playback tells with each quality it begins (D352 §
           return true;
         },
       },
-      () => ({ linkKbps: () => controller.kbps }),
+      () => ({ linkKbps: () => controller.kbps, whyChose: () => undefined }),
     );
     // A chunk loaded, which hls.js's own reading takes for a measurement.
     listeners.get(Hls.Events.FRAG_LOADED)?.(undefined, {

@@ -111,6 +111,9 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 	if note.Why != "" {
 		attributes = append(attributes, "why", note.Why)
 	}
+	if note.LinkSamples != "" {
+		attributes = append(attributes, "linkSamples", note.LinkSamples)
+	}
 	if note.Track != "" {
 		attributes = append(attributes, "track", note.Track)
 	}

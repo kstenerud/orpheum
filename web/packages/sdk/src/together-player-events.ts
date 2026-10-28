@@ -92,14 +92,26 @@ export interface ChunkLoaded {
 export const playerSwitchedQualityEvent = "orpheumplayerswitchedquality";
 
 /**
+ * The longest a QualitySwitched's why and linkSamples may be, as the server takes them
+ * (diagnosisTextMost): a longer one is cut to it.
+ */
+export const qualitySwitchedTextMost = 300;
+
+/**
  * A quality a player began playing, as playerSwitchedQualityEvent tells it, with the link's
  * estimate then: undefined before chunks measured it, when the estimate is only hls.js's starting
- * value; and the quality it played before, absent for the first it plays.
+ * value; the quality it played before, absent for the first it plays; and, where its own bitrate
+ * controller chose it, why ("first", a chunk given up with its bytes and wait, a step up, the link)
+ * and the link's samples then. A Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its link
+ * estimated at 69 kb/s though its chunks had loaded at 14–18 Mb/s, and the core's log said nothing
+ * of why (the owner's cast, staging, 2026-10-28).
  */
 export interface QualitySwitched {
   readonly qualityKbps: number;
   readonly linkEstimateKbps: number | undefined;
   readonly fromQualityKbps?: number;
+  readonly why?: string;
+  readonly linkSamples?: string;
 }
 
 /** The detail an event carries, when it is a CustomEvent whose detail has every one of fields. */
@@ -140,7 +152,7 @@ export function noteQualitySwitched(connection: TogetherConnection): (event: Eve
 
 /** A playerSwitchedQualityEvent's quality, or undefined when the event carries none. */
 export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
-  const { qualityKbps, linkEstimateKbps, fromQualityKbps } =
+  const { qualityKbps, linkEstimateKbps, fromQualityKbps, why, linkSamples } =
     detailWith(event, ["qualityKbps"]) ?? {};
   return typeof qualityKbps === "number" &&
     (linkEstimateKbps === undefined || typeof linkEstimateKbps === "number")
@@ -148,6 +160,12 @@ export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
         qualityKbps,
         linkEstimateKbps,
         ...(typeof fromQualityKbps === "number" ? { fromQualityKbps } : {}),
+        ...(typeof why === "string" && why !== ""
+          ? { why: why.slice(0, qualitySwitchedTextMost) }
+          : {}),
+        ...(typeof linkSamples === "string" && linkSamples !== ""
+          ? { linkSamples: linkSamples.slice(0, qualitySwitchedTextMost) }
+          : {}),
       }
     : undefined;
 }

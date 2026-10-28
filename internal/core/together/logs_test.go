@@ -97,6 +97,43 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	}
 }
 
+// A switch of quality is logged with why the player's controller chose it and the link's samples
+// then, bounded as a diagnosis's text is: a Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its
+// link estimated at 69 kb/s though its chunks had loaded at 14-18 Mb/s, and nothing in the log said
+// why (the owner's cast, staging, 2026-10-28).
+func TestHub_LogsWhyAPlayerSwitchedQuality(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	why := "gave up a chunk of 5: 0 B in 2004 ms; confident 69 kb/s (mean 69, error 0%, 5 samples), " +
+		"8.1 s ahead, steadiness 1, hold 60 s"
+	samples := "samples 5 2036000B 1100ms fb40ms, 5 1B 2004ms fb2004ms"
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteQualitySwitched, QualityKbps: 696, LinkEstimateKbps: 69, FromQualityKbps: 9018,
+		Why: why, LinkSamples: samples,
+	}})
+	want := fmt.Sprintf(
+		`kind=qualitySwitched qualityKbps=696 linkEstimateKbps=69 fromQualityKbps=9018 why=%q linkSamples=%q`,
+		why, samples)
+	if line := lineWith(t, stage.logs.String(), eventPlayerNoted); !strings.Contains(line, want) {
+		t.Errorf("the switch's line does not say why:\n got %s\nwant %s", line, want)
+	}
+	tooLong := strings.Repeat("x", diagnosisTextMost+1)
+	for _, unknown := range []*PlayerNote{
+		{Kind: NoteQualitySwitched, QualityKbps: 696, Why: tooLong},
+		{Kind: NoteQualitySwitched, QualityKbps: 696, LinkSamples: tooLong},
+		{Kind: NoteQualitySwitched, QualityKbps: 696, Track: "video"},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
+		if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
+		}
+	}
+	if strings.Count(stage.logs.String(), "logEvent=playerNoted") != 1 {
+		t.Errorf("an overlong switch was logged:\n%s", stage.logs)
+	}
+}
+
 // A voice call's statistics, as its receiver measured them, are logged at info, so a call that broke
 // up says whether its sound came late, was lost, or went through the relay over TCP (D262 §1, §4);
 // one without its statistics, or with an unknown path or playback, is refused. They say how loud what

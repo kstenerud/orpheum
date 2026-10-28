@@ -18,6 +18,7 @@ import {
   playerLoadedChunkEvent,
   playerMovedSoundEvent,
   playerSwitchedQualityEvent,
+  qualitySwitchedTextMost,
   type ChunkLoaded,
   type QualitySwitched,
   type SoundMoved,
@@ -127,10 +128,13 @@ describe("a player following its group", () => {
       filmMs: 10_000,
     };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
+    // With why its controller chose it, and the link's samples then (staging, Nosferatu, 2026-10-28).
     const switched: QualitySwitched = {
       qualityKbps: 800,
       linkEstimateKbps: 2500,
       fromQualityKbps: 1200,
+      why: "gave up a chunk of 2: 0 B in 2004 ms; confident 69 kb/s (mean 69, error 0%, 5 samples)",
+      linkSamples: "samples 2 1B 2004ms fb2004ms",
     };
     media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
     expect(notes.slice(-2)).toEqual([
@@ -141,6 +145,19 @@ describe("a player following its group", () => {
     const first: QualitySwitched = { qualityKbps: 15_635, linkEstimateKbps: undefined };
     media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: first }));
     expect(notes.at(-1)).toEqual({ kind: "qualitySwitched", ...first });
+    // A why or samples longer than the server takes is cut to what it takes, not refused there.
+    const long = "x".repeat(qualitySwitchedTextMost + 1);
+    media.dispatchEvent(
+      new CustomEvent(playerSwitchedQualityEvent, {
+        detail: { ...first, why: long, linkSamples: long },
+      }),
+    );
+    expect(notes.at(-1)).toEqual({
+      kind: "qualitySwitched",
+      ...first,
+      why: long.slice(0, qualitySwitchedTextMost),
+      linkSamples: long.slice(0, qualitySwitchedTextMost),
+    });
   });
 
   it("tells the server, for its log, each move of its sound, from where to where, why, and whether it threw the sound away", () => {
