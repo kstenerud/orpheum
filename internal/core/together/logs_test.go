@@ -305,18 +305,22 @@ func TestHub_LogsWhatHoldsAPlayerThatBeganBuffering(t *testing.T) {
 // A player's move of its sound earlier than its picture is logged at info: from and to, what moved it,
 // Web Audio's latency as measured then and whether the move threw the sound loaded away. A Fire TV's
 // start waited twice as its move threw its sound away, and nothing said when or by how much the move
-// changed (the owner's cast, staging, 2026-10-28). A note with no known cause, a move of nothing, or
-// one beyond what a player makes, is refused.
+// changed (the owner's cast, staging, 2026-10-28). It says too what moved the sound to where it moved
+// from and the latency the device remembered, "none" where nothing had and it remembered none: the
+// casts after left only moves back to the latency, from a latency no line said. A note with no known
+// cause, a move of nothing, or one beyond what a player makes, is refused.
 func TestHub_LogsAPlayersMoveOfItsSound(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteSoundMoved, EarlierFromMs: 331, EarlierMs: 384, Why: "measured", LatencyMs: 384, IsFlushed: true,
+		FromWhy: "remembered", RememberedMs: 331,
 	}})
 	line := lineWith(t, stage.logs.String(), eventSoundMoved)
 	for _, want := range []string{
 		"level=INFO", "earlierFromMs=331", "earlierMs=384", "why=measured", "latencyMs=384", "flushed=true",
+		"fromWhy=remembered", "rememberedMs=331",
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("the sound's move line does not say %s:\n%s", want, line)
@@ -328,14 +332,18 @@ func TestHub_LogsAPlayersMoveOfItsSound(t *testing.T) {
 	}})
 	line = lineWith(t, stage.logs.String(), eventSoundMoved)
 	if !strings.Contains(line, "earlierFromMs=0") || !strings.Contains(line, "flushed=false") ||
-		strings.Contains(line, "latencyMs") {
-		t.Errorf("a remembered move before any chunk: %s; want from 0, not flushed, no latency", line)
+		strings.Contains(line, "latencyMs") || !strings.Contains(line, "fromWhy=none") ||
+		!strings.Contains(line, "rememberedMs=none") {
+		t.Errorf("a remembered move before any chunk: %s; want from 0 by none, not flushed, no latency, "+
+			"none remembered", line)
 	}
 	for _, unknown := range []*PlayerNote{
 		{Kind: NoteSoundMoved, EarlierMs: 331, Why: "guessed"},
 		{Kind: NoteSoundMoved, EarlierFromMs: 331, EarlierMs: 331, Why: "measured"},
 		{Kind: NoteSoundMoved, EarlierMs: 2001, Why: "offset"},
 		{Kind: NoteSoundMoved, EarlierMs: 300, Why: "measured", LatencyMs: -1},
+		{Kind: NoteSoundMoved, EarlierMs: 300, Why: "measured", FromWhy: "guessed"},
+		{Kind: NoteSoundMoved, EarlierMs: 300, Why: "measured", RememberedMs: 2001},
 	} {
 		stage.logs.Reset()
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})

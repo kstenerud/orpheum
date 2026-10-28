@@ -3,6 +3,7 @@
 package together
 
 import (
+	"cmp"
 	"context"
 	"time"
 )
@@ -218,14 +219,22 @@ func (current *session) logBuffering(ctx context.Context, who *member, from *dev
 
 // logSoundMoved logs, at info, a player moving its sound earlier than its picture: from and to, in ms,
 // what moved it, Web Audio's latency as measured then where it was, and whether the move threw the
-// sound loaded away. A Fire TV's start waited twice as its move for Web Audio's latency threw its sound
-// away, and nothing said when or by how much the move changed (the owner's cast, staging, 2026-10-28).
+// sound loaded away; what moved it to where it moved from, and the latency its device remembered,
+// each "none" where there was none, since a move made before the log listened has no line. A Fire
+// TV's start waited twice as its move for Web Audio's latency threw its sound away, and nothing said
+// when or by how much the move changed (the owner's cast, staging, 2026-10-28); its later casts moved
+// back to its latency from a latency read too early, and no line said so (the same, 07:47 to 07:51).
 func (current *session) logSoundMoved(ctx context.Context, who *member, from *device, note *PlayerNote) {
 	attributes := append(current.deviceAttributes(who, from), logEvent, eventSoundMoved,
 		"earlierFromMs", note.EarlierFromMs, "earlierMs", note.EarlierMs, "why", note.Why,
-		"flushed", note.IsFlushed)
+		"flushed", note.IsFlushed, "fromWhy", cmp.Or(note.FromWhy, "none"))
 	if note.LatencyMs > 0 {
 		attributes = append(attributes, "latencyMs", note.LatencyMs)
+	}
+	if note.RememberedMs > 0 {
+		attributes = append(attributes, "rememberedMs", note.RememberedMs)
+	} else {
+		attributes = append(attributes, "rememberedMs", "none")
 	}
 	current.logger.InfoContext(ctx, "watch together: a player moved its sound", attributes...)
 }

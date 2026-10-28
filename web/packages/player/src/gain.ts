@@ -79,11 +79,18 @@ export function newAudioContext(): GainAudio {
   return new AudioContext();
 }
 
+/** HTMLMediaElement.HAVE_FUTURE_DATA, which a plain page may not define. */
+const haveFutureData = 3;
+
 /**
  * One element's levelling: its audio context, the gain wanted, the gain node once the element's
  * sound is routed through it, and the latency of Web Audio its sound's move makes up for: the one
  * the device remembers until the context measures one, and after that the one measured, moved only
- * by a change of at least soundLatencyChangeIgnoredMs.
+ * by a change of at least soundLatencyChangeIgnoredMs. A latency is read only as the element's sound
+ * plays through the context: one read as the context has just started, before the film plays, is
+ * not yet its own. A Fire TV's (Silk) read 83 to 259 ms there and 339 to 347 ms as the film played,
+ * so each cast moved its sound from the latency remembered to the early one and back, throwing its
+ * sound away each time (the owner's casts, staging, 2026-10-28, 07:47 to 07:51).
  */
 class ElementLevelling {
   private wantedDb: number;
@@ -95,6 +102,8 @@ class ElementLevelling {
   private latencyInEffectMs: number;
   /** What last changed latencyInEffectMs, until the move it makes is told; undefined after. */
   private latencyChangedBy: "remembered" | "measured" | "direct" | undefined;
+  /** The latency the device remembered as this levelling began, for the log; undefined for none. */
+  private readonly rememberedMs: number | undefined;
 
   private readonly context: GainAudio;
   private readonly memory: SoundLatencyMemory;
@@ -108,6 +117,7 @@ class ElementLevelling {
     this.memory = audio.memory;
     this.wantedDb = db;
     const rememberedMs = this.memory.recall();
+    this.rememberedMs = rememberedMs;
     this.latencyInEffectMs = rememberedMs ?? 0;
     this.latencyChangedBy = rememberedMs === undefined ? undefined : "remembered";
     element.addEventListener("play", () => {
@@ -121,9 +131,9 @@ class ElementLevelling {
         this.latencyInEffectMs = 0;
         this.latencyChangedBy = "direct";
       }
-      this.applyOffset();
+      this.applyOffset({ isLatencyRead: true });
     });
-    this.applyOffset();
+    this.applyOffset({ isLatencyRead: false });
     this.resumeAndRoute();
   }
 
@@ -143,7 +153,7 @@ class ElementLevelling {
    */
   setOffsetMs(ms: number): void {
     this.wantedOffsetMs = ms;
-    this.applyOffset();
+    this.applyOffset({ isLatencyRead: false });
   }
 
   setDb(db: number): void {
@@ -179,7 +189,14 @@ class ElementLevelling {
     gainNode.connect(destination);
     this.gainNode = gainNode;
     this.source = source;
-    this.applyOffset();
+    // Routed as the film already plays, as levelling turned on during it, its sound plays through
+    // the context at once; routed before, the latency waits for the film's playing.
+    this.applyOffset({ isLatencyRead: this.isElementPlaying() });
+  }
+
+  /** Whether the element plays now: not paused, with the data to go on. */
+  private isElementPlaying(): boolean {
+    return !this.element.paused && this.element.readyState >= haveFutureData;
   }
 
   /**
@@ -196,13 +213,15 @@ class ElementLevelling {
   }
 
   /**
-   * Takes the latency measured into effect where it differs from the one in effect by at least
-   * soundLatencyChangeIgnoredMs, and keeps it in the device's memory; a smaller change leaves the
-   * move as it is. Returns the latency measured.
+   * Takes the latency measured into effect, where it is read (isLatencyRead) and differs from the
+   * one in effect by at least soundLatencyChangeIgnoredMs, and keeps it in the device's memory; a
+   * smaller change, or one not read, leaves the move as it is. Returns the latency the context
+   * reports, read or not, for the log.
    */
-  private takeMeasuredLatency(): number | undefined {
+  private takeMeasuredLatency(isLatencyRead: boolean): number | undefined {
     const measuredMs = this.measuredLatencyMs();
     if (
+      isLatencyRead &&
       measuredMs !== undefined &&
       Math.abs(measuredMs - this.latencyInEffectMs) >= soundLatencyChangeIgnoredMs
     ) {
@@ -215,18 +234,20 @@ class ElementLevelling {
 
   /**
    * Moves the sound as wanted: what is left of the offset once Web Audio's own latency, which the
-   * sound takes once routed, is counted, as remembered until it is measured. A sound still later
+   * sound takes once routed, is counted, as remembered until it is measured, the latency read only
+   * where isLatencyRead says the element's sound plays through the context. A sound still later
    * than wanted is moved earlier by its chunks (moveSoundEarlier); one still earlier is held back by
    * a delay node, put between the element and the gain the first time one is needed, so a sound
    * never delayed keeps its route.
    */
-  private applyOffset(): void {
+  private applyOffset(at: { readonly isLatencyRead: boolean }): void {
     const { source, gainNode } = this;
-    const measuredMs = this.takeMeasuredLatency();
+    const measuredMs = this.takeMeasuredLatency(at.isLatencyRead);
     const leftMs = this.wantedOffsetMs - this.latencyInEffectMs;
     moveSoundEarlier(this.element, Math.round(Math.max(0, -leftMs)), {
       why: this.latencyChangedBy ?? "offset",
       latencyMs: measuredMs,
+      rememberedMs: this.rememberedMs,
     });
     this.latencyChangedBy = undefined;
     if (source === undefined || gainNode === undefined) {

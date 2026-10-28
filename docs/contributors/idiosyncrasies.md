@@ -799,9 +799,14 @@ User-Agent (D263; the User-Agent is logged only).
   sound by it from its first chunk; a latency measured within `soundLatencyChangeIgnoredMs` (40 ms,
   EBU R37's bound for sound ahead of its picture) of the one in effect moves nothing, a larger change
   moves once and is kept, and an output latency of 0, not yet measured, is not read. A device's first
-  playback still throws its sound away once, as it learns its latency. Each move is a `soundMoved`
-  note in the core's log, with its from, to, cause, latency and whether it threw the sound away
-  (the owner chose this, 2026-10-28; VQ96).
+  playback still throws its sound away once, as it learns its latency. The context's latency is read
+  only as the film's sound plays through it: read as the context had just started, before the film
+  played, the Fire TV reported 83 to 259 ms, so each cast moved its sound from the remembered 339 ms
+  to that and back as it played, throwing the sound away each time (the owner's casts, staging,
+  2026-10-28, 07:47 to 07:51; unverified why Silk reports a short latency then). Each move is a
+  `soundMoved` note in the core's log, with its from, to, cause, latency, what moved it to its from
+  (`fromWhy`), the latency remembered (`rememberedMs`, or `none`) and whether it threw the sound
+  away (the owner chose this, 2026-10-28; VQ96).
 - **Left as it is:** a film playing a *prepared copy* with levelling off still takes the copy's
   carried gain back out through Web Audio, so on such a TV its sound comes out late by the context's
   latency. A prepared copy is played only when the ladder cannot start (no grid within
