@@ -29,8 +29,8 @@
      2026-10-28): a session's leader plays as a device alone, everyone catches up, a cast takes its
      sender's part; replaces the casting band-aids.** D371 merged, on staging (VQ101–103). **D372 (owner 2026-10-28): the lead
      passes to the longest-present player while the host's screen is gone; one session per person; §1–8 this
-     batch, §9–10 next.** Also folded (owner 2026-10-28, yes): a lone/leading player starts or resumes
-     after a seek only with 3 s loaded ahead (Marrowgate stall); dropped frames in the player's log. Owner VQs owed: 84 passed;
+     batch, §9–10 next.** Also folded (owner 2026-10-28, yes): a player starts or resumes after a seek
+     once its film ahead outlasts the next chunk's fetch × 1.5, followers too (Marrowgate stall); dropped frames in the player's log. Owner VQs owed: 84 passed;
      85–100 open. VQ84's connect package is on prod-api (owner, 2026-10-28).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
