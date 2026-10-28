@@ -827,7 +827,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `alphabet-rail.tsx`, `left-out-libraries.tsx`, `internal/core/library/lists_released.go`)
   Passed 2026-10-27 (the owner, staging): every sort both ways, release date, the rail's direction and
   Libraries on Home.
-- [ ] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
+- [x] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
   fresh Silk profile). Passes when *Your devices* names it "Silk on Fire TV"; a device signed in before
   keeps its name until renamed. (`web/apps/web/src/device.ts`, `tv-device.ts`)
   Failed 2026-10-27 (the owner, nas.example): signed out and in again on the Fire TV, it is still listed as
@@ -839,6 +839,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Fire TV (its browser list Edge, Firefox, Samsung Internet, Chrome, Safari), so it was packaged before
   An earlier commit. No code changes: to see again once orpheum-connect is packaged and deployed from an
   Orpheum with an earlier commit, signing in from the discovery's page.
+  Passed 2026-10-28 (the owner, staging, signed in through staging's discovery once its connectd was
+  rebuilt from an Orpheum with an earlier commit): "It now registers as Silk on Fire TV".
 - [ ] **VQ85** — D369, the player's own controls on every device, on staging. Passes when: on a
   computer, the Play page shows the app's bar over the film and no browser controls; a mouse's move
   shows it and five still seconds hide it while the film plays; a click on the film pauses
