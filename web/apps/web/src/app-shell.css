@@ -133,7 +133,18 @@
   min-height: var(--size-control);
   padding: 0;
   border-block-end: 0;
+  border-radius: var(--radius-control);
   color: var(--color-text);
+}
+
+/* A hover raises the ground behind the icon, as the tray's signs' (status-tray.css) and every icon
+   button's: the owner, 2026-10-28, "The icons on the right highlight on mouse-over while the ones on
+   the left do not." */
+@media (hover: hover) {
+  .app-shell__watching a.app-shell__place-icon:hover,
+  .app-shell__end .app-shell__menu-button:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+  }
 }
 
 .app-shell__watching [aria-current="page"] a.app-shell__place-icon::after {
@@ -202,14 +213,8 @@
   min-height: auto;
   border-inline: 0;
   border-block-start: 0;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: none;
-}
-
-@media (hover: hover) {
-  .app-shell__menu-button:hover:not(:disabled) {
-    background: none;
-  }
 }
 
 /* The menu's icon as close to the status tray's signs as they are to each other. */
