@@ -79,8 +79,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   leader, which plays a start or a seek's hold once enough is loaded, pauses a playing element as it
   seeks to where too little is (`isOwnPause`, so no pause is told or sent for it), plays at once
   where the browser loads no more while paused, gives its wait up to a person's own play and to a
-  group's pause, and stands aside while its element follows a group. A leader says it buffers, and
-  does not play, while its start waits. `src/start-gate.test.ts`, `src/together-refill.test.ts`.
+  group's pause, and stands aside while its element follows a group, which it does only once its
+  session's welcome says so: before it, a play waits as a leader's does (a Fire TV's cast played at
+  once, with nothing loaded, and then led). A leader says it buffers, and does not play, while its
+  start waits. `src/start-gate.test.ts`, `src/together-refill.test.ts`.
 - **A page's live connection** (D337 §2) is the session socket's address with a hello of its own,
   the session token in the hello alone; the hello says whether the tab is in front, and the page
   says it again as that changes (D338 §2); it keeps the person's devices connected now, those with a

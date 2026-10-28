@@ -1121,3 +1121,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   frames" with `droppedFrames` and `totalFrames` near when the picture stuttered, if it did, and a
   smooth one none. (`web/packages/sdk/src/start-gate.ts`, `ready-ahead.ts`;
   `web/packages/player/src/next-chunk.ts`, `frames.ts`; `internal/core/api/report.go`)
+- [ ] **VQ111** — a cast's receiver waits for enough loaded before its first play, whenever its
+  session's welcome comes (staging, 2026-10-28: fileId 5664, cast from the Mac, played with
+  `loadedAheadMs=0` and no `waitedForAheadMs`), on staging. Passes when, the Mac casting five films in
+  a row to the Fire TV (Silk), Watch Together off: every "a playback started playing" line for device
+  60 carries `waitedForAheadMs` or a `loadedAheadMs` at or above refillAheadMs (10000), none has
+  `loadedAheadMs=0`, and no "a player began holding its group up … why=notReady" follows its group's
+  `leaderPlays` within a second. (`web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)

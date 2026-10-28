@@ -245,6 +245,16 @@ export function isLeaderOf(snapshot: TogetherSnapshot): boolean {
 }
 
 /**
+ * Whether this device follows its session: welcomed, with a roster that names another device its
+ * leader, or none. Before its welcome a device is neither leader nor follower: a cast's receiver
+ * whose start gate took it for a follower then played at once, with nothing loaded, and led its
+ * session so (the owner's cast to a Fire TV, staging, 2026-10-28).
+ */
+export function isFollowerOf(snapshot: TogetherSnapshot): boolean {
+  return snapshot.deviceId !== undefined && !isLeaderOf(snapshot);
+}
+
+/**
  * Whether this device is the host's, following while a guest's device leads: the host's screen come
  * back, which takes the lead back once it plays in step, as the server judges by its states (D372
  * §3).

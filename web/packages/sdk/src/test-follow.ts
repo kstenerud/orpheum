@@ -115,11 +115,12 @@ interface Given {
   readonly notes: PlayerNote[];
 }
 
-/** The snapshot a stand-in connection starts with: connected, its group as given. */
+/** The snapshot a stand-in connection starts with: welcomed as device 1, its group as given. */
 function snapshotOf(group: GroupView, tuning: SyncTuning, minimumRttMs?: number): TogetherSnapshot {
   return {
     status: "connected",
     memberId: 1,
+    deviceId: 1,
     isHost: false,
     rights: noRight,
     group,
