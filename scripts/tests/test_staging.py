@@ -114,6 +114,11 @@ class SavedLogs(unittest.TestCase):
         self.assertFalse((directory / "logs").exists())
 
 
+def docker_build(run: mock.Mock) -> list[str]:
+    """The `docker build` among the commands a mocked run was given."""
+    return next(call.args[0] for call in run.call_args_list if call.args[0][:2] == ["docker", "build"])
+
+
 class Quick(unittest.TestCase):
     def test_the_binary_and_tunnel_script_go_where_the_runtime_stage_puts_them_over_the_full_image(self):
         runtime = (REPO / "deploy" / "Containerfile").read_text().split("AS runtime", 1)[1]
@@ -124,30 +129,44 @@ class Quick(unittest.TestCase):
 
     def test_a_full_build_tags_the_image_quick_lays_over(self):
         inspected = subprocess.CompletedProcess([], 0, stdout="sha256:full\n")
-        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run:
+        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
+                mock.patch.object(staging.shutil, "copy2"):
             staging.build_image()
-        built = run.call_args_list[0].args[0]
+        built = docker_build(run)
         tags = [built[index + 1] for index, word in enumerate(built) if word == "--tag"]
         self.assertEqual(tags, [staging.IMAGE, staging.FULL_IMAGE])
+
+    def test_a_full_build_takes_the_binary_dev_built_in_place_of_the_build_stage(self):
+        inspected = subprocess.CompletedProcess([], 0, stdout="sha256:full\n")
+        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
+                mock.patch.object(staging.shutil, "copy2") as copied:
+            staging.build_image()
+        self.assertEqual(run.call_args_list[0].args[0], [str(staging.ROOT / "dev"), "make", "build"])
+        built = docker_build(run)
+        context = built[built.index("--build-context") + 1]
+        self.assertTrue(context.startswith("build="), context)
+        self.assertEqual(copied.call_args.args[1], Path(context.removeprefix("build=")) / "src" / "bin" / "orpheum")
+        self.assertIn("FROM toolchain AS build", (REPO / "deploy" / "Containerfile").read_text(),
+                      "the stage a named context named build takes the place of")
 
     def test_a_local_ffmpeg_is_the_build_context_the_runtime_image_takes_in_place_of_the_pin(self):
         runtime = (REPO / "deploy" / "Containerfile").read_text().split("AS runtime", 1)[1]
         self.assertIn("COPY --from=ffmpeg-local / /opt/orpheum/ffmpeg-local/\n", runtime)
         inspected = subprocess.CompletedProcess([], 0, stdout="sha256:full\n")
         with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
-                mock.patch.dict(staging.os.environ, {}, clear=False):
+                mock.patch.dict(staging.os.environ, {}, clear=False), mock.patch.object(staging.shutil, "copy2"):
             staging.os.environ.pop("ORPHEUM_FFMPEG_LOCAL", None)
             staging.build_image()
-        self.assertNotIn("--build-context", run.call_args_list[0].args[0])
+        self.assertFalse(any(word.startswith("ffmpeg-local=") for word in docker_build(run)))
         local = Path(tempfile.mkdtemp())
         for name in ("ffmpeg", "ffprobe"):
             (local / name).write_text("")
             (local / name).chmod(0o755)
         with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
-                mock.patch.dict(staging.os.environ, {"ORPHEUM_FFMPEG_LOCAL": str(local)}), mock.patch("sys.stderr"):
+                mock.patch.dict(staging.os.environ, {"ORPHEUM_FFMPEG_LOCAL": str(local)}), mock.patch("sys.stderr"), \
+                mock.patch.object(staging.shutil, "copy2"):
             staging.build_image()
-        built = run.call_args_list[0].args[0]
-        self.assertEqual(built[built.index("--build-context") + 1], f"ffmpeg-local={local.resolve()}")
+        self.assertIn(f"ffmpeg-local={local.resolve()}", docker_build(run))
 
     def test_without_a_full_image_quick_builds_nothing_and_says_so(self):
         missing = subprocess.CompletedProcess([], 1, stdout="")

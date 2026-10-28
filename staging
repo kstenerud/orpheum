@@ -124,11 +124,23 @@ def build_image() -> str:
     """Build the runtime image from the checkout, and return its ID. ORPHEUM_FFMPEG_LOCAL, when set,
     is a local build of FFmpeg the image carries in place of the pinned one (scripts/fetch_ffmpeg.py);
     a quick build keeps whichever the last full one carried."""
-    print(f"staging: building {IMAGE} from this checkout", flush=True)
+    # The binary from ./dev's own warm caches, in place of the Containerfile's build stage (BuildKit
+    # takes a named context for the stage of that name): built from source in BuildKit's third set of
+    # Go and npm caches, a full build waited minutes for what ./dev had just compiled. The release
+    # build (make deploy) keeps the stage. The owner, 2026-10-28: "If there's a real problem,
+    # deploying will make it show" (the caching audit's finding 7).
+    print("staging: building the binary in ./dev", flush=True)
+    run([str(ROOT / "dev"), "make", "build"])
+    print(f"staging: building {IMAGE} from this checkout around it", flush=True)
     local = fetch_ffmpeg.local_build()
     context = ["--build-context", f"ffmpeg-local={local}"] if local is not None else []
-    run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE,
-         "--tag", FULL_IMAGE, *context, str(ROOT)], env={**os.environ, "DOCKER_BUILDKIT": "1"})
+    with tempfile.TemporaryDirectory() as built:
+        # Where the build stage leaves it, which the runtime stage copies from.
+        (Path(built) / "src" / "bin").mkdir(parents=True)
+        shutil.copy2(ROOT / "bin" / "orpheum", Path(built) / "src" / "bin" / "orpheum")
+        run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE,
+             "--tag", FULL_IMAGE, "--build-context", f"build={built}", *context, str(ROOT)],
+            env={**os.environ, "DOCKER_BUILDKIT": "1"})
     return image_id(IMAGE)
 
 
