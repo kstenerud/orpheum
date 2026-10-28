@@ -295,3 +295,51 @@ describe("a session's leader starts only with enough loaded ahead, and says so t
     expect(play.plays()).toBe(1);
   });
 });
+
+describe("a cast's receiver asked to play before its session's welcome says it leads", () => {
+  /**
+   * The owner's cast to a Fire TV (staging, 2026-10-28, fileId 5664): the receiver's player joined
+   * its session as its page asked its start gate to play, its roster empty until the welcome; the
+   * gate took it for a follower and played at once, and once it led it played with nothing loaded
+   * ahead (loadedAheadMs=0), ran dry at once and played again 0.1 s later.
+   */
+  it("waits for enough loaded ahead, as a leader does, never playing at once as a follower would", () => {
+    const media = new FakeMedia();
+    media.currentTime = 2727.77;
+    media.readyState = 0;
+    const fake = fakeConnection({ ...paused, state: "Idle", fileId: 0 });
+    let isWelcomed = false;
+    const member: RosterMember = {
+      id: 1,
+      name: "owner",
+      isHost: true,
+      devices: [device(thisDevice, "video", true), device(33, "panel")],
+    };
+    followGroup(
+      media,
+      {
+        ...fake.connection,
+        snapshot: () => {
+          const snapshot = fake.connection.snapshot();
+          return isWelcomed
+            ? { ...snapshot, deviceId: thisDevice, roster: [member] }
+            : { ...snapshot, deviceId: undefined, group: undefined, roster: [] };
+        },
+      },
+      { fileId: 5, leads: everyRight, monotonicMs: () => 0 },
+    );
+    const play = countedPlay(media);
+    startGateOf(media).play(play.how);
+    expect(play.plays()).toBe(0);
+    isWelcomed = true;
+    fake.setGroup({ ...paused, positionMs: 2_727_770, state: "Waiting", event: "changedItem" }, 0);
+    media.readyState = 3;
+    media.loaded = [[2725.92, 2728.5]]; // a moment loaded: canplay, where the TV played
+    media.fire("canplay");
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(media.paused).toBe(true);
+    media.loaded = [[2725.92, 2727.77 + refillAheadMs / 1000]];
+    vi.advanceTimersByTime(startCheckEveryMs);
+    expect(media.paused).toBe(false);
+  });
+});

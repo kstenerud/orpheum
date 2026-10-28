@@ -4,6 +4,7 @@ import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   isHostAwaitingLead,
+  isFollowerOf,
   isLeaderOf,
   type GroupCommand,
   type PlayerState,
@@ -166,7 +167,11 @@ class GroupFollower {
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
     const startGate = startGateOf(media);
     this.#startGate = startGate;
-    this.#stopStandingAside = startGate.standAsideWhile(() => !this.#isLeading());
+    // Aside only once its welcome says it follows: until then a play its page asks waits, as a
+    // leader's does, and a follower's is given up at its welcome, its follower playing it.
+    this.#stopStandingAside = startGate.standAsideWhile(() =>
+      isFollowerOf(this.#connection.snapshot()),
+    );
     this.#leader = new GroupLeader({
       media,
       connection,
