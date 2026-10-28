@@ -17,7 +17,10 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 1;
+export const loaderMinor = 2;
+
+/** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
+export type LoaderPathKind = "direct" | "webrtc";
 
 /** The core the loader reached: its id, the fingerprint it holds for it, and the realm, when any. */
 export interface LoadedCore {
@@ -46,6 +49,13 @@ export interface OrpheumLoader {
    * older loader has none, and its client says nothing.
    */
   readonly onLocalNetworkAsking?: (listener: (isAsking: boolean) => void) => () => void;
+  /**
+   * The kind of path the requests, and the media the service worker carries, go over now: on
+   * WebRTC no media load reaches the browser's HTTP cache, so a film page's preload would be loaded
+   * again by its Play page (the efficiency audit's finding 1). Since minor 2: an older loader has
+   * none, and its client takes its path for HTTP.
+   */
+  readonly pathInUse?: () => LoaderPathKind;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.

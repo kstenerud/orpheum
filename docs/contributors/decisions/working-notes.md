@@ -18690,6 +18690,8 @@ which came only from reading the whole file through.
 
 > **Refined by [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)** (2026-10-07): its player chooses with a bitrate controller of its own, which steps down while filling and playing alike (§3).
 
+> **§3 revised** (2026-10-28, below): no preload where the page's media go over WebRTC, which keeps none of it for the Play page.
+
 **Decided** (2026-10-07), by the project owner: *"If the client has an idea of what its network
 situation is when opening the summary page, it asks the server for a bit rate no higher than X.
 Server sends it video data and it measures how well it's handling it. If it can't, it reassesses its
@@ -18718,6 +18720,21 @@ link.
    nothing before a tap (Safari on iPhone) starts its chunks on the server only.
 
 **Status:** Decided 2026-10-07.
+
+**Revised 2026-10-28** by the owner ("go with your recommendations", approving the web client
+efficiency audit's cheap fixes for the batch): **§3's preload is not made where the page's media go
+over WebRTC.** §3 counted on the browser keeping the chunks the hidden player loaded for the Play
+page's player (chunks are `private, max-age=86400`); on WebRTC the service worker builds every
+chunk's answer from the page's transport, the HTTP cache never sees one, and the Play page loaded
+the preload's ~10 s again over the same link while the person waited
+([web-client-efficiency-audit-2026-10-28.md](../design/research/web-client-efficiency-audit-2026-10-28.md),
+finding 1). There the film page still takes the warm-up's decision (D258 §1), so the server starts
+its chunks, and the Play page's player starts at the quality offered. On HTTP, a core's name or its
+own origin, §3 stands. Whether a preload on WebRTC should be kept for the Play page (its player
+handed over, or its chunks kept by the service worker) is a question for later, not built. Which
+path the media take, the loader says (`pathInUse`, its interface's minor 2,
+`web/apps/web/src/loader-interface.ts`); on the core's own origin, where `?transport=webrtc` moves a
+tab to WebRTC for testing, nothing says it yet, and the preload is made as before.
 
 ---
 

@@ -44,7 +44,7 @@ export function reachesUnderLoader(loader: OrpheumLoader, page: Document): Reach
   return {
     fetch: loader.fetch,
     openTogetherSocket: loader.openTogetherSocket,
-    pathMoves: pathMovesHeardFrom(loader.onPathMove),
+    pathMoves: pathMovesHeardFrom(loader.onPathMove, loader.pathInUse),
     ownScript: builtScriptOf(page),
     realm: loader.core.realm,
     switchHousehold: loader.switchHousehold,

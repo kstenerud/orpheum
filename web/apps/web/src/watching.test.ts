@@ -204,6 +204,23 @@ describe("the film being watched (D258)", () => {
     expect(asked.map((request) => bodyField(request, "startsAtMs"))).toEqual([undefined, 982_680]);
   });
 
+  it("preloads nothing where its media go over WebRTC, and plays on the warm-up's decision (the efficiency audit, finding 1)", async () => {
+    const heard: Heard[] = [];
+    const preloads = standInPreloads();
+    const { watching } = watchingServed(heard, preloads);
+    watching.warmUp(7, playableFormats, () => true);
+    await settled(heard);
+    expect(preloads.started).toEqual([]);
+    const decision = await watching.decide(7, playableFormats);
+    expect(decision.mediaToken).toBe("a");
+    expect(decision.onLadder?.startAtBps).toBe(4_000_000);
+    expect(await settled(heard)).toEqual(["POST /playback"]);
+    // On HTTP the browser keeps what the preload loaded for the Play page, so it preloads (D260 §3).
+    watching.warmUp(9, playableFormats, () => false);
+    await settled(heard);
+    expect(preloads.started).toHaveLength(1);
+  });
+
   it("lets go of the warm-up, preload and playback, of a film sent on to a cast's receiver (D364 §3)", async () => {
     const heard: Heard[] = [];
     const preloads = standInPreloads();

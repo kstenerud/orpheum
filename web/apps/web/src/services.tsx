@@ -3,6 +3,7 @@
 import type { Api, BrowserVoiceDevices, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
+import type { OrpheumLoader } from "./loader-interface.ts";
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
@@ -63,6 +64,12 @@ export interface PathMoves {
   /** The name of the path the last move went to, as the console says it; undefined before any. */
   readonly to: () => string | undefined;
   readonly subscribe: (listener: () => void) => () => void;
+  /**
+   * Whether the page's media go over WebRTC now, where the service worker builds every load's
+   * answer and the browser's HTTP cache keeps none (the efficiency audit's finding 1); false where
+   * nothing says, on the core's own origin and under an older loader.
+   */
+  readonly isOverWebrtc: () => boolean;
 }
 
 /** A count of path moves, and the move to tell of: what client-main.tsx keeps, and tests move by hand. */
@@ -73,6 +80,7 @@ export function createPathMoves(): PathMoves & { readonly moved: (to?: string) =
   return {
     count: () => count,
     to: () => last,
+    isOverWebrtc: () => false,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
@@ -91,16 +99,21 @@ export function createPathMoves(): PathMoves & { readonly moved: (to?: string) =
 
 /**
  * The path moves a loader tells of, with the name of the path each went to, for the screens that
- * read again on a move and the play report that logs it (the owner, 2026-10-17).
+ * read again on a move and the play report that logs it (the owner, 2026-10-17), and the kind of
+ * path in use, where the loader says it (since its minor 2).
  */
 export function pathMovesHeardFrom(
-  onPathMove: (listener: (to?: string) => void) => () => void,
+  onPathMove: OrpheumLoader["onPathMove"],
+  pathInUse?: OrpheumLoader["pathInUse"],
 ): PathMoves {
   const pathMoves = createPathMoves();
   onPathMove((to) => {
     pathMoves.moved(to);
   });
-  return pathMoves;
+  return {
+    ...pathMoves,
+    isOverWebrtc: () => pathInUse?.() === "webrtc",
+  };
 }
 
 const neverMoves = (): number => 0;

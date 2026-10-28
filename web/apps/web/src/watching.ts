@@ -142,8 +142,8 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
  *
  * A film's page warms it up (D258 §1): it asks how the film plays at once, so the server starts its
  * chunks, and the Play page takes that decision instead of asking again. A film
- * on its ladder is preloaded too, and the Play page's player starts at the quality the preload
- * settled on, its chunks already in the browser (D260 §3).
+ * on its ladder is preloaded too, where its media do not go over WebRTC, and the Play page's player
+ * starts at the quality the preload settled on, its chunks already in the browser (D260 §3).
  */
 export class Watching {
   private fileId: number | undefined;
@@ -158,8 +158,19 @@ export class Watching {
     private readonly startPreload: StartPreload = preloadInHiddenVideo,
   ) {}
 
-  /** A film's page was opened: the film is warmed up, and any other one let go of. */
-  warmUp(fileId: number, playableFormats: PlayableFormats): void {
+  /**
+   * A film's page was opened: the film is warmed up, and any other one let go of. Its preload is
+   * started only where the media do not go over WebRTC, as isOverWebrtc says once the decision is
+   * in: there the service worker builds each chunk's answer from the page's transport and the
+   * browser's HTTP cache keeps none, so the Play page loaded every chunk of the preload again, ~10 s
+   * of film twice over the same link while the person waited (D260 §3's revision of 2026-10-28; the
+   * efficiency audit's finding 1). The decision is taken all the same, so the server's chunks start.
+   */
+  warmUp(
+    fileId: number,
+    playableFormats: PlayableFormats,
+    isOverWebrtc: () => boolean = () => false,
+  ): void {
     if (this.fileId === fileId && this.warm !== undefined) {
       return;
     }
@@ -170,7 +181,12 @@ export class Watching {
     decision.then(
       (decided) => {
         // Not once the Play page took it, or another film was chosen.
-        if (this.warm === warm && decided.onLadder !== undefined && !startsOnFilmsPicture()) {
+        if (
+          this.warm === warm &&
+          decided.onLadder !== undefined &&
+          !startsOnFilmsPicture() &&
+          !isOverWebrtc()
+        ) {
           warm.preload = this.startPreload(decided.onLadder, decided.resumePositionMs);
         }
       },
