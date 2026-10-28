@@ -36,13 +36,12 @@ function homeCrumb(context: LibraryContext): Crumb {
 }
 
 /**
- * Where a Play page sits (D367 §2): an episode's playing under its series, at its season, under the
- * library; a film's under the film's page, and an extra's under its film's (the owner, 2026-10-27:
- * "Would it be better to go back to the non-fullscreen page?"); an other video's under its library's
- * list; home where the server does not say what it plays, or names no library of the person's over an
- * other video's file (D363 §6). What plays names its own page, an episode's, an extra's or a video's,
- * where the trail's last part links to (the owner, 2026-10-28: "The last part of the trail should
- * also be selectable to get back to the info page"); a film's page is already its parent.
+ * Where a Play page sits (D367 §2): under the info page of what plays, as one goes through it to play
+ * (the owner, 2026-10-28: "it always leaves a trail that goes back to the info page before going any
+ * further back"): an episode's under its own page, at its season of its series, under the library; a
+ * film's under the film's page, and an extra's under its own page, under its film's; an other
+ * video's under its own page, under its library's list; home where the server does not say what it
+ * plays, or names no library of the person's over an other video's file (D363 §6).
  */
 export function playUpward(
   plays: Plays,
@@ -57,28 +56,23 @@ export function playUpward(
     plays.libraryId === undefined
       ? undefined
       : [{ id: plays.libraryId, name: plays.libraryName ?? context.t("browse.library") }];
-  // What plays, its info page, which the trail's last part links to (the owner, 2026-10-28).
-  const herePage = titleCrumb(plays.titleId, name);
+  const here = context.t("trail.playing");
   if (plays.episode !== undefined) {
-    const here = episodeHere(context.t, plays.episode, name);
-    return { crumbs: episodeCrumbs(plays.episode, libraries, context), here, herePage };
+    const episode = titleCrumb(plays.titleId, episodeHere(context.t, plays.episode, name));
+    return { crumbs: [...episodeCrumbs(plays.episode, libraries, context), episode], here };
   }
+  const page = titleCrumb(plays.titleId, name);
   if (plays.kind === "other") {
-    return {
-      crumbs: [
-        libraries === undefined ? homeCrumb(context) : libraryCrumb("other", libraries, context),
-      ],
-      here: name,
-      herePage,
-    };
+    const list =
+      libraries === undefined ? homeCrumb(context) : libraryCrumb("other", libraries, context);
+    return { crumbs: [list, page], here };
   }
   const library = libraryCrumb("movie", libraries, context);
   const film = plays.filmOfExtra;
   if (film !== undefined) {
-    return { crumbs: [library, titleCrumb(film.id, film.name)], here: name, herePage };
+    return { crumbs: [library, titleCrumb(film.id, film.name), page], here };
   }
-  // The film's own page is its parent, under its own name; playing it is the step below.
-  return { crumbs: [library, titleCrumb(plays.titleId, name)], here: context.t("trail.playing") };
+  return { crumbs: [library, page], here };
 }
 
 /** The Play page's place, the same object while what it plays and the history behind it are. */
@@ -164,7 +158,7 @@ function UpByTheRemote(props: { readonly up: Route }): null {
 }
 
 /**
- * A television's player overlay's way out (D367 §6, §8): Up, "‹ Copper Kettle", and an on-screen Back,
+ * A television's player overlay's way out (D367 §6, §8): Up, "‹ S1E1 Pilot", and an on-screen Back,
  * since TV Bro's remote Back never reaches the page and the app cannot tell it from Silk; nothing on
  * a cast's receiver.
  */

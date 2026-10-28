@@ -56,6 +56,22 @@ function seriesUpward(navigation: Navigation): Upward {
   };
 }
 
+/** S2E3's own page's place: under its series at its season. */
+function episodePageUpward(navigation: Navigation): Upward {
+  const episode: TitleDetail = {
+    id: 23,
+    kind: "episode",
+    name: "Doing the Right-Back Thing",
+    identificationState: "identified",
+    art: {},
+    versions: [],
+    extras: [],
+    libraries: [shows],
+    episode: { seriesId: 5, seriesName: "Copper Kettle", seasonNumber: 2, episodeNumber: 3 },
+  };
+  return titleUpward(episode, { t: i18n.t, behind: navigation.behind() });
+}
+
 /** Presses Up on a page whose place is upward, as its trail's parent does. */
 function up(navigation: Navigation, upward: (navigation: Navigation) => Upward): void {
   const parent = parentOf(upward(navigation));
@@ -88,12 +104,16 @@ function walked(...routes: Route[]): { place: FakePlace; navigation: Navigation 
 }
 
 describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)", () => {
-  it("§3.3: Up from the player climbs back to each parent behind, and Back then leaves, never down", () => {
+  it("§3.3: Up from the player climbs back to each parent behind, its info page first, and Back then leaves, never down", () => {
     const { place, navigation } = walked(showsList, series);
     navigation.replace(seasonTwo); // a season is a view of the series (§9)
     navigation.go(episodePage);
     navigation.go(playing);
     up(navigation, playingUpward(playsEpisode));
+    expect(historyOf(place, navigation)).toBe(
+      "/ /browse?library=7 /series/5?season=2 [/titles/23]",
+    );
+    up(navigation, episodePageUpward);
     expect(historyOf(place, navigation)).toBe("/ /browse?library=7 [/series/5?season=2]");
     up(navigation, seriesUpward);
     expect(historyOf(place, navigation)).toBe("/ [/browse?library=7]");
@@ -101,28 +121,34 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     expect(routeHref(navigation.route())).toBe("/");
   });
 
-  it("§3.4: Continue Watching → play: Back is Home; Up is the series in its place, and Back then Home", () => {
+  it("§3.4: Continue Watching → play: Back is Home; Up is the episode's page in its place, and Back then Home", () => {
     const { place, navigation } = walked(playing);
     up(navigation, playingUpward(playsEpisode));
-    expect(historyOf(place, navigation)).toBe("/ [/series/5?season=2]");
+    expect(historyOf(place, navigation)).toBe("/ [/titles/23]");
     expect(place.addresses).toHaveLength(2);
     navigation.back();
     expect(navigation.route()).toEqual(home);
   });
 
-  it("§3.5: a search's result played: Up goes back to the series behind, Back then to the results", () => {
+  it("§3.5: a search's result played: Up goes to its page, then back to the series behind, Back then to the results", () => {
     const results: Route = { screen: "browse", library: 7, query: "lasso" };
     const { place, navigation } = walked(results, series, playing);
     up(navigation, playingUpward(playsEpisode));
+    expect(historyOf(place, navigation)).toBe(
+      "/ /browse?library=7&query=lasso /series/5 [/titles/23]",
+    );
+    up(navigation, episodePageUpward);
     expect(historyOf(place, navigation)).toBe("/ /browse?library=7&query=lasso [/series/5]");
     navigation.back();
     expect(navigation.route()).toEqual(results);
   });
 
-  it("§3.7: a binge into season 2, Up next replacing the player: Up is the series behind, Back Home", () => {
+  it("§3.7: a binge into season 2, Up next replacing the player: Up is its page, then the series behind, Back Home", () => {
     const { place, navigation } = walked({ ...series, season: 1 }, { screen: "play", fileId: 29 });
     navigation.replace(playing); // Up next plays S2E1 in the player's place
     up(navigation, playingUpward(playsEpisode));
+    expect(historyOf(place, navigation)).toBe("/ /series/5?season=1 [/titles/23]");
+    up(navigation, episodePageUpward);
     expect(historyOf(place, navigation)).toBe("/ [/series/5?season=1]");
     navigation.back();
     expect(navigation.route()).toEqual(home);
@@ -132,6 +158,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     const place = fakePlace("/play/30");
     const navigation = createNavigation(place, false);
     up(navigation, playingUpward(playsEpisode));
+    up(navigation, episodePageUpward);
     up(navigation, seriesUpward);
     expect(place.addresses).toEqual(["/browse?library=7"]);
     expect(navigation.back()).toBe(false);
@@ -142,13 +169,13 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     const navigation = createNavigation(place, true);
     navigation.onBase(() => {
       // As the input layer does: the page shown's parent (input-layer.tsx's backUpRef).
-      const parent = parentOf(seriesUpward(navigation));
+      const parent = parentOf(episodePageUpward(navigation));
       navigation.replace(parent?.to ?? home);
     });
     up(navigation, playingUpward(playsEpisode));
-    expect(routeHref(navigation.route())).toBe("/series/5?season=2");
+    expect(routeHref(navigation.route())).toBe("/titles/23");
     navigation.back();
-    expect(routeHref(navigation.route())).toBe("/browse?library=7");
+    expect(routeHref(navigation.route())).toBe("/series/5?season=2");
   });
 
   it("§3.15: an other library's folders: Up climbs them as Back does, each folder behind", () => {
@@ -166,6 +193,18 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
       libraryName: "Shows",
     };
     up(navigation, playingUpward(playsOther));
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 31 });
+    const video: TitleDetail = {
+      id: 31,
+      kind: "other",
+      name: "Holiday 2019",
+      identificationState: "identified",
+      art: {},
+      versions: [],
+      extras: [],
+      libraries: [shows],
+    };
+    up(navigation, () => titleUpward(video, { t: i18n.t, behind: navigation.behind() }));
     expect(navigation.route()).toEqual(folders("A/B"));
     up(navigation, () => folderUpward(shows, "A/B", folders));
     expect(historyOf(place, navigation)).toBe(
@@ -173,7 +212,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     );
   });
 
-  it("§3.17: an extra played goes up to its film behind, past the extra's page; Back then Home", () => {
+  it("§3.17: an extra played goes up to its own page, then its film's, each behind; Back then Home", () => {
     const { place, navigation } = walked(filmPage, { screen: "title", itemId: 14 }, playing);
     const playsExtra: PlaybackDecision["plays"] = {
       titleId: 14,
@@ -182,6 +221,19 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
       filmOfExtra: { id: 10, name: "Metropolis" },
     };
     up(navigation, playingUpward(playsExtra));
+    expect(historyOf(place, navigation)).toBe("/ /titles/10 [/titles/14]");
+    const extra: TitleDetail = {
+      id: 14,
+      kind: "extra",
+      name: "Making Metropolis",
+      identificationState: "identified",
+      art: {},
+      versions: [],
+      extras: [],
+      libraries: [films],
+      filmOfExtra: { id: 10, name: "Metropolis" },
+    };
+    up(navigation, () => titleUpward(extra, { t: i18n.t, behind: navigation.behind() }));
     expect(historyOf(place, navigation)).toBe("/ [/titles/10]");
     navigation.back();
     expect(navigation.route()).toEqual(home);

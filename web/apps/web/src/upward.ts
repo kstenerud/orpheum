@@ -32,12 +32,6 @@ export interface Crumb {
 export interface Upward {
   readonly crumbs: readonly Crumb[];
   readonly here: string;
-  /**
-   * The page of what this one shows, which its name in the trail links to, as its ancestors' do: a
-   * Play page's episode, extra or other video, its info page a press away while it plays (the
-   * owner, 2026-10-28). A film's playing has none, its film's page being its parent.
-   */
-  readonly herePage?: Crumb;
 }
 
 /** The page's parent, the last of its ancestors; undefined for a top page, which has none. */

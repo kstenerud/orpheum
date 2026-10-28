@@ -156,13 +156,16 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
       walking = undefined;
     });
 
-    /** The trail's last part, what plays: a link to its own page. */
+    /** The trail's parent, what plays' own page, the last link before the playing. */
     function whatPlays(): HTMLAnchorElement | null {
-      return document.querySelector<HTMLAnchorElement>('.up-trail [aria-current="page"] a');
+      return (
+        [...document.querySelectorAll<HTMLAnchorElement>(".up-trail__crumbs li a")].at(-1) ?? null
+      );
     }
 
     // The owner, 2026-10-28: "When I play a video, there's no way to go directly back to the info
-    // page. The last part of the trail should also be selectable to get back to the info page."
+    // page", then: "it always leaves a trail that goes back to the info page before going any
+    // further back". The playing is the trail's last part, what plays' page its parent.
     it("shows what plays, nothing drawn over it, and goes to its page in its place", async () => {
       await page.viewport(width, height);
       walking = await mountApp(walkServices(episodeToPlay, "/play/230"));
@@ -170,6 +173,9 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
       const trail = await theTrail();
       await expect.poll(() => isDrawn("video")).toBe(true);
       expect(whatPlays()?.textContent).toBe("S2E3 Low Water");
+      expect(document.querySelector('.up-trail [aria-current="page"]')?.textContent).toBe(
+        "Playing",
+      );
       expect(coveredPointsOf(trail)).toEqual([]);
       whatPlays()?.click();
       await expect
