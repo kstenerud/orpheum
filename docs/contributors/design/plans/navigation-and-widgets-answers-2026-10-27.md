@@ -95,7 +95,7 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 5. **One 10 s step** everywhere.
 6. **The two panels** (asked what they are; the lead: "Audio & subtitles" — the audio track, the subtitle
    track and language — and "Settings" — dialogue boost, levelling, the sound and subtitle offsets — opened
-   from the player's own bar, so a remote reaches them in full screen): awaiting the owner's word.
+   from the player's own bar, so a remote reaches them in full screen): **yes, move them** (the owner).
 7. **Thumbnails while seeking: eventually**, on the wanted-features list; earlier "if it can be pulled out
    as part of the revamped single video file scan".
 8. **Holding Left or Right speeds up by growing steps** (Kodi's), not by rates.
