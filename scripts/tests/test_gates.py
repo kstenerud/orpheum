@@ -252,6 +252,17 @@ class DecisionProofs(unittest.TestCase):
         self.assertEqual(cc.check_decision_proofs(self.files("", number=351)), [])
         self.assertEqual(cc.check_decision_proofs(self.files("", status="Decided 2026-10-27; not built.")), [])
 
+    def test_a_decision_built_in_part_proves_each_built_point(self):
+        """D372 (2026-10-28) named its unbuilt points in its status, and the whole was skipped."""
+        part = "Decided 2026-10-28; §2 not built (the next batch); §1 built 2026-10-28."
+        self.assertEqual(cc.check_decision_proofs(self.files("**Proven by:**\n- 1: TestA_One\n\n", status=part)), [])
+        missing = cc.check_decision_proofs(self.files("", status=part))
+        self.assertEqual([p.message for p in missing], [
+            "D352 is built, but its point 1 cites no test or VQ item under **Proven by:**"])
+        self.assertEqual(cc.unbuilt_points("§9–§10 not built; §1–§8 built"), {"9", "10"})
+        self.assertEqual(cc.unbuilt_points("§3 and §5 are not built, the rest built"), {"3", "5"})
+        self.assertIsNone(cc.unbuilt_points("Decided; not built."))
+
 
 class TestWeakening(unittest.TestCase):
     def test_a_helper_moved_to_another_test_file_takes_its_checks_with_it(self):

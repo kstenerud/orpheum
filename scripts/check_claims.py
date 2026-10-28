@@ -80,6 +80,10 @@ DECISION_SECTION = re.compile(r"^## D(\d+) — .*?(?=^## D\d+ — |\Z)", re.M | 
 DECISION_POINT = re.compile(r"^(\d+)\. \*\*", re.M)
 PROVEN_BY = re.compile(r"^\*\*Proven by:\*\*(.*?)(?=^\*\*[A-Z][\w ]*:\*\*|\Z)", re.M | re.S)
 PROOF_LINE = re.compile(r"^\s*[-*]?\s*(\d+):\s*(.+)$", re.M)
+# The points a status names as not built yet, e.g. "§9–§10 not built" or "§3 and §5 not built": a decision
+# built in part proves every other point (D372, 2026-10-28, was half built and so skipped whole).
+UNBUILT_POINTS = re.compile(r"((?:§\d+(?:\s*[–-]\s*§?\d+)?(?:,\s*|\s+and\s+)?)+)\s+(?:are\s+|is\s+)?not built")
+POINT_RANGE = re.compile(r"§(\d+)(?:\s*[–-]\s*§?(\d+))?")
 TS_TEST_FILE = re.compile(r"[\w./-]+\.(?:test|spec)\.tsx?\b")
 VQ_ITEM = re.compile(r"\bVQ(\d+)\b")
 
@@ -247,6 +251,18 @@ def read_text_files(root: Path, paths: list[str]) -> dict[str, str]:
     return files
 
 
+def unbuilt_points(status: str) -> set[str] | None:
+    """The points a status line names as not built; None when it says the decision is not built at all."""
+    named = UNBUILT_POINTS.findall(status)
+    if "not built" in status and not named:
+        return None
+    unbuilt: set[str] = set()
+    for points in named:
+        for first, last in POINT_RANGE.findall(points):
+            unbuilt.update(str(n) for n in range(int(first), int(last or first) + 1))
+    return unbuilt
+
+
 def check_decision_proofs(files: dict[str, str]) -> list[Problem]:
     """A decision from FIRST_PROVEN_DECISION on whose status says built has a **Proven by:** block naming,
     for each of its numbered points, a Go test, a TypeScript test file or a VQ item, each of which exists."""
@@ -256,9 +272,12 @@ def check_decision_proofs(files: dict[str, str]) -> list[Problem]:
     for section in DECISION_SECTION.finditer(files.get(LIVE_LOG, "")):
         number, text = int(section.group(1)), section.group(0)
         status = re.search(r"^\*\*Status:\*\*(.*)$", text, re.M)
-        if number < FIRST_PROVEN_DECISION or status is None or "built" not in status.group(1) or "not built" in status.group(1):
+        if number < FIRST_PROVEN_DECISION or status is None or "built" not in status.group(1):
             continue
-        points = set(DECISION_POINT.findall(text))
+        unbuilt = unbuilt_points(status.group(1))
+        if unbuilt is None:
+            continue
+        points = set(DECISION_POINT.findall(text)) - unbuilt
         proven = PROVEN_BY.search(text)
         cited = {} if proven is None else {point: proof for point, proof in PROOF_LINE.findall(proven.group(1))}
         for point in sorted(points, key=int):
