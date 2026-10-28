@@ -13,12 +13,12 @@ import "./base.css";
 import "./i18n.ts";
 
 import { describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
 import { PosterGrid, type Entry } from "./browse.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { testServices, withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
 
 /** Where element is drawn; it fails the test when there is none. */
@@ -144,7 +144,7 @@ describe("the shell, laid out by a real browser", () => {
           // The tray's signs and the menu's icon a quarter closer than a fingertip square apart.
           const signs = [
             ...container.querySelectorAll(
-              ".app-shell__end .status-tray__button, .app-shell__end summary",
+              ".app-shell__end .status-tray__button, .app-shell__end .app-shell__menu-button",
             ),
           ];
           expect(signs.length).toBeGreaterThanOrEqual(3);
@@ -298,16 +298,19 @@ describe("the shell, laid out by a real browser", () => {
       await expect
         .poll(() => document.documentElement.style.getPropertyValue("--banner-height"))
         .not.toBe("");
-      const menu = container.querySelector("details");
+      await userEvent.click(page.getByRole("button", { name: "Menu" }));
+      const menu = container.querySelector("dialog");
       if (menu === null) {
-        throw new Error("the shell draws no menu");
+        throw new Error("the shell's menu does not open");
       }
-      menu.open = true;
       // Laid out open before a place is focused: Firefox scrolls a focused place into view in the
       // layout it has, which the opening has not reached yet in the same task.
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
       expect(places.at(-1)?.textContent).toBe("Sign out");
+      // Its Close after its places, in sight as they are.
+      places.push(...menu.querySelectorAll<HTMLElement>(".drop-down__close"));
+      expect(places.at(-1)?.textContent).toBe("Close");
       for (const place of places) {
         place.focus();
         const box = boxOf(place);
@@ -315,5 +318,52 @@ describe("the shell, laid out by a real browser", () => {
         expect(box.bottom, place.textContent).toBeLessThanOrEqual(window.innerHeight);
       }
     });
+  });
+
+  // The owner, 2026-10-28: "the drop-down menu should be modal".
+  it("takes a press outside the open menu itself, closing it and pressing nothing under it", async () => {
+    await page.viewport(960, 480);
+    const services = testServices("token", "/films");
+    const mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="films"
+          onSignOut={() => undefined}
+          signedInAs={{ name: "owner", deviceName: undefined }}
+        >
+          <p>screen</p>
+        </AppShell>,
+        services,
+      ),
+    );
+    try {
+      await userEvent.click(page.getByRole("button", { name: "Menu" }));
+      const series = boxOf(
+        mounted.container.querySelector('.app-shell__watching a[href="/series"]'),
+      );
+      const dialog = mounted.container.querySelector("dialog");
+      // What a press at the Series link's place reaches is the menu's backdrop, its own dialog.
+      const pressed = document.elementFromPoint(
+        series.left + series.width / 2,
+        series.top + series.height / 2,
+      );
+      expect(pressed).toBe(dialog);
+      if (pressed instanceof HTMLElement) {
+        pressed.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            clientX: series.left + series.width / 2,
+            clientY: series.top + series.height / 2,
+          }),
+        );
+      }
+      await expect.poll(() => mounted.container.querySelector("dialog")).toBeNull();
+      expect(services.navigation.route()).toEqual({ screen: "films" });
+    } finally {
+      mounted.unmount();
+      await page.viewport(1280, 720);
+    }
   });
 });

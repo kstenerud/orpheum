@@ -2,9 +2,10 @@
 
 import "./modal-dialog.css";
 
-import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import { use, useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 
 import { useCommands } from "./input-layer.tsx";
+import { ServicesContext } from "./services.tsx";
 
 /** Whether a press at event's point falls outside dialog's own box, on its backdrop. */
 function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
@@ -55,6 +56,24 @@ function useBackCloses(
   });
 }
 
+/**
+ * Closes the dialog on the browser's own Back, told to onClose: an entry held over the page's
+ * (navigation.ts's holdBack) while it is open, which Back takes first, and which the dialog closed
+ * another way takes away again. A Fire TV's remote Back in Silk is that step, never a key (the owner,
+ * 2026-10-28: "I can only exit without choosing by pressing the back button, which actually brings me
+ * back a page"). Where no services run, as a test of the dialog alone, there is no history to hold.
+ */
+function useHistoryBackCloses(toldRef: RefObject<{ readonly onClose: () => void }>): void {
+  const navigation = use(ServicesContext)?.navigation;
+  useEffect(
+    () =>
+      navigation?.holdBack(() => {
+        toldRef.current.onClose();
+      }),
+    [navigation, toldRef],
+  );
+}
+
 /** A field a person types in: not a checkbox, a radio or a button. */
 const firstFieldSelector =
   'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea';
@@ -64,7 +83,8 @@ const firstFieldSelector =
  * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
  * press, with focus held inside it until it closes, the arrows moving among its own controls alone
  * (focus-navigation.ts), and given back to what had it before once it closes. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
- * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx).
+ * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx), and the
+ * browser's own Back, which takes an entry held in the history while it is open (D367 §10).
  */
 export function ModalDialog(props: {
   /** Its name for a screen reader: its heading, or its message where it has none. */
@@ -131,6 +151,7 @@ export function ModalDialog(props: {
     };
   }, []);
   useBackCloses(ref, toldRef);
+  useHistoryBackCloses(toldRef);
   const classes = ["modal-dialog", props.className].filter(Boolean).join(" ");
   return (
     <dialog ref={ref} className={classes} role={props.role} aria-label={props.label}>

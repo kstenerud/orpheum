@@ -755,7 +755,10 @@ User-Agent (D263; the User-Agent is logged only).
   on. Changing the mode reloads the page, so a page's state does not survive the change.
 - **The remote's other keys, in spatial mode:** OK arrives as `Enter` with `code` `NumpadEnter`
   (keyCode 13). Back is never a key: each press steps the page's history once, in either
-  navigation mode, which a page catches as `popstate`. Play/pause arrives as `MediaPlayPause` (keyCode 179). No Media Session
+  navigation mode, which a page catches as `popstate`; so a dialog or a chooser's list open over a
+  page holds an entry of the same address while it is open, which Back steps off, closing it
+  (`navigation.ts`'s `holdBack`, D367 §10; the owner, 2026-10-28: Back had left the page with the
+  list). Play/pause arrives as `MediaPlayPause` (keyCode 179). No Media Session
   action fired for any key, the page playing sound. Rewind, fast forward and the volume keys do
   not reach the page at all: a run pressing each once in turn logged nothing for them
   (`6NUMRA2E`). A page on Silk can give play/pause its own meaning; seeking from the remote must be

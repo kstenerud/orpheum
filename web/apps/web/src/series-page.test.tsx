@@ -9,6 +9,7 @@
 
 import "./i18n.ts";
 
+import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { episodeReachedOf, noteEpisodeReached } from "./episode-reached.ts";
@@ -66,7 +67,15 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
       link.textContent.startsWith("Season 2"),
     );
     await click(seasonTwo);
-    expect(place.addresses).toEqual(["/series", "/series/6?season=2"]);
+    // Ahead of it, as a browser keeps an entry Back left, the entry the picker's list held while it
+    // was open, so the browser's own Back closed it (Silk's, the owner, 2026-10-28); Forward onto it
+    // steps straight back off it, the season chosen staying.
+    expect(place.addresses).toEqual(["/series", "/series/6?season=2", "/series/6"]);
+    expect(navigation.behind()).toEqual([{ screen: "series" }]);
+    act(() => {
+      place.history.go(1);
+    });
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 6, season: 2 });
     expect(navigation.behind()).toEqual([{ screen: "series" }]);
   });
 

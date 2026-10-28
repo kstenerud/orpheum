@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createNavigation } from "./navigation.ts";
-import type { Route } from "./router.ts";
-import { fakePlace, testOrigin } from "./test-services.tsx";
+import { createNavigation, type Place } from "./navigation.ts";
+import { routeHref, type Route } from "./router.ts";
+import { fakePlace, testOrigin, type FakePlace } from "./test-services.tsx";
 
 describe("navigation's Up (D367 §7)", () => {
   const isSeries = (route: Route): boolean =>
@@ -154,5 +154,164 @@ describe("a base under a page a television opened on (the owner's Fire TV, 2026-
     const home = fakePlace("/");
     createNavigation(home, true);
     expect(home.addresses).toEqual(["/"]);
+  });
+});
+
+/**
+ * A place whose history steps come later, as a browser's do: each back or go waits for settle, and
+ * its popstate with it.
+ */
+function steppingLater(place: FakePlace): { readonly place: Place; readonly settle: () => void } {
+  const queued: (() => void)[] = [];
+  return {
+    place: {
+      location: place.location,
+      history: {
+        get state() {
+          return place.history.state;
+        },
+        back: () => {
+          queued.push(() => {
+            place.history.back();
+          });
+        },
+        go: (delta) => {
+          queued.push(() => {
+            place.history.go(delta);
+          });
+        },
+        pushState: (data, unused, url) => {
+          place.history.pushState(data, unused, url);
+        },
+        replaceState: (data, unused, url) => {
+          place.history.replaceState(data, unused, url);
+        },
+      },
+      addEventListener: (type, listener) => {
+        place.addEventListener(type, listener);
+      },
+    },
+    settle: () => {
+      for (let step = queued.shift(); step !== undefined; step = queued.shift()) {
+        step();
+      }
+    },
+  };
+}
+
+// The owner's Fire TV, 2026-10-28: Silk's remote Back is the history's, never a key, so a list open
+// over the page closed only by leaving the page.
+describe("an entry held over the page while something is open over it", () => {
+  const isSeries = (route: Route): boolean =>
+    route.screen === "series-page" && route.collectionId === 5;
+
+  it("is the same address, which the browser's Back steps off, telling the hold, the page staying", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "films" });
+    let closed = 0;
+    navigation.holdBack(() => {
+      closed += 1;
+    });
+    expect(place.addresses).toEqual(["/", "/films", "/films"]);
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+    place.history.back();
+    expect(closed).toBe(1);
+    expect(navigation.route()).toEqual({ screen: "films" });
+    place.history.back();
+    expect(closed).toBe(1);
+    expect(navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("is taken away again when released, the page not moving, and stepped straight back off by Forward", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "films" });
+    const heard: string[] = [];
+    navigation.subscribe(() => heard.push(routeHref(navigation.route())));
+    let closed = 0;
+    const release = navigation.holdBack(() => {
+      closed += 1;
+    });
+    release();
+    expect(closed).toBe(0);
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(navigation.back()).toBe(true);
+    expect(navigation.route()).toEqual({ screen: "home" });
+    place.history.go(1);
+    expect(navigation.route()).toEqual({ screen: "films" });
+    place.history.go(1);
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(heard.every((href) => href === "/films" || href === "/")).toBe(true);
+  });
+
+  it("is stepped off by the page's own Back first, as a remote's Back key goes", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "films" });
+    let closed = 0;
+    navigation.holdBack(() => {
+      closed += 1;
+    });
+    expect(navigation.back()).toBe(true);
+    expect(closed).toBe(1);
+    expect(navigation.route()).toEqual({ screen: "films" });
+  });
+
+  it("is gone before a go, whose entry is then the only one added, where the browser's steps come later", () => {
+    const later = steppingLater(fakePlace("/"));
+    const navigation = createNavigation(later.place, false);
+    navigation.go({ screen: "series-page", collectionId: 5 });
+    navigation.holdBack(() => undefined);
+    navigation.go({ screen: "title", itemId: 12 });
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 5 });
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 12 });
+    expect(navigation.behind()).toEqual([
+      { screen: "home" },
+      { screen: "series-page", collectionId: 5 },
+    ]);
+    navigation.back();
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 5 });
+  });
+
+  it("is gone before a replace, which then puts the view in the page's own place", () => {
+    const later = steppingLater(fakePlace("/"));
+    const navigation = createNavigation(later.place, false);
+    navigation.go({ screen: "series-page", collectionId: 5 });
+    navigation.holdBack(() => undefined);
+    navigation.replace({ screen: "series-page", collectionId: 5, season: 2 });
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 5, season: 2 });
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+    navigation.back();
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("is never a page Up finds behind (D367 §7)", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "series-page", collectionId: 5 });
+    navigation.go({ screen: "title", itemId: 12 });
+    navigation.holdBack(() => undefined);
+    expect(navigation.behind()).toEqual([
+      { screen: "home" },
+      { screen: "series-page", collectionId: 5 },
+    ]);
+    navigation.up({ screen: "series-page", collectionId: 5 }, isSeries);
+    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 5 });
+    expect(navigation.behind()).toEqual([{ screen: "home" }]);
+  });
+
+  it("is stepped off when the page is opened again on it, as by a reload with a list open", () => {
+    const place = fakePlace("/");
+    createNavigation(place, false).go({ screen: "films" });
+    createNavigation(place, false).holdBack(() => undefined);
+    const reloaded = createNavigation(place, false);
+    expect(reloaded.route()).toEqual({ screen: "films" });
+    expect(reloaded.back()).toBe(true);
+    expect(reloaded.route()).toEqual({ screen: "home" });
   });
 });

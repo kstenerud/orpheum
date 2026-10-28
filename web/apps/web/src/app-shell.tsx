@@ -6,8 +6,8 @@ import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "rea
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
+import { DropDown } from "./drop-down.tsx";
 import { Icon } from "./icon.tsx";
-import { useCommands } from "./input-layer.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
@@ -402,7 +402,10 @@ function Place(props: {
 }
 
 /**
- * The one menu, behind its icon: who is signed in where, the places it is given, and Sign out.
+ * The one menu, behind its icon: who is signed in where, the places it is given, and Sign out. It is
+ * the chooser's drop-down (drop-down.tsx) with no chevron, its icon marked as where one is while the
+ * current screen is one of its places (the owner, 2026-10-28: "the menu should share code with it,
+ * the only real difference being that there's no extra visual indicator that it's a dropdown").
  */
 function MainMenu(props: {
   readonly signedInAs:
@@ -415,9 +418,37 @@ function MainMenu(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
+  const label = t("nav.menu");
+  return (
+    <div
+      className={props.isCurrent ? "app-shell__menu app-shell__menu--current" : "app-shell__menu"}
+    >
+      <DropDown
+        label={label}
+        opener={<MenuIcon />}
+        openerClassName="app-shell__menu-button"
+        openerNaming={{ "aria-label": label, title: label }}
+        listClassName="app-shell__menu-list"
+      >
+        <MenuPlaces
+          signedInAs={props.signedInAs}
+          realm={props.realm}
+          onSignOut={props.onSignOut}
+          onSwitchHousehold={props.onSwitchHousehold}
+        >
+          {props.children}
+        </MenuPlaces>
+      </DropDown>
+    </div>
+  );
+}
+
+/** What the menu holds, in order: who is signed in where, its places, and Sign out last. */
+function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): JSX.Element {
+  const { t } = useTranslation();
   const { signedInAs, realm } = props;
   return (
-    <BannerMenu label={t("nav.menu")} isCurrent={props.isCurrent}>
+    <>
       {signedInAs === undefined ? null : (
         <li className="app-shell__who">
           {signedInAs.deviceName === undefined
@@ -441,99 +472,6 @@ function MainMenu(props: {
           {t("nav.signOut")}
         </button>
       </li>
-    </BannerMenu>
-  );
-}
-
-/**
- * Whether event closes the open menu: a press outside it, a click on one of its places, or focus
- * moving to something outside it. A press on its own name is the menu's to toggle.
- */
-function closesMenu(event: Event, menu: HTMLDetailsElement): boolean {
-  const target = event.target instanceof Element ? event.target : null;
-  const isInside = target !== null && menu.contains(target);
-  if (event instanceof FocusEvent) {
-    return event.relatedTarget instanceof Element && !menu.contains(event.relatedTarget);
-  }
-  if (event.type === "pointerdown") {
-    return !isInside;
-  }
-  return isInside && target.closest("a") !== null;
-}
-
-/**
- * A menu in the banner: its icon, which opens a list below it. It is the page's own disclosure,
- * so it works without script and by keyboard; it closes when one of its places is chosen, when
- * the person presses or taps outside it or moves focus out of it, and on Back, Escape's included,
- * which it hears before anything else does (input-layer.tsx), its icon keeping focus.
- */
-/**
- * Brings a focused place of the menu wholly into the menu's view, where the menu scrolls within
- * itself: Firefox left a place partly below its end in view (the browser test, 2026-10-28), which a
- * remote's focus could then not show whole.
- */
-function showFocusedPlace(event: Event, menu: HTMLDetailsElement): void {
-  if (
-    event.target instanceof HTMLElement &&
-    menu.querySelector("ul")?.contains(event.target) === true
-  ) {
-    event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }
-}
-
-function BannerMenu(props: {
-  /** Its name, for a screen reader and a pointer's hover: the eye sees the menu icon. */
-  readonly label: string;
-  /** Whether the current screen is one of its places: its icon is then marked as where one is. */
-  readonly isCurrent: boolean;
-  readonly children: ReactNode;
-}): JSX.Element {
-  const ref = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const close = (event: Event): void => {
-      const menu = ref.current;
-      if (menu?.open === true && closesMenu(event, menu)) {
-        menu.open = false;
-      }
-    };
-    const show = (event: Event): void => {
-      if (ref.current !== null) {
-        showFocusedPlace(event, ref.current);
-      }
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("click", close);
-    document.addEventListener("focusout", close);
-    document.addEventListener("focusin", show);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("click", close);
-      document.removeEventListener("focusout", close);
-      document.removeEventListener("focusin", show);
-    };
-  }, []);
-  useCommands(
-    "document",
-    (detail, event) => {
-      const menu = ref.current;
-      if (detail.command === "back" && menu?.open === true) {
-        event.preventDefault();
-        menu.open = false;
-        menu.querySelector("summary")?.focus();
-      }
-    },
-    { isCapture: true },
-  );
-  const classes = ["app-shell__menu"];
-  if (props.isCurrent) {
-    classes.push("app-shell__menu--current");
-  }
-  return (
-    <details ref={ref} className={classes.join(" ")} data-focus-container="">
-      <summary aria-label={props.label} title={props.label}>
-        <MenuIcon />
-      </summary>
-      <ul>{props.children}</ul>
-    </details>
+    </>
   );
 }

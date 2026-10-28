@@ -261,10 +261,21 @@ The web client: the browser and phone interface, served embedded by the core. MP
   default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
   own, with a trail back out (D367); the library, the view and the sort are each a focusable
-  drop-down (`src/route-chooser.tsx`, over `modal-dialog.tsx`), since a native `<select>` is
+  drop-down (`src/route-chooser.tsx`, over `drop-down.tsx`), since a native `<select>` is
   unreliable on a television's browser, its button marked by a down chevron as opening a list.
   `src/library-browse.test.tsx`, `src/route-chooser.test.tsx`,
   `src/library-browse.browser.test.tsx`; on devices, VQ72.
+- **A chooser and the banner's menu are one drop-down** (`src/drop-down.tsx`, the owner, 2026-10-28):
+  a button, the chooser's with its chevron and the menu's its icon alone, that opens a modal list
+  (`modal-dialog.tsx`) of places and its own Close after them; a press outside it closes it and
+  presses nothing under it; it closes on a place pressed, Escape, Back of either kind, Left or
+  Right, focus back on its button. **Every modal dialog closes on the browser's own Back** (D367
+  §10), a Fire TV's remote Back in Silk being a step of the history: an entry held over the page's
+  while it is open (`navigation.ts`'s `holdBack`), which a close another way takes away and a choice
+  that moves the page takes away first, so the history is as it would be with nothing open.
+  `src/navigation.test.ts`, `src/route-chooser.test.tsx`, `src/app-shell.test.tsx`,
+  `src/series-page.test.tsx`, `src/input-pages.browser.test.tsx`,
+  `src/app-shell.browser.test.tsx`; on devices, VQ97.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
@@ -310,7 +321,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   command is offered first at what has focus, so an open menu or dialog answers Back before
   anything else; one no one answers moves real DOM focus by the geometric engine
   (`src/focus-navigation.ts`, `src/focus-engine.ts`), searching the marked container around focus
-  before the page (`data-focus-container`: the banner, its menu, a row or grid, the player), presses
+  before the page (`data-focus-container`: the banner, a row or grid, the player, within an open dialog alone), presses
   what has focus (a list's choices opened by a key, stepped through by a controller's OK, which
   cannot work a browser's own list), or goes back as the page's own Back does
   (`src/back-button.tsx`). An arrow inside a
@@ -382,7 +393,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
-  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

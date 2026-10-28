@@ -116,6 +116,8 @@ describe("the device lab", () => {
   it("is reached by Device tests in the menu, and its pages say the tests are off while the server has them off (the owner, 2026-10-25)", async () => {
     const on = await mountedAt("/lab", true);
     expect(on.container.querySelector("#lab-heading")?.textContent).toBe("Device lab");
+    // The menu's places are drawn while it is open (drop-down.tsx).
+    await click(on.container.querySelector(".app-shell__menu-button"));
     expect(on.container.querySelector('.app-shell__menu a[href="/lab"]')?.textContent).toBe(
       "Device tests",
     );
@@ -126,6 +128,8 @@ describe("the device lab", () => {
       expect(off.container.querySelector("main")?.textContent).toContain(
         "Device tests are turned off on this server.",
       );
+      await click(off.container.querySelector(".app-shell__menu-button"));
+      expect(off.container.querySelector("dialog")).not.toBeNull();
       expect(off.container.querySelector('a[href="/lab"]')).toBeNull();
       expect(off.container.querySelector('a[href="/lab/device"]')).toBeNull();
       expect(off.container.querySelector("#lab-device-heading, #lab-cast-heading")).toBeNull();
