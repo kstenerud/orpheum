@@ -107,3 +107,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 - **Next batch:** "when playing back via remote control: The controller side should get information
   about playback, such as the transcoding and bandwidth choices" (the receiver's decision, quality and
   link, shown on the controlling device).
+- **Next batch (a bug, found 2026-10-28):** a series with no name or year on staging (series 2405,
+  "Some Fathers Do Mind 'Em"): its folder, `Some.Fathers.Do.Mind.Em.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(...)`,
+  is taken for a specials folder (`identify.isBonusFolder` matches "Christmas Specials" anywhere in the
+  name), so `seriesFromFolders` passes over it and names the series "", and TMDB finds no match for an
+  empty name. Fix: a bonus folder is one whose whole name is specials or extras, and a series' name
+  never comes out empty while a folder above it has one.
