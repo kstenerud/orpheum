@@ -23,8 +23,16 @@
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
      for nas.example. Connect packaged for prod: /yoloai/files/connect-production-0a3fcd5-2336a94f.run (VQ84, VQ87).
      Owner to choose (D368's status): loudness when stepping down from the copied sound. Runs overnight.
-   - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
-     words, the warning sign's page, the uncertain match: queued, not this batch).
+   - Folded in 2026-10-28 (owner, serious): the Fire TV cast fixes, the phone banner (icons, one row),
+     the chooser/menu as one modal drop-down (Back, Left/Right close it; a fixed × top-right), the refused
+     key → sign-in (needs connect re-pin + repackage for prod), D250 §2 amended. **D371 (owner approved
+     2026-10-28): a session's leader plays as a device alone, everyone catches up, a cast takes its
+     sender's part — being built by an agent; replaces the casting band-aids.** Owner VQs owed: 84 passed;
+     85–100 open. VQ84's connect package is on prod-api (owner, 2026-10-28).
+   - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
+     (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
+     player's controls, the nameless-series parser, the Libraries icon as a menu, invitation links shown
+     again with a 7-day expiry).
    - End: one check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of inventory-2026-10-27.md (132 items).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
