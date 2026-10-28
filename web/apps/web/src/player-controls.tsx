@@ -3,7 +3,16 @@
 import "./player-controls.css";
 
 import { seekTo } from "@orpheum/player";
-import { useEffect, useState, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { FullScreenButton } from "./full-screen-button.tsx";
@@ -201,11 +210,15 @@ interface Standing {
 }
 
 /**
- * The video in videoRef as a bar's source: where it stands, read at its own events, play or pause
- * and seeks made on it, and its sound.
+ * The video in videoRef as a bar's source: where it stands, read at its own events, and at each
+ * timeupdate only while the bar shows (isHidden false), play or pause and seeks made on it, and its
+ * sound.
  */
-export function useVideoSource(videoRef: RefObject<HTMLVideoElement | null>): PlayerSource {
-  const stand = useStanding(videoRef);
+export function useVideoSource(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  isHidden = false,
+): PlayerSource {
+  const stand = useStanding(videoRef, isHidden);
   const sound = useVideoSound(videoRef);
   return {
     ...stand,
@@ -226,33 +239,51 @@ export function useVideoSource(videoRef: RefObject<HTMLVideoElement | null>): Pl
   };
 }
 
-/** Where the film stands, its length, and whether it is paused, as the video says them. */
-function useStanding(videoRef: RefObject<HTMLVideoElement | null>): Standing {
-  const [stand, setStand] = useState<Standing>({ atMs: 0, durationMs: 0, isPaused: true });
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) {
-      return undefined;
-    }
-    const heard = (): void => {
-      setStand({
-        atMs: video.currentTime * 1000,
-        durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
-        isPaused: video.paused,
-      });
-    };
-    // Read at the video's own events, the first as soon as it knows its length.
-    const events = ["loadedmetadata", "timeupdate", "durationchange", "play", "pause", "seeked"];
-    for (const each of events) {
-      video.addEventListener(each, heard);
-    }
-    return () => {
-      for (const each of events) {
-        video.removeEventListener(each, heard);
+/**
+ * The video's events at which a bar reads where the film stands, hidden or shown: the first as soon
+ * as it knows its length.
+ */
+const standingEvents = ["loadedmetadata", "durationchange", "play", "pause", "seeked"];
+
+/**
+ * Where the film stands, its length, and whether it is paused, as the video says them: read at its
+ * own events, and at each timeupdate, four a second, only while the bar shows (not isHidden). A bar
+ * hidden over a playing film rendered again at every timeupdate for the film's length, 1 ms each on a
+ * Fire TV (the efficiency audit's finding 7); shown again, it reads where the film stands at once.
+ */
+function useStanding(videoRef: RefObject<HTMLVideoElement | null>, isHidden: boolean): Standing {
+  const standRef = useRef<Standing>({ atMs: 0, durationMs: 0, isPaused: true });
+  const subscribe = useCallback(
+    (changed: () => void) => {
+      const video = videoRef.current;
+      if (video === null) {
+        return () => undefined;
       }
-    };
-  }, [videoRef]);
-  return stand;
+      const heard = (): void => {
+        standRef.current = {
+          atMs: video.currentTime * 1000,
+          durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
+          isPaused: video.paused,
+        };
+        changed();
+      };
+      const events = isHidden ? standingEvents : [...standingEvents, "timeupdate"];
+      for (const each of events) {
+        video.addEventListener(each, heard);
+      }
+      if (!isHidden) {
+        heard();
+      }
+      return () => {
+        for (const each of events) {
+          video.removeEventListener(each, heard);
+        }
+      };
+    },
+    [videoRef, isHidden],
+  );
+  const read = useCallback(() => standRef.current, []);
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 /** The video's sound, read at its volumechange, set on the video itself. */

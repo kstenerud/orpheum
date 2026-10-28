@@ -170,6 +170,56 @@ describe("the overlay as drawn", () => {
     vi.useRealTimers();
   });
 
+  it("reads where the film stands at each timeupdate only while it shows, at once as it opens, with one clock formatter (the efficiency audit, finding 7)", async () => {
+    const formatted = vi.spyOn(Date.prototype, "toLocaleTimeString");
+    const videoRef = createRef<HTMLVideoElement>();
+    const video = document.createElement("video");
+    let atS = 10;
+    Object.defineProperty(video, "currentTime", { get: () => atS });
+    Object.defineProperty(video, "duration", { get: () => 3600 });
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>,
+      ),
+    );
+    const scrub = (): string | null | undefined =>
+      mounted?.container.querySelector('input[type="range"]')?.getAttribute("aria-valuetext");
+    const command = (name: string): void => {
+      act(() => {
+        document.body.dispatchEvent(
+          new CustomEvent(commandEventName, {
+            detail: { command: name, source: "key" },
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+    };
+    const timeUpdate = (toS: number): void => {
+      atS = toS;
+      act(() => {
+        video.dispatchEvent(new Event("timeupdate"));
+      });
+    };
+    timeUpdate(20);
+    expect(scrub()).toBe("0:20");
+    expect(mounted.container.textContent).toContain("Ends at");
+    command("back"); // hides it
+    expect(mounted.container.querySelector(".tv-controls")?.getAttribute("data-shown")).toBe(
+      "none",
+    );
+    timeUpdate(50);
+    expect(scrub()).toBe("0:20");
+    atS = 70;
+    command("up"); // opens it, where the film stands now
+    expect(scrub()).toBe("1:10");
+    expect(formatted).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
   it("opens at a mouse's move, a click or a tap, as a desktop player does, and hides after its time", async () => {
     // A cast's receiver on a computer opened no controls to its mouse (the owner, 2026-10-27).
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });

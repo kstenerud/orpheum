@@ -144,6 +144,44 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
     expect(overlay?.getAttribute("data-shown")).toBe("none");
   });
 
+  it("reads where the film stands at each timeupdate only while it shows or holds focus (the efficiency audit, finding 7)", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const { video, videoRef } = stagedVideo(() => true);
+    let atS = 10;
+    Object.defineProperty(video, "currentTime", { get: () => atS });
+    Object.defineProperty(video, "duration", { get: () => 3600 });
+    await drawnOver(video, videoRef);
+    const timeline = (): HTMLInputElement | null | undefined =>
+      mounted?.container.querySelector<HTMLInputElement>(".timeline__range");
+    const timeUpdate = (toS: number): void => {
+      atS = toS;
+      act(() => {
+        video.dispatchEvent(new Event("timeupdate"));
+      });
+    };
+    timeUpdate(20);
+    expect(timeline()?.getAttribute("aria-valuetext")).toBe("0:20");
+    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after anyone was seen
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(mounted?.container.querySelector(".page-controls")?.getAttribute("data-shown")).toBe(
+      "none",
+    );
+    timeUpdate(50);
+    expect(timeline()?.getAttribute("aria-valuetext")).toBe("0:20");
+    atS = 70;
+    act(() => {
+      timeline()?.focus(); // a key's focus in the bar shows it
+    });
+    expect(timeline()?.getAttribute("aria-valuetext")).toBe("1:10");
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    timeUpdate(80); // hidden again by time, but focus in it keeps it in view
+    expect(timeline()?.getAttribute("aria-valuetext")).toBe("1:20");
+  });
+
   it("takes Down on the film into the bar, to play, and leaves Down elsewhere to the page", async () => {
     const { video, videoRef } = stagedVideo(() => false);
     await drawnOver(video, videoRef);

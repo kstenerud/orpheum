@@ -98,8 +98,8 @@ export function TvControls(props: FilmParts): JSX.Element {
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const source = useVideoSource(videoRef);
   const [shown, setShown] = useState<OverlayShown>("all");
+  const source = useVideoSource(videoRef, shown === "none");
   const notePress = useHiding({ isPaused: source.isPaused, shown, setShown, overlayRef, videoRef });
   useOpensAtThePointer(() => {
     setShown("all");
@@ -175,12 +175,16 @@ function isOnAnotherControlOverTheFilm(overlay: HTMLElement | null): boolean {
   );
 }
 
+/**
+ * The clock time a film ends at, as the viewer's clock says it, made once: toLocaleTimeString built
+ * a formatter at each call, 38 µs here against 1.8 µs for one kept, four times a second (the
+ * efficiency audit's finding 7).
+ */
+const endsAtClock = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" });
+
 /** When the film ends if it plays on from now, as the viewer's clock says it. */
 function endsAt(leftMs: number): string {
-  return new Date(Date.now() + leftMs).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return endsAtClock.format(new Date(Date.now() + leftMs));
 }
 
 /**
