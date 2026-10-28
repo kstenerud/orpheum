@@ -33,7 +33,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   while starting, until four chunks measured the link and the video played 20 s, a choice below the
   ceiling is the next chunk's alone, and only a chunk given up or a stall lowers the ceiling, which
   at the end becomes the highest quality the confident estimate (the estimate over one plus its
-  largest recent error) carries, no higher than the start (D352 §1); gives up a slow chunk on its
+  largest recent error, the single most extreme set aside once five samples are kept) carries, no
+  higher than the start (D352 §1); holds the quality loading against any reading of the link, the
+  next chunk's choice and the ceiling alike, while `holdsQualityAheadS` (20 s) is loaded ahead,
+  noting the hold (D352's revision of 2026-10-28); gives up a slow chunk on its
   way, playing or not, for the lowest quality too; takes a share of the link that rises with what
   is loaded ahead; steps up after its steadiness level's hold with `stepUpBufferMs` loaded ahead,
   as far as the confident estimate carries at the level's headroom, several qualities at once only

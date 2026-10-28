@@ -9,6 +9,7 @@ import {
   linkSamplesKept,
   samplesAgreeWithinError,
   samplesText,
+  trimsErrorFromSamples,
 } from "./link-estimate.ts";
 
 /** A chunk of level that arrived at mbps: a megabyte's bits over the time they took. */
@@ -45,11 +46,11 @@ describe("the link's estimate (D352 §2)", () => {
 
   it("is discounted by the largest error of its own predictions: the confident estimate", () => {
     const steady = estimateOf(10, 10, 10, 10, 10);
-    expect(steady.largestError()).toBeCloseTo(0, 6);
+    expect(steady.predictionError()).toBeCloseTo(0, 6);
     expect(steady.confidentBps()).toBeCloseTo(10_000_000, -1);
     // 8 after an estimate of 10: the prediction was a quarter of the sample out.
     const fell = estimateOf(10, 8);
-    expect(fell.largestError()).toBeCloseTo(0.25, 6);
+    expect(fell.predictionError()).toBeCloseTo(0.25, 6);
     expect(fell.confidentBps()).toBeCloseTo(((2 / (1 / 10 + 1 / 8)) * 1e6) / 1.25, -1);
   });
 
@@ -57,7 +58,7 @@ describe("the link's estimate (D352 §2)", () => {
     expect(new LinkEstimate().estimateBps()).toBeUndefined();
     expect(new LinkEstimate().confidentBps()).toBeUndefined();
     expect(estimateOf(5).confidentBps()).toBeCloseTo(5_000_000, -1);
-    expect(estimateOf(5).largestError()).toBeUndefined();
+    expect(estimateOf(5).predictionError()).toBeUndefined();
   });
 
   it("agrees when its predictions erred at most a fifth, and not before it has predicted", () => {
@@ -71,6 +72,28 @@ describe("the link's estimate (D352 §2)", () => {
     const mean = (4 + 12 + 3 + 11) / 4;
     expect((varying.confidentBps() ?? 0) / 1e6).toBeLessThan(3);
     expect((varying.confidentBps() ?? 0) / 1e6).toBeLessThan(mean / 2);
+  });
+
+  it("is not ruled by one slow sample of five: the most extreme error is set aside", () => {
+    // A Fire TV's five samples as its stall report gave them (staging, Nosferatu, 2026-10-28).
+    const fireTv = new LinkEstimate();
+    for (const [bytes, arrivedMs] of [
+      [191_842, 159],
+      [895_044, 393],
+      [555_018, 349],
+      [376_471, 1200],
+      [801_491, 284],
+    ] as const) {
+      fireTv.add({ level: 3, bytes, arrivedMs, firstByteMs: 40 });
+    }
+    expect(fireTv.kept()).toBe(trimsErrorFromSamples);
+    expect((fireTv.estimateBps() ?? 0) / 1000).toBeCloseTo(7355, -1); // the harmonic mean still falls at it
+    expect(fireTv.predictionError()).toBeLessThan(1); // where the slow one alone made it 404%
+    expect((fireTv.confidentBps() ?? 0) / 1000).toBeGreaterThan(4000); // not 1459 kb/s
+    // Two slow samples of five are a link that varies, and still count.
+    expect(estimateOf(12, 12, 2, 12, 2).predictionError()).toBeCloseTo(5 / 3, 6); // the second, of 2 after 5.3
+    // Fewer than five kept: every error counts.
+    expect(estimateOf(12, 12, 12, 2).predictionError()).toBeCloseTo(5, 6);
   });
 
   it("says itself and its samples in a line for the log (D352 §5)", () => {

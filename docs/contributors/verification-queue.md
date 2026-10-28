@@ -1162,3 +1162,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   `kind=chunkLoaded` for device 60 carry `loadedKbps` well above 18000 for chunks of a megabyte or
   more, and the Mac seeks twice across a film with no stall and no error.
   (`web/packages/sdk/src/rtc-media.ts`)
+- [ ] **VQ116** — a Fire TV holds its quality while plenty is loaded, and a change of sound with a
+  change of quality throws no loaded sound away (staging, 2026-10-28: device 60, file 5671 Nosferatu, one
+  slow sample of five, 376471 B in 1200 ms, lowered the ceiling from the film's own picture to
+  q700k432p with 37.3 s loaded, `chose started, ceiling 3 to 1`, and the sound's change from the
+  copied `sound0-own` to `sound0-96k-ownlevel` left 2.5 s of sound against 38.6 s of picture and
+  stalled the TV 1172 ms, `startedAfter=waiting stoodMs=1172`), on staging. Passes when, the Fire TV
+  (Silk) playing Nosferatu (file 5671) for 2 minutes from where it was: no "chose … ceiling a to b" step
+  down while 20 s or more is loaded ahead (a held lowering reads `held at`, with what was loaded);
+  and, where the quality does change between the top and a lower one (a later step down below 20 s,
+  or a step up), the stall and seek reports show the sound's buffer reaching as far as the picture's
+  after the change, no `startedAfter=waiting` follows it, and the sound plays on across it with no
+  gap or blip heard. (`web/packages/player/src/abr.ts`, `link-estimate.ts`, `hls.ts`)
