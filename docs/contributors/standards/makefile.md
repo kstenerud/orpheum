@@ -169,7 +169,11 @@ While fixing a failure, re-run only what failed, then run the whole gate once:
    on. Revert-red re-runs only the files it failed on (`make check-revert-red-failed`). The head
    may have moved, since the fixes are new commits; another base is refused.
 3. **One full `make check-pr`** when the targeted runs pass, before the branch is done. A
-   targeted green is never the gate's: the steps it skipped passed on an older commit.
+   targeted green is never the gate's: the steps it skipped passed on an older commit. A pure
+   step (web-lint-full, the integration tier, the browser tier) whose files, base and toolchain
+   are the same as at a pass it kept is not run again, even here: that is not a targeted green but
+   the same inputs, as Go's test cache is inside make check (`check_pr_steps.STEP_INPUTS`; the
+   owner, 2026-10-28). The commit steps always run; `make check-everything` trusts no kept pass.
 
 The records the re-runs read live in the git common directory (`revert-red/last-failures`,
 `check-pr/last-results`; `scripts/last_run.py`). No hook reads them, and nothing the loop runs

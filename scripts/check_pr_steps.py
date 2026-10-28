@@ -21,11 +21,22 @@
 A re-run's green is not check-pr's green: the skipped steps passed on an older commit, and the
 fixes since may have broken them. So `rerun` always ends by saying the full `make check-pr` is
 still required, and nothing here writes the check stamp or anything else a hook trusts.
+
+**A step whose inputs are unchanged** (the owner, 2026-10-28, the caching audit's finding 10): the
+pure steps (STEP_INPUTS) are each a function of the files they read, the base and the toolchain, so
+`record` keeps each pass under a key of those, at `<git-common-dir>/check-pr/step-inputs`, and a
+later run of the step whose key was seen passing takes the pass without running, saying so. That is
+not a targeted green: the inputs are the same, as Go's test cache says inside make check. A full
+check-pr after a Go-only fix no longer runs web-lint-full; after a VQ tick, none of them. The commit
+steps (lint-commits, check-test-weakening, check-decision-status) read the commits, not files, and
+revert-red keeps records of its own; neither is here. `make check-everything` runs the steps'
+targets directly, never through `record`, so it trusts no kept pass.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import subprocess
 import sys
 import time
@@ -36,6 +47,63 @@ import revert_red_reruns
 
 GATE = "check-pr"
 NAME = "last-results"
+INPUTS = "step-inputs"
+# The pure steps and the files each reads, as the directories it reads ("" every one) and those it
+# does not: the web lint the web client; the integration tier everything but it and the docs; the
+# browser tier everything but the docs.
+STEP_INPUTS = {
+    "web-lint-full": (("web/",), ()),
+    "test-integration": (("",), ("web/", "docs/")),
+    "test-browser": (("",), ("docs/",)),
+}
+# The passes kept per step, the newest last.
+KEPT_INPUTS = 20
+
+
+def toolchain() -> str:
+    """Go's and Node's versions here, which a kept pass holds for."""
+    found = []
+    for command in (["go", "env", "GOVERSION"], ["node", "--version"]):
+        try:
+            found.append(subprocess.run(command, capture_output=True, text=True, check=False).stdout.strip())
+        except OSError:
+            found.append("")
+    return " ".join(found)
+
+
+def inputs_key(step: str, base: str, head: str = "HEAD") -> str | None:
+    """The key of what step reads at head against base: its files' blobs, the base, the toolchain;
+    None for a step not in STEP_INPUTS, or when git cannot say."""
+    reads = STEP_INPUTS.get(step)
+    if reads is None or not base:
+        return None
+    listed = subprocess.run(["git", "ls-tree", "-r", "--full-tree", head], capture_output=True, text=True,
+                            check=False)
+    if listed.returncode != 0:
+        return None
+    included, excluded = reads
+    files = [line for line in listed.stdout.splitlines()
+             if (path := line.split("\t", 1)[-1]).startswith(included) and not path.startswith(excluded)]
+    return hashlib.sha256("\0".join((step, base, toolchain(), *files)).encode()).hexdigest()
+
+
+def kept_pass(step: str, key: str | None) -> bool:
+    """Whether step passed before under key."""
+    if key is None:
+        return False
+    return key in ((last_run.read(GATE, INPUTS) or {}).get(step) or [])
+
+
+def keep_pass(step: str, key: str | None) -> None:
+    if key is None:
+        return
+
+    def change(old: dict[str, Any] | None) -> dict[str, Any]:
+        new = dict(old or {})
+        keys = [each for each in new.get(step, []) if each != key]
+        new[step] = [*keys, key][-KEPT_INPUTS:]
+        return new
+    last_run.update(GATE, INPUTS, change)
 REVERT_RED = "check-revert-red"
 STEP_TARGET = "pr-step-"  # the Makefile's wrapper that runs a step and records it
 
@@ -46,7 +114,14 @@ def start(base: str) -> None:
 
 def record(step: str, command: list[str]) -> int:
     started = time.monotonic()
-    status = subprocess.run(command, check=False).returncode
+    key = inputs_key(step, str((last_run.read(GATE, NAME) or {}).get("base") or ""))
+    if kept_pass(step, key):
+        print(f"{step}: passed before on the same files, base and toolchain; not run again", flush=True)
+        status = 0
+    else:
+        status = subprocess.run(command, check=False).returncode
+        if status == 0:
+            keep_pass(step, key)
     seconds = round(time.monotonic() - started)
     head = last_run.commit_of("HEAD") or ""
 
