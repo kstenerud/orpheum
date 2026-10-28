@@ -710,4 +710,17 @@ failed.
   every package's sources is named in `GO_SOURCE_READERS` (today `internal/archtest`); one that
   builds the binary is found by its `go build`. A new reader of the sources needs adding there.
 - **`web_tests.py`** trusts its tree record as `area_stamp.py` does, and runs the whole suite when a
-  manifest, the lockfile or a configuration changed, or a file was deleted.
+  manifest, the lockfile or a configuration changed, or a file was deleted; the browser-mode suite
+  (`--browser`) the same, under its own record.
+- **The area stamps are shared by every worktree** (since 2026-10-28): a record names a tree by its
+  content, so a pass holds wherever that tree is; what differs between worktrees outside the tree
+  (an installed `node_modules`) must come from the same lockfile.
+- **Revert-red keeps greens as well as reds** (`revert_red_known.py`), each keyed on what its runs
+  read: for Go, every module package they compiled and go.mod and go.sum; for the web, the whole
+  web tree. A green is a failure or, once its claim is checked, a claim, so a stale one fails a
+  file at worst; a stale red passes one, which is why the web key stays the whole tree until it can
+  be narrowed by vitest's own module graph. A kept pass of a clean run (`revert_red_clean.py`) holds
+  for its worktree, commit and Go and Node versions.
+- **The tagged probe run** tests only the packages the dev tag builds otherwise
+  (`revert_red_tags.py`, by `go list`'s file lists), and a file's own package whenever it names a
+  build constraint, which its revert may change.

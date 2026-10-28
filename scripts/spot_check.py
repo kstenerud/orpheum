@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -136,7 +137,7 @@ def runs(spot: Plan, module: str) -> list[Run]:
     out = []
     if spot.go_packages:
         relative = ["./" + p.removeprefix(module).lstrip("/") if p != module else "." for p in spot.go_packages]
-        out.append(Run(f"go test, {len(relative)} package(s)", ["go", "test", *relative]))
+        out.append(Run(f"go test, {len(relative)} package(s)", go_test_as_make_check(relative)))
     tests = web_tests(spot.web_files)
     if tests:
         out.append(Run(f"vitest, {len(tests)} test file(s)", [*VITEST_RUN, *tests]))
@@ -145,6 +146,16 @@ def runs(spot: Plan, module: str) -> list[Run]:
     if spot.docs:
         out.append(Run("the docs gate", [sys.executable, "scripts/check_docs.py"]))
     return out
+
+
+def go_test_as_make_check(packages: list[str]) -> list[str]:
+    """Go's tests of packages run as make check's go-test runs them, `-json` through its timings, so
+    each serves the other from Go's test cache: the flags are part of a result's key, and a plain
+    `go test` here left make check to run again every package it had just passed (the caching
+    audit's finding 4, 2026-10-28). The timings go to a suite of their own, apart from make check's."""
+    listed = " ".join(shlex.quote(package) for package in packages)
+    return ["bash", "-o", "pipefail", "-c",
+            f"go test -json {listed} | {shlex.quote(sys.executable)} scripts/go_test_timings.py go-spot"]
 
 
 def web_tests(paths: list[str]) -> list[str]:

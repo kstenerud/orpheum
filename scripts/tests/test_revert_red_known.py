@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for revert_red_known.py: a red revert is taken again only for the same blobs over the
-# ABOUTME: same trees of what its run read, and a probe takes it without running unless told to trust none.
+# ABOUTME: same trees of what its run read, and a probe takes it without running unless told to trust none;
+# ABOUTME: a green is kept for its part, and the tests an earlier red failed are tried first.
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -65,6 +67,72 @@ class Known(unittest.TestCase):
             finally:
                 rr.TRUST_RECORD = True
             self.assertNotIn("as its probe at", ran.detail)
+
+
+    def test_a_green_is_known_for_its_part_alone_and_never_hides_a_red(self):
+        with self.repo.cwd():
+            known.remember(self.root, self.head, self.key, [["go", "test", "./internal/a"]], "GREEN", "green",
+                           rr.BROWSER_DEFERRED)
+            self.assertEqual(known.known(self.root, self.head, self.key, rr.BROWSER_DEFERRED)["verdict"], "GREEN")
+            self.assertIsNone(known.known(self.root, self.head, self.key, rr.BROWSER_ONLY),
+                              "a green in the code part says nothing of the browser part's runs")
+            self.remember()
+            self.assertEqual(known.known(self.root, self.head, self.key, rr.BROWSER_DEFERRED)["verdict"], "RED_TEST")
+
+    def test_a_green_whose_runs_read_something_unknown_is_not_kept(self):
+        with self.repo.cwd():
+            known.remember(self.root, self.head, self.key, [["go", "test", "./internal/a"], ["make", "browser-tier"]],
+                           "GREEN", "green", rr.BROWSER_INLINE)
+            self.assertIsNone(known.known(self.root, self.head, self.key, rr.BROWSER_INLINE))
+
+
+class GoReads(unittest.TestCase):
+    """A Go run read every package it compiled, not only those it named (the caching audit, finding 3)."""
+
+    def test_a_red_is_not_known_once_a_package_its_tests_import_changed(self):
+        repo = Repo({"go.mod": "module m\n\ngo 1.26\n",
+                     "internal/a/a.go": 'package a\n\nimport "m/internal/c"\n\nvar X = c.Y\n',
+                     "internal/c/c.go": "package c\n\nvar Y = 1\n", "internal/d/d.go": "package d\n"})
+        base = repo.commit("base")
+        head = repo.commit("change a", {"internal/a/a.go": 'package a\n\nimport "m/internal/c"\n\nvar X = c.Y + 1\n'})
+        root = str(repo.root)
+        key = known.revert_key(root, base, head, ["internal/a/a.go"])
+        with repo.cwd():
+            known.remember(root, head, key, ["go", "test", "./internal/a"], "RED_TEST", "a test fails")
+            unrelated = repo.commit("change d", {"internal/d/d.go": "package d\n\nvar Z = 0\n"})
+            self.assertIsNotNone(known.known(root, unrelated, key))
+            imported = repo.commit("change c", {"internal/c/c.go": "package c\n\nvar Y = 2\n"})
+            self.assertIsNone(known.known(root, imported, key))
+
+
+GO_OUTPUT = """--- FAIL: TestPlayback_Stalls (0.20s)
+    --- FAIL: TestPlayback_Stalls/sub (0.10s)
+--- FAIL: TestPlayback_Starts (0.10s)
+FAIL
+FAIL\tgithub.com/kstenerud/orpheum/internal/core/api\t3.1s
+ok  \tgithub.com/kstenerud/orpheum/internal/store\t1.0s
+"""
+VITEST_OUTPUT = " FAIL  |default| apps/web/src/play.test.tsx > the trail > goes up\n FAIL  apps/web/src/up-trail.browser.test.tsx\n"
+
+
+class CaughtBefore(unittest.TestCase):
+    def test_a_red_runs_failed_tests_are_read_by_package_and_file(self):
+        failed = known.failed_tests(GO_OUTPUT + VITEST_OUTPUT, "github.com/kstenerud/orpheum")
+        self.assertEqual(failed["go"], {"./internal/core/api": ["TestPlayback_Stalls", "TestPlayback_Starts"]})
+        self.assertEqual(failed["vitest"], ["apps/web/src/play.test.tsx", "apps/web/src/up-trail.browser.test.tsx"])
+
+    def test_a_later_probe_of_the_file_runs_them_first(self):
+        record: dict = {}
+        with mock.patch.object(known.last_run, "update", side_effect=lambda gate, name, change: record.update(change(dict(record)))), \
+                mock.patch.object(known.last_run, "read", side_effect=lambda gate, name: record):
+            known.remember_failed("internal/core/api/x.go", GO_OUTPUT + VITEST_OUTPUT, "github.com/kstenerud/orpheum")
+            runs = known.caught_before("internal/core/api/x.go")
+            self.assertEqual(known.caught_before("internal/core/api/other.go"), [])
+        self.assertEqual(runs[0].command, ["go", "test", "-failfast", "-run", "^(TestPlayback_Stalls|TestPlayback_Starts)$",
+                                           "./internal/core/api"])
+        self.assertIn("apps/web/src/play.test.tsx", runs[1].command)
+        self.assertIn("vitest.browser.config.ts", runs[2].command)
+        self.assertTrue(all("caught its revert before" in run.label for run in runs))
 
 
 if __name__ == "__main__":

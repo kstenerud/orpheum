@@ -429,11 +429,14 @@ class RevertRed(unittest.TestCase):
 
     def test_files_only_other_builds_compile_are_run_against_those_builds(self):
         dev = rr.other_builds("cmd/orpheum/dev_seed.go")
-        # Its own package and what its revert can reach: the source-reading arch tests, as nothing
-        # imports a main package; never the whole suite.
-        self.assertEqual([a.command for a in dev],
-                         [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum", "./internal/archtest",
-                           "./internal/store/storesources"]])
+        # Of its own package and what its revert can reach (the source-reading arch tests, as nothing
+        # imports a main package), only those the tag builds otherwise: the arch tests compile the same
+        # under it and ran untagged (the caching audit's finding 6, 2026-10-28).
+        self.assertEqual([a.command for a in dev], [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum"]])
+        # A package the tag does not touch is run tagged only through what the tag does touch: the
+        # binary, which imports it.
+        tagged = [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum"]]
+        self.assertEqual([a.command for a in rr.other_builds("internal/store/doc.go")], tagged)
         darwin = rr.other_builds("internal/store/space_darwin.go")
         self.assertEqual(darwin[-1].command, ["go", "vet", "./..."])
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
@@ -447,7 +450,7 @@ class RevertRed(unittest.TestCase):
         arm = rr.other_builds("internal/node/confine/arch_linux_arm64.go")
         self.assertEqual(arm[-1].env, {"GOOS": "linux", "GOARCH": "arm64"})
         self.assertTrue(arm[-1].compile_only)
-        self.assertEqual(len(rr.other_builds("internal/node/confine/arch_linux_amd64.go")), 1)
+        self.assertEqual([a.command for a in rr.other_builds("internal/node/confine/arch_linux_amd64.go")], tagged)
         typed = rr.other_builds("web/apps/web/src/App.tsx")
         self.assertEqual([a.command for a in typed], [["npm", "--prefix", "web", "run", "typecheck"]])
         self.assertTrue(typed[0].compile_only)
@@ -547,7 +550,7 @@ class RevertRedBuildLines(unittest.TestCase):
         plain = directory / "shim.go"
         plain.write_text("package x\n")
         self.assertEqual(rr.other_builds(str(other))[-1].env, {"GOOS": "darwin"})
-        self.assertEqual(len(rr.other_builds(str(plain))), 1)
+        self.assertEqual(rr.other_builds(str(plain)), [], "no constraint and no tagged build of its own")
 
     def test_a_file_the_host_never_compiles_is_judged_by_its_platforms_compile_alone(self):
         # Its revert can turn no host test red: the dependents of a _linux_arm64.go file ran 610 s

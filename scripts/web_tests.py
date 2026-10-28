@@ -19,12 +19,18 @@ suite last passed on is recorded, as area_stamp.py records it; against it:
 
 A pass records the tree. That is sound by induction: the tests not run were passing on the recorded
 tree and import nothing that changed since.
+
+`--browser` does the same for the browser-mode tests (web/vitest.browser.config.ts), under their own
+record: any change under web/ ran all of them, 66 s and growing, last in make check, where every
+turn that touched the web waited for them (the caching audit's finding 8, 2026-10-28).
 """
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -32,12 +38,26 @@ from area_stamp import stamp_path  # noqa: E402
 from check_stamp import working_tree_id  # noqa: E402
 from revert_red_dependents import web_source_readers  # noqa: E402
 
-STEP = "web-test"
 WEB = "web"
-WHOLE_SUITE = ["npm", "--prefix", WEB, "run", "--silent", "test"]
-RELATED = ["npx", "--prefix", WEB, "vitest", "related", "--run", "--passWithNoTests", "--root", WEB]
 # What every test reads, beside the files it imports.
-EVERY_TEST_READS = ("package.json", "package-lock.json", "vitest.config.ts", "tsconfig")
+EVERY_TEST_READS = ("package.json", "package-lock.json", "vitest.config.ts", "vitest.browser.config.ts", "tsconfig")
+
+
+@dataclass(frozen=True)
+class Suite:
+    """A vitest suite: its record's name, its whole run, and its related run's command."""
+
+    step: str
+    whole: list[str]
+    related: list[str]
+
+
+RELATED = ["npx", "--prefix", WEB, "vitest", "related", "--run", "--passWithNoTests", "--root", WEB]
+UNIT = Suite("web-test", ["npm", "--prefix", WEB, "run", "--silent", "test"], RELATED)
+BROWSER = Suite("web-test-browser-related", ["npm", "--prefix", WEB, "run", "--silent", "test:browser"],
+                [*RELATED, "--config", "vitest.browser.config.ts"])
+# Kept for the tests and callers that name the unit suite's.
+STEP, WHOLE_SUITE = UNIT.step, UNIT.whole
 
 
 def changes_since(passed_tree: str, tree: str) -> list[tuple[str, str]]:
@@ -51,31 +71,39 @@ def changes_since(passed_tree: str, tree: str) -> list[tuple[str, str]]:
     return changes
 
 
-def command_for(changes: list[tuple[str, str]], root: str) -> list[str] | None:
+def command_for(changes: list[tuple[str, str]], root: str, suite: Suite = UNIT) -> list[str] | None:
     """The run the changes call for: None for none, the whole suite, or the related tests."""
     if not changes:
         return None
     for status, path in changes:
         if status == "D" or Path(path).name.startswith(EVERY_TEST_READS):
-            return WHOLE_SUITE
+            return suite.whole
     within = [path.removeprefix(WEB + "/") for _, path in changes]
-    return [*RELATED, *within, *web_source_readers(root)]
+    return [*suite.related, *within, *web_source_readers(root)]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--browser", action="store_true", help="the browser-mode tests")
+    parser.add_argument("--due", action="store_true",
+                        help="only say whether a run is due (exit 0) or not (exit 1), running nothing")
+    arguments = parser.parse_args(argv)
+    suite = BROWSER if arguments.browser else UNIT
     root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
                           check=True).stdout.strip()
     tree = working_tree_id()
-    stamp = stamp_path(STEP)
+    stamp = stamp_path(suite.step)
     if stamp.exists():
-        command = command_for(changes_since(stamp.read_text().strip(), tree), root)
+        command = command_for(changes_since(stamp.read_text().strip(), tree), root, suite)
         if command is None:
-            print(f"{STEP}: nothing it reads changed since it last passed; not run again")
-            return 0
+            print(f"{suite.step}: nothing it reads changed since it last passed; not run again")
+            return 1 if arguments.due else 0
     else:
-        command = WHOLE_SUITE
-    if command is not WHOLE_SUITE:
-        print(f"{STEP}: only the tests the changes since the last pass reach")
+        command = suite.whole
+    if arguments.due:
+        return 0
+    if command is not suite.whole:
+        print(f"{suite.step}: only the tests the changes since the last pass reach")
     done = subprocess.run(command, check=False)
     if done.returncode != 0:
         return done.returncode

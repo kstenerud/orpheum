@@ -9,13 +9,22 @@ passed as covered with no test having noticed (A45, 2026-10-26). A red now stand
 command, run with the file and its companions restored, has passed there. The first red of each kind
 in each worktree pays for that run; the rest reuse its answer, so the check costs a run per kind, not
 per file. It catches a broken environment, not a test that fails at HEAD, which make check refuses.
+
+A pass is also kept on disk, by the worktree, the commit its tree holds, the kind and the toolchain
+(Go's and Node's versions), so check-pr-failed and a full re-run at the same commit do not pay for
+it again: these runs were most of 1670 s of a check-pr's probing that no timing named (the caching
+audit's finding 5, 2026-10-28). Each is timed as a run of its own kind, "<kind>, nothing reverted".
+A failure is never kept: it is asked again.
 """
 
 from __future__ import annotations
 
+import functools
+import json
 import subprocess
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 from revert_red_timings import kind_of
 
@@ -34,14 +43,49 @@ def probe_kind(command: list[str], label: str, env: dict[str, str] | None) -> st
     return f"{kind} (browser mode)" if "vitest.browser.config.ts" in command else kind
 
 
-def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProcess[str]]) -> bool:
+@functools.cache
+def toolchain() -> str:
+    """Go's and Node's versions here, which a kept pass holds for."""
+    found = []
+    for command in (["go", "env", "GOVERSION"], ["node", "--version"]):
+        try:
+            found.append(subprocess.run(command, capture_output=True, text=True, check=False).stdout.strip())
+        except OSError:
+            found.append("")
+    return " ".join(found)
+
+
+def kept_path(tree: str) -> Path | None:
+    """Where the passes are kept: beside revert-red's other records, in the git common directory."""
+    done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=tree,
+                          capture_output=True, text=True, check=False)
+    return Path(done.stdout.strip()) / "revert-red" / "clean-runs.json" if done.returncode == 0 else None
+
+
+def _key(tree: str, head: str, kind: str) -> str:
+    return "\0".join((tree, head, kind, toolchain()))
+
+
+def _kept(path: Path | None) -> dict[str, bool]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path is not None else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProcess[str]], head: str = "") -> bool:
     """Whether a run of kind passes in tree with nothing reverted: run asks it, the first time for
-    this tree and kind, with the probe's files already restored. A run past its timeout has not
-    passed."""
+    this tree and kind, with the probe's files already restored, unless a pass at head is kept. A
+    run past its timeout has not passed."""
     with _LOCK:
         known = _CLEAN.get((tree, kind))
     if known is not None:
         return known
+    path = kept_path(tree) if head else None
+    if head and _kept(path).get(_key(tree, head, kind)):
+        with _LOCK:
+            _CLEAN[(tree, kind)] = True
+        return True
     output = ""
     try:
         done = run()
@@ -54,6 +98,13 @@ def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProce
         _CLEAN[(tree, kind)] = passed
         if not passed:
             _FAILED_OUTPUT[(tree, kind)] = "\n".join(output.strip().splitlines()[-KEPT_LINES:])
+        elif head and path is not None:
+            kept = _kept(path)
+            # Only this commit's: an older one's passes can serve no later run.
+            kept = {key: value for key, value in kept.items() if f"\0{head}\0" in key}
+            kept[_key(tree, head, kind)] = True
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(kept, indent=1, sort_keys=True), encoding="utf-8")
     return passed
 
 

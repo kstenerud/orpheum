@@ -92,10 +92,11 @@ from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # 
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
-from revert_red_dependents import (git_run as _git, go_dependents, python_tests_naming,  # noqa: F401 (tests reach rev_exists here)
+from revert_red_dependents import (git_run as _git, go_dependents, go_module, python_tests_naming,  # noqa: F401 (tests reach rev_exists here)
                                    python_tests_reaching, rev_exists, toplevel, web_source_readers)
 from revert_red_locales import LOCALE_SOURCE, locale_runs
 from revert_red_naming import naming_runs
+from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach other_builds here)
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
@@ -114,10 +115,7 @@ EXEMPT_TYPES = frozenset({"docs", "test", "refactor", "build", "ci", "chore", "s
 SUBJECT_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<bang>!)?:")
 
 GO_TEST = re.compile(r"_test\.go$")
-# `make check` also tests the dev build and vets for macOS, so a file only those compile — a
-# `//go:build dev` file, a `_darwin.go` shim — is reverted against them too, rather than
-# reported as noticed by nothing.
-GO_EXTRA_TAGS = "dev"
+GREEN_DETAIL = "every test still passes with this change reverted"
 
 # A Python file is a test because of WHERE it lives, not what it is called. Every
 # one of our Python tests sits in `scripts/tests/`. yoloAI identified them by
@@ -311,7 +309,6 @@ def scope_for(path: str) -> list[str] | None:
 
 
 GENERATED_API_TYPES = "web/packages/sdk/src/gen/api.ts"
-TYPECHECK = ["npm", "--prefix", "web", "run", "typecheck"]
 VITEST_RELATED = vitest("related")
 WEB_SUITE = web_suite()
 WEB_BUILD = ["npm", "--prefix", "web", "run", "build"]
@@ -334,22 +331,6 @@ def wide_scope(path: str) -> list[str] | None:
 
 
 VITEST_RUN = vitest("run")
-
-
-def other_builds(path: str) -> list[Attempt]:
-    """The runs beyond the default suite that `make check` also makes, for a file only they
-    compile: the dev-tagged suite, and a compile for the operating system a file is named for;
-    for TypeScript, the type check, since vitest drops types unchecked and a file of types alone
-    (the SDK's generated API) can break nothing else."""
-    if TS_SOURCE.search(path):
-        return [Attempt(TYPECHECK, ", found by the type check", None, True)]
-    if not GO_SOURCE.search(path):
-        return []
-    # Its own package and those its revert can reach (wide_scope), built as the tagged suite builds them.
-    reached = ["./" + str(Path(path).parent), *go_dependents(toplevel(), path)]
-    attempts = [Attempt(go_test(*reached, tags=GO_EXTRA_TAGS),
-                        f", found by the -tags {GO_EXTRA_TAGS} suite")]
-    return [*attempts, *other_platforms(path)]
 
 
 def attempts_for(change: Change, first: list[str], base: str = "", head: str = "") -> list[Attempt]:
@@ -447,7 +428,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
 
     unit = companions(change.path)
     revert = known_red.revert_key(tree, base, head, [change.path, *unit])
-    if TRUST_RECORD and (seen := known_red.known(tree, head, revert)) is not None:
+    if TRUST_RECORD and (seen := known_red.known(tree, head, revert, browser)) is not None:
         return Outcome(change.path, seen["verdict"], f"{seen['detail']}, as its probe at {seen['head'][:12]} "
                        "found; nothing that run read has changed since")
     first = added_file_scope(tree, change.path) if change.status == "A" and TS_SOURCE.search(change.path) else None
@@ -463,12 +444,14 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
 
         unreached = False
         attempts = attempts_for(change, first or scope, base, head)
+        attempts = [*(a for a in known_red.caught_before(change.path) if a not in attempts), *attempts]
         if TS_SOURCE.search(change.path) and emits_the_same_between(tree, base, head, change.path):
             # The browser runs the same JavaScript either way, so no browser run can notice it (emitted_js.py).
             attempts = [a for a in attempts if not is_browser_run(a)]
         deferred = [a for a in attempts if is_browser_run(a)] if browser == BROWSER_DEFERRED else []
         if browser == BROWSER_ONLY and not CSS_SOURCE.search(change.path):
             attempts = [a for a in attempts if is_browser_run(a)]
+        ran: list[list[str]] = []  # every run made, which a green's record holds
         for attempt in (a for a in attempts if a not in deferred):
             # Python caches a module by its size and mtime; a probe that restores a file to the same
             # size within a second would run the stale cache, so the probes write none.
@@ -485,6 +468,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
                 done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
                              BROWSER_TIER_LOCK if is_browser_run(attempt) else None,
                              functools.partial(run_whole_group, attempt.command, tree, timeout, env))
+                ran.append(attempt.command)
             except subprocess.TimeoutExpired:
                 # Neither red nor green: a slow run that would have passed is not coverage. Escaping, it
                 # ended the whole probe pool and 27 minutes of check-pr named no file (2026-10-17). A
@@ -500,7 +484,8 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             for path in (change.path, *unit):
                 restore(tree, head, path)
             kind = probe_kind(attempt.command, attempt.label, attempt.env)
-            if not runs_clean(tree, kind, functools.partial(run_whole_group, attempt.command, tree, timeout, env)):
+            clean = functools.partial(run_whole_group, attempt.command, tree, timeout, env)
+            if not runs_clean(tree, kind, lambda: timed(TIMINGS, change.path, f"{kind}, nothing reverted", None, clean), head):
                 failed = clean_failure(tree, kind)
                 return Outcome(change.path, "PROBE_BROKEN", f"its probe{attempt.label} fails here with nothing "
                                "reverted too, so its red says nothing" + (f"; with nothing reverted:\n{failed}" if failed else ""))
@@ -510,12 +495,14 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             else:
                 red = Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
             known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail)
+            known_red.remember_failed(change.path, combined, go_module(toplevel()))
             return red
         if deferred:
             return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "
                            "the last tier, after check-pr's own browser run")
-        return Outcome(change.path, "GREEN", browser_map.NO_TEST_REACHES if unreached else
-                       "every test still passes with this change reverted")
+        if not unreached:
+            known_red.remember(tree, head, revert, ran, "GREEN", GREEN_DETAIL, browser)
+        return Outcome(change.path, "GREEN", browser_map.NO_TEST_REACHES if unreached else GREEN_DETAIL)
     finally:
         restore(tree, head, change.path)
         for companion in unit:
@@ -594,8 +581,7 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
             settled[path] = Outcome(path, claim.verdict, claim.detail if claim.verdict == "GREEN" else
                                     f"{claim.detail} ({browser_map.NO_TEST_REACHES})")
             continue
-        claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", "every test still passes with this "
-                                                           "change reverted")
+        claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", GREEN_DETAIL)
         settled[path] = Outcome(path, claim.verdict, claim.detail + " (a browser run with it and others "
                                 "reverted turned nothing red)")
     for path, output in halving.noticed.items():

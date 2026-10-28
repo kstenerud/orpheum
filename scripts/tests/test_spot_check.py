@@ -52,7 +52,10 @@ class Planning(unittest.TestCase):
     def test_the_runs_are_the_planned_commands(self):
         spot = spot_check.plan(["internal/a/x.go", "web/apps/web/src/a.tsx", "scripts/x.py"], MODULE, IMPORTERS)
         commands = [run.command for run in spot_check.runs(spot, MODULE)]
-        self.assertEqual(commands[0], ["go", "test", "./cmd/c", "./internal/a", "./internal/b"])
+        # As make check's go-test runs them, so Go's test cache serves one from the other.
+        self.assertEqual(commands[0][:4], ["bash", "-o", "pipefail", "-c"])
+        self.assertRegex(commands[0][4], r"^go test -json ./cmd/c ./internal/a ./internal/b \| .*"
+                                         r"scripts/go_test_timings.py go-spot$")
         self.assertEqual(commands[1][1:], ["scripts/py_tests.py"], "no web test imports a.tsx here")
 
 
@@ -60,7 +63,9 @@ class Planning(unittest.TestCase):
 class Wiring(unittest.TestCase):
     def test_make_spot_runs_it_and_help_lists_it(self):
         makefile = (REPO / "Makefile").read_text()
-        self.assertRegex(makefile, r"(?m)^spot:.*\n\t.*scripts/spot_check\.py")
+        self.assertRegex(makefile, r"(?m)^spot:.*\n(\t.*\n)*\t.*scripts/spot_check\.py")
+        recipe = makefile.split("\nspot: ", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("scripts/in_dev_image.py spot", recipe, "in the gate's container, as make check")
         listed = subprocess.run(["make", "-f", str(REPO / "Makefile"), "help"], capture_output=True, text=True,
                                 check=True, cwd=REPO).stdout
         self.assertIn("  spot ", listed)

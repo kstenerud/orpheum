@@ -65,15 +65,42 @@ class WebTestsTest(unittest.TestCase):
             return mock.Mock(returncode=code["now"])
 
         with self.repo.cwd(), mock.patch.object(web_tests.subprocess, "run", side_effect=run):
-            self.assertEqual(web_tests.main(), 1)
+            self.assertEqual(web_tests.main([]), 1)
             code["now"] = 0
-            self.assertEqual(web_tests.main(), 0)
-            self.assertEqual(web_tests.main(), 0)  # passed, nothing changed: not run
+            self.assertEqual(web_tests.main([]), 0)
+            self.assertEqual(web_tests.main([]), 0)  # passed, nothing changed: not run
             self.repo.write({"web/apps/web/src/a.ts": "export const a = 2;"})
-            self.assertEqual(web_tests.main(), 0)
+            self.assertEqual(web_tests.main([]), 0)
         self.assertEqual(ran[:2], [web_tests.WHOLE_SUITE, web_tests.WHOLE_SUITE], "no pass recorded yet: all")
         self.assertEqual(len(ran), 3)
         self.assertEqual(ran[2][len(web_tests.RELATED)], "apps/web/src/a.ts")
+
+    def test_the_browser_mode_tests_run_their_related_ones_in_their_own_configuration(self) -> None:
+        changes = self.changes_after({"web/apps/web/src/b.ts": "export const b = 2;"})
+        command = web_tests.command_for(changes, str(self.repo.root), web_tests.BROWSER)
+        self.assertEqual(command[:len(web_tests.BROWSER.related)], web_tests.BROWSER.related)
+        self.assertIn("vitest.browser.config.ts", command)
+        self.setUp()
+        edit = {"web/vitest.browser.config.ts": "export default {};"}
+        self.assertEqual(web_tests.command_for(self.changes_after(edit), str(self.repo.root), web_tests.BROWSER),
+                         web_tests.BROWSER.whole)
+
+    def test_due_says_whether_a_run_is_owed_and_runs_nothing(self) -> None:
+        ran: list[list[str]] = []
+
+        def run(command, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if command[0] == "git":
+                return REAL_RUN(command, *args, **kwargs)
+            ran.append(command)
+            return mock.Mock(returncode=0)
+
+        with self.repo.cwd(), mock.patch.object(web_tests.subprocess, "run", side_effect=run):
+            self.assertEqual(web_tests.main(["--browser", "--due"]), 0, "no pass recorded: due")
+            self.assertEqual(ran, [])
+            self.assertEqual(web_tests.main(["--browser"]), 0)
+            self.assertEqual(web_tests.main(["--browser", "--due"]), 1, "nothing changed since: not due")
+            self.assertEqual(web_tests.main(["--due"]), 0, "the unit suite's record is its own")
+        self.assertEqual(ran, [web_tests.BROWSER.whole])
 
 
 REAL_RUN = web_tests.subprocess.run
