@@ -23,18 +23,14 @@
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
      for nas.example. Connect packaged for prod: /yoloai/files/connect-production-0a3fcd5-2336a94f.run (VQ84, VQ87).
      Owner to choose (D368's status): loudness when stepping down from the copied sound. Runs overnight.
-   - Folded in 2026-10-28 (owner, serious): the Fire TV cast fixes, the phone banner (icons, one row),
-     the chooser/menu as one modal drop-down (Back, Left/Right close it; a fixed × top-right), the refused
-     key → sign-in (needs connect re-pin + repackage for prod), D250 §2 amended. **D371 (owner approved
-     2026-10-28): a session's leader plays as a device alone, everyone catches up, a cast takes its
-     sender's part; replaces the casting band-aids.** D371 merged, on staging (VQ101–103). **D372 (owner 2026-10-28): the lead
-     passes to the longest-present player while the host's screen is gone; one session per person; §1–8 merged, on
-     staging (VQ104–106); §9–10 next.** Also folded (owner 2026-10-28, yes): a player starts or resumes after a seek
-     once its film ahead outlasts the next chunk's fetch × 1.5, followers too (Marrowgate stall); dropped frames in the player's log: merged, on
-     staging (VQ110). Fire TV start fixes on staging
-     (VQ111–112); folded (owner, yes): the WebRTC relay cap (redone skew-safe, VQ115) + start on remembered link (VQ114): on staging. Folded (owner, yes): no ABR
-     drop with ≥20 s loaded, robust spread; a sound switch keeps loaded sound (agent). Owner VQs owed: 85–100 open (84 passed, its
-     package on prod-api).
+   - Folded in 2026-10-28 (owner, serious), all on staging unless noted: Fire TV cast fixes, phone banner,
+     chooser/menu as one modal drop-down, refused key → sign-in (needs connect re-pin + repackage for prod),
+     D250 §2 amended; **D371** (a session's leader plays as a device alone, everyone catches up, a cast takes
+     its sender's part; VQ101–103); **D372 §1–8** (lead passes to the longest-present player; one session per
+     person; VQ104–106; §9–10 next batch); the start rule (film ahead outlasts next chunk's fetch × 1.5,
+     on the remembered link, VQ110–114); dropped frames logged; the WebRTC relay cap (skew-safe, VQ115).
+     Agent: no ABR drop with ≥20 s loaded + robust spread; a sound switch keeps loaded sound.
+     Owner VQs owed: 85–100 open (84 passed, its package on prod-api).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
      player's controls, the nameless-series parser, the Libraries icon as a menu, invitation links shown
