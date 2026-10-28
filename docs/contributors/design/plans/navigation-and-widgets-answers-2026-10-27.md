@@ -70,3 +70,18 @@ The owner agreed every other answer and recommendation above (2026-10-27).
      irreversible red, [Stay].
    - After leaving: "You left the session. To join again, ask ‹host› for a new link."
    Every other word the guest sees stays as it is (web/apps/web/src/locales/en-together.ts).
+
+## Seen on staging (the owner, 2026-10-28)
+
+- Fixed in the batch: the banner covers half the trail; from the Play page no one press reaches the info
+  page ("the last part of the trail should also be selectable to get back to the info page"); the choice
+  boxes look like plain buttons.
+- **Next batch:** "I'm not sure I like having the season selection done as a choice box. Jellyfin actually
+  shows posters for the seasons in the season page" (revises D367 §9's picker). And "these
+  unlikely-to-be-used UI items should be under a vertical '…' selector so that they don't clutter the UI"
+  (Identified incorrectly, Rescan this, ordering, …); "when selecting an item from a choice box (which is
+  modal), if that selection also opens another modal, the new modal should not stack on top of the other
+  modal; they should swap in/out, such that a single click outside of any modal view dismisses and returns
+  the user to normal functionality" (stacking today, if found, is a bug for this batch).
+- **Research now:** the playback UI across competitors and experts, desktop, touch and d-pad; "the volume
+  widget should be vertically oriented" (playback-ui-2026-10-28.md).
