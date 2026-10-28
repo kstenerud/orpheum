@@ -8,11 +8,114 @@ import {
   isPathMessage,
   isPathQueryMessage,
   responseFromPort,
+  relayedAheadBytes,
   type FetchMessage,
+  type PortLike,
 } from "./rtc-media.ts";
 
+/** A data channel's message: the size of a body's piece over the WebRTC path. */
+const piece = 64 * 1024;
+
+const aLoad: FetchMessage = {
+  kind: "orpheum-fetch",
+  url: "https://app.example/api/v1/chunks/x",
+  method: "GET",
+  headers: [],
+};
+
+/** Lets the ports' messages and the streams' reads run their course. */
+async function settle(): Promise<void> {
+  for (let turn = 0; turn < 50; turn += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+/**
+ * A body of count pieces, each filled with its index, made only as read: how much was read, whether
+ * it was cancelled, and the pieces it made.
+ */
+function piecesOf(count: number): {
+  stream: ReadableStream<Uint8Array>;
+  read: () => number;
+  cancelled: () => boolean;
+  made: Uint8Array[];
+} {
+  const made: Uint8Array[] = [];
+  let isCancelled = false;
+  const stream = new ReadableStream<Uint8Array>(
+    {
+      pull: (controller) => {
+        if (made.length === count) {
+          controller.close();
+          return;
+        }
+        const next = new Uint8Array(piece).fill(made.length % 256);
+        made.push(next);
+        controller.enqueue(next);
+      },
+      cancel: () => {
+        isCancelled = true;
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  return {
+    stream,
+    read: () => made.length * piece,
+    cancelled: () => isCancelled,
+    made,
+  };
+}
+
+/**
+ * The messages that reach port, as a test playing the other end hears them: the next, waited for in
+ * order, and every one so far.
+ */
+function heardOn(port: MessagePort): { next: () => Promise<unknown>; all: () => unknown[] } {
+  const heard: unknown[] = [];
+  let taken = 0;
+  let waiting: (() => void) | undefined;
+  port.addEventListener("message", (event: MessageEvent<unknown>) => {
+    heard.push(event.data);
+    const next = waiting;
+    waiting = undefined;
+    next?.();
+  });
+  port.start();
+  return {
+    next: async () => {
+      while (taken === heard.length) {
+        await new Promise<void>((resolve) => {
+          waiting = resolve;
+        });
+      }
+      taken += 1;
+      return heard[taken - 1];
+    },
+    all: () => [...heard],
+  };
+}
+
+/** The page's end of a port, counting each message the worker sends it. */
+function countingIncoming(port: MessagePort, counted: () => void): PortLike {
+  return {
+    postMessage: (message, transfer) => {
+      port.postMessage(message, transfer ?? []);
+    },
+    addEventListener: (type, listener) => {
+      port.addEventListener(type, (event) => {
+        counted();
+        listener(event);
+      });
+    },
+    start: () => {
+      port.start();
+    },
+  };
+}
+
 describe("media over the WebRTC path", () => {
-  it("carries a load from the worker to the page and its body back, umi no tobira per pull", async () => {
+  it("carries a load from the worker to the page and its body back", async () => {
     const { port1, port2 } = new MessageChannel();
     const heard: Request[] = [];
     const pieces = ["orph", "eum"].map((text) => new TextEncoder().encode(text));
@@ -43,6 +146,213 @@ describe("media over the WebRTC path", () => {
     expect(heard[0]?.headers.get("Authorization")).toBe("Bearer t");
     // A viewer's membership beside the page's own sign-in, which no cookie reaches across origins.
     expect(heard[0]?.headers.get("Orpheum-Viewer")).toBe("v");
+    port1.close();
+  });
+
+  it("sends a body ahead of the worker's reader, not a piece for each message the busy page answers", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const source = piecesOf(128);
+    let toThePage = 0;
+    void answerLoad(
+      aLoad,
+      countingIncoming(port2, () => (toThePage += 1)),
+      {
+        send: () => Promise.resolve(new Response(source.stream)),
+        token: undefined,
+        viewer: undefined,
+      },
+    );
+    const body = new Uint8Array(await (await responseFromPort(port1)).arrayBuffer());
+    // In order, every piece.
+    expect(body.byteLength).toBe(128 * piece);
+    for (let index = 0; index < 128; index += 1) {
+      expect(body[index * piece]).toBe(index % 256);
+    }
+    // 8 MiB took one message for each 64 KiB piece, a round trip through the page each, which at a
+    // Fire TV's 30 ms carried 17 Mb/s (staging, 2026-10-28); granted a share of the window at a
+    // time, it takes one for each 256 KiB of what was granted: the body and the window ahead of it.
+    expect(toThePage).toBeLessThanOrEqual(
+      (128 * piece + relayedAheadBytes) / (relayedAheadBytes / 4),
+    );
+    port1.close();
+  });
+
+  it("grants a reader slower than the page room a share of the window at a time, not a piece at a time", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const source = piecesOf(64);
+    let toThePage = 0;
+    void answerLoad(
+      aLoad,
+      countingIncoming(port2, () => (toThePage += 1)),
+      {
+        send: () => Promise.resolve(new Response(source.stream)),
+        token: undefined,
+        viewer: undefined,
+      },
+    );
+    const reader = (await responseFromPort(port1)).body?.getReader();
+    let read = 0;
+    for (;;) {
+      // The window fills while the reader waits, so each piece it takes frees one piece's room.
+      await settle();
+      const next = await reader?.read();
+      if (next === undefined || next.done) {
+        break;
+      }
+      read += next.value.byteLength;
+    }
+    expect(read).toBe(64 * piece);
+    // A piece's room granted for each piece taken was a message for each, as pulling was (Firefox's
+    // real worker, 35 for 64 pieces, 2026-10-28).
+    expect(toThePage).toBeLessThanOrEqual(
+      (64 * piece + relayedAheadBytes) / (relayedAheadBytes / 4),
+    );
+    port1.close();
+  });
+
+  it("sends no more than its window ahead of a reader that takes nothing", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const source = piecesOf(1000);
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(source.stream)),
+      token: undefined,
+      viewer: undefined,
+    });
+    await responseFromPort(port1);
+    await settle();
+    expect(source.read()).toBeGreaterThanOrEqual(relayedAheadBytes);
+    expect(source.read()).toBeLessThanOrEqual(relayedAheadBytes + 2 * piece);
+    port1.close();
+  });
+
+  it("moves each piece's own buffer to the worker rather than copying it", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const source = piecesOf(4);
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(source.stream)),
+      token: undefined,
+      viewer: undefined,
+    });
+    expect((await (await responseFromPort(port1)).arrayBuffer()).byteLength).toBe(4 * piece);
+    // A moved buffer is gone from the page.
+    expect(source.made.map((made) => made.byteLength)).toEqual([0, 0, 0, 0]);
+    port1.close();
+  });
+
+  it("stops the page's load when the worker's reader gives the body up, as a seek does", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const source = piecesOf(1000);
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(source.stream)),
+      token: undefined,
+      viewer: undefined,
+    });
+    const reader = (await responseFromPort(port1)).body?.getReader();
+    expect((await reader?.read())?.value?.[0]).toBe(0);
+    await reader?.cancel();
+    await settle();
+    expect(source.cancelled()).toBe(true);
+    port1.close();
+  });
+
+  it("fails the body when the page's load fails partway", async () => {
+    const { port1, port2 } = new MessageChannel();
+    let sent = 0;
+    const failing = new ReadableStream<Uint8Array>({
+      pull: (controller) => {
+        sent += 1;
+        if (sent > 2) {
+          controller.error(new Error("the channel closed"));
+          return;
+        }
+        controller.enqueue(new Uint8Array(piece));
+      },
+    });
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(failing)),
+      token: undefined,
+      viewer: undefined,
+    });
+    const response = await responseFromPort(port1);
+    await expect(response.arrayBuffer()).rejects.toThrow("the channel closed");
+    port1.close();
+  });
+
+  it("passes a 425 on with its body and Retry-After, its head first", async () => {
+    const { port1, port2 } = new MessageChannel();
+    void answerLoad(aLoad, port2, {
+      send: () =>
+        Promise.resolve(
+          new Response("not ready", { status: 425, headers: { "Retry-After": "1" } }),
+        ),
+      token: undefined,
+      viewer: undefined,
+    });
+    const response = await responseFromPort(port1);
+    expect(response.status).toBe(425);
+    expect(response.headers.get("Retry-After")).toBe("1");
+    expect(await response.text()).toBe("not ready");
+    port1.close();
+  });
+
+  // skipWaiting and clients.claim hand a page still open to a newer worker, and a reloaded page is
+  // controlled by the worker before until the newer one claims it: each end must still carry the
+  // body for the other. A relay that spoke only its own protocol hung every load, and staging's
+  // pages stayed black (2026-10-28). Real workers of each release: apps/web/src/sw.browser.test.ts.
+
+  it("pulls a piece at a time from a page whose head says nothing of credit, as a page of a release before", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const fromTheWorker = heardOn(port2);
+    const answered = responseFromPort(port1);
+    port2.postMessage({ kind: "head", status: 200, headers: [] });
+    const reader = (await answered).body?.getReader();
+    const first = reader?.read();
+    expect(await fromTheWorker.next()).toBe("pull");
+    const data = new Uint8Array([7]).buffer;
+    port2.postMessage({ kind: "chunk", data }, [data]);
+    expect((await first)?.value).toEqual(new Uint8Array([7]));
+    const last = reader?.read();
+    expect(await fromTheWorker.next()).toBe("pull");
+    port2.postMessage({ kind: "end" });
+    expect((await last)?.done).toBe(true);
+    // Never a credit, which such a page does not answer.
+    expect(fromTheWorker.all()).toEqual(["pull", "pull"]);
+    port1.close();
+  });
+
+  it("says in its head that it sends as the worker grants room, and answers a bare pull with one piece, as a worker of a release before asks", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const fromThePage = heardOn(port1);
+    const source = piecesOf(2);
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(source.stream)),
+      token: undefined,
+      viewer: undefined,
+    });
+    expect(await fromThePage.next()).toMatchObject({ kind: "head", status: 200, relay: "credit" });
+    port1.postMessage("pull");
+    expect(await fromThePage.next()).toMatchObject({ kind: "chunk" });
+    await settle();
+    // One piece for one pull: such a worker takes each reply as the answer to its pull.
+    expect(fromThePage.all()).toHaveLength(2);
+    port1.postMessage("pull");
+    port1.postMessage("pull");
+    expect(await fromThePage.next()).toMatchObject({ kind: "chunk" });
+    expect(await fromThePage.next()).toEqual({ kind: "end" });
+    port1.close();
+  });
+
+  it("answers a worker of a release before's pull of a body the page's load has none of", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const fromThePage = heardOn(port1);
+    void answerLoad(aLoad, port2, {
+      send: () => Promise.resolve(new Response(null, { status: 200 })),
+      token: undefined,
+      viewer: undefined,
+    });
+    expect(await fromThePage.next()).toMatchObject({ kind: "head" });
+    port1.postMessage("pull");
+    expect(await fromThePage.next()).toEqual({ kind: "end" });
     port1.close();
   });
 

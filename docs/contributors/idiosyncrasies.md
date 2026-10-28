@@ -90,6 +90,8 @@ User-Agent (D263; the User-Agent is logged only).
 | After an abandon, it resets the estimator to a nominal bitrate | [After an abandon, it resets the estimator to a nominal bitrate](#after-an-abandon-it-resets-the-estimator-to-a-nominal-bitrate) |
 | #5826 reads a throttled 1 Mb/s link as 404 MB/s. | [There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)](#there-is-no-cache-hit-filter-a-chunk-from-the-browsers-cache-reads-as-link-speed-hlsjs5826-open) |
 | Chrome or Silk on WebRTC never measured its link: no finished chunk in `linkSamples`, `linkKbps=0`. | [Chromium times a service worker's own response as a cache hit](#chromium-times-a-service-workers-own-response-as-a-cache-hit) |
+| After a deploy, pages on WebRTC connected and loaded nothing through their service worker: a black page. | [A page and its service worker run different releases across a deploy](#a-page-and-its-service-worker-run-different-releases-across-a-deploy) |
+| In a browser-mode test under Firefox, a page whose `controller` is a worker fetched past it, or its iframe never loaded. | [Playwright's Firefox lets loads of a page its worker did not answer pass the worker](#playwrights-firefox-lets-loads-of-a-page-its-worker-did-not-answer-pass-the-worker) |
 | The `abrController` config type is nominal, so a custom controller must subclass | [The `abrController` config type is nominal, so a custom controller must subclass](#the-abrcontroller-config-type-is-nominal-so-a-custom-controller-must-subclass) |
 | The base constructor calls the virtual `registerListeners()` before the subclass's fields exist | [The base constructor calls the virtual `registerListeners()` before the subclass's fields exist](#the-base-constructor-calls-the-virtual-registerlisteners-before-the-subclasss-fields-exist) |
 | `EwmaBandWidthEstimator` is exported as a type only | [`EwmaBandWidthEstimator` is exported as a type only](#ewmabandwidthestimator-is-exported-as-a-type-only) |
@@ -1128,6 +1130,30 @@ User-Agent (D263; the User-Agent is logged only).
   elements](https://html.spec.whatwg.org/multipage/media.html): HAVE_ENOUGH_DATA is the user agent's
   guess that playing on at the current rate will not overtake the data, which under MSE it has no
   way to make (read 2026-10-28).
+
+### A page and its service worker run different releases across a deploy
+
+- **Technology:** service workers, every browser (Chrome 156 and Silk 138 on staging; Chromium and
+  Firefox under Playwright).
+- **Symptom:** after a deploy that changed how the page and its worker talk, the Fire TV and the
+  Mac's Chrome connected over WebRTC and then loaded nothing through the worker, the client's own
+  files included: a black page (staging, 2026-10-28).
+- **Cause:** documented, and easy to forget: a worker that calls `skipWaiting()` and
+  `clients.claim()` takes over pages still running the code before it; a reloaded page is
+  controlled by the worker that was active when it navigated, which checks for its update only
+  then, so the new page's first loads go to the old worker until the new one claims it. A load
+  stays with the worker it went to. Any protocol between a page and its worker meets the other
+  release in both directions.
+- **What we do:** the media relay works across releases both ways: the page says in its head which
+  way it sends a body and the worker grants credit only to a page that says so, pulling a piece at a
+  time from any other; the page answers a bare "pull" with one piece
+  (`web/packages/sdk/src/rtc-media.ts`). Tested against a frozen copy of the release before
+  (`web/apps/web/src/test-pull-relay.ts`) with real workers in `sw.browser.test.ts`. VQ115.
+- **Evidence:** **[staging]** 2026-10-28, the core's log: "a page chose its path ... over=webrtc"
+  for devices 60 and 30 at 14:20 and no load after. **[measured]** the credit-only relay of
+  An earlier commit hung every relayed load across releases, both ways, in Chromium and Firefox, and carried
+  every one between pages and workers of its own release. **[doc]**
+  [Service Workers, `skipWaiting()` and `Clients.claim()`](https://www.w3.org/TR/service-workers/).
 
 ---
 
@@ -3021,6 +3047,24 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   in [vitest-dev/vitest discussion #5675](https://github.com/vitest-dev/vitest/discussions/5675)
   ("Unsure how to utilize vi.advanceTimers with recursion"), read 2026-10-26; no report found of the
   `act()`-specific asymmetry.
+
+### Playwright's Firefox lets loads of a page its worker did not answer pass the worker
+
+- **Technology:** Firefox under Playwright 1.63, vitest's browser mode, a module service worker.
+- **Symptom:** an iframe opened under a worker's scope, whose worker left the page's own load to the
+  network (no `respondWith`), reported that worker as its `controller`, yet its `fetch` of a path
+  the worker answers came back 404 from the server, the worker's fetch handler never reached;
+  Chromium, and Firefox with a worker that answered the page's load, sent it to the worker. Also:
+  Vite's empty 404 opened in a Firefox iframe as an error page of another origin, whose `load`
+  never fired.
+- **Cause:** unverified.
+- **What we do:** the test's worker answers the page's own load from the network, as `sw.ts` does,
+  and the test's page is a file Vite serves (`web/apps/web/src/test-pull-worker.ts`,
+  `sw.browser.test.ts`).
+- **Evidence:** **[measured]** 2026-10-28, as above. **[web]** nothing found for the first
+  (searched Bugzilla and the ServiceWorker spec's issues, 2026-10-28); Firefox's
+  [1426979](https://bugzilla.mozilla.org/show_bug.cgi?id=1426979) is an older iframe-control bug,
+  fixed.
 
 ---
 
