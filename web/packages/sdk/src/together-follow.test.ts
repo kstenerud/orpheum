@@ -9,7 +9,6 @@ import {
   checkDriftEveryMs,
   loadedCatchUpLeadMs,
   scrubPauseWindowMs,
-  followGroup,
   playerLoadsAheadMs,
   waitAheadAtMostMs,
 } from "./together-follow.ts";
@@ -25,7 +24,13 @@ import {
 } from "./together-player-events.ts";
 import { nudgeForMs } from "./together-drift.ts";
 import { refillAheadMs } from "./together-media.ts";
-import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+import {
+  FakeMedia,
+  fakeConnection,
+  paused,
+  followGroup,
+  stopEveryFollower,
+} from "./test-follow.ts";
 
 /**
  * A player in step with a group playing from 100 s that has measured its link loading half a
@@ -70,6 +75,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopEveryFollower();
   vi.useRealTimers();
 });
 

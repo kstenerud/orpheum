@@ -3,8 +3,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { everyRight } from "./together.ts";
-import { checkDriftEveryMs, followGroup } from "./together-follow.ts";
-import { FakeMedia, FakePage, fakeConnection, paused } from "./test-follow.ts";
+import { checkDriftEveryMs } from "./together-follow.ts";
+import {
+  FakeMedia,
+  FakePage,
+  fakeConnection,
+  paused,
+  followGroup,
+  stopEveryFollower,
+} from "./test-follow.ts";
 
 let monotonicNowMs = 0;
 const monotonicMs = (): number => monotonicNowMs;
@@ -15,6 +22,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopEveryFollower();
   vi.useRealTimers();
 });
 

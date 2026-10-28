@@ -65,6 +65,25 @@ class AreaStampTest(unittest.TestCase):
             self.assertEqual(area_stamp.main(step), 0)
         self.assertEqual(ran.read_text(), "x\nx\n")
 
+    def test_a_pass_holds_in_another_worktree_of_the_same_tree(self) -> None:
+        """The caching audit's finding 9: a pass names a tree by its content, so an agent's new
+        worktree, holding the same tree, does not run the step again."""
+        repo = Repo({"web/a.ts": "1"})
+        repo.commit("first")
+        other = Path(tempfile.mkdtemp()) / "other"
+        repo.git("worktree", "add", "--detach", str(other))
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        step = ["web-test", "web", "--", "sh", "-c", f"echo x >> {ran}"]
+        with repo.cwd():
+            self.assertEqual(area_stamp.main(step), 0)
+        here = Path.cwd()
+        try:
+            os.chdir(other)
+            self.assertEqual(area_stamp.main(step), 0)  # the same tree: not run again
+        finally:
+            os.chdir(here)
+        self.assertEqual(ran.read_text(), "x\n")
+
     def test_a_step_without_its_command_is_refused(self) -> None:
         self.assertEqual(area_stamp.main(["web-test", "web"]), 2)
         self.assertEqual(area_stamp.main(["web-test", "web", "--"]), 2)
