@@ -2,6 +2,7 @@
 # ABOUTME: Tests for gate_lock.py: one gate at a time on a repository, a second waits, a gate's own
 # ABOUTME: sub-runs pass through, and whether one runs can be asked without waiting.
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,8 +17,9 @@ import gate_lock  # noqa: E402
 HERMETIC = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
 
-def repository() -> Path:
+def repository(case: unittest.TestCase) -> Path:
     root = Path(tempfile.mkdtemp(prefix="gate-lock-"))
+    case.addCleanup(shutil.rmtree, root, ignore_errors=True)
     subprocess.run(["git", "init", "-q", str(root)], check=True, env=os.environ | HERMETIC)
     return root
 
@@ -32,7 +34,7 @@ def run_lock(root: Path, *command: str, held: bool = False) -> subprocess.Popen[
 
 class GateLock(unittest.TestCase):
     def test_a_second_gate_waits_for_the_first_and_says_so(self):
-        root = repository()
+        root = repository(self)
         marker = root / "first-ran"
         first = run_lock(root, "sh", "-c", f"sleep 1; touch {marker}")
         time.sleep(0.3)  # the first holds the lock
@@ -45,7 +47,7 @@ class GateLock(unittest.TestCase):
         self.assertEqual(run_lock(root, "--held").wait(), 1, "none holds it once both ended")
 
     def test_a_gates_own_sub_run_passes_through(self):
-        root = repository()
+        root = repository(self)
         first = run_lock(root, "sh", "-c", "sleep 2")
         time.sleep(0.3)
         inner = run_lock(root, "true", held=True)

@@ -16,3 +16,12 @@ web/test-results
 web/playwright-report
 internal/core/webclient/dist/*
 !internal/core/webclient/dist/.keep
+# The gates' own trees and logs under .git, and agents' worktrees: about 2 GB the build copied into
+# a new layer at every commit (caching-audit-2026-10-28.md, finding 7); the objects stay.
+.git/revert-red
+.git/check-pr
+.git/worktrees
+.git/gate-logs
+.claude/worktrees
+**/.dev
+**/.tools

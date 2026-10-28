@@ -174,7 +174,23 @@ def write_deployment_command(image: str, uid: int, gid: int, host_name: str, has
             image, "write-deployment", "--deployment", "staging", "--image", image]
 
 
+# What Docker's build cache keeps after a build: each full build added a layer of the checkout, and
+# the cache grew until the disk was full (the disk-full review, 2026-10-28).
+BUILD_CACHE_KEPT = "5GB"
+
+
+def prune_builds() -> None:
+    """Trims Docker's build cache to BUILD_CACHE_KEPT, and drops the images no tag names any more:
+    each build leaves the one it replaced. The tagged ones, staging's and its rollback points, stay."""
+    subprocess.run(["docker", "builder", "prune", "--force", "--max-used-space", BUILD_CACHE_KEPT],
+                   check=False, stdout=subprocess.DEVNULL)
+    subprocess.run(["docker", "image", "prune", "--force"], check=False, stdout=subprocess.DEVNULL)
+
+
 def up(quick: bool = False) -> int:
+    # The disk first: a build that fills it fails part-way, saying something else (scripts/disk_guard.py).
+    if subprocess.run([sys.executable, str(ROOT / "scripts" / "disk_guard.py")], check=False).returncode != 0:
+        return 1
     DIR.mkdir(exist_ok=True)
     (DIR / "run").mkdir(exist_ok=True)
     if adopt_old_layout():
@@ -184,6 +200,7 @@ def up(quick: bool = False) -> int:
                                        for root in missing), file=sys.stderr)
         return 1
     image = quick_image() if quick else build_image()
+    prune_builds()
     if image is None:
         return 1
     written = subprocess.run(write_deployment_command(image, os.getuid(), os.getgid(), socket.gethostname(),
