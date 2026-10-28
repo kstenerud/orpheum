@@ -241,3 +241,26 @@ func TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle(t *testing.
 		t.Errorf("a cast as its receiver went: %+v; want Playing on, for its return", group)
 	}
 }
+
+// A guest's leading player that undoes its person's move their link withholds says so, and the
+// server logs it as a note it knows (D372 §4).
+func TestHub_LogsALeadingGuestsUndoneMove(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 1)
+	stage.hub.Detach(stage.host, GoneClosed)
+	guestBox := &inbox{}
+	guest, err := stage.hub.Attach(stage.guestCredential(t, stage.guests[0]), RoleVideo, true, nil, testTuning,
+		guestBox.send)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage.hub.Handle(t.Context(), guest, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 600_000, ToMs: 60_000, Why: "undone",
+	}})
+	if refused := guestBox.count(MessageRejected); refused != 0 {
+		t.Errorf("the undone move's note was refused %d times; want it logged", refused)
+	}
+	if line := logLineWith(stage.logs.String(), "why=undone"); line == "" {
+		t.Errorf("no log line says the move was undone:\n%s", stage.logs)
+	}
+}

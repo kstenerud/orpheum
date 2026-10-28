@@ -1077,3 +1077,23 @@ An item is ticked only by the person who did it, and only with what they saw.
   and the iPhone's page plays the film again; Stop casting on the iPhone returns the second device to
   the page it was on. (`internal/core/together/cast.go`; `internal/core/live/registry.go`;
   `web/apps/web/src/cast-ready.tsx`, `together-viewer.tsx`)
+- [ ] **VQ104** — the lead passes to a guest while the host's screen is gone and comes back to it in
+  step (D372 §1–§4, §7), on staging. Passes when the Mac hosts a session playing a film on its own
+  player and two guests join, the iPhone first and a computer's browser a minute later: (1) the Mac
+  leaving the Play page (to the library) leaves the film playing for both guests with no pause, the
+  core's log saying `logEvent=leaderChanged why=leaderGone goneBecause=closed` naming the iPhone's
+  device, with its `leaderSeniority` the earlier; (2) the iPhone's own pause is refused it (a link
+  without play and pause) and its film plays on, a `sought` note `why=undone` for a refused jump;
+  (3) the Mac opening the Play page again catches up as a follower, the guests' films never jumping,
+  and the log says `why=hostInStep` with `offGroupMs` within 500 ms a few seconds later; (4) with
+  every device's Play page closed, the group is Paused where it stood, "Everyone's screen left;
+  paused at …" on the host's session page. (`internal/core/together/leader.go`;
+  `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`)
+- [ ] **VQ105** — a locked phone's lead passes at once (D372 §2, §5), on staging. Passes when the
+  iPhone, a guest, leads a session (the host playing on no device) beside a computer's browser, a
+  second guest: (1) locking the iPhone hands the lead to the browser at once, the browser's film
+  playing on without a stop, and the log says `goneBecause=hidden`; (2) unlocking the iPhone catches
+  it up as a follower, and closing the browser's page then gives the lead back to the iPhone, its
+  `leaderSeniority` the moment it was unlocked; (3) a stall of the leader's (its link throttled)
+  holds the group (`waitingFor`) and does not move the lead. (`internal/core/together/leader.go`;
+  `web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)

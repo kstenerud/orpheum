@@ -22,6 +22,11 @@ export interface PlayerState {
   readonly loadsFaster?: number;
   /** How it plays the film: its delivery, quality and link (D371 §4); absent where it does not say. */
   readonly playback?: PlaybackReport;
+  /**
+   * Whether its page is hidden where hiding pauses its film, a handheld's, a locked phone's: such a
+   * device cannot lead its session (D372 §5). Absent where hiding pauses nothing.
+   */
+  readonly isPageHidden?: boolean;
 }
 
 /**
@@ -32,7 +37,8 @@ export interface PlayerState {
  *   behind), "hold" (to where a stopped group is), "skip" (a small seek of a player that corrects
  *   by seeks alone, D268 §2), or, a leader's
  *   (D371 §1), "join" (to where a group under way is, as it began to lead) or "command" (where another
- *   device's seek asked, carried out as its own press);
+ *   device's seek asked, carried out as its own press) or "undone" (back to where the group is, its
+ *   person's seek one their link withholds, D372 §4);
  * - loadHeld: a ready player held its loading while its group waits ("held"), or went on ("goesOn")
  *   (D283 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
@@ -100,7 +106,7 @@ export type PlayerNote =
       readonly kind: "sought";
       readonly positionMs: number;
       readonly toMs: number;
-      readonly why: "catchUp" | "hold" | "skip" | "join" | "command";
+      readonly why: "catchUp" | "hold" | "skip" | "join" | "command" | "undone";
     }
   | {
       readonly kind: "chunkLoaded";

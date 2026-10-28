@@ -62,6 +62,20 @@ export class GroupLeader {
     this.#playOrPauseAs(where.group);
   }
 
+  /**
+   * Undoes its person's play, pause or seek their link withholds (D372 §4): back to where its group
+   * is, playing or paused as the group is. A guest's leading player carries the film's clock, never
+   * a right the host kept.
+   */
+  undo(where: GroupNow): void {
+    if (
+      Math.abs(where.expectedMs - positionMsOf(this.#parts.media)) > where.tuning.leaveDriftUpToMs
+    ) {
+      this.#seek(where.expectedMs, "undone");
+    }
+    this.#playOrPauseAs(where.group);
+  }
+
   /** Whether its player cannot play on now: loading or seeking, which holds its group where it is. */
   isLoading(): boolean {
     const { media } = this.#parts;
@@ -117,7 +131,7 @@ export class GroupLeader {
     }
   }
 
-  #seek(toMs: number, why: "join" | "command"): void {
+  #seek(toMs: number, why: "join" | "command" | "undone"): void {
     const { media, connection, ownMoves, monotonicMs } = this.#parts;
     connection.note({ kind: "sought", positionMs: positionMsOf(media), toMs, why });
     ownMoves.mark("seek", monotonicMs());

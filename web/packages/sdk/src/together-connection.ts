@@ -244,6 +244,21 @@ export function isLeaderOf(snapshot: TogetherSnapshot): boolean {
   return leader !== undefined && leader.id === snapshot.deviceId;
 }
 
+/**
+ * Whether this device is the host's, following while a guest's device leads: the host's screen come
+ * back, which takes the lead back once it plays in step, as the server judges by its states (D372
+ * §3).
+ */
+export function isHostAwaitingLead(snapshot: TogetherSnapshot): boolean {
+  const leader = leaderOf(snapshot);
+  if (!snapshot.isHost || leader === undefined || leader.id === snapshot.deviceId) {
+    return false;
+  }
+  return !snapshot.roster.some(
+    (member) => member.isHost && member.devices.some((device) => device.id === leader.id),
+  );
+}
+
 /** A playback in whole numbers, as the server reads them. */
 function wholePlayback(playback: PlaybackReport): PlaybackReport {
   const { qualityKbps, linkKbps } = playback;
@@ -488,6 +503,7 @@ class SessionConnection
         ...(state.readyOnMs === undefined ? {} : { readyOnMs: state.readyOnMs }),
         ...(state.loadsFaster === undefined ? {} : { loadsFaster: state.loadsFaster }),
         ...(state.playback === undefined ? {} : { playback: wholePlayback(state.playback) }),
+        ...(state.isPageHidden === true ? { pageHidden: true } : {}),
         ...(this.#cannotKeepUp === undefined
           ? {}
           : {

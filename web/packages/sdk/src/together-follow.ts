@@ -3,6 +3,7 @@
 import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
+  isHostAwaitingLead,
   isLeaderOf,
   type GroupCommand,
   type PlayerState,
@@ -33,7 +34,7 @@ import {
   commandOfEvent,
   mayLead,
   sendAfterMs,
-  whenHidden,
+  whenVisibilityChanges,
   type GroupNow,
 } from "./together-lead.ts";
 import { FollowedChanges, heldByOf, notePlayedWhileHeld } from "./together-followed.ts";
@@ -190,6 +191,7 @@ class GroupFollower {
       readyOnMs: this.#refill.readyOnMs(),
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
       ...(playback === undefined ? {} : { playback }),
+      ...(this.#options.page?.visibilityState === "hidden" ? { isPageHidden: true } : {}),
     };
   };
 
@@ -284,19 +286,35 @@ class GroupFollower {
       where !== undefined && !isOwn && this.#hasCaughtUp
         ? commandOfEvent(event, this.#media, where)
         : undefined;
-    if (command === undefined || !mayLead(command, this.#options.leads)) {
-      const held = { connection: this.#connection, media: this.#media, where };
-      notePlayedWhileHeld({ ...held, event, isLeading: this.#isLeading() });
-      this.apply();
-    } else {
-      this.#lead(command);
-    }
+    this.#takePersonsMove(event, command, where);
     // While its person's command waits to be sent, the player's loading is of a place the group
     // has not been told of, and would be taken for a stall: it is told once the command is sent.
     if (this.#pendingCommand === undefined) {
       this.#connection.reportState();
     }
   };
+
+  /**
+   * Takes its person's move, event, the group's command when it is one: sent when their rights let
+   * them make it; else undone, a guest's leading player put back where its group is, as leading is
+   * not hosting (D372 §4), or a follower put back by applying the group.
+   */
+  #takePersonsMove(
+    event: string,
+    command: GroupCommand | undefined,
+    where: GroupNow | undefined,
+  ): void {
+    const canMake = command !== undefined && mayLead(command, this.#options.leads);
+    if (canMake) {
+      this.#lead(command);
+    } else if (command !== undefined && where !== undefined && this.#isLeading()) {
+      this.#leader.undo(where);
+    } else {
+      const held = { connection: this.#connection, media: this.#media, where };
+      notePlayedWhileHeld({ ...held, event, isLeading: this.#isLeading() });
+      this.apply();
+    }
+  }
 
   /** Whether event is of a seek or pause the follower made itself, not its person: no command. */
   #isOwnMove(event: string): boolean {
@@ -340,8 +358,20 @@ class GroupFollower {
   };
 
   /**
-   * Each checkDriftEveryMs: applies the group, and while it waits tells it this player's state, by
-   * which the server ends a wait whose time is up (D247 §4).
+   * The page was hidden, where hiding pauses its film, or shown again: the group is told at once,
+   * as a hidden page cannot lead and one shown again comes back (D372 §2, §5).
+   */
+  readonly visibilityChanged = (isHidden: boolean): void => {
+    if (isHidden) {
+      this.browserPaused();
+    }
+    this.#connection.reportState();
+  };
+
+  /**
+   * Each checkDriftEveryMs: applies the group, and tells it this player's state while it waits, by
+   * which the server ends a wait whose time is up (D247 §4), and while this is the host's player
+   * following a guest's lead, by which the server sees it in step to take the lead back (D372 §3).
    */
   readonly tick = (): void => {
     for (const move of this.#ownMoves.expired(this.#options.monotonicMs())) {
@@ -349,7 +379,8 @@ class GroupFollower {
     }
     this.#loadSpeed.sample(this.#media, this.#options.monotonicMs());
     this.apply();
-    if (this.#connection.snapshot().group?.state === "Waiting") {
+    const snapshot = this.#connection.snapshot();
+    if (snapshot.group?.state === "Waiting" || isHostAwaitingLead(snapshot)) {
       this.#connection.reportState();
     }
   };
@@ -720,7 +751,7 @@ export function followGroup(
   const unmarkFollowing = markFollowingAGroup();
   const unsubscribe = connection.subscribe(follower.connectionChanged);
   const checker = setInterval(follower.tick, checkDriftEveryMs);
-  const stopHearingPage = whenHidden(options.page, follower.browserPaused);
+  const stopHearingPage = whenVisibilityChanges(options.page, follower.visibilityChanged);
   follower.apply();
   connection.reportState();
   return () => {
