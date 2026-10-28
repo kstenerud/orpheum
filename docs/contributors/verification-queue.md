@@ -881,7 +881,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did
   not finish" for its sound, and the core's no run of it queued again every few seconds.
   (`internal/node/chunks/arguments.go`, `internal/core/chunks/job.go`, `failures.go`)
-- [ ] **VQ89** — D370, the watched check and marking by hand, on staging. Passes when: on a computer,
+- [x] **VQ89** — D370, the watched check and marking by hand, on staging. Passes when: on a computer,
   a phone and the Fire TV, a film played past 90% shows a white check as the last icon of its poster's
   tray in Films, in its library and on Home's rows, readable over pale and busy art and never fading or
   greying the poster; a series whose every episode is watched shows the check on its poster, a partly
@@ -894,6 +894,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   unwatched* leaves it as never watched. Restarting a finished film and stopping early leaves its check,
   and a series' Next Up does not step back. (`web/apps/web/src/watched-mark.tsx`, `status-cues.tsx`,
   `series.tsx`, `title.tsx`; `internal/core/playback/watched.go`, `internal/core/library/watched.go`)
+  **Passed 2026-10-28 (the owner, on staging):** the check on posters in Films, a library and Home,
+  readable on pale art (A Woman of Paris marked by hand), no fading; a series' check and progress; the
+  season's and episodes' rows; Mark as watched / Undo / Mark as unwatched on the Fire TV by the remote;
+  the restart and Next Up rules. VoiceOver's "Watched" not tried: the owner, "we'll do a more complete
+  voiceover later once the UI is finalized". Seen: the check in a chooser's items looks poor (moot with
+  season posters) and belongs over an episode's still (next batch).
 - [ ] **VQ90** — D364, casting as a session, on staging: the Mac casting to the Fire TV (Silk), then
   the Mac casting to Chrome on Linux. Passes when: the banner has no Watch Together or Cast item, and
   the tray shows both signs white with nothing on; on a film's Play page on the Mac, Cast's sign leads
@@ -1097,7 +1103,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `leaderSeniority` the moment it was unlocked; (3) a stall of the leader's (its link throttled)
   holds the group (`waitingFor`) and does not move the lead. (`internal/core/together/leader.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)
-- [ ] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
+- [x] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
   guest by link alone on the iPhone, in the Mac's session, opens a link to a second session (another
   person hosting it on a computer's browser) in a new tab and is asked "Leave ‹host›'s session to
   join this one?"; Don't join leaves them in the first, Leave and join takes them out of it (the
@@ -1107,6 +1113,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   while hosting one on another device of theirs (the session lost from this tab) ends the old one,
   its guests told it ended, and the core's log says `a person left a session for another`.
   (`internal/core/together/places.go`; `web/apps/web/src/together-join.tsx`)
+  **Passed 2026-10-28 (the owner, on staging):** all three; the core's log has the `in_another_session`
+  refusals (a host's own and "you are in dan's … session") and `a person left a session for another`
+  for a host and for a guest.
 - [ ] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
   loaded outlasts its next chunk's load, and its dropped frames reach the log (the owner, 2026-10-28),
   on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off: (1) The
@@ -1174,7 +1183,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   or a step up), the stall and seek reports show the sound's buffer reaching as far as the picture's
   after the change, no `startedAfter=waiting` follows it, and the sound plays on across it with no
   gap or blip heard. (`web/packages/player/src/abr.ts`, `link-estimate.ts`, `hls.ts`)
-- [ ] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
+- [x] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
   devices (webrtc-throughput-2026-10-28.md: in Chrome and Firefox here, one connection carried
   25–30 Mb/s at a 50 ms round trip against 240 and more over HTTP, its window cut by the browser's
   own UDP socket overflowing; the Fire TV saw 15–30 Mb/s), on staging with Device tests on. Do: on
@@ -1188,6 +1197,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   §4, fixes 1 and 2); the relay well below the transport puts it in the relay; all three alike puts
   it in the TV's link. (`web/apps/web/src/lab-throughput.tsx`,
   `internal/core/api/lab_throughput.go`)
+  **Passed 2026-10-28 (the owner's runs, read by the lead from the core's log):** old Fire TV over WebRTC
+  36 / 29 Mb/s (transport / relay), at the LAN name over HTTPS 190–224; Mac Firefox over WebRTC 106 / 102;
+  Mac Chrome over WebRTC 23 / 18; Mac Safari at the LAN name over HTTPS 108 / 80. The LAN leg was run from
+  the LAN page rather than typed. Only Chromium browsers are slow over WebRTC: the path, not the devices
+  (research/webrtc-throughput-review-2026-10-28.md; the fixes in the plan's last sections).
 - [ ] **VQ118** — the efficiency audit's cheap fixes make a Fire TV's playback lighter
   (web-client-efficiency-audit-2026-10-28.md, findings 1, 2 and 3), on staging. Do, before the
   batch is deployed and again after, the same way each time: (1) cast from the Mac to the Fire TV
