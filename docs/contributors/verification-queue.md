@@ -857,6 +857,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   The status tray's signs, now 2.75rem wide, are looked at for how they feel (the owner, 2026-10-27).
   (`web/apps/web/src/page-controls.tsx`, `player-controls.tsx`, `timeline.tsx`, `icon-button.tsx`,
   `tv-controls.tsx`, `cast-remote.tsx`)
+  **The lead's check 2026-10-28 (headless Chromium on Linux, computer part only):** the app's bar in
+  place of the browser's controls, hidden 5.05 s after a move; a click plays and pauses, a double
+  click enters and leaves full screen (emulated); Tab and the arrows reach every control; Left and
+  Right seek 10 s; Space plays and pauses from Mute, Full screen or the timeline without pressing
+  them. Left for the owner: phones, the Fire TV, a cast's remote, the tray's feel.
 - [ ] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
   E-AC-3) and a stereo one. Passes when each starts at the top on its own sound (the tracks note says
   "E-AC-3 5.1 (original)" or "AAC stereo (original)", and the core's `a playback started` line says
@@ -866,6 +871,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   dialogue boost turned on at the top plays the boosted mix, kept as the quality steps. Note whether a
   blip is heard at each switch, and on which device. (`internal/core/chunks/ownsound.go`,
   `internal/node/chunks/arguments.go`, `web/packages/player/src/hls.ts`)
+  **The lead's check 2026-10-28 (headless Chromium, Linux):** stereo 5662 and 5.1 5667 start at the
+  top on their own sound, "(original)"; throttled to 400 kb/s the playback stepped down to 360p and
+  the light stereo track, but had not stepped back up 50 s after the throttle was lifted (once it
+  also sat still at 1231.3 s for 50 s; a second run played on: perhaps the throttling's own); the
+  boost at the top switches to the boosted mix. Left for the owner: the Mac's Chrome, loudness and
+  blips by ear, the boost kept across steps.
 - [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
@@ -945,6 +956,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   page's library, view and sort, a series' season) shows a down chevron at its button's end.
   (`web/apps/web/src/navigation.ts`, `upward.ts`, `up-trail.tsx`, `series.tsx`, `play-up.tsx`,
   `tv-controls.tsx`, `library-configure.tsx`, `title.css`, `route-chooser.tsx`)
+  **The lead's check 2026-10-28 (headless Chromium, desktop and a 390×844 phone size):** (1), (2)
+  (staging's Copper Kettle has seasons 2–4: S2E12 into S3E1), (3) (one Back still leaves the page, though
+  the first choice adds a history entry), (5) by click, and (6) on the desktop and the phone size all
+  hold. Left for the owner: (4), the remote's OK and Back, the iPhone's swipe, real phones.
 - [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
   Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
   receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's
@@ -1019,6 +1034,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   choice over the button, inside the screen, for a chooser near the screen's bottom too; the menu
   at its icon; (10) on a phone, a chooser's list is a pop-up over its button, not the screen's
   middle; (11) the Films and Series pages' sort, and a library's files' Show, are the same chooser.
+  **The lead's check 2026-10-28 (headless Chromium):** (7), (8), (10) (a 390×844 phone size), (11),
+  and Left, Right, Escape, Close and Up to the Close then Left, each closing with focus on the button
+  and no scroll, hold; (9) holds at 1920×1080 and 1280×720, while in a 1920×600 window the season
+  list moves up 22 px to stay on screen, its choice no longer over the button's centre. Left for the
+  owner: everything on the Fire TV.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays
@@ -1069,6 +1089,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   steered: a 0.9× nudge loop, a hold's seek back, a run-up's jump, a play-pause-play start.
   (`internal/core/together/group.go`; `web/packages/sdk/src/together-leader.ts`;
   `web/apps/web/src/cast-remote.tsx`)
+  **The lead's reading 2026-10-28 (staging's log, runs 11:06–18:20):** (2) holds (the receiver named
+  leader on attach, no `nudged`, only `sought why=command`, every `groupChanged` naming it); the
+  remote's seeks and pause move the TV once. Found: two of the TV's own 10 s skips were each followed
+  ~200 ms later by a seek back to where it had gone, its group's change for its own skip taken as
+  another device's; fixed, to be seen again.
 - [ ] **VQ102** — in Watch Together the host's screen leads and a guest catches up to it (D371 §2,
   §6), on staging. Passes when the Mac hosts a session, casting to the Fire TV (Silk), and the
   iPhone joins as a guest on mobile data: (1) as the host plays a film, the TV starts at once and
@@ -1141,7 +1166,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   frames" with `droppedFrames` and `totalFrames` near when the picture stuttered, if it did, and a
   smooth one none. (`web/packages/sdk/src/start-gate.ts`, `ready-ahead.ts`;
   `web/packages/player/src/next-chunk.ts`, `frames.ts`; `internal/core/api/report.go`)
-- [ ] **VQ111** — a cast's receiver waits for enough loaded before its first play, whenever its
+  **The lead's check 2026-10-28 (headless Chromium):** (3) as worded fails: no start was logged
+  without `waitedForAheadMs`, even after the film page preloaded 12 s, though each played 160–300 ms
+  after the page asked (whether "absent" is the right test is the owner's to say); the 2-minute seek
+  holds (`readyAfterMs=307`, ~115 s loaded, no pause told).
+- [x] **VQ111** — a cast's receiver waits for enough loaded before its first play, whenever its
   session's welcome comes (staging, 2026-10-28: fileId 5664, cast from the Mac, played with
   `loadedAheadMs=0` and no `waitedForAheadMs`), on staging. Passes when, the Mac casting five films in
   a row to the Fire TV (Silk), Watch Together off: every "a playback started playing" line for device
@@ -1150,7 +1179,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   `leaderPlays` within a second; and no `qualitySwitched` note from it jumps to the film's own picture
   while its `linkEstimateKbps` is below that picture's rate (2026-10-28: 1896 → 15635 kb/s on a 1.5
   Mb/s estimate, the leader kept the film's own picture as a follower would). (`web/packages/sdk/src/together-follow.ts`, `together-connection.ts`, `following-a-group.ts`)
-- [ ] **VQ112** — a Fire TV's second start says what came before it (staging, 2026-10-28: fileId 5670
+  **Passed 2026-10-28 (the owner's casts, read by the lead from staging's log, runs 13:51–18:20):**
+  every device-60 `a playback started playing` line for a cast carries `waitedForAheadMs`, none
+  `loadedAheadMs=0` (the least 1067 against 980); no switch to the film's own picture above the
+  estimate (the one later step up, 1896 → 9018, on 16556 kb/s).
+- [x] **VQ112** — a Fire TV's second start says what came before it (staging, 2026-10-28: fileId 5670
   on the TV's own Play page logged `kind=started` twice 0.6 s apart, 9 s loaded, 6 of 21 frames
   dropped, and nothing between), on staging. Passes when, the Fire TV (Silk) playing three films from
   their Play pages, resumed part way: each "a player's play state changed" line with `kind=started`
@@ -1159,7 +1192,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`waiting`) or a seek (`seeking`, with `skippedBy` on a `kind=seeked` line if hls.js made it) came
   between, which decides the cause the first commit could not. (`web/apps/web/src/play-state.ts`,
   `internal/core/api/report_context.go`)
-- [ ] **VQ114** — a player's start rests on a lone first chunk no more (staging, 2026-10-28: device
+  **Passed 2026-10-28 (the owner's runs, read by the lead from staging's log):** every device-60
+  `kind=started` line carries `startedAfter`, `stoodMs`, `readyState` and both buffers; second starts
+  name a wait (`startedAfter=waiting stoodMs=377`, `1172`) or hls.js stepping over a 40 ms hole in
+  the sound (`skippedBy=hole`, then `startedAfter=seeking stoodMs=312`).
+- [x] **VQ114** — a player's start rests on a lone first chunk no more (staging, 2026-10-28: device
   60, file 5766, its first chunk at 28384 kb/s gave `nextChunkLoadMs=653`, it played with 1.07 s
   loaded, its next chunk loaded at 9636 kb/s and it ran dry a second in, `startedAfter=waiting`), on
   staging. Passes when, the Fire TV (Silk) resuming three films part way from their Play pages, the
@@ -1170,6 +1207,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   chunk where that was faster than the remembered link; and no film stalls in its first 30 s
   (`startedAfter=waiting` absent on its second start). (`web/packages/player/src/next-chunk.ts`;
   `internal/core/playback/playback.go`)
+  **Passed 2026-10-28 (the owner's casts, read by the lead from staging's log, runs 15:24 and
+  18:20):** each start that waited carries `nextChunkLoadFrom` (`confident`, `remembered` or
+  `firstSample`, the last only where slower than the remembered link); `rememberedLinkKbps` follows
+  the film before; no `startedAfter=waiting`. Seen: the remembered link is 0 on the first start after
+  each deploy (it is not kept across one), and one start waited 10 s on a confident estimate of 753
+  kb/s (next batch: why the estimate was so low).
 - [ ] **VQ115** — the WebRTC media relay carries every load across a deploy and loads chunks as fast
   as the LAN carries them, not one 64 KiB piece for each round trip through a busy page (staging,
   2026-10-28: on `path=direct_ipv4` the Fire TV loaded every chunk at 15–18 Mb/s at most, 1.5–5 Mb/s
@@ -1182,6 +1225,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   `kind=chunkLoaded` for device 60 carry `loadedKbps` well above 18000 for chunks of a megabyte or
   more, and the Mac seeks twice across a film with no stall and no error.
   (`web/packages/sdk/src/rtc-media.ts`)
+  **The lead's reading 2026-10-28 (staging's log):** the Fire TV on the LAN's direct path (`host udp
+  192.168.1.150 → 192.168.1.199:8443`) still loaded chunks of a megabyte or more at ~15.6 Mb/s on
+  average, as before the change: the relay's credit window did not lift it. This fits VQ117's finding
+  that Chromium's own WebRTC path is the limit (the Chrome fixes and the LAN-origin tab, next batch).
 - [ ] **VQ116** — a Fire TV holds its quality while plenty is loaded, and a change of sound with a
   change of quality throws no loaded sound away (staging, 2026-10-28: device 60, file 5671 Nosferatu, one
   slow sample of five, 376471 B in 1200 ms, lowered the ceiling from the film's own picture to
@@ -1194,6 +1241,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   or a step up), the stall and seek reports show the sound's buffer reaching as far as the picture's
   after the change, no `startedAfter=waiting` follows it, and the sound plays on across it with no
   gap or blip heard. (`web/packages/player/src/abr.ts`, `link-estimate.ts`, `hls.ts`)
+  **The lead's reading 2026-10-28 (staging's log):** as written it holds (no lowering with 20 s or
+  more loaded; the sound's buffer reaches the picture's after each change; no `startedAfter=waiting`
+  after 15:24). But at 15:33:05 Nosferatu dropped from 9018 to 696 kb/s 2.3 s into play on an estimate of
+  69 kb/s while its picture chunks had loaded at 14–18 Mb/s, and stayed there 75 s: most likely a
+  chunk given up, counted as a sample of the few bytes that came over the time waited, which a
+  harmonic mean cannot outvote for five chunks. A quality switch's note now says why the controller
+  chose it and its samples (`why`, `linkSamples`), so the next one says; how a given-up chunk counts
+  is the owner's to decide (D352).
 - [x] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
   devices (webrtc-throughput-2026-10-28.md: in Chrome and Firefox here, one connection carried
   25–30 Mb/s at a 50 ms round trip against 240 and more over HTTP, its window cut by the browser's
@@ -1227,7 +1282,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   (the preload's ~10 s fetched on the film page and again by the Play page). Note
   `playingAfterMs` before and after for (2) too. (`web/apps/web/src/watching.ts`,
   `frame-timing.ts`, `tv-controls.css`, `status-tray.css`)
-- [ ] **VQ119** — A Woman of Paris plays from its start and from a resumed point (staging,
+  **The lead's reading 2026-10-28 (staging's log):** (1) not met on the data: five casts after the
+  batch dropped 38 frames in 6 lines against 31 in 6 before, and started no sooner; the frame
+  sampling changed in the same batch, so the counts compare roughly. (2) only one film went from the
+  TV's film page to Play, one that starts on its own picture and never preloads, so it cannot show
+  the fix.
+- [x] **VQ119** — A Woman of Paris plays from its start and from a resumed point (staging,
   2026-10-28: file 5667 on the Mac in Firefox, its own 5.1 sound copied failed chunk 0 twice, "raw
   00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not
   play, `cannot_convert`; its first keyframe is before its start, discarded, so its grid starts
@@ -1237,3 +1297,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   `runs of chunks failed at the same chunk again` for `5667/chunks-sound0-own`. The same for one
   other film of the shape (Glass Runner Final Cut, file 5691, or The Gold Rush, file 5697).
   (`internal/node/chunks/arguments.go`, `maker.go`, `listed.go`; `internal/core/chunks/offer.go`)
+  **Passed 2026-10-28 (the lead, headless Firefox on Linux against staging, and the owner's Firefox
+  on the Mac):** 5667 played a minute from its start and from 2000 s, and 5691 a minute from its
+  start, each on its own 5.1 sound (`ladderQuality=picture ladderSound=sound0-own`, the tracks note
+  "AAC 5.1 (original)"); the node made chunk 0 of each own sound from the grid's start (10176 ms for
+  5667) and logged no `did not finish`, no `same chunk again` and no `cannot_convert`. On the owner's
+  Mac, Firefox refused 5667's own (HEVC) picture (`bufferAppendNoProgress`) and the player fell back
+  to 800p with the server's stereo, as designed; why the Mac's Firefox refused it is filed for the
+  next batch.
