@@ -118,3 +118,11 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   at a time, so the path's own evidence is used: a folder holding a season folder ("…/Series 1/…") is
   the series' folder, never its specials; where a scan has the siblings, several season folders under
   one folder say so the more surely.
+- **Next batch (the owner, 2026-10-28, "yes, file it"):** the banner's Libraries icon opens a menu
+  listing the person's libraries, rather than going to the Libraries page with one chosen: "make the
+  libraries icon a menu that lists the libraries under it". Built on the shared chooser/menu widget of
+  this batch. As agreed: (1) with one library, the icon goes straight to its page, no one-item menu;
+  (2) "All libraries" stays as the menu's last item; (3) the library chooser at the top of a library's
+  page goes (its view and sort choosers stay), changing library being the icon's, the trail leading
+  back to the library's list; (4) on a TV it closes as any chooser does (Back, Left/Right) and scrolls
+  within its height cap. A household with many libraries (15 or more) may later want a grid page instead.
