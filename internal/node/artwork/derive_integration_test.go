@@ -19,19 +19,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// generateSourceImage makes an image with the pinned FFmpeg: a test pattern of the size, in the codec.
-func generateSourceImage(t *testing.T, runner *execx.Runner, size, codec, format string) []byte {
-	t.Helper()
-	image, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=" + size + ":duration=1", "-frames:v", "1",
-		"-c:v", codec, "-f", format, "pipe:1",
-	}, 64<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return image
-}
-
 // withComment puts a JPEG comment segment (COM, FF FE) right after the start-of-image marker,
 // where every decoder reads past it: metadata the output must not carry.
 func withComment(t *testing.T, jpeg []byte, comment string) []byte {
@@ -55,13 +42,13 @@ func imageOf(result nodeproto.ArtworkResult, size nodeproto.ArtSizeName) []byte 
 	return nil
 }
 
-func newDeriver(t *testing.T) (*Deriver, *execx.Runner) {
+func newDeriver(t *testing.T) *Deriver {
 	t.Helper()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewDeriver(runner, 30*time.Second), runner
+	return NewDeriver(runner, 30*time.Second)
 }
 
 // dimensionsOf reads an encoded size back with the pinned ffprobe.
@@ -89,8 +76,8 @@ func dimensionsOf(t *testing.T, deriver *Deriver, encoded []byte) (width, height
 
 func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *testing.T) {
 	t.Parallel()
-	deriver, runner := newDeriver(t)
-	poster := withComment(t, generateSourceImage(t, runner, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
+	deriver := newDeriver(t)
+	poster := withComment(t, testutil.GenerateImage(t, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
 		SourceImage: poster, Shape: nodeproto.ShapePortrait, MaxSourcePixels: 40_000_000, WebPQuality: 82,
 		SizeNames: []nodeproto.ArtSizeName{"portrait-s", "portrait-m", "portrait-l"},
@@ -118,9 +105,9 @@ func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *tes
 
 func TestDerive_ALandscapeSourceIsCroppedToTheExactShape(t *testing.T) {
 	t.Parallel()
-	deriver, runner := newDeriver(t)
+	deriver := newDeriver(t)
 	// 2:1, wider than 16:9: its sides are cut, never its shape.
-	backdrop := generateSourceImage(t, runner, "2000x1000", "png", "image2pipe")
+	backdrop := testutil.GenerateImage(t, "2000x1000", "png", "image2pipe")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
 		SourceImage: backdrop, Shape: nodeproto.ShapeLandscape, MaxSourcePixels: 40_000_000, WebPQuality: 82,
 		SizeNames: []nodeproto.ArtSizeName{"landscape-m"},
@@ -133,7 +120,7 @@ func TestDerive_ALandscapeSourceIsCroppedToTheExactShape(t *testing.T) {
 
 func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 	t.Parallel()
-	deriver, runner := newDeriver(t)
+	deriver := newDeriver(t)
 	notImage := deriver.Derive(t.Context(), nodeproto.Artwork{
 		SourceImage: []byte("<html><script>alert(1)</script></html>"), Shape: nodeproto.ShapePortrait,
 		MaxSourcePixels: 40_000_000, WebPQuality: 82, SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
@@ -142,7 +129,7 @@ func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 		t.Errorf("an HTML file: refused %q, %d images; want refused, none", notImage.Refusal, len(notImage.Images))
 	}
 	bomb := deriver.Derive(t.Context(), nodeproto.Artwork{
-		SourceImage: generateSourceImage(t, runner, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
+		SourceImage: testutil.GenerateImage(t, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
 		MaxSourcePixels: 1_000_000, WebPQuality: 82, SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
 	})
 	if bomb.Refusal == "" || len(bomb.Images) != 0 {
@@ -152,16 +139,11 @@ func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 
 // generateVideo writes a video with the pinned FFmpeg into the test's directory: the filter graph's
 // picture, as H.264 in Matroska, with a title tag the still must not carry.
-func generateVideo(t *testing.T, runner *execx.Runner, name, graph string) string {
+func generateVideo(t *testing.T, name, graph string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{Write: []string{filepath.Dir(path)}}, []string{
-		"-v", "error", "-filter_complex", graph, "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-		"-metadata", "title=SECRET-TITLE", "-f", "matroska", path,
-	}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testutil.GenerateMedia(t, path, "-filter_complex", graph, "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+		"-metadata", "title=SECRET-TITLE", "-f", "matroska")
 	return path
 }
 
@@ -181,8 +163,8 @@ func averageLuma(t *testing.T, runner *execx.Runner, encoded []byte) byte {
 // enough for, with none of the video's metadata. A video black throughout has no frame (D362 §1, §5).
 func TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP(t *testing.T) {
 	t.Parallel()
-	deriver, runner := newDeriver(t)
-	video := generateVideo(t, runner, "lead-in.mkv", "color=c=black:s=1280x720:r=25:d=4[b];"+
+	deriver := newDeriver(t)
+	video := generateVideo(t, "lead-in.mkv", "color=c=black:s=1280x720:r=25:d=4[b];"+
 		"testsrc2=s=1280x720:r=25:d=8[p];[b][p]concat=n=2:v=1:a=0[v]")
 	// 10% of its 12 s is 1.2 s: 2.8 s of black before the picture.
 	still, err := deriver.Still(t.Context(), execx.Film{Path: video}, 0, 1200*time.Millisecond)
@@ -201,7 +183,7 @@ func TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP(t *testing.T)
 	if width, height, codec := dimensionsOf(t, deriver, small); width != 480 || height != 270 || codec != "webp" {
 		t.Errorf("landscape-s: %d×%d %s, want 480×270 webp", width, height, codec)
 	}
-	if luma := averageLuma(t, runner, small); luma <= 32 {
+	if luma := averageLuma(t, deriver.runner, small); luma <= 32 {
 		t.Errorf("the still's brightness is %d of 255: a black frame of the lead-in, not the picture after it", luma)
 	}
 	if imageOf(result, nodeproto.LandscapeL) != nil {
@@ -210,7 +192,7 @@ func TestStill_AVideosStillSkipsItsBlackLeadInAndBecomesOurOwnWebP(t *testing.T)
 	if bytes.Contains(still, []byte("SECRET-TITLE")) || bytes.Contains(small, []byte("SECRET-TITLE")) {
 		t.Error("the still carries the video's metadata")
 	}
-	black := generateVideo(t, runner, "black.mkv", "color=c=black:s=640x360:r=25:d=6[v]")
+	black := generateVideo(t, "black.mkv", "color=c=black:s=640x360:r=25:d=6[v]")
 	if still, err := deriver.Still(t.Context(), execx.Film{Path: black}, 0, 600*time.Millisecond); !errors.Is(err,
 		ErrNoFrame) {
 		t.Errorf("a video black throughout: %d bytes, %v; want ErrNoFrame", len(still), err)

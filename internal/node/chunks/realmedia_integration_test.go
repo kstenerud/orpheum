@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/chunks"
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -36,7 +35,7 @@ func TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := realMediaWithInterleavedSound(t, runner, 24)
+	source := realMediaWithInterleavedSound(t, 24)
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
@@ -91,16 +90,12 @@ const interleavedSuperBlockMs = interleavedHeight * interleavedPacketBytes / int
 // interleavedSuperBlockMs, 2.56 s, as a film with cook's sound is: FFmpeg writes the picture, and
 // this the sound beside it, every packet in time order, and an index of the picture's keyframes.
 // Its sound's bytes are no recording, but decode as 28.8 decodes any.
-func realMediaWithInterleavedSound(t *testing.T, runner *execx.Runner, seconds int) string {
+func realMediaWithInterleavedSound(t *testing.T, seconds int) string {
 	t.Helper()
 	pictureOnly := filepath.Join(t.TempDir(), "picture.rm")
-	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=" + strconv.Itoa(seconds),
-		"-c:v", "rv20", "-g", "24", "-b:v", "200k", "-an", "file:" + pictureOnly,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testutil.GenerateMedia(t, pictureOnly,
+		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration="+strconv.Itoa(seconds),
+		"-c:v", "rv20", "-g", "24", "-b:v", "200k", "-an")
 	contents, err := os.ReadFile(pictureOnly)
 	if err != nil {
 		t.Fatal(err)

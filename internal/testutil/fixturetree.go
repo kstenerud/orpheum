@@ -5,7 +5,6 @@ package testutil
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -170,10 +169,11 @@ func videosIn(videos, files []string) []string {
 	return in
 }
 
-// generateClips writes each video as a distinct one-second Matroska clip of one colour.
+// generateClips writes each video as a distinct one-second Matroska clip of one colour, made once and
+// kept in the generated-media cache (GenerateMedia).
 func generateClips(tb testing.TB, root string, videos []string) {
 	tb.Helper()
-	ffmpeg := filepath.Join(FFmpegDirectory(tb), "ffmpeg")
+	cache := pinnedMediaCache(tb)
 	var group sync.WaitGroup
 	limit := make(chan struct{}, 8)
 	failures := make(chan error, len(videos))
@@ -186,11 +186,9 @@ func generateClips(tb testing.TB, root string, videos []string) {
 			limit <- struct{}{}
 			defer func() { <-limit }()
 			colour := fmt.Sprintf("color=c=0x%06x:s=64x36:r=1:d=1", (index*2654435761)&0xffffff)
-			command := exec.CommandContext(tb.Context(), ffmpeg, //nolint:gosec // the pinned tool, argv as a slice
-				"-v", "error", "-f", "lavfi", "-i", colour, "-c:v", "mpeg4", "-f", "matroska", path)
-			command.Dir = "/"
-			if output, err := command.CombinedOutput(); err != nil {
-				failures <- fmt.Errorf("generate %s: %w: %s", relativePath, err, output)
+			arguments := []string{"-f", "lavfi", "-i", colour, "-c:v", "mpeg4", "-f", "matroska"}
+			if err := cache.put(tb.Context(), path, arguments); err != nil {
+				failures <- fmt.Errorf("generate %s: %w", relativePath, err)
 			}
 		})
 	}

@@ -10,7 +10,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -34,18 +33,13 @@ func TestRead_AToneOfKnownLevelMeasuresAsItIsAndItsPictureHasItsKeyframes(t *tes
 		t.Fatal(err)
 	}
 	film := filepath.Join(t.TempDir(), "film.mkv")
-	_, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=10",
-		"-f", "lavfi", "-i", "aevalsrc=" + tone + "|" + tone + "|" + tone + "|" + silence + "|" + silence + "|" +
-			silence + ":channel_layout=5.1:d=10",
-		"-f", "lavfi", "-i", "aevalsrc=" + tone + "|" + tone + ":channel_layout=stereo:d=10",
+	testutil.GenerateMedia(t, film,
+		"-f", "lavfi", "-i", "color=c=black:s=64x64:d=10",
+		"-f", "lavfi", "-i", "aevalsrc="+tone+"|"+tone+"|"+tone+"|"+silence+"|"+silence+"|"+
+			silence+":channel_layout=5.1:d=10",
+		"-f", "lavfi", "-i", "aevalsrc="+tone+"|"+tone+":channel_layout=stereo:d=10",
 		"-map", "0", "-map", "1", "-map", "2", "-c:v", "libx264", "-preset", "ultrafast",
-		"-x264-params", "keyint=50:min-keyint=50:scenecut=0", "-c:a", "flac",
-		"file:" + film,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+		"-x264-params", "keyint=50:min-keyint=50:scenecut=0", "-c:a", "flac")
 	findings, err := readthrough.NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: film},
 		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}},
 		&nodeproto.VideoTimelineAsk{VideoStreamIndex: 0}, 0, nil)
