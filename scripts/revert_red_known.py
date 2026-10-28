@@ -37,6 +37,7 @@ from __future__ import annotations
 import functools
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -154,12 +155,15 @@ GO_FAILED_TEST = re.compile(r"^\s*--- FAIL: (Test\w+)", re.MULTILINE)
 GO_FAILED_PACKAGE = re.compile(r"^FAIL\s+(\S+)", re.MULTILINE)
 # A failed vitest file, with its project where the suite has several.
 VITEST_FAILED = re.compile(r"FAIL\s+(?:\|[\w-]+\|\s+)?(\S+\.test\.tsx?)")
+# A failed module of the gate scripts' tests, as py_tests.py names it.
+PYTHON_FAILED = re.compile(r"^--- (test_\w+\.py) failed ---$", re.MULTILINE)
+PYTHON_TESTS = "scripts/tests"
 HINTS = "hints"
 
 
 def failed_tests(output: str, module: str) -> dict[str, Any]:
-    """The tests a red run's output says failed: Go's top-level tests by package (`./dir`), and
-    vitest's files."""
+    """The tests a red run's output says failed: Go's top-level tests by package (`./dir`),
+    vitest's files, and the gate scripts' test modules."""
     go: dict[str, list[str]] = {}
     tests: list[str] = []
     for line in output.splitlines():
@@ -171,7 +175,27 @@ def failed_tests(output: str, module: str) -> dict[str, Any]:
                 go[directory] = sorted(set(go.get(directory, []) + tests))
             tests = []
     vitest = sorted({match.group(1) for match in VITEST_FAILED.finditer(output)})
-    return {key: value for key, value in (("go", go), ("vitest", vitest)) if value}
+    python = sorted({match.group(1) for match in PYTHON_FAILED.finditer(output)})
+    return {key: value for key, value in (("go", go), ("vitest", vitest), ("python", python)) if value}
+
+
+def runs_of(failed: dict[str, Any], label: str = "") -> list[Attempt]:
+    """The runs of failed tests (failed_tests' answer), each kind's own: Go's by package, vitest's
+    in jsdom and in browser mode, the gate scripts' by module."""
+    runs = [Attempt(commands.go_test(directory, tests=tests), label)
+            for directory, tests in sorted((failed.get("go") or {}).items())]
+    files = failed.get("vitest") or []
+    plain = [file for file in files if ".browser.test." not in file]
+    browser = [file for file in files if ".browser.test." in file]
+    if plain:
+        runs.append(Attempt(commands.vitest("run", *plain), label))
+    if browser:
+        runs.append(Attempt(commands.vitest("run", *browser, browser=True), label))
+    if failed.get("python"):
+        # The gate's own runner, as the probe's (check_revert_red.PY_TESTS_COMMAND), against the tree's tests.
+        runs.append(Attempt([sys.executable, str(Path(__file__).resolve().parent / "py_tests.py"),
+                             *(f"{PYTHON_TESTS}/{name}" for name in failed["python"])], label))
+    return runs
 
 
 def remember_failed(path: str, output: str, module: str) -> None:
@@ -191,16 +215,4 @@ def remember_failed(path: str, output: str, module: str) -> None:
 def caught_before(path: str) -> list[Attempt]:
     """The runs of the tests an earlier red of path's revert failed, to try first."""
     hint = ((last_run.read(GATE, NAME) or {}).get(HINTS) or {}).get(path)
-    if not hint:
-        return []
-    label = ", found by the test that caught its revert before"
-    runs = [Attempt(commands.go_test(directory, tests=tests), label)
-            for directory, tests in sorted((hint.get("go") or {}).items())]
-    files = hint.get("vitest") or []
-    plain = [file for file in files if ".browser.test." not in file]
-    browser = [file for file in files if ".browser.test." in file]
-    if plain:
-        runs.append(Attempt(commands.vitest("run", *plain), label))
-    if browser:
-        runs.append(Attempt(commands.vitest("run", *browser, browser=True), label))
-    return runs
+    return runs_of(hint, ", found by the test that caught its revert before") if hint else []
