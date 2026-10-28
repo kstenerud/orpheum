@@ -85,3 +85,17 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   the user to normal functionality" (stacking today, if found, is a bug for this batch).
 - **Research now:** the playback UI across competitors and experts, desktop, touch and d-pad; "the volume
   widget should be vertically oriented" (playback-ui-2026-10-28.md).
+
+## The player's controls (answers to playback-ui-2026-10-28.md, the owner, 2026-10-28)
+
+1. **On a computer, the volume is a vertical pop-up** from the sound button.
+2. **No volume slider on touch devices** (as Jellyfin); the device's own buttons.
+3. **On a computer, Up and Down change the volume**, as the others do; Tab enters the bar.
+4. **On a TV with the bar hidden, OK pauses**, as the others do.
+5. **One 10 s step** everywhere.
+6. **The two panels** (asked what they are; the lead: "Audio & subtitles" — the audio track, the subtitle
+   track and language — and "Settings" — dialogue boost, levelling, the sound and subtitle offsets — opened
+   from the player's own bar, so a remote reaches them in full screen): awaiting the owner's word.
+7. **Thumbnails while seeking: eventually**, on the wanted-features list; earlier "if it can be pulled out
+   as part of the revamped single video file scan".
+8. **Holding Left or Right speeds up by growing steps** (Kodi's), not by rates.
