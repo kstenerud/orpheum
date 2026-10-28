@@ -100,6 +100,10 @@ describe("the shell, laid out by a real browser", () => {
         await drawn(shell, async ({ container }) => {
           const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo");
           await loaded(logo);
+          // The laurel alone at a phone's width: Firefox picks a picture's source again only once it
+          // has laid out at the new width, after a test before resized the window.
+          await expect.poll(() => logo?.currentSrc ?? "").toMatch(/favicon\.svg$/u);
+          await loaded(logo);
           const [mark, end, places] = [
             boxOf(logo),
             boxOf(container.querySelector(".app-shell__end")),
