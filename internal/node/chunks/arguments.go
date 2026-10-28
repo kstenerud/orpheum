@@ -22,12 +22,30 @@ const cutEarlyMs = 50
 const rawListName = "list.csv"
 
 // runStartMs is where a run starts reading: its first chunk's start, or, for sound past the
-// film's first chunk, the chunk before it, whose chunk is dropped.
+// film's first chunk, the chunk before it, whose chunk is dropped; or, for a sound copied whose
+// film's first chunk starts well after the film does (isLedInFromFilmStart), the film's start.
 func runStartMs(command nodeproto.MakeChunks) int64 {
 	if command.Stream.Kind.IsSound() && command.SoundLeadInMs > 0 {
 		return command.SoundLeadInMs
 	}
+	if isLedInFromFilmStart(command) {
+		return 0
+	}
 	return command.BoundsMs[0]
+}
+
+// isLedInFromFilmStart is whether a run of a sound copied makes the film's first chunk, which starts
+// more than spanToleranceMs after the film does: its picture's first keyframe a read-through counts
+// is that late, as a film whose first keyframe an edit list puts before its start, and drops, starts
+// at its next, 10.2 s in (A Woman of Paris, staging, 2026-10-28). The copy is cut where chunk 0
+// starts, as the picture is, and what is before it is a lead-in from the film's start, dropped: the
+// muxer, which cuts only at the times it is given, put all the film read before chunk 0's end in it,
+// and the seek to chunk 0's start, which FFmpeg lands on the picture's keyframe at or before it,
+// the dropped one (10.176752 s is after 10.176), read from the film's start. A first chunk within
+// spanToleranceMs of the film's start keeps the sound from the film's start, the priming with it.
+func isLedInFromFilmStart(command nodeproto.MakeChunks) bool {
+	return command.Stream.Kind == nodeproto.StreamSoundCopied && command.FirstChunk == 0 &&
+		command.BoundsMs[0] > spanToleranceMs
 }
 
 // soundSeekEarlyMs is how long before its run a sound's decode starts, trimmed after decoding: a
@@ -77,14 +95,19 @@ func soundTrimMs(command nodeproto.MakeChunks) int64 {
 	return runStartMs(command) - seekMs(command)
 }
 
-// firstRawNumber is the number of the run's first raw file: its first chunk's, or one before it
-// for a sound's lead-in.
+// firstRawNumber is the chunk the run's first raw file is: its first chunk, or the one before it
+// for a sound's lead-in, -1 for one led in from the film's start (isLedInFromFilmStart).
 func firstRawNumber(command nodeproto.MakeChunks) int {
 	if runStartMs(command) != command.BoundsMs[0] {
 		return command.FirstChunk - 1
 	}
 	return command.FirstChunk
 }
+
+// rawNumberShift is how far past its chunk's number a raw file's is: one for a run led in from the
+// film's start, whose lead-in, chunk -1, the muxer, numbering from zero at the least, names 00000;
+// none otherwise.
+func rawNumberShift(command nodeproto.MakeChunks) int { return max(0, -firstRawNumber(command)) }
 
 // seconds is milliseconds as FFmpeg's seconds.
 func seconds(ms int64) string { return strconv.FormatFloat(float64(ms)/1000, 'f', 3, 64) }
@@ -179,7 +202,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	}
 	return append(arguments, "-sn", "-dn",
 		"-f", "segment", "-segment_times", cutTimes(command),
-		"-segment_start_number", strconv.Itoa(firstRawNumber(command)),
+		"-segment_start_number", strconv.Itoa(firstRawNumber(command)+rawNumberShift(command)),
 		"-segment_list", filepath.Join(rawPath, rawListName), "-segment_list_type", "csv",
 		"-segment_format", "mp4",
 		// write_tmcd=0: the MP4 muxer adds a timecode track for a picture carrying a timecode, as an

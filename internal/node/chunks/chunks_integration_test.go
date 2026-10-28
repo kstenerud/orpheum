@@ -387,3 +387,97 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 		t.Errorf("the chunk holds %d pictures; want the film's %d, packet for packet", len(stored), len(want))
 	}
 }
+
+// filmStartingPastItsFirstKeyframe is a 5.1 AAC film copied from 0.1 s in: the MP4 muxer's edit
+// list puts its first keyframe, and its sound's priming, before the film's start, flagged discarded,
+// so a read-through counts its next keyframe, 1.875 s in, as its first, and its grid starts there,
+// the shape of A Woman of Paris's, whose next is 10.176 s in (staging, 2026-10-28).
+func filmStartingPastItsFirstKeyframe(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "a film cut past its first keyframe (2020).mp4")
+	testutil.GenerateMedia(t, path, "-ss", "0.1", "-i", "file:"+filmWithSound(t, "aac", 6), "-map", "0", "-c", "copy")
+	return path
+}
+
+// countedKeyframes are the film's picture's keyframes, in milliseconds, a read-through counts: those
+// not flagged discarded (internal/node/readthrough).
+func countedKeyframes(t *testing.T, runner *execx.Runner, source string) []int64 {
+	t.Helper()
+	listed, err := runner.Run(t.Context(), execx.FFprobe, confine.Access{}, []string{
+		"-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time,flags", "-of", "csv=p=0",
+		"file:" + source,
+	}, 16<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keyframes []int64
+	for line := range strings.Lines(string(listed)) {
+		value, flags, _ := strings.Cut(strings.TrimSpace(line), ",")
+		shown, err := strconv.ParseFloat(value, 64)
+		if err == nil && strings.Contains(flags, "K") && !strings.Contains(flags, "D") {
+			keyframes = append(keyframes, int64(math.Round(shown*1000)))
+		}
+	}
+	slices.Sort(keyframes)
+	return keyframes
+}
+
+// A sound copied of a film whose grid starts past its start, its first keyframe before it dropped,
+// is cut at chunk 0's start as its picture is: two runs' chunks are the film's packets from the
+// first at or after chunk 0's start, bit for bit, each once, at their times; cut only at the bounds
+// after its start, chunk 0 held the film from its start and was refused, and the film could not
+// play (A Woman of Paris, staging, 2026-10-28).
+func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmStartingPastItsFirstKeyframe(t)
+	keyframes := countedKeyframes(t, runner, source)
+	if len(keyframes) != 5 || keyframes[0] < 1_000 {
+		t.Fatalf("the film's counted keyframes are %v; want five, the first past a second in", keyframes)
+	}
+	grid := slices.Concat(keyframes, []int64{keyframes[len(keyframes)-1] + 2_000})
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-sound0-own/0123456789abcdef"
+	stream := nodeproto.ChunkStream{Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6}}
+	for _, command := range []nodeproto.MakeChunks{
+		{Stream: stream, StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[0:3]},
+		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], SoundLeadInMs: grid[1]},
+	} {
+		wantLast := command.FirstChunk + len(command.BoundsMs) - 2
+		last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
+		if err != nil || last != wantLast {
+			t.Fatalf("the run from chunk %d made through %d, %v; want %d", command.FirstChunk, last, err, wantLast)
+		}
+	}
+	chunkCount := len(grid) - 1
+	stored := joined(t, filepath.Join(directory, storeDir), chunkCount)
+	times := packetTimes(t, runner, filepath.Join(directory, storeDir), chunkCount)
+	got := packetHashes(t, runner, stored, "0")
+	filmTimes, filmHashes := sourceTimes(t, runner, source, "a:0", false), packetHashes(t, runner, source, "a:0")
+	const frame = 1024.0 / 48000
+	offset := float64(chunks.TimelineOffsetMs) / 1000
+	first := float64(grid[0]) / 1000
+	if len(times) == 0 {
+		t.Fatal("the copy holds no sound")
+	}
+	starts := times[0] - offset
+	if starts < first-0.001 || starts > first+frame {
+		t.Fatalf("the sound starts at %.4f s; want the first packet at or after chunk 0's start, %.3f s", starts, first)
+	}
+	from := slices.IndexFunc(filmTimes, func(shown float64) bool { return shown >= starts-0.0005 })
+	if from < 0 || from+len(got) > len(filmHashes) || !slices.Equal(got, filmHashes[from:from+len(got)]) {
+		t.Fatalf("the copy's %d packets are not the film's from %.4f s, bit for bit, each once", len(got), starts)
+	}
+	for index, shown := range times {
+		if want := filmTimes[from+index] + offset; math.Abs(shown-want) > 0.001 {
+			t.Errorf("packet %d is at %.4f s, want the film's %.4f s, offset", index, shown, want)
+			break
+		}
+	}
+}

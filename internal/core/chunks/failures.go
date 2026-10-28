@@ -56,6 +56,23 @@ func (tracker *runTracker) givenUp(dir string, chunk int) (why string, isGivenUp
 	return failure.why, true
 }
 
+// hasGivenUp is whether runs of the store at dir failed at any chunk often enough that no other is
+// made there (givenUp).
+func (tracker *runTracker) hasGivenUp(dir string) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known, found := tracker.storeByDir[dir]
+	if !found {
+		return false
+	}
+	for _, failure := range known.failureByChunk {
+		if failure.count >= runFailuresToGiveUp {
+			return true
+		}
+	}
+	return false
+}
+
 // recordFailure takes a run of the store at dir that FFmpeg failed on at chunk, for why, and logs
 // it once its runs have failed there often enough that no other is made: what FFmpeg said is the
 // reason its players are told it cannot play.
@@ -63,7 +80,9 @@ func (service *Service) recordFailure(ctx context.Context, dir string, chunk int
 	count := service.runs.failed(dir, chunk, why)
 	if count == runFailuresToGiveUp {
 		service.logger.WarnContext(ctx, "runs of chunks failed at the same chunk again; it is not made again "+
-			"until the film is played anew", "storeDir", dir, "chunk", chunk, "failures", count, "why", why)
+			"until the film is played anew, and a sound copied is offered no more meanwhile, its playbacks "+
+			"started anew playing the sound the server makes", "storeDir", dir, "chunk", chunk, "failures", count,
+			"why", why)
 	}
 }
 

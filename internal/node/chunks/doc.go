@@ -51,13 +51,19 @@
 //     at the film's own times, its first packet put a tick before the film so the muxer, which counts
 //     its cuts from a run's first packet, cuts every run at the same packets; each chunk is placed by
 //     its listed end less its samples, and the init waits for the first packet, as AC-3 needs
-//     (D368 §1, idiosyncrasies.md). Enforced by
+//     (D368 §1, idiosyncrasies.md). A run of the film's chunk 0 starting more than the list's
+//     tolerance into the film, its first keyframe before its start discarded, is led in from the
+//     film's start and cut at chunk 0's start too, the lead-in named 00000 and each raw file a chunk
+//     past its own. Enforced by
 //     TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds,
-//     TestMake_TimesACopiedSoundByItsListedEndInTheFilm and
+//     TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilmsStart,
+//     TestMake_TimesACopiedSoundByItsListedEndInTheFilm,
+//     TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt and
 //     TestDuration_IsEachSamplesOwnOrTheFragmentsOrTheTracksDefault; with the pinned FFmpeg, two
 //     runs' chunks of a 5.1 AAC, a stereo AAC and a 5.1 AC-3 film are the film's packets bit for bit,
-//     each once, at their times, by TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes
-//     (integration tier).
+//     each once, at their times, by TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes,
+//     and of a film whose grid starts past its start, from chunk 0's, by
+//     TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk (integration tier).
 //   - A sound interleaved in super-blocks, as the core says RealMedia's cook is, decodes from ten
 //     seconds before its run, not two, and from the film's start without a seek: FFmpeg loses the
 //     super-block a seek lands in (idiosyncrasies.md). Enforced by
@@ -65,7 +71,9 @@
 //     FFmpeg, TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun.
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
 //     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
-//     finished. Enforced by TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds.
+//     finished; the refusal says where the run read from and first cut. Enforced by
+//     TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds and
+//     TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt.
 //   - A run not of a run's shape is refused before anything is made. Enforced by
 //     TestMake_RefusesARunNotOfARunsShape.
 //   - What is not a raw file of the muxer's is refused, never read past its end. Enforced by

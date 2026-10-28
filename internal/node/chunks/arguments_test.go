@@ -253,3 +253,35 @@ func TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds(t *testing.T
 		t.Errorf("the raw files are written with %q; want the init after the first packet, as AC-3 needs", options)
 	}
 }
+
+// A sound copied whose film's first chunk starts well after the film does, its picture's first
+// keyframe counted 10.176 s in, is read from the film's start and cut at chunk 0's start too, as the
+// picture is, the lead-in before it named 00000 and dropped: cut only at the bounds after its start,
+// chunk 0 held the whole film before its end (A Woman of Paris, staging, 2026-10-28). A first chunk
+// within the muxer's listing tolerance of the film's start keeps the sound from it, its priming too.
+func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilmsStart(t *testing.T) {
+	t.Parallel()
+	copied := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
+	})
+	copied.FirstChunk, copied.BoundsMs = 0, []int64{10_176, 12_262, 22_522}
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
+	if start := valueOf(arguments, "-ss"); start != "0.000" {
+		t.Errorf("the copy reads from %s, want the film's start, 0.000", start)
+	}
+	if cuts := valueOf(arguments, "-segment_times"); cuts != "10.176,12.262,22.522" {
+		t.Errorf("the cuts are %s, want chunk 0's start and each bound after it, 10.176,12.262,22.522", cuts)
+	}
+	if first := valueOf(arguments, "-segment_start_number"); first != "0" {
+		t.Errorf("the first raw file is %s, want 0, the lead-in's", first)
+	}
+	early := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+	})
+	early.FirstChunk, early.BoundsMs = 0, []int64{21, 2_005}
+	arguments = Arguments(execx.Film{Path: "/a"}, "/r", early, encode.EncoderX264)
+	start, cuts := valueOf(arguments, "-ss"), valueOf(arguments, "-segment_times")
+	if start != "0.021" || cuts != "2.005" {
+		t.Errorf("a first chunk 21 ms in reads from %s and cuts at %s; want 0.021 and 2.005, no lead-in", start, cuts)
+	}
+}

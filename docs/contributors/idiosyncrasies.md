@@ -117,6 +117,7 @@ User-Agent (D263; the User-Agent is logged only).
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
+| A film's own sound copied failed its chunk 0, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not play. | [An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start](#an-mp4-whose-first-keyframe-is-before-its-start-discarded-has-its-grid-start-at-the-next-and-a-sound-copied-sought-there-reads-from-the-films-start) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
 | Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt` | [Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`](#each-output-file-starts-its-fmp4-times-at-zero-and-upstream-has-no-flag-for-absolute-tfdt) |
 | FMP4 init segments differ between runs unless the edit list is off | [fMP4 init segments differ between runs unless the edit list is off](#fmp4-init-segments-differ-between-runs-unless-the-edit-list-is-off) |
@@ -1836,6 +1837,39 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   chunks into the film's own packets, each once, and fails without the first packet moved.
   **[source]** `libavformat/segment.c` of the pinned build, `seg_write_packet`. **[web]** a search
   found only that `-segment_times` count from the start of the file (2026-10-27).
+
+### An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start
+
+- **Symptom:** A Woman of Paris (staging, file 5667, 2026-10-28) would not play: its own sound copied
+  failed chunk 0 twice, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to
+  12262 ms", and every start was refused.
+- **Cause:** three things together. The film, an x265 MP4, has an edit list that puts its first
+  keyframe at -0.083 s, before its start, which FFmpeg flags discarded (`KD`, framecrc's `F=0x5`);
+  a read-through counts no discarded keyframe, so the film's grid, and its picture, start at the
+  next, 10.176752 s in (10176 ms). A run of chunk 0 was then told to read from 10.176 s and to cut
+  only at the bounds after it, the segment muxer cutting at nothing else. And an input seek in an
+  MP4, an audio track alone mapped, lands on the picture's keyframe at or before the time: 10.176 is
+  a hair before 10.176752, so it landed on the discarded one, and the copy read from the film's
+  start. Raw 00000 held all 12.27 s, 577 packets, and was rightly refused as chunk 0.
+- **What we do:** a run of a sound copied making the film's chunk 0, which starts more than the
+  list's tolerance (500 ms) after the film, reads from the film's start and is cut at chunk 0's start
+  as well, what is before it a lead-in it drops (the muxer names it 00000, so each raw file's number
+  is its chunk's plus one; `isLedInFromFilmStart` and `rawNumberShift` in
+  `internal/node/chunks/arguments.go`). A refusal says where the run read from and first cut. A track
+  whose copy FFmpeg still fails on twice at one chunk is offered no more copied, so a start plays the
+  sound the server makes (`offerOf` in `internal/core/chunks/offer.go`). The film's first 10.2 s,
+  before its first counted keyframe, are not played at all, picture or sound; whether the grid
+  should start at the discarded keyframe is the owner's to decide.
+- **Evidence:** **[measured]** with the node's FFmpeg 8.1.2-5-2 on the film: `ffprobe` lists the
+  picture's keyframes at -0.083416 (`KD_`), 10.176752 and 12.262152 s, and its 5.1 AAC from -0.0427 s
+  (two discarded priming packets); the run's command, `-ss 10.176` with `-segment_times
+  12.262,22.522`, listed `00000.mp4,0.000000,12.266500`, 577 packets; from `-ss 0` with
+  `-segment_times 10.176,12.262,22.522` it listed `00001.mp4,10.197167,12.266500`, chunk 0's. A 12 s
+  film copied with `-ss 0.1 -c copy` has the same shape (its first keyframe -0.125 s `KD`, its next
+  1.875 s): `TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk`
+  (integration tier) fails without the lead-in. **[source]** the FFmpeg CLI seeks an input naming no
+  stream (`avformat_seek_file`, stream index -1), and libavformat then seeks by its default stream,
+  the picture (`av_find_default_stream_index`); not searched for on the web.
 
 ### The MP4 muxer cannot write an init before it has read an AC-3 or E-AC-3 packet
 
