@@ -228,3 +228,14 @@ had leaned on.
   film. Find what the page and service worker do in the minute after an update and defer it while a
   film starts; a start after a plain reload shows small hiccups at most (3% of frames dropped in its
   first 8 s, file 5670, 18:39).
+
+## From the owner's VQ89 check (2026-10-28), next batch
+
+- **The watched check on an episode's row** sits beside it; the owner: "I think the checkmark should be
+  over the screenshot" (the episode's still, as on a poster's tray).
+- **The check inside a chooser's items** "looks awful"; moot once seasons are chosen by posters (the
+  season posters item above), so not fixed in the chooser.
+- **The scrub bar:** "Clicking on the scrub bar doesn't move the marker until the movie actually starts
+  playing from there, which makes it feel like it didn't work." The marker (and the time shown) should
+  move to the pressed place at once and stay there while the seek loads.
+- **A full VoiceOver pass** once the UI is final (the owner, 2026-10-28), VQ89's "Watched" among it.
