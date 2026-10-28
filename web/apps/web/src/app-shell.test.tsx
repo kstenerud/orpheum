@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { createNavigation } from "./navigation.ts";
-import { buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
+import { buttonNamed, buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
 import { fakePlace, testServices, withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -338,7 +338,7 @@ describe("AppShell", () => {
     expect(list()).toBeNull();
     expect(services.navigation.route()).toEqual({ screen: "jobs" });
     await click(button);
-    await click(buttonWithText(mounted.container, "Close"));
+    await click(buttonNamed(mounted.container, "Close"));
     expect(list()).toBeNull();
     await click(button);
     // Escape, which the browser tells a modal dialog as its cancel.

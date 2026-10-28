@@ -308,15 +308,21 @@ describe("the shell, laid out by a real browser", () => {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
       expect(places.at(-1)?.textContent).toBe("Sign out");
-      // Its Close after its places, in sight as they are.
-      places.push(...menu.querySelectorAll<HTMLElement>(".drop-down__close"));
-      expect(places.at(-1)?.textContent).toBe("Close");
+      // Its Close, a cross at the top-right that stays put while the places scroll under it (the
+      // owner, 2026-10-28).
+      const close = menu.querySelector<HTMLElement>(".drop-down__close");
+      expect(close?.getAttribute("aria-label")).toBe("Close");
+      const [closeBefore, list] = [boxOf(close), boxOf(menu)];
+      expect(closeBefore.top - list.top).toBeLessThan(4);
+      expect(list.right - closeBefore.right).toBeLessThan(4);
       for (const place of places) {
         place.focus();
         const box = boxOf(place);
         expect(box.top, place.textContent).toBeGreaterThanOrEqual(0);
         expect(box.bottom, place.textContent).toBeLessThanOrEqual(window.innerHeight);
       }
+      // Sign out focused, the places scrolled: the Close where it was.
+      expect(boxOf(close).top).toBeCloseTo(closeBefore.top, 0);
     });
   });
 

@@ -5,8 +5,32 @@
    where its places need more, so on a Fire TV's 480 pixels an admin's Sign out stays in sight (the
    owner, 2026-10-27). */
 .drop-down__list {
+  position: relative;
   min-width: 13rem;
-  padding: var(--space-2);
+}
+
+/* The list itself does not scroll, its places do: over the dialog's own padding and scrolling
+   (modal-dialog.css), whichever stylesheet comes last. */
+.modal-dialog.drop-down__list {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The places scroll within the list, the Close above them staying put (drop-down.tsx). */
+.drop-down__places {
+  max-height: calc(85vh - 4px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--size-control) var(--space-2) var(--space-2);
+}
+
+/* The Close: a cross at the list's top-right, over the places that scroll under it. */
+.drop-down__list > .drop-down__close {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  z-index: 1;
+  background: var(--color-surface-raised);
 }
 
 .drop-down__places > ul {
@@ -50,12 +74,4 @@
 /* The current place, the menu's (app-shell.tsx), in the accent as well. */
 .drop-down__places [aria-current="page"] a {
   color: var(--color-accent);
-}
-
-/* Its Close, after its places and a line, closing it with no choice made. */
-.drop-down__places > .drop-down__close {
-  margin-block-start: var(--space-2);
-  border-block-start: 1px solid var(--color-border);
-  border-radius: 0;
-  color: var(--color-muted);
 }

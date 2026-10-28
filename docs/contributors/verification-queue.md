@@ -994,8 +994,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   picker focused, and a second Back then goes back the way the person came; (2) the same for the
   Libraries page's library, view and sort choosers; (3) the banner's menu, opened by OK, closes on
   Back with its icon focused, the page staying; (4) Left or Right in an open chooser or the menu
-  closes it, focus on its button; (5) each list's Close, after its places, is reached by Down and
-  closes it; (6) a season chosen, then Back, goes back past the series as the series' entry was
+  closes it, focus on its button; (5) each list's Close, a cross at its top-right that stays put as
+  its places scroll under it, is reached by Up and closes it; (6) a season chosen, then Back, goes back past the series as the series' entry was
   replaced, and a library chosen, then Back, returns to the library before. The owner, 2026-10-28:
   "with the chooser widget I can only exit without choosing by pressing the back button, which
   actually brings me back a page." (`web/apps/web/src/navigation.ts`'s `holdBack`,

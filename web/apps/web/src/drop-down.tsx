@@ -13,8 +13,10 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { IconButton } from "./icon-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { CloseIcon } from "./player-icons.tsx";
 
 /** What names the opening button for a screen reader and a pointer's hover, where its content does not. */
 export interface OpenerNaming {
@@ -125,7 +127,7 @@ export function DropDown(props: {
   );
 }
 
-/** A drop-down's open list: its places, then its Close. */
+/** A drop-down's open list: its Close at the top-right, over its places. */
 function DropDownList(props: {
   readonly label: string;
   readonly className: string | undefined;
@@ -153,11 +155,17 @@ function DropDownList(props: {
       onClose={onClose}
       shouldCloseOnOutsidePress
     >
+      {/* Its Close, a cross at the top-right that stays put, its places scrolling under it (the
+          owner, 2026-10-28: "a static close button in the top-right corner that the scrollable
+          portion scrolls under"). */}
+      <IconButton
+        label={t("dropDown.close")}
+        icon={<CloseIcon />}
+        onClick={onClose}
+        className="drop-down__close"
+      />
       <div ref={ref} className="drop-down__places">
         <ul>{props.children}</ul>
-        <button type="button" className="drop-down__close" onClick={onClose}>
-          {t("dropDown.close")}
-        </button>
       </div>
     </ModalDialog>
   );

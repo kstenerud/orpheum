@@ -273,12 +273,12 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(document.activeElement).toBe(picker);
     expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
     expect(navigation.behind()).toEqual([{ screen: "home" }]);
-    // Its Close, the last of it, reached by the arrows.
+    // Its Close, the cross at its top-right, reached by the arrows.
     await press("{Enter}");
     await drawn("dialog a");
     expect(
       await pressUntil(
-        "{ArrowDown}",
+        "{ArrowUp}",
         () => document.activeElement?.classList.contains("drop-down__close") === true,
       ),
     ).toBe(true);
