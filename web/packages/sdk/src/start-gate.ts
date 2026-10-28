@@ -13,7 +13,13 @@
  */
 
 import { readyAheadOf, type ReadyAhead } from "./ready-ahead.ts";
-import { hasRefilled, loadedEndMs, networkIdle, type FollowedMedia } from "./together-media.ts";
+import {
+  hasRefilled,
+  haveFutureData,
+  loadedEndMs,
+  networkIdle,
+  type FollowedMedia,
+} from "./together-media.ts";
 import { playerLoadedChunkEvent, playerMovedItselfEvent } from "./together-player-events.ts";
 
 /**
@@ -53,8 +59,65 @@ export interface StartWait {
 
 /** How much film is loaded ahead of where media is, in ms, read on across a hole hls.js steps over. */
 export function loadedAheadMsOf(media: Pick<GatedMedia, "buffered" | "currentTime">): number {
-  const endMs = loadedEndMs(media);
+  const endMs = loadedEndMs(atFirstLoaded(media));
   return endMs === undefined ? 0 : Math.max(0, Math.round(endMs - media.currentTime * 1000));
+}
+
+/**
+ * How far before the first stretch it loaded a starting player may stand and still start on it, in
+ * seconds: a film's first picture is stamped a little after 0 (0.08 s on staging's films), so a film
+ * started from its beginning stood before what it loaded, read nothing loaded, and its start's wait
+ * never ended, a paused player stepping over no gap (season 2's first episode on the Mac and a film
+ * on the Fire TV, staging, 2026-10-28). A justified constant: once playing, hls.js steps the video
+ * onto its first loaded picture, as it did with the autoplay before this gate; half a second covers a
+ * first picture held back by reordered frames. A follower steps onto it itself (playableAt).
+ */
+export const startsBeforeFirstLoadedS = 0.5;
+
+/**
+ * The parts of media hasRefilled reads, as from its first loaded picture where it stands just before
+ * it: the browser counts the position in the gap as having no data there, which a playing video
+ * leaves at once.
+ */
+function startingOnFirstLoaded(
+  media: GatedMedia,
+): Pick<GatedMedia, "readyState" | "networkState" | "buffered" | "currentTime" | "duration"> {
+  const at = atFirstLoaded(media);
+  const read = pickRefill(media);
+  return at === media
+    ? read
+    : {
+        ...read,
+        currentTime: at.currentTime,
+        readyState: Math.max(read.readyState, haveFutureData),
+      };
+}
+
+/** The parts of media hasRefilled reads. */
+function pickRefill(
+  media: GatedMedia,
+): Pick<GatedMedia, "readyState" | "networkState" | "buffered" | "currentTime" | "duration"> {
+  return {
+    readyState: media.readyState,
+    networkState: media.networkState,
+    buffered: media.buffered,
+    currentTime: media.currentTime,
+    duration: media.duration,
+  };
+}
+
+/** media as read from its first loaded picture where it stands just before it, else as it is. */
+function atFirstLoaded(
+  media: Pick<GatedMedia, "buffered" | "currentTime">,
+): Pick<GatedMedia, "buffered" | "currentTime"> {
+  const { buffered, currentTime } = media;
+  if (buffered.length === 0) {
+    return media;
+  }
+  const firstS = buffered.start(0);
+  return currentTime < firstS && firstS - currentTime <= startsBeforeFirstLoadedS
+    ? { buffered, currentTime: firstS }
+    : media;
 }
 
 /** The element's events at which a waiting play looks again. */
@@ -177,7 +240,9 @@ export class StartGate {
    */
   #isReady(ready: ReadyAhead): boolean {
     const media = this.#media;
-    return media.networkState === networkIdle || hasRefilled(media, ready.aheadMs);
+    return (
+      media.networkState === networkIdle || hasRefilled(startingOnFirstLoaded(media), ready.aheadMs)
+    );
   }
 
   #waitToPlay(how: () => void): void {

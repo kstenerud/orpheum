@@ -64,7 +64,9 @@ export function isInStep(media: FollowedMedia, expectedMs: number, tuning: SyncT
 /**
  * Whether the player has loaded enough ahead to play on after a stall or a seek: aheadMs, or
  * up to the film's end, or all the browser will load while it is paused, since the browser has
- * stopped loading and waiting longer gains nothing.
+ * stopped loading and waiting longer gains nothing. What is loaded reaches the end within a hole it
+ * plays across: a film's last sample ends a hair before the duration its element says (10.083333 s
+ * of 10.083334, a 10 s film in the browser tier, whose start therefore never came, 2026-10-28).
  */
 export function hasRefilled(
   media: Pick<
@@ -81,7 +83,8 @@ export function hasRefilled(
   }
   const endS = loadedEndS(media);
   return (
-    endS !== undefined && ((endS - media.currentTime) * 1000 >= aheadMs || endS >= media.duration)
+    endS !== undefined &&
+    ((endS - media.currentTime) * 1000 >= aheadMs || endS >= media.duration - playedAcrossHoleS)
   );
 }
 
