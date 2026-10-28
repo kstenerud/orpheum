@@ -31,11 +31,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
   both always in the tray, Cast's to everyone and Watch Together's to a person who may host or a
   signed-in guest in a session, white while their function is off and blue, pulsing gently unless
-  less motion is asked for, while it is on; each leads by the owner's table: Watch Together's to its
+  less motion is asked for or a film's player is on the page, while it is on; each leads by the owner's table: Watch Together's to its
   setup or the session's page (a signed-in guest's `/together`), Cast's to the devices to cast to,
   taking the film of the Play page it is pressed on, or the cast's remote, or Watch Together's page
   while both are on. `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
-  `src/ui-gallery.test.tsx`.
+  `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
+- **Nothing of the page is drawn under a player's stage that fills the window** (a cast's receiver, a
+  refused full screen), but the receiver's lines over the film and a dialog: the rest is hidden, not
+  removed, and shows as it was when the stage closes (the efficiency audit's finding 3).
+  `src/player-widgets.browser.test.tsx`.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.

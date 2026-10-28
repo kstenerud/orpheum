@@ -56,6 +56,13 @@
   }
 }
 
+/* No pulse while a film's player is on the page: the blue alone says it is on. An endless animation
+   has the compositor make a frame at the display's rate, 60 a second, beside a 24 fps film, on a
+   weak stick too (the efficiency audit's finding 3). */
+body:has(.film-player__stage) .status-tray__button--on .status-tray__icon {
+  animation: none;
+}
+
 /* No pulse for a person who asked for less motion: the blue alone says it is on. */
 @media (prefers-reduced-motion: reduce) {
   .status-tray__button--on .status-tray__icon {
