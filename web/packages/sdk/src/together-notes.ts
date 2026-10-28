@@ -40,6 +40,11 @@ export interface PlayerState {
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps
  *   once chunks measured it, from the quality of fromQualityKbps, absent for the first it plays;
+ * - soundMoved: moved its sound from earlierFromMs earlier than its picture to earlierMs, why
+ *   (SoundMovedBy), with the latency Web Audio measured then, latencyMs, and whether the move threw
+ *   the sound loaded away (isFlushed): a Fire TV's start waited twice as its move threw its sound
+ *   away, and nothing said when or by how much the move changed (the owner's cast, staging,
+ *   2026-10-28);
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
  *   (nothing was heard on it);
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
@@ -99,6 +104,15 @@ export type PlayerNote =
       readonly qualityKbps: number;
       readonly linkEstimateKbps: number | undefined;
       readonly fromQualityKbps?: number;
+    }
+  | {
+      readonly kind: "soundMoved";
+      readonly earlierFromMs: number;
+      readonly earlierMs: number;
+      readonly why: SoundMovedBy;
+      /** Web Audio's latency, measured, in ms; absent where the sound is not through it. */
+      readonly latencyMs?: number;
+      readonly isFlushed: boolean;
     }
   | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
   | {
@@ -202,6 +216,14 @@ export type PlayerNote =
       /** How long since the page loaded, and whether it joined itself. */
       readonly page: string;
     };
+
+/**
+ * What moved a player's sound: the latency its device remembered, before it is measured
+ * ("remembered"); Web Audio's latency, measured ("measured"); the person's offset ("offset"); or
+ * the sound found playing straight from the element after all, with no latency to make up
+ * ("direct").
+ */
+export type SoundMovedBy = "remembered" | "measured" | "offset" | "direct";
 
 /**
  * What held a player from following its group's change as it arrived: nothing ("atOnce"), its page

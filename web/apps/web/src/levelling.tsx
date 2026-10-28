@@ -2,13 +2,14 @@
 
 import "./levelling.css";
 
-import { canSetVolume, gainAfterVolume } from "@orpheum/player";
+import { canSetVolume, gainAfterVolume, newAudioContext } from "@orpheum/player";
 import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { tenthsText } from "./number-text.ts";
+import { soundLatencyMemory } from "./sound-latency.ts";
 import { OwnChoiceSwitch } from "./sound.tsx";
 
 /** What brings a sound to the level, as the server measured it (D226). */
@@ -105,7 +106,7 @@ export function LevelSwitch(props: {
   useEffect(() => {
     const video = props.videoRef.current;
     if (video !== null) {
-      gainAfterVolume(video).setDb(addedDb);
+      gainAfterVolume(video, newAudioContext, soundLatencyMemory()).setDb(addedDb);
     }
   }, [addedDb, props.videoRef]);
   const isUnmeasured = canApplyGain && !props.level.levelling.isMeasured;

@@ -47,8 +47,43 @@ function dbToGainFactor(db: number): number {
 }
 
 /**
- * One element's levelling: its audio context, the gain wanted, and the gain node once the element's
- * sound is routed through it.
+ * Where a device keeps the latency of its sound through Web Audio, in whole ms, as last measured
+ * there: the app's, in the device's own storage, so the player reads none itself. A later playback
+ * on the device moves its sound by it from its first chunk, and its start throws nothing away.
+ */
+export interface SoundLatencyMemory {
+  /** The latency last kept, or undefined where none is. */
+  readonly recall: () => number | undefined;
+  readonly keep: (ms: number) => void;
+}
+
+/** A memory that keeps nothing: each playback learns its latency afresh. */
+export const noSoundLatencyMemory: SoundLatencyMemory = {
+  recall: () => undefined,
+  keep: () => undefined,
+};
+
+/**
+ * The least change of Web Audio's measured latency, in ms, that moves the sound again: a smaller one
+ * leaves the move in effect as it is. Each move of a chunked playback's sound throws its loaded sound
+ * away, a wait of seconds on a Fire TV, while a latency read again moves by a few ms: 331 to 347 ms
+ * there across casts, and again after its start (the owner's casts, staging, 2026-10-28). 40 ms is
+ * the tightest of the broadcast tolerances for sound against its picture: EBU R37 asks that sound
+ * lead its picture by no more than 40 ms (and trail by no more than 60 ms), and ITU-R BT.1359-1
+ * finds a lead first detectable at about 45 ms (a lag at about 125 ms). A justified constant.
+ */
+export const soundLatencyChangeIgnoredMs = 40;
+
+/** The making of a browser's audio context, the default wherever one is made. */
+export function newAudioContext(): GainAudio {
+  return new AudioContext();
+}
+
+/**
+ * One element's levelling: its audio context, the gain wanted, the gain node once the element's
+ * sound is routed through it, and the latency of Web Audio its sound's move makes up for: the one
+ * the device remembers until the context measures one, and after that the one measured, moved only
+ * by a change of at least soundLatencyChangeIgnoredMs.
  */
 class ElementLevelling {
   private wantedDb: number;
@@ -56,20 +91,39 @@ class ElementLevelling {
   private gainNode: GainNode | undefined = undefined;
   private source: MediaElementAudioSourceNode | undefined = undefined;
   private delayNode: DelayNode | undefined = undefined;
+  /** Web Audio's latency the sound's move makes up for, in ms. */
+  private latencyInEffectMs: number;
+  /** What last changed latencyInEffectMs, until the move it makes is told; undefined after. */
+  private latencyChangedBy: "remembered" | "measured" | "direct" | undefined;
+
+  private readonly context: GainAudio;
+  private readonly memory: SoundLatencyMemory;
 
   constructor(
     private readonly element: HTMLMediaElement,
-    private readonly context: GainAudio,
+    audio: { readonly context: GainAudio; readonly memory: SoundLatencyMemory },
     db: number,
   ) {
+    this.context = audio.context;
+    this.memory = audio.memory;
     this.wantedDb = db;
+    const rememberedMs = this.memory.recall();
+    this.latencyInEffectMs = rememberedMs ?? 0;
+    this.latencyChangedBy = rememberedMs === undefined ? undefined : "remembered";
     element.addEventListener("play", () => {
       this.resumeAndRoute();
     });
-    // The context's latencies settle once its sound plays: the delay is set again from them.
+    // The context's latencies settle once its sound plays: the move is set again from them. A sound
+    // still not through Web Audio as it plays has no latency to make up, remembered or not.
     element.addEventListener("playing", () => {
+      this.route();
+      if (this.source === undefined && this.latencyInEffectMs !== 0) {
+        this.latencyInEffectMs = 0;
+        this.latencyChangedBy = "direct";
+      }
       this.applyOffset();
     });
+    this.applyOffset();
     this.resumeAndRoute();
   }
 
@@ -129,19 +183,52 @@ class ElementLevelling {
   }
 
   /**
+   * The latency the context measures, in ms, once the sound is routed through it; undefined before,
+   * and while it reports an output latency of 0, which no output has: not yet measured.
+   */
+  private measuredLatencyMs(): number | undefined {
+    const { baseLatency, outputLatency } = this.context;
+    if (this.source === undefined || outputLatency === 0) {
+      return undefined;
+    }
+    const ms = ((baseLatency ?? 0) + (outputLatency ?? 0)) * 1000;
+    return Number.isFinite(ms) ? Math.round(ms) : undefined;
+  }
+
+  /**
+   * Takes the latency measured into effect where it differs from the one in effect by at least
+   * soundLatencyChangeIgnoredMs, and keeps it in the device's memory; a smaller change leaves the
+   * move as it is. Returns the latency measured.
+   */
+  private takeMeasuredLatency(): number | undefined {
+    const measuredMs = this.measuredLatencyMs();
+    if (
+      measuredMs !== undefined &&
+      Math.abs(measuredMs - this.latencyInEffectMs) >= soundLatencyChangeIgnoredMs
+    ) {
+      this.latencyInEffectMs = measuredMs;
+      this.latencyChangedBy = "measured";
+      this.memory.keep(measuredMs);
+    }
+    return measuredMs;
+  }
+
+  /**
    * Moves the sound as wanted: what is left of the offset once Web Audio's own latency, which the
-   * sound takes once routed, is counted. A sound still later than wanted is moved earlier by its
-   * chunks (moveSoundEarlier); one still earlier is held back by a delay node, put between the
-   * element and the gain the first time one is needed, so a sound never delayed keeps its route.
+   * sound takes once routed, is counted, as remembered until it is measured. A sound still later
+   * than wanted is moved earlier by its chunks (moveSoundEarlier); one still earlier is held back by
+   * a delay node, put between the element and the gain the first time one is needed, so a sound
+   * never delayed keeps its route.
    */
   private applyOffset(): void {
     const { source, gainNode } = this;
-    const latencyMs =
-      source === undefined
-        ? 0
-        : ((this.context.baseLatency ?? 0) + (this.context.outputLatency ?? 0)) * 1000;
-    const leftMs = this.wantedOffsetMs - latencyMs;
-    moveSoundEarlier(this.element, Math.round(Math.max(0, -leftMs)));
+    const measuredMs = this.takeMeasuredLatency();
+    const leftMs = this.wantedOffsetMs - this.latencyInEffectMs;
+    moveSoundEarlier(this.element, Math.round(Math.max(0, -leftMs)), {
+      why: this.latencyChangedBy ?? "offset",
+      latencyMs: measuredMs,
+    });
+    this.latencyChangedBy = undefined;
     if (source === undefined || gainNode === undefined) {
       return;
     }
@@ -180,11 +267,13 @@ export interface SoundOffset {
  * Later is Web Audio's delay: the sound is handed to Web Audio, as a gain hands it, and its own
  * latency counts toward the delay. Earlier is the chunks' (moveSoundEarlier), where a chunked
  * playback plays the element: a sound already through Web Audio is moved earlier by its latency
- * too. Where the page cannot set the element's volume, as on iOS, nothing is delayed (canSetVolume).
+ * too, from the start by the latency memory keeps for the device, until one is measured. Where the
+ * page cannot set the element's volume, as on iOS, nothing is delayed (canSetVolume).
  */
 export function soundOffset(
   element: HTMLMediaElement,
-  createAudioContext: () => GainAudio = () => new AudioContext(),
+  createAudioContext: () => GainAudio = newAudioContext,
+  memory: SoundLatencyMemory = noSoundLatencyMemory,
 ): SoundOffset {
   return {
     setMs: (wanted) => {
@@ -193,7 +282,7 @@ export function soundOffset(
       if (levelling !== undefined) {
         levelling.setOffsetMs(ms);
       } else if (ms > 0 && canSetVolume(element)) {
-        const made = new ElementLevelling(element, createAudioContext(), 0);
+        const made = new ElementLevelling(element, { context: createAudioContext(), memory }, 0);
         made.setOffsetMs(ms);
         levellingByElement.set(element, made);
       } else {
@@ -242,12 +331,14 @@ function inMs(seconds: number | undefined): number | undefined {
  * The gain for element's sound. The sound is handed to Web Audio only once a gain other than 0 dB
  * is asked for and the audio context is running: a browser holds a context until the page is
  * played with, and one would hold the video with it, so until then the film plays as it is. Every
- * channel is kept, so a receiver still gets surround. Where the page cannot set the element's
- * volume, as on iOS, no gain is applied (canSetVolume).
+ * channel is kept, so a receiver still gets surround. A sound through Web Audio is moved earlier by
+ * its latency, from the start by the one memory keeps for the device, until one is measured. Where
+ * the page cannot set the element's volume, as on iOS, no gain is applied (canSetVolume).
  */
 export function gainAfterVolume(
   element: HTMLMediaElement,
-  createAudioContext: () => GainAudio = () => new AudioContext(),
+  createAudioContext: () => GainAudio = newAudioContext,
+  memory: SoundLatencyMemory = noSoundLatencyMemory,
 ): Gain {
   return {
     setDb: (db) => {
@@ -255,7 +346,10 @@ export function gainAfterVolume(
       if (levelling !== undefined) {
         levelling.setDb(db);
       } else if (db !== 0 && canSetVolume(element)) {
-        levellingByElement.set(element, new ElementLevelling(element, createAudioContext(), db));
+        levellingByElement.set(
+          element,
+          new ElementLevelling(element, { context: createAudioContext(), memory }, db),
+        );
       }
     },
   };

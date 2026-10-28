@@ -17,9 +17,11 @@ import {
   catchUpSeekEvent,
   fellBehindEvent,
   playerLoadedChunkEvent,
+  playerMovedSoundEvent,
   playerSwitchedQualityEvent,
   type ChunkLoaded,
   type QualitySwitched,
+  type SoundMoved,
 } from "./together-player-events.ts";
 import { nudgeForMs } from "./together-drift.ts";
 import { refillAheadMs } from "./together-media.ts";
@@ -153,6 +155,34 @@ describe("a player following its group", () => {
     const first: QualitySwitched = { qualityKbps: 15_635, linkEstimateKbps: undefined };
     media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: first }));
     expect(notes.at(-1)).toEqual({ kind: "qualitySwitched", ...first });
+  });
+
+  it("tells the server, for its log, each move of its sound, from where to where, why, and whether it threw the sound away", () => {
+    const media = new FakeMedia();
+    const { connection, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    const measured: SoundMoved = {
+      earlierFromMs: 331,
+      earlierMs: 420,
+      why: "measured",
+      latencyMs: 420,
+      isFlushed: true,
+    };
+    media.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: measured }));
+    expect(notes.at(-1)).toEqual({ kind: "soundMoved", ...measured });
+    const remembered: SoundMoved = {
+      earlierFromMs: 0,
+      earlierMs: 331,
+      why: "remembered",
+      isFlushed: false,
+    };
+    media.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: remembered }));
+    expect(notes.at(-1)).toEqual({ kind: "soundMoved", ...remembered });
+    const before = notes.length;
+    media.dispatchEvent(
+      new CustomEvent(playerMovedSoundEvent, { detail: { ...remembered, why: "guessed" } }),
+    );
+    expect(notes).toHaveLength(before);
   });
 
   it("nudges no player stalled and refilling, whose position does not move, until it has refilled", () => {

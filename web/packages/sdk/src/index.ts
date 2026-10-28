@@ -235,6 +235,7 @@ export {
   playerBufferedFirstEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
+  playerMovedSoundEvent,
   playerSwitchedQualityEvent,
 } from "./together-player-events.ts";
 export type {
@@ -242,6 +243,7 @@ export type {
   LoadingHold,
   LoadingRunway,
   QualitySwitched,
+  SoundMoved,
 } from "./together-player-events.ts";
 export {
   pageActivation,

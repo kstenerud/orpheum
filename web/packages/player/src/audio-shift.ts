@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { playerMovedSoundEvent, type SoundMoved } from "@orpheum/sdk";
 import Hls, { PlaylistLevelType } from "hls.js";
 import type {
   FragmentLoaderConstructor,
@@ -27,9 +28,13 @@ const HlsEvents = Hls.Events;
 /** The longest a sound may be moved earlier, in milliseconds. */
 export const longestSoundShiftMs = 2000;
 
-/** A chunked playback's way to move its sound earlier, by ms from 0. */
+/**
+ * A chunked playback's way to move its sound earlier, by ms from 0: how far it is moved now, and a
+ * move, which says whether it threw the sound loaded away to load it again at the new move.
+ */
 export interface AudioShift {
-  readonly setEarlierMs: (ms: number) => void;
+  readonly earlierMs: () => number;
+  readonly setEarlierMs: (ms: number) => boolean;
 }
 
 /** Each element's chunked playback's shift, while one plays it. */
@@ -38,14 +43,40 @@ const shiftByElement = new WeakMap<HTMLMediaElement, AudioShift>();
 /** How much earlier each element's sound is wanted, kept for the next playback made on it. */
 const wantedByElement = new WeakMap<HTMLMediaElement, number>();
 
+/** Why a sound is moved, and the latency Web Audio measured then, where the sound is through it. */
+export interface SoundMoveCause {
+  readonly why: SoundMoved["why"];
+  readonly latencyMs?: number | undefined;
+}
+
 /**
  * Moves element's sound earlier by ms, from 0 to longestSoundShiftMs, now and for any chunked
- * playback made on it after; whether a playback on it can (canMoveSoundEarlier).
+ * playback made on it after; whether a playback on it can (canMoveSoundEarlier). A move that
+ * changes it is told the element (playerMovedSoundEvent) with its cause, for a Watch Together
+ * player's log: from where to where, why, and whether the playback threw its sound away.
  */
-export function moveSoundEarlier(element: HTMLMediaElement, ms: number): void {
+export function moveSoundEarlier(
+  element: HTMLMediaElement,
+  ms: number,
+  cause: SoundMoveCause = { why: "offset" },
+): void {
   const earlierMs = Math.min(Math.max(ms, 0), longestSoundShiftMs);
+  const playback = shiftByElement.get(element);
+  const fromMs = playback?.earlierMs() ?? wantedByElement.get(element) ?? 0;
   wantedByElement.set(element, earlierMs);
-  shiftByElement.get(element)?.setEarlierMs(earlierMs);
+  const isFlushed = playback?.setEarlierMs(earlierMs) ?? false;
+  if (earlierMs === fromMs) {
+    return;
+  }
+  const { why, latencyMs } = cause;
+  const moved: SoundMoved = {
+    earlierFromMs: fromMs,
+    earlierMs,
+    why,
+    isFlushed,
+    ...(latencyMs === undefined ? {} : { latencyMs }),
+  };
+  element.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: moved }));
 }
 
 /** Whether element plays a chunked playback whose sound can be moved earlier. */
@@ -269,9 +300,10 @@ export class SoundShift {
   attach(hls: Pick<Hls, "trigger">, element: HTMLMediaElement): () => void {
     this.earlierMs = wantedByElement.get(element) ?? 0;
     const own: AudioShift = {
+      earlierMs: () => this.earlierMs,
       setEarlierMs: (ms) => {
         if (ms === this.earlierMs) {
-          return;
+          return false;
         }
         this.earlierMs = ms;
         hls.trigger(HlsEvents.BUFFER_FLUSHING, {
@@ -279,6 +311,7 @@ export class SoundShift {
           endOffset: Number.POSITIVE_INFINITY,
           type: "audio",
         });
+        return true;
       },
     };
     shiftByElement.set(element, own);
