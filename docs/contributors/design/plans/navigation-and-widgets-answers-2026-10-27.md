@@ -147,3 +147,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   - "Leaving KT (tt0890123) is an interesting problem because the scan's extracted title puts a space
     between the D and C." A dotted name's initials ("Leaving K.T.") come out spaced; a run of single
     letters should join back ("D C" → "DC", as "S.H.I.E.L.D." would).
+  - "For the name scanner, we should as a last resort allow them to manually enter in an ID, for example
+    tt0789012. The system brings up the quick data for verification and the user confirms." Entering an
+    id or a TMDB/IMDb address exists since 2026-10-21 (candidate-chooser.tsx's PastedLink,
+    `POST /items/{id}/match-by-link`), but it matches at once. Add the check: the id looked up first,
+    its card shown (poster, name, year, kind, a line of overview, as a candidate is), and the match
+    made only on the person's confirm.
