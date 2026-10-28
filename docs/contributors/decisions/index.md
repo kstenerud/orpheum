@@ -376,7 +376,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D368](working-notes.md#d368--on-a-films-ladder-the-top-quality-plays-the-films-own-sound-copied-the-lower-qualities-keep-the-light-stereo-track) On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 - [D369](working-notes.md#d369--every-device-plays-with-the-apps-own-player-controls-built-from-one-standard-set-of-player-widgets) Every device plays with the app's own player controls, built from one standard set of player widgets
 - [D370](working-notes.md#d370--a-video-a-person-has-watched-shows-a-white-check-in-its-posters-tray-and-a-person-can-mark-it-watched-or-unwatched-on-its-page) A video a person has watched shows a white check in its poster's tray, and a person can mark it watched or unwatched on its page
-- [D371](working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part) A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part
+- [D371](working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part) A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part — *revisited by D372*
+- [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most
 
 ## Archived
 
