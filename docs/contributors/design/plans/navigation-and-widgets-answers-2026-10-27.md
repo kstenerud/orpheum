@@ -131,6 +131,5 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   currently issued link." Chosen: "Keep invite links like Watch Together links" (D267 §5): the core
   keeps each unused invitation link (today only its SHA-256, `invitation_link`), and the people page
   shows it again with a Copy button until it is used or withdrawn. A copy of the database can then use
-  an unused link; withdrawing or using it ends that. Open, to put to the owner when it is built: an
-  expiry for unused links (the lead suggested 7 days; the owner chose the Watch Together model without
-  saying).
+  an unused link; withdrawing or using it ends that. Unused links expire after 7 days (the owner,
+  2026-10-28: "unused invitation links expire after 7 days").

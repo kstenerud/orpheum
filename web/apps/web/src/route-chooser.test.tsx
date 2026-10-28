@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createNavigation, type Navigation } from "./navigation.ts";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
-import { buttonWithText, click, fire, mount, type Mounted } from "./test-dom.tsx";
+import { buttonNamed, click, fire, mount, type Mounted } from "./test-dom.tsx";
 import { fakePlace, testServices, withServices, type FakePlace } from "./test-services.tsx";
 
 let shown: Mounted | undefined;
@@ -137,7 +137,7 @@ describe("a chooser's open list", () => {
     await fire(openList(), new MouseEvent("click", { bubbles: true, clientX: 500, clientY: 500 }));
     expect(openList()).toBeNull();
     await click(button);
-    await click(buttonWithText(shown?.container ?? document.body, "Close"));
+    await click(buttonNamed(shown?.container ?? document.body, "Close"));
     expect(openList()).toBeNull();
     // The owner, 2026-10-28: "moving left/right while in a chooser or menu closes it".
     for (const key of ["ArrowLeft", "ArrowRight"]) {
