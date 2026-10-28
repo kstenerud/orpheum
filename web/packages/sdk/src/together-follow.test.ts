@@ -167,6 +167,8 @@ describe("a player following its group", () => {
       why: "measured",
       latencyMs: 420,
       isFlushed: true,
+      fromWhy: "measured",
+      rememberedMs: 339,
     };
     media.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: measured }));
     expect(notes.at(-1)).toEqual({ kind: "soundMoved", ...measured });
@@ -181,6 +183,10 @@ describe("a player following its group", () => {
     const before = notes.length;
     media.dispatchEvent(
       new CustomEvent(playerMovedSoundEvent, { detail: { ...remembered, why: "guessed" } }),
+    );
+    expect(notes).toHaveLength(before);
+    media.dispatchEvent(
+      new CustomEvent(playerMovedSoundEvent, { detail: { ...measured, fromWhy: "guessed" } }),
     );
     expect(notes).toHaveLength(before);
   });

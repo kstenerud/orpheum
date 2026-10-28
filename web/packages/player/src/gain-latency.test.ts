@@ -112,8 +112,42 @@ describe("the sound's move for Web Audio's latency, as the device remembers it (
     expect(playback.moves).toEqual([]);
     expect(kept).toEqual([]);
     expect(moves).toEqual([
-      { earlierFromMs: 0, earlierMs: 331, why: "remembered", isFlushed: false },
+      { earlierFromMs: 0, earlierMs: 331, why: "remembered", isFlushed: false, rememberedMs: 331 },
     ]);
+  });
+
+  it("reads no latency as the context starts, before the film plays: the start keeps the move remembered (the Fire TV's casts, 07:47 to 07:51)", async () => {
+    const video = document.createElement("video");
+    // As it starts, the context reports a latency far short of its own: 83 ms on the Fire TV.
+    const latencies = { baseLatency: 0.043, outputLatency: 0.04 };
+    const { memory, kept } = fakeMemory(339);
+    gainAfterVolume(video, latencyAudio(latencies), memory).setDb(3);
+    const playback = attachedShift(video);
+    await settled();
+    expect(playback.shift.earlierMs).toBe(339);
+    // As the film plays, it reports its own, within the threshold of what was remembered.
+    latencies.outputLatency = 0.296;
+    video.dispatchEvent(new Event("playing"));
+    expect(playback.shift.earlierMs).toBe(339);
+    expect(playback.flushes()).toBe(0);
+    expect(kept).toEqual([]);
+    expect(playback.moves).toEqual([]);
+  });
+
+  it("reads the latency at once where the sound is routed as the film already plays", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false });
+    Object.defineProperty(video, "readyState", { get: () => 4 });
+    const playback = attachedShift(video);
+    const { memory, kept } = fakeMemory(undefined);
+    gainAfterVolume(
+      video,
+      latencyAudio({ baseLatency: 0.043, outputLatency: 0.288 }),
+      memory,
+    ).setDb(3);
+    await settled();
+    expect(playback.shift.earlierMs).toBe(331);
+    expect(kept).toEqual([331]);
   });
 
   it("leaves the move as it is for a change of the latency under the threshold", async () => {
@@ -123,7 +157,8 @@ describe("the sound's move for Web Audio's latency, as the device remembers it (
     const { memory, kept } = fakeMemory(undefined);
     gainAfterVolume(video, latencyAudio(latencies), memory).setDb(3);
     await settled();
-    // A device's first playback learns its latency: one move, which throws its sound away.
+    // A device's first playback learns its latency as it plays: one move, which throws its sound away.
+    video.dispatchEvent(new Event("playing"));
     expect(playback.shift.earlierMs).toBe(331);
     expect(playback.flushes()).toBe(1);
     expect(kept).toEqual([331]);
@@ -148,7 +183,15 @@ describe("the sound's move for Web Audio's latency, as the device remembers it (
     expect(playback.flushes()).toBe(1);
     expect(kept).toEqual([420]);
     expect(playback.moves).toEqual([
-      { earlierFromMs: 331, earlierMs: 420, why: "measured", latencyMs: 420, isFlushed: true },
+      {
+        earlierFromMs: 331,
+        earlierMs: 420,
+        why: "measured",
+        latencyMs: 420,
+        isFlushed: true,
+        fromWhy: "remembered",
+        rememberedMs: 331,
+      },
     ]);
     // The next playback on the device starts at what was kept.
     const next = document.createElement("video");
@@ -170,7 +213,14 @@ describe("the sound's move for Web Audio's latency, as the device remembers it (
     video.dispatchEvent(new Event("playing"));
     expect(playback.shift.earlierMs).toBe(0);
     expect(playback.moves).toEqual([
-      { earlierFromMs: 331, earlierMs: 0, why: "direct", isFlushed: true },
+      {
+        earlierFromMs: 331,
+        earlierMs: 0,
+        why: "direct",
+        isFlushed: true,
+        fromWhy: "remembered",
+        rememberedMs: 331,
+      },
     ]);
   });
 });

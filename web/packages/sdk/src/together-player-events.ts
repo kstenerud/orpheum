@@ -141,9 +141,12 @@ export const playerMovedSoundEvent = "orpheumplayermovedsound";
 
 /**
  * A move of a player's sound, as playerMovedSoundEvent tells it: from earlierFromMs earlier than
- * its picture to earlierMs, why, the latency Web Audio measured then, absent where the sound is not
+ * its picture to earlierMs, why, the latency Web Audio reported then, absent where the sound is not
  * through it or not yet measured, and whether the move threw the sound loaded away, to load it
- * again at the new move.
+ * again at the new move. fromWhy is what moved the sound to earlierFromMs, absent where nothing had;
+ * rememberedMs, the latency the device remembered as its levelling began, absent where it
+ * remembered none: a move made before the player's log listened is told no one, and the Fire TV's
+ * casts of 2026-10-28 left only the moves back to its latency, from where no line said.
  */
 export interface SoundMoved {
   readonly earlierFromMs: number;
@@ -151,6 +154,8 @@ export interface SoundMoved {
   readonly why: SoundMovedBy;
   readonly latencyMs?: number;
   readonly isFlushed: boolean;
+  readonly fromWhy?: SoundMovedBy;
+  readonly rememberedMs?: number;
 }
 
 /** The words a SoundMoved's why may be. */
@@ -161,21 +166,47 @@ function isSoundMovedBy(word: unknown): word is SoundMovedBy {
   return typeof word === "string" && soundMovedBys.includes(word);
 }
 
+/** Whether value is a number or absent. */
+function isOptionalNumber(value: unknown): value is number | undefined {
+  return value === undefined || typeof value === "number";
+}
+
+/** Whether value is a SoundMovedBy or absent. */
+function isOptionalSoundMovedBy(value: unknown): value is SoundMovedBy | undefined {
+  return value === undefined || isSoundMovedBy(value);
+}
+
+/** A SoundMoved's fields that may be absent, each only where it is present. */
+function soundMovedOptionals(optionals: {
+  readonly latencyMs: number | undefined;
+  readonly fromWhy: SoundMovedBy | undefined;
+  readonly rememberedMs: number | undefined;
+}): Pick<SoundMoved, "latencyMs" | "fromWhy" | "rememberedMs"> {
+  const { latencyMs, fromWhy, rememberedMs } = optionals;
+  return {
+    ...(latencyMs === undefined ? {} : { latencyMs }),
+    ...(fromWhy === undefined ? {} : { fromWhy }),
+    ...(rememberedMs === undefined ? {} : { rememberedMs }),
+  };
+}
+
 /** A playerMovedSoundEvent's move, or undefined when the event carries none. */
 export function soundMovedOf(event: Event): SoundMoved | undefined {
-  const { earlierFromMs, earlierMs, why, latencyMs, isFlushed } =
+  const { earlierFromMs, earlierMs, why, latencyMs, isFlushed, fromWhy, rememberedMs } =
     detailWith(event, ["earlierFromMs", "earlierMs", "why", "isFlushed"]) ?? {};
   return typeof earlierFromMs === "number" &&
     typeof earlierMs === "number" &&
     isSoundMovedBy(why) &&
     typeof isFlushed === "boolean" &&
-    (latencyMs === undefined || typeof latencyMs === "number")
+    isOptionalNumber(latencyMs) &&
+    isOptionalSoundMovedBy(fromWhy) &&
+    isOptionalNumber(rememberedMs)
     ? {
         earlierFromMs,
         earlierMs,
         why,
         isFlushed,
-        ...(latencyMs === undefined ? {} : { latencyMs }),
+        ...soundMovedOptionals({ latencyMs, fromWhy, rememberedMs }),
       }
     : undefined;
 }

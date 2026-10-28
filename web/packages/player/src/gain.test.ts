@@ -195,6 +195,7 @@ describe("a move of the sound from its picture (the owner's TCL TV, 2026-10-24)"
     const delay = soundOffset(video, audio.create);
     delay.setMs(600);
     await settled();
+    video.dispatchEvent(new Event("playing"));
     expect(audio.connections).toEqual([
       "element → gain",
       "gain → speakers",
@@ -223,6 +224,7 @@ describe("a move of the sound from its picture (the owner's TCL TV, 2026-10-24)"
     const audio = delayingAudio({ baseLatency: 0.096, outputLatency: 0.328 });
     gainAfterVolume(routed, audio.create).setDb(3);
     await settled();
+    routed.dispatchEvent(new Event("playing"));
     soundOffset(routed, audio.create).setMs(300);
     expect(routedShift.earlierMs).toBe(124);
     expect(audio.delays).toEqual([]);

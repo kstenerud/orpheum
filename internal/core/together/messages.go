@@ -205,7 +205,8 @@ const (
 	// NoteSoundMoved is a player moving its sound from EarlierFromMs earlier than its picture to
 	// EarlierMs, Why what moved it ("remembered", the latency its device kept; "measured", Web Audio's
 	// latency measured, LatencyMs; "offset", its person's offset; "direct", its sound found playing
-	// with no Web Audio after all), and IsFlushed whether it threw the sound loaded away: a Fire TV's
+	// with no Web Audio after all), and IsFlushed whether it threw the sound loaded away; FromWhy what
+	// moved it to EarlierFromMs, and RememberedMs the latency its device remembered: a Fire TV's
 	// start waited twice as its move for Web Audio's latency threw its sound away, and nothing said
 	// when or by how much the move changed (the owner's cast, staging, 2026-10-28).
 	NoteSoundMoved NoteKind = "soundMoved"
@@ -293,6 +294,12 @@ type PlayerNote struct {
 	EarlierMs     int64 `json:"earlierMs,omitempty"`
 	LatencyMs     int64 `json:"latencyMs,omitempty"`
 	IsFlushed     bool  `json:"isFlushed,omitempty"`
+	// FromWhy is what moved a soundMoved note's sound to EarlierFromMs, empty where nothing had;
+	// RememberedMs, the latency its device remembered as its levelling began, 0 where it had none.
+	// A move made before the player's log listened is told no one: the Fire TV's casts of
+	// 2026-10-28 left only the moves back to its latency, from where no line said.
+	FromWhy      string `json:"fromWhy,omitempty"`
+	RememberedMs int64  `json:"rememberedMs,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -428,9 +435,11 @@ const soundShiftMost = 2000
 // and latency within what a player can make.
 func (note PlayerNote) isKnownSoundMoved() bool {
 	isShift := func(ms int64) bool { return ms >= 0 && ms <= soundShiftMost }
-	return note.Track == "" && slices.Contains([]string{"remembered", "measured", "offset", "direct"}, note.Why) &&
+	movedBys := []string{"remembered", "measured", "offset", "direct"}
+	return note.Track == "" && slices.Contains(movedBys, note.Why) &&
+		(note.FromWhy == "" || slices.Contains(movedBys, note.FromWhy)) &&
 		isShift(note.EarlierFromMs) && isShift(note.EarlierMs) && note.EarlierFromMs != note.EarlierMs &&
-		note.LatencyMs >= 0 && note.LatencyMs <= soundShiftMost
+		isShift(note.LatencyMs) && isShift(note.RememberedMs)
 }
 
 // isKnownFollowing is whether a note of how a follower follows its group is one the server logs: a

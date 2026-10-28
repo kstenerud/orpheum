@@ -980,8 +980,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   line, `why=measured` with `flushed=true` and a `latencyMs` of about 330, and for a later cast no
   `soundMoved` line with `flushed=true` unless its `latencyMs` is 40 ms or more from what was kept
   (a later cast's `why=remembered` move, `flushed=false`, is logged only where the player had
-  joined its session before it was made). Before the fix every start threw its
-  sound away once or twice, a wait of about 2.5 s each (staging, 2026-10-28, 07:18).
+  joined its session before it was made); each later cast's `soundMoved` line, where there is one,
+  says `rememberedMs=` about 330, never `none`, and no line says `fromWhy=measured` with an
+  `earlierFromMs` short of 300. Before the fix every start threw its sound away once or twice, a
+  wait of about 2.5 s each (staging, 2026-10-28, 07:18); after the first fix each cast still moved
+  its sound back to its latency from a latency read too early, `earlierFromMs` 83 to 259 (staging,
+  2026-10-28, 07:47 to 07:51).
   (`web/packages/player/src/gain.ts`, `audio-shift.ts`; `web/apps/web/src/sound-latency.ts`;
   `internal/core/together/player_log.go`)
 - [ ] **VQ97** — D367 §10, a remote's Back closes a chooser and the menu without leaving the page, on

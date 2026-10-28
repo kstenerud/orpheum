@@ -43,17 +43,29 @@ const shiftByElement = new WeakMap<HTMLMediaElement, AudioShift>();
 /** How much earlier each element's sound is wanted, kept for the next playback made on it. */
 const wantedByElement = new WeakMap<HTMLMediaElement, number>();
 
-/** Why a sound is moved, and the latency Web Audio measured then, where the sound is through it. */
+/**
+ * What moved each element's sound to where it is wanted now, for the log of its next move: a move
+ * made before a Watch Together player listened is told no one, and the next says where its from
+ * came from.
+ */
+const whyWantedByElement = new WeakMap<HTMLMediaElement, SoundMoved["why"]>();
+
+/**
+ * Why a sound is moved, the latency Web Audio reports then, where the sound is through it, and the
+ * latency the device remembered as its levelling began, where it remembered one.
+ */
 export interface SoundMoveCause {
   readonly why: SoundMoved["why"];
   readonly latencyMs?: number | undefined;
+  readonly rememberedMs?: number | undefined;
 }
 
 /**
  * Moves element's sound earlier by ms, from 0 to longestSoundShiftMs, now and for any chunked
  * playback made on it after; whether a playback on it can (canMoveSoundEarlier). A move that
  * changes it is told the element (playerMovedSoundEvent) with its cause, for a Watch Together
- * player's log: from where to where, why, and whether the playback threw its sound away.
+ * player's log: from where to where, why, what moved it to where it moved from, the latency the
+ * device remembered, and whether the playback threw its sound away.
  */
 export function moveSoundEarlier(
   element: HTMLMediaElement,
@@ -68,15 +80,33 @@ export function moveSoundEarlier(
   if (earlierMs === fromMs) {
     return;
   }
-  const { why, latencyMs } = cause;
-  const moved: SoundMoved = {
-    earlierFromMs: fromMs,
-    earlierMs,
-    why,
-    isFlushed,
-    ...(latencyMs === undefined ? {} : { latencyMs }),
-  };
+  const fromWhy = whyWantedByElement.get(element);
+  whyWantedByElement.set(element, cause.why);
+  const moved = soundMoved({ fromMs, earlierMs, isFlushed, fromWhy }, cause);
   element.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: moved }));
+}
+
+/** A move as it is told: from and to, whether it threw the sound away, and its cause. */
+function soundMoved(
+  move: {
+    readonly fromMs: number;
+    readonly earlierMs: number;
+    readonly isFlushed: boolean;
+    readonly fromWhy: SoundMoved["why"] | undefined;
+  },
+  cause: SoundMoveCause,
+): SoundMoved {
+  const { fromWhy } = move;
+  const { why, latencyMs, rememberedMs } = cause;
+  return {
+    earlierFromMs: move.fromMs,
+    earlierMs: move.earlierMs,
+    why,
+    isFlushed: move.isFlushed,
+    ...(latencyMs === undefined ? {} : { latencyMs }),
+    ...(fromWhy === undefined ? {} : { fromWhy }),
+    ...(rememberedMs === undefined ? {} : { rememberedMs }),
+  };
 }
 
 /** Whether element plays a chunked playback whose sound can be moved earlier. */

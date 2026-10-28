@@ -43,7 +43,8 @@ export interface PlayerState {
  *   once chunks measured it, from the quality of fromQualityKbps, absent for the first it plays;
  * - soundMoved: moved its sound from earlierFromMs earlier than its picture to earlierMs, why
  *   (SoundMovedBy), with the latency Web Audio measured then, latencyMs, and whether the move threw
- *   the sound loaded away (isFlushed): a Fire TV's start waited twice as its move threw its sound
+ *   the sound loaded away (isFlushed), what moved it to earlierFromMs (fromWhy) and the latency the
+ *   device remembered (rememberedMs): a Fire TV's start waited twice as its move threw its sound
  *   away, and nothing said when or by how much the move changed (the owner's cast, staging,
  *   2026-10-28);
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
@@ -114,6 +115,10 @@ export type PlayerNote =
       /** Web Audio's latency, measured, in ms; absent where the sound is not through it. */
       readonly latencyMs?: number;
       readonly isFlushed: boolean;
+      /** What moved the sound to earlierFromMs; absent where nothing had. */
+      readonly fromWhy?: SoundMovedBy;
+      /** The latency the device remembered as its levelling began; absent where it had none. */
+      readonly rememberedMs?: number;
     }
   | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
   | {

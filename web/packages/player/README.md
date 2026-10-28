@@ -75,9 +75,13 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   measured, and a measured latency moves it again only when it differs from the one in effect by
   `soundLatencyChangeIgnoredMs` or more**, which is then kept in the memory the app hands in
   (`SoundLatencyMemory`; the package reads no storage itself), so a device's later playbacks start
-  with no sound thrown away; every move is told the element, from where to where, why and whether it
-  threw the sound away (`playerMovedSoundEvent`), for a Watch Together player's log (the owner,
-  2026-10-28; idiosyncrasies.md, the TCL TV's entry). `gain-latency.test.ts`.
+  with no sound thrown away. **A latency is read only as the element's sound plays through Web
+  Audio** (its `playing`, or a route made while it already plays): one read as the context has just
+  started is short of its own, and moved a Fire TV's cast off the remembered latency and back.
+  Every move is told the element, from where to where, why, what moved it to where it moved from,
+  the latency remembered and whether it threw the sound away (`playerMovedSoundEvent`), for a Watch
+  Together player's log (the owner, 2026-10-28; idiosyncrasies.md, the TCL TV's entry).
+  `gain-latency.test.ts`.
 
 ## Read before changing
 
