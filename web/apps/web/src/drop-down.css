@@ -3,10 +3,18 @@
 /* A drop-down's open list (drop-down.tsx): a chooser's choices and the banner's menu alike, over the
    page as a modal dialog (modal-dialog.css), no taller than the screen and scrolling within itself
    where its places need more, so on a Fire TV's 480 pixels an admin's Sign out stays in sight (the
-   owner, 2026-10-27). */
+   owner, 2026-10-27). It keeps the browser's own position for a modal dialog, fixed to the screen,
+   which its Close's is set against: one relative was laid out at the top of the page, not of the
+   screen, and the page scrolled up to it as it opened (the owner on a Fire TV, 2026-10-28: the
+   season picker "shifted the page up before displaying it"). */
 .drop-down__list {
-  position: relative;
   min-width: 13rem;
+}
+
+/* What the list holds, its Close and its places, one element for the arrows it hears
+   (drop-down.tsx), with no box of its own. */
+.drop-down__content {
+  display: contents;
 }
 
 /* The list itself does not scroll, its places do: over the dialog's own padding and scrolling
@@ -25,7 +33,7 @@
 }
 
 /* The Close: a cross at the list's top-right, over the places that scroll under it. */
-.drop-down__list > .drop-down__close {
+.drop-down__list .drop-down__close {
   position: absolute;
   inset-block-start: 0;
   inset-inline-end: 0;

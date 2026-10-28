@@ -101,6 +101,11 @@ async function unreachedInMain(): Promise<string[]> {
     .map((control) => control.outerHTML.slice(0, 80));
 }
 
+/** Whether what has focus is an open drop-down's Close. */
+function isOnClose(): boolean {
+  return document.activeElement?.classList.contains("drop-down__close") === true;
+}
+
 /** Whether what has focus is a link to href. */
 function isFocusOnLinkTo(href: string): boolean {
   return document.activeElement?.getAttribute("href") === href;
@@ -286,6 +291,73 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(picker);
     expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
+  });
+
+  // The owner on a Fire TV, 2026-10-28: the season picker "shifted the page up before displaying
+  // it", and opened on its Close, not a season.
+  it("opens a season picker mid-page on its season, the page moving neither as it opens, its Close reached, nor as it closes", async () => {
+    await page.viewport(width, height);
+    const above = document.createElement("div");
+    above.style.height = `${String(height * 2)}px`;
+    document.body.prepend(above);
+    // Seasons enough that the list is as tall as the screen lets it be, its Close under the banner.
+    const seasons = Array.from({ length: 16 }, (_, at) => ({
+      seasonNumber: at + 1,
+      episodeCount: 1,
+    }));
+    try {
+      walking = await mountApp(
+        walkServices(
+          { ...signedIn, "GET /collections/20": { ...glassTide, seasons } },
+          "/series/20",
+        ),
+      );
+      await drawn(".title__play");
+      const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
+      if (picker === null) {
+        throw new Error("the series' page draws no season picker");
+      }
+      window.scrollBy({ top: picker.getBoundingClientRect().top - height / 2 });
+      const scrolled = window.scrollY;
+      expect(scrolled).toBeGreaterThan(0);
+      picker.focus({ preventScroll: true });
+      await press("{Enter}");
+      await drawn("dialog a");
+      expect(isFocusIn("dialog ul")).toBe(true);
+      expect(document.activeElement?.getAttribute("aria-current")).toBe("page");
+      expect(window.scrollY).toBe(scrolled);
+      expect(await pressUntil("{ArrowUp}", isOnClose)).toBe(true);
+      expect(window.scrollY).toBe(scrolled);
+      await press("{Escape}");
+      await expect.poll(() => document.querySelector("dialog")).toBeNull();
+      expect(document.activeElement).toBe(picker);
+      expect(window.scrollY).toBe(scrolled);
+    } finally {
+      above.remove();
+    }
+  });
+
+  // The owner on a Fire TV, 2026-10-28: "Left/right didn't close it", focus on the Close.
+  it("closes a season picker's list by Left and by Right from its Close, focus on the picker", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
+    );
+    await drawn(".title__play");
+    const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
+    picker?.focus();
+    for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
+      await press("{Enter}");
+      await drawn("dialog a");
+      expect(await pressUntil("{ArrowUp}", isOnClose), arrow).toBe(true);
+      await press(arrow);
+      await expect.poll(() => document.querySelector("dialog"), { message: arrow }).toBeNull();
+      await expect.poll(() => document.activeElement, { message: arrow }).toBe(picker);
+    }
+    expect(walking.services.navigation.route()).toEqual({
+      screen: "series-page",
+      collectionId: 20,
+    });
   });
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {

@@ -63,7 +63,8 @@ const roomAboveFocusPx = 12;
 
 /**
  * Scrolls element into view no further than it must be, across as in a row of tiles and down as on a
- * page, and clear of a banner over the page's top.
+ * page, and clear of a banner over the page's top where it is on the page: an open dialog's control,
+ * over the banner, moves no page under it (a drop-down's Close, the owner on a Fire TV, 2026-10-28).
  */
 export function scrollIntoViewGently(element: HTMLElement): void {
   // A test's DOM may have no scrolling at all.
@@ -72,7 +73,7 @@ export function scrollIntoViewGently(element: HTMLElement): void {
   }
   element.scrollIntoView({ block: "nearest", inline: "nearest" });
   const cover = document.querySelector(`[${coversTopAttribute}]`);
-  if (cover === null || cover.contains(element)) {
+  if (cover === null || cover.contains(element) || element.closest("dialog[open]") !== null) {
     return;
   }
   const hiddenBy = cover.getBoundingClientRect().bottom + roomAboveFocusPx;

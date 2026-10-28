@@ -42,6 +42,8 @@ User-Agent (D263; the User-Agent is logged only).
 |---|---|
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
+| Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
+| On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
@@ -1045,6 +1047,56 @@ User-Agent (D263; the User-Agent is logged only).
   Firefox without `giveFocusBack`, `document.activeElement` being `<body>` (2026-10-27). **[doc]** the HTML
   standard's dialog removing steps remove the element from the top layer and run no focusing steps; only
   its close steps restore the previously focused element.
+
+
+### A modal dialog given position relative is laid out at the page's top, not the screen's
+
+- **Technology:** `HTMLDialogElement.showModal()` and the top layer, in Chromium and Firefox alike (so
+  in Silk, a Chromium).
+- **Symptom:** on a Fire TV, opening a series' season picker scrolled the page up before the list
+  showed, and Back left the picker off the screen (the owner, 2026-10-28); on the Libraries page,
+  already at its top, nothing moved. In the browser tests a list opened with the page scrolled
+  2473 px down set `scrollY` to 0, and its closing focus scrolled to 2835, the button centred.
+- **Cause:** the browser keeps a modal dialog in the screen only by its own stylesheet's
+  `position: fixed`. An author's `position: relative` on it (for its Close's absolute place) wins,
+  and a top-layer element that is neither fixed nor absolute is laid out as absolute against the
+  initial containing block: the page's top, wherever the page stands. Its opening then focuses its
+  first control there, and the browser scrolls the page to it. The focus given back on closing,
+  without `preventScroll`, scrolled the page again, centring the button.
+- **What we do:** the drop-down keeps the browser's `position: fixed`, which is also the containing
+  block its Close is placed against (`web/apps/web/src/drop-down.css`); focus moves inside a dialog,
+  and the focus `ModalDialog` gives back, never scroll the page beyond bringing a control into view
+  as far as it must (`focus-navigation.ts`'s `scrollIntoViewGently`, `modal-dialog.tsx`'s
+  `giveFocusBack`).
+- **Evidence:** **[measured]** `web/apps/web/src/input-pages.browser.test.tsx` (a season picker
+  opened mid-page) and `modal-dialog.browser.test.tsx` failed in Chromium and Firefox without each
+  change (2026-10-28). **[doc]** CSS Positioned Layout 4, the top layer: an element in it whose
+  `position` is not `absolute` or `fixed` behaves as `absolute`, its containing block the initial
+  containing block unless fixed. **[web]** no search: the session's search budget was spent
+  (2026-10-28).
+
+
+### Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)
+
+- **Technology:** Silk 138 on a Fire TV Stick (AFTSSS), spatial navigation mode, a page's modal
+  `<dialog>`.
+- **Symptom:** with a chooser's list or the menu open and focus on one of its places, the remote's
+  Left and Right did nothing; Up and Down moved within it, OK chose and Back closed it (the owner,
+  2026-10-28, checking VQ97). In Chromium and Firefox the same keydowns, from a place, close it
+  (`input-pages.browser.test.tsx`).
+- **Cause:** unverified, and not reproduced off the device. The list's Left and Right are commands
+  the app's input layer makes of a `keydown` heard at the document; either Silk kept those keys from
+  the page while a modal dialog was open (Up and Down then moved by Silk's own navigation), or the
+  page heard them with focus outside the list. That build also laid the list out at the page's top
+  ([above](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens)),
+  since fixed, which may have played a part.
+- **What we do:** the list hears Left and Right wherever focus is inside it, its Close too
+  (`web/apps/web/src/drop-down.tsx`), and tells the core's log, as a client problem, of every Left or
+  Right that leaves it open: the key, its keyCode and code, whether something had taken it before the
+  app heard it and after, and where focus was (`useStuckArrowTold`). VQ97 (4) on the device says
+  whether it closes now, and if not, the log says which layer kept the key.
+- **Evidence:** **[owner]** 2026-10-28, staging. **[web]** no search: the session's search budget was
+  spent (2026-10-28); search Chromium's spatial navigation with `<dialog>` when the log comes back.
 
 
 ### A browser plays only the original file's first audio track
