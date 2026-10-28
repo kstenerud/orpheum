@@ -216,10 +216,15 @@ function whileHoldingMedia(video: HTMLVideoElement): (listener: () => void) => (
   };
 }
 
+/** What a start played on from: the video's play, a wait for data, or a seek. */
+type StartedAfter = NonNullable<PlayEventContext["startedAfter"]>;
+
 /**
  * What a pause or a seek of video says of where it came from (event-context.ts): the page, the last
  * media-session action, and what hls.js said it moved the video over, which the seek its move starts
- * takes and clears.
+ * takes and clears; and what a start played on from, its play, a wait for data or a seek, and how
+ * long before. A Fire TV said it started twice 0.6 s apart with 9 s loaded, and nothing said what
+ * came between (staging, 2026-10-28). A wait a seek brings is the seek's.
  */
 function eventContexts(
   video: HTMLVideoElement,
@@ -229,7 +234,21 @@ function eventContexts(
   const onMovedItself = (event: Event): void => {
     skippedBy = skippedByOf(event);
   };
+  let playedOnFrom: { readonly startedAfter: StartedAfter; readonly atMs: number } | undefined;
+  const heard = (startedAfter: StartedAfter) => (): void => {
+    if (startedAfter !== "waiting" || playedOnFrom?.startedAfter !== "seeking") {
+      playedOnFrom = { startedAfter, atMs: performance.now() };
+    }
+  };
+  const before: Record<string, () => void> = {
+    play: heard("play"),
+    waiting: heard("waiting"),
+    seeking: heard("seeking"),
+  };
   video.addEventListener(playerMovedItselfEvent, onMovedItself);
+  for (const [event, listener] of Object.entries(before)) {
+    video.addEventListener(event, listener);
+  }
   const now = (known: { readonly skippedBy?: SkippedBy | undefined }): PlayEventContext =>
     eventContextOf(video, document, {
       isUserActive: "userActivation" in navigator ? navigator.userActivation.isActive : undefined,
@@ -243,8 +262,24 @@ function eventContexts(
       skippedBy = undefined;
       return context;
     },
+    started: () => {
+      const from = playedOnFrom;
+      playedOnFrom = undefined;
+      return {
+        ...now({}),
+        ...(from === undefined
+          ? {}
+          : {
+              startedAfter: from.startedAfter,
+              stoodMs: Math.max(0, Math.round(performance.now() - from.atMs)),
+            }),
+      };
+    },
     stop: () => {
       video.removeEventListener(playerMovedItselfEvent, onMovedItself);
+      for (const [event, listener] of Object.entries(before)) {
+        video.removeEventListener(event, listener);
+      }
     },
   };
 }
@@ -284,10 +319,11 @@ interface VideoEventsOf {
   readonly contexts: EventContexts;
 }
 
-/** What a pause and a seek say of where they came from (eventContexts). */
+/** What a pause and a seek say of where they came from, and a start of what it played on from (eventContexts). */
 interface EventContexts {
   readonly paused: () => PlayEventContext;
   readonly seeked: () => PlayEventContext;
+  readonly started: () => PlayEventContext;
 }
 
 /** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
@@ -336,7 +372,7 @@ function reportVideoEvents(
       }
     }),
     playing: whileItHoldsMedia(() => {
-      reporter.recordStarted(positionMs(video));
+      reporter.recordStarted(positionMs(video), contexts.started());
     }),
     timeupdate: whileItHoldsMedia(() => {
       lastHeldPositionMs = video.seeking ? lastHeldPositionMs : positionMs(video);

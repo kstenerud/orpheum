@@ -8,7 +8,9 @@ import "context"
 // pause or the move came from: the page hidden or its window unfocused, the person's own gesture, a
 // media-session action (a media key, the desktop's controls), or hls.js moving the video itself over
 // a hole or a stall. Logged only; nothing reads it. Two players' 0.2 s pauses and one 0.25 s jump
-// forward were heard as hiccups, and the log could say nothing of why (the owner, 2026-10-17).
+// forward were heard as hiccups, and the log could say nothing of why (the owner, 2026-10-17). A
+// start says what it played on from, its play, a wait for data or a seek, and how long before: a Fire
+// TV said it started twice 0.6 s apart, and nothing said what came between (staging, 2026-10-28).
 type EventContextBody struct {
 	IsPageHidden       bool   `json:"isPageHidden,omitempty"       required:"false"`
 	HasFocus           bool   `json:"hasFocus,omitempty"           required:"false"`
@@ -18,6 +20,8 @@ type EventContextBody struct {
 	ReadyState         int64  `json:"readyState,omitempty"         maximum:"4"       minimum:"0" required:"false"`
 	VideoBuffered      string `json:"videoBuffered,omitempty"      maxLength:"400"   required:"false"`
 	AudioBuffered      string `json:"audioBuffered,omitempty"      maxLength:"400"   required:"false"`
+	StartedAfter       string `doc:"What a start played on from: its play, a wait for data, a seek" enum:"play,waiting,seeking" json:"startedAfter,omitempty" required:"false"` //nolint:lll // one struct tag
+	StoodMs            int64  `doc:"How long before a start what it played on from came, in ms" json:"stoodMs,omitempty" minimum:"0" required:"false"`                          //nolint:lll // one struct tag
 }
 
 // PathMoveBody is one move of a player's page to another path to the core: to the name it now
@@ -37,7 +41,8 @@ func eventContextAttributes(event EventBody) []any {
 		"isPageHidden", held.IsPageHidden, "hasFocus", held.HasFocus, "isUserActive", held.IsUserActive,
 		"mediaSessionAction", held.MediaSessionAction, "skippedBy", held.SkippedBy,
 		"readyState", held.ReadyState, "videoBuffered", held.VideoBuffered,
-		"audioBuffered", held.AudioBuffered, "happenedMonoMs", event.HappenedMonoMs,
+		"audioBuffered", held.AudioBuffered, "startedAfter", held.StartedAfter, "stoodMs", held.StoodMs,
+		"happenedMonoMs", event.HappenedMonoMs,
 	}
 }
 

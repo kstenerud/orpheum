@@ -619,6 +619,58 @@ describe("play state", () => {
     ]);
   });
 
+  it("tells what each start played on from, its play or a wait for data, and how long before (a Fire TV, 2026-10-28)", async () => {
+    const heard: Heard[] = [];
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "twice" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy(
+          {
+            "POST /playback/twice/report": [204, undefined],
+            "GET /files/2/waits": [200, {}],
+            "GET /files/2/up-next": [200, {}],
+            "PUT /playback/twice/interest": [204, null],
+            "DELETE /playback/twice": [204, null],
+          },
+          heard,
+        ),
+      ),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      const sent = async (): Promise<void> => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      };
+      video.dispatchEvent(new Event("play"));
+      video.dispatchEvent(new Event("playing"));
+      await sent();
+      // The Fire TV's second start, 0.6 s after its first, with nothing between but a wait.
+      video.dispatchEvent(new Event("waiting"));
+      video.dispatchEvent(new Event("playing"));
+      await sent();
+    });
+    const started = heard
+      .filter((request) => request.methodAndPath === "POST /playback/twice/report")
+      .flatMap(
+        (request) =>
+          (request.body as { events: { kind: string; context?: Record<string, unknown> }[] })
+            .events,
+      )
+      .filter((event) => event.kind === "started");
+    expect(started.map((event) => event.context?.["startedAfter"])).toEqual(["play", "waiting"]);
+    expect(started[1]?.context).toMatchObject({ readyState: 4 });
+    expect(typeof started[1]?.context?.["stoodMs"]).toBe("number");
+  });
+
   it("tells where a video asked to play keeps its position, and what it showed (the owner's friend, 2026-10-12)", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     try {
