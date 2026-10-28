@@ -23948,6 +23948,14 @@ an intent to end the old one."
 10. **A guest by link alone may leave and come back** (next batch): their link keeps them a member
     while the session lasts and they are not removed; opening its page again catches them up.
 
+**Confirmed** the same day, after the owner asked what a leader is for when guests catch up anyway
+("should we make the leader catch up as well and not give special treatment?"), and was told: its
+playing is never corrected, so one screen plays as a device plays alone, and its stalls alone hold
+the group. The owner: "We'll make the host the preferred leader." The host browsing away from the
+session's page (to find the next film, the owner's case) is §6: a device not playing the shared film
+cannot lead, so the lead passes, and the host's device on its return catches up, then leads again
+(§3); a host whose film plays on a device they cast to keeps that device leading as they browse.
+
 **Status:** Decided 2026-10-28; §1–§8 to build in this batch, §9–§10 in the next. Revisits D371 §3
 (the host's screen leads; a guest's never did) and its resolved points "which of the host's devices
 leads", "the leader leaving a group that stood for it" and "which part a cast takes" (one session at
