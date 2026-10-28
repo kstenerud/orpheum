@@ -24,8 +24,11 @@ func TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt(t *testing.T) 
 		t.Errorf("the person's sessions are %+v, %v; want their party alone", mine, err)
 	}
 	again, err := stage.hub.Open(stage.owner)
-	if err != nil || again.SessionID != stage.opened.SessionID {
-		t.Errorf("opening again gave session %d, %v; want the party, %d", again.SessionID, err, stage.opened.SessionID)
+	if err != nil || again.SessionID == cast.SessionID {
+		t.Errorf("starting a party again gave session %d, %v; want a new party, not the cast", again.SessionID, err)
+	}
+	if _, _, err = stage.hub.CastPosition(cast.SessionID, stage.owner.UserID); err != nil {
+		t.Errorf("the cast after a party was started again: %v; want it on, beside it (D372 §8)", err)
 	}
 	_, err = stage.hub.AddLink(cast.SessionID, stage.owner.UserID, "someone", Rights{})
 	if !errors.Is(err, ErrNoSession) {
@@ -165,7 +168,7 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 		t.Fatal(err)
 	}
 	guestPerson := Person{UserID: 42, Name: "Anna"}
-	joined, err := stage.hub.Join(made.Secret, "Anna", &guestPerson)
+	joined, err := stage.hub.Join(made.Secret, "Anna", &guestPerson, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}

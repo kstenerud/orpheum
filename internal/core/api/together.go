@@ -21,13 +21,12 @@ import (
 // tagTogether groups Watch Together's operations.
 const tagTogether = "Watch Together"
 
-// OpenTogetherOutput is the host's session: started now, nothing playing, or the one they already
-// host; and a membership credential their devices say hello with (D246 §5).
+// OpenTogetherOutput is the host's session, started now, nothing playing, and a membership
+// credential their devices say hello with (D246 §5).
 type OpenTogetherOutput struct {
 	Body struct {
 		SessionID            int64  `json:"sessionId"`
 		MembershipCredential string `json:"membershipCredential"`
-		IsNew                bool   `doc:"Started now, rather than one the host already had" json:"isNew"`
 	}
 }
 
@@ -117,6 +116,11 @@ type JoinTogetherInput struct {
 	Body struct {
 		Secret string `json:"secret" maxLength:"100" minLength:"1"`
 		Name   string `doc:"How the others see you" json:"name" maxLength:"100" minLength:"1"`
+		// HeldCredential and ShouldLeaveOther are a person's other session (D372 §8): one this
+		// browser keeps a membership of, by link alone, and their yes to leaving it, or the one they
+		// are in signed in, to join this one.
+		HeldCredential   string `doc:"A membership this browser keeps, of another session" json:"heldCredential,omitempty" maxLength:"100" required:"false"`                              //nolint:lll // one struct tag
+		ShouldLeaveOther bool   `doc:"Leave the other session you are in, which a join is refused for otherwise (in_another_session)" json:"shouldLeaveOther,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -188,7 +192,8 @@ func (server *Server) registerTogether() {
 	tags := []string{tagTogether}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "openTogether", Method: http.MethodPost, Path: "/together", Tags: tags,
-		Summary: "Start a Watch Together session, nothing playing, or have back the one you host (D246 §5)",
+		Summary: "Start a Watch Together session, nothing playing, ending the one you host and leaving one " +
+			"you joined (D246 §5, D372 §8)",
 	}, server.openTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/together/mine", Tags: tags,
@@ -254,10 +259,9 @@ func (server *Server) openTogether(ctx context.Context, input *AuthorizationHead
 		return nil, server.togetherError(ctx, "start a session", err)
 	}
 	server.logger.InfoContext(ctx, "watch together: a host opened a session",
-		"sessionId", opened.SessionID, "hostUserId", principal.UserID, "isNew", opened.IsNew)
+		"sessionId", opened.SessionID, "hostUserId", principal.UserID)
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = opened.SessionID, opened.MembershipCredential
-	output.Body.IsNew = opened.IsNew
 	return output, nil
 }
 
@@ -395,7 +399,9 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	if err != nil {
 		return nil, server.authError(ctx, "check the sign-in of someone joining by a link", err)
 	}
-	joined, err := dependencies.Together.Join(input.Body.Secret, name, person)
+	joined, err := dependencies.Together.Join(input.Body.Secret, name, person, together.Leaving{
+		HeldCredential: input.Body.HeldCredential, ShouldLeave: input.Body.ShouldLeaveOther,
+	})
 	if err != nil {
 		server.logger.InfoContext(ctx, "watch together: a join was refused", "name", name, "err", err)
 		return nil, server.togetherError(ctx, "join a session", err)
@@ -520,6 +526,11 @@ func (server *Server) togetherError(ctx context.Context, action string, err erro
 		return newError(http.StatusForbidden, CodeForbidden, err.Error())
 	case errors.Is(err, together.ErrNoNote):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.hostNote", err.Error())
+	}
+	if other, isInAnother := errors.AsType[*together.InAnotherSessionError](err); isInAnother {
+		return newDetailedError(http.StatusConflict, err.Error(), InAnotherSessionDetailBody{
+			HostName: other.HostName, IsHost: other.IsHost,
+		})
 	}
 	return server.logInternalError(ctx, action, err)
 }

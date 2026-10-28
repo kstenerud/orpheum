@@ -219,12 +219,12 @@ func (each *device) takeState(message Inbound) {
 type Opened struct {
 	SessionID            int64
 	MembershipCredential string
-	// IsNew is whether the session was started now, rather than one the host already had.
-	IsNew bool
 }
 
-// Open starts a session hosted by host, nothing playing, or gives back the one they already host,
-// with a new credential for their devices, for a page that was reloaded. A host has one session.
+// Open starts a session hosted by host, nothing playing. A person is in one session at most (D372
+// §8): starting one ends the one they host, its devices told the host ended it, and takes them out
+// of one they joined, its devices told they left (the owner: starting a new session "signals an
+// intent to end the old one"). A page reloaded has its session back by Mine.
 func (hub *Hub) Open(host Person) (Opened, error) {
 	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
@@ -232,17 +232,8 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	for _, each := range hub.sessions {
-		if each.hostUserID != host.UserID || each.isCast {
-			continue
-		}
-		for _, hostMember := range each.members {
-			if hostMember.isHost {
-				hostMember.addCredential(madeCredential{credential: credential})
-			}
-		}
-		each.touch(hub.clock.Now())
-		return Opened{SessionID: each.id, MembershipCredential: credential}, nil
+	for _, held := range hub.placesOf(&host, "", 0) {
+		hub.leavePlace(held)
 	}
 	hub.lastID++
 	opened := &session{
@@ -258,7 +249,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	}
 	opened.members[hub.lastID].addCredential(madeCredential{credential: credential})
 	hub.sessions[opened.id] = opened
-	return Opened{SessionID: opened.id, MembershipCredential: credential, IsNew: true}, nil
+	return Opened{SessionID: opened.id, MembershipCredential: credential}, nil
 }
 
 // LinkMade is a new link: its id, and its secret, which goes after # in the address (D243 §3).
@@ -350,14 +341,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	if !found || ejected.isHost {
 		return ErrNoMember
 	}
-	for _, each := range ejected.devices {
-		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "ejected"})
-	}
-	hosted.endLinksOf(ejected)
-	delete(hosted.members, memberID)
-	hosted.touch(hub.clock.Now())
-	hosted.leaderStillHere(hub.clock.Now(), false, goneRemoved)
-	hosted.sendRoster()
+	hosted.remove(hub.clock.Now(), ejected, "ejected")
 	return nil
 }
 
@@ -372,14 +356,7 @@ func (hub *Hub) Leave(credential string) error {
 	if leaving.isHost {
 		return ErrNotHost
 	}
-	for _, each := range leaving.devices {
-		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "left"})
-	}
-	left.endLinksOf(leaving)
-	delete(left.members, leaving.id)
-	left.touch(hub.clock.Now())
-	left.leaderStillHere(hub.clock.Now(), false, goneRemoved)
-	left.sendRoster()
+	left.remove(hub.clock.Now(), leaving, "left")
 	return nil
 }
 

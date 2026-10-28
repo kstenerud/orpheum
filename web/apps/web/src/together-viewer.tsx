@@ -111,6 +111,7 @@ export function TogetherViewer(): JSX.Element {
     return (
       <JoinForm
         secret={secret}
+        heldCredential={kept?.credential}
         onSubmitted={() => {
           setHasJoinedHere(true);
           // The Join's tap, however the browser submitted it: an iPhone's guest who had just joined

@@ -1994,7 +1994,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start a Watch Together session, nothing playing, or have back the one you host (D246 §5) */
+        /** Start a Watch Together session, nothing playing, ending the one you host and leaving one you joined (D246 §5, D372 §8) */
         post: operations["openTogether"];
         delete?: never;
         options?: never;
@@ -3172,6 +3172,12 @@ export interface components {
             urls: string[] | null;
             username: string;
         };
+        InAnotherSessionDetailBody: {
+            /** @description The other session's host */
+            hostName: string;
+            /** @description Whether the other session is the person's own */
+            isHost: boolean;
+        };
         InProgressBody: {
             /**
              * Format: int64
@@ -3363,9 +3369,13 @@ export interface components {
             jobs: components["schemas"]["JobBody"][] | null;
         };
         JoinTogetherInputBody: {
+            /** @description A membership this browser keeps, of another session */
+            heldCredential?: string;
             /** @description How the others see you */
             name: string;
             secret: string;
+            /** @description Leave the other session you are in, which a join is refused for otherwise (in_another_session) */
+            shouldLeaveOther?: boolean;
         };
         JoinTogetherOutputBody: {
             /** @description What this device finds the server by through a discovery */
@@ -3861,8 +3871,6 @@ export interface components {
             rootPath: string;
         };
         OpenTogetherOutputBody: {
-            /** @description Started now, rather than one the host already had */
-            isNew: boolean;
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
@@ -4109,6 +4117,17 @@ export interface components {
             /** @enum {string} */
             code: "media_unreachable";
             detail?: components["schemas"]["MediaUnreachableDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "in_another_session";
+            detail?: components["schemas"]["InAnotherSessionDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}

@@ -10,7 +10,7 @@ import {
   CredentialsProblem,
 } from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
-import { dataOrThrow, fieldProblemText } from "./problem.ts";
+import { ApiProblem, dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
@@ -26,28 +26,38 @@ export function NoLink(): JSX.Element {
   );
 }
 
+/** The session a person joining is in already: whose, and whether their own (D372 §8). */
+interface OtherSession {
+  readonly hostName: string;
+  readonly isHost: boolean;
+}
+
+/** The other session a join was refused for, from its refusal; undefined for any other failure. */
+function otherSessionOf(cause: unknown): OtherSession | undefined {
+  return cause instanceof ApiProblem ? cause.withCode("in_another_session")?.detail : undefined;
+}
+
 /**
  * Joining by a link: the name the others will see, and Join (watch-together.md: one Join). Someone
  * signed in here finds their own name already filled in, theirs to change (the owner, 2026-10-06).
+ * A person is in one session at most (D372 §8): one in another, signed in or by the membership this
+ * browser keeps, heldCredential, is asked "Leave ‹session› to join this one?" first, and leaves it
+ * only by saying so.
  */
 export function JoinForm(props: {
   readonly secret: string;
+  /** The membership this browser keeps, of a session it may be in by link alone. */
+  readonly heldCredential?: string | undefined;
   /** Called at once from the submitting, within the tap that did it. */
   readonly onSubmitted: () => void;
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api, canFollowAGroup } = useServices();
+  const { canFollowAGroup } = useServices();
   const [name, setTypedName] = useJoinName();
   const canFollow = canFollowAGroup();
   useAsksWhetherOutdated(canFollow);
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: { "body.name": t("together.name") },
-      overrides: { notFound: t("together.badLink") },
-    }),
-  );
-  const { secret } = props;
+  const join = useJoin(props);
   if (!canFollow) {
     // Told before joining, so no one waits for a device that could never keep up (D250 §7).
     return (
@@ -56,29 +66,115 @@ export function JoinForm(props: {
       </CredentialsNotice>
     );
   }
+  const { other, isBusy, problem } = join;
   return (
     <CredentialsForm
       heading={t("together.joinHeading")}
       onSubmit={() => {
         props.onSubmitted();
-        runRequest(async (idempotencyKey) => {
-          const joined = dataOrThrow(
-            await api.POST("/together/join", {
-              body: { secret, name },
-              ...idempotent(idempotencyKey),
-            }),
-          );
-          props.onJoined(membershipOf(joined));
-        });
+        join.send(name);
       }}
     >
       <p>{t("together.joinExplain")}</p>
       <JoinNameField name={name} setTypedName={setTypedName} />
       {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
-      <button type="submit" disabled={isBusy}>
-        {t("together.join")}
-      </button>
+      {other === undefined ? (
+        <button type="submit" disabled={isBusy}>
+          {t("together.join")}
+        </button>
+      ) : (
+        <LeaveOtherToJoin other={other} isBusy={isBusy} onStay={join.stay} />
+      )}
     </CredentialsForm>
+  );
+}
+
+/**
+ * Joining by props.secret as a name: the join's request, refused while its person is in another
+ * session, which is then the question asked (other); sent again once asked, it says to leave it
+ * (D372 §8).
+ */
+function useJoin(props: {
+  readonly secret: string;
+  readonly heldCredential?: string | undefined;
+  readonly onJoined: (membership: Membership) => void;
+}): {
+  readonly other: OtherSession | undefined;
+  readonly isBusy: boolean;
+  readonly problem: string | undefined;
+  readonly send: (name: string) => void;
+  readonly stay: () => void;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [other, setOther] = useState<OtherSession | undefined>(undefined);
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, {
+      fields: { "body.name": t("together.name") },
+      overrides: { notFound: t("together.badLink") },
+    }),
+  );
+  const { secret, heldCredential, onJoined } = props;
+  const send = (name: string): void => {
+    const shouldLeaveOther = other !== undefined;
+    runRequest(async (idempotencyKey) => {
+      const answer = await api.POST("/together/join", {
+        body: {
+          secret,
+          name,
+          ...(heldCredential === undefined ? {} : { heldCredential }),
+          ...(shouldLeaveOther ? { shouldLeaveOther } : {}),
+        },
+        ...idempotent(idempotencyKey),
+      });
+      try {
+        onJoined(membershipOf(dataOrThrow(answer)));
+      } catch (cause) {
+        const asked = otherSessionOf(cause);
+        if (asked === undefined) {
+          throw cause;
+        }
+        setOther(asked);
+      }
+    });
+  };
+  return {
+    other,
+    isBusy,
+    problem,
+    send,
+    stay: () => {
+      setOther(undefined);
+    },
+  };
+}
+
+/**
+ * The question a person in another session is asked before joining this one, "Leave ‹session› to
+ * join this one?", their own ending for everyone in it (D372 §8): leaving submits the join again,
+ * saying so; staying asks nothing more.
+ */
+function LeaveOtherToJoin(props: {
+  readonly other: OtherSession;
+  readonly isBusy: boolean;
+  readonly onStay: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { other } = props;
+  return (
+    <>
+      <CredentialsProblem isAlert>
+        {other.isHost
+          ? t("together.leaveOwnToJoin")
+          : t("together.leaveOtherToJoin", { host: other.hostName })}
+      </CredentialsProblem>
+      <button type="submit" disabled={props.isBusy}>
+        {t("together.leaveAndJoin")}
+      </button>
+      <button type="button" disabled={props.isBusy} onClick={props.onStay}>
+        {t("together.stayInOther")}
+      </button>
+    </>
   );
 }
 

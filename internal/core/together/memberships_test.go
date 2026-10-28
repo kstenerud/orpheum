@@ -17,7 +17,7 @@ func TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember(t *testing.T) {
 		t.Fatal(err)
 	}
 	partner := Person{UserID: 2, Name: "partner"}
-	joined, err := stage.hub.Join(made.Secret, "Pat", &partner)
+	joined, err := stage.hub.Join(made.Secret, "Pat", &partner, Leaving{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember(t *testing.T) {
 }
 
 // Having the session back on one device cuts off no other: the laptop's credential still admits it
-// after the phone asked, as after the host opened it again (D267 §3).
+// after the phone asked, and the tablet after it (D267 §3).
 func TestMine_HavingTheSessionBackOnOneDeviceCutsOffNoOther(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -51,13 +51,13 @@ func TestMine_HavingTheSessionBackOnOneDeviceCutsOffNoOther(t *testing.T) {
 	if err != nil || len(phone) != 1 {
 		t.Fatalf("the phone asked and had %+v, %v", phone, err)
 	}
-	again, err := stage.hub.Open(stage.owner)
-	if err != nil {
-		t.Fatal(err)
+	tablet, err := stage.hub.Mine(stage.owner.UserID)
+	if err != nil || len(tablet) != 1 {
+		t.Fatalf("the tablet asked and had %+v, %v", tablet, err)
 	}
 	for name, credential := range map[string]string{
 		"the laptop's": laptop, "the phone's": phone[0].MembershipCredential,
-		"the reopened": again.MembershipCredential,
+		"the tablet's": tablet[0].MembershipCredential,
 	} {
 		if _, _, isMember := stage.hub.MemberOf(credential); !isMember {
 			t.Errorf("%s credential no longer admits the host", name)
@@ -94,7 +94,7 @@ func TestDetailsOf_ShowsTheHostEachLinkToPassOnAgain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(used.Secret, "Gran", nil); err != nil {
+	if _, err = stage.hub.Join(used.Secret, "Gran", nil, Leaving{}); err != nil {
 		t.Fatal(err)
 	}
 	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)

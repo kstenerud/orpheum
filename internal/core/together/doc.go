@@ -77,10 +77,16 @@
 //     removed, their place's links admit no one (D267 §4 amended, D318). Enforced by
 //     TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed.
 //   - Each link admits the one person it was made for, once, its note the host's alone; a withdrawn
-//     link admits no one; an ejected member's credential admits nothing; a host has one session.
-//     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
-//     TestHub_OpeningAgainGivesTheHostTheirSession and, through the API,
+//     link admits no one; an ejected member's credential admits nothing. Enforced by
+//     TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone and, through the API,
 //     TestTogether_OnlyAHostOpensMakesLinksAndEnds.
+//   - A person is in one session at most, as host or guest (D372 §8): starting one ends the one
+//     they host, its devices told the host ended it, and takes them out of one they joined; a join
+//     by someone in another, signed in or by the membership their browser keeps, is refused, saying
+//     whose, until they say to leave it. A cast is not among a person's sessions. Enforced by
+//     TestHub_StartingASessionEndsTheOneThePersonHostsAndLeavesTheOneTheyJoined,
+//     TestHub_JoiningAnotherSessionIsRefusedUntilThePersonSaysToLeaveTheirs and, through the API,
+//     TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
 //     from when it was made, then no one, and leaves the host's list and the discovery's links; a
 //     session idle for its idle end, neither played to a player nor acted in by a member, is ended
@@ -162,6 +168,7 @@
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the commands, and following the leader.
 //   - leader.go: who leads, and how the lead passes (D371, D372).
+//   - places.go: a person in one session at most (D372 §8).
 //   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
 //   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).
 package together

@@ -138,8 +138,9 @@ func (hub *Hub) CastReady(sessionID, userID int64) error {
 // TogetherPart is a new credential for the Watch Together session userID is in, for a cast's receiver
 // to take their part in it (D371 §4), and whether it is the host's: the session they host, the
 // receiver then playing it as their player, its leader, so what they play plays for the group (D364
-// §11; plans/cast-to-device.md §7); else one they joined signed in as a guest, the receiver then just
-// another follower. "" when they are in none, or none can be made; of several, the newest.
+// §11; plans/cast-to-device.md §7); else the one they joined signed in as a guest, the receiver then
+// just another follower. A person is in one session at most (D372 §8). "" when they are in none, or
+// none can be made.
 func (hub *Hub) TogetherPart(userID int64) (credential string, isHost bool) {
 	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
@@ -147,25 +148,11 @@ func (hub *Hub) TogetherPart(userID int64) (credential string, isHost bool) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	var taken *member
-	var takenIn int64
-	for _, each := range hub.sessions {
-		if each.isCast {
-			continue
-		}
-		for _, candidate := range each.members {
-			isTheirs := (candidate.isHost && each.hostUserID == userID) ||
-				(candidate.person != nil && candidate.person.UserID == userID)
-			isBetter := taken == nil || (candidate.isHost && !taken.isHost) ||
-				(candidate.isHost == taken.isHost && each.id > takenIn)
-			if isTheirs && isBetter {
-				taken, takenIn = candidate, each.id
-			}
-		}
-	}
-	if taken == nil {
+	places := hub.placesOf(&Person{UserID: userID}, "", 0)
+	if len(places) == 0 {
 		return "", false
 	}
+	taken := places[0].as // the host's first, should a person be in two by a sign-in at a hello
 	taken.addCredential(madeCredential{credential: made})
 	return made, taken.isHost
 }

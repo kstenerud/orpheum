@@ -241,7 +241,8 @@ on Android they made a call of it, turning the film down and taking the volume b
 From [D188](../../decisions/working-notes.md#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)
 §1, as built:
 
-- **The host's Watch Together screen**: start a session, or have back the one they host; make a
+- **The host's Watch Together screen**: start a session, which ends the one they host and leaves one
+  they joined (a person is in one session at most, D372 §8), or have back the one they host; make a
   link with its note, shown as text and as a QR code; each link, waiting or used, and each member,
   with the host's notes; withdraw a link, remove a member, end the session.
 - **The viewer's page**, from the link: a name and one **Join**, which is also the gesture the

@@ -115,8 +115,10 @@ func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
 
 // Join admits the person a link was made for, once, as a member named name, the name the others
 // see (D246 §3); signed in, as person, whose devices have the membership back without the link
-// (D267 §2). Not signed in, person is nil.
-func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
+// (D267 §2). Not signed in, person is nil. A person is in one session at most (D372 §8): one in
+// another, signed in or by the membership their browser keeps, leaving.HeldCredential, is refused
+// with InAnotherSessionError until they say to leave it, leaving.ShouldLeave, and then leaves it.
+func (hub *Hub) Join(secret, name string, person *Person, leaving Leaving) (Joined, error) {
 	made, err := newCredential(hub.random)
 	if err != nil {
 		return Joined{}, err
@@ -127,6 +129,14 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 	joined, used := hub.sessionByLink(secret)
 	if used == nil || !used.waits(now) {
 		return Joined{}, ErrNoSession // used, withdrawn, past its lifetime (D346), or its session over
+	}
+	if others := hub.placesOf(person, leaving.HeldCredential, joined.id); len(others) > 0 {
+		if !leaving.ShouldLeave {
+			return Joined{}, refusalFor(others[0])
+		}
+		for _, other := range others {
+			hub.leavePlace(other)
+		}
 	}
 	joined.touch(now)
 	var taking *member
