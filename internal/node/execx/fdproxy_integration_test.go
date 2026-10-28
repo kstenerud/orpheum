@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -51,18 +50,14 @@ func streamingRunner(t *testing.T) *Runner {
 
 // makeStreamedFilm writes a film of a few MiB, video and audio interleaved, so a whole read of it
 // takes several of the node's blocks.
-func makeStreamedFilm(t *testing.T, runner *Runner) string {
+func makeStreamedFilm(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "film.mkv")
-	if _, err := runner.Run(t.Context(), FFmpeg, confine.Access{}, []string{
-		"-v", "error",
+	testutil.GenerateMedia(t, path,
 		"-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=6",
 		"-f", "lavfi", "-i", "sine=frequency=440:duration=6:sample_rate=48000",
 		"-c:v", "libx264", "-preset", "ultrafast", "-b:v", "3M", "-g", "25",
-		"-c:a", "flac", "file:" + path,
-	}, 1<<20); err != nil {
-		t.Fatal(err)
-	}
+		"-c:a", "flac")
 	return path
 }
 
@@ -157,7 +152,7 @@ func framesOf(t *testing.T, runner *Runner, film Film) string {
 func TestFDProxy_TheRealFFmpegReadsAStreamedFilmAsItReadsItByPath(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	path := makeStreamedFilm(t, runner)
+	path := makeStreamedFilm(t)
 	byPath := framesOf(t, runner, Film{Path: path})
 	streamed := framesOf(t, runner, streamedFilm(t, runner, path, ReadsWholeFilm))
 	if streamed != byPath {
@@ -173,7 +168,7 @@ func TestFDProxy_TheRealFFmpegReadsAStreamedFilmAsItReadsItByPath(t *testing.T) 
 func TestFDProxy_TheRealFFprobeProbesAStreamedFilmAsItProbesItByPath(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	path := makeStreamedFilm(t, runner)
+	path := makeStreamedFilm(t)
 	probe := func(film Film) string {
 		stdout, err := runner.RunOnFilm(t.Context(), FFprobe, film,
 			append(append([]string{"-v", "error"}, film.Input()...), "-show_streams", "-of", "json"), 1<<20)
@@ -193,7 +188,7 @@ func TestFDProxy_TheRealFFprobeProbesAStreamedFilmAsItProbesItByPath(t *testing.
 func TestFDProxy_TheRealFFmpegWhoseFilmFailsPartWayStalledOnItsDisk(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	film := streamedFilm(t, runner, makeStreamedFilm(t, runner), ReadsWholeFilm)
+	film := streamedFilm(t, runner, makeStreamedFilm(t), ReadsWholeFilm)
 	film.Stream.Source = failingFrom{Source: film.Stream.Source, offset: film.Size / 2}
 	_, err := runner.RunWatched(t.Context(), WatchedRun{
 		Arguments:     append(append([]string{"-nostats"}, film.Input()...), "-map", "0", "-f", "null", "-"),
@@ -211,7 +206,7 @@ func TestFDProxy_TheRealFFmpegWhoseFilmFailsPartWayStalledOnItsDisk(t *testing.T
 func TestFDProxy_TheRealFFprobeWhoseFilmFailsWhileProbingStalledOnItsDisk(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	film := streamedFilm(t, runner, makeStreamedFilm(t, runner), ReadsIndex)
+	film := streamedFilm(t, runner, makeStreamedFilm(t), ReadsIndex)
 	film.Stream.Source = failingFrom{Source: film.Stream.Source, offset: 0}
 	_, err := runner.RunOnFilm(t.Context(), FFprobe, film,
 		append(append([]string{"-v", "error"}, film.Input()...), "-show_streams", "-of", "json"), 1<<20)
@@ -225,7 +220,7 @@ func TestFDProxy_TheRealFFprobeWhoseFilmFailsWhileProbingStalledOnItsDisk(t *tes
 func TestFDProxy_TheRealFFmpegWhoseFilmStopsAnsweringIsKilledAfterTheReadsWindow(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	film := streamedFilm(t, runner, makeStreamedFilm(t, runner), ReadsWholeFilm)
+	film := streamedFilm(t, runner, makeStreamedFilm(t), ReadsWholeFilm)
 	stuck := make(chan struct{})
 	t.Cleanup(func() { close(stuck) })
 	film.Stream.Source = stuckFrom{
@@ -251,7 +246,7 @@ func TestFDProxy_TheRealFFmpegWhoseFilmStopsAnsweringIsKilledAfterTheReadsWindow
 func TestFDProxy_TheRealFFmpegPastItsBudgetIsKilled(t *testing.T) {
 	t.Parallel()
 	runner := streamingRunner(t)
-	film := streamedFilm(t, runner, makeStreamedFilm(t, runner), ReadsWholeFilm)
+	film := streamedFilm(t, runner, makeStreamedFilm(t), ReadsWholeFilm)
 	film.Stream.BudgetBytes = film.Size / 4
 	_, err := runner.RunWatched(t.Context(), WatchedRun{
 		Arguments:     append(append([]string{"-nostats"}, film.Input()...), "-map", "0", "-f", "null", "-"),

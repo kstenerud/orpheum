@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -46,14 +45,10 @@ func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
 		t.Fatal(writeErr)
 	}
 	film := filepath.Join(directory, "film.mkv")
-	_, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=5", "-i", "file:" + sidecar,
+	testutil.GenerateMedia(t, film,
+		"-f", "lavfi", "-i", "color=c=black:s=64x64:d=5", "-i", "file:"+sidecar,
 		"-map", "0", "-map", "1", "-map", "1", "-c:v", "libx264", "-preset", "ultrafast", "-c:s:0", "ass",
-		"-c:s:1", "subrip", "file:" + film,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+		"-c:s:1", "subrip")
 	extractor := subtitle.NewExtractor(runner, 20<<20)
 	// Its two tracks, an ASS and a SubRip, from one read of it (D340).
 	tracks, err := extractor.ExtractTracks(t.Context(), execx.Film{Path: film}, []int{1, 2})

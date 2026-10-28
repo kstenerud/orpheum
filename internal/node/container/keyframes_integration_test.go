@@ -38,10 +38,9 @@ func TestKeyframesMs_AreTheKeyframesFFprobeShowsInRealFiles(t *testing.T) {
 		}
 		return string(out)
 	}
-	run(execx.FFmpeg, "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=12",
-		"-c:v", "libx264", "-preset", "ultrafast", "-bf", "2", "-g", "48", "-keyint_min", "48",
-		"file:"+inTest("film.mp4"))
-	run(execx.FFmpeg, "-i", "file:"+inTest("film.mp4"), "-c", "copy", "file:"+inTest("ffmpeg.mkv"))
+	testutil.GenerateMedia(t, inTest("film.mp4"), "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=12",
+		"-c:v", "libx264", "-preset", "ultrafast", "-bf", "2", "-g", "48", "-keyint_min", "48")
+	testutil.GenerateMedia(t, inTest("ffmpeg.mkv"), "-i", "file:"+inTest("film.mp4"), "-c", "copy")
 	tools.Run(t, "mkvmerge", "-q", "-o", inTest("mkvmerge.mkv"), inTest("film.mp4"))
 	for _, name := range []string{"film.mp4", "ffmpeg.mkv", "mkvmerge.mkv"} {
 		shown := run(execx.FFprobe, "-select_streams", "v:0", "-skip_frame", "nokey", "-show_entries", "frame=pts_time",

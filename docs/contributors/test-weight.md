@@ -68,7 +68,14 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Why it was invisible:** the time sat in global setup, which reports no test durations. Only
   the gaps between log timestamps showed it.
 - **Fix:** films are kept in `.dev/browser-films/`, keyed by FFmpeg's version and the arguments
-  (`web/e2e/film-cache.ts`). Films the cache lacks are made at the same time.
+  (`web/e2e/film-cache.ts`). Films the cache lacks are made at the same time. The Go tests' media
+  (the integration tier's films, images and the M2 fixture tree) are kept the same way, in the user's
+  cache directory under `orpheum/test-media`, through `testutil.GenerateMedia` and
+  `testutil.GenerateImage` (`internal/testutil/media.go`). In two pairs of runs on a shared machine
+  (2026-10-28), the integration tier's FFmpeg packages took 27.6 s and 38.9 s of package time with
+  the cache warm against 47.1 s and 79.8 s cold, and 16.0 s and 27.5 s of wall time against 20.1 s
+  and 44.7 s. Most packages fell to about a third of their cold time or less; execx and cmd/orpheum,
+  whose time is mostly the node's own runs, fell less.
 - **Warning sign:** a gap between "starting" and the first test in a tier's log. A setup whose
   outputs never change.
 
@@ -702,6 +709,18 @@ failed.
 - **The film cache** keys on FFmpeg's version and every argument, with any file argument keyed by
   its contents. A film made some other way, such as from a file it reads that is not named in its
   arguments, needs its own key.
+- **The Go tests' media cache** (`internal/testutil/media.go`) keys on FFmpeg's `-version` line,
+  its executable's size and modification time, the output's form (its file's extension, or stdout)
+  and every argument, with a file argument (an absolute path, or one behind `file:`) keyed by its
+  contents. FFmpeg runs in an empty environment from `/`, so the environment and the working
+  directory cannot reach it. A file named inside an argument (a filter's option, say) is keyed by
+  its text alone, and needs its contents added to the key before a generator uses one. Matroska's
+  UIDs are random per FFmpeg run, so a kept film has one run's: no test may depend on two runs
+  differing. A run whose input differs every run (a remux of mkvmerge's output) is not kept, since
+  the key would never repeat; a run that is itself the subject (the confined encode) runs FFmpeg
+  directly. A cache older than a change to FFmpeg's build at the same path, version, size and
+  modification time would pass stale media: delete `orpheum/test-media` then. It stays under 2 GiB,
+  trimming the files used least recently.
 - **`vitest related`** follows imports. A test that depends on a file without importing it (by
   reading it from disk, say) is not related to it: such tests are found by what they call
   (`readFileSync`, `readdirSync`, `import.meta.glob`, `web_source_readers`) and always run with the

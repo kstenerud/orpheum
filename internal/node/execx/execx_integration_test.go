@@ -44,12 +44,8 @@ func TestRunWatched_ThePinnedFFmpegWhoseSourceGoesSilentIsAStallOnItsDisk(t *tes
 		t.Fatal(err)
 	}
 	film := filepath.Join(t.TempDir(), "film.mkv")
-	if _, err = runner.Run(t.Context(), FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=60:sample_rate=48000",
-		"-c:a", "flac", "file:" + film,
-	}, 1<<20); err != nil {
-		t.Fatal(err)
-	}
+	testutil.GenerateMedia(t, film, "-f", "lavfi", "-i", "sine=frequency=440:duration=60:sample_rate=48000",
+		"-c:a", "flac")
 	silent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		content, readErr := os.ReadFile(film)

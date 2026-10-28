@@ -27,46 +27,36 @@ import (
 
 // film makes a twelve-second MP4 with a keyframe every two seconds, B-frames, so a picture is shown
 // after it is decoded, and stereo AAC.
-func film(t *testing.T, runner *execx.Runner) string {
+func film(t *testing.T) string {
 	t.Helper()
-	return filmWithKeyframesEvery(t, runner, 48)
+	return filmWithKeyframesEvery(t, 48)
 }
 
 // filmWithKeyframesEvery is film with a keyframe every so many of its 24 pictures a second.
-func filmWithKeyframesEvery(t *testing.T, runner *execx.Runner, pictures int) string {
+func filmWithKeyframesEvery(t *testing.T, pictures int) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "a film (2020).mp4")
 	every := strconv.Itoa(pictures)
-	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error",
+	testutil.GenerateMedia(t, path,
 		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
 		"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
 		"-c:v", "libx264", "-preset", "fast", "-bf", "2", "-g", every, "-keyint_min", every, "-sc_threshold", "0",
-		"-c:a", "aac", "-ac", "2", "file:" + path,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+		"-c:a", "aac", "-ac", "2")
 	return path
 }
 
 // inMatroska is the film copied into Matroska, which FFmpeg seeks by decode time: it moves a seek
 // 130 ms earlier, so a seek at a keyframe lands on the one before it (idiosyncrasies.md).
-func inMatroska(t *testing.T, runner *execx.Runner, source string) string {
+func inMatroska(t *testing.T, source string) string {
 	t.Helper()
-	return remuxed(t, runner, source, "a film (2020).mkv")
+	return remuxed(t, source, "a film (2020).mkv")
 }
 
 // remuxed is the film copied, every stream, into the container its name's extension names.
-func remuxed(t *testing.T, runner *execx.Runner, source, name string) string {
+func remuxed(t *testing.T, source, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-i", "file:" + source, "-map", "0", "-c", "copy", "file:" + path,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testutil.GenerateMedia(t, path, "-i", "file:"+source, "-map", "0", "-c", "copy")
 	return path
 }
 
@@ -188,7 +178,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := film(t, runner)
+	source := film(t)
 	grid := keyframeGrid(t, runner, source)
 	offset := float64(chunks.TimelineOffsetMs) / 1000
 	pictures := sourceTimes(t, runner, source, "v:0", false)
@@ -196,13 +186,13 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
-	matroska := inMatroska(t, runner, source)
-	transport := remuxed(t, runner, source, "a film (2020).ts")
+	matroska := inMatroska(t, source)
+	transport := remuxed(t, source, "a film (2020).ts")
 	picture := nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}
 	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96}
 	// MPEG-TS carries its picture's packets in another framing than MP4: its copy's packets are
 	// the film copied whole into MP4.
-	transportCopied := remuxed(t, runner, transport, "a film (2020) from MPEG-TS.mp4")
+	transportCopied := remuxed(t, transport, "a film (2020) from MPEG-TS.mp4")
 	for storeDir, made := range map[string]struct {
 		source, packetsAs string
 		stream            nodeproto.ChunkStream
@@ -251,19 +241,14 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 }
 
 // filmWithSound is film, a keyframe every two seconds, with its sound in codec, of so many channels.
-func filmWithSound(t *testing.T, runner *execx.Runner, codec string, channels int) string {
+func filmWithSound(t *testing.T, codec string, channels int) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "a film in "+codec+" of "+strconv.Itoa(channels)+" channels (2020).mp4")
-	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error",
+	testutil.GenerateMedia(t, path,
 		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
 		"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
 		"-c:v", "libx264", "-preset", "fast", "-bf", "2", "-g", "48", "-keyint_min", "48", "-sc_threshold", "0",
-		"-c:a", codec, "-ac", strconv.Itoa(channels), "file:" + path,
-	}, 1<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
+		"-c:a", codec, "-ac", strconv.Itoa(channels))
 	return path
 }
 
@@ -320,7 +305,7 @@ func TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes(t *testing.T
 		channels int
 	}{1: {"aac", 6}, 2: {"aac", 2}, 4: {"ac3", 6}} {
 		channels := sound.channels
-		source := filmWithSound(t, runner, sound.codec, channels)
+		source := filmWithSound(t, sound.codec, channels)
 		grid := keyframeGrid(t, runner, source)
 		storeDir := strconv.Itoa(fileID) + "/chunks-sound0-own/0123456789abcdef"
 		makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{
@@ -349,7 +334,7 @@ func TestMake_ACopiedSoundIsTheFilmsOwnPacketsBitForBitAtTheirTimes(t *testing.T
 			}
 		}
 	}
-	surround := filmWithSound(t, runner, "aac", 6)
+	surround := filmWithSound(t, "aac", 6)
 	grid := keyframeGrid(t, runner, surround)
 	lightStore := "3/chunks-sound0-96k/0123456789abcdef"
 	makeInTwoRuns(t, maker, surround, lightStore, grid, nodeproto.ChunkStream{
@@ -380,7 +365,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport := remuxed(t, runner, filmWithKeyframesEvery(t, runner, 1000), "a film (2020).ts")
+	transport := remuxed(t, filmWithKeyframesEvery(t, 1000), "a film (2020).ts")
 	if keyframes := sourceTimes(t, runner, transport, "v:0", true); len(keyframes) != 1 {
 		t.Fatalf("the film has keyframes at %v; want its first alone", keyframes)
 	}
@@ -397,7 +382,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 		t.Fatalf("the run made through %d, %v; want its one chunk", last, err)
 	}
 	stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), 1), "0")
-	copied := remuxed(t, runner, transport, "a film (2020) from MPEG-TS.mp4")
+	copied := remuxed(t, transport, "a film (2020) from MPEG-TS.mp4")
 	if want := packetSizes(t, runner, copied, "v:0"); !slices.Equal(stored, want) {
 		t.Errorf("the chunk holds %d pictures; want the film's %d, packet for packet", len(stored), len(want))
 	}

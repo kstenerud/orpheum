@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -56,13 +55,10 @@ func TestRead_ADiscsMainTitleReadsThroughAsTheStreamItHolds(t *testing.T) {
 	runner.StreamFilms()
 	directory := t.TempDir()
 	clip := filepath.Join(directory, "00001.m2ts")
-	if _, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25:duration=6",
+	testutil.GenerateMedia(t, clip,
+		"-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25:duration=6",
 		"-c:v", "libx264", "-preset", "ultrafast", "-x264-params", "keyint=50:min-keyint=50:scenecut=0",
-		"-f", "mpegts", "-mpegts_m2ts_mode", "1", "file:" + clip,
-	}, 1<<20); err != nil {
-		t.Fatal(err)
-	}
+		"-f", "mpegts", "-mpegts_m2ts_mode", "1")
 	stream, err := os.ReadFile(clip)
 	if err != nil {
 		t.Fatal(err)

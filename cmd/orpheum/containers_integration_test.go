@@ -114,7 +114,7 @@ func writeContainerFilms(t *testing.T, media string, films []containerFilm) []st
 		if err := os.MkdirAll(filepath.Dir(paths[index]), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		testutil.GenerateFilm(t, paths[index], append([]string{
+		testutil.GenerateMedia(t, paths[index], append([]string{
 			"-f", "lavfi", "-i", "testsrc2=size=" + film.picture + ":rate=25:duration=4",
 			"-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=%d:sample_rate=%s:duration=4", 300+20*index, film.sound),
 		}, film.encoding...)...)

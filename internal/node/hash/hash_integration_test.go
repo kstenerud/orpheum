@@ -41,8 +41,8 @@ func TestPayloadIdentity_D179TableWithTheRealTools(t *testing.T) {
 
 	// Twenty seconds of video and audio: a few megabytes, so the two 1 MB windows leave some
 	// of the payload unread, as they do in a film.
-	ffmpeg("-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=20", "-f", "lavfi", "-i", "sine=duration=20",
-		"-c:v", "libx264", "-preset", "ultrafast", "-g", "48", "-c:a", "aac", "file:"+inTest("source.mp4"))
+	testutil.GenerateMedia(t, inTest("source.mp4"), "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=20",
+		"-f", "lavfi", "-i", "sine=duration=20", "-c:v", "libx264", "-preset", "ultrafast", "-g", "48", "-c:a", "aac")
 	tools.Run(t, "mkvmerge", "-q", "-o", inTest("film.mkv"), inTest("source.mp4"))
 	original := identityOfFile(t, inTest("film.mkv"))
 	if original.Anchor != AnchorMatroska {
@@ -74,6 +74,8 @@ func TestPayloadIdentity_D179TableWithTheRealTools(t *testing.T) {
 		}
 	}
 
+	// Run, not kept as generated media are: mkvmerge writes a new UID and date into film.mkv every run,
+	// so the cache would never meet these contents again.
 	ffmpeg("-i", "file:"+inTest("film.mkv"), "-c", "copy", "-map", "0", "file:"+inTest("remuxed.mkv"))
 	if got := identityOfFile(t, inTest("remuxed.mkv")); got.PayloadHash == original.PayloadHash {
 		t.Error("an ffmpeg -c copy remux kept the identity; D179 says a remux is a new file")

@@ -5,7 +5,8 @@
 // capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory and RequireMKVToolNix find the
 // pinned tools that way. It installs the fake ffmpeg and ffprobe (testing.md §11), and runs the
 // MKVToolNix that tests edit Matroska files with, which the node never runs. It generates media
-// with the pinned FFmpeg: test images, films and the M2 acceptance's 200-file fixture tree. Receive is a
+// with the pinned FFmpeg: test images, films and the M2 acceptance's 200-file fixture tree, each made
+// once and kept in the generated-media cache (media.go), so a later run gets it without FFmpeg. Receive is a
 // test's bounded wait on a channel, and Log a logger's output a test waits on for a line.
 //
 // # Invariants
@@ -18,6 +19,19 @@
 //     prints it on every Go test run. check-claims fails a test variable nothing sets.
 //   - A test waits on a channel only through Receive, a select's case, or <-ctx.Done(), so no wait
 //     can hang a run. TestArch_EveryTestWaitOnAChannelIsBounded.
+//   - Generated media are kept under a key of everything that decides them: the FFmpeg build (its
+//     -version line, its executable's size and modification time), the output's form and every
+//     argument, a file argument by its contents. FFmpeg runs in an empty environment from "/", so
+//     nothing else reaches it. TestMediaKey_ChangesWithEveryArgumentAndTheOutput,
+//     TestMediaKey_KeysAFileArgumentByItsContents, TestMediaKey_ChangesWithTheFFmpegBuild.
+//   - A kept file is never changed by a test: it is read-only, and callers get a copy or its bytes.
+//     It appears whole or not at all, renamed into place, and a failed run keeps nothing; the cache
+//     trims the files used least recently past its cap. TestGenerateMedia_IsMadeOnceAndEachCallGetsACopy,
+//     TestGenerateMedia_KeepsNothingOfAFailedRun, TestGenerateMedia_ParallelMakingsOfOneFileEachGetItWhole,
+//     TestMediaCache_TrimsTheLeastRecentlyUsedPastItsCap.
+//   - Every generator here makes its media through the cache, in the user's cache directory:
+//     TestGenerateMedia_KeepsThePinnedFFmpegsMediaInTheUsersCacheDirectory,
+//     TestGenerateImage_IsMadeOnceOnItsStdoutAndKept, TestBuildFixtureTree_ClipsAreKeptAsGeneratedMedia.
 //   - Only tests import this package, so nothing here — skipping, test variables, starting
 //     MKVToolNix — reaches a binary. Enforced by TestArch_TestSupportIsImportedOnlyByTests; that
 //     is why the depguard rule exec-only-in-execx and forbidigo's [exec] exempt it.
@@ -32,9 +46,11 @@
 //   - require.go: the policy. A capability that needs finding (a pinned binary, a device)
 //     gets its own helper here that finds it and calls Require, as ffmpeg.go does.
 //   - mkvtoolnix.go: the pinned MKVToolNix (scripts/fetch_mkvtoolnix.py; linux/amd64 only).
-//   - image.go, film.go and fixturetree.go: media the pinned FFmpeg makes for tests that may not run
-//     a process themselves — an image, a film, and cut-a's 200-file fixture tree (testing.md §7,
-//     tier 2).
+//   - media.go, image.go and fixturetree.go: media the pinned FFmpeg makes for tests — GenerateMedia's
+//     file from any arguments, an image, and cut-a's 200-file fixture tree (testing.md §7, tier 2) —
+//     and the generated-media cache they are kept in, in the user's cache directory
+//     (orpheum/test-media; $XDG_CACHE_HOME moves it on Linux). A test whose FFmpeg run is what it
+//     tests, or whose input differs every run (mkvmerge's output), runs FFmpeg itself instead.
 //   - ffmpeg.go and testdata/fake-ffmpeg.sh: the pinned FFmpeg and the fake. The fake is linked,
 //     never copied: writing an executable while a parallel test forks makes running it fail
 //     with "text file busy".

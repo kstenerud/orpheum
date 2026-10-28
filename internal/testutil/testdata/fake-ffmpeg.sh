@@ -7,7 +7,9 @@
 # its environment and what it read on stdin, so the test can assert the argument list, the
 # explicit environment and the input. It
 # then replies as the test asked: reply.stdout to stdout, or reply.ffmpeg.stdout when it is ffmpeg
-# and that is present, reply.stderr to stderr, and the exit status in reply.status. With reply.hold present it starts a grandchild that holds stdout open,
+# and that is present, reply.stderr to stderr, and the exit status in reply.status; with reply.output
+# present, ffmpeg first writes it to its last argument when that names a file: URL, as a run making
+# a file does. With reply.hold present it starts a grandchild that holds stdout open,
 # records its pid in grandchild.pid, says "ready" into the FIFO named by reply.hold, and waits,
 # so a test can cancel it and see that the whole process group died. With reply.progress present it
 # writes it to descriptor 3, a watched run's -progress pipe, first. With reply.hang present it then
@@ -54,6 +56,14 @@ if [ -e "$directory/reply.hold" ]; then
 	printf '%s\n' "$!" >"$directory/grandchild.pid"
 	printf 'ready\n' >"$directory/reply.hold"
 	wait
+fi
+
+if [ "$tool" = ffmpeg ] && [ -e "$directory/reply.output" ]; then
+	output=
+	for output in "$@"; do :; done
+	case "$output" in
+	file:*) /bin/cat "$directory/reply.output" >"${output#file:}" ;;
+	esac
 fi
 
 if [ "$tool" = ffmpeg ] && [ -e "$directory/reply.ffmpeg.stdout" ]; then

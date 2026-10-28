@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/disc/disctest"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -22,17 +21,14 @@ import (
 
 // madeByThePinnedFFmpeg is two seconds of a test picture and a tone, made by the pinned FFmpeg in
 // format with the picture's codec, as a disc holds them: a DVD's program stream, a Blu-ray's M2TS.
-func madeByThePinnedFFmpeg(t *testing.T, runner *execx.Runner, picture string, format ...string) []byte {
+func madeByThePinnedFFmpeg(t *testing.T, picture string, format ...string) []byte {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "stream")
 	arguments := []string{
-		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=720x576:rate=25:duration=2",
+		"-f", "lavfi", "-i", "testsrc2=size=720x576:rate=25:duration=2",
 		"-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:v", picture, "-c:a", "ac3",
 	}
-	if _, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{},
-		append(append(arguments, format...), "file:"+path), 1<<20); err != nil {
-		t.Fatal(err)
-	}
+	testutil.GenerateMedia(t, path, append(arguments, format...)...)
 	stream, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +76,7 @@ func TestProbe_ThePinnedFFprobeReadsADiscsMainTitleServedFromItsImage(t *testing
 		t.Fatal(err)
 	}
 	runner.StreamFilms()
-	vob := madeByThePinnedFFmpeg(t, runner, "mpeg2video", "-f", "vob")
+	vob := madeByThePinnedFFmpeg(t, "mpeg2video", "-f", "vob")
 	half := len(vob) / 2 / 2048 * 2048
 	dvd := disctest.DVD{
 		Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
@@ -88,7 +84,7 @@ func TestProbe_ThePinnedFFprobeReadsADiscsMainTitleServedFromItsImage(t *testing
 		}, VOBBytes: half}},
 		Audio: []disctest.DVDAudio{{Coding: 0, Stream: 0, Language: "en"}},
 	}
-	m2ts := madeByThePinnedFFmpeg(t, runner, "libx264", "-f", "mpegts", "-mpegts_m2ts_mode", "1")
+	m2ts := madeByThePinnedFFmpeg(t, "libx264", "-f", "mpegts", "-mpegts_m2ts_mode", "1")
 	bluRay := disctest.BluRay{
 		Playlists: []disctest.BluRayPlaylist{{
 			Number: 800, Items: []disctest.BluRayItem{{Clip: "00001", OutMs: 2000}},
