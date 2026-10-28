@@ -220,13 +220,10 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
 
 /**
  * How the Play page composes its player: the player's own controls on every device, never the
- * browser's (D369 §2), and playing at once unless it waits. A cast's receiver plays as its session
- * does, not at once: its video follows its group (followGroup), which plays it once the group plays,
- * as a guest's does (together-viewer.tsx). Let the browser play it as it loaded, it played while its
- * group still waited for it, and the follower's hold paused it again: a Fire TV's cast started with
- * a play, a pause and a play (the owner's Marrowgate Family, staging, 2026-10-28). The follower's play
- * asks for the sound as the browser's own would, under the same autoplay policy, and plays muted,
- * saying so, where it is refused (playOrPlayMuted, SoundAtAnyPress).
+ * browser's (D369 §2), and playing at once unless it waits. A cast's receiver autoplays too: with
+ * autoplay off (837747a5) a Fire TV's cast started worse, jumping back and stalling, and flashed black
+ * (the owner, 2026-10-28: "It's much worse now. It jittered a bunch, and on the kid it
+ * started flashing black when I first played"), so it was put back until the start is understood.
  */
 function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
   // On a television the player's overlay, which a remote reaches, and full screen at once; on a
@@ -238,7 +235,7 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
   return {
     hasControls: false,
     over: overTheFilm(hasTelevisionControls),
-    isAutoPlay: props.isStartPaused !== true && props.receiving === undefined,
+    isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,
     onMediaBack: props.onMediaBack,
