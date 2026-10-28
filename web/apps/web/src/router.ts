@@ -7,7 +7,7 @@ export interface Scanned {
 }
 
 /** The device lab's probes, each a page under /lab/. */
-export const labPages = ["device", "input", "remote", "extend", "cast"] as const;
+export const labPages = ["device", "input", "remote", "extend", "throughput", "cast"] as const;
 
 /** One of the device lab's probes. */
 export type LabPage = (typeof labPages)[number];

@@ -10,6 +10,7 @@ import { LabDevice } from "./lab-device.tsx";
 import { LabExtend } from "./lab-extend.tsx";
 import { LabInput } from "./lab-input.tsx";
 import { LabRemote } from "./lab-remote.tsx";
+import { LabThroughput } from "./lab-throughput.tsx";
 import { Link } from "./link.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { routeHref, type LabPage } from "./router.ts";
@@ -49,6 +50,8 @@ function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
       return <LabRemote />;
     case "extend":
       return <LabExtend />;
+    case "throughput":
+      return <LabThroughput />;
     case "cast":
       return <LabCast />;
     case undefined:
@@ -63,7 +66,7 @@ function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
  */
 function LabMenu(): JSX.Element {
   const { t } = useTranslation();
-  const inPlace: readonly LabPage[] = ["device", "input", "remote", "extend"];
+  const inPlace: readonly LabPage[] = ["device", "input", "remote", "extend", "throughput"];
   return (
     <section className="lab" aria-labelledby="lab-heading">
       <h1 id="lab-heading">{t("lab.heading")}</h1>

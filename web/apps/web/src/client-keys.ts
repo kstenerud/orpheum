@@ -30,6 +30,8 @@ const clientKeys = new Set([
   "orpheum.discovery.realm",
   // The custom Cast receiver's app id the lab's cast probe launches (lab-cast.tsx).
   "orpheum.lab.castAppId",
+  // The core's LAN address the lab's throughput test loads from (lab-throughput.tsx).
+  "orpheum.lab.lanAddress",
   // Which face button of a game controller is OK on this browser (controller-choice.ts).
   "orpheum.controller.ok",
   // Whether the tab sends a cast, so a film it plays goes on to its receiver (cast.ts).

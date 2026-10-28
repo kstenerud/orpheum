@@ -36,6 +36,8 @@ export type {
   DeviceReport,
   LabFeature,
 } from "./device-report.ts";
+export { megabitsPerSecond, timeLoad } from "./throughput.ts";
+export type { LoadTiming } from "./throughput.ts";
 export {
   failureText,
   openLoopback,
