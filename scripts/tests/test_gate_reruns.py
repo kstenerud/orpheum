@@ -249,7 +249,8 @@ class Wiring(unittest.TestCase):
         recipe = re.search(r"(?ms)^check-everything:.*?\n\n", self.MAKEFILE)
         self.assertIsNotNone(recipe)
         body = recipe.group(0)
-        self.assertIn('rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" '
+        # The area stamps are the repository's, shared by every worktree (area_stamp.stamp_path).
+        self.assertIn('rm -rf "$$(git rev-parse --path-format=absolute --git-common-dir)/orpheum-area-stamps" '
                       '"$$(git rev-parse --git-path orpheum-check-passed)"', body)
         for step in ("check-verbose", "go test -race -count=1", "test-integration-run", "lint:full",
                      "test-browser BASE=", "test-acceptance-home BASE=", "check_revert_red.py"):

@@ -69,8 +69,12 @@ class Recorded(unittest.TestCase):
         self.assertIn("How long it took:", out.getvalue())
         self.assertIn(f"  {COVERED}  — python tests", out.getvalue())
         files = {each["path"]: each for each in record["files"]}
-        self.assertEqual([run["kind"] for run in files[COVERED]["runs"]], ["python tests, those reaching it"])
+        # The revert's run, then the clean run that lets its red count, timed as a kind of its own
+        # (the caching audit's finding 5, 2026-10-28).
+        self.assertEqual([run["kind"] for run in files[COVERED]["runs"]],
+                         ["python tests, those reaching it", "python tests, those reaching it, nothing reverted"])
         self.assertFalse(files[COVERED]["runs"][0]["passed"], "the revert's run went red")
+        self.assertTrue(files[COVERED]["runs"][1]["passed"], "and passed with nothing reverted")
         self.assertGreater(files[COVERED]["seconds"], 0)
         self.assertEqual(record["jobs"], 1)
 

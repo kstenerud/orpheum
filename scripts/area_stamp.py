@@ -28,9 +28,13 @@ from check_stamp import working_tree_id  # noqa: E402
 
 
 def stamp_path(step: str) -> Path:
-    done = subprocess.run(["git", "rev-parse", "--git-path", f"orpheum-area-stamps/{step}"], capture_output=True,
+    """Where step's passed tree is kept: in the git common directory, shared by every worktree. A
+    record names a tree by its content, not its place, so a pass holds in any worktree, and an
+    agent's new one no longer runs every web test and the gate scripts' first (the caching audit's
+    finding 9, 2026-10-28); per worktree, each began with none."""
+    done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True,
                           text=True, check=True)
-    return Path(done.stdout.strip())
+    return Path(done.stdout.strip()) / "orpheum-area-stamps" / step
 
 
 def is_unchanged(passed_tree: str, tree: str, pathspecs: list[str]) -> bool:

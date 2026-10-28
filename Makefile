@@ -78,7 +78,9 @@ check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE
 # the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
 .PHONY: spot
 spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
-	@$(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS))
+	@# In the gate's container, as make check: one Go test cache for both (the caching audit's finding 4).
+	@if $(PYTHON) scripts/run_gate.py --hops spot; then exec $(PYTHON) scripts/in_dev_image.py spot $(if $(BASE),BASE='$(BASE)') $(if $(SPOT_JOBS),SPOT_JOBS=$(SPOT_JOBS)); \
+	  else $(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS)); fi
 
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
@@ -86,6 +88,8 @@ spot: hooks ## Spot check while working: tests of what changed since BASE (defau
 check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 	@# Room on the disk first, the caches trimmed to their caps (the disk-full review, 2026-10-28).
 	@$(PYTHON) scripts/disk_guard.py
+	@# A new worktree's type builds from the main checkout's, so its first type check is warm.
+	@$(PYTHON) scripts/seed_worktree.py
 	@# The tree as the gate starts: only that tree, unchanged at the end, is recorded as passed.
 	@$(PYTHON) scripts/check_stamp.py begin
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
@@ -233,10 +237,11 @@ web-test:
 	@# Only the tests the changes since the last pass reach, by vitest's import graph (scripts/web_tests.py).
 	@$(PYTHON) scripts/web_tests.py
 # The browser-mode tests (web/vitest.browser.config.ts), beside the rest so none waits on them: each
-# run starts Chromium and Firefox, about 9 s, so not again while nothing under web/ changed since they
-# passed (the owner, 2026-10-18: no light test waits on a heavy one).
+# run starts Chromium and Firefox, about 9 s, so only those the changes since they passed reach, as
+# web-test's (scripts/web_tests.py --browser; the owner, 2026-10-18: no light test waits on a heavy one;
+# the caching audit's finding 8, 2026-10-28).
 web-test-browser:
-	@$(PYTHON) scripts/area_stamp.py web-test-browser web -- $(MAKE) --no-print-directory web-test-browser-run
+	@if $(PYTHON) scripts/web_tests.py --browser --due; then $(MAKE) --no-print-directory web-test-browser-run; fi
 # One browser-mode run at a time on the machine: two gates' runs at once (check-pr's tree, revert-red's
 # worktrees, a sandbox's agents) pushed a walk's 72 round trips to the browser past its timeout
 # (test-weight.md §26). The wait shows as this step's own time (§7).
@@ -244,7 +249,7 @@ web-test-browser:
 # container, which do not share /tmp (gate-throughput audit, 2026-10-26).
 BROWSER_MODE_LOCK ?= $(shell git rev-parse --path-format=absolute --git-common-dir)/browser-mode.lock
 web-test-browser-run: browsers
-	@flock $(BROWSER_MODE_LOCK) npm --prefix web run --silent test:browser
+	@flock $(BROWSER_MODE_LOCK) $(PYTHON) scripts/web_tests.py --browser
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale
@@ -435,7 +440,7 @@ SINCE ?= 24 hours ago
 
 .PHONY: check-everything
 check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's nightly run; SINCE (default "24 hours ago") bounds revert-red's commits
-	@rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" "$$(git rev-parse --git-path orpheum-check-passed)"; \
+	@rm -rf "$$(git rev-parse --path-format=absolute --git-common-dir)/orpheum-area-stamps" "$$(git rev-parse --git-path orpheum-check-passed)"; \
 	  failed=0; \
 	  $(MAKE) --no-print-directory check-verbose || failed=1; \
 	  npm --prefix web run --silent test:isolated || failed=1; \
