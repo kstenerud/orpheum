@@ -11,9 +11,15 @@ import {
 } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import { isFollowingAGroup } from "./following-a-group.ts";
-import { checkDriftEveryMs, followGroup } from "./together-follow.ts";
+import { checkDriftEveryMs } from "./together-follow.ts";
 import { playerSwitchedQualityEvent, type QualitySwitched } from "./together-player-events.ts";
-import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+import {
+  FakeMedia,
+  fakeConnection,
+  paused,
+  followGroup,
+  stopEveryFollower,
+} from "./test-follow.ts";
 
 let monotonicNowMs = 0;
 const monotonicMs = (): number => monotonicNowMs;
@@ -24,6 +30,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopEveryFollower();
   vi.useRealTimers();
 });
 

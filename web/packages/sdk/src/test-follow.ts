@@ -6,6 +6,7 @@
  */
 
 import { type GroupView, noRight, startingTuning, type SyncTuning } from "./together.ts";
+import { followGroup as followGroupForGood } from "./together-follow.ts";
 import type {
   GroupCommand,
   PlayerNote,
@@ -13,6 +14,31 @@ import type {
   TogetherConnection,
   TogetherSnapshot,
 } from "./together-connection.ts";
+
+/** The undoings of the followers tests started, which stopEveryFollower ends. */
+const followers = new Set<() => void>();
+
+/**
+ * followGroup, its follower ended by stopEveryFollower: a test's follower left running marks the tab
+ * as following a group (following-a-group.ts) for the files that share its worker after it (the fast
+ * project's isolate: false), whose leader then read as a follower.
+ */
+export function followGroup(...given: Parameters<typeof followGroupForGood>): () => void {
+  const stop = followGroupForGood(...given);
+  const undo = (): void => {
+    followers.delete(undo);
+    stop();
+  };
+  followers.add(undo);
+  return undo;
+}
+
+/** Ends every follower a test started through followGroup: each file's afterEach. */
+export function stopEveryFollower(): void {
+  for (const stop of [...followers]) {
+    stop();
+  }
+}
 
 /** A stand-in document: shown until a test hides it, telling its listeners as it does. */
 export class FakePage {

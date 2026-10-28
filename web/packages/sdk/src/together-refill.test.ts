@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { everyRight, noRight } from "./together.ts";
-import { followGroup, scrubPauseWindowMs } from "./together-follow.ts";
+import { scrubPauseWindowMs } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
 import {
   catchUpSeekEvent,
@@ -15,7 +15,13 @@ import {
 import { Refill } from "./together-refill.ts";
 import { readyAheadOfNextChunkPercent, tellNextChunkLoadMs } from "./ready-ahead.ts";
 import type { PlayerNote } from "./together-notes.ts";
-import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+import {
+  FakeMedia,
+  fakeConnection,
+  paused,
+  followGroup,
+  stopEveryFollower,
+} from "./test-follow.ts";
 
 let monotonicNowMs = 0;
 const monotonicMs = (): number => monotonicNowMs;
@@ -26,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopEveryFollower();
   vi.useRealTimers();
 });
 

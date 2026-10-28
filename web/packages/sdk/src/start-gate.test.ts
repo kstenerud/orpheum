@@ -10,16 +10,22 @@ import {
 import { startCheckEveryMs, startGateOf } from "./start-gate.ts";
 import { everyRight, type RosterDevice, type RosterMember } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
-import { followGroup } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
 import { playerLoadedChunkEvent, playerMovedItselfEvent } from "./together-player-events.ts";
-import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+import {
+  FakeMedia,
+  fakeConnection,
+  paused,
+  followGroup,
+  stopEveryFollower,
+} from "./test-follow.ts";
 
 beforeEach(() => {
   vi.useFakeTimers();
 });
 
 afterEach(() => {
+  stopEveryFollower();
   vi.useRealTimers();
   setReadyAheadPercent(readyAheadOfNextChunkPercent);
 });
