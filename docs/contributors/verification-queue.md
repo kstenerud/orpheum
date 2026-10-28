@@ -1150,3 +1150,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   chunk where that was faster than the remembered link; and no film stalls in its first 30 s
   (`startedAfter=waiting` absent on its second start). (`web/packages/player/src/next-chunk.ts`;
   `internal/core/playback/playback.go`)
+- [ ] **VQ115** — the WebRTC media relay carries every load across a deploy and loads chunks as fast
+  as the LAN carries them, not one 64 KiB piece for each round trip through a busy page (staging,
+  2026-10-28: on `path=direct_ipv4` the Fire TV loaded every chunk at 15–18 Mb/s at most, 1.5–5 Mb/s
+  in a playback's first seconds; the first relay that sent ahead spoke only its own protocol, and
+  across the deploy both the Fire TV and the Mac showed a black page), on staging. Passes when, on
+  the Fire TV (Silk) and the Mac (Chrome), each on WebRTC through the discovery: a tab left open on a
+  film's page while staging is redeployed with this change goes on loading (posters, a film played
+  from it), then a reload opens the app and plays a film; and, on the Fire TV on the LAN's direct
+  path, playing two films from their Play pages, the core's `playerNoted` lines with
+  `kind=chunkLoaded` for device 60 carry `loadedKbps` well above 18000 for chunks of a megabyte or
+  more, and the Mac seeks twice across a film with no stall and no error.
+  (`web/packages/sdk/src/rtc-media.ts`)

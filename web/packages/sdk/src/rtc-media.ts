@@ -7,7 +7,17 @@ import type { operations } from "./gen/api.ts";
  * image, a video's bytes, hls.js's chunks, a subtitle track, cannot use a data channel. A service
  * worker takes those loads while the page says it is on WebRTC and asks the page, which holds the
  * connections, to fetch each through its transport; the page sends the response back over a message
- * port, umi no tobira each time the service worker's stream asks, so a film never sits whole in memory.
+ * port, its pieces moved rather than copied, up to `relayedAheadBytes` ahead of what the service
+ * worker's reader has taken, so a film never sits whole in memory and a busy page does not hold up
+ * every piece: one piece for each round trip through the page, a Fire TV's 30 ms, carried 17 Mb/s.
+ *
+ * A page and its worker can be of different releases: skipWaiting and clients.claim hand a page
+ * still open to a newer worker, and a reloaded page is controlled by the worker before until the
+ * newer one claims it. So the page says in its head which way it sends a body (`relay: "credit"`),
+ * and the worker grants room only to a page that says so, pulling a piece at a time from any other;
+ * and the page answers a bare "pull" with one piece, as a worker of a release before asks. A relay
+ * that spoke only its own protocol hung every load across that, and staging's pages stayed black
+ * (2026-10-28).
  */
 
 /** The page's word to its service worker on which path its requests take. */
@@ -54,19 +64,58 @@ export interface FetchMessage {
   readonly headers: readonly (readonly [string, string])[];
 }
 
-/** What the page sends back on a load's port. */
+/**
+ * What the page sends back on a load's port. Its head says, in `relay`, that the page sends the body
+ * as the worker grants it room; a page of a release before says nothing, and sends a piece for each
+ * "pull".
+ */
 export type ReplyMessage =
   | {
       readonly kind: "head";
       readonly status: number;
       readonly headers: readonly (readonly [string, string])[];
+      readonly relay?: "credit";
     }
   | { readonly kind: "chunk"; readonly data: ArrayBuffer }
   | { readonly kind: "end" }
   | { readonly kind: "error"; readonly message: string };
 
-/** What the service worker sends on a load's port: give the next piece, or stop. */
-export type PullMessage = "pull" | "cancel";
+/**
+ * What the service worker sends on a load's port: room for `bytes` more of the body, to a page whose
+ * head said `relay: "credit"`; the next piece ("pull"), as a worker of a release before asks and to a
+ * page that did not say so; or stop. A page sends while it has room, so it is at most a piece past
+ * it, and one piece for each "pull".
+ */
+export type BodyRequestMessage =
+  { readonly kind: "credit"; readonly bytes: number } | "pull" | "cancel";
+
+/**
+ * How far a load's body may run ahead of the service worker's reader, a justified constant: the
+ * pieces in flight between the page and its worker and those the worker holds for its reader. One
+ * piece at a time (64 KiB) for each round trip through the page carried a Fire TV's chunks at
+ * 15–18 Mb/s (staging, 2026-10-28); a mebibyte at a round trip of 10 ms carries some 800 Mb/s, what
+ * the data channel itself carries, and a few loads at once hold a few mebibytes, no film.
+ */
+export const relayedAheadBytes = 1024 * 1024;
+
+/**
+ * The share of `relayedAheadBytes` the worker grants at least at a time, so a reader's every piece
+ * does not cost the busy page a message of its own: granted a piece's room for each piece taken, a
+ * reader slower than the page (Firefox's, its worker under load) cost one for nearly every piece.
+ */
+const grantAtLeastShare = 4;
+
+/** Whether a message is the service worker's grant of room for more of a body. */
+function isCredit(message: unknown): message is { kind: "credit"; bytes: number } {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "kind" in message &&
+    message.kind === "credit" &&
+    "bytes" in message &&
+    typeof message.bytes === "number"
+  );
+}
 
 /** The paths whose loads go over the page's transport: the API and its bytes. */
 export const mediaPathPrefix = "/api/v1/";
@@ -176,8 +225,9 @@ export function isFetchMessage(message: unknown): message is FetchMessage {
 
 /**
  * The page's side: fetches one load the service worker asked for through send, signed in with
- * token unless the load names its own, and answers on port, the head at once and each piece of the
- * body when the service worker pulls.
+ * token unless the load names its own, and answers on port: the head at once, saying it sends the
+ * body as the worker grants room, and then the body, while the worker's room lasts, or a piece for
+ * each "pull" of a worker of a release before.
  */
 export async function answerLoad(
   message: FetchMessage,
@@ -202,44 +252,121 @@ export async function answerLoad(
   response.headers.forEach((value, name) => {
     replied.push([name, value]);
   });
+  // A response with no body answers as an empty one: a worker of a release before pulls a body of
+  // any status but its few bodyless ones, and is answered "end".
+  const relay = new BodyRelay((response.body ?? emptyBody()).getReader(), port);
+  port.addEventListener("message", (event) => {
+    if (event.data === "cancel") {
+      relay.cancel();
+    } else if (event.data === "pull") {
+      relay.pullOne();
+    } else if (isCredit(event.data)) {
+      relay.grant(event.data.bytes);
+    }
+  });
+  port.start();
   port.postMessage({
     kind: "head",
     status: response.status,
     headers: replied,
+    relay: "credit",
   } satisfies ReplyMessage);
-  const reader = response.body?.getReader();
-  port.addEventListener("message", (event) => {
-    if (event.data === "cancel") {
-      void reader?.cancel();
+}
+
+/** A body of nothing. */
+function emptyBody(): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start: (controller) => {
+      controller.close();
+    },
+  });
+}
+
+/**
+ * A body the page relays to its service worker, one read at a time, until it ends, fails or the
+ * worker stops it: while the worker's granted room lasts, or one piece for each "pull" of a worker
+ * of a release before.
+ */
+class BodyRelay {
+  private room = 0;
+  private pullsOwed = 0;
+  private isReading = false;
+  private isOver = false;
+
+  constructor(
+    private readonly reader: ReadableStreamDefaultReader<Uint8Array>,
+    private readonly port: PortLike,
+  ) {}
+
+  grant(bytes: number): void {
+    this.room += bytes;
+    void this.sendWhileAsked();
+  }
+
+  pullOne(): void {
+    this.pullsOwed += 1;
+    void this.sendWhileAsked();
+  }
+
+  cancel(): void {
+    this.isOver = true;
+    void this.reader.cancel();
+  }
+
+  private async sendWhileAsked(): Promise<void> {
+    if (this.isReading) {
       return;
     }
-    if (event.data !== "pull") {
-      return;
-    }
-    if (reader === undefined) {
-      port.postMessage({ kind: "end" } satisfies ReplyMessage);
-      return;
-    }
-    reader.read().then(
-      ({ done: isDone, value }) => {
+    this.isReading = true;
+    try {
+      while ((this.room > 0 || this.pullsOwed > 0) && !this.isOver) {
+        // A read the worker's cancel overtook ends done, or sends a piece the worker drops.
+        const { done: isDone, value } = await this.reader.read();
         if (isDone) {
-          port.postMessage({ kind: "end" } satisfies ReplyMessage);
+          this.isOver = true;
+          this.port.postMessage({ kind: "end" } satisfies ReplyMessage);
           return;
         }
-        const data = value.slice().buffer;
-        port.postMessage({ kind: "chunk", data } satisfies ReplyMessage, [data]);
-      },
-      (error: unknown) => {
-        port.postMessage({ kind: "error", message: String(error) } satisfies ReplyMessage);
-      },
-    );
-  });
-  port.start();
+        const data = movableBufferOf(value);
+        if (this.pullsOwed > 0) {
+          this.pullsOwed -= 1;
+        } else {
+          this.room -= data.byteLength;
+        }
+        this.port.postMessage({ kind: "chunk", data } satisfies ReplyMessage, [data]);
+      }
+    } catch (error: unknown) {
+      if (!this.isOver) {
+        this.isOver = true;
+        this.port.postMessage({ kind: "error", message: String(error) } satisfies ReplyMessage);
+      }
+    } finally {
+      this.isReading = false;
+    }
+  }
+}
+
+/**
+ * A piece's bytes as a buffer to move to the worker: its own buffer when it is the whole of one, as
+ * a data channel's message is (the page's load holds the body's only reader, so nothing else reads
+ * it), else a copy, so moving it takes nothing else with it.
+ */
+function movableBufferOf(piece: Uint8Array): ArrayBuffer {
+  const { buffer } = piece;
+  if (
+    buffer instanceof ArrayBuffer &&
+    piece.byteOffset === 0 &&
+    piece.byteLength === buffer.byteLength
+  ) {
+    return buffer;
+  }
+  return piece.slice().buffer;
 }
 
 /**
  * The service worker's side: the response a load's port carries, resolved at its head, its body a
- * stream that pulls umi no tobira at a time from the page.
+ * stream that grants the page room for `relayedAheadBytes` ahead of its reader when its head says it
+ * sends that way, else pulls umi no tobira at a time from it, as from a page of a release before.
  */
 export function responseFromPort(port: PortLike): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
@@ -250,11 +377,16 @@ export function responseFromPort(port: PortLike): Promise<Response> {
         return;
       }
       if (reply.kind === "head") {
-        const body = hasBody(reply.status)
-          ? bodyFrom(port, (next) => {
-              deliver = next;
-            })
-          : null;
+        const setDeliver = (next: (reply: ReplyMessage) => void): void => {
+          deliver = next;
+        };
+        let body: ReadableStream<Uint8Array> | null = null;
+        if (hasBody(reply.status)) {
+          body =
+            reply.relay === "credit"
+              ? creditedBody(port, setDeliver)
+              : pulledBody(port, setDeliver);
+        }
         resolve(
           new Response(body, {
             status: reply.status,
@@ -276,8 +408,11 @@ export function responseFromPort(port: PortLike): Promise<Response> {
 /** The statuses whose response has no body. */
 const bodylessStatuses = new Set([101, 204, 205, 304]);
 
-/** A body pulled umi no tobira at a time over port; setDeliver hands it the replies after the head. */
-function bodyFrom(
+/**
+ * A body pulled one piece at a time over port, from a page of a release before; setDeliver hands it
+ * the replies after the head.
+ */
+function pulledBody(
   port: PortLike,
   setDeliver: (deliver: (reply: ReplyMessage) => void) => void,
 ): ReadableStream<Uint8Array> {
@@ -292,7 +427,7 @@ function bodyFrom(
       pull: async (controller) => {
         const reply = await new Promise<ReplyMessage>((resolve) => {
           waiting = resolve;
-          port.postMessage("pull" satisfies PullMessage);
+          port.postMessage("pull" satisfies BodyRequestMessage);
         });
         if (reply.kind === "chunk") {
           controller.enqueue(new Uint8Array(reply.data));
@@ -303,10 +438,74 @@ function bodyFrom(
         }
       },
       cancel: () => {
-        port.postMessage("cancel" satisfies PullMessage);
+        port.postMessage("cancel" satisfies BodyRequestMessage);
       },
     },
     { highWaterMark: 0 },
+  );
+}
+
+/**
+ * A body sent over port as the page has room to; setDeliver hands it the replies after the head.
+ * Each piece is queued as it comes, and as the reader takes them the page is granted room again, so
+ * what is in flight and queued together stays near `relayedAheadBytes`, granted a
+ * `grantAtLeastShare` of that or more at a time.
+ */
+function creditedBody(
+  port: PortLike,
+  setDeliver: (deliver: (reply: ReplyMessage) => void) => void,
+): ReadableStream<Uint8Array> {
+  let granted = 0;
+  let received = 0;
+  let isOver = false;
+  let arrived: (() => void) | undefined;
+  const wake = (): void => {
+    const next = arrived;
+    arrived = undefined;
+    next?.();
+  };
+  return new ReadableStream<Uint8Array>(
+    {
+      start: (controller) => {
+        setDeliver((reply) => {
+          if (isOver) {
+            return;
+          }
+          if (reply.kind === "chunk") {
+            received += reply.data.byteLength;
+            controller.enqueue(new Uint8Array(reply.data));
+          } else if (reply.kind === "error") {
+            isOver = true;
+            controller.error(new Error(reply.message));
+          } else {
+            isOver = true;
+            controller.close();
+          }
+          wake();
+        });
+      },
+      pull: async (controller) => {
+        const owed = granted - received;
+        const room = (controller.desiredSize ?? 0) - owed;
+        // Less than a share is waited out: the reader's next take calls this again, and an empty
+        // queue with nothing owed leaves the whole window.
+        if (room >= relayedAheadBytes / grantAtLeastShare) {
+          granted += room;
+          port.postMessage({ kind: "credit", bytes: room } satisfies BodyRequestMessage);
+        }
+        if (granted - received > 0 && !isOver) {
+          await new Promise<void>((resolve) => {
+            arrived = resolve;
+          });
+        }
+      },
+      cancel: () => {
+        isOver = true;
+        wake();
+        port.postMessage("cancel" satisfies BodyRequestMessage);
+      },
+    },
+    { highWaterMark: relayedAheadBytes, size: (piece) => piece.byteLength },
   );
 }
 
@@ -345,7 +544,13 @@ function asHead(data: object): ReplyMessage | undefined {
     return undefined;
   }
   const headers = "headers" in data && Array.isArray(data.headers) ? data.headers : [];
-  return { kind: "head", status: data.status, headers: headers.filter(isHeaderPair) };
+  const head = {
+    kind: "head",
+    status: data.status,
+    headers: headers.filter(isHeaderPair),
+  } as const;
+  // A page of a release before says nothing of how it sends, and is pulled from.
+  return "relay" in data && data.relay === "credit" ? { ...head, relay: "credit" } : head;
 }
 
 function isHeaderPair(value: unknown): value is [string, string] {

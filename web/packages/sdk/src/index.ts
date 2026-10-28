@@ -133,6 +133,7 @@ export {
   loadAfterAsking,
   mediaPathPrefix,
   networkFetch,
+  relayedAheadBytes,
   responseFromPort,
 } from "./rtc-media.ts";
 export type {
