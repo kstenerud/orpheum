@@ -181,3 +181,19 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   init segment resets Silk's decoder. Fix: the player, which now receives `rememberedLinkKbps`,
   chooses its first rung itself before loading anything (D257's start choice moved or matched on the
   page), so the first chunk is of the rung it plays and no switch lands at the start.
+
+## Reaching the core at home, and WebRTC's cost (the owner, 2026-10-28: "go with your recommendations on all four")
+
+From research/network-stack-audit-2026-10-28.md and research/webrtc-throughput-review-2026-10-28.md
+(the old Fire TV: 15–30 Mb/s over data channels, 190–224 Mb/s over HTTPS at the LAN name):
+1. **Next batch, a decision first:** at home, the whole tab moves to the core's LAN origin, the sign-in
+   carried over (D308's hand-off, a variant taking the signed-in session), asked before the first move
+   (a router blocking public names for LAN addresses shows the browser's error), WebRTC kept as the
+   fallback when the LAN name does not answer. The owner is "not against" it; write the D-proposal.
+2. **This batch:** the efficiency audit's cheap fixes (research/web-client-efficiency-audit-2026-10-28.md
+   findings 1, 2, 3, 4-defer-up-next, 5, 7).
+3. **Next batch:** WebRTC tuning for paths away from home, tested against the TV: pacing in the core with
+   larger per-channel queue limits, the window-growth step for direct paths, and a log line of each
+   connection's SCTP figures at its end.
+4. **Held:** asking for an unused video stream so Chrome enlarges the data channel's receive buffer
+   (2.5–3× on a desktop): only if the LAN origin is not enough.
