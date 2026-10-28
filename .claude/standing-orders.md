@@ -27,7 +27,9 @@
      the chooser/menu as one modal drop-down (Back, Left/Right close it; a fixed × top-right), the refused
      key → sign-in (needs connect re-pin + repackage for prod), D250 §2 amended. **D371 (owner approved
      2026-10-28): a session's leader plays as a device alone, everyone catches up, a cast takes its
-     sender's part — being built by an agent; replaces the casting band-aids.** Owner VQs owed: 84 passed;
+     sender's part; replaces the casting band-aids.** D371 merged, on staging (VQ101–103). **D372 (owner 2026-10-28): the lead
+     passes to the longest-present player while the host's screen is gone; one session per person; §1–8 this
+     batch, §9–10 next.** Owner VQs owed: 84 passed;
      85–100 open. VQ84's connect package is on prod-api (owner, 2026-10-28).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the

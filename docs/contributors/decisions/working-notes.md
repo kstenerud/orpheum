@@ -23898,3 +23898,57 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AGuestsReceiverTakesTheirPartAsAFollower, TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film", "leaves a guest's cast with nothing of its own to their session's page"), web/apps/web/src/cast-ready.test.tsx ("follows its person's Watch Together session as just another follower"), web/apps/web/src/together-viewer-cast.test.tsx ("leaves the film to the device it casts to"); VQ101, VQ103
 - 5: web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"), TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut; VQ101
 - 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it", "is held where the group stands for its leader, plays at once as the leader plays"); VQ102
+
+## D372 — A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most
+
+**Decided** (2026-10-28), by the project owner, amending D371 the day it was built, before any device
+had tried it. The owner asked: "Can we make it so that leadership (the clock master) passes down the
+line (longest-running participant wins) until the leader comes back and catches up? [...] A guest can
+only be in 0 to 1 view together sessions. While in a view together session and also logged in, they
+are free to navigate and even view another video (which only shows for them). When they go back to
+the view together screen, they catch up and play the shared video. If not logged in, they are free
+to exit the page and come back to the page to catch up and view, so long as the watch together
+session is still active and their membership is still valid (they haven't been kicked)." Agreeing
+to the lead's reading of it ("Mostly agreed"), with: "Yes, we can use the core's clock. If the core
+is gone, the watch together session is gone anyway. If someone leaves and rejoins, their seniority
+value resets to the current time. This isn't about being fair; it's about using an easy signal of
+reliability to decide who will lead the shared viewing. Transfer of leadership doesn't transfer
+hoster privileges. The host always gets preferential treatment as leader. If everyone is gone, the
+session pauses and eventually times out. Starting a new session (if things get out of sync) signals
+an intent to end the old one."
+
+1. **The lead passes down the line.** While no device of the host's can lead, the session's leader
+   (D371 §1) is the player present longest without a break: a guest's device as readily as one of
+   the host's. Seniority is the moment the core saw the device arrive, stamped by the core's clock
+   at microsecond resolution; the core alone orders it, with no negotiation (the session ends with
+   the core anyway). Ties go to the lower device id.
+2. **Seniority resets on every return.** A device that leaves the session's page, loses its
+   connection or is counted gone takes the current time as its seniority when it comes back: the
+   owner, "an easy signal of reliability to decide who will lead", not fairness.
+3. **The host is always preferred.** A device of the host's that can lead leads ahead of any guest's,
+   whatever their seniority; among the host's own, D371's rule (the newest that plays, the one that
+   puts a film on). The host's screen coming back catches up as a follower first and takes the lead
+   back once it plays in step, so the film never jumps for its return.
+4. **Leading is not hosting.** A guest's device leading carries the film's clock only: what the group
+   plays, who is removed, the session's end and every other host right stay the host's (D371 §4's
+   commands still go to the leader to carry out).
+5. **Gone, for the lead:** a leader whose connection drops, which goes silent past a short limit, or
+   whose page its browser pauses or hides (a locked phone) is gone, and the lead passes at once. A
+   leader's stall is not: the group stands for it as D371 resolved, and its followers hold.
+6. **To lead, a device must be on the session's page with the film playing.** A member elsewhere
+   stays a member but cannot lead.
+7. **With everyone gone, the session pauses where it stands** and ends by its idle end
+   (`together_idle_session_end_hours`, D346), as before.
+8. **A person is in one session at most**, as host or as guest. Starting a new session ends the one
+   the person hosts (the owner: it "signals an intent to end the old one"); its guests are told it
+   ended. Joining another session as a guest asks first: "Leave ‹session› to join this one?".
+9. **A signed-in guest may wander** (next batch): they stay a member while elsewhere in the app, even
+   playing another film, which only they see; the roster shows them away; opening the session's page
+   again catches them up to the shared film.
+10. **A guest by link alone may leave and come back** (next batch): their link keeps them a member
+    while the session lasts and they are not removed; opening its page again catches them up.
+
+**Status:** Decided 2026-10-28; §1–§8 to build in this batch, §9–§10 in the next. Revisits D371 §3
+(the host's screen leads; a guest's never did) and its resolved points "which of the host's devices
+leads", "the leader leaving a group that stood for it" and "which part a cast takes" (one session at
+most leaves one to take).
