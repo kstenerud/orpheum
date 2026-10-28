@@ -225,7 +225,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   line; what the ordering leaves out is listed under *Not in this order* (§7 Q4, Q8). Labels are
   `src/episode-place.ts`'s. `src/episode-orderings.test.tsx`.
 - **A playing episode offers what plays next, and the person's autoplay plays it** (plans/up-next.md):
-  the server's `GET /files/{id}/up-next`, the next episode in the person's ordering, shows as *Up
+  the server's `GET /files/{id}/up-next`, asked once the film has played so it does not compete with
+  its first chunks (the efficiency audit's finding 4), the next episode in the person's ordering, shows as *Up
   next: S1E3 · ‹name›* with its still over the film from `upNextLeadMs` (30 s) before its end and on
   the end screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the
   person's own switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s)

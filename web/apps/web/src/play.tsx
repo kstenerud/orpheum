@@ -164,7 +164,7 @@ function PlayerView(
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
   useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs });
-  const offered = useUpNextOffered(fileId, decision.preferences.isAutoplayOn, receiving);
+  const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
   return (
     <UpNextContext value={offered}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
