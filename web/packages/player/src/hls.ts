@@ -334,11 +334,17 @@ export function measuredKbps(
 /**
  * Tells video what hls.js loads, for a Watch Together player's log: each chunk, by
  * playerLoadedChunkEvent, with how long it took and how fast, and each quality it begins playing,
- * by playerSwitchedQualityEvent, with its link estimate then, once a chunk measured it. A viewer's iPhone froze every few
- * seconds and nothing said what it loaded, or how fast (staging, 2026-10-06).
+ * by playerSwitchedQualityEvent, with the quality it played before, none for its first, and its
+ * link's estimate then, by linkEstimateKbps, hls.js's once a chunk loaded where none is given. A
+ * viewer's iPhone froze every few seconds and nothing said what it loaded, or how fast (staging,
+ * 2026-10-06). A Fire TV's first quality read as a switch to the top on a link of 5000 kb/s, hls.js's
+ * starting value, its own controller having measured nothing (the owner's cast, staging, 2026-10-28).
  */
-export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchEvent">): void {
-  const linkEstimateKbps = measuredKbps(hls);
+export function tellLoading(
+  hls: LoadingHls,
+  video: Pick<EventTarget, "dispatchEvent">,
+  linkEstimateKbps: () => number | undefined = measuredKbps(hls),
+): void {
   hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
     const { frag } = data;
     const isVideo = frag.type === PlaylistLevelType.MAIN;
@@ -356,11 +362,15 @@ export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchE
     };
     video.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
   });
+  let playedKbps: number | undefined;
   hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+    const qualityKbps = (hls.levels[data.level]?.bitrate ?? 0) / 1000;
     const switched: QualitySwitched = {
-      qualityKbps: (hls.levels[data.level]?.bitrate ?? 0) / 1000,
+      qualityKbps,
       linkEstimateKbps: linkEstimateKbps(),
+      ...(playedKbps === undefined ? {} : { fromQualityKbps: playedKbps }),
     };
+    playedKbps = qualityKbps;
     video.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
   });
 }

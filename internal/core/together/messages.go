@@ -231,9 +231,11 @@ type PlayerNote struct {
 	// FilmMs is how much film a chunk plays: with LoadMs, whether the link keeps up with the film.
 	FilmMs int64 `json:"filmMs,omitempty"`
 	// QualityKbps is the quality a chunk was of, or that the player switched to; LinkEstimateKbps, the
-	// player's estimate of its link at the switch.
+	// player's estimate of its link at the switch; FromQualityKbps, the quality it switched from, 0 for
+	// the first it plays, which is no switch.
 	QualityKbps      int64 `json:"qualityKbps,omitempty"`
 	LinkEstimateKbps int64 `json:"linkEstimateKbps,omitempty"`
+	FromQualityKbps  int64 `json:"fromQualityKbps,omitempty"`
 	// OfflineMs is how long a reconnecting device was without its socket.
 	OfflineMs int64 `json:"offlineMs,omitempty"`
 	// Voice is a voiceStats note's call, as its receiver measured it (D262 §1).

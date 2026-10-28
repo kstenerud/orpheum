@@ -164,7 +164,53 @@ describe("playing a prepared rendition", () => {
         type: playerLoadedChunkEvent,
         detail: { track: "audio", loadMs: 2000, loadedKbps: 2000, qualityKbps: 0, filmMs: 10_200 },
       },
-      { type: playerSwitchedQualityEvent, detail: { qualityKbps: 800, linkEstimateKbps: 2500 } },
+      {
+        type: playerSwitchedQualityEvent,
+        detail: { qualityKbps: 800, linkEstimateKbps: 2500, fromQualityKbps: 1200 },
+      },
+    ]);
+  });
+
+  it("tells a quality begun with the estimate it is given, not hls.js's starting value, and its first as no switch", () => {
+    const listeners = new Map<string, ((event: unknown, data: unknown) => void)[]>();
+    const fire = (event: string, data: unknown): void => {
+      for (const listener of listeners.get(event) ?? []) {
+        listener(undefined, data);
+      }
+    };
+    const told: unknown[] = [];
+    const controller: { kbps: number | undefined } = { kbps: undefined };
+    tellLoading(
+      {
+        levels: [{ bitrate: 2_000_000 }, { bitrate: 15_635_000 }],
+        // hls.js's starting value, the first level's BANDWIDTH up to 5 Mb/s: the Fire TV's 5000.
+        bandwidthEstimate: 5_000_000,
+        on: ((event: string, listener: (event: unknown, data: unknown) => void) => {
+          listeners.set(event, [...(listeners.get(event) ?? []), listener]);
+        }) as Hls["on"],
+      },
+      {
+        dispatchEvent: (event) => {
+          told.push((event as CustomEvent).detail);
+          return true;
+        },
+      },
+      () => controller.kbps,
+    );
+    fire(Hls.Events.FRAG_LOADED, {
+      frag: {
+        type: "audio",
+        level: 0,
+        duration: 10,
+        stats: { loading: { start: 0, end: 1 }, total: 1 },
+      },
+    });
+    fire(Hls.Events.LEVEL_SWITCHED, { level: 1 });
+    controller.kbps = 4200;
+    fire(Hls.Events.LEVEL_SWITCHED, { level: 0 });
+    expect(told.slice(1)).toEqual([
+      { qualityKbps: 15_635, linkEstimateKbps: undefined },
+      { qualityKbps: 2000, linkEstimateKbps: 4200, fromQualityKbps: 15_635 },
     ]);
   });
 

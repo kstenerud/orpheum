@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { LoaderContext } from "hls.js";
+import Hls, { type LoaderContext } from "hls.js";
 
 import {
   catchUpSeekEvent,
@@ -22,10 +22,11 @@ import {
   sendUnplayable,
   settledAtBps,
   shareForQualityOf,
+  tellChunkedLoading,
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
-import { markSeeks, soughtHeader } from "./hls.ts";
+import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { steadinessOf } from "./steadiness.ts";
 import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
@@ -271,6 +272,47 @@ describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
     stop();
     expect(listeners.size).toBe(0);
     vi.useRealTimers();
+  });
+});
+
+describe("the link a chunked playback tells with each quality it begins (D352 §1)", () => {
+  it("is its controller's estimate, none before it measured one, never hls.js's starting value", () => {
+    const listeners = new Map<string, (event: unknown, data: unknown) => void>();
+    const told: unknown[] = [];
+    const controller: { kbps: number | undefined } = { kbps: undefined };
+    const linkKbps = tellChunkedLoading(
+      {
+        levels,
+        bandwidthEstimate: 5_000_000, // hls.js's starting value, measuring nothing
+        on: ((event: string, listener: (event: unknown, data: unknown) => void) => {
+          listeners.set(event, listener);
+        }) as LoadingHls["on"],
+      },
+      {
+        dispatchEvent: (event) => {
+          told.push((event as CustomEvent).detail);
+          return true;
+        },
+      },
+      () => ({ linkKbps: () => controller.kbps }),
+    );
+    // A chunk loaded, which hls.js's own reading takes for a measurement.
+    listeners.get(Hls.Events.FRAG_LOADED)?.(undefined, {
+      frag: {
+        type: "audio",
+        level: 0,
+        duration: 10,
+        stats: { loading: { start: 0, end: 900 }, total: 1 },
+      },
+    });
+    listeners.get(Hls.Events.LEVEL_SWITCHED)?.(undefined, { level: 2 });
+    controller.kbps = 3100;
+    listeners.get(Hls.Events.LEVEL_SWITCHED)?.(undefined, { level: 1 });
+    expect(told.slice(1)).toEqual([
+      { qualityKbps: 4692, linkEstimateKbps: undefined },
+      { qualityKbps: 1992, linkEstimateKbps: 3100, fromQualityKbps: 4692 },
+    ]);
+    expect(linkKbps()).toBe(3100);
   });
 });
 

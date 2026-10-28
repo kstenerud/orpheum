@@ -961,3 +961,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   in, the Fire TV's `nudged` notes and its `playerBuffering` lines are noted too: a stall a few
   hundred ms after each nudge is the platform's, for the idiosyncrasies. (`internal/core/together/group.go`,
   `player_log.go`; `web/packages/sdk/src/together-follow.ts`, `together-refill.ts`)
+- [ ] **VQ94** — a Chromium page on WebRTC measures its link, on staging. Passes when, the Mac's
+  Chrome and then the Fire TV (Silk, cast to from the Mac) each playing a converted film (a ladder)
+  over WebRTC for a minute from its middle: (1) a seek's report in the core's log
+  (`a player's seek was ready to play`) carries `linkSamples` of chunks that finished, each of
+  128 KB or more, not only a chunk given up, and its `linkKbps` is not 0 once two chunks loaded;
+  (2) in a Watch Together session the Fire TV plays in, its first `qualitySwitched` note has no
+  `fromQualityKbps` and no `linkEstimateKbps` of 5000, and any later one names the quality it came
+  from. Before the fix both showed no finished chunk in `linkSamples` and `linkKbps=0` in every
+  report (staging logs, 2026-10-27 and 28). (`web/packages/player/src/cache-hit.ts`, `chunked.ts`,
+  `hls.ts`; `internal/core/together/player_log.go`)

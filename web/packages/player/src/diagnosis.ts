@@ -65,8 +65,14 @@ const stepsKept = 12;
 const choicesKept = 3;
 const stepsTextMost = 400;
 
-/** The hls.js events a diagnosis keeps as steps, beside its errors and its video's attaching. */
+/**
+ * The hls.js events a diagnosis keeps as steps, beside its errors and its video's attaching. A
+ * buffer thrown away is one: a Fire TV's sound, moved earlier by Web Audio's latency as it began to
+ * play, was thrown away and loaded again, and the video, its picture loaded nine seconds ahead,
+ * waited 2.5 s for it with nothing to say why (the owner's cast, staging, 2026-10-28).
+ */
 const stepEvents = [
+  Hls.Events.BUFFER_FLUSHING,
   Hls.Events.LEVEL_SWITCHING,
   Hls.Events.LEVEL_LOADING,
   Hls.Events.LEVEL_LOADED,
@@ -79,6 +85,9 @@ const stepEvents = [
 /** What a step's event says, of what hls.js tells with it. */
 interface StepData {
   readonly level?: number;
+  /** A flush's buffer ("audio", "video", or none for every one) and where it starts, in seconds. */
+  readonly type?: string | null;
+  readonly startOffset?: number;
   readonly frag?: {
     readonly level: number;
     readonly sn: number | "initSegment";
@@ -86,9 +95,16 @@ interface StepData {
   };
 }
 
-/** A step in a line: "level 2", "playlist 2 loaded", "frag 2/31 aborted", "sound 0/31 loading". */
+/**
+ * A step in a line: "level 2", "playlist 2 loaded", "frag 2/31 aborted", "sound 0/31 loading",
+ * "audio flushed from 0.00".
+ */
 export function stepText(event: string, data: StepData): string {
   const { frag } = data;
+  const flushing: string = Hls.Events.BUFFER_FLUSHING;
+  if (event === flushing) {
+    return `${data.type ?? "all"} flushed from ${(data.startOffset ?? 0).toFixed(2)}`;
+  }
   if (frag !== undefined) {
     const what = `${frag.type === "main" ? "frag" : "sound"} ${String(frag.level)}/${String(frag.sn)}`;
     const outcome: Partial<Record<string, string>> = {

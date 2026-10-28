@@ -139,12 +139,20 @@ describe("a player following its group", () => {
       filmMs: 10_000,
     };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
-    const switched: QualitySwitched = { qualityKbps: 800, linkEstimateKbps: 2500 };
+    const switched: QualitySwitched = {
+      qualityKbps: 800,
+      linkEstimateKbps: 2500,
+      fromQualityKbps: 1200,
+    };
     media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
     expect(notes.slice(-2)).toEqual([
       { kind: "chunkLoaded", ...loaded },
       { kind: "qualitySwitched", ...switched },
     ]);
+    // The first quality played is no switch: it has none it came from.
+    const first: QualitySwitched = { qualityKbps: 15_635, linkEstimateKbps: undefined };
+    media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: first }));
+    expect(notes.at(-1)).toEqual({ kind: "qualitySwitched", ...first });
   });
 
   it("nudges no player stalled and refilling, whose position does not move, until it has refilled", () => {
