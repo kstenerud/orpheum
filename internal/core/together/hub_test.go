@@ -58,11 +58,8 @@ func (box *inbox) count(kind MessageType) int {
 
 // testTuning is how the tests' devices are welcomed to follow their group.
 var testTuning = Tuning{
-	LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80, SyncWaitMs: 20_000,
+	LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80,
 }
-
-// testSyncWait is testTuning's sync wait.
-const testSyncWait = 20 * time.Second
 
 // sessionStage is a hub with a session the owner hosts, nothing playing yet, and a clock.
 type sessionStage struct {
@@ -119,16 +116,23 @@ func (stage sessionStage) command(t *testing.T, attachment Attachment, command C
 	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessageCommand, Command: command, FileID: fileID})
 }
 
-// ready says attachment is ready to play along, or buffering.
+// ready says attachment's player plays where the group is, or buffers there.
 func (stage sessionStage) ready(t *testing.T, attachment Attachment, isBuffering bool) {
 	t.Helper()
-	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessageState, Buffering: isBuffering})
+	stage.hub.Handle(t.Context(), attachment, Inbound{
+		Type: MessageState, Playing: !isBuffering, Buffering: isBuffering,
+		PositionMs: stage.groupPositionMs(attachment.SessionID),
+	})
 }
 
-// tick is a ready player's report while the group waits: any message ends a wait whose time is up.
-func (stage sessionStage) tick(t *testing.T, attachment Attachment) {
-	t.Helper()
-	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessagePing})
+// groupPositionMs is where the session's group is now.
+func (stage sessionStage) groupPositionMs(sessionID int64) int64 {
+	stage.hub.mutex.Lock()
+	defer stage.hub.mutex.Unlock()
+	if held, found := stage.hub.sessions[sessionID]; found {
+		return held.positionAt(stage.clock.Now()).Milliseconds()
+	}
+	return 0
 }
 
 // A pong says where the group is as the server answers, so a follower places the group by the pong
@@ -137,8 +141,8 @@ func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
 	stage.clock.Advance(12 * time.Second)
 	stage.hub.Handle(t.Context(), host, Inbound{Type: MessagePing, TMono: 4321})
 	pong := box.last(MessagePong)
@@ -149,78 +153,37 @@ func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
 	}
 }
 
-// A session starts with nothing playing; what the host puts on waits until every player that has
-// been ready is, then plays; one that buffers then stops no one: the group plays on, naming it, and
-// it catches up alone (watch-together.md, Sync; D246 §5; D250 §2).
-func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers(t *testing.T) {
-	t.Parallel()
-	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	guest := stage.join(t)
-	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
-	if welcome := guestBox.last(MessageWelcome); welcome.SessionID != stage.opened.SessionID ||
-		welcome.Group == nil || welcome.Group.State != GroupIdle || welcome.Group.FileID != 0 ||
-		len(welcome.Roster) != 2 || welcome.IsHost {
-		t.Fatalf("the guest's welcome = %+v; want the session, nothing playing, and both members", welcome)
-	}
-	stage.ready(t, host, false)
-	stage.ready(t, guestDevice, false)
-	stage.ready(t, guestDevice, true)
-	stage.command(t, host, CommandChangeItem, 7)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.FileID != 7 {
-		t.Errorf("film 7 put on with the guest buffering: %+v, want Waiting on 7", group)
-	}
-	stage.ready(t, guestDevice, false)
-	if state := guestBox.last(MessageGroup).Group.State; state != GroupPlaying {
-		t.Errorf("once the guest is ready: %s, want Playing", state)
-	}
-	stage.clock.Advance(10 * time.Second)
-	stage.ready(t, guestDevice, true)
-	playingOn := hostBox.last(MessageGroup).Group
-	if playingOn.State != GroupPlaying || playingOn.Event != EventContinuedWithout ||
-		playingOn.ByMemberID != guest.MemberID || playingOn.PositionMs != 10_000 {
-		t.Errorf("the guest buffering 10 s in: %+v; want Playing on from 10 s without the guest", playingOn)
-	}
-	seq := hostBox.last(MessageGroup).Seq
-	stage.clock.Advance(5 * time.Second)
-	stage.ready(t, guestDevice, false)
-	if hostBox.last(MessageGroup).Seq != seq {
-		t.Errorf("the guest ready again changed the group: %+v", hostBox.last(MessageGroup).Group)
-	}
-}
-
-// Every change of the group is logged: what plays, the event and who caused it, and while it waits,
-// whose player it waits for and until when. A group that would not play on staging could only be
+// Every change of the group is logged: what plays, the event and who caused it, and who leads it, so
+// a report can be read from the log (D371). A group that would not play on staging could only be
 // guessed at (2026-10-06).
-func TestHub_LogsEachChangeOfTheGroupAndWhoItWaitsFor(t *testing.T) {
+func TestHub_LogsEachChangeOfTheGroupAndWhoLeadsIt(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
-	stage.ready(t, host, false)
-	stage.ready(t, guestDevice, false)
 	stage.ready(t, guestDevice, true)
 	stage.command(t, host, CommandChangeItem, 7)
 	waiting := fmt.Sprintf("state=Waiting event=changedItem byMemberId=%d fileId=7", host.MemberID)
-	wantFor := fmt.Sprintf("waitingForMemberIds=[%d]", guest.MemberID)
+	leads := fmt.Sprintf("leaderDeviceId=%d", host.DeviceID)
 	for line := range strings.Lines(stage.logs.String()) {
 		if strings.Contains(line, `msg="watch together: the group changed"`) && strings.Contains(line, waiting) &&
-			strings.Contains(line, wantFor) && strings.Contains(line, "waitUntil=") {
+			strings.Contains(line, leads) {
 			return
 		}
 	}
-	t.Errorf("no log line says the group waits on film 7 for member %d:\n%s", guest.MemberID, stage.logs.String())
+	t.Errorf("no log line says the group stands on film 7 for its leader, device %d:\n%s", host.DeviceID,
+		stage.logs.String())
 }
 
 // Someone who joins while the film plays holds no one up while they choose their speakers and
-// load; once ready they play along, and are waited for from then on (D246 §6).
-func TestHub_AJoiningViewerHoldsNoOneUpUntilReady(t *testing.T) {
+// load, nor once ready, buffering: a follower's trouble is theirs to catch up on (D246 §6, D371 §2).
+func TestHub_AJoiningViewerHoldsNoOneUp(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
 		t.Fatalf("film 7 put on with only the host, ready: %s, want Playing", state)
 	}
@@ -233,40 +196,33 @@ func TestHub_AJoiningViewerHoldsNoOneUpUntilReady(t *testing.T) {
 	if welcome := guestBox.last(MessageWelcome); welcome.Group.FileID != 7 || welcome.Group.State != GroupPlaying {
 		t.Errorf("the joining viewer's welcome = %+v; want film 7 playing, to start where it is", welcome.Group)
 	}
+	seq := hostBox.last(MessageGroup).Seq
 	stage.ready(t, guestDevice, false)
 	stage.ready(t, guestDevice, true)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != guest.MemberID {
-		t.Errorf("the viewer, once ready, buffering: %+v, want Playing on without them (D250 §2)", group)
+	if hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the viewer, once ready, buffering: %+v, want the group playing on, unchanged (D371 §2)",
+			hostBox.last(MessageGroup).Group)
 	}
 }
 
-// A drop stops no one (D250 §2): a playing group plays on while the device is gone, and a sync point
-// waiting for it plays once the rest are ready.
+// A drop stops no one (D371 §2): a playing group plays on while a follower is gone, and the host's
+// play, with a follower back and loading, stands for the leader alone.
 func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 	t.Parallel()
-	stage := newStage(t)
-	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	guest := stage.join(t)
-	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
-	stage.ready(t, host, false)
-	stage.ready(t, guestDevice, false)
-	stage.command(t, host, CommandChangeItem, 7)
+	stage := playing(t)
+	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
 	seq := hostBox.last(MessageGroup).Seq
 	stage.hub.Detach(guestDevice)
 	if hostBox.last(MessageGroup).Seq != seq || hostBox.last(MessageGroup).Group.State != GroupPlaying {
 		t.Errorf("the guest's device dropped: %+v; want the group playing on, unchanged", hostBox.last(MessageGroup))
 	}
-	back, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
-	stage.ready(t, back, false)
+	back, _ := stage.attach(t, stage.guest.MembershipCredential, RoleVideo)
 	stage.ready(t, back, true)
 	stage.command(t, host, CommandPause, 0)
 	stage.command(t, host, CommandPlay, 0)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
-		t.Fatalf("the host's play with the guest loading: %+v; want Waiting for the guest", group)
-	}
-	stage.hub.Detach(back)
+	stage.ready(t, host, false)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
-		t.Errorf("the guest it waited for dropped: %+v; want Playing", group)
+		t.Errorf("the host's play, its player playing, the guest loading: %+v; want Playing", group)
 	}
 }
 
@@ -680,8 +636,8 @@ func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
 	stage.clock.Advance(30 * time.Second)
 	stage.hub.Handle(t.Context(), host, Inbound{
 		Type: MessageCommand, Command: CommandSeek, PositionMs: 90_000, BasedOnSeq: hostBox.last(MessageGroup).Seq,
@@ -702,7 +658,7 @@ func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {
 	}
 }
 
-// playingStage is a stage with the host's and a guest's players both ready and film 7 playing.
+// playingStage is a stage with film 7 playing, the host's player leading it and a guest's following.
 type playingStage struct {
 	sessionStage
 	host, guestDevice Attachment
@@ -716,19 +672,20 @@ func playing(t *testing.T) playingStage {
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	guest := stage.join(t)
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
+	stage.command(t, host, CommandChangeItem, 7)
 	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
-	stage.command(t, host, CommandChangeItem, 7)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
-		t.Fatalf("film 7 put on with both ready: %s, want Playing", state)
+		t.Fatalf("film 7 put on, its leader playing: %s, want Playing", state)
 	}
 	return playingStage{sessionStage: stage, host: host, guestDevice: guestDevice, hostBox: hostBox, guest: guest}
 }
 
 // Everyone's roster says where each player stands: what its page waits on, a tap; once a film is
-// on, loading until it is first ready, then watching. Nothing of it moves whom the group waits for
-// (D246 §6). A guest still choosing her speakers was shown as nothing at all
-// while the group played on without her (the owner's Watch Together session, 2026-10-18).
+// on, loading until it is first ready, then watching, and a follower buffering catching up. Nothing
+// of it moves the group, which stands for its leader alone (D246 §6, D371 §2). A guest still
+// choosing her speakers was shown as nothing at all while the group played on without her (the
+// owner's Watch Together session, 2026-10-18).
 func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -753,8 +710,8 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 			t.Errorf("its page waiting on %q: %q; want the same", standing, got)
 		}
 	}
-	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
 	if got := hostBox.last(MessageGroup).Group.State; got != GroupPlaying {
 		t.Errorf("the group with the guest waiting for her tap is %q; want it playing, waiting for no one", got)
 	}
@@ -771,6 +728,10 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	if got := guestStatus(); got != StatusWatching {
 		t.Errorf("once ready: %q; want watching", got)
 	}
+	stage.ready(t, guestDevice, true)
+	if got := guestStatus(); got != StatusCatchingUp {
+		t.Errorf("a follower buffering: %q; want catching up", got)
+	}
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: "dancing"})
 	if got := guestBox.last(MessageRejected).Code; got != codeInvalid {
 		t.Errorf("a standing no page says was answered %q; want it refused", got)
@@ -783,5 +744,47 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: StandingNeedsTap})
 	if !strings.Contains(stage.logs.String(), "standing=needsTap") {
 		t.Error("a page's standing was not logged")
+	}
+}
+
+// A player's state says how it plays the film, delivered as it is or converted, at which quality, on
+// what link, and everyone's roster shows it, a cast's remote among them; a delivery no player says is
+// left out, and a state that says none keeps the last (D371 §4: "information about playback, such as
+// the transcoding and bandwidth choices").
+func TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	receiverInRoster := func() DeviceView {
+		for _, each := range remoteBox.last(MessageRoster).Roster {
+			for _, attached := range each.Devices {
+				if attached.ID == receiver.DeviceID {
+					return attached
+				}
+			}
+		}
+		t.Fatal("the remote's roster has no receiver")
+		return DeviceView{}
+	}
+	converted := Playback{Delivery: DeliveryConverted, QualityKbps: 4200, LinkKbps: 18_000}
+	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true, Playback: &converted})
+	if got := receiverInRoster(); !got.IsLeader || got.Playback == nil || *got.Playback != converted {
+		t.Errorf("the receiver in the remote's roster = %+v (%+v); want the leader, converted at 4200 kb/s "+
+			"on 18000", got, got.Playback)
+	}
+	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true})
+	if got := receiverInRoster().Playback; got == nil || *got != converted {
+		t.Errorf("after a state that says none, the receiver plays %+v; want the last said", got)
+	}
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageState, Playing: true, Playback: &Playback{Delivery: "teleported"},
+	})
+	if got := receiverInRoster().Playback; got == nil || *got != converted {
+		t.Errorf("after a delivery no player says, the receiver plays %+v; want the last known", got)
 	}
 }

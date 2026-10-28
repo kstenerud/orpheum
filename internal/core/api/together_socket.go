@@ -156,11 +156,6 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		}
 		*read.into = value
 	}
-	syncWait, err := dependencies.Settings.Duration(ctx, settings.TogetherSyncWaitSeconds)
-	if err != nil {
-		return together.Tuning{}, server.settingsError(ctx, "read "+string(settings.TogetherSyncWaitSeconds), err)
-	}
-	tuning.SyncWaitMs = syncWait.Milliseconds()
 	snapKey := settings.TogetherSnapSeeksBeyondSeconds
 	snapBeyond, err := dependencies.Settings.Duration(ctx, snapKey)
 	if err != nil {

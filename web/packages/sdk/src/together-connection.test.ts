@@ -121,21 +121,21 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
         v: 2,
         type: "group",
         seq: 2,
-        group: { ...playing, event: "everyoneReady" },
+        group: { ...playing, event: "leaderPlays" },
       }),
     );
-    // Three seconds on, "continuing without" someone, its position late by its own delay on the way.
+    // Three seconds on, a play told again, its position late by its own delay on the way.
     monotonicNowMs = 5000;
     socket.onMessage(
       JSON.stringify({
         v: 2,
         type: "group",
         seq: 3,
-        group: { ...playing, positionMs: 12_900, event: "continuedWithout", byMemberId: 9 },
+        group: { ...playing, positionMs: 12_900, event: "played", byMemberId: 9 },
       }),
     );
     expect(connection.snapshot()).toMatchObject({
-      group: { positionMs: 10_000, event: "continuedWithout", byMemberId: 9 },
+      group: { positionMs: 10_000, event: "played", byMemberId: 9 },
       groupReceivedAtMs: 2000,
     });
     // A pause is a new timeline.

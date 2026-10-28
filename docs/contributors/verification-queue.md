@@ -1022,7 +1022,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   "Press OK" line over the film. Then (4), with the cast's Fire TV unplugged from the network just
   after Use, the group plays once its wait's 20 s are up (a `groupChanged` line with
   `event=continuedWithout`), and the film plays from where the Fire TV stands once it is back, its
-  `followedOnlyPlayer` lines at debug placing the group where it is. Before the fix the browser's
+  `followedOnlyPlayer` lines at debug placing the group where it is. (Its (4) is withdrawn by D371,
+  which ended every wait but the leader's: VQ101 checks the cast as D371 built it.) Before the fix the browser's
   autoplay played the film as it loaded, its group still waiting, and the hold paused it again:
   `playedWithSound` at 09:08:06.398, the group's start at 07.207, playing again at 07.981 (staging,
   2026-10-28). (`web/apps/web/src/play.tsx`; `web/packages/sdk/src/together-followed.ts`;
@@ -1037,3 +1038,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   and the discovery counts no dead end for it. Before the fix the Fire TV showed the network dead end
   after its device was removed (the owner, 2026-10-28, 09:25). (`web/apps/web/src/discovery-gate.tsx`,
   `loader-at-client-origin.tsx`, `loader-at-loader-origin.tsx`; `web/packages/sdk/src/discovery.ts`)
+- [ ] **VQ101** — a cast alone to the Fire TV plays as the Fire TV plays a film alone (D371 §1, §4,
+  §5), on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off, five
+  films one after another, converted ones (a ladder) among them, each played from the Mac: (1) each
+  starts with one play, never a play, a pause and a play, and plays on with no stall it would not
+  have played alone (the same film played on the Fire TV by itself for comparison); (2) the core's
+  log, for the cast's session, has a `leaderChanged` line naming the receiver's device, no `nudged`
+  and no `sought` note from it but `why=command` for the remote's seeks, and each `groupChanged`
+  line names it as `leaderDeviceId`; (3) the remote's pause, play and a 10 s skip each move the TV
+  once, as its own press would; (4) the casting page on the Mac says how the TV plays the film:
+  "Plays the file as it is" for a direct one, "Plays it converted · Quality … · Link about …" for a
+  converted one, the quality changing as the TV's does. Before D371 every cast of 2026-10-28 was
+  steered: a 0.9× nudge loop, a hold's seek back, a run-up's jump, a play-pause-play start.
+  (`internal/core/together/group.go`; `web/packages/sdk/src/together-leader.ts`;
+  `web/apps/web/src/cast-remote.tsx`)

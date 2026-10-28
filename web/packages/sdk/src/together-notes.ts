@@ -5,6 +5,7 @@
  * logs. Kept apart from the connection that sends them, so the connection fits in one read.
  */
 
+import type { PlaybackReport } from "./together.ts";
 import type { VoiceCallStats } from "./together-voice-stats.ts";
 
 /** Where this device's player is, as it tells the group. */
@@ -21,6 +22,8 @@ export interface PlayerState {
    */
   readonly readyOnMs?: number;
   readonly loadsFaster?: number;
+  /** How it plays the film: its delivery, quality and link (D371 §4); absent where it does not say. */
+  readonly playback?: PlaybackReport;
 }
 
 /**
@@ -29,7 +32,9 @@ export interface PlayerState {
  * - nudged: played at rate for a moment, driftMs behind the group (ahead when negative);
  * - sought: moved itself from positionMs to toMs, why: "catchUp" (jumping ahead of a group it fell
  *   behind), "hold" (to where a stopped group is), "skip" (a small seek of a player that corrects
- *   by seeks alone, D268 §2) or "runUp" (back to run up to where the group starts, D282);
+ *   by seeks alone, D268 §2), "runUp" (back to run up to where the group starts, D282), or, a leader's
+ *   (D371 §1), "join" (to where a group under way is, as it began to lead) or "command" (where another
+ *   device's seek asked, carried out as its own press);
  * - loadHeld: a ready player held its loading while its group waits ("held"), or went on ("goesOn")
  *   (D283 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
@@ -97,7 +102,7 @@ export type PlayerNote =
       readonly kind: "sought";
       readonly positionMs: number;
       readonly toMs: number;
-      readonly why: "catchUp" | "hold" | "skip" | "runUp";
+      readonly why: "catchUp" | "hold" | "skip" | "runUp" | "join" | "command";
     }
   | {
       readonly kind: "chunkLoaded";

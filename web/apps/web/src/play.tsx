@@ -25,6 +25,7 @@ import {
   ladderAudioRenditionIndex,
   type FilmComposition,
   type FilmParts,
+  deliveryOf,
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
@@ -183,6 +184,7 @@ function PlayerView(
       </PlayTop>
       <PlaysAlong
         {...{ receiving, fileId, video, cannotKeepUp }}
+        delivery={deliveryOf(decision, moved)}
         startPositionMs={resumePositionMs}
         hasNext={offered.upNext !== undefined && offered.upNext.episode.unavailable === undefined}
       />

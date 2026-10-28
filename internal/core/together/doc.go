@@ -23,29 +23,29 @@
 //   - Starts no goroutine: a device's reading and writing are the API's, and the hub sends to a
 //     device through the Sender it attached with, which must never block. Review-only (standards/go.md,
 //     Concurrency); the race detector runs in make test-all.
-//   - The group waits for its players only at its sync points: a film put on, the host's play after
-//     a pause, and the host's seek, each waiting for every player that has once been ready, those
-//     catching up too; one still waiting for its tap or loading holds no one up (D246 §6, D250 §2).
-//     Enforced by TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers and
-//     TestHub_AJoiningViewerHoldsNoOneUpUntilReady.
-//   - The group never stops for one member: a stall or a drop leaves it playing, and the player
-//     catches up alone (D250 §2). Enforced by TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone and
-//     TestHub_ADroppedPlayerStopsNoOne.
-//   - A playing group whose only player is one device follows it: each state that player reports
-//     places the group where it is, so a stall waits where it stalled and a pause or start is where
-//     it is; with a second player the group keeps its own time (D88: a cast is a group of one; the
-//     owner's cast, 2026-10-28). Enforced by TestHub_AGroupWhoseOnlyPlayerIsOneDeviceFollowsIt.
-//   - A sync point waits at most the sync wait its devices were welcomed with, then plays without
-//     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3); save that a
-//     session whose only player is late plays at its time, that player catching up, the group
-//     following it (D250 §2's amendment of 2026-10-28). Enforced by
-//     TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady,
-//     TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime and
-//     TestHub_ASessionWhoseOnlyPlayerIsLatePlaysOnceItsWaitIsUp.
-//   - A group that starts playing at a sync point's end stands at its position for the start's lead
-//     its devices were welcomed with, and says what is left of it, so every player starts at once;
-//     one that plays on moves on as it was (D268 §3). Enforced by
-//     TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds.
+//   - A session has at most one leader, the screen that is the film (D371 §1, §3): the host's device
+//     that plays, the newest attached or the one that put the film on; as it leaves, the host's
+//     newest other player leads, or none does, and a group that stood for it plays on for whoever
+//     plays still. No guest's device and no panel leads. The roster says who leads, and each change
+//     of leader is logged with why. Enforced by TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves
+//     and TestHub_NoGuestNorPanelLeads.
+//   - The group's position is its leader's, which nothing steers (D371 §1): each state the leader
+//     reports while the group plays places the group where it is, a stall of the leader's holds the
+//     group where it stands, and a group to play (a film put on, a play, a seek) stands where it is
+//     until its leader plays, then plays from there at once. Enforced by
+//     TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays and
+//     TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing.
+//   - The group waits for no one but its leader (D371 §2): a follower loading, stalling or dropping
+//     changes nothing, its trouble its own to catch up on; without a leader a play or a seek plays at
+//     once. Enforced by TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne and
+//     TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut.
+//   - A group with no leader that starts playing stands at its position for the start's lead its
+//     devices were welcomed with, and says what is left of it, so every player starts at once; one
+//     with a leader has no lead, and one that plays on moves on as it was (D268 §3, D371 §1).
+//     Enforced by TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds.
+//   - Each player's state may say how it plays the film, its delivery, quality and link, which the
+//     roster shows everyone, a cast's remote among them (D371 §4). Enforced by
+//     TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm.
 //   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
 //     stopping it and its rate are the host's alone; each link starts with the last one's rights
 //     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed
@@ -67,8 +67,9 @@
 //     as the host's end would, each device told "idle". Enforced by
 //     TestHub_ALinkAdmitsNoOneOnceItsLifetimeHasPassed, TestHub_ASessionIdleForItsIdleEndIsEnded and
 //     TestHub_AGroupPlayingToNoPlayerIsIdle.
-//   - A cast is a session of one (D88, D337): its host is the person who cast, its receiver leads
-//     and its remote, a device with no player, commands it; it has no links and is never among the
+//   - A cast is a session of one (D88, D337): its host is the person who cast, its receiver leads,
+//     playing as the device plays a film alone, and its remote, a device with no player, commands it,
+//     each command standing for the receiver to carry out (D371 §4, §5); it has no links and is never among the
 //     person's sessions nor their party, which is opened and kept beside it; ending it tells each
 //     of its devices why. Enforced by TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt
 //     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy. Ready between videos it plays
@@ -114,8 +115,10 @@
 //   - D117, D119, D122, D125: the session, its link and its guests, as D246 revised them.
 //   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control, as D271 §4 revised
 //     it: a guest's rights.
-//   - D250 §2–§5: the group stops only at its own sync points; a member's trouble is theirs to
-//     catch up on.
+//   - D371: a session's leader plays as a device plays alone; everyone else catches up to it, and a
+//     cast takes its sender's part. It revises D250 §2–§3 (no sync points but the leader's) and
+//     D247 §4 (no group waits for a stalled viewer).
+//   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
 //   - D267: a membership kept by the browser that joined or a signed-in person's account, on
@@ -133,7 +136,7 @@
 //   - hub.go: sessions, memberships and devices. links.go: the links a person joins by, and the
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
-//   - group.go: the group's state machine: the host's commands, waiting for players, and stalls.
+//   - group.go: the group's state machine: the commands, the leader, and following it.
 //   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
 //   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).
 package together

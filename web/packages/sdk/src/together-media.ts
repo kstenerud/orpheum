@@ -167,6 +167,49 @@ export function playableAt(media: FollowedMedia, expectedMs: number, tuning: Syn
 }
 
 /**
+ * Where a player held paused for its group at expectedMs seeks to, or undefined where it stays: where
+ * it can be held (playableAt), when it is away from there by more than the drift left alone, or, while
+ * its own seek ownSeek still loads, by more than the seek threshold, since the browser's player moves
+ * it a little as it loads (hls.js steps over a gap at the start of what it loaded), and a seek for that
+ * would start the load again, and again, and the player never loads at all (the owner's test,
+ * 2026-10-05, on a slow link). A player held just before the first frame it loaded, by however
+ * little, is moved onto it: a paused player never steps over the gap, and one not on what it loaded
+ * is never ready. Both players held at 0 with 0.04 s to 60 s loaded, a gap under the drift left
+ * alone, and held the group up for good (staging, 2026-10-06).
+ */
+export function holdSeekMs(
+  media: FollowedMedia,
+  held: { readonly expectedMs: number; readonly tuning: SyncTuning },
+  ownSeek: { readonly isLoading: boolean; readonly toMs: number | undefined },
+): number | undefined {
+  const { expectedMs, tuning } = held;
+  const holdAtMs = playableAt(media, expectedMs, tuning);
+  const awayMs = Math.abs(positionMsOf(media) - holdAtMs);
+  const isBeforeWhatItLoaded = !ownSeek.isLoading && holdAtMs > expectedMs && !isOnLoaded(media);
+  const { leaveDriftUpToMs, seekDriftBeyondMs } = tuning;
+  const isAway = awayMs > (ownSeek.isLoading ? seekDriftBeyondMs : leaveDriftUpToMs);
+  return (isAway || isBeforeWhatItLoaded) &&
+    maySeekTo(media, holdAtMs, { soughtToMs: ownSeek.toMs, farMs: seekDriftBeyondMs })
+    ? holdAtMs
+    : undefined;
+}
+
+/**
+ * Whether a player may seek to toMs now: not while it still loads a seek, unless that seek, to
+ * soughtToMs, went more than farMs from toMs. A group sought again while this player still loads
+ * where it went before is followed at once: an iPhone loading a chunk not yet made went on waiting
+ * for it, 3.5 to 9 s, before it asked for the new place (the owner's jumps, 2026-10-12).
+ */
+function maySeekTo(
+  media: FollowedMedia,
+  toMs: number,
+  ownSeek: { readonly soughtToMs: number | undefined; readonly farMs: number },
+): boolean {
+  const { soughtToMs, farMs } = ownSeek;
+  return !media.seeking || (soughtToMs !== undefined && Math.abs(toMs - soughtToMs) > farMs);
+}
+
+/**
  * Where what the player loaded at atMs begins, in ms: the start of the loaded stretch holding it, or
  * atMs where it loaded nothing there. A run-up starts no earlier, so it never asks for a chunk before
  * the one its group starts in, which on an encoded quality is a whole encode (D282;

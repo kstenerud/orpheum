@@ -138,7 +138,6 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 			return Joined{}, ErrNoSession
 		}
 		taking.moveTo(name, person)
-		joined.settle(now)
 	} else {
 		hub.lastID++
 		taking = &member{

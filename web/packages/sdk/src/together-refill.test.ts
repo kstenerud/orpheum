@@ -187,7 +187,7 @@ describe("telling its player of the group's jumps (D286 §3)", () => {
     );
     vi.advanceTimersByTime(3000);
     expect(jumps()).toBe(1);
-    setGroup({ ...paused, state: "Playing", event: "everyoneReady", positionMs: 900_000 }, 0);
+    setGroup({ ...paused, state: "Playing", event: "leaderPlays", positionMs: 900_000 }, 0);
     setGroup(
       { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 902_000, positionMs: 40_000 },
       0,

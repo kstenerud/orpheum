@@ -37,6 +37,12 @@ export const enCast = {
     toHome: "Go to the home page",
     aFilm: "A film",
     playingOn: "Playing on {{name}}",
+    playback: {
+      direct: "Plays the file as it is",
+      converted: "Plays it converted",
+      quality: "Quality {{rate}}",
+      link: "Link about {{rate}}",
+    },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     withTogether:
       "Casting to {{name}}. Watch Together is on, so its page has the controls for what plays.",

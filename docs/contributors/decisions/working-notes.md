@@ -6008,6 +6008,8 @@ does not need any of this ([shared-core.md](../design/research/shared-core.md)).
 
 ## D88 — Casting is remote control of another client, which is Watch Together with a group of one
 
+> **Revised by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): a cast is still a session, but its receiver is its leader, which plays as the device plays a film alone; the group follows it, and the remote's play, pause and seek are carried out by the receiver as its own press. A session of one is not steered by group sync.
+
 **Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §10.
 
 Chromecast appears once in the design, as a "v2 client". The demand is real — Swiftfin
@@ -18093,6 +18095,8 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
+> **§4's group wait superseded by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): no group waits for anyone but its leader; a stalled follower catches up to the leader.
+
 > **§9 amended by [D352](#d352--the-chunked-player-trusts-its-link-as-far-as-the-evidence-goes-its-first-seconds-latch-nothing-it-climbs-as-far-as-consistent-samples-carry-and-it-grows-steadier-when-it-swings-or-its-link-flakes)** (2026-10-27): the hold before a step up is 30 s on a steady link, doubling with each swing to 240 s, and the climb goes as far as consistent samples carry.
 
 > **§10 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a run goes on while a player says it wants its quality from where it plays, not while asks arrive.
@@ -18315,6 +18319,8 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 **Status:** Decided 2026-10-06; staging built the same day (deploy/staging, ./staging), release later.
 
 ## D250 — A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
+
+> **§2 and §3, with §2's amendments of 2026-10-12 and 2026-10-28, superseded by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): the group waits for no one but its leader, the screen that is the film, whose position is the group's; there are no sync waits, no `together_sync_wait_seconds` (retired), and a player's stall or drop is a follower's to catch up on, or, the leader's, holds the group where the leader stands. §1, §4 and §5 stand: how a follower corrects and catches up.
 
 > **§5 and §6 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a run no player wants stops at once, with no rule of distance; under load a player moves down a quality, and only one at the lowest is stopped.
 
@@ -23214,6 +23220,8 @@ and `libraries.tsx`. Not seen on a device yet (VQ80, VQ81, VQ82).
 
 ## D364 — Casting is a session with a device: while it lasts, whatever the person plays plays there, and the sending device shows it in the tray
 
+> **Revised by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): the receiver leads the cast's session and plays each film as the device plays one alone, nothing steering it; the remote's commands are carried out by the receiver as its own press, and the receiver's state, with how it plays (delivery, quality, link), comes back for the remote to show.
+
 **Decided** (2026-10-27), by the project owner: "Rather than make it only for the current video, let's
 make it start a control session with the device. While this session is active, any video I play gets
 played on that device. This would end up behaving somewhat similarly to the watch together session.
@@ -23809,4 +23817,45 @@ catching up makes more sense. Also, your better way makes sense."
    catch up (the owner: "the others catching up makes more sense"), so no host's page plays, is held
    and plays again.
 
-**Status:** Decided 2026-10-28; to build. Revisits D88, D247, D250, D268, D282 and D364 as above.
+**Status:** Decided 2026-10-28; built in part 2026-10-28, its first stage, the leader: the hub keeps
+a leader for each session, the host's device that plays, the newest attached or the one that put the
+film on, the next taking the lead as it leaves (`internal/core/together/group.go`: `lead`,
+`leaderLeft`, `followLeader`; `hub.go`); the group's position is the leader's, placed by its state,
+held where it stands while it loads or stalls, and the group waits for no one else (`settle`,
+`endWait`, `stalled`, `dropped`, `followOnlyPlayer` and the sync wait gone, `together_sync_wait_seconds`
+retired); a command of another device stands for the leader, which carries it out as its own press;
+the roster says who leads (`isLeader`) and how each player plays (`playback`: delivery, quality,
+link); the log says who leads at each change (`logEvent=leaderChanged`, `leaderDeviceId` on each
+`groupChanged`). The web client's player leads while its roster says so
+(`web/packages/sdk/src/together-leader.ts`, `together-follow.ts`), the only-player rule of an earlier commit
+gone (`aloneCorrection`); the Play page says how the film is delivered (`deliveryOf`,
+`film-player.tsx`), and the casting page shows the receiver's delivery, quality and link
+(`cast-remote.tsx`). Stages 2 (followers catch up; no start lead or run-up) and 3 (a follower's cast)
+to build. Revisits D88, D247, D250, D268, D282 and D364 as above.
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **Which of the host's devices leads**: the newest that plays as it attaches, and the one that puts
+  a film on as it does; as the leader leaves, the host's newest other player, or none. A guest's
+  device and a panel never lead.
+- **A group standing for its leader** (`Waiting`) is how "the group's position is the leader's" reads
+  while the leader loads, stalls or is paused by its browser (a hidden phone's page): the followers
+  hold where it stands, and the group plays from where the leader plays, at once, as it says it does.
+  A remote's play stands for the leader too, until it plays.
+- **The leader leaving a group that stood for it**: the group plays on from there for whoever plays
+  still (D364 §15's "leaving the film no longer stops it"); with no one playing, it stands.
+- **A leader joining a group under way far from it** (the host's player opened again on a film the
+  group played on without it) takes the group's place once, as a film starts from where it is
+  resumed; one that put the film on starts where it is.
+- **The leader's own seek is not snapped to a keyframe** (D285 §1): it is already where it went; a
+  remote's or a guest's still is.
+- **What the remote shows**: "Plays the file as it is" or "Plays it converted", the quality the
+  receiver began and the link its player estimated as it chose it (hls.js's or its own controller's
+  estimate at the switch), not a running measurement.
+
+**Proven by:**
+- 1: TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("is never nudged, skipped or sought", "plays the film it put on as soon as the group stands for it"), web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"); VQ101
+- 2: TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne, web/packages/sdk/src/together-leader.test.ts ("is nudged to the leader's place")
+- 3: TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves, TestHub_NoGuestNorPanelLeads
+- 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film"); VQ101; a follower's cast in stage 3
+- 5: web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"), TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut; VQ101
+- 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it")

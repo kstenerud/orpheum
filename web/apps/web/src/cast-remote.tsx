@@ -2,7 +2,7 @@
 
 import "./cast.css";
 
-import type { CastSending } from "@orpheum/sdk";
+import { leaderOf, type CastSending, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,7 @@ import { placeCode } from "./episode-place.ts";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
 import { positionPlayedHere } from "./playing-here.ts";
+import { rateText } from "./rate-text.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SessionRemote, usePositionNow } from "./session-remote.tsx";
 import { clockText } from "./timeline.tsx";
@@ -195,6 +196,9 @@ function RemoteOf(props: {
     <>
       <h2>{sent.titleName === "" ? t("cast.aFilm") : sent.titleName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
+      <ReceiverPlayback
+        playback={props.snapshot === undefined ? undefined : leaderOf(props.snapshot)?.playback}
+      />
       <SessionRemote
         snapshot={props.snapshot}
         connection={props.connection}
@@ -205,6 +209,36 @@ function RemoteOf(props: {
         {t("cast.playHereInstead")}
       </button>
     </>
+  );
+}
+
+/**
+ * How the receiver plays the film, as its state comes back to the remote (D371 §4): the file as it
+ * is or converted, the quality it plays and the link it chose it on. The owner: "The controller side
+ * should get information about playback, such as the transcoding and bandwidth choices". Nothing
+ * while the receiver has said nothing.
+ */
+function ReceiverPlayback(props: {
+  readonly playback: PlaybackReport | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { playback } = props;
+  if (playback === undefined) {
+    return null;
+  }
+  const { qualityKbps, linkKbps } = playback;
+  return (
+    <p className="cast-remote__playback">
+      {[
+        t(`cast.playback.${playback.delivery}`),
+        qualityKbps === undefined
+          ? undefined
+          : t("cast.playback.quality", { rate: rateText(qualityKbps) }),
+        linkKbps === undefined ? undefined : t("cast.playback.link", { rate: rateText(linkKbps) }),
+      ]
+        .filter((each) => each !== undefined)
+        .join(" · ")}
+    </p>
   );
 }
 

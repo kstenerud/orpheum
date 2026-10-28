@@ -118,9 +118,10 @@ const (
 	StatusNeedsTap DeviceStatus = "needsTap"
 	// StatusLoading is a player loading its first buffer of the film, not yet once ready.
 	StatusLoading DeviceStatus = "loading"
-	// StatusCatchingUp is a player the group plays on without until it is ready again (D247 §4).
+	// StatusCatchingUp is a follower waiting for data, which catches up to the leader once it has it;
+	// the group plays on without it (D371 §2).
 	StatusCatchingUp DeviceStatus = "catchingUp"
-	// StatusBuffering is a player waiting for data while the group waits for it.
+	// StatusBuffering is the leader waiting for data: the group stands where it is (D371 §1).
 	StatusBuffering DeviceStatus = "buffering"
 	// StatusSuspended is a player its device suspended, as when its person changes the time.
 	StatusSuspended DeviceStatus = "suspended"
@@ -237,7 +238,8 @@ type PlayerNote struct {
 	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
 	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
-	// Why is a seek's ("catchUp", "hold", "skip", "runUp") or a reconnection's ("closed", "silent").
+	// Why is a seek's ("catchUp", "hold", "skip", "runUp"; a leader's "join" or "command", D371 §1) or a
+	// reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
 	Track      string `json:"track,omitempty"`
@@ -351,7 +353,8 @@ const positionMsAttribute = "positionMs"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "skip", "runUp", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
+	case "", "catchUp", "hold", "skip", "runUp", "join", "command", "closed", "silent", "video", "audio", "direct",
+		"udp", "tcp", "tls":
 		return true
 	}
 	return false
@@ -574,13 +577,16 @@ type Inbound struct {
 	// ReadyOnMs and LoadsFaster, in a state, are how much film loaded ahead the player is ready on
 	// now, 3 s after a seek on a link that keeps up well, else 10 s (D283 §1), and how many times
 	// faster than it plays its last chunk of picture loaded: whether the shorter rule applied.
-	ReadyOnMs   int64         `json:"readyOnMs,omitempty"`
-	LoadsFaster float64       `json:"loadsFaster,omitempty"`
-	Command     CommandKind   `json:"command,omitempty"`
-	Rate        float64       `json:"rate,omitempty"`
-	FileID      int64         `json:"fileId,omitempty"`
-	BasedOnSeq  int64         `json:"basedOnSeq,omitempty"`
-	Reason      SuspendReason `json:"reason,omitempty"`
+	ReadyOnMs   int64   `json:"readyOnMs,omitempty"`
+	LoadsFaster float64 `json:"loadsFaster,omitempty"`
+	// Playback, in a state, is how the device's player plays the film (D371 §4); nil where it does
+	// not say.
+	Playback   *Playback     `json:"playback,omitempty"`
+	Command    CommandKind   `json:"command,omitempty"`
+	Rate       float64       `json:"rate,omitempty"`
+	FileID     int64         `json:"fileId,omitempty"`
+	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
+	Reason     SuspendReason `json:"reason,omitempty"`
 	// Note is a note's: one thing the device's player did, for the server's log.
 	Note *PlayerNote `json:"note,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
@@ -663,9 +669,6 @@ type Tuning struct {
 	// CatchUpBufferPercent is how full a player catching up aims to have its buffer when the group
 	// reaches it (D250 §4).
 	CatchUpBufferPercent int64 `json:"catchUpBufferPercent"`
-	// SyncWaitMs is how long a sync point waits for the players before playing without those not
-	// ready (D250 §3): the server's own, told so a client may say so.
-	SyncWaitMs int64 `json:"syncWaitMs"`
 	// StartLeadMs is how long after a sync point's wait ends every player starts playing: the
 	// server's own, as each group message's StartsInMs says what is left of it (D268 §3).
 	StartLeadMs int64 `json:"startLeadMs"`
@@ -689,8 +692,8 @@ type Tuning struct {
 	ShouldBrowserLevelMicrophone bool `json:"shouldBrowserLevelMicrophone"`
 }
 
-// GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every
-// playing device is ready.
+// GroupState is the group's play state (watch-together.md, Sync): Waiting is to play, standing where
+// its leader is until the leader plays (D371 §1).
 type GroupState string
 
 // The group states.
@@ -724,19 +727,21 @@ type EventKind string
 
 // The events.
 const (
-	EventPlayed        EventKind = "played"
-	EventPaused        EventKind = "paused"
-	EventSeeked        EventKind = "seeked"
-	EventChangedRate   EventKind = "changedRate"
-	EventChangedItem   EventKind = "changedItem"
-	EventStopped       EventKind = "stopped"
-	EventEveryoneReady EventKind = "everyoneReady"
-	// EventContinuedWithout is the group playing on while a member's player catches up alone: it
-	// never stops for one member (D250 §2).
-	EventContinuedWithout EventKind = "continuedWithout"
-	// EventWaitingFor is the group waiting for a member's player that stalled or dropped when no
-	// other player played along: playing on would play to no one (D250 §2's amendment of 2026-10-12).
+	EventPlayed      EventKind = "played"
+	EventPaused      EventKind = "paused"
+	EventSeeked      EventKind = "seeked"
+	EventChangedRate EventKind = "changedRate"
+	EventChangedItem EventKind = "changedItem"
+	EventStopped     EventKind = "stopped"
+	// EventLeaderPlays is the group playing from where its leader plays, the leader playing after
+	// the group stood for it: put on, played, sought or stalled (D371 §1).
+	EventLeaderPlays EventKind = "leaderPlays"
+	// EventWaitingFor is the group standing where its leader is, the leader stalled or paused by its
+	// browser: the group's position is the leader's (D371 §1).
 	EventWaitingFor EventKind = "waitingFor"
+	// EventLeaderLeft is the group playing on, from where it stood for its leader, for those who play
+	// still, its leader gone with no other of the host's players to lead (D371 §3, D364 §15).
+	EventLeaderLeft EventKind = "leaderLeft"
 )
 
 // Rights are what a guest may do to playback, each given or withheld by the host in their link
@@ -769,6 +774,12 @@ type DeviceView struct {
 	// Status is where a playing device stands with its group; empty for a voice device, and for
 	// one with nothing to wait on while the session plays nothing.
 	Status DeviceStatus `json:"status,omitempty"`
+	// IsLeader is whether the device leads the session: the screen that is the film, whose position
+	// is the group's (D371 §1).
+	IsLeader bool `json:"isLeader,omitempty"`
+	// Playback is how the device's player says it plays the film, which a cast's remote shows
+	// (D371 §4); nil until it says.
+	Playback *Playback `json:"playback,omitempty"`
 }
 
 // CannotKeepUp is a device whose link carries less than its lowest quality needs, with both

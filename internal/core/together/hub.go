@@ -96,9 +96,9 @@ type session struct {
 	// isCast is a cast's session of one (cast.go), which only the cast's own calls find.
 	isCast bool
 	group  group
-	// syncWait is how long a sync point waits for the players (D250 §3): the setting's, as the last
-	// device to attach brought it.
-	syncWait time.Duration
+	// leaderID is the device that leads the session, the screen that is the film (D371 §1): the
+	// host's device that plays, the newest attached or the one that put the film on; 0 while none.
+	leaderID int64
 	// startLead is how long after a sync point's wait ends the group starts moving (D268 §3): the
 	// setting's, as the last device to attach brought it; none until one has.
 	startLead time.Duration
@@ -135,8 +135,6 @@ type group struct {
 	// seekedFrom is where the last event, a seek, jumped from.
 	seekedFrom time.Duration
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
-	// waitUntil is when a group Waiting at a sync point stops waiting for players not yet ready.
-	waitUntil time.Time
 	// changedAt is when the change numbered seq was announced: a player's note that it followed that
 	// change says how long after it the player moved (NoteGroupFollowed).
 	changedAt time.Time
@@ -168,11 +166,9 @@ type device struct {
 	buffering  bool
 	suspended  SuspendReason
 	rttMs      int64
-	// hasBeenReady is whether it has once said it is ready to play along: until then the group
-	// does not wait for it, so one still waiting for its tap or loading holds no one up (D246 §6).
+	// hasBeenReady is whether it has once said it is ready to play: until then the roster shows it
+	// loading.
 	hasBeenReady bool
-	// isCatchingUp is whether the group plays on without it until it is ready again (D247 §4).
-	isCatchingUp bool
 	// knowsStartLag is whether its player has learned how late it starts, which it said in its last
 	// state: one that has not is given a run-up (D282).
 	knowsStartLag bool
@@ -184,25 +180,29 @@ type device struct {
 	playerChangedAt time.Time
 	// standing is what its page last said it waits on.
 	standing Standing
+	// playback is how its player last said it plays the film: delivered as it is or converted, at
+	// which quality, on what link (D371 §4); nil until it says.
+	playback *Playback
 	send     Sender
 }
 
-// takeState keeps what a device says of itself: a state report's buffering and round trip, the first
-// that is not buffering making it one the group waits for, and one catching up caught up; a
-// suspension, or its end. It returns whether the device stalled: it was ready and now buffers.
-func (each *device) takeState(message Inbound) (hasStalled bool) {
-	wasReady := each.hasBeenReady && each.isReady()
+// takeState keeps what a device says of itself: a state report's buffering, round trip and playback,
+// the first that is not buffering making it one that has been ready; a suspension, or its end.
+func (each *device) takeState(message Inbound) {
 	switch message.Type {
 	case MessageState:
 		each.buffering = message.Buffering
 		if !message.Buffering {
-			each.hasBeenReady, each.isCatchingUp = true, false
+			each.hasBeenReady = true
 		}
 		if message.RTTMs > 0 {
 			each.rttMs = message.RTTMs
 		}
 		each.cannotKeepUp = message.CannotKeepUp
 		each.knowsStartLag = message.StartLagMs != nil
+		if message.Playback != nil && message.Playback.isKnown() {
+			each.playback = message.Playback
+		}
 	case MessageSuspend:
 		each.suspended = message.Reason
 	case MessageResume:
@@ -211,11 +211,7 @@ func (each *device) takeState(message Inbound) (hasStalled bool) {
 		MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
-	return wasReady && each.buffering
 }
-
-// isReady is whether the device plays along: not buffering, not suspended.
-func (each *device) isReady() bool { return !each.buffering && each.suspended == "" }
 
 // Opened is the host's session: its id, and a membership credential the host's devices say hello
 // with.
@@ -251,7 +247,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
 		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
-		syncWait: StartingSyncWait, snapSeeksBeyond: StartingSnapSeeksBeyond, lastRights: everyRight(),
+		snapSeeksBeyond: StartingSnapSeeksBeyond, lastRights: everyRight(),
 		lastActiveAt: hub.clock.Now(),
 	}
 	hub.lastID++
@@ -359,7 +355,6 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	hosted.endLinksOf(ejected)
 	delete(hosted.members, memberID)
 	hosted.touch(hub.clock.Now())
-	hosted.settle(hub.clock.Now())
 	hosted.sendRoster()
 	return nil
 }
@@ -381,7 +376,6 @@ func (hub *Hub) Leave(credential string) error {
 	left.endLinksOf(leaving)
 	delete(left.members, leaving.id)
 	left.touch(hub.clock.Now())
-	left.settle(hub.clock.Now())
 	left.sendRoster()
 	return nil
 }
@@ -451,16 +445,17 @@ func (hub *Hub) Attach(
 		person := *signedIn
 		attachedMember.person = &person
 	}
-	if tuning.SyncWaitMs > 0 {
-		attached.syncWait = time.Duration(tuning.SyncWaitMs) * time.Millisecond
-	}
 	if tuning.SnapSeeksBeyondMs > 0 {
 		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
 	}
 	attached.startLead = time.Duration(tuning.StartLeadMs) * time.Millisecond
 	attached.runUp = time.Duration(tuning.RunUpMs) * time.Millisecond
 	hub.lastID++
-	attachedMember.devices[hub.lastID] = &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
+	attachedDevice := &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
+	attachedMember.devices[hub.lastID] = attachedDevice
+	if attachedMember.isHost && role.plays() {
+		attached.lead(attachedMember, attachedDevice, leadAttached) // the newest of the host's players leads
+	}
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
@@ -473,9 +468,9 @@ func (hub *Hub) Attach(
 	}, nil
 }
 
-// Detach removes a device whose connection ended. The group never stops for it (D250 §2): its
-// member stays, and it catches up alone once it is back. A sync point no longer waits for it. A
-// group it was the last player to play along with waits until a player is ready (dropped).
+// Detach removes a device whose connection ended. The group never stops for it (D371 §2): its
+// member stays, and it catches up once it is back. The leader leaving makes another of the host's
+// players the leader, or none (leaderLeft).
 func (hub *Hub) Detach(attachment Attachment) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -492,8 +487,9 @@ func (hub *Hub) Detach(attachment Attachment) {
 		return
 	}
 	delete(left.devices, attachment.DeviceID)
-	detached.dropped(hub.clock.Now(), left, gone)
-	detached.settle(hub.clock.Now())
+	if gone.id == detached.leaderID {
+		detached.leaderLeft(hub.clock.Now(), left)
+	}
 	detached.sendRoster()
 }
 
@@ -526,7 +522,6 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		return
 	}
 	now := hub.clock.Now()
-	defer handled.endWait(now) // a ready player reports each second while the group waits for others
 	switch message.Type {
 	case MessagePing:
 		// The pong says where the group is as it answers, so a follower can place the group by the
@@ -551,24 +546,21 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	}
 }
 
-// takeState takes what a device says of itself: a stall it tells of, the group settled on its
-// readiness, and everyone told. Its first word that even its lowest quality is beyond its link is
-// logged.
+// takeState takes what a device says of itself, and everyone is told: the leader's state places the
+// group (followLeader), and no one else's moves it, a follower's trouble its own to catch up on
+// (D371 §2). Its first word that even its lowest quality is beyond its link is logged.
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
 	current.logPlayer(ctx, now, who, from, message)
-	if message.Type == MessageState && (from.playsAlong() || from.isCatchingUp) {
-		current.followOnlyPlayer(ctx, now, who, from, message)
-	}
-	if from.takeState(message) {
-		current.stalled(now, who, from)
+	from.takeState(message)
+	if message.Type == MessageState && from.id == current.leaderID {
+		current.followLeader(ctx, now, who, from, message)
 	}
 	if couldKeepUp && from.cannotKeepUp != nil {
 		current.logger.InfoContext(ctx, "watch together: a device cannot keep up even at its lowest quality",
 			append(current.deviceAttributes(who, from),
 				"linkKbps", from.cannotKeepUp.LinkKbps, "lowestKbps", from.cannotKeepUp.LowestKbps)...)
 	}
-	current.settle(now)
 	current.sendRosterIfChanged()
 }
 
@@ -591,10 +583,12 @@ func (current *session) roster() []MemberView {
 	for _, each := range current.members {
 		view := MemberView{ID: each.id, Name: each.name, IsHost: each.isHost, Devices: []DeviceView{}}
 		for _, attached := range each.devices {
+			isLeader := attached.id == current.leaderID
 			view.Devices = append(view.Devices, DeviceView{
 				ID: attached.id, Role: attached.role, IsBuffering: attached.buffering,
 				Suspended: attached.suspended, RTTMs: attached.rttMs, CannotKeepUp: attached.cannotKeepUp,
-				Status: attached.status(current.group.fileID != 0),
+				Status: attached.status(current.group.fileID != 0, isLeader), IsLeader: isLeader,
+				Playback: attached.playback,
 			})
 		}
 		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })

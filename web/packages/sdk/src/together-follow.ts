@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { GroupView, SyncTuning } from "./together.ts";
+import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   groupStartsAtMs,
-  isOnlyPlayer,
+  isLeaderOf,
   type GroupCommand,
   type PlayerState,
   type TogetherConnection,
 } from "./together-connection.ts";
 import {
-  aloneCorrection,
   driftCorrection,
   learnedLossMs,
   nudgeForMs,
@@ -20,8 +19,8 @@ import {
 import {
   catchUpSeekEvent,
   chunkLoadedOf,
-  groupJumpedEvent,
   fellBehindEvent,
+  GroupJumpsTold,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -30,6 +29,7 @@ import {
   noteSoundMoved,
   type ChunkLoaded,
 } from "./together-player-events.ts";
+import { GroupLeader, PlaybackTold } from "./together-leader.ts";
 import {
   commandOfEvent,
   mayLead,
@@ -47,10 +47,9 @@ import {
 } from "./together-phase.ts";
 import {
   haveFutureData,
+  holdSeekMs,
   isInStep,
-  isOnLoaded,
   loadedFromMs,
-  playableAt,
   positionMsOf,
   type FollowedMedia,
 } from "./together-media.ts";
@@ -103,8 +102,8 @@ class GroupFollower {
   readonly #followed: FollowedChanges;
   /** Where it is in correcting its drift. */
   #phase: CorrectionPhase = startingPhase;
-  /** The group's last jump it told its player of, as "<from>-<to>" ms; undefined before one. */
-  #toldJump: string | undefined = undefined;
+  /** The group's jumps it told its player of. */
+  readonly #jumps = new GroupJumpsTold();
   /** Where its own last seek went, in ms; undefined before it made one. */
   #soughtToMs: number | undefined = undefined;
   /** What it tells its player to load while its group waits or another is behind (D283 §2, D285 §2). */
@@ -157,6 +156,10 @@ class GroupFollower {
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
   /** The command pendingCommand will send, while one waits. */
   #pendingKind: GroupCommand["command"] | undefined = undefined;
+  /** What it carries out of its group's changes while it leads (D371 §1). */
+  readonly #leader: GroupLeader;
+  /** How it plays its film, for a cast's remote (D371 §4). */
+  readonly #playback: PlaybackTold;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -165,15 +168,32 @@ class GroupFollower {
     this.#start = new StartLearner(options.startLag ?? memoryOfTheSession());
     this.#loading = new GroupLoading(media, connection);
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
+    this.#leader = new GroupLeader({
+      media,
+      connection,
+      ownMoves: this.#ownMoves,
+      monotonicMs: options.monotonicMs,
+      play: () => {
+        this.#startPlaying();
+      },
+    });
+    this.#playback = new PlaybackTold(options.delivery);
   }
 
-  /** The player's state as the group is told it. */
+  /** Whether this device leads its session, as its roster says (D371 §1). */
+  #isLeading(): boolean {
+    return isLeaderOf(this.#connection.snapshot());
+  }
+
+  /** The player's state as the group is told it: a leader buffers only while it cannot play on. */
   readonly playerState = (): PlayerState => {
-    const isBuffering = this.#isBuffering();
-    this.#noteBuffering(isBuffering);
+    const isLeading = this.#isLeading();
+    const isBuffering = isLeading ? this.#leader.isLoading() : this.#isBuffering();
+    this.#noteBuffering(isBuffering, isLeading);
     this.#wasReportedBuffering = isBuffering;
     const startLagMs = this.#start.lagMs();
     const loadsFaster = this.#refill.loadsFaster();
+    const playback = this.#playback.report();
     return {
       positionMs: positionMsOf(this.#media),
       isPlaying: !this.#media.paused,
@@ -181,21 +201,22 @@ class GroupFollower {
       readyOnMs: this.#refill.readyOnMs(),
       ...(startLagMs === undefined ? {} : { startLagMs }),
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
+      ...(playback === undefined ? {} : { playback }),
     };
   };
 
-  /** Notes what holds its group up, when HoldingNotes says to (bufferingNote). */
-  #noteBuffering(isBuffering: boolean): void {
-    const why = isBuffering
-      ? bufferingCauseOf(this.#media, this.#hasCaughtUp, this.#refill)
-      : undefined;
-    if (!this.#holding.isToNote(why, this.#connection.snapshot()) || why === undefined) {
-      return;
+  /** Notes what holds it, or its group, up, when HoldingNotes says to (bufferingNote). */
+  #noteBuffering(isBuffering: boolean, isLeading: boolean): void {
+    const cause = isLeading
+      ? this.#leader.loadingCause()
+      : bufferingCauseOf(this.#media, this.#hasCaughtUp, this.#refill);
+    const why = isBuffering ? cause : undefined;
+    if (this.#holding.isToNote(why, this.#connection.snapshot()) && why !== undefined) {
+      const changedAtMs = this.#rateChangedAtMs;
+      const sinceMs =
+        changedAtMs === undefined ? undefined : this.#options.monotonicMs() - changedAtMs;
+      this.#connection.note(bufferingNote(this.#media, why, sinceMs));
     }
-    const changedAtMs = this.#rateChangedAtMs;
-    const sinceMs =
-      changedAtMs === undefined ? undefined : this.#options.monotonicMs() - changedAtMs;
-    this.#connection.note(bufferingNote(this.#media, why, sinceMs));
   }
 
   /** The connection changed: a command this player sent is answered once an answer was heard since. */
@@ -214,12 +235,22 @@ class GroupFollower {
     this.#answersHeardAtCommand = this.#connection.snapshot().answersHeard;
   }
 
-  /** Puts the player where the group is now, when the group plays its film; not while held (heldByOf). */
+  /**
+   * Puts the player where the group is now, when the group plays its film; not while held (heldByOf).
+   * A leader is put nowhere: it carries out what another device asked, and loads as it would alone.
+   */
   readonly apply = (): void => {
     const where = this.#whereNow();
     const heldBy = heldByOf(this.#isAwaitingGroup, this.#options.page, this.#media);
     const nowMs = this.#options.monotonicMs();
     if (where === undefined || !this.#followed.mayFollow(heldBy, nowMs, this.#connection)) {
+      return;
+    }
+    if (this.#isLeading()) {
+      this.#hasCaughtUp = true; // its person's moves are the group's from the first
+      this.#loading.stop();
+      this.#leader.lead(where, this.#connection.snapshot().groupSeq);
+      this.#jumps.tell(this.#media, where.group);
       return;
     }
     if (where.group.state === "Playing") {
@@ -230,20 +261,8 @@ class GroupFollower {
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
     this.#loading.follow(where.group.state, !this.#isBuffering());
-    this.#tellJump(where.group);
+    this.#jumps.tell(this.#media, where.group);
   };
-
-  /** Tells its player each jump of its group, once (groupJumpedEvent, D286 §3). */
-  #tellJump(group: GroupView): void {
-    const jump =
-      group.event === "seeked"
-        ? `${String(group.seekedFromMs)}-${String(group.positionMs)}`
-        : undefined;
-    if (jump !== undefined && jump !== this.#toldJump) {
-      this.#toldJump = jump;
-      this.#media.dispatchEvent(new Event(groupJumpedEvent));
-    }
-  }
 
   /** Follows a playing group: waiting ahead of it, held until it starts, or playing along. */
   #followPlaying(where: GroupNow): void {
@@ -314,7 +333,8 @@ class GroupFollower {
         ? commandOfEvent(event, this.#media, where)
         : undefined;
     if (command === undefined || !mayLead(command, this.#options.leads)) {
-      notePlayedWhileHeld({ connection: this.#connection, event, media: this.#media, where });
+      const held = { connection: this.#connection, media: this.#media, where };
+      notePlayedWhileHeld({ ...held, event, isLeading: this.#isLeading() });
       this.apply();
     } else {
       this.#lead(command);
@@ -387,6 +407,13 @@ class GroupFollower {
     this.#noteLoading("progress");
     this.#loadSpeed.sample(this.#media, this.#options.monotonicMs());
     if (this.#pendingCommand === undefined && this.#isBuffering() !== this.#wasReportedBuffering) {
+      this.#connection.reportState();
+    }
+  };
+
+  /** Its player began another quality: told the session with its state, for a cast's remote. */
+  readonly qualitySwitched = (event: Event): void => {
+    if (this.#playback.heard(event)) {
       this.#connection.reportState();
     }
   };
@@ -577,16 +604,14 @@ class GroupFollower {
       return;
     }
     const isNudging = media.playbackRate !== where.group.rate;
-    const correction = this.#alone(
-      driftCorrection(
-        {
-          expectedMs: where.expectedMs,
-          actualMs: positionMsOf(media),
-          groupRate: where.group.rate,
-        },
-        where.tuning,
-        isNudging ? this.#returnCost.costMs : 0,
-      ),
+    const correction = driftCorrection(
+      {
+        expectedMs: where.expectedMs,
+        actualMs: positionMsOf(media),
+        groupRate: where.group.rate,
+      },
+      where.tuning,
+      isNudging ? this.#returnCost.costMs : 0,
     );
     // Safari's position stands still up to 250 ms after a change (D250 §7): no nudge on that, but a
     // drift to seek across is far beyond what a still position makes, and is sought across at once.
@@ -614,29 +639,20 @@ class GroupFollower {
     }
   }
 
-  /** The correction for this player, as it is its group's only player or not (aloneCorrection). */
-  #alone<Correction extends { readonly kind: string }>(
-    correction: Correction,
-  ): Correction | { readonly kind: "none" } {
-    return aloneCorrection(correction, isOnlyPlayer(this.#connection.snapshot()));
-  }
-
   /**
    * Corrects a playing player's drift, behindMs, by seeks alone: skipped across past the group by
    * what its skips have learned to lose, or sought across to catch up (D268 §2). Its rate is the
    * group's, a nudge under way when it began correcting so ending.
    */
   #correctBySeeks(where: GroupNow, behindMs: number): void {
-    const correction = this.#alone(
-      seekOnlyCorrection(
-        {
-          expectedMs: where.expectedMs,
-          actualMs: positionMsOf(this.#media),
-          groupRate: where.group.rate,
-        },
-        where.tuning,
-        this.#seekLoss.costMs,
-      ),
+    const correction = seekOnlyCorrection(
+      {
+        expectedMs: where.expectedMs,
+        actualMs: positionMsOf(this.#media),
+        groupRate: where.group.rate,
+      },
+      where.tuning,
+      this.#seekLoss.costMs,
     );
     if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
       return;
@@ -701,36 +717,11 @@ class GroupFollower {
       this.#ownMoves.mark("pause", this.#options.monotonicMs());
       media.pause();
     }
-    // While its own seek still loads, the browser's player moves it a little as it loads (hls.js
-    // steps over a gap at the start of what it loaded): a seek for that would start the load again,
-    // and again, and the player never loads at all (the owner's test, 2026-10-05, on a slow link).
-    const holdAtMs = playableAt(media, where.expectedMs, where.tuning);
-    const awayMs = Math.abs(positionMsOf(media) - holdAtMs);
-    const isLoadingOwnSeek = this.#seekStartedAtMs !== undefined;
-    // A player held just before the first frame it loaded, by however little, is moved onto it: a
-    // paused player never steps over the gap, and one not on what it loaded is never ready. Both
-    // players held at 0 with 0.04 s to 60 s loaded, a gap under the drift left alone, and held the
-    // group up for good (staging, 2026-10-06).
-    const isBeforeWhatItLoaded =
-      !isLoadingOwnSeek && holdAtMs > where.expectedMs && !isOnLoaded(media);
-    const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
-    const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
-    if ((isAway || isBeforeWhatItLoaded) && this.#maySeekTo(holdAtMs, seekDriftBeyondMs)) {
-      this.#seek(holdAtMs, "hold");
+    const ownSeek = { isLoading: this.#seekStartedAtMs !== undefined, toMs: this.#soughtToMs };
+    const toMs = holdSeekMs(media, where, ownSeek);
+    if (toMs !== undefined) {
+      this.#seek(toMs, "hold");
     }
-  }
-
-  /**
-   * Whether it may seek to toMs now: not while it still loads a seek, unless that seek went more than
-   * farMs from toMs. A group sought again while this player still loads where it went before is
-   * followed at once: an iPhone loading a chunk not yet made went on waiting for it, 3.5 to 9 s,
-   * before it asked for the new place (the owner's jumps, 2026-10-12).
-   */
-  #maySeekTo(toMs: number, farMs: number): boolean {
-    return (
-      !this.#media.seeking ||
-      (this.#soughtToMs !== undefined && Math.abs(toMs - this.#soughtToMs) > farMs)
-    );
   }
 }
 
@@ -738,10 +729,12 @@ class GroupFollower {
  * Makes media follow the group while it plays options.fileId (watch-together.md, Sync): paused at
  * the group's position while it is Paused, Waiting or Idle; playing while it is Playing, its drift
  * nudged away by the rate or sought across. It tells the group its state on every change, and
- * counts as buffering until it has once been where the group is, so a player still loading holds
- * no one up (D246 §6), and after a stall or a seek until it has refillAheadMs loaded. A leading
- * player's own play, pause and seek become commands; the follower's own do not. Returns the
- * stopping.
+ * counts as buffering until it has once been where the group is, and after a stall or a seek until
+ * it has refillAheadMs loaded. While its roster says this device leads the session, it moves media
+ * by none of that: the leader plays as a device plays a film alone, carrying out once each change
+ * another device made, and the group follows it (D371 §1, GroupLeader). A player's person's own
+ * play, pause and seek become commands, as their rights allow; the follower's own do not. Returns
+ * the stopping.
  */
 export function followGroup(
   media: FollowedMedia,
@@ -773,7 +766,13 @@ export function followGroup(
         }
       },
     ] as const,
-    [playerSwitchedQualityEvent, noteQualitySwitched(connection)] as const,
+    [
+      playerSwitchedQualityEvent,
+      (event: Event) => {
+        noteQualitySwitched(connection)(event);
+        follower.qualitySwitched(event);
+      },
+    ] as const,
     [playerMovedSoundEvent, noteSoundMoved(connection)] as const,
   ];
   for (const [event, listener] of listeners) {

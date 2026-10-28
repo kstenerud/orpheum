@@ -5,8 +5,10 @@ package together
 import "context"
 
 // status is where the device stands with its group (DeviceStatus), isPlaying whether the session
-// plays a film: what its page waits on first, then its player's state.
-func (each *device) status(isPlaying bool) DeviceStatus {
+// plays a film and isLeader whether the device leads it: what its page waits on first, then its
+// player's state. A follower that buffers catches up; the leader that does is the group's buffering
+// (D371 §1, §2).
+func (each *device) status(isPlaying, isLeader bool) DeviceStatus {
 	switch {
 	case !each.role.plays():
 		return ""
@@ -16,12 +18,12 @@ func (each *device) status(isPlaying bool) DeviceStatus {
 		return ""
 	case !each.hasBeenReady:
 		return StatusLoading
-	case each.isCatchingUp:
-		return StatusCatchingUp
 	case each.suspended != "":
 		return StatusSuspended
-	case each.buffering:
+	case each.buffering && isLeader:
 		return StatusBuffering
+	case each.buffering:
+		return StatusCatchingUp
 	}
 	return StatusWatching
 }

@@ -119,6 +119,47 @@ describe("the casting page (D364 §8, §13)", () => {
     });
   });
 
+  it("shows how the receiver plays the film, as its state comes back: delivery, quality and link (D371 §4)", async () => {
+    const { sockets } = await casting({});
+    const page = mounted!.container;
+    expect(page.querySelector(".cast-remote__playback")).toBeNull();
+    const receiver = { id: 7, role: "video", isLeader: true, status: "watching" };
+    await sockets.session.say({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [
+            { id: 5, role: "panel" },
+            {
+              ...receiver,
+              playback: { delivery: "converted", qualityKbps: 4200, linkKbps: 18_000 },
+            },
+          ],
+        },
+      ],
+    });
+    expect(page.querySelector(".cast-remote__playback")?.textContent).toBe(
+      "Plays it converted · Quality 4.2 Mb/s · Link about 18.0 Mb/s",
+    );
+    await sockets.session.say({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [{ ...receiver, playback: { delivery: "direct" } }],
+        },
+      ],
+    });
+    expect(page.querySelector(".cast-remote__playback")?.textContent).toBe(
+      "Plays the file as it is",
+    );
+  });
+
   it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {
     await casting({}, [], { ...sending, fileId: 0, titleName: "" });
     const page = mounted!.container;

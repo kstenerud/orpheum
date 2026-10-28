@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: MPL-2.0
+
+/**
+ * A session's leader, the screen that is the film (D371 §1): it plays as a device plays a film alone,
+ * starting when it is ready and buffering as it needs, never held, sought to the group's place, run
+ * up or nudged, and the group's position is its own, which the server reads from its state. What
+ * another device asks of the group, a cast's remote or a guest given the right, it carries out once,
+ * as its own press (D371 §4). Kept apart from the follower (together-follow.ts), which leads by it
+ * while its session's roster says this device leads. Every cast to a Fire TV of 2026-10-28 that went
+ * wrong was a move of the group's made on its one screen: a nudge, a hold's seek back, a run-up's
+ * jump, a start's play, pause and play (D371).
+ */
+
+import type { GroupView, PlaybackReport, SyncTuning } from "./together.ts";
+import type { TogetherConnection } from "./together-connection.ts";
+import type { GroupNow } from "./together-lead.ts";
+import { haveFutureData, positionMsOf, type FollowedMedia } from "./together-media.ts";
+import type { BufferingCause } from "./together-notes.ts";
+import type { OwnMoves } from "./together-own-moves.ts";
+import { qualitySwitchedOf, type QualitySwitched } from "./together-player-events.ts";
+
+/** What a leader moves its player by, as its follower holds them. */
+export interface LeaderParts {
+  readonly media: FollowedMedia;
+  readonly connection: Pick<TogetherConnection, "note">;
+  /** The follower's marks on its own moves, so its carrying out is never taken for a person's. */
+  readonly ownMoves: Pick<OwnMoves, "mark">;
+  readonly monotonicMs: () => number;
+  /** Plays the player, muted if the browser will not play it with sound. */
+  readonly play: () => void;
+}
+
+/** A leading player: what of its group's changes it carries out, and whether it loads. */
+export class GroupLeader {
+  readonly #parts: LeaderParts;
+  /** The change of its group it last carried out, or found as it began to lead; undefined before. */
+  #carriedOutSeq: number | undefined = undefined;
+  /** Whether it has found its group yet, as it began to lead. */
+  #hasJoined = false;
+
+  constructor(parts: LeaderParts) {
+    this.#parts = parts;
+  }
+
+  /**
+   * Leads where its group is, at the group's change seq: the first time, it takes the group's place
+   * as it joins it, should it be far from it, and plays or pauses as the group does; then each change
+   * once, carried out as its own press, a seek to where it was asked, a pause, a play. It moves for
+   * nothing else, so its own stall, its own seek and its own start move the group, never it.
+   */
+  lead(where: GroupNow, seq: number | undefined): void {
+    if (this.#hasJoined && seq === this.#carriedOutSeq) {
+      return;
+    }
+    if (this.#hasJoined) {
+      this.#seekAsAsked(where.group, where.tuning);
+    } else {
+      this.#joinAt(where);
+    }
+    this.#hasJoined = true;
+    this.#carriedOutSeq = seq;
+    this.#playOrPauseAs(where.group);
+  }
+
+  /** Whether its player cannot play on now: loading or seeking, which holds its group where it is. */
+  isLoading(): boolean {
+    const { media } = this.#parts;
+    return media.readyState < haveFutureData || media.seeking;
+  }
+
+  /** Why it cannot play on now, while it cannot (isLoading). */
+  loadingCause(): BufferingCause {
+    return this.#parts.media.seeking ? "seeking" : "notReady";
+  }
+
+  /**
+   * Takes the group's place as it joins a group already under way, should it be beyond the seek
+   * threshold from it, as a film starts from where it is resumed: a host's player opened again on a
+   * film the group played on without it, from where it was left (D364 §15). A group standing for its
+   * leader is this player's own film put on, or one it is to start, and is joined where it is.
+   */
+  #joinAt(where: GroupNow): void {
+    const { state } = where.group;
+    const isUnderWay = state === "Playing" || state === "Paused";
+    if (
+      isUnderWay &&
+      Math.abs(where.expectedMs - positionMsOf(this.#parts.media)) > where.tuning.seekDriftBeyondMs
+    ) {
+      this.#seek(where.expectedMs, "join");
+    }
+  }
+
+  /** Seeks where another device's seek asked, as its own press, unless it is there already. */
+  #seekAsAsked(group: GroupView, tuning: SyncTuning): void {
+    const isFar =
+      Math.abs(group.positionMs - positionMsOf(this.#parts.media)) > tuning.leaveDriftUpToMs;
+    if (group.event === "seeked" && isFar) {
+      this.#seek(group.positionMs, "command");
+    }
+  }
+
+  /** Pauses as a paused group asks, and plays as a group to play asks, unless it does already. */
+  #playOrPauseAs(group: GroupView): void {
+    const { media, ownMoves, monotonicMs, play } = this.#parts;
+    if (media.playbackRate !== group.rate) {
+      media.playbackRate = group.rate;
+    }
+    if (group.state === "Paused" && !media.paused) {
+      ownMoves.mark("pause", monotonicMs());
+      media.pause();
+    } else if (
+      (group.state === "Playing" || group.state === "Waiting") &&
+      media.paused &&
+      !media.ended
+    ) {
+      play();
+    }
+  }
+
+  #seek(toMs: number, why: "join" | "command"): void {
+    const { media, connection, ownMoves, monotonicMs } = this.#parts;
+    connection.note({ kind: "sought", positionMs: positionMsOf(media), toMs, why });
+    ownMoves.mark("seek", monotonicMs());
+    media.currentTime = Math.max(0, toMs) / 1000;
+  }
+}
+
+/**
+ * How a player plays its film, as it tells its session for a cast's remote to show (D371 §4): the
+ * delivery it was given, and the quality it plays and the link it estimated as it chose it, from
+ * its player's word of each quality it begins (playerSwitchedQualityEvent).
+ */
+export class PlaybackTold {
+  readonly #delivery: PlaybackReport["delivery"] | undefined;
+  #quality: QualitySwitched | undefined = undefined;
+
+  constructor(delivery: PlaybackReport["delivery"] | undefined) {
+    this.#delivery = delivery;
+  }
+
+  /** Keeps the quality a playerSwitchedQualityEvent says its player began; whether it said one. */
+  heard(event: Event): boolean {
+    const switched = qualitySwitchedOf(event);
+    this.#quality = switched ?? this.#quality;
+    return switched !== undefined;
+  }
+
+  /** How the player plays its film, or undefined where it was given no delivery to say. */
+  report(): PlaybackReport | undefined {
+    const quality = this.#quality;
+    return this.#delivery === undefined
+      ? undefined
+      : {
+          delivery: this.#delivery,
+          ...(quality === undefined ? {} : { qualityKbps: quality.qualityKbps }),
+          ...(quality?.linkEstimateKbps === undefined
+            ? {}
+            : { linkKbps: quality.linkEstimateKbps }),
+        };
+  }
+}
