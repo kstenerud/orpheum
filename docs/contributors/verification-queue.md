@@ -971,3 +971,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   from. Before the fix both showed no finished chunk in `linkSamples` and `linkKbps=0` in every
   report (staging logs, 2026-10-27 and 28). (`web/packages/player/src/cache-hit.ts`, `chunked.ts`,
   `hls.ts`; `internal/core/together/player_log.go`)
+- [ ] **VQ95** — a cast to the Fire TV starts with no stall when its sound is moved for Web Audio's
+  latency, on staging. Passes when, the Mac casting to the Fire TV (Silk) a converted film (a
+  ladder) with levelling on, three times from its start and once from its middle: (1) the picture
+  and sound start and play on with no wait, and no `playerBuffering` line in the core's log for the
+  cast's session in its first 20 s; (2) within the first ten seconds or so the sound skips once,
+  about 0.3 s, into step with the lips, and plays in step after; (3) a stall's or seek's report
+  that carries an `audio flushed from` step names a time about 8 s past where the video was, never
+  `0.00`. Before the fix every start waited about 2.5 s while hls.js loaded 18 s of sound again
+  (staging, 2026-10-28). (`web/packages/player/src/audio-shift.ts`, `gain.ts`, `diagnosis.ts`)

@@ -71,6 +71,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   the element's life, with every channel kept. And where a page cannot set the volume, as on iOS,
   no gain is applied, since there Web Audio follows the silent switch (D226 §4): `gainAfterVolume`
   checks the element itself. `gain.test.ts`.
+- **A change of a chunked playback's sound move never throws away the sound near the playhead**:
+  the next `soundKeptAtShiftS` ahead of it are kept and play at the old move, only what lies beyond
+  is thrown away and loaded again at the new one, so the sound skips once into place and never runs
+  dry (the owner, 2026-10-28: option 2; idiosyncrasies.md, the TCL TV's entry). Each buffer thrown
+  away is a diagnosis step. `audio-shift.test.ts`, `diagnosis.test.ts`.
 
 ## Read before changing
 
