@@ -29,11 +29,16 @@ import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
-import { goneAddress, signedOutAddress, switchAddress } from "./loader-households.ts";
+import {
+  goneAddress,
+  keyRefusedAddress,
+  signedOutAddress,
+  switchAddress,
+} from "./loader-households.ts";
 import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { readMembership } from "./together-storage.ts";
+import { forgetMembership, readMembership } from "./together-storage.ts";
 import { browserStorage } from "./browser-storage.ts";
 
 /** Where this origin keeps the core it is bound to: its fingerprint and realm, once reached. */
@@ -139,6 +144,43 @@ export function leaveWhenSignedOut(
   });
 }
 
+/**
+ * What a client origin does once its core refused the key this device remembered for it, as once
+ * the device was removed there: forgets what the offers were proven by, the session, else the Watch
+ * Together membership, as heldWith chose them, so it is offered no more; and, for a core reached
+ * through a realm, goes by go to the discovery's sign-in, which says the device needs to sign in
+ * again. A core reached by a link alone stays, saying so, its person needing a new link. Left as it
+ * was, the page told the owner's Fire TV to change networks (2026-10-28).
+ */
+export function forgetRefusedKey(
+  held: { readonly session: Session; readonly forgetMembership: () => void },
+  to: {
+    readonly core: KeptCore;
+    readonly loaderOrigin: string;
+    readonly go: (address: string) => void;
+  },
+): void {
+  const { session } = held;
+  if (session.token() !== undefined && session.locator() !== undefined) {
+    session.signOut();
+  } else {
+    held.forgetMembership();
+  }
+  if (to.core.realm !== undefined) {
+    to.go(keyRefusedAddress(to.loaderOrigin, to.core.coreId));
+  }
+}
+
+/** What this client origin may hold its core's offers by, for forgetRefusedKey to forget. */
+function heldAt(at: AtClientOrigin): Parameters<typeof forgetRefusedKey>[0] {
+  return {
+    session: createSession(at.storage, corePrefix(at.coreId)),
+    forgetMembership: () => {
+      forgetMembership(browserStorage(), "viewer");
+    },
+  };
+}
+
 /** The loader's interface over a kept path, for the client to take. */
 function loaderOver(
   at: AtClientOrigin,
@@ -209,6 +251,9 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
       heldWith(core, sessionOfCore(), readMembership(browserStorage(), "viewer")),
     forgetCore: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
+    },
+    onKeyRefused: (core) => {
+      forgetRefusedKey(heldAt(at), { core, loaderOrigin: at.loaderOrigin, go: goBy });
     },
     onGone: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);

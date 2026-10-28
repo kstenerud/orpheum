@@ -243,10 +243,41 @@ export class CoreOffline extends Error {
 
 /** Whether problem, or any cause or alternative behind it, is a core its discovery cannot reach. */
 export function isCoreOffline(problem: unknown): boolean {
+  return isAnywhereIn(problem, (each) => each instanceof CoreOffline);
+}
+
+/**
+ * The reason a core gives an offer whose proof does not hold under the key it keeps for the offer's
+ * hash (internal/core/discovery's answerOffer), at the end of the refusal its discovery passes on,
+ * which discovery/single's ErrRefused heads: "the core refused the offer: the offer's proof does not
+ * hold".
+ */
+export const proofRefusal = "the offer's proof does not hold";
+
+/**
+ * A core that refused the key this device's offer was proven by: it keeps none for the offer's hash
+ * any more, as once the device was removed, its locator with it, or keeps another. The device was
+ * reached, and its network is not to blame: what it holds for the core is spent, and its person signs
+ * in again (the owner's Fire TV, 2026-10-28, told to change networks after its device was removed).
+ */
+export class KeyRefused extends Error {
+  constructor(readonly refusal: string) {
+    super(`the server refused the key this device proved its offer by: ${refusal}`);
+    this.name = "KeyRefused";
+  }
+}
+
+/** Whether problem, or any cause or alternative behind it, is a core refusing this device's key. */
+export function isKeyRefused(problem: unknown): boolean {
+  return isAnywhereIn(problem, (each) => each instanceof KeyRefused);
+}
+
+/** Whether is holds of problem, or of any cause or alternative behind it. */
+function isAnywhereIn(problem: unknown, is: (each: unknown) => boolean): boolean {
   const seen: unknown[] = [problem];
   for (let index = 0; index < seen.length && index < 32; index += 1) {
     const each = seen[index];
-    if (each instanceof CoreOffline) {
+    if (is(each)) {
       return true;
     }
     if (each instanceof AggregateError) {
@@ -336,6 +367,9 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
     const answered = firstAnswer(await response.json());
     if (answered === coreNotConnectedRefusal) {
       throw new CoreOffline();
+    }
+    if (typeof answered === "string" && answered.endsWith(proofRefusal)) {
+      throw new KeyRefused(answered);
     }
     if (typeof answered === "string") {
       throw new Error(`the server refused the offer: ${answered}`);

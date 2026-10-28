@@ -261,6 +261,36 @@ export function signedOutAddress(loaderOrigin: string, coreId: string): string {
 }
 
 /**
+ * The query parameter beside signedOutParameter that says why: the core refused the key this device
+ * remembered for it, so the realm sign-in says the device needs to sign in again.
+ */
+export const keyRefusedParameter = "keyrefused";
+
+/**
+ * The address of the loader's page at loaderOrigin, telling it the household of coreId was signed
+ * out of because its core refused the key this device remembered for it, as once the device was
+ * removed there (the owner's Fire TV, 2026-10-28): signed out of, and the sign-in says so.
+ */
+export function keyRefusedAddress(loaderOrigin: string, coreId: string): string {
+  const query = new URLSearchParams({ [signedOutParameter]: coreId, [keyRefusedParameter]: "" });
+  return `${loaderOrigin}/?${query.toString()}`;
+}
+
+/**
+ * The core a request for the loader's page says refused this device's key, taken only from that
+ * core's own client origin, as signedOutFrom takes one signed out of.
+ */
+export function keyRefusedFrom(
+  search: string,
+  referrer: string,
+  clientOriginOf: (coreId: string) => string | undefined,
+): string | undefined {
+  return new URLSearchParams(search).has(keyRefusedParameter)
+    ? signedOutFrom(search, referrer, clientOriginOf)
+    : undefined;
+}
+
+/**
  * The core a request for the loader's page says was signed out of, taken only from that core's own
  * client origin, as goneFrom takes one gone.
  */

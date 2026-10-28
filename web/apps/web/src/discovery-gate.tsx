@@ -2,8 +2,11 @@
 
 import {
   isCoreOffline,
+  isKeyRefused,
   isTurnedAway,
+  KeyRefused,
   NotFound,
+  proofRefusal,
   reportDeadEnd,
   type DiscoveryClient,
   type Held,
@@ -58,6 +61,13 @@ export interface GateParts {
   /** Forgets the core this device reached, which no longer leads anywhere. */
   readonly forgetCore: () => void;
   /**
+   * Told the remembered core refused the key this device proved its offers by, as once the device
+   * was removed there: forgets what the device held with core, and, at a client origin, for a core
+   * reached through a realm, goes to the discovery's sign-in, which says why (the owner's Fire TV,
+   * 2026-10-28, told to change networks). Absent, the page says the device needs to sign in again.
+   */
+  readonly onKeyRefused?: (core: KeptCore) => void;
+  /**
    * Where the page goes when the core this device remembers is found no more, with no link to say
    * so to: at a client origin, back to the loader's list, which forgets the household and offers the
    * realm sign-in (the owner's staging, 2026-10-19, wiped and set up afresh, stuck on "This link no
@@ -109,12 +119,14 @@ type Phase =
   | "deadEnd"
   | "turnedAway"
   | "offline"
+  | "keyRefused"
   | "realm"
   | "realmWrong"
   | "realmUnreached"
   | "realmTurnedAway"
   | "realmOffline"
-  | "realmAgain";
+  | "realmAgain"
+  | "realmKeyRefused";
 
 /** What the realm sign-in says above its button, by the phase it shows in. */
 const realmProblems: Partial<Record<Phase, RealmProblem>> = {
@@ -123,7 +135,19 @@ const realmProblems: Partial<Record<Phase, RealmProblem>> = {
   realmTurnedAway: "turnedAway",
   realmOffline: "offline",
   realmAgain: "again",
+  realmKeyRefused: "keyRefused",
 };
+
+/**
+ * The phases that offer what happened to copy and send (K16): the core found but not reached, or
+ * reached and refusing the device's key.
+ */
+const phasesTellingWhatHappened: ReadonlySet<Phase> = new Set<Phase>([
+  "deadEnd",
+  "keyRefused",
+  "realmUnreached",
+  "realmKeyRefused",
+]);
 
 /**
  * The phase a start opens in: a link waits for its click; a remembered core is reached at once; with
@@ -139,7 +163,10 @@ function firstPhase(start: Start, parts: GateParts): Phase {
   ) {
     return "connecting";
   }
-  return parts.hasRealms ? "realm" : "notFound";
+  if (!parts.hasRealms) {
+    return "notFound";
+  }
+  return start.kind === "none" && start.keyRefusedBy !== undefined ? "realmKeyRefused" : "realm";
 }
 
 /**
@@ -180,11 +207,17 @@ async function reachByRealm(
 /**
  * Why a realm sign-in's core held the device back without its network failing, or undefined: the
  * core turned it away for its network's share, or its discovery cannot reach it, as while it
- * restarts (the owner's Fire TV, 2026-10-25: both read as "can't be reached from this network").
+ * restarts (the owner's Fire TV, 2026-10-25: both read as "can't be reached from this network"),
+ * or it refused the key the realm, name and password made, which is said as one of them wrong.
  */
-function realmHeldBackBy(problem: unknown): "realmTurnedAway" | "realmOffline" | undefined {
+function realmHeldBackBy(
+  problem: unknown,
+): "realmTurnedAway" | "realmOffline" | "realmWrong" | undefined {
   if (isTurnedAway(problem)) {
     return "realmTurnedAway";
+  }
+  if (isKeyRefused(problem)) {
+    return "realmWrong";
   }
   return isCoreOffline(problem) ? "realmOffline" : undefined;
 }
@@ -197,7 +230,7 @@ async function reachFound(
   parts: GateParts,
   core: KeptCore,
   found: Target,
-): Promise<Reaching | "realmTurnedAway" | "realmOffline" | "realmUnreached"> {
+): Promise<Reaching | "realmTurnedAway" | "realmOffline" | "realmWrong" | "realmUnreached"> {
   const target = withLatest(parts, core, withoutLanIfSkipped(parts, found));
   try {
     return await reachCore(parts.client, target);
@@ -272,12 +305,15 @@ function withoutLanIfSkipped(parts: GateParts, target: Target): Target {
   return { ...target, directUrls: target.directUrls.filter((url) => !lan.has(url)), lanUrls: [] };
 }
 
+/** How a reach that did not connect ended. */
+type Ended = "notFound" | "deadEnd" | "turnedAway" | "offline" | "keyRefused";
+
 /** Reaches a core: finds it, connects, and says how it went. */
 async function reach(
   parts: GateParts,
   core: KeptCore,
   find: () => Promise<Target>,
-): Promise<"notFound" | "deadEnd" | "turnedAway" | "offline" | undefined> {
+): Promise<Ended | undefined> {
   let target: Target | undefined;
   try {
     target = withLatest(parts, core, withoutLanIfSkipped(parts, await find()));
@@ -297,6 +333,10 @@ async function reach(
       return "offline";
     }
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
+    // The core was reached and refused what this device holds: no dead end, its network not to blame.
+    if (isKeyRefused(problem)) {
+      return "keyRefused";
+    }
     if (target !== undefined) {
       await reportDeadEnd(parts.client, target.held);
     }
@@ -319,17 +359,25 @@ function deadEndOf(
 /**
  * Where a remembered core that was not reached leaves the page: at the realm sign-in, saying so, where
  * the discovery has realms, the core forgotten so nothing kept stands in the way again; else as it
- * ended. A core that turned the page away was reached, and stays remembered.
+ * ended. A core that turned the page away was reached, and stays remembered. One that refused the
+ * device's key has what the device held forgotten first.
  */
-function afterRemembered(
-  parts: GateParts,
-  ended: "notFound" | "deadEnd" | "turnedAway" | "offline",
-): Phase {
+function afterRemembered(parts: GateParts, core: KeptCore, ended: Ended): Phase {
+  if (ended === "keyRefused") {
+    parts.onKeyRefused?.(core);
+  }
   if (!parts.hasRealms || ended === "turnedAway" || ended === "offline") {
     return ended;
   }
   parts.forgetCore();
-  return "realmAgain";
+  return ended === "keyRefused" ? "realmKeyRefused" : "realmAgain";
+}
+
+/** What happened, for its person to copy, when a client origin sent the page here for a refused key. */
+function happenedAtStart(start: Start): string | undefined {
+  return start.kind === "none" && start.keyRefusedBy !== undefined
+    ? deadEndOf(start.keyRefusedBy, undefined, new KeyRefused(proofRefusal))
+    : undefined;
 }
 
 /**
@@ -344,7 +392,7 @@ export function DiscoveryGate(props: {
 }): JSX.Element {
   const { start } = props;
   // What happened at the last dead end, for its person to copy and send (K16).
-  const [happened, setHappened] = useState<string | undefined>(undefined);
+  const [happened, setHappened] = useState<string | undefined>(() => happenedAtStart(start));
   const parts = useMemo(() => ({ ...props.parts, onDeadEnd: setHappened }), [props.parts]);
   const [phase, setPhase] = useState<Phase>(() => firstPhase(start, parts));
   // A realm sign-in under way keeps its form, its button saying so (D297 §5).
@@ -352,6 +400,8 @@ export function DiscoveryGate(props: {
   const { reachingRef, reachThen, reachAgain } = useReach(parts, start, setPhase);
   useGoneOnceNotFound(phase, start, parts);
   useReachingAtOnce(start, parts, reachThen);
+  const shownHappened =
+    phasesTellingWhatHappened.has(phase) && !isRealmSending ? happened : undefined;
   if (phase === "realm" || realmProblems[phase] !== undefined || isRealmSending) {
     return (
       <>
@@ -362,10 +412,7 @@ export function DiscoveryGate(props: {
           onSending={setIsRealmSending}
           onEnded={setPhase}
         />
-        <CopyWhatHappened
-          text={phase === "realmUnreached" && !isRealmSending ? happened : undefined}
-          copy={copyToClipboard}
-        />
+        <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />
       </>
     );
   }
@@ -384,7 +431,7 @@ export function DiscoveryGate(props: {
   return (
     <>
       <GateMessage phase={start.kind === "none" ? "none" : phase} onRetry={reachAgain} />
-      <CopyWhatHappened text={phase === "deadEnd" ? happened : undefined} copy={copyToClipboard} />
+      <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />
     </>
   );
 }
@@ -415,7 +462,7 @@ function useReach(
     void reach(parts, core, find).then((ended) => {
       reachingRef.current = false;
       if (ended !== undefined) {
-        setPhase(start.kind === "remembered" ? afterRemembered(parts, ended) : ended);
+        setPhase(start.kind === "remembered" ? afterRemembered(parts, core, ended) : ended);
       }
     });
   };

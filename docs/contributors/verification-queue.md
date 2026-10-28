@@ -1027,3 +1027,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   `playedWithSound` at 09:08:06.398, the group's start at 07.207, playing again at 07.981 (staging,
   2026-10-28). (`web/apps/web/src/play.tsx`; `web/packages/sdk/src/together-followed.ts`;
   `internal/core/together/group.go`, `hub.go`, `player_log.go`)
+- [ ] **VQ100** — a device whose key its core no longer has lands on the sign-in, not the dead end, on
+  production (app.orpheum-app.com, after connect is repackaged with this client). Passes when, the
+  Fire TV (Silk) signed in to nas.example by its realm and then removed on the Devices page from another
+  device: (1) opening app.orpheum-app.com on the Fire TV ends at the realm sign-in saying "This device
+  needs to sign in again", never "Can't reach the server from this network"; (2) its "Copy what
+  happened" text names "the offer's proof does not hold"; (3) signing in by the realm there reaches
+  nas.example and plays; (4) nas.example's log has the one `an offer's proof does not hold; refused` line
+  and the discovery counts no dead end for it. Before the fix the Fire TV showed the network dead end
+  after its device was removed (the owner, 2026-10-28, 09:25). (`web/apps/web/src/discovery-gate.tsx`,
+  `loader-at-client-origin.tsx`, `loader-at-loader-origin.tsx`; `web/packages/sdk/src/discovery.ts`)

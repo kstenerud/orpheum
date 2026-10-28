@@ -18,6 +18,9 @@ import {
   verifyAnswer,
   verifyClientManifest,
   handOffOfferKey,
+  isCoreOffline,
+  isKeyRefused,
+  KeyRefused,
   locatedOf,
 } from "./discovery.ts";
 
@@ -198,6 +201,25 @@ describe("a signaller through a discovery", () => {
       answering({ offerId: "1", refusal: "the offer's proof does not hold" }),
     );
     await expect(refused(offer)).rejects.toThrow("proof does not hold");
+  });
+
+  it("tells a core that refused the device's key from a network that failed, its reason kept (the owner's Fire TV, 2026-10-28)", async () => {
+    // As connectd and discovery/single pass the core's refusal on: ErrRefused, then the core's reason.
+    const refusal = "the core refused the offer: the offer's proof does not hold";
+    const refused = await signalling(answering({ offerId: "1", refusal }));
+    const problem: unknown = await refused(offer).catch((caught: unknown) => caught);
+    expect(problem).toBeInstanceOf(KeyRefused);
+    expect(isKeyRefused(new AggregateError([new Error("a name", { cause: problem })]))).toBe(true);
+    expect(isCoreOffline(problem)).toBe(false);
+    expect(problem instanceof Error ? problem.message : "").toContain(refusal);
+    // Any other refusal is no key refused.
+    const busy = await signalling(
+      answering({
+        offerId: "1",
+        refusal: "the core refused the offer: the core refused the offer",
+      }),
+    );
+    expect(isKeyRefused(await busy(offer).catch((caught: unknown) => caught))).toBe(false);
   });
 });
 

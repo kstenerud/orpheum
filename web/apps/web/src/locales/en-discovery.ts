@@ -50,6 +50,10 @@ export const enDiscovery = {
       text: "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",
       again: "Try again",
     },
+    keyRefused: {
+      heading: "This device needs to sign in again",
+      text: "Your server no longer knows this device's sign-in, as when the device was removed from it. Ask the person who runs it for a new link.",
+    },
     deadEnd: {
       heading: "Can't reach the server from this network",
       text: "Try your phone's mobile data, or another Wi-Fi. A VPN or a travel eSIM often can't reach a home server: turn it off, or use the phone's own mobile data. If it keeps happening, copy what happened and send it to the person who sent you this link.",
@@ -71,6 +75,8 @@ export const enDiscovery = {
       offline:
         "Your server isn't connected right now: it may be restarting, switched off, or without internet. Try again in a moment.",
       again: "Your server couldn't be reached as this device last reached it. Sign in again.",
+      keyRefused:
+        "This device needs to sign in again: your server no longer knows its sign-in, as when the device was removed from it.",
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",
     },

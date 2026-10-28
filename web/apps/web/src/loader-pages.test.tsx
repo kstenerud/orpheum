@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
 import {
+  forgetRefusedKey,
   leaveWhenSignedOut,
   redeem,
   startAtClient,
@@ -20,7 +21,7 @@ import {
   startAtLoaderOrigin,
   type AtLoaderOrigin,
 } from "./loader-at-loader-origin.tsx";
-import { households, rememberHousehold } from "./loader-households.ts";
+import { households, keyRefusedAddress, rememberHousehold } from "./loader-households.ts";
 import { loaderOf, loaderRefusal } from "./loader-interface.ts";
 import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
 
@@ -145,6 +146,51 @@ describe("the loader at its own origin (D308)", () => {
     const again: string[] = [];
     expect(startAtLoaderOrigin(loaderAt({}, storage, again))).toBeUndefined();
     expect(again).toEqual(["https://k7xq2.client.example/"]);
+  });
+
+  it("offers the sign-in, saying why, for a household whose core refused this device's key, though another is listed (the owner's Fire TV, 2026-10-28)", async () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, { ...household, coreId: "m3dz9", realm: "other" });
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    const shown = startAtLoaderOrigin(
+      loaderAt(
+        {
+          search: new URL(keyRefusedAddress(config.loaderOrigin, "k7xq2")).search,
+          referrer: "https://k7xq2.client.example/",
+        },
+        storage,
+        went,
+      ),
+    );
+    expect(went).toEqual([]);
+    expect(households(storage).map((each) => [each.coreId, each.isSignedOut])).toEqual([
+      ["k7xq2", true],
+      ["m3dz9", false],
+    ]);
+    mounted = await mount(shown ?? <p>nothing</p>);
+    expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+    expect(mounted.container.textContent).toContain("This device needs to sign in again");
+    expect(mounted.container.querySelector(".what-happened pre")?.textContent).toContain(
+      "the offer's proof does not hold",
+    );
+  });
+
+  it("goes on to a household another page says refused this device's key", () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    startAtLoaderOrigin(
+      loaderAt(
+        {
+          search: new URL(keyRefusedAddress(config.loaderOrigin, "k7xq2")).search,
+          referrer: "https://evil.example/",
+        },
+        storage,
+        went,
+      ),
+    );
+    expect(went).toEqual(["https://k7xq2.client.example/"]);
   });
 
   it("goes on to a household another page says was signed out of", () => {
@@ -279,6 +325,55 @@ describe("signing out at a core's client origin (D308)", () => {
       }
       expect(went).toEqual(["https://app.example/?signedout=k7xq2"]);
     }
+  });
+
+  it("forgets a key its core refused, and goes to the discovery's sign-in for a realm's household", () => {
+    for (const realm of ["nas", undefined]) {
+      const session = signedIn();
+      session.signIn("token", { locator: "a-revoked-locator" });
+      let isMembershipForgotten = false;
+      const went: string[] = [];
+      forgetRefusedKey(
+        {
+          session,
+          forgetMembership: () => {
+            isMembershipForgotten = true;
+          },
+        },
+        {
+          core: { coreId: "k7xq2", fingerprint, realm },
+          loaderOrigin: config.loaderOrigin,
+          go: (to) => {
+            went.push(to);
+          },
+        },
+      );
+      expect([session.token(), session.locator()]).toEqual([undefined, undefined]);
+      expect(isMembershipForgotten).toBe(false);
+      // A household reached by a link alone stays, its page saying a new link is needed.
+      expect(went).toEqual(
+        realm === undefined ? [] : ["https://app.example/?signedout=k7xq2&keyrefused="],
+      );
+    }
+  });
+
+  it("forgets the Watch Together membership a key was refused for when there is no session", () => {
+    const session = createSession(memoryStorage(), corePrefix("k7xq2"));
+    let isMembershipForgotten = false;
+    forgetRefusedKey(
+      {
+        session,
+        forgetMembership: () => {
+          isMembershipForgotten = true;
+        },
+      },
+      {
+        core: { coreId: "k7xq2", fingerprint, realm: undefined },
+        loaderOrigin: config.loaderOrigin,
+        go: () => undefined,
+      },
+    );
+    expect(isMembershipForgotten).toBe(true);
   });
 
   it("stays at the core's own sign-in for a household reached by a link alone", () => {

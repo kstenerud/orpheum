@@ -22,6 +22,7 @@ import {
   forgetHousehold,
   changedFrom,
   goneFrom,
+  keyRefusedFrom,
   listedHouseholds,
   markHouseholdGone,
   markHouseholdSignedOut,
@@ -107,12 +108,24 @@ export function startAtLoaderOrigin(at: AtLoaderOrigin): JSX.Element | undefined
   if (signedOut !== undefined) {
     markHouseholdSignedOut(storage, signedOut);
   }
+  const keyRefusedBy = keyRefusedFrom(location.search, at.referrer, (coreId) =>
+    clientAddressOf(config, coreId),
+  );
   const kept = listedHouseholds(storage);
   const scanned = scannedAt(location);
-  if (wentToTheOne(at, kept, scanned)) {
+  // A core that refused this device's key sends its person to the sign-in, which says why, never on
+  // to another household (the owner's Fire TV, 2026-10-28).
+  if (keyRefusedBy === undefined && wentToTheOne(at, kept, scanned)) {
     return undefined;
   }
-  return <LoaderPage at={at} isListFirst={kept.length > 0} scanned={scanned} />;
+  return (
+    <LoaderPage
+      at={at}
+      isListFirst={kept.length > 0 && keyRefusedBy === undefined}
+      scanned={scanned}
+      keyRefusedBy={keyRefusedBy}
+    />
+  );
 }
 
 /**
@@ -144,8 +157,10 @@ function LoaderPage(props: {
   readonly isListFirst: boolean;
   /** A TV's QR code the page was opened by, which the sign-in carries on to activate (D321). */
   readonly scanned?: Scanned | undefined;
+  /** The core whose client origin sent the page here because it refused this device's key. */
+  readonly keyRefusedBy?: string | undefined;
 }): JSX.Element {
-  const { at, scanned } = props;
+  const { at, scanned, keyRefusedBy } = props;
   const [isJoining, setIsJoining] = useState(!props.isListFirst && scanned === undefined);
   const [isUsingCode, setIsUsingCode] = useState(false);
   // A household gone or signed out of is kept for the warning a realm sign-in gives (D312 §2),
@@ -167,6 +182,7 @@ function LoaderPage(props: {
       <JoinByRealm
         at={at}
         then={scanned === undefined ? "/" : activateHere(scanned)}
+        keyRefusedBy={keyRefusedBy}
         onUseCode={() => {
           setIsUsingCode(true);
         }}
@@ -255,10 +271,12 @@ function JoinByRealm(props: {
   readonly at: AtLoaderOrigin;
   readonly then: string;
   readonly onUseCode: () => void;
+  /** The core that refused this device's key, which the sign-in says (Start's keyRefusedBy). */
+  readonly keyRefusedBy?: string | undefined;
 }): JSX.Element {
-  const { at, then, onUseCode } = props;
+  const { at, then, onUseCode, keyRefusedBy } = props;
   const parts = useMemo(() => ({ ...joinParts(at, then), onUseCode }), [at, then, onUseCode]);
-  return <DiscoveryGate start={{ kind: "none" }} parts={parts} />;
+  return <DiscoveryGate start={{ kind: "none", keyRefusedBy }} parts={parts} />;
 }
 
 /**
