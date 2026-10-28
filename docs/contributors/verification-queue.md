@@ -1127,7 +1127,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   a row to the Fire TV (Silk), Watch Together off: every "a playback started playing" line for device
   60 carries `waitedForAheadMs` or a `loadedAheadMs` at or above refillAheadMs (10000), none has
   `loadedAheadMs=0`, and no "a player began holding its group up … why=notReady" follows its group's
-  `leaderPlays` within a second. (`web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)
+  `leaderPlays` within a second; and no `qualitySwitched` note from it jumps to the film's own picture
+  while its `linkEstimateKbps` is below that picture's rate (2026-10-28: 1896 → 15635 kb/s on a 1.5
+  Mb/s estimate, the leader kept the film's own picture as a follower would). (`web/packages/sdk/src/together-follow.ts`, `together-connection.ts`, `following-a-group.ts`)
 - [ ] **VQ112** — a Fire TV's second start says what came before it (staging, 2026-10-28: fileId 5670
   on the TV's own Play page logged `kind=started` twice 0.6 s apart, 9 s loaded, 6 of 21 frames
   dropped, and nothing between), on staging. Passes when, the Fire TV (Silk) playing three films from
