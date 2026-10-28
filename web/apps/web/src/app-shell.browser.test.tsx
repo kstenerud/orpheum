@@ -93,6 +93,48 @@ describe("the shell, laid out by a real browser", () => {
     });
   });
 
+  // The owner, 2026-10-28: "The icons on the right highlight on mouse-over while the ones on the
+  // left do not."
+  it("raises the ground behind every banner icon a pointer is over, the places' and the menu's as the tray's", async () => {
+    const shell = (
+      <AppShell
+        isAdmin={false}
+        canHostWatchTogether={true}
+        currentScreen="home"
+        onSignOut={() => undefined}
+        signedInAs={{ name: "owner", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>
+    );
+    await drawn(shell, async ({ container }) => {
+      const hovered = async (element: Element | null): Promise<Element> => {
+        if (element === null) {
+          throw new Error("a banner icon the test hovers is not drawn");
+        }
+        await userEvent.hover(element);
+        return element;
+      };
+      const sign = await hovered(
+        container.querySelector(".app-shell__end .status-tray__button--off"),
+      );
+      const raised = getComputedStyle(sign).backgroundColor;
+      expect(raised).not.toBe("rgba(0, 0, 0, 0)");
+      const icons = [
+        ...container.querySelectorAll(".app-shell__watching a.app-shell__place-icon"),
+        container.querySelector(".app-shell__end .app-shell__menu-button"),
+      ];
+      expect(icons.length).toBeGreaterThan(1);
+      for (const icon of icons) {
+        const over = await hovered(icon);
+        // A button's ground fades in (base.css), so its colour is read once the fade is done.
+        await expect
+          .poll(() => getComputedStyle(over).backgroundColor, { message: over.className })
+          .toBe(raised);
+      }
+    });
+  });
+
   // The owner, 2026-10-28, on a phone: "the top bar stuff is overlapping".
   for (const [width, height] of [
     [360, 740],
