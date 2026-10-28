@@ -18996,6 +18996,8 @@ the same person, and having it back on one device replaced the credential of the
 
 ## D268 — A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
 
+> **§3 superseded by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): a group names no moment to start at; it plays at once as its leader plays, or, with none, as it is told, and each follower plays as it hears it and is corrected into step (§2). `together_start_lead_ms` is retired. §1, §2, §4 and §5 stand.
+
 > **§3 extended by [D282](#d282--a-watch-together-player-presses-play-early-by-how-late-it-has-learned-it-starts-kept-by-its-device-one-that-has-not-learned-it-runs-up-two-seconds)** (2026-10-12): each player presses play early by how late it has learned it starts; one that has not runs up two seconds, the group's lead lengthened to it.
 
 > **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §5's later guest rights are decided: play and pause, and changing the position, chosen per invite, each invite starting with the last one's.
@@ -19604,6 +19606,8 @@ longer attaches the voice device.
 
 ## D282 — A Watch Together player presses play early by how late it has learned it starts, kept by its device; one that has not learned it runs up two seconds
 
+> **Superseded by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): with no moment named to start at (D268 §3 gone), there is nothing to press play early for or run up to; the leader plays as it would alone, and a follower plays as it hears the group play and is corrected into step. The start lag is no longer learned or kept (`orpheum.together.startLag` is cleared), and `together_run_up_ms` is retired. D371 §2 allows a follower's run-up where it would help it land in step; none is built.
+
 > **§4 refined by [D283](#d283--after-a-seek-a-player-is-ready-on-3-s-of-film-when-its-link-carries-the-film-well-faster-than-it-plays-ready-players-hold-their-loading-while-their-group-waits-and-a-run-up-starts-no-earlier-than-what-was-loaded) §3** (2026-10-12): a run-up starts no earlier than what its player loaded where the group starts.
 
 **Decided** (2026-10-12), by the project owner, after a four-device test in which every player
@@ -19639,6 +19643,8 @@ halfway through."* It extends D268 §3.
 
 
 ## D283 — After a seek a player is ready on 3 s of film when its link carries the film well faster than it plays, ready players hold their loading while their group waits, and a run-up starts no earlier than what was loaded
+
+> **§3 superseded, and §2 narrowed, by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): there is no run-up (D282 superseded); a group waits only for its leader, so a ready follower holds its loading while the group stands for its leader, the leader never holding its own.
 
 **Decided** (2026-10-12), by the project owner, on
 [seek-resync-2026-10-12.md](../design/research/seek-resync-2026-10-12.md), after a group took 10 to
@@ -19687,6 +19693,8 @@ or not. The user interaction would tell you what happened."* It refines D250 §5
 
 
 ## D285 — A long jump is snapped back to its keyframe and starts the run-up after it, and while anyone in a group is still loading, the rest hold a short runway
+
+> **§1 revised by [D371](#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)** (2026-10-28): a long jump is snapped to its keyframe itself, with no run-up after it, and the leader's own jump is not snapped: it is already where it went.
 
 **Decided** (2026-10-12), by the project owner, on [fast-start-2026-10-12.md](../design/research/fast-start-2026-10-12.md)
 and the group jumps of the same day. On snapping: *"What if seeking snapped to the first keyframe
@@ -23830,8 +23838,16 @@ link); the log says who leads at each change (`logEvent=leaderChanged`, `leaderD
 (`web/packages/sdk/src/together-leader.ts`, `together-follow.ts`), the only-player rule of an earlier commit
 gone (`aloneCorrection`); the Play page says how the film is delivered (`deliveryOf`,
 `film-player.tsx`), and the casting page shows the receiver's delivery, quality and link
-(`cast-remote.tsx`). Stages 2 (followers catch up; no start lead or run-up) and 3 (a follower's cast)
-to build. Revisits D88, D247, D250, D268, D282 and D364 as above.
+(`cast-remote.tsx`). Its second stage, followers catching up, built the same day: a group plays at
+once, with or without a leader, naming no moment to start at (`startOf`, `startsIn` and the
+group's `startsInMs` gone, `together_start_lead_ms` retired); no player runs up or learns how late
+it starts (`together-start.ts`, `StartLearner`, the `startLagMs` state and `orpheum.together.startLag`
+gone, `together_run_up_ms` retired); a long jump is snapped to its keyframe itself; a follower held
+while its group stands for its leader plays as the leader plays and is nudged or sought into step,
+and catches up after a seek or a stall with the group told nothing; the core's log says each
+follower's catch-up at info, by seek or nudge and how far behind the leader
+(`logEvent=followerCaughtUp`, `player_log.go`). Stage 3 (a follower's cast) to build. Revisits D88,
+D247, D250, D268, D282 and D364 as above, and D283 §2–§3 and D285 §1 with them.
 
 Resolved in the build, where the decision left it open (say if any should go otherwise):
 - **Which of the host's devices leads**: the newest that plays as it attaches, and the one that puts
@@ -23851,11 +23867,16 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - **What the remote shows**: "Plays the file as it is" or "Plays it converted", the quality the
   receiver began and the link its player estimated as it chose it (hls.js's or its own controller's
   estimate at the switch), not a running measurement.
+- **No follower runs up** (§2 allows one "where it helps it land in step"): with no moment named, a
+  follower plays as it hears the group play and its usual correction closes the gap, a nudge for
+  the start lag of a few hundred milliseconds; a run-up would be a seek, which costs a refill. The
+  learned start lag, kept per browser, is dropped with it.
+- **A long jump's snap** to its keyframe keeps no run-up after the keyframe (D285 §1 had one).
 
 **Proven by:**
 - 1: TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("is never nudged, skipped or sought", "plays the film it put on as soon as the group stands for it"), web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"); VQ101
-- 2: TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne, web/packages/sdk/src/together-leader.test.ts ("is nudged to the leader's place")
+- 2: TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne, TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader, web/packages/sdk/src/together-leader.test.ts ("is nudged to the leader's place", "is held where the group stands for its leader, plays at once as the leader plays", "after a seek, holds where the leader went", "after a stall, jumps ahead to catch up to the leader"); VQ102
 - 3: TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves, TestHub_NoGuestNorPanelLeads
 - 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film"); VQ101; a follower's cast in stage 3
 - 5: web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"), TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut; VQ101
-- 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it")
+- 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it", "is held where the group stands for its leader, plays at once as the leader plays"); VQ102

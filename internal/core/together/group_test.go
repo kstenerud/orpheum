@@ -50,8 +50,12 @@ func TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays(t *testin
 	stage.report(t, host, 30_500, true, false)
 	group := hostBox.last(MessageGroup).Group
 	if group.State != GroupPlaying || group.Event != EventLeaderPlays || group.ByMemberID != host.MemberID ||
-		group.PositionMs != 30_520 || group.StartsInMs != 0 {
-		t.Errorf("the leader plays at 30.5 s, its round trip 40 ms: %+v; want Playing from 30.52 s at once", group)
+		group.PositionMs != 30_520 {
+		t.Errorf("the leader plays at 30.5 s, its round trip 40 ms: %+v; want Playing from 30.52 s", group)
+	}
+	stage.clock.Advance(time.Second)
+	if moving := stage.pongGroup(t, host, hostBox); moving.PositionMs != 31_520 {
+		t.Errorf("a second on, the group is at %d ms; want 31.52 s, moving at once with no lead", moving.PositionMs)
 	}
 	stage.report(t, guestDevice, 30_000, true, true)
 	stage.hub.Detach(guestDevice)

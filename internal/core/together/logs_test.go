@@ -3,6 +3,7 @@
 package together
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -649,5 +650,42 @@ func TestHub_LogsWhatPlayedAPlayerItsGroupHeld(t *testing.T) {
 	}
 	if strings.Contains(logged, "elbow") {
 		t.Errorf("the log took a play's cause it does not know:\n%s", logged)
+	}
+}
+
+// A follower's every move to catch up to its leader is logged at info, a seek with why, from where to
+// where, and a nudge with its rate, each with how far behind the leader it was and who leads, so a
+// report can be read from the log (D371 §2). The leader's own seeks are noted at debug as before.
+func TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	stage.clock.Advance(60 * time.Second)
+	for _, note := range []*PlayerNote{
+		{Kind: NoteSought, PositionMs: 50_000, ToMs: 64_000, Why: "catchUp"},
+		{Kind: NoteNudged, PositionMs: 59_620, DriftMs: 380, Rate: 1.1},
+	} {
+		stage.hub.Handle(t.Context(), stage.guestDevice, Inbound{Type: MessageNote, Note: note})
+	}
+	var caughtUp []string
+	for line := range strings.Lines(stage.logs.String()) {
+		if strings.Contains(line, "logEvent=followerCaughtUp") {
+			caughtUp = append(caughtUp, line)
+		}
+	}
+	leads := fmt.Sprintf("leaderDeviceId=%d", stage.host.DeviceID)
+	for index, want := range []string{
+		"by=seek why=catchUp toMs=64000 behindMs=10000",
+		"by=nudge behindMs=380 rate=1.1",
+	} {
+		if index >= len(caughtUp) || !strings.Contains(caughtUp[index], want) ||
+			!strings.Contains(caughtUp[index], leads) || !strings.Contains(caughtUp[index], "level=INFO") {
+			t.Errorf("catch-up %d is logged as %v; want at info, %s, %s", index, caughtUp, leads, want)
+		}
+	}
+	stage.hub.Handle(t.Context(), stage.host, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 60_000, ToMs: 600_000, Why: "command",
+	}})
+	if strings.Count(stage.logs.String(), "logEvent=followerCaughtUp") != 2 {
+		t.Errorf("the leader's own seek was logged as a follower's catch-up:\n%s", stage.logs)
 	}
 }

@@ -238,7 +238,7 @@ type PlayerNote struct {
 	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
 	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
-	// Why is a seek's ("catchUp", "hold", "skip", "runUp"; a leader's "join" or "command", D371 §1) or a
+	// Why is a seek's ("catchUp", "hold", "skip"; a leader's "join" or "command", D371 §1) or a
 	// reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
@@ -353,8 +353,8 @@ const positionMsAttribute = "positionMs"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "skip", "runUp", "join", "command", "closed", "silent", "video", "audio", "direct",
-		"udp", "tcp", "tls":
+	case "", "catchUp", "hold", "skip", "join", "command", "closed", "silent", "video", "audio", "direct", "udp",
+		"tcp", "tls":
 		return true
 	}
 	return false
@@ -570,10 +570,6 @@ type Inbound struct {
 	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
 	// Standing, in a standing, is what the device's page waits on, StandingNone for nothing.
 	Standing Standing `json:"standing,omitempty"`
-	// StartLagMs, in a state, is how late the device's player has learned it moves after it is told
-	// to play, which it presses play that much early for; nil until it has started once, which the
-	// group then gives a run-up (D282).
-	StartLagMs *int64 `json:"startLagMs,omitempty"`
 	// ReadyOnMs and LoadsFaster, in a state, are how much film loaded ahead the player is ready on
 	// now, 3 s after a seek on a link that keeps up well, else 10 s (D283 §1), and how many times
 	// faster than it plays its last chunk of picture loaded: whether the shorter rule applied.
@@ -669,13 +665,6 @@ type Tuning struct {
 	// CatchUpBufferPercent is how full a player catching up aims to have its buffer when the group
 	// reaches it (D250 §4).
 	CatchUpBufferPercent int64 `json:"catchUpBufferPercent"`
-	// StartLeadMs is how long after a sync point's wait ends every player starts playing: the
-	// server's own, as each group message's StartsInMs says what is left of it (D268 §3).
-	StartLeadMs int64 `json:"startLeadMs"`
-	// RunUpMs is how long the start's lead is, and how far before where the group starts its players
-	// start playing, while any of them has not yet learned how late it starts (D282): the server's
-	// own, as StartsInMs says what is left of it.
-	RunUpMs int64 `json:"runUpMs"`
 	// SettleAfterChangeMs is how long after it starts playing, finishes a seek or changes its rate
 	// a player's position is not read for drift: Safari's stands still for a moment then (D250 §7).
 	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`
@@ -716,10 +705,6 @@ type GroupView struct {
 	ByMemberID int64     `json:"byMemberId,omitempty"`
 	// SeekedFromMs is where a seek jumped from; PositionMs is where it jumped to.
 	SeekedFromMs int64 `json:"seekedFromMs,omitempty"`
-	// StartsInMs is, for a group that is Playing, how long after the message was sent it starts
-	// moving from PositionMs: what is left of the start's lead, so every player starts at once
-	// (D268 §3). Zero once it moves.
-	StartsInMs int64 `json:"startsInMs,omitempty"`
 }
 
 // EventKind is what changed the group: a code a client words for its viewer, never words.

@@ -208,20 +208,3 @@ function maySeekTo(
   const { soughtToMs, farMs } = ownSeek;
   return !media.seeking || (soughtToMs !== undefined && Math.abs(toMs - soughtToMs) > farMs);
 }
-
-/**
- * Where what the player loaded at atMs begins, in ms: the start of the loaded stretch holding it, or
- * atMs where it loaded nothing there. A run-up starts no earlier, so it never asks for a chunk before
- * the one its group starts in, which on an encoded quality is a whole encode (D282;
- * seek-resync-2026-10-12.md).
- */
-export function loadedFromMs(media: FollowedMedia, atMs: number): number {
-  const { buffered } = media;
-  const atS = atMs / 1000;
-  for (let index = 0; index < buffered.length; index++) {
-    if (buffered.start(index) - onLoadedToleranceS <= atS && atS <= buffered.end(index)) {
-      return buffered.start(index) * 1000;
-    }
-  }
-  return atMs;
-}

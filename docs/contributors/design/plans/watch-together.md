@@ -118,15 +118,11 @@ ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than
 it plays (D283 §1). While the group stands for its leader, a follower already ready holds its
-loading, leaving the upload to the leader (D283 §2). The host's pause is immediate. **A group with
-no leader names the moment every player starts** (D268 §3): the group stands at its position for
-`together_start_lead_ms` (500 ms), each group message and pong saying what is left of that lead,
-and each player, held there until then, plays at once with the others rather than as the message
-reaches it. **Each presses play early by how late it has learned it starts** (D282), which its
-device keeps for every session; while any player along has not learned it, the lead is
-`together_run_up_ms` (2 s), and that player runs up from where the group would be had it started,
-making its lag up before the moment. A group starting in the film's first two seconds starts at
-two seconds, so there is film to run up through.
+loading, leaving the upload to the leader (D283 §2). The host's pause is immediate. **A group
+plays at once** (D371 §2, §6): no moment is named for every player to start at, and no one runs up
+to one (D268 §3's start lead and D282's run-up are gone, `together_start_lead_ms` and
+`together_run_up_ms` retired); the leader plays as it would alone, and every follower plays as it
+hears the group play and is nudged or sought into step with the leader.
 
 **The group waits for no one but its leader** (D371 §2). A stall, a slow link or a dropped
 connection is a follower's alone: the group plays on, and that player catches up to the leader by

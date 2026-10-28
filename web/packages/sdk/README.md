@@ -28,8 +28,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   and half a round trip, times its rate: that of the pong that is off by least now, half its round trip
   and, as it ages, 50 ppm of its age, which says where the group is, or until one has, the group
   message's, half the shortest round trip (D264, D268 §1); a new timeline is pinged each second
-  three times, and each pong is noted with its residual; a group that starts playing stands still
-  until its `startsInMs` is over, every player held there until then (D268 §3); drift within `leaveDriftUpToMs` is left, up to
+  three times, and each pong is noted with its residual; a group that starts playing moves on from
+  when it was told, with no moment named to start at and no run-up, a follower held while its group
+  stood for its leader playing at once and catching up (D371 §2); drift within `leaveDriftUpToMs` is left, up to
   `seekDriftBeyondMs` nudged for about a second by at most `nudgeMostPercent` of the rate, beyond
   it sought across (D250 §1); each of these the welcome's tuning, from the settings. For `settleAfterChangeMs` after it starts
   playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands

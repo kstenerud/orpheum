@@ -39,10 +39,14 @@
 //     changes nothing, its trouble its own to catch up on; without a leader a play or a seek plays at
 //     once. Enforced by TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne and
 //     TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut.
-//   - A group with no leader that starts playing stands at its position for the start's lead its
-//     devices were welcomed with, and says what is left of it, so every player starts at once; one
-//     with a leader has no lead, and one that plays on moves on as it was (D268 §3, D371 §1).
-//     Enforced by TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds.
+//   - A group that starts playing moves on from where it stands at once, with no lead to start on
+//     and no run-up, with a leader or without, everyone else catching up (D371 §2, §6). Enforced by
+//     TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands and
+//     TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays.
+//   - Each follower's move to catch up to its leader, a seek or a nudge, is logged at info with how
+//     far behind the leader it was, and the leader is named at each change of the group and of who
+//     leads (D371). Enforced by TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader and
+//     TestHub_LogsEachChangeOfTheGroupAndWhoLeadsIt.
 //   - Each player's state may say how it plays the film, its delivery, quality and link, which the
 //     roster shows everyone, a cast's remote among them (D371 §4). Enforced by
 //     TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm.
@@ -123,8 +127,8 @@
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
 //   - D267: a membership kept by the browser that joined or a signed-in person's account, on
 //     several devices at once.
-//   - D268: drift corrected as the device measures it, the group's named start, and the notes that
-//     say how a follower follows.
+//   - D268: drift corrected as the device measures it, and the notes that say how a follower
+//     follows; its §3, the group's named start, gone with D371.
 //   - D346: a link admits for an hour, and a session idle for six hours is ended.
 //   - D243 §1, §3 and §9: a guest's cookie, secrets after #, and the numbers it is held to, as
 //     D261 §1, §7 revised them; a signed-in member's viewing is deferred (D261 §3).

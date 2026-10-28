@@ -58,7 +58,6 @@ import {
   keepMembership,
   membershipHeaders,
   readMembership,
-  startLagMemory,
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
@@ -588,7 +587,6 @@ function useFollowing(
       fileId,
       leads: { canPlayPause, canSeek },
       monotonicMs,
-      startLag: startLagMemory(browserStorage()),
       page: pageThatPausesWhenHidden(),
     });
     return () => {

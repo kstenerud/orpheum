@@ -99,12 +99,6 @@ type session struct {
 	// leaderID is the device that leads the session, the screen that is the film (D371 §1): the
 	// host's device that plays, the newest attached or the one that put the film on; 0 while none.
 	leaderID int64
-	// startLead is how long after a sync point's wait ends the group starts moving (D268 §3): the
-	// setting's, as the last device to attach brought it; none until one has.
-	startLead time.Duration
-	// runUp is the start's lead while a player has not yet learned how late it starts (D282): the
-	// setting's, as the last device to attach brought it; none until one has.
-	runUp time.Duration
 	// snapSeeksBeyond is how far a seek must jump to be snapped to a keyframe: a jump along the
 	// timeline is imprecise, and no one notices it land a little early, but a short skip, 5 to 15 s by
 	// a key or a button, snapped back to where it started would never move on (D285 §1). The
@@ -169,9 +163,6 @@ type device struct {
 	// hasBeenReady is whether it has once said it is ready to play: until then the roster shows it
 	// loading.
 	hasBeenReady bool
-	// knowsStartLag is whether its player has learned how late it starts, which it said in its last
-	// state: one that has not is given a run-up (D282).
-	knowsStartLag bool
 	// cannotKeepUp is what the device last said of a link too slow for its lowest quality (D247 §8).
 	cannotKeepUp *CannotKeepUp
 	// playing is whether its player last said it plays, and playerChangedAt when it last said it
@@ -199,7 +190,6 @@ func (each *device) takeState(message Inbound) {
 			each.rttMs = message.RTTMs
 		}
 		each.cannotKeepUp = message.CannotKeepUp
-		each.knowsStartLag = message.StartLagMs != nil
 		if message.Playback != nil && message.Playback.isKnown() {
 			each.playback = message.Playback
 		}
@@ -448,8 +438,6 @@ func (hub *Hub) Attach(
 	if tuning.SnapSeeksBeyondMs > 0 {
 		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
 	}
-	attached.startLead = time.Duration(tuning.StartLeadMs) * time.Millisecond
-	attached.runUp = time.Duration(tuning.RunUpMs) * time.Millisecond
 	hub.lastID++
 	attachedDevice := &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
 	attachedMember.devices[hub.lastID] = attachedDevice

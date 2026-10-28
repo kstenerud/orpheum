@@ -3,7 +3,6 @@
 import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
-  groupStartsAtMs,
   isLeaderOf,
   type GroupCommand,
   type PlayerState,
@@ -49,7 +48,6 @@ import {
   haveFutureData,
   holdSeekMs,
   isInStep,
-  loadedFromMs,
   positionMsOf,
   type FollowedMedia,
 } from "./together-media.ts";
@@ -66,7 +64,6 @@ import {
   returnsBeforeSeeksOnly,
   type FollowOptions,
 } from "./together-follow-options.ts";
-import { memoryOfTheSession, runningPositionMs, StartLearner } from "./together-start.ts";
 
 export { browserPauseWindowMs, scrubPauseWindowMs, type ShownPage } from "./together-lead.ts";
 export {
@@ -108,10 +105,6 @@ class GroupFollower {
   #soughtToMs: number | undefined = undefined;
   /** What it tells its player to load while its group waits or another is behind (D283 §2, D285 §2). */
   readonly #loading: GroupLoading;
-  /** How late it starts, as learned (D282). */
-  readonly #start: StartLearner;
-  /** Where it sought back to run up from, for the start under way (D282); undefined until it has. */
-  #runUpFromMs: number | undefined = undefined;
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
   #recentEvents: string[] = [];
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
@@ -150,8 +143,6 @@ class GroupFollower {
   #lastLoadMs = 0;
   /** How fast it loads, measured while it loads (D250 §4). */
   readonly #loadSpeed = new LoadSpeed();
-  /** The timer that applies a playing group as it starts moving (#applyAt). */
-  #startTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
   /** The command pendingCommand will send, while one waits. */
@@ -165,7 +156,6 @@ class GroupFollower {
     this.#media = media;
     this.#connection = connection;
     this.#options = options;
-    this.#start = new StartLearner(options.startLag ?? memoryOfTheSession());
     this.#loading = new GroupLoading(media, connection);
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
     this.#leader = new GroupLeader({
@@ -191,7 +181,6 @@ class GroupFollower {
     const isBuffering = isLeading ? this.#leader.isLoading() : this.#isBuffering();
     this.#noteBuffering(isBuffering, isLeading);
     this.#wasReportedBuffering = isBuffering;
-    const startLagMs = this.#start.lagMs();
     const loadsFaster = this.#refill.loadsFaster();
     const playback = this.#playback.report();
     return {
@@ -199,7 +188,6 @@ class GroupFollower {
       isPlaying: !this.#media.paused,
       isBuffering,
       readyOnMs: this.#refill.readyOnMs(),
-      ...(startLagMs === undefined ? {} : { startLagMs }),
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
       ...(playback === undefined ? {} : { playback }),
     };
@@ -256,7 +244,6 @@ class GroupFollower {
     if (where.group.state === "Playing") {
       this.#followPlaying(where);
     } else {
-      this.#runUpFromMs = undefined;
       this.#holdAt(where);
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
@@ -264,7 +251,11 @@ class GroupFollower {
     this.#jumps.tell(this.#media, where.group);
   };
 
-  /** Follows a playing group: waiting ahead of it, held until it starts, or playing along. */
+  /**
+   * Follows a playing group: waiting ahead of it, or playing along at once, as the group plays from
+   * where its leader plays, and catching up to it, nudged or sought (D371 §2): no group names a
+   * moment to start at, and none is run up to.
+   */
   #followPlaying(where: GroupNow): void {
     if (this.#isWaitingAhead(where)) {
       // A player that jumped ahead to catch up waits there, paused and loading, for the group.
@@ -272,45 +263,9 @@ class GroupFollower {
         this.#ownMoves.mark("pause", this.#options.monotonicMs());
         this.#media.pause();
       }
-    } else if (where.nowMs < where.startsAtMs && this.#media.paused) {
-      this.#startEarly(where);
     } else {
       this.#play(where);
     }
-  }
-
-  /**
-   * Starts at the moment the server named, not as its message arrived (D268 §3), and early by how
-   * late it has learned it starts: held where the group starts until then. One that has not learned
-   * it runs up, from where the group would be had it already started, and learns it on the way
-   * (D282).
-   */
-  #startEarly(where: GroupNow): void {
-    const media = this.#media;
-    const lagMs = this.#start.lagMs();
-    if (lagMs !== undefined && where.nowMs < where.startsAtMs - lagMs) {
-      this.#holdAt(where);
-      this.#applyAt(where.startsAtMs - lagMs);
-      return;
-    }
-    const runningMs = runningPositionMs(where.group, where.startsAtMs, where.nowMs);
-    if (lagMs === undefined && this.#runUpFromMs === undefined) {
-      // No earlier than what it loaded where the group starts: an earlier chunk is another to make.
-      this.#runUpFromMs = Math.max(runningMs, loadedFromMs(media, where.group.positionMs));
-      this.#seek(this.#runUpFromMs, "runUp");
-      return;
-    }
-    if (media.seeking || media.readyState < haveFutureData) {
-      return; // its run-up loads: it plays once it can, its events applying the group again
-    }
-    if (this.#runUpFromMs !== undefined && runningMs < this.#runUpFromMs) {
-      this.#applyAt(
-        where.startsAtMs - (where.group.positionMs - this.#runUpFromMs) / where.group.rate,
-      );
-      return; // a shortened run-up starts once the group's run reaches where it begins
-    }
-    this.#start.pressedPlay(runningMs - positionMsOf(media));
-    this.#startPlaying();
   }
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
@@ -318,9 +273,6 @@ class GroupFollower {
     this.#keepEvent(event);
     if (event === "playing" || event === "seeked") {
       this.#settle();
-    }
-    if (event === "playing") {
-      this.#start.movedAfterPress();
     }
     this.#noteLoading(event);
     const isOwn = this.#isOwnMove(event);
@@ -431,15 +383,8 @@ class GroupFollower {
   /** Stops what is pending, as the follower stops. */
   readonly stop = (): void => {
     clearTimeout(this.#pendingCommand);
-    clearTimeout(this.#startTimer);
     this.#loading.stop();
   };
-
-  /** Applies the group again at atMs, on the monotonic clock: when a playing group starts. */
-  #applyAt(atMs: number): void {
-    clearTimeout(this.#startTimer);
-    this.#startTimer = setTimeout(this.apply, atMs - this.#options.monotonicMs());
-  }
 
   /**
    * Starts refilling at a stall or a seek, and ends it once enough is loaded ahead; times how long
@@ -502,21 +447,15 @@ class GroupFollower {
       return undefined;
     }
     const nowMs = this.#options.monotonicMs();
-    const startsAtMs = groupStartsAtMs(snapshot) ?? nowMs;
-    // A player playing before its group starts runs up to it, judged by where it would be (D282).
-    const isRunningUp = group.state === "Playing" && !this.#media.paused && nowMs < startsAtMs;
     return {
       group,
       nowMs,
-      expectedMs: isRunningUp
-        ? runningPositionMs(group, startsAtMs, nowMs)
-        : (expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs),
-      startsAtMs,
+      expectedMs: expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs,
       tuning: snapshot.tuning,
     };
   }
 
-  #seek(toMs: number, why: "catchUp" | "hold" | "skip" | "runUp"): void {
+  #seek(toMs: number, why: "catchUp" | "hold" | "skip"): void {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSpeed.forget();
     this.#move({ kind: "sought" });
@@ -619,7 +558,6 @@ class GroupFollower {
       return;
     }
     this.#learnReturnCost(behindMs, where.tuning);
-    this.#start.settled(behindMs);
     // A player stalled and refilling is not nudged: its position does not move, and a faster rate
     // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
     // iPhone was nudged to 2x second after second).
