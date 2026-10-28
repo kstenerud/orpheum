@@ -32,12 +32,22 @@ def run_lock(root: Path, *command: str, held: bool = False) -> subprocess.Popen[
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
 
+def wait_for(path: Path, seconds: float = 30) -> None:
+    """Waits until path exists: the locked command has started, so the lock is held."""
+    deadline = time.monotonic() + seconds
+    while not path.exists():
+        if time.monotonic() > deadline:
+            raise AssertionError(f"{path} never appeared")
+        time.sleep(0.02)
+
+
 class GateLock(unittest.TestCase):
     def test_a_second_gate_waits_for_the_first_and_says_so(self):
         root = repository(self)
         marker = root / "first-ran"
-        first = run_lock(root, "sh", "-c", f"sleep 1; touch {marker}")
-        time.sleep(0.3)  # the first holds the lock
+        started = root / "first-started"
+        first = run_lock(root, "sh", "-c", f"touch {started}; sleep 1; touch {marker}")
+        wait_for(started)  # the first holds the lock: a fixed 0.3 s missed it on a loaded machine
         self.assertEqual(run_lock(root, "--held").wait(), 0, "a gate holds it")
         second = run_lock(root, "sh", "-c", f"test -e {marker}")
         out, _ = second.communicate(timeout=30)
@@ -48,8 +58,9 @@ class GateLock(unittest.TestCase):
 
     def test_a_gates_own_sub_run_passes_through(self):
         root = repository(self)
-        first = run_lock(root, "sh", "-c", "sleep 2")
-        time.sleep(0.3)
+        started = root / "first-started"
+        first = run_lock(root, "sh", "-c", f"touch {started}; sleep 2")
+        wait_for(started)
         inner = run_lock(root, "true", held=True)
         started = time.monotonic()
         self.assertEqual(inner.wait(timeout=30), 0)
