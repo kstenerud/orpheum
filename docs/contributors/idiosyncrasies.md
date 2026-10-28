@@ -78,6 +78,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Remote voice routed only through Web Audio is silent. | [Chrome plays a remote WebRTC stream into Web Audio only while a media element also holds it](#chrome-plays-a-remote-webrtc-stream-into-web-audio-only-while-a-media-element-also-holds-it) |
 | Brave on Android refused the microphone | [Brave on Android refused the microphone](#brave-on-android-refused-the-microphone) |
 | A video with `autoplay` that never gets its first frame reports `paused === true` and `readyState` 1 indefinitely. | [An autoplaying video reads as paused until it can play, so a video that never can looks paused forever](#an-autoplaying-video-reads-as-paused-until-it-can-play-so-a-video-that-never-can-looks-paused-forever) |
+| A Fire TV resumed a film, played at once with 1.6 s loaded, ran dry a second in and stalled while its next chunk came. | [A browser plays a video as soon as it can show a moment of it, whatever its link](#a-browser-plays-a-video-as-soon-as-it-can-show-a-moment-of-it-whatever-its-link) |
 | At `http://devnas.example:5173` every click threw before it sent anything, and sign-in "did nothing". | [Secure-context APIs are simply absent on plain HTTP off localhost](#secure-context-apis-are-simply-absent-on-plain-http-off-localhost) |
 | A browser plays only the original file's first audio track | [A browser plays only the original file's first audio track](#a-browser-plays-only-the-original-files-first-audio-track) |
 | Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3 | [Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3](#browsers-other-than-chrome-play-no-matroska-and-none-plays-truehd-dts-or-most-ac-3) |
@@ -1104,6 +1105,29 @@ User-Agent (D263; the User-Agent is logged only).
   readyState (read 2026-10-08). **Better workaround:** starting the video with `play()` instead of the
   `autoplay` attribute makes `paused` false immediately, so a video that never gets a frame reads as waiting
   rather than paused (a check like `isWaitingToPlay` still covers autoplay-blocked cases).
+
+### A browser plays a video as soon as it can show a moment of it, whatever its link
+
+- **Technology:** HTML media elements under MSE (hls.js), all browsers; seen on a Fire TV's Silk.
+- **Symptom:** a cast to a Fire TV (Silk), Watch Together off, resumed The Marrowgate Family at 1798.9 s
+  with its first chunk loaded to 1800.47 s; the browser said `canplay` and played, ran dry 1.1 s in
+  while the next chunk (10.4 s of film, about 10 MB) took 2.3 s, and stalled 0.3 s at readyState 2.
+- **Cause:** the element's readiness (`HAVE_FUTURE_DATA`, `HAVE_ENOUGH_DATA`) says only that it can
+  play a moment on; under MSE the browser loads nothing itself and cannot judge whether the page's
+  next append will come in time, so `canplay`, `canplaythrough` and the autoplay attribute fire with
+  a second or less ahead [doc]. Unverified on Silk: each pause, play and seek seemed to cost it a
+  refill of its own (the owner, 2026-10-28), so a wait made by pausing a playing video and playing it
+  again would cost more than it saves.
+- **What we do:** a player that is not a follower plays only once what it loaded outlasts its next
+  chunk's expected load by `ready_ahead_of_next_chunk_percent`, waiting before its `play()`: the
+  page's video has no autoplay attribute, and a seek of a playing video to where too little is loaded
+  is paused as it seeks, before it can play there (`web/packages/sdk/src/start-gate.ts`,
+  `ready-ahead.ts`; `web/packages/player/src/next-chunk.ts`). VQ110.
+- **Evidence:** **[staging]** the core's log of the owner's cast, 2026-10-28
+  (`playerBuffering why=notReady readyState=2 loadedAheadMs=0`). **[web]** [HTML spec, media
+  elements](https://html.spec.whatwg.org/multipage/media.html): HAVE_ENOUGH_DATA is the user agent's
+  guess that playing on at the current rate will not overtake the data, which under MSE it has no
+  way to make (read 2026-10-28).
 
 ---
 

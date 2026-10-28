@@ -14,7 +14,7 @@ import {
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import { healPageAudio, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
+import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -206,6 +206,7 @@ function Stage(
     const video = videoRef.current;
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
+  useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
   return (
     <>
       <div className="film-player__stage">
@@ -216,7 +217,6 @@ function Stage(
             ref={videoRef}
             src={props.src}
             controls={props.hasControls}
-            autoPlay={props.isAutoPlay}
             playsInline
             onError={(event) => props.onError?.(event.currentTarget.error)}
           />
@@ -297,15 +297,53 @@ function placeVideo(video: HTMLVideoElement, slot: HTMLElement): void {
   slot.append(video);
 }
 
-/** Gives a kept video the player's own controls, and plays it at once, as the page composes it. */
+/**
+ * Gives a kept video the player's own controls, as the page composes it; never the autoplay
+ * attribute, as its start gate plays it (useStartsWithEnoughAhead).
+ */
 function showControls(
   video: HTMLVideoElement,
   composed: Pick<FilmComposition, "hasControls" | "isAutoPlay">,
 ): void {
   /* eslint-disable no-param-reassign -- as Stage's own video's attributes */
   video.controls = composed.hasControls;
-  video.autoplay = composed.isAutoPlay;
+  video.autoplay = false;
   /* eslint-enable no-param-reassign -- only these */
+}
+
+/**
+ * Plays the video at each of its loads, where the page composes it to play at once, as the autoplay
+ * attribute did, but only once its start gate has enough loaded ahead (start-gate.ts in the SDK):
+ * the browser plays at canplay, and a Fire TV's cast, resumed with 1.4 s loaded, ran dry and stalled
+ * (the owner, 2026-10-28). It loads ahead meanwhile, as an autoplaying video does. A play the
+ * browser refuses for want of a press leaves it paused, as it left an autoplaying one; a session
+ * this video leads plays it its own way, muted if it must (together-follow.ts).
+ */
+function useStartsWithEnoughAhead(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  isAutoPlay: boolean,
+): void {
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    if (video === null || !isAutoPlay) {
+      return undefined;
+    }
+    const gate = startGateOf(video);
+    const start = (): void => {
+      gate.play(() => {
+        video.play().catch(() => undefined);
+      });
+    };
+    video.preload = "auto";
+    video.addEventListener("loadstart", start);
+    if (video.networkState !== HTMLMediaElement.NETWORK_EMPTY) {
+      start();
+    }
+    return () => {
+      video.removeEventListener("loadstart", start);
+      gate.cancel();
+    };
+  }, [videoRef, isAutoPlay]);
 }
 
 /**

@@ -12,7 +12,7 @@ import {
   positionMsOf,
   type FollowedMedia,
 } from "./together-media.ts";
-import { seekReadyAheadMs } from "./together-refill.ts";
+import { readyAheadOf } from "./ready-ahead.ts";
 
 /**
  * The furthest a catch-up seek aims ahead of the group: by the time a seek has loaded the group has
@@ -32,8 +32,8 @@ export const loadedCatchUpLeadMs = 1000;
 
 /**
  * Where a catch-up seek to the group at toMs aims: loadedCatchUpLeadMs ahead where the player has
- * loaded the film from there through seekReadyAheadMs beyond and leadMs() would aim further, else
- * leadMs() ahead.
+ * loaded the film from there through as much beyond as it is ready on after a seek (readyAheadOf),
+ * and leadMs() would aim further, else leadMs() ahead.
  */
 export function catchUpTargetMs(
   media: FollowedMedia,
@@ -42,7 +42,7 @@ export function catchUpTargetMs(
 ): number {
   const aimedMs = group.toMs + leadMs();
   const nearMs = group.toMs + loadedCatchUpLeadMs * group.rate;
-  return isLoadedThrough(media, nearMs, nearMs + seekReadyAheadMs)
+  return isLoadedThrough(media, nearMs, nearMs + readyAheadOf(media).aheadMs)
     ? Math.min(aimedMs, nearMs)
     : aimedMs;
 }

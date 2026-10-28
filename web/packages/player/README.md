@@ -58,6 +58,21 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
   matches one by name and channels (`keepAudioRendition`, `src/hls.ts`; idiosyncrasies.md).
   `hls.test.ts`.
+- **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
+  plays on after a seek, only once what it loaded ahead, picture and sound both, outlasts its next
+  chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,
+  2026-10-28): a chunked playback tells the SDK how long its next chunk is expected to take, the
+  chunk after what is loaded on the quality hls.js loads, its byte range's size, else its length at
+  that quality's average rate, over its link's estimate, or before one the rate its first chunk of
+  picture loaded at (`src/next-chunk.ts`); one that can say nothing waits for `refillAheadMs`. The
+  wait comes before the `play()`, never as a play, a pause and a play: the page's video has no
+  autoplay attribute, and its start gate plays it (the SDK's `start-gate.ts`), pausing a playing
+  video as it seeks to where too little is loaded, before it can play there. A Fire TV played at
+  canplay with 1.6 s loaded and stalled (idiosyncrasies.md). `next-chunk.test.ts`, the SDK's
+  `start-gate.test.ts`, the app's `start-gate-play.test.ts`.
+- **Every play report carries the frames the video showed and dropped since the last**, as its
+  browser counts them (`src/frames.ts`), none where it counts none; the core logs a report that
+  dropped more than 1% of them. `frames.test.ts`.
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.
@@ -98,6 +113,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
-  `src/abr-controller.ts`. HLS playback:
+  `src/abr-controller.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`. The
+  frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.

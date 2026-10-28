@@ -56,7 +56,8 @@ export class FakeMedia {
   duration = 7200;
   /** What is loaded, as [start, end] in seconds: all of it unless a test says otherwise. */
   loaded: [number, number][] = [[0, 7200]];
-  readonly listeners = new Map<string, (event: Event) => void>();
+  /** Each event's listeners, in the order they were added, as an element keeps them. */
+  readonly listeners = new Map<string, ((event: Event) => void)[]>();
 
   get buffered(): Pick<TimeRanges, "length" | "start" | "end"> {
     const { loaded } = this;
@@ -77,16 +78,24 @@ export class FakeMedia {
   }
 
   addEventListener(type: string, listener: (event: Event) => void): void {
-    this.listeners.set(type, listener);
+    const listeners = this.listeners.get(type) ?? [];
+    if (!listeners.includes(listener)) {
+      this.listeners.set(type, [...listeners, listener]);
+    }
   }
 
-  removeEventListener(type: string): void {
-    this.listeners.delete(type);
+  removeEventListener(type: string, listener: (event: Event) => void): void {
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter((each) => each !== listener),
+    );
   }
 
   /** The browser firing an event at the element. */
   fire(type: string, event: Event = new Event(type)): void {
-    this.listeners.get(type)?.(event);
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
   }
 
   /** The events fired at the element by its page, by type. */

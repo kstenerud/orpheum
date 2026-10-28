@@ -50,6 +50,8 @@ export type {
 } from "./report.ts";
 export { stallAfterMs, watchStalls } from "./stalls.ts";
 export { standsStillReportAfterMs, watchStandingStill } from "./standstill.ts";
+export { framesShownOf } from "./frames.ts";
+export type { FramesShown } from "./frames.ts";
 export type { Standstill, StandingMedia } from "./standstill.ts";
 export type { Stall, WatchedMedia } from "./stalls.ts";
 export { nextCap, stepUpBufferMs, stepUpHeadroom } from "./step-up.ts";

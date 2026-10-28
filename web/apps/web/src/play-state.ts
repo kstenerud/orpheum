@@ -2,6 +2,7 @@
 
 import {
   eventContextOf,
+  framesShownOf,
   PlayReporter,
   playerFoundUnplayableEvent,
   ReportRefused,
@@ -18,19 +19,13 @@ import {
   type PlayReport,
   type SkippedBy,
 } from "@orpheum/player";
-import {
-  chunkLoadedOf,
-  playerLoadedChunkEvent,
-  playerMovedItselfEvent,
-  type Api,
-  type components,
-} from "@orpheum/sdk";
+import { playerMovedItselfEvent, startGateOf, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
+import { startGateFieldsOf, timeSeeks } from "./seek-timing.ts";
 import { soundOf } from "./startup-sound.ts";
-import { stepsOf } from "./steps-of.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
 import { useServices, type PathMoves } from "./services.tsx";
@@ -206,75 +201,8 @@ function startupListeners(
         playingAfterMs: sinceAsked(playingAtMs),
         ...preload,
         sound: soundOf(video),
+        ...startGateFieldsOf(video),
       });
-    },
-  };
-}
-
-/**
- * Times each of the person's seeks, from its last seeking (a drag seeks again and again) to playing,
- * or, for a paused video, to being able to play, and tells the reporter (the owner, 2026-10-12: a
- * jump that felt slow could not be measured): with the report the started event sends, or at once
- * when paused, with when its first chunks of picture and sound arrived, to say which it waited on.
- * Its listeners go on the video before the started event's.
- */
-function timeSeeks(
-  video: HTMLVideoElement,
-  reporter: Pick<PlayReporter, "recordSeekReady" | "flush">,
-): {
-  readonly seeking: (fromMs: number) => void;
-  readonly listeners: Record<string, (event: Event) => void>;
-} {
-  let pending:
-    | { readonly fromMs: number; atMs: number; pictureAfterMs?: number; soundAfterMs?: number }
-    | undefined;
-  const ready = (): boolean => {
-    if (pending === undefined || video.seeking) {
-      return false;
-    }
-    const toMs = positionMs(video);
-    reporter.recordSeekReady({
-      fromPositionMs: Math.max(0, Math.round(pending.fromMs)),
-      toPositionMs: Math.max(0, Math.round(toMs)),
-      readyAfterMs: Math.max(0, Math.round(performance.now() - pending.atMs)),
-      ...(video.paused ? { isPaused: true } : {}),
-      ...(pending.pictureAfterMs === undefined ? {} : { pictureAfterMs: pending.pictureAfterMs }),
-      ...(pending.soundAfterMs === undefined ? {} : { soundAfterMs: pending.soundAfterMs }),
-      ...stepsOf(video),
-    });
-    pending = undefined;
-    return true;
-  };
-  return {
-    listeners: {
-      playing: () => {
-        ready();
-      },
-      canplay: () => {
-        if (video.paused && ready()) {
-          reporter.flush(positionMs(video));
-        }
-      },
-      [playerLoadedChunkEvent]: (event: Event) => {
-        const loaded = chunkLoadedOf(event);
-        if (pending === undefined || loaded === undefined) {
-          return;
-        }
-        const afterMs = Math.max(0, Math.round(performance.now() - pending.atMs));
-        if (loaded.track === "video") {
-          pending.pictureAfterMs ??= afterMs;
-        } else {
-          pending.soundAfterMs ??= afterMs;
-        }
-      },
-    },
-    seeking: (fromMs) => {
-      const atMs = performance.now();
-      if (pending === undefined) {
-        pending = { fromMs, atMs };
-      } else {
-        pending.atMs = atMs;
-      }
     },
   };
 }
@@ -392,7 +320,8 @@ function reportVideoEvents(
       }
     },
     pause: whileItHoldsMedia(() => {
-      if (!video.ended) {
+      // The start gate's own pause, holding a seek until enough is loaded, is no one's pause.
+      if (!video.ended && !startGateOf(video).isOwnPause()) {
         reporter.recordPaused(positionMs(video), contexts.paused());
       }
     }),
@@ -590,6 +519,7 @@ function startReporting(
   const loss = watchForLoss(video, listener, () => videoEvents.lastPositionMs());
   reporter.measureLinkWith(playback.readLinkKbps);
   reporter.reportSteadinessWith(() => steadinessOf(video));
+  reporter.reportFramesWith(() => framesShownOf(video));
   const page = watchPage(video, reporter, playback.pathMoves);
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
   const stopWatching = watchForReport(video, reporter, movingDown);
@@ -778,6 +708,7 @@ export function useStallReports(
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
     reporter.reportSteadinessWith(() => steadinessOf(video));
+    reporter.reportFramesWith(() => framesShownOf(video));
     const stopWatching = watchForReport(video, reporter, movingDown);
     return () => {
       movingDown.stop();

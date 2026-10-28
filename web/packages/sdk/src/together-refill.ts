@@ -2,12 +2,15 @@
 
 /**
  * When a following player is ready to play on after it stalled or sought: refillAheadMs of film
- * loaded after a stall, and after a seek its group or its person made, only seekReadyAheadMs when
- * its last chunk loaded well faster than it plays. Every other player starts on a second or two
- * after a seek (Media3 1 s, Jellyfin SyncPlay its first frame); ten seconds kept a jump's group
- * waiting about ten (seek-resync-2026-10-12.md; the owner, 2026-10-12: "Those sound good").
+ * loaded after a stall, and after a seek its group or its person made, enough to outlast loading its
+ * next chunk with a margin (readyAheadOf, the rule every player starts by; the owner, 2026-10-28),
+ * refillAheadMs where its player cannot say how long that takes. Every other player started on a
+ * second or two after a seek (Media3 1 s, Jellyfin SyncPlay its first frame); ten seconds kept a
+ * jump's group waiting about ten (seek-resync-2026-10-12.md), and a fixed 3 s once the link loaded
+ * well faster than real time replaced it until a Fire TV's chunk of 10.4 s took 2.3 s to come.
  */
 
+import { readyAheadOf } from "./ready-ahead.ts";
 import type { ChunkLoaded } from "./together-player-events.ts";
 import {
   hasRefilled,
@@ -15,15 +18,6 @@ import {
   refillAheadMs,
   type FollowedMedia,
 } from "./together-media.ts";
-
-/** How much film a player loaded after a seek is ready on, when its link keeps up well. */
-export const seekReadyAheadMs = 3000;
-
-/**
- * How many times faster than it plays the player's last chunk of picture must have loaded for
- * seekReadyAheadMs to be enough: a link only just keeping up stalls again at once.
- */
-export const seekReadyLoadsAtLeast = 1.5;
 
 /** Why the player is loading before it can play on: a stall or a catch-up's seek, or a seek. */
 type RefillCause = "stall" | "seek";
@@ -66,7 +60,7 @@ export class Refill {
     this.#isNextSeekCatchUp = why === "catchUp";
   };
 
-  /** A chunk loaded: a picture's says how fast the link carries the film. */
+  /** A chunk loaded: a picture's says how fast the link carries the film, for the log. */
   readonly chunkLoaded = (loaded: ChunkLoaded): void => {
     if (loaded.track === "video" && loaded.loadMs > 0 && loaded.filmMs > 0) {
       this.#loadsFaster = loaded.filmMs / loaded.loadMs;
@@ -83,7 +77,7 @@ export class Refill {
     }
     if (event === "waiting" || event === "seeking" || media.readyState < haveFutureData) {
       this.#startRefilling(event, media);
-    } else if (this.#isRefilling && hasRefilled(media, this.#readyAheadMs())) {
+    } else if (this.#isRefilling && hasRefilled(media, this.#readyAheadMs(media))) {
       this.#isRefilling = false;
     }
   };
@@ -96,8 +90,8 @@ export class Refill {
     }
   }
 
-  /** How much film loaded ahead it is ready on now. */
-  readonly readyOnMs = (): number => this.#readyAheadMs();
+  /** How much film loaded ahead media is ready on now. */
+  readonly readyOnMs = (media: FollowedMedia): number => this.#readyAheadMs(media);
 
   /** How many times faster than it plays its last chunk of picture loaded, to a tenth; undefined before one. */
   readonly loadsFaster = (): number | undefined =>
@@ -105,11 +99,10 @@ export class Refill {
 
   /** Whether it is refilling and has not yet loaded enough to play on. */
   readonly isShort = (media: FollowedMedia): boolean =>
-    this.#isRefilling && !hasRefilled(media, this.#readyAheadMs());
+    this.#isRefilling && !hasRefilled(media, this.#readyAheadMs(media));
 
-  #readyAheadMs(): number {
-    return this.#cause === "seek" && (this.#loadsFaster ?? 0) >= seekReadyLoadsAtLeast
-      ? seekReadyAheadMs
-      : refillAheadMs;
+  /** After a seek, what readyAheadOf says; after a stall, refillAheadMs. */
+  #readyAheadMs(media: FollowedMedia): number {
+    return this.#cause === "seek" ? readyAheadOf(media).aheadMs : refillAheadMs;
   }
 }

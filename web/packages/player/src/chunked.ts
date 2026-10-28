@@ -31,6 +31,7 @@ import {
   type HlsPlayback,
   type LoadingHls,
 } from "./hls.ts";
+import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
 import { stepUpHeadroom } from "./step-up.ts";
@@ -479,6 +480,7 @@ export function playChunked(
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
+  stops.push(tellNextChunkLoad(hls, video, linkKbps));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

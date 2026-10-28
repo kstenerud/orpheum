@@ -59,3 +59,21 @@ func TestClientSettings_TheDeveloperPagesAreOfferedOnlyWhenTurnedOn(t *testing.T
 		t.Error("the developer pages are not offered once the admin turned them on")
 	}
 }
+
+// Every signed-in client reads how much film its players wait to have loaded ahead before they play,
+// as the admin set it (the owner, 2026-10-28).
+func TestClientSettings_EveryClientReadsTheMarginItsPlayersStartBy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	token := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ReadyAheadOfNextChunkPercent, "200")
+	served := harness.do(t, http.MethodGet, "/client-settings", token, nil)
+	var got api.ClientSettingsBody
+	if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
+		t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
+	}
+	if got.ReadyAheadOfNextChunkPercent != 200 {
+		t.Errorf("a player waits for %d%% of its next chunk's load; want the 200%% the admin set",
+			got.ReadyAheadOfNextChunkPercent)
+	}
+}

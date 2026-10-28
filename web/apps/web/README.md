@@ -49,6 +49,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   and under a film on its ladder alike (D222); over the original, where its track has a centre, it
   starts off, and turned on it is kept and the film asked for again from where the video stands,
   with the cause boostChosen (D336 §3). `src/sound.test.tsx`.
+- **A film the page plays at once is played by its video's start gate, never the autoplay
+  attribute**, at each of its loads, once what it loaded outlasts its next chunk's load (the
+  player's README; the owner, 2026-10-28), by the server's `readyAheadOfNextChunkPercent`, which the
+  page sets from its client settings; its start's and its seeks' reports say what it waited for
+  (`src/seek-timing.ts`). `src/start-gate-play.test.ts`, `src/app.test.tsx`.
 - **A playback the page asks for again goes on from where its video stands** (D230 §5, D336 §3):
   another audio track, a fetched subtitle, the original chosen or the boost turned on asks with its
   cause and where the video is, which the page starts from in place of the resume position

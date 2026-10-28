@@ -30,6 +30,10 @@ type ClientSettingsBody struct {
 	// ShouldOfferDeviceTests is whether the menu offers the device lab's tests to everyone signed
 	// in, and the server takes their results (the owner, 2026-10-25).
 	ShouldOfferDeviceTests bool `json:"shouldOfferDeviceTests"`
+	// ReadyAheadOfNextChunkPercent is how much film a player waits to have loaded ahead before it
+	// starts, and plays on after a seek: this percent of its next chunk's expected load time (the
+	// owner, 2026-10-28).
+	ReadyAheadOfNextChunkPercent int64 `json:"readyAheadOfNextChunkPercent"`
 }
 
 // ClientSettingsOutput is GET /client-settings's answer.
@@ -62,6 +66,7 @@ func (server *Server) getClientSettings(
 		{settings.ScreenRefreshLongestWaitSeconds, &output.Body.ScreenRefreshLongestWaitSeconds},
 		{settings.ScreenRefreshFailedWaitSeconds, &output.Body.ScreenRefreshFailedWaitSeconds},
 		{settings.InterestSaidEverySeconds, &output.Body.InterestSaidEverySeconds},
+		{settings.ReadyAheadOfNextChunkPercent, &output.Body.ReadyAheadOfNextChunkPercent},
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {

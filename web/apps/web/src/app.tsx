@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, components } from "@orpheum/sdk";
+import { setReadyAheadPercent, type Api, type components } from "@orpheum/sdk";
 import { Suspense, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -128,6 +128,7 @@ function SignedIn(): JSX.Element {
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
   const clientSettings = useClientSettings();
   const poller = useServersPoller(clientSettings);
+  useReadyAheadOfTheServer(clientSettings);
   // The session this tab hosts, whose voice every screen shares (D281 §5).
   const hostMembership = useMembership(tabStorage, "host");
   useEffect(() => {
@@ -167,6 +168,21 @@ function SignedIn(): JSX.Element {
       </LiveProvider>
     </IsAdminContext>
   );
+}
+
+/**
+ * Has every player of the page wait, before it plays, by the server's margin on its next chunk's
+ * load, once read (ready_ahead_of_next_chunk_percent; the SDK's ready-ahead.ts).
+ */
+function useReadyAheadOfTheServer(
+  read: components["schemas"]["ClientSettingsBody"] | undefined,
+): void {
+  const percent = read?.readyAheadOfNextChunkPercent;
+  useEffect(() => {
+    if (percent !== undefined) {
+      setReadyAheadPercent(percent);
+    }
+  }, [percent]);
 }
 
 /** The server settings every client reads, once read. */

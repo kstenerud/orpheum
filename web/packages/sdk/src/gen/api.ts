@@ -2586,6 +2586,8 @@ export interface components {
             /** Format: int64 */
             interestSaidEverySeconds: number;
             /** Format: int64 */
+            readyAheadOfNextChunkPercent: number;
+            /** Format: int64 */
             screenRefreshFailedWaitSeconds: number;
             /** Format: int64 */
             screenRefreshFirstWaitSeconds: number;
@@ -4290,6 +4292,8 @@ export interface components {
             path: string;
         };
         ReportInputBody: {
+            /** Format: int64 */
+            droppedFrames?: number;
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
             linkKbps?: number;
@@ -4309,6 +4313,8 @@ export interface components {
             startup?: components["schemas"]["StartupBody"];
             /** Format: int64 */
             steadiness?: number;
+            /** Format: int64 */
+            totalFrames?: number;
             unplayables?: components["schemas"]["UnplayableBody"][] | null;
         };
         ReportOutputBody: {
@@ -4475,6 +4481,10 @@ export interface components {
             isPaused?: boolean;
             linkSamples?: string;
             /** Format: int64 */
+            loadedAheadMs?: number;
+            /** Format: int64 */
+            nextChunkLoadMs?: number;
+            /** Format: int64 */
             pictureAfterMs?: number;
             /** Format: int64 */
             readyAfterMs: number;
@@ -4483,6 +4493,8 @@ export interface components {
             steps?: string;
             /** Format: int64 */
             toPositionMs: number;
+            /** Format: int64 */
+            waitedForAheadMs?: number;
         };
         SeriesReadWronglyBody: {
             name: string;
@@ -4726,9 +4738,15 @@ export interface components {
             /** Format: int64 */
             firstDataAfterMs: number;
             /** Format: int64 */
+            loadedAheadMs?: number;
+            /** Format: int64 */
+            nextChunkLoadMs?: number;
+            /** Format: int64 */
             playingAfterMs: number;
             preloadSteps?: string;
             sound?: components["schemas"]["StartupSoundBody"];
+            /** Format: int64 */
+            waitedForAheadMs?: number;
         };
         StartupSoundBody: {
             /** Format: int64 */

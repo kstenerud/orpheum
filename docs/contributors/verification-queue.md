@@ -1107,3 +1107,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   while hosting one on another device of theirs (the session lost from this tab) ends the old one,
   its guests told it ended, and the core's log says `a person left a session for another`.
   (`internal/core/together/places.go`; `web/apps/web/src/together-join.tsx`)
+- [ ] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
+  loaded outlasts its next chunk's load, and its dropped frames reach the log (the owner, 2026-10-28),
+  on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off: (1) The
+  Marrowgate Family, resumed part way where its first chunk ends a second or two past the resume point
+  (as at 1798.9 s on 2026-10-28), starts with one play and does not stall in its first 30 s; the
+  core's log line "a playback started playing" for it has `loadedAheadMs` above `waitedForAheadMs`,
+  and `waitedForAheadMs` about 1.5 times `nextChunkLoadMs`; (2) a 2-minute jump from the remote plays
+  on with no stall after it, its "a player's seek was ready to play" line saying the same, and no
+  pause told for it ("a player's play state changed" with `kind=paused`); (3) the same on the Mac
+  alone, in Chrome, where a start with plenty loaded plays at once (`waitedForAheadMs` absent); (4)
+  played for ten minutes, a report whose dropped frames passed 1% gives a line "a player dropped
+  frames" with `droppedFrames` and `totalFrames` near when the picture stuttered, if it did, and a
+  smooth one none. (`web/packages/sdk/src/start-gate.ts`, `ready-ahead.ts`;
+  `web/packages/player/src/next-chunk.ts`, `frames.ts`; `internal/core/api/report.go`)

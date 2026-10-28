@@ -110,6 +110,8 @@ export const enSettingsCatalogue = {
       "Work for something being watched goes ahead of background work, such as scanning, and pauses it if needed. Once nobody has asked for that playback's work for this long, it counts as background work again.",
     portMappingLeaseSeconds:
       "A port the router opens on request stays open for a time and is asked for again before it runs out. This is how long it's asked for.",
+    readyAheadOfNextChunkPercent:
+      "A browser starts a film as soon as it can show a moment of it. If the next piece takes longer to arrive than what is loaded lasts, the film stops again at once. A player waits until what it has loaded outlasts the time its next piece is expected to take, times this share: 150 waits for half as long again.",
     readerLimitNetworkShare:
       "A folder mounted from another machine reads over the network, which a few readers share well.",
     readerLimitSpinningDisk:
@@ -282,6 +284,8 @@ export const enSettingsCatalogue = {
     metadataRefreshCheckEveryHours:
       "How often the server looks for titles whose data is due to be fetched again.",
     readerLimitNetworkShare: "How many may read a network share at once.",
+    readyAheadOfNextChunkPercent:
+      "How much of a film a player loads before it starts or plays on after a jump, as a share of the time its next piece takes to arrive.",
     newLibraryDefaultScanEveryHours:
       "How often a new library checked on a schedule looks for changes. Each library keeps its own once made.",
     nodeJobsBeyondFreeSlots:
