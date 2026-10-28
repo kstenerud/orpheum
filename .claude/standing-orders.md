@@ -22,7 +22,7 @@
      merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
      for nas.example. Connect packaged for prod: /yoloai/files/connect-production-0a3fcd5-2336a94f.run (VQ84, VQ87).
-     Owner to choose (D368's status): loudness when stepping down from the copied sound. Runs overnight.
+     Owner to choose (D368's status): loudness when stepping down from the copied sound.
    - Folded in 2026-10-28 (owner, serious), all on staging unless noted: Fire TV cast fixes, phone banner,
      chooser/menu as one modal drop-down, refused key → sign-in (needs connect re-pin + repackage for prod),
      D250 §2 amended; **D371** (a session's leader plays as a device alone, everyone catches up, a cast takes
