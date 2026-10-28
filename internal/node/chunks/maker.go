@@ -257,8 +257,9 @@ func (taker *rawTaker) take(line string) error {
 	if err != nil {
 		return err
 	}
-	name, number := entry.name, entry.number
 	command := taker.command
+	entry.number -= rawNumberShift(command) // the chunk the raw file is
+	name, number := entry.name, entry.number
 	lastOfRun := command.FirstChunk + len(command.BoundsMs) - 2
 	if number == lastOfRun && !taker.hasEnded {
 		return errNotYet

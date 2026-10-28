@@ -1216,3 +1216,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   (the preload's ~10 s fetched on the film page and again by the Play page). Note
   `playingAfterMs` before and after for (2) too. (`web/apps/web/src/watching.ts`,
   `frame-timing.ts`, `tv-controls.css`, `status-tray.css`)
+- [ ] **VQ119** — A Woman of Paris plays from its start and from a resumed point (staging,
+  2026-10-28: file 5667 on the Mac in Firefox, its own 5.1 sound copied failed chunk 0 twice, "raw
+  00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not
+  play, `cannot_convert`; its first keyframe is before its start, discarded, so its grid starts
+  10.176 s in), on staging once deployed. Passes when, on the Mac (Firefox or Chrome), A Woman of Paris
+  (file 5667) plays from its start with its sound, the tracks note naming its own 5.1 sound, for a
+  minute with no error, and again from a point resumed past the half hour; and the core's log has no
+  `runs of chunks failed at the same chunk again` for `5667/chunks-sound0-own`. The same for one
+  other film of the shape (Glass Runner Final Cut, file 5691, or The Gold Rush, file 5697).
+  (`internal/node/chunks/arguments.go`, `maker.go`, `listed.go`; `internal/core/chunks/offer.go`)

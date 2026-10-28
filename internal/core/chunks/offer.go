@@ -122,7 +122,10 @@ func (offered offer) has(stream Stream) bool {
 // quality of the ladder below the film's own picture, in bit rate and in height, where each is known,
 // the ladder chunk_qualities_hardware where the film's node encodes on a GPU, else chunk_qualities
 // (D323 §3); and every sound of its tracks (SoundsOf), unlevelled while the film's loudness is not
-// measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1).
+// measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1),
+// but a track whose copy FFmpeg failed on twice at one chunk (hasGivenUp), which plays the sound the
+// server makes instead, as the lower qualities do, until the film is forgotten: a copy that cannot be
+// cut leaves the film playable (A Woman of Paris, staging, 2026-10-28).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
 	if err != nil {
@@ -144,7 +147,11 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	height := film.picture.Video.Height
 	top, averageBps := topOf(film, playback)
 	offered.pictures = append(offered.pictures, top...)
-	offered.copied = copiedTracksOf(film, playback, top)
+	offered.copied = slices.DeleteFunc(copiedTracksOf(film, playback, top), func(track int) bool {
+		return service.runs.hasGivenUp(StoreDir(film.file.ID, Stream{
+			Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: track,
+		}, film.grid.ID()))
+	})
 	for _, quality := range all {
 		if (averageBps <= 0 || int64(quality.Kbps)*1000 < averageBps) && (height <= 0 || quality.Height < height) {
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})

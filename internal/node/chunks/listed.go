@@ -21,7 +21,8 @@ const spanToleranceMs = 500
 // errNotHeld is a raw file whose span is not its chunk's: it is never made a chunk.
 var errNotHeld = errors.New("FFmpeg cut it elsewhere or was stopped in it")
 
-// listed is one line of the muxer's list: a raw file it finished and the span it holds, in
+// listed is one line of the muxer's list: a raw file it finished, the chunk it is (number, once
+// taken: its name's number less rawNumberShift) and the span it holds, in
 // milliseconds from the run's first frame, or, for a sound copied, in the film (copiedSoundTimes);
 // and its end in seconds as listed, to the microsecond, by which a sound copied is placed.
 type listed struct {
@@ -81,8 +82,16 @@ func checkSpan(command nodeproto.MakeChunks, raw listed, isClosedByTheEnd bool) 
 	isStartOff := math.Abs(float64(raw.startMs-fromMs)) > spanToleranceMs
 	isEndOff := raw.endMs > toMs+spanToleranceMs || (!isClosedByTheEnd && raw.endMs < toMs-spanToleranceMs)
 	if isStartOff || isEndOff {
-		return fmt.Errorf("raw %s holds %d to %d ms of the run, not its chunk's %d to %d ms: %w",
-			raw.name, raw.startMs, raw.endMs, fromMs, toMs, errNotHeld)
+		return fmt.Errorf("raw %s holds %d to %d ms of the run, not its chunk %d's %d to %d ms "+
+			"(the run read from %d ms, its first cut at %s s): %w",
+			raw.name, raw.startMs, raw.endMs, raw.number, fromMs, toMs, seekMs(command), firstCut(command), errNotHeld)
 	}
 	return nil
+}
+
+// firstCut is the first time the run's muxer was told to cut at, in its seconds: what a raw file
+// held wrongly is first checked against.
+func firstCut(command nodeproto.MakeChunks) string {
+	first, _, _ := strings.Cut(cutTimes(command), ",")
+	return first
 }

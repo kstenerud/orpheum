@@ -258,6 +258,59 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 	}
 }
 
+// A sound copied whose film's first chunk starts 10.176 s in makes chunk 0 of the raw file after its
+// lead-in from the film's start, which is dropped, each chunk placed by its listed end; a raw file
+// holding the film from its start to chunk 0's end, as the muxer wrote one when not cut at chunk 0's
+// start, is never made a chunk, and the failure says where the run read from and first cut (A
+// Perfect World, staging, 2026-10-28).
+func TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt(t *testing.T) {
+	t.Parallel()
+	command := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
+	})
+	command.FirstChunk, command.BoundsMs = 0, []int64{10_176, 12_262, 22_522}
+	fake := &fakeFFmpeg{
+		raw: map[int][]byte{
+			0: rawOf(48000, lastingFragmentOf(478)),
+			1: rawOf(48000, lastingFragmentOf(97)),
+			2: rawOf(48000, lastingFragmentOf(481)),
+		},
+		numbers: []int{0, 1, 2},
+		spans:   map[int]string{0: "0.000000,10.197167", 1: "10.197167,12.266500", 2: "12.266500,22.527167"},
+	}
+	maker, shelf, directory := makerOver(t, fake)
+	if last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil || last != 1 {
+		t.Fatalf("the run made through %d, %v; want chunk 1", last, err)
+	}
+	for chunk, end := range map[int]struct {
+		seconds float64
+		samples uint64
+	}{0: {12.2665, 97}, 1: {22.527167, 481}} {
+		want := uint64(math.Round((end.seconds+float64(TimelineOffsetMs)/1000)*48000)) - end.samples*aacFrameTicks
+		if got := storedDecodeTime(t, directory, command.StoreDir, chunk); got != want {
+			t.Errorf("chunk %d starts at %d, want %d: its listed end in the film, offset, less its %d samples",
+				chunk, got, want, end.samples)
+		}
+	}
+	if shelf.HasFile(command.StoreDir, ChunkName(2)) {
+		t.Error("a chunk past the run's was made")
+	}
+	whole := &fakeFFmpeg{
+		raw:     map[int][]byte{0: rawOf(48000, lastingFragmentOf(575))},
+		numbers: []int{0}, spans: map[int]string{0: "0.000000,12.266500"},
+	}
+	maker, shelf, _ = makerOver(t, whole)
+	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
+	isSaid := err != nil && strings.Contains(err.Error(), "read from 0 ms, its first cut at 10.176 s")
+	if last != -1 || !errors.Is(err, errNotHeld) || !isSaid {
+		t.Errorf("a raw file of the film from its start to chunk 0's end made through %d, %v; want none, saying "+
+			"where the run read from and first cut", last, err)
+	}
+	if shelf.HasFile(command.StoreDir, ChunkName(0)) {
+		t.Error("chunk 0 was made of the film from its start")
+	}
+}
+
 // A run FFmpeg fails keeps the chunks it finished, and says how far it got.
 func TestMake_AFailedRunKeepsWhatItFinished(t *testing.T) {
 	t.Parallel()

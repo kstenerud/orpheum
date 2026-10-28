@@ -148,6 +148,40 @@ func TestStartOnLadder_StartsTheTopOnTheFilmsOwnSoundCopied(t *testing.T) {
 	}
 }
 
+// A track whose copy FFmpeg failed on twice at one chunk is offered no more copied: a playback started
+// anew plays the top with the sound the server makes, as the lower qualities do, and its master
+// playlist names no copy, so the film plays rather than every start being refused for the copy (A
+// Perfect World, staging, 2026-10-28, its copy's chunk 0 refused twice and the film unplayable).
+func TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	copyDir := StoreDir(1, Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: 0}, mustGrid(t, service).ID())
+	for range runFailuresToGiveUp {
+		service.runs.failed(copyDir, 0, "raw 00000.mp4 holds 0 to 12267 ms of the run")
+	}
+	offer, err := service.StartOnLadder(t.Context(), playsOwnSound(), 95_000, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offer.StreamName != "picture" || !strings.HasPrefix(offer.SoundStreamName, "sound0-96k") ||
+		strings.HasSuffix(offer.SoundStreamName, "-ownlevel") {
+		t.Errorf("the offer = %+v; want the picture with the sound the server makes, levelled as any", offer)
+	}
+	for _, run := range queue.runs(t, service) {
+		if run.stream == "sound0-own" {
+			t.Errorf("the runs asked for = %+v; want none of the copy", queue.runs(t, service))
+		}
+	}
+	playlist, _, err := service.MasterPlaylist(t.Context(), playsOwnSound())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(playlist, "sound0-own") {
+		t.Errorf("the master playlist names the copy:\n%s", playlist)
+	}
+}
+
 // A run of a sound copied copies its track, led in from the chunk before, carrying no gain; a run of a
 // mix made as loud as its track's own sound carries the gain that brings it there, the stereo mix's
 // levelling less the track's own, 2.5 dB (D368 §1).
