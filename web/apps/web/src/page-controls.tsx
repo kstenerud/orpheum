@@ -27,8 +27,11 @@ export function PageControls(props: FilmParts): JSX.Element {
   const { videoRef } = props;
   const overlayRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
-  const source = useVideoSource(videoRef);
-  const isShown = useShownWhileActive(source.isPaused, overlayRef);
+  const [isShown, setIsShown] = useState(true);
+  // A key's focus in the bar keeps it in view though hidden (page-controls.css), so it reads on.
+  const isFocusIn = useIsFocusIn(overlayRef);
+  const source = useVideoSource(videoRef, !isShown && !isFocusIn);
+  useShownWhileActive({ isShown, setIsShown }, source.isPaused, overlayRef);
   useCommands(
     "document",
     (detail, event) => {
@@ -66,10 +69,11 @@ export function PageControls(props: FilmParts): JSX.Element {
  * bar. Hiding leaves focus where it is.
  */
 function useShownWhileActive(
+  shown: { readonly isShown: boolean; readonly setIsShown: (isShown: boolean) => void },
   isPaused: boolean,
   overlayRef: RefObject<HTMLElement | null>,
-): boolean {
-  const [isShown, setIsShown] = useState(true);
+): void {
+  const { isShown, setIsShown } = shown;
   const lastSeenAtRef = useRef(0);
   const show = (): void => {
     lastSeenAtRef.current = performance.now();
@@ -112,8 +116,31 @@ function useShownWhileActive(
     return () => {
       clearInterval(timer);
     };
-  }, [isShown, isPaused]);
-  return isShown;
+  }, [isShown, isPaused, setIsShown]);
+}
+
+/** Whether focus is in the element overlayRef holds, as its focusin and focusout say. */
+function useIsFocusIn(overlayRef: RefObject<HTMLElement | null>): boolean {
+  const [isFocusIn, setIsFocusIn] = useState(false);
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (overlay === null) {
+      return undefined;
+    }
+    const focusedIn = (): void => {
+      setIsFocusIn(true);
+    };
+    const focusedOut = (event: FocusEvent): void => {
+      setIsFocusIn(event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget));
+    };
+    overlay.addEventListener("focusin", focusedIn);
+    overlay.addEventListener("focusout", focusedOut);
+    return () => {
+      overlay.removeEventListener("focusin", focusedIn);
+      overlay.removeEventListener("focusout", focusedOut);
+    };
+  }, [overlayRef]);
+  return isFocusIn;
 }
 
 /**
