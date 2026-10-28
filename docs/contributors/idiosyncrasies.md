@@ -1348,6 +1348,14 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **Symptom:** "Both players held at 0 with 0.04 s to 60 s loaded … held the group up for good."
 - **What we do:** a held player is moved onto the first frame it loaded.
   `web/packages/sdk/src/together-follow.ts:640-645`.
+- **A hole ahead, too:** a cast's receiver in Firefox on a Mac, held paused for its group's wait,
+  had loaded 1547.76-1554.72 s of picture, but its sound had a hole of 60 ms at 1551.21 s, where it
+  passed from one sound rendition's chunk to another's; the element's `buffered`, the picture's and
+  the sound's in common, ended 1.5 s past it, short of the 3 s a seek is ready on, so it said it
+  buffered for as long as it was held, and its group waited on it for good (staging, 2026-10-28).
+  What a player has loaded ahead is now read on across a hole no wider than hls.js's `maxBufferHole`
+  (0.1 s), which its gap controller steps over as the video plays (`playedAcrossHoleS`,
+  `web/packages/sdk/src/together-media.ts`). VQ98.
 - **Evidence:** [staging] 2026-10-06. The cause is stated in the comment, but hls.js's source is not cited.
   **[source]** confirmed in hls.js 1.7.3 `gap-controller.ts`: `pausedEndedOrHalted` (`media.paused &&
   !seeking`) returns before any gap handling, and the start-gap jump itself runs only `if (!media.paused)`.

@@ -181,7 +181,8 @@ const (
 	// playing seven seconds after its remote paused it, and nothing said whether the pause came late
 	// or the player held it (the owner, 2026-10-28).
 	NoteGroupFollowed NoteKind = "groupFollowed"
-	// NoteBuffering is a following player beginning to hold its group up while the group plays, Why
+	// NoteBuffering is a following player beginning to hold its group up while the group plays, or
+	// holding up its wait (once for each wait and each change of what holds it), Why
 	// what holds it ("notCaughtUp", "seeking", "notReady", or a refill begun by "waiting", "seeking" or
 	// "notReady"), at PositionMs, with its ReadyState, Rate, LoadedAheadMs and SinceRateChangeMs: a Fire
 	// TV reported buffering some 350 ms after each nudge of its rate, again and again, its chunks

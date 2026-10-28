@@ -59,7 +59,7 @@ import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
-import { bufferingCauseOf, bufferingNote } from "./together-buffering.ts";
+import { bufferingCauseOf, bufferingNote, HoldingNotes } from "./together-buffering.ts";
 import {
   checkDriftEveryMs,
   followedEvents,
@@ -134,6 +134,8 @@ class GroupFollower {
   readonly #refill = new Refill();
   /** Whether the group was last told it buffers, so loading only tells it of a change. */
   #wasReportedBuffering: boolean | undefined = undefined;
+  /** When it notes what holds its group up. */
+  readonly #holding = new HoldingNotes();
   /**
    * Whether a command this player sent awaits the server's answer: until the group is told again or
    * the command refused, the player is left as its person put it, not pulled back to the group as
@@ -168,9 +170,7 @@ class GroupFollower {
   /** The player's state as the group is told it. */
   readonly playerState = (): PlayerState => {
     const isBuffering = this.#isBuffering();
-    if (isBuffering && this.#wasReportedBuffering === false) {
-      this.#noteBuffering();
-    }
+    this.#noteBuffering(isBuffering);
     this.#wasReportedBuffering = isBuffering;
     const startLagMs = this.#start.lagMs();
     const loadsFaster = this.#refill.loadsFaster();
@@ -184,15 +184,18 @@ class GroupFollower {
     };
   };
 
-  /** Notes what makes it begin to hold its playing group up (bufferingNote). */
-  #noteBuffering(): void {
-    if (this.#connection.snapshot().group?.state === "Playing") {
-      const why = bufferingCauseOf(this.#media, this.#hasCaughtUp, this.#refill);
-      const changedAtMs = this.#rateChangedAtMs;
-      const sinceMs =
-        changedAtMs === undefined ? undefined : this.#options.monotonicMs() - changedAtMs;
-      this.#connection.note(bufferingNote(this.#media, why, sinceMs));
+  /** Notes what holds its group up, when HoldingNotes says to (bufferingNote). */
+  #noteBuffering(isBuffering: boolean): void {
+    const why = isBuffering
+      ? bufferingCauseOf(this.#media, this.#hasCaughtUp, this.#refill)
+      : undefined;
+    if (!this.#holding.isToNote(why, this.#connection.snapshot()) || why === undefined) {
+      return;
     }
+    const changedAtMs = this.#rateChangedAtMs;
+    const sinceMs =
+      changedAtMs === undefined ? undefined : this.#options.monotonicMs() - changedAtMs;
+    this.#connection.note(bufferingNote(this.#media, why, sinceMs));
   }
 
   /** The connection changed: a command this player sent is answered once an answer was heard since. */

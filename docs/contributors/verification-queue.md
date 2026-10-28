@@ -996,3 +996,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   "with the chooser widget I can only exit without choosing by pressing the back button, which
   actually brings me back a page." (`web/apps/web/src/navigation.ts`'s `holdBack`,
   `modal-dialog.tsx`, `drop-down.tsx`, `route-chooser.tsx`, `app-shell.tsx`)
+- [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
+  phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
+  partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays
+  on, never left paused on its first frame; (2) the core's log has, for each, a `groupChanged` line
+  with `event=everyoneReady` and `state=Playing` after its `seeked`; (3) any `playerBuffering` line
+  with `groupState=Waiting` says what held the wait (`why`, `readyState`, `loadedAheadMs`): note
+  them in the item. Before the fix the cast's group waited for its receiver for good, the receiver
+  held paused at 1549.673 s with 7 s loaded but a hole of 60 ms in its sound 1.5 s on, saying it
+  buffered (staging, 2026-10-28, 07:51). (`web/packages/sdk/src/together-media.ts`,
+  `together-buffering.ts`; `internal/core/together/player_log.go`)

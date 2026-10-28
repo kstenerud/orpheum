@@ -13,6 +13,7 @@ import {
   playerLoadedChunkEvent,
 } from "./together-player-events.ts";
 import { Refill, seekReadyAheadMs } from "./together-refill.ts";
+import type { PlayerNote } from "./together-notes.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
 let monotonicNowMs = 0;
@@ -217,5 +218,79 @@ describe("a player that may seek, joining a group already playing (the owner's t
     media.fire("seeking");
     vi.advanceTimersByTime(scrubPauseWindowMs); // a drag's last seek is the one sent
     expect(commands).toEqual([{ command: "seek", positionMs: 5_800_000 }]);
+  });
+});
+
+describe("a hole in what a player held for its group's wait loaded (the owner's cast, 2026-10-28)", () => {
+  /** Whether a player held at 1549.673 s after a seek, loaded to 1554.72 s past a hole of holeS, is ready. */
+  function isReadyAcross(holeS: number): boolean {
+    const media = new FakeMedia();
+    media.currentTime = 1549.673;
+    media.loaded = [
+      [1547.76, 1551.21],
+      [1551.21 + holeS, 1554.72],
+    ];
+    const { connection, reports } = fakeConnection({
+      ...paused,
+      state: "Waiting",
+      event: "seeked",
+      positionMs: 1_549_673,
+    });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    media.dispatchEvent(
+      new CustomEvent(playerLoadedChunkEvent, {
+        detail: {
+          track: "video",
+          loadMs: 649,
+          filmMs: 2753,
+          loadedKbps: 10_595,
+          qualityKbps: 13_758,
+        },
+      }),
+    );
+    media.fire("seeking");
+    media.fire("seeked");
+    connection.reportState();
+    return reports.at(-1)?.isBuffering === false;
+  }
+
+  it("is ready across a hole as narrow as a playing player steps over, which a paused one never does", () => {
+    // Firefox on a Mac, cast to, held paused at 1549.673 s with a hole of 60 ms in its sound 1.5 s on,
+    // said it buffered as long as it was held, and its group waited on it for good.
+    expect(isReadyAcross(0.06)).toBe(true);
+  });
+
+  it("is not ready across a wider hole, which would stall it as it plays", () => {
+    expect(isReadyAcross(0.5)).toBe(false);
+  });
+
+  it("says once for each wait it holds up what holds it, so one held for good says why", () => {
+    const media = new FakeMedia();
+    media.currentTime = 60;
+    media.loaded = [
+      [59, 60.5],
+      [61, 80],
+    ];
+    const waiting = { ...paused, state: "Waiting", event: "seeked" } as const;
+    const { connection, setGroup, notes } = fakeConnection(waiting);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    media.fire("seeking");
+    media.fire("seeked");
+    connection.reportState();
+    connection.reportState();
+    const said = (): PlayerNote[] => notes.filter((note) => note.kind === "buffering");
+    expect(said()).toEqual([
+      {
+        kind: "buffering",
+        why: "seeking",
+        positionMs: 60_000,
+        readyState: 4,
+        rate: 1,
+        loadedAheadMs: 500,
+      },
+    ]);
+    setGroup({ ...waiting, seekedFromMs: 60_000 }, 0); // the group's next wait
+    connection.reportState();
+    expect(said()).toHaveLength(2);
   });
 });

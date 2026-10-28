@@ -7,6 +7,7 @@
  * the follower, which sends it.
  */
 
+import type { TogetherSnapshot } from "./together-connection.ts";
 import type { BufferingCause, PlayerNote } from "./together-notes.ts";
 import { loadedEndMs, positionMsOf, type FollowedMedia } from "./together-media.ts";
 import type { Refill } from "./together-refill.ts";
@@ -27,6 +28,38 @@ export function bufferingCauseOf(
     return "seeking";
   }
   return refill.isShort(media) ? refill.startedBy : "notReady";
+}
+
+/**
+ * When a following player notes what holds its group up: as it begins to while the group plays, and
+ * while the group waits for it, once for each wait and each change of what holds it. A cast's
+ * receiver held its group's wait for good, saying each second that it buffered, its film loaded and
+ * readyState 4, and nothing said why (the owner's cast to Firefox, staging, 2026-10-28).
+ */
+export class HoldingNotes {
+  #wasHolding: boolean | undefined = undefined;
+  /** The wait last noted, as "<group seq>:<why>"; undefined while it holds no wait up. */
+  #notedWait: string | undefined = undefined;
+
+  /**
+   * Whether to note why the player holds its group up, as its state is told, with snapshot as it
+   * is; why is undefined while it holds nothing up.
+   */
+  isToNote(
+    why: BufferingCause | undefined,
+    snapshot: Pick<TogetherSnapshot, "group" | "groupSeq">,
+  ): boolean {
+    const wasHolding = this.#wasHolding;
+    this.#wasHolding = why !== undefined;
+    if (why === undefined || snapshot.group?.state !== "Waiting") {
+      this.#notedWait = undefined;
+      return why !== undefined && wasHolding === false && snapshot.group?.state === "Playing";
+    }
+    const wait = `${String(snapshot.groupSeq)}:${why}`;
+    const isNew = wait !== this.#notedWait;
+    this.#notedWait = wait;
+    return isNew;
+  }
 }
 
 /**
