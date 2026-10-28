@@ -3,12 +3,12 @@
 
 import "./i18n.ts";
 
-import { act, createRef } from "react";
+import { act, createRef, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
-import { mount, type Mounted } from "./test-dom.tsx";
+import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import {
@@ -16,6 +16,7 @@ import {
   upNextCountdownMs,
   upNextLeadMs,
   UpNextOffer,
+  useUpNextOffered,
   type UpNext,
 } from "./up-next.tsx";
 
@@ -96,6 +97,32 @@ function press(command: Command): void {
     );
   });
 }
+
+describe("what the Play page asks for what plays next", () => {
+  it("asks once its video has played, not beside the film's first chunks (the efficiency audit, finding 4)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /files/3/up-next": [200, { upNext: bag }] }, heard);
+    const video = document.createElement("video");
+    let isPaused = true;
+    Object.defineProperty(video, "paused", { get: () => isPaused });
+    function Offered(): JSX.Element {
+      const offered = useUpNextOffered(3, video, { isAutoplayOn: true, receiving: undefined });
+      return <p>{offered.upNext?.episode.name ?? "nothing yet"}</p>;
+    }
+    const page = await mount(withServices(<Offered />, services));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(heard).toEqual([]);
+    isPaused = false;
+    act(() => {
+      video.dispatchEvent(new Event("playing"));
+    });
+    await settleUntil(() => page.container.textContent === "Bag");
+    expect(heard.map((request) => request.methodAndPath)).toEqual(["GET /files/3/up-next"]);
+    page.unmount();
+  });
+});
 
 describe("the Up next offer over the film", () => {
   let mounted: Mounted | undefined;

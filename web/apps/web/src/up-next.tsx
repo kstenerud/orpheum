@@ -51,16 +51,50 @@ export const upNextCountdownMs = 10_000;
 /** What plays after a file, as the server offers it (GET /files/{id}/up-next). */
 export type UpNext = components["schemas"]["UpNextBody"];
 
-/** What plays after fileId, undefined while unknown and where nothing does. */
-export function useUpNext(fileId: number): UpNext | undefined {
+/**
+ * What plays after fileId, undefined while unknown and where nothing does; asked for once isAsked,
+ * nothing before.
+ */
+export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
   const { api } = useServices();
-  const [upNext] = useResource(`up-next/${String(fileId)}`, async () => {
-    const answer = dataOrThrow(
-      await api.GET("/files/{id}/up-next", { params: { path: { id: fileId } } }),
-    );
-    return answer.upNext ?? undefined;
-  });
+  const [upNext] = useResource(
+    `up-next/${String(fileId)}${isAsked ? "" : "/not-yet"}`,
+    async () => {
+      if (!isAsked) {
+        return undefined;
+      }
+      const answer = dataOrThrow(
+        await api.GET("/files/{id}/up-next", { params: { path: { id: fileId } } }),
+      );
+      return answer.upNext ?? undefined;
+    },
+  );
   return upNext.state === "loaded" ? upNext.value : undefined;
+}
+
+/**
+ * Whether video has played fileId: true from its first playing, or a timeupdate while it plays,
+ * for a video already playing when it is handed over.
+ */
+function useHasPlayed(video: HTMLVideoElement | null, fileId: number): boolean {
+  const [playedFileId, setPlayedFileId] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (video === null || playedFileId === fileId) {
+      return undefined;
+    }
+    const heard = (): void => {
+      if (!video.paused) {
+        setPlayedFileId(fileId);
+      }
+    };
+    video.addEventListener("playing", heard);
+    video.addEventListener("timeupdate", heard);
+    return () => {
+      video.removeEventListener("playing", heard);
+      video.removeEventListener("timeupdate", heard);
+    };
+  }, [video, fileId, playedFileId]);
+  return playedFileId === fileId;
 }
 
 /**
@@ -76,13 +110,19 @@ export interface UpNextOffered {
 /** The Play page's Up next, which the offer drawn over its film reads. */
 export const UpNextContext = createContext<UpNextOffered | undefined>(undefined);
 
-/** What the Play page of fileId gives its Up next offer, the same object while nothing changes. */
+/**
+ * What the Play page of fileId gives its Up next offer, the same object while nothing changes. What
+ * plays next is asked for once its video has played: asked as the page opened, it was one more
+ * request beside the first chunks, the playlists and the inits, on a link the first chunks need whole
+ * (the efficiency audit's finding 4), for an offer shown at the film's end.
+ */
 export function useUpNextOffered(
   fileId: number,
-  isAutoplayOn: boolean,
-  receiving: Receiving | undefined,
+  video: HTMLVideoElement | null,
+  playing: Omit<UpNextOffered, "upNext">,
 ): UpNextOffered {
-  const upNext = useUpNext(fileId);
+  const { isAutoplayOn, receiving } = playing;
+  const upNext = useUpNext(fileId, useHasPlayed(video, fileId));
   return useMemo(() => ({ upNext, isAutoplayOn, receiving }), [upNext, isAutoplayOn, receiving]);
 }
 
