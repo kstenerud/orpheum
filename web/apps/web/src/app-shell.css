@@ -32,9 +32,20 @@
 
 .app-shell__title {
   display: flex;
+  flex: none;
   align-items: center;
   margin: 0;
   max-width: none;
+}
+
+/* The way home, put, and the places for watching beside it, filling the room left and scrolling
+   sideways within it (app-shell.tsx's WatchingPlaces). */
+.app-shell__places {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
 }
 
 /* Home's link, the logo, underlined as the banner's links are while home is the page: the line
@@ -302,13 +313,23 @@
 
   .app-shell__watching {
     gap: 0;
-    margin-inline-start: calc(-1 * var(--space-2));
+  }
+
+  /* Two rows: the tray and the menu at the top's end, and below them the way home and the places
+     for watching together (the owner, 2026-10-28). */
+  .app-shell__nav {
+    flex-wrap: wrap;
   }
 
   .app-shell__end {
-    position: absolute;
-    inset-block-start: var(--space-1);
-    inset-inline-end: var(--space-page);
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    order: -1;
+  }
+
+  .app-shell__places {
+    flex-basis: 100%;
+    gap: var(--space-3);
   }
 
   .app-shell__menu > summary {

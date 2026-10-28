@@ -81,7 +81,7 @@ describe("the shell, laid out by a real browser", () => {
     [360, 740],
     [412, 915],
   ] as const) {
-    it(`fits the logo, the realm's server's tray and the menu on a phone ${String(width)} wide, nothing overlapping`, async () => {
+    it(`lays out a phone ${String(width)} wide: the tray and the menu above, the laurel and the places below, nothing overlapping`, async () => {
       await page.viewport(width, height);
       const shell = (
         <AppShell
@@ -100,9 +100,20 @@ describe("the shell, laid out by a real browser", () => {
         await drawn(shell, async ({ container }) => {
           const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo");
           await loaded(logo);
-          const [mark, end] = [boxOf(logo), boxOf(container.querySelector(".app-shell__end"))];
-          expect(mark.right).toBeLessThanOrEqual(end.left);
+          const [mark, end, places] = [
+            boxOf(logo),
+            boxOf(container.querySelector(".app-shell__end")),
+            boxOf(container.querySelector(".app-shell__watching")),
+          ];
+          // The tray and the menu on the top row; the laurel below, with the places for watching
+          // beside it in the room left (the owner, 2026-10-28).
           expect(end.right).toBeLessThanOrEqual(width);
+          expect(mark.top).toBeGreaterThanOrEqual(end.bottom - 1);
+          expect(places.left).toBeGreaterThanOrEqual(mark.right);
+          expect(places.right).toBeLessThanOrEqual(width);
+          expect(
+            Math.abs(places.top + places.height / 2 - (mark.top + mark.height / 2)),
+          ).toBeLessThan(mark.height);
           // The tray's signs and the menu's icon a quarter closer than a fingertip square apart.
           const signs = [
             ...container.querySelectorAll(

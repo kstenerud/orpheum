@@ -21,6 +21,25 @@ const markOnly = "/favicon.svg";
 /** A phone's width, as app-shell.css's own breakpoint. */
 const PHONE_WIDTH = "(max-width: 599px)";
 
+/**
+ * The places for watching: the way home, which stays put, and the other places beside it in the room
+ * left, scrolling sideways when they need more (the owner, 2026-10-28: on a phone "the laurel logo
+ * should go on the lower row ... since it belongs with the library links. That should be a single
+ * component, made up of an immovable home link and a scrollable set of other links that fills the
+ * row's free space").
+ */
+function WatchingPlaces(props: {
+  readonly isHome: boolean;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="app-shell__places">
+      <HomeLogo isHome={props.isHome} />
+      <ul className="app-shell__watching">{props.children}</ul>
+    </div>
+  );
+}
+
 function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
   return (
     <p className="app-shell__title">
@@ -201,9 +220,10 @@ export function AppShell(props: {
         data-focus-container=""
         data-focus-covers-top=""
       >
-        <HomeLogo isHome={props.currentScreen === "home"} />
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
-          <ul className="app-shell__watching">{links("watching")}</ul>
+          <WatchingPlaces isHome={props.currentScreen === "home"}>
+            {links("watching")}
+          </WatchingPlaces>
           <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}>
             <MenuSection
               heading={t("nav.manage")}
