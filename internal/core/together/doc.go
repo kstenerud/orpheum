@@ -36,9 +36,12 @@
 //     it is; with a second player the group keeps its own time (D88: a cast is a group of one; the
 //     owner's cast, 2026-10-28). Enforced by TestHub_AGroupWhoseOnlyPlayerIsOneDeviceFollowsIt.
 //   - A sync point waits at most the sync wait its devices were welcomed with, then plays without
-//     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3). Enforced
-//     by TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady and
-//     TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime.
+//     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3); save that a
+//     session whose only player is late plays at its time, that player catching up, the group
+//     following it (D250 §2's amendment of 2026-10-28). Enforced by
+//     TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady,
+//     TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime and
+//     TestHub_ASessionWhoseOnlyPlayerIsLatePlaysOnceItsWaitIsUp.
 //   - A group that starts playing at a sync point's end stands at its position for the start's lead
 //     its devices were welcomed with, and says what is left of it, so every player starts at once;
 //     one that plays on moves on as it was (D268 §3). Enforced by

@@ -214,6 +214,12 @@ const (
 	// what the page's activation was then: with NotePlayedMuted, whether the press that answered the
 	// cast let it play with sound (D358 §2).
 	NotePlayedWithSound NoteKind = "playedWithSound"
+	// NotePlayedWhileHeld is a following player's element beginning to play, at PositionMs, while its
+	// group did not play and no command came of it, so its follower paused it again; Why what began it:
+	// "autoplay", the element's own autoplay as it loaded, or "page", a play on the page, a press or a
+	// media key. A Fire TV's cast started with a play, a pause and a play, and nothing said what played
+	// it first (the owner's Marrowgate Family, staging, 2026-10-28).
+	NotePlayedWhileHeld NoteKind = "playedWhileHeld"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -366,13 +372,24 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownSoundMoved()
 	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
-	case NoteFullScreen:
-		return note.Track == "" && isFullScreenWhy(note.Why) &&
-			isPressWord(note.By)
+	case NoteFullScreen, NotePlayedWhileHeld:
+		return note.isKnownStart()
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
 	}
 	return false
+}
+
+// isKnownStart is whether a note of how a film started showing is one the server logs: its stage put
+// full screen, refused or left, by a known press or none; or a play its group held, by a known cause.
+func (note PlayerNote) isKnownStart() bool {
+	if note.Track != "" {
+		return false
+	}
+	if note.Kind == NotePlayedWhileHeld {
+		return note.PositionMs >= 0 && (note.Why == "autoplay" || note.Why == "page") && note.By == ""
+	}
+	return isFullScreenWhy(note.Why) && isPressWord(note.By)
 }
 
 // isFullScreenWhy is whether word is what a fullScreen note may say happened: full screen entered
@@ -409,7 +426,7 @@ func (note PlayerNote) isKnownSound() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
 		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen,
-		NoteGroupFollowed, NoteBuffering, NoteSoundMoved: // isKnown reads them
+		NoteGroupFollowed, NoteBuffering, NoteSoundMoved, NotePlayedWhileHeld: // isKnown reads them
 	}
 	return false
 }
@@ -463,7 +480,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
 		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound,
-		NoteBuffering, NoteSoundMoved: // isKnown reads them
+		NoteBuffering, NoteSoundMoved, NotePlayedWhileHeld: // isKnown reads them
 	}
 	return false
 }
@@ -484,7 +501,7 @@ func (note PlayerNote) isKnownVoice() bool {
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
 		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
 		NotePlayedWithSound, NoteGroupFollowed, NoteBuffering,
-		NoteSoundMoved: // not voice's: isKnown reads them
+		NoteSoundMoved, NotePlayedWhileHeld: // not voice's: isKnown reads them
 	}
 	return false
 }

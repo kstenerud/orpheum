@@ -45,6 +45,7 @@ export class FakeMedia {
   playbackRate = 1;
   /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own names, which this stands in for */
   muted = false;
+  autoplay = false;
   preservesPitch = true;
   paused = true;
   ended = false;

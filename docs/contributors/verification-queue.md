@@ -1012,3 +1012,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   held paused at 1549.673 s with 7 s loaded but a hole of 60 ms in its sound 1.5 s on, saying it
   buffered (staging, 2026-10-28, 07:51). (`web/packages/sdk/src/together-media.ts`,
   `together-buffering.ts`; `internal/core/together/player_log.go`)
+- [ ] **VQ99** — a cast to the Fire TV starts playing once, on staging. Passes when, the Mac
+  casting to the Fire TV (Silk) a converted film (a ladder) from where it was left partway, five
+  times, with Watch Together off: (1) each starts with one play, never a play, a pause and a play,
+  no frame or sound moving before the film plays on; (2) the core's log has no `playedWhileHeld`
+  line for the cast's session, and its first `playerChanged` line with `playing=true` comes after
+  its `groupChanged` line with `state=Playing`; (3) the sound is on from the start, the log's
+  `playedWithSound` line coming as it plays, or, where Silk refused it, a `playedMuted` line and the
+  "Press OK" line over the film. Then (4), with the cast's Fire TV unplugged from the network just
+  after Use, the group plays once its wait's 20 s are up (a `groupChanged` line with
+  `event=continuedWithout`), and the film plays from where the Fire TV stands once it is back, its
+  `followedOnlyPlayer` lines at debug placing the group where it is. Before the fix the browser's
+  autoplay played the film as it loaded, its group still waiting, and the hold paused it again:
+  `playedWithSound` at 09:08:06.398, the group's start at 07.207, playing again at 07.981 (staging,
+  2026-10-28). (`web/apps/web/src/play.tsx`; `web/packages/sdk/src/together-followed.ts`;
+  `internal/core/together/group.go`, `hub.go`, `player_log.go`)

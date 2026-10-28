@@ -557,7 +557,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
 	current.logPlayer(ctx, now, who, from, message)
-	if message.Type == MessageState && from.playsAlong() {
+	if message.Type == MessageState && (from.playsAlong() || from.isCatchingUp) {
 		current.followOnlyPlayer(ctx, now, who, from, message)
 	}
 	if from.takeState(message) {

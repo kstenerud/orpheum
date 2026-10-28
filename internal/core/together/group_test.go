@@ -31,10 +31,11 @@ func TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone(t *testing.T) {
 	}
 }
 
-// A player that stalls with no other player playing along holds the group where it stalled until it
-// is ready, past the sync wait: played on, the group played to no one, and the one watching jumped
-// 75 s ahead to catch up (the owner's Bram, staging, 2026-10-12; D250 §2's amendment).
-func TestHub_TheOnlyPlayerStallingHoldsTheGroupUntilItIsReady(t *testing.T) {
+// A player that stalls with no other player playing along holds the group where it stalled, until it
+// is ready or the sync wait is up: played on at once, the group played to no one, and the one
+// watching jumped 75 s ahead to catch up (the owner's Bram, staging, 2026-10-12; D250 §2's
+// amendment). Ready within the wait, it plays from where it stalled.
+func TestHub_TheOnlyPlayerStallingHoldsTheGroupUntilItIsReadyOrTheSyncWaitIsUp(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
@@ -46,14 +47,48 @@ func TestHub_TheOnlyPlayerStallingHoldsTheGroupUntilItIsReady(t *testing.T) {
 	if held.State != GroupWaiting || held.Event != EventWaitingFor || held.ByMemberID != host.MemberID {
 		t.Fatalf("the only player stalled: %+v; want Waiting for it", held)
 	}
-	stage.clock.Advance(testSyncWait + time.Minute)
+	stage.clock.Advance(testSyncWait / 2)
 	stage.tick(t, host)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.PositionMs != held.PositionMs {
-		t.Fatalf("past the sync wait, the player still loading: %+v; want Waiting at %d ms", group, held.PositionMs)
+		t.Fatalf("within the sync wait, the player still loading: %+v; want Waiting at %d ms", group, held.PositionMs)
 	}
 	stage.ready(t, host, false)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.PositionMs != held.PositionMs {
 		t.Errorf("the player ready again: %+v; want Playing from %d ms, where it stalled", group, held.PositionMs)
+	}
+}
+
+// A session whose only player is not ready when its wait's time is up plays all the same, the player
+// catching up as it plays, and the group follows it there, not on ahead of it: a session of one has
+// no one else to play to, and its one watcher has waited long enough (D250 §2's amendment of
+// 2026-10-28, the owner: "Should a session whose only player never gets ready start anyway once its
+// deadline passes?: yes").
+func TestHub_ASessionWhoseOnlyPlayerIsLatePlaysOnceItsWaitIsUp(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.ready(t, host, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.clock.Advance(time.Minute)
+	stage.ready(t, host, true)
+	held := hostBox.last(MessageGroup).Group
+	stage.clock.Advance(testSyncWait)
+	stage.tick(t, host)
+	started := hostBox.last(MessageGroup).Group
+	if started.State != GroupPlaying || started.Event != EventContinuedWithout ||
+		started.PositionMs != held.PositionMs {
+		t.Fatalf("the sync wait up, the only player still loading: %+v; want Playing on from %d ms", started,
+			held.PositionMs)
+	}
+	stage.clock.Advance(10 * time.Second)
+	stage.hub.Handle(t.Context(), host, Inbound{
+		Type: MessageState, PositionMs: held.PositionMs + 500, Playing: true, Buffering: true,
+	})
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	if group := watchBox.last(MessageWelcome).Group; group.State != GroupPlaying ||
+		group.PositionMs != held.PositionMs+500 {
+		t.Errorf("the only player catching up, stalled: %+v; want the group where it stands, %d ms", group,
+			held.PositionMs+500)
 	}
 }
 

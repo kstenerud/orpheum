@@ -7,6 +7,7 @@
  * player held it (the owner, 2026-10-28).
  */
 
+import type { GroupView } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import type { ShownPage } from "./together-lead.ts";
 import { haveMetadata, type FollowedMedia } from "./together-media.ts";
@@ -32,6 +33,32 @@ export function heldByOf(
     return "hidden";
   }
   return media.readyState < haveMetadata ? "loading" : undefined;
+}
+
+/**
+ * Notes to connection event, a play of media its follower did not make, as no command came of it,
+ * while its group, where it is, does not play; any other event it leaves. The follower plays its
+ * player only with its group (followGroup), and pauses it again, so the note says what played it:
+ * the element's own autoplay as it loaded, or the page, a press or a media key. A Fire TV's cast
+ * played, paused and played as it started, and nothing said what played it first (the owner's Marrowgate
+ * Family, staging, 2026-10-28).
+ */
+export function notePlayedWhileHeld(played: {
+  readonly connection: Pick<TogetherConnection, "note">;
+  readonly event: string;
+  readonly media: Pick<FollowedMedia, "autoplay" | "currentTime">;
+  /** Where its group is, undefined while it plays another film or none. */
+  readonly where: { readonly group: Pick<GroupView, "state"> } | undefined;
+}): void {
+  const { connection, event, media, where } = played;
+  if (event !== "play" || where === undefined || where.group.state === "Playing") {
+    return;
+  }
+  connection.note({
+    kind: "playedWhileHeld",
+    positionMs: media.currentTime * 1000,
+    why: media.autoplay ? "autoplay" : "page",
+  });
 }
 
 /** One player's changes of its group, heard and not yet followed, on its monotonic clock. */

@@ -69,6 +69,11 @@ export interface PlayerState {
  *   (pageActivation);
  * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap), by how they pressed,
  *   the sound's state then, and again "after", soundToldAgainAfterMs later;
+ * - playedWhileHeld: the player's element began playing at positionMs while its group did not play
+ *   and no command came of it, so its follower paused it again; why what began it: "autoplay", the
+ *   element's own autoplay as it loaded, or "page", a play on the page, a press or a media key: a
+ *   Fire TV's cast started with a play, a pause and a play, and nothing said what played it first
+ *   (the owner's Marrowgate Family, staging, 2026-10-28);
  * - playedWithSound: a cast's receiver's film started with its sound on at positionMs, page the
  *   page's activation then (D358 §2);
  * - fullScreen: the player's stage was put full screen ("entered") or the browser refused
@@ -145,6 +150,11 @@ export type PlayerNote =
       readonly positionMs: number;
       /** The page's activation then (pageActivation), where the browser says it. */
       readonly page?: string;
+    }
+  | {
+      readonly kind: "playedWhileHeld";
+      readonly positionMs: number;
+      readonly why: "autoplay" | "page";
     }
   | {
       readonly kind: "playedWithSound";
