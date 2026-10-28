@@ -11,7 +11,22 @@
  * film taking 2.3 s, and ran dry (the owner's cast, staging, 2026-10-28).
  */
 
+import type { components } from "./gen/api.ts";
 import { refillAheadMs } from "./together-media.ts";
+
+/**
+ * What a next chunk's expected load rests on, as the play report says it: its player's confident
+ * estimate of the link, the link its device last measured on its network, or its first chunk's
+ * speed where that was lower; "none" where it waits refillAheadMs, never resting on a lone first
+ * chunk (D352 §1).
+ */
+export type NextChunkLoadFrom = NonNullable<components["schemas"]["SeekBody"]["nextChunkLoadFrom"]>;
+
+/** How long a next chunk is expected to take to load, in ms, and what that rests on. */
+export interface NextChunkLoad {
+  readonly loadMs: number;
+  readonly from: Exclude<NextChunkLoadFrom, "none">;
+}
 
 /**
  * The margin on the next chunk's expected load time a player waits to have loaded ahead, in
@@ -31,13 +46,16 @@ export function setReadyAheadPercent(percent: number): void {
 }
 
 /** Each element's word on how long its next chunk is expected to take to load, from its player. */
-const nextChunkLoads = new WeakMap<object, () => number | undefined>();
+const nextChunkLoads = new WeakMap<object, () => NextChunkLoad | undefined>();
 
 /**
- * Has media's player tell, by read, how long its next chunk is expected to take to load, in ms, or
- * undefined where it cannot say yet. Returns the end of it.
+ * Has media's player tell, by read, how long its next chunk is expected to take to load and what
+ * that rests on, or undefined where it cannot say yet. Returns the end of it.
  */
-export function tellNextChunkLoadMs(media: object, read: () => number | undefined): () => void {
+export function tellNextChunkLoadMs(
+  media: object,
+  read: () => NextChunkLoad | undefined,
+): () => void {
   nextChunkLoads.set(media, read);
   return () => {
     if (nextChunkLoads.get(media) === read) {
@@ -52,16 +70,19 @@ export interface ReadyAhead {
   readonly aheadMs: number;
   /** How long its next chunk is expected to take to load, in ms; absent where its player cannot say. */
   readonly nextChunkLoadMs?: number;
+  /** What that rests on; "none" where its player cannot say, and it waits refillAheadMs. */
+  readonly nextChunkLoadFrom: NextChunkLoadFrom;
 }
 
 /** What media is ready to play on now, by the rule above. */
 export function readyAheadOf(media: object): ReadyAhead {
-  const loadMs = nextChunkLoads.get(media)?.();
-  if (loadMs === undefined || !Number.isFinite(loadMs) || loadMs < 0) {
-    return { aheadMs: refillAheadMs };
+  const told = nextChunkLoads.get(media)?.();
+  if (told === undefined || !Number.isFinite(told.loadMs) || told.loadMs < 0) {
+    return { aheadMs: refillAheadMs, nextChunkLoadFrom: "none" };
   }
   return {
-    aheadMs: Math.round((loadMs * marginPercent) / 100),
-    nextChunkLoadMs: Math.round(loadMs),
+    aheadMs: Math.round((told.loadMs * marginPercent) / 100),
+    nextChunkLoadMs: Math.round(told.loadMs),
+    nextChunkLoadFrom: told.from,
   };
 }

@@ -307,7 +307,7 @@ describe("App", () => {
       "token",
     );
     const video = {};
-    tellNextChunkLoadMs(video, () => 1000);
+    tellNextChunkLoadMs(video, () => ({ loadMs: 1000, from: "confident" }));
     const mounted = await mount(withServices(<App />, services));
     await settleUntil(() => readyAheadOf(video).aheadMs === 3000);
     expect(readyAheadOf(video).aheadMs).toBe(3000);

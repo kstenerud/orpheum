@@ -1150,3 +1150,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   second film; and the third film's first chunk is of its top quality, as its remembered link says,
   with no step down in its first minute. The Mac in Firefox and in Chrome, on WebRTC, plays a film
   and seeks twice across it with no stall and no error. (`web/packages/sdk/src/rtc-media.ts`)
+- [ ] **VQ114** — a player's start rests on a lone first chunk no more (staging, 2026-10-28: device
+  60, file 5766, its first chunk at 28384 kb/s gave `nextChunkLoadMs=653`, it played with 1.07 s
+  loaded, its next chunk loaded at 9636 kb/s and it ran dry a second in, `startedAfter=waiting`), on
+  staging. Passes when, the Fire TV (Silk) resuming three films part way from their Play pages, the
+  first after it played another for a minute: the core's "a playback started" line carries
+  `rememberedLinkKbps` near the link it measured; each "a playback started playing" line that has
+  `waitedForAheadMs` carries `nextChunkLoadFrom`, `remembered` or `firstSample` (`none` for a device
+  never measured on the network, with `waitedForAheadMs=10000`), never a start resting on the first
+  chunk where that was faster than the remembered link; and no film stalls in its first 30 s
+  (`startedAfter=waiting` absent on its second start). (`web/packages/player/src/next-chunk.ts`;
+  `internal/core/playback/playback.go`)

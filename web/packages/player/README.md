@@ -63,8 +63,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,
   2026-10-28): a chunked playback tells the SDK how long its next chunk is expected to take, the
   chunk after what is loaded on the quality hls.js loads, its byte range's size, else its length at
-  that quality's average rate, over its link's estimate, or before one the rate its first chunk of
-  picture loaded at (`src/next-chunk.ts`); one that can say nothing waits for `refillAheadMs`. The
+  that quality's average rate, over its link's confident estimate, or before one the lower of the
+  link its offer says its device last measured on its network (D257 §1) and the rate its first
+  chunk of picture loaded at, never that first chunk alone (D352 §1: a Fire TV's first chunk at
+  28 Mb/s on a 9.6 Mb/s link started it with 1 s loaded, staging, 2026-10-28), each start's and
+  seek's wait saying which it rested on (`nextChunkLoadFrom`) (`src/next-chunk.ts`); one that can
+  say nothing waits for `refillAheadMs`. The
   wait comes before the `play()`, never as a play, a pause and a play: the page's video has no
   autoplay attribute, and its start gate plays it (the SDK's `start-gate.ts`), pausing a playing
   video as it seeks to where too little is loaded, before it can play there. A Fire TV played at

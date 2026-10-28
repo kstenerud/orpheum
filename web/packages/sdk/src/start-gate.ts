@@ -47,6 +47,8 @@ export type GatedMedia = Pick<
 export interface StartWait {
   readonly waitedForAheadMs: number;
   readonly nextChunkLoadMs?: number;
+  /** What the next chunk's expected load rested on; "none" where the wait was refillAheadMs. */
+  readonly nextChunkLoadFrom: ReadyAhead["nextChunkLoadFrom"];
 }
 
 /** How much film is loaded ahead of where media is, in ms, read on across a hole hls.js steps over. */
@@ -69,9 +71,14 @@ const lookAgainOn = [
 
 /** A wait as its log says it, from what readyAheadOf said as it ended. */
 function waitOf(ready: ReadyAhead): StartWait {
+  const from = ready.nextChunkLoadFrom;
   return ready.nextChunkLoadMs === undefined
-    ? { waitedForAheadMs: ready.aheadMs }
-    : { waitedForAheadMs: ready.aheadMs, nextChunkLoadMs: ready.nextChunkLoadMs };
+    ? { waitedForAheadMs: ready.aheadMs, nextChunkLoadFrom: from }
+    : {
+        waitedForAheadMs: ready.aheadMs,
+        nextChunkLoadMs: ready.nextChunkLoadMs,
+        nextChunkLoadFrom: from,
+      };
 }
 
 /**

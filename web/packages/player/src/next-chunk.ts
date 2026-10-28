@@ -5,8 +5,11 @@
  * outlast before it starts or plays on after a seek (the SDK's ready-ahead.ts; the owner,
  * 2026-10-28): the chunk after what the video loaded where it is, on the quality hls.js loads, its
  * size from its byte range where the playlist gives one, else its film's length at its quality's
- * average rate, over the link as the player measures it, or, before it has, as the first chunk of
- * picture loaded.
+ * average rate, over the link as the player measures it once its estimate is confident, or, before
+ * it is, over the lower of the link its device last measured on its network and the speed its
+ * first chunk of picture loaded at; never over that first chunk alone (D352 §1). A Fire TV's first
+ * chunk loaded at 28 Mb/s, its next took 2.6 s at 9.6, and it started with 1 s loaded and ran dry
+ * (staging, 2026-10-28).
  */
 
 import {
@@ -14,6 +17,7 @@ import {
   loadedAheadMsOf,
   playerLoadedChunkEvent,
   tellNextChunkLoadMs,
+  type NextChunkLoad,
 } from "@orpheum/sdk";
 
 /** One chunk in a quality's playlist, as hls.js lists it: where it starts, how long, and its bytes. */
@@ -56,10 +60,40 @@ export function nextChunkBits(
     : next.duration * level.averageBitrate;
 }
 
+/** The link a next chunk's load is reckoned over, in kbit/s, and what it rests on. */
+export interface NextChunkLink {
+  readonly kbps: number;
+  readonly from: NextChunkLoad["from"];
+}
+
 /**
- * Tells the SDK, for video, how long its next chunk is expected to take to load (tellNextChunkLoadMs):
- * its bits over linkKbps, or, while that says nothing, over the rate the first chunk of picture
- * loaded at. Returns the end of it.
+ * The link to reckon the next chunk's load over: the player's confident estimate where it has one;
+ * else the lower of the link its device last measured on its network and its first chunk of
+ * picture's speed, or the remembered link before that chunk; undefined with nothing remembered, so
+ * the player waits refillAheadMs rather than trust a lone first chunk (D352 §1).
+ */
+export function nextChunkLinkOf(known: {
+  readonly confidentKbps: number | undefined;
+  readonly rememberedKbps: number | undefined;
+  readonly firstChunkKbps: number | undefined;
+}): NextChunkLink | undefined {
+  const { confidentKbps, rememberedKbps, firstChunkKbps } = known;
+  if (confidentKbps !== undefined && confidentKbps > 0) {
+    return { kbps: confidentKbps, from: "confident" };
+  }
+  if (rememberedKbps === undefined || rememberedKbps <= 0) {
+    return undefined;
+  }
+  return firstChunkKbps !== undefined && firstChunkKbps > 0 && firstChunkKbps < rememberedKbps
+    ? { kbps: firstChunkKbps, from: "firstSample" }
+    : { kbps: rememberedKbps, from: "remembered" };
+}
+
+/**
+ * Tells the SDK, for video, how long its next chunk is expected to take to load and what that rests
+ * on (tellNextChunkLoadMs): its bits over the link nextChunkLinkOf names, from the link as known, its
+ * player's confident estimate and the link the playback's offer says its device last measured on
+ * its network, and the first chunk of picture's speed. Returns the end of it.
  */
 export function tellNextChunkLoad(
   listing: ChunkListing,
@@ -67,7 +101,10 @@ export function tellNextChunkLoad(
     HTMLMediaElement,
     "buffered" | "currentTime" | "addEventListener" | "removeEventListener"
   >,
-  linkKbps: () => number | undefined,
+  link: {
+    readonly confidentKbps: () => number | undefined;
+    readonly rememberedLinkKbps?: number | undefined;
+  },
 ): () => void {
   let firstChunkKbps: number | undefined;
   const heardChunk = (event: Event): void => {
@@ -78,10 +115,16 @@ export function tellNextChunkLoad(
   };
   video.addEventListener(playerLoadedChunkEvent, heardChunk);
   const stopTelling = tellNextChunkLoadMs(video, () => {
-    const kbps = linkKbps() ?? firstChunkKbps;
+    const over = nextChunkLinkOf({
+      confidentKbps: link.confidentKbps(),
+      rememberedKbps: link.rememberedLinkKbps,
+      firstChunkKbps,
+    });
     const bits = nextChunkBits(listing, video);
     // A kilobit a second is a bit a millisecond.
-    return kbps === undefined || kbps <= 0 || bits === undefined ? undefined : bits / kbps;
+    return over === undefined || bits === undefined
+      ? undefined
+      : { loadMs: bits / over.kbps, from: over.from };
   });
   return () => {
     video.removeEventListener(playerLoadedChunkEvent, heardChunk);

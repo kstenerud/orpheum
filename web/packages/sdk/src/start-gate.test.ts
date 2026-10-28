@@ -34,7 +34,7 @@ function marrowgateResumed(): FakeMedia {
   media.currentTime = 1798.9;
   media.loaded = [[1794.96, 1800.47]];
   media.readyState = 4;
-  tellNextChunkLoadMs(media, () => 2300);
+  tellNextChunkLoadMs(media, () => ({ loadMs: 2300, from: "confident" }));
   return media;
 }
 
@@ -69,6 +69,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     expect(gate.lastWait()).toEqual({
       waitedForAheadMs: (2300 * readyAheadOfNextChunkPercent) / 100,
       nextChunkLoadMs: 2300,
+      nextChunkLoadFrom: "confident",
     });
     vi.advanceTimersByTime(2000);
     expect(play.plays()).toBe(1);
@@ -78,7 +79,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     const media = new FakeMedia();
     media.currentTime = 30;
     media.loaded = [[28, 31]];
-    tellNextChunkLoadMs(media, () => 200);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 200, from: "confident" }));
     const play = countedPlay(media);
     const gate = startGateOf(media);
     gate.play(play.how);
@@ -90,7 +91,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     const media = new FakeMedia();
     media.currentTime = 30;
     media.loaded = [[30, 40]];
-    tellNextChunkLoadMs(media, () => 12_500);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 12_500, from: "confident" }));
     const play = countedPlay(media);
     startGateOf(media).play(play.how);
     const readyOnMs = (12_500 * readyAheadOfNextChunkPercent) / 100;
@@ -107,7 +108,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     const media = new FakeMedia();
     media.currentTime = 30;
     media.loaded = [[30, 30 + 4.5]]; // enough at 150%, of a 2 s load
-    tellNextChunkLoadMs(media, () => 2000);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 2000, from: "confident" }));
     const play = countedPlay(media);
     startGateOf(media).play(play.how);
     expect(play.plays()).toBe(0);
@@ -127,7 +128,7 @@ describe("a player alone starts only once what it loaded outlasts its next chunk
     media.loaded = [[30, 30 + refillAheadMs / 1000]];
     media.fire("progress");
     expect(play.plays()).toBe(1);
-    expect(gate.lastWait()).toEqual({ waitedForAheadMs: refillAheadMs });
+    expect(gate.lastWait()).toEqual({ waitedForAheadMs: refillAheadMs, nextChunkLoadFrom: "none" });
   });
 
   it("plays at once where the browser loads no more while it is paused", () => {
@@ -158,7 +159,7 @@ describe("a player alone plays on after a seek only once what it loaded outlasts
     const media = new FakeMedia();
     media.currentTime = 60;
     media.loaded = [[0, 120]];
-    tellNextChunkLoadMs(media, () => 2000);
+    tellNextChunkLoadMs(media, () => ({ loadMs: 2000, from: "confident" }));
     const play = countedPlay(media);
     startGateOf(media).play(play.how);
     media.fire("play");
@@ -188,7 +189,11 @@ describe("a player alone plays on after a seek only once what it loaded outlasts
     vi.advanceTimersByTime(startCheckEveryMs);
     expect(plays()).toBe(2);
     expect(media.paused).toBe(false);
-    expect(gate.lastWait()).toEqual({ waitedForAheadMs: 3000, nextChunkLoadMs: 2000 });
+    expect(gate.lastWait()).toEqual({
+      waitedForAheadMs: 3000,
+      nextChunkLoadMs: 2000,
+      nextChunkLoadFrom: "confident",
+    });
   });
 
   it("plays on through a seek into what it loaded, never paused", () => {

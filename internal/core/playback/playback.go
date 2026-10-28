@@ -193,6 +193,10 @@ type Started struct {
 	// Steadiness is the steadiness level its player starts on the ladder at: the one its last
 	// playback on the request's network ended at, relaxed by the time since (D352 Q2); 0 for none.
 	Steadiness int
+	// RememberedLinkKbps is the link its player last measured on the request's network, within
+	// link_speed_fresh_hours (D257 §1), which the server chose its starting quality by and its player
+	// sets against its first chunk's speed until its own estimate is confident; 0 for none.
+	RememberedLinkKbps int64
 	// Tracks are what the playback may play and what the file holds, which its player names.
 	Tracks Tracks
 }
@@ -264,9 +268,12 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	}
 	service.keepStart(&playback, started.OnLadder)
 	timing := service.timingNow()
-	started.Steadiness = service.speeds.steadiness(
-		speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)},
-		service.clock.Now(), timing.speedFreshFor, timing.steadinessRelaxesEvery)
+	link := speedKey{
+		player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress),
+	}
+	started.Steadiness = service.speeds.steadiness(link, service.clock.Now(), timing.speedFreshFor,
+		timing.steadinessRelaxesEvery)
+	started.RememberedLinkKbps, _ = service.speeds.fresh(link, service.clock.Now(), timing.speedFreshFor)
 	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)

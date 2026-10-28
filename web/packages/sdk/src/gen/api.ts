@@ -3578,6 +3578,8 @@ export interface components {
             linkSharePercent: number;
             /** Format: int64 */
             qualityKbps: number;
+            /** Format: int64 */
+            rememberedLinkKbps?: number;
             /** Format: double */
             soundCarriedGainDb: number;
             /** Format: int64 */
@@ -4492,6 +4494,8 @@ export interface components {
             linkSamples?: string;
             /** Format: int64 */
             loadedAheadMs?: number;
+            /** @enum {string} */
+            nextChunkLoadFrom?: "confident" | "remembered" | "firstSample" | "none";
             /** Format: int64 */
             nextChunkLoadMs?: number;
             /** Format: int64 */
@@ -4749,6 +4753,8 @@ export interface components {
             firstDataAfterMs: number;
             /** Format: int64 */
             loadedAheadMs?: number;
+            /** @enum {string} */
+            nextChunkLoadFrom?: "confident" | "remembered" | "firstSample" | "none";
             /** Format: int64 */
             nextChunkLoadMs?: number;
             /** Format: int64 */

@@ -30,13 +30,14 @@ export function startGateFieldsOf(
   video: HTMLVideoElement,
 ): Pick<
   components["schemas"]["SeekBody"],
-  "loadedAheadMs" | "waitedForAheadMs" | "nextChunkLoadMs"
+  "loadedAheadMs" | "waitedForAheadMs" | "nextChunkLoadMs" | "nextChunkLoadFrom"
 > {
   const wait = startGateOf(video).lastWait();
   return {
     loadedAheadMs: loadedAheadMsOf(video),
     ...(wait === undefined ? {} : { waitedForAheadMs: wait.waitedForAheadMs }),
     ...(wait?.nextChunkLoadMs === undefined ? {} : { nextChunkLoadMs: wait.nextChunkLoadMs }),
+    ...(wait === undefined ? {} : { nextChunkLoadFrom: wait.nextChunkLoadFrom }),
   };
 }
 
