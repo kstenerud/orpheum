@@ -295,7 +295,7 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 	}
 	received, isTold := receiver.last(MessageReceive)
 	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 TitleName:Cat PositionMs:<nil> FromDeviceID:10 " +
-		"FromDeviceName: IsAccepted:false TogetherCredential:}"
+		"FromDeviceName: IsAccepted:false TogetherCredential: IsTogetherFollower:false}"
 	if got := fmt.Sprintf("%v %d %+v", isTold, receiver.count(MessageReceive), received.Receive); got != want {
 		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, by a new credential", got)
 	}
@@ -404,12 +404,13 @@ func TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver(t *testing.T) {
 }
 
 // A cast's receiver handed it while its person hosts a Watch Together session is handed a credential
-// for that session too, to play it as their player (D364 §11); with none hosted, none.
+// for that session too, to play it as their player (D364 §11); one whose person is a guest in one is
+// handed their guest's credential, saying it follows (D371 §4); with none, none.
 func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
-	hosts := map[int64]string{owner: "hosted"}
-	registry.LeadsHostedBy(func(userID int64) string { return hosts[userID] })
+	parts := map[int64]string{owner: "hosted"}
+	registry.TakesPartBy(func(userID int64) (string, bool) { return parts[userID], true })
 	receiver, partnerReceiver := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -423,12 +424,33 @@ func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 	if _, err := registry.Cast(partnerCast, "b"); err != nil {
 		t.Fatal(err)
 	}
-	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "hosted" {
-		t.Errorf("the host's TV was handed %q for their session; want its credential",
-			handed.Receive.TogetherCredential)
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "hosted" ||
+		handed.Receive.IsTogetherFollower {
+		t.Errorf("the host's TV was handed %+v for their session; want its credential, leading",
+			handed.Receive)
 	}
 	if handed, _ := partnerReceiver.last(MessageReceive); handed.Receive.TogetherCredential != "" {
 		t.Errorf("a person hosting nothing had their TV handed %q; want none", handed.Receive.TogetherCredential)
+	}
+}
+
+// A cast's receiver whose person is a guest in a Watch Together session is handed their guest's
+// credential, saying it follows: the cast-to device takes the guest's part, just another follower
+// (D371 §4).
+func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	registry.TakesPartBy(func(int64) (string, bool) { return "guest", false })
+	receiver := &inbox{}
+	registry.Connect(owner, phone, inFront, (&inbox{}).send)
+	registry.Connect(owner, television, inFront, receiver.send)
+	cast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	if _, err := registry.Cast(cast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "guest" ||
+		!handed.Receive.IsTogetherFollower {
+		t.Errorf("the guest's TV was handed %+v; want their guest's credential, following", handed.Receive)
 	}
 }
 

@@ -226,7 +226,27 @@ describe("a page's live connection (D337 §2)", () => {
           },
         }),
       ),
-    ).toMatchObject({ receive: { fileId: 0, togetherCredential: "hosted" } });
+    ).toMatchObject({
+      receive: { fileId: 0, togetherCredential: "hosted" },
+    });
+  });
+
+  it("reads a receiver's credential for the session its person is a guest in, which it follows (D371 §4)", () => {
+    expect(
+      parseLiveMessage(
+        JSON.stringify({
+          type: "receive",
+          receive: {
+            castId: 1,
+            membershipCredential: "c",
+            fileId: 0,
+            fromDeviceId: 3,
+            togetherCredential: "guest",
+            isTogetherFollower: true,
+          },
+        }),
+      ),
+    ).toMatchObject({ receive: { togetherCredential: "guest", isTogetherFollower: true } });
   });
 
   it("reads a cast with no position as one starting where the person left the film", () => {

@@ -36,9 +36,11 @@
 //     TestRegistry_ACastIsASessionTheSenderIsToldOf.
 //   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
 //     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
-//   - A receiver whose person hosts Watch Together is handed a credential for that session with each
-//     cast, to play it as their player (D364 §11). Enforced by
-//     TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts.
+//   - A receiver whose person is in a Watch Together session is handed a credential for it with each
+//     cast, to take their part: their host's, to play it as their player (D364 §11), or their guest's,
+//     to follow it as just another follower (D371 §4). Enforced by
+//     TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts and
+//     TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow.
 //   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,

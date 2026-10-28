@@ -83,9 +83,12 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
     return <Register />;
   }
   if (props.route.screen === "together") {
+    // Its live connection, signed in, says whether this device casts the film to another (D371 §4).
     return (
       <Suspense fallback={<ScreenLoading />}>
-        <TogetherViewer />
+        <LiveProvider>
+          <TogetherViewer />
+        </LiveProvider>
       </Suspense>
     );
   }

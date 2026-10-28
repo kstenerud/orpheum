@@ -12,14 +12,17 @@ import { endCast } from "./cast.ts";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
 import { useServices, useToken } from "./services.tsx";
+import { FollowsTheGroupHere } from "./together-viewer.tsx";
 import { useTogether } from "./use-together.ts";
 
 /**
  * A cast's receiver between videos (D364 §5): full screen, "Ready, controlled from ‹Device›", so the
  * next video the person plays starts full screen and with sound, with no press here. Taking control
  * back (Back, Escape, OK twice) ends the session and goes to this device's home page (§9); Stop
- * casting on the sender returns it to the page it was on before the session (§10). Without a cast
- * waiting ready, as a page loaded again before it is handed its cast again, it says so.
+ * casting on the sender returns it to the page it was on before the session (§10). A guest's cast,
+ * handed their part in the Watch Together session they are in, follows that session's film here, just
+ * another follower, as the guest's own device did (D371 §4). Without a cast waiting ready, as a page
+ * loaded again before it is handed its cast again, it says so.
  */
 export function CastReady(): JSX.Element {
   const { t } = useTranslation();
@@ -60,9 +63,14 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
     endCast(api, cast.castId, "takenBack").catch(() => undefined);
     goHome();
   }, [api, cast.castId, goHome]);
+  const { togetherCredential } = cast;
   return (
     <div className="cast-ready">
-      <p className="cast-ready__line">{t("cast.ready", { name: cast.fromDeviceName })}</p>
+      {togetherCredential !== undefined && cast.isTogetherFollower === true ? (
+        <FollowsTheGroupHere credential={togetherCredential} />
+      ) : (
+        <p className="cast-ready__line">{t("cast.ready", { name: cast.fromDeviceName })}</p>
+      )}
       <ControlledMode fromName={cast.fromDeviceName} onTakeBack={takeBack} />
     </div>
   );

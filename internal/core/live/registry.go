@@ -28,10 +28,10 @@ var (
 // CastCredential.
 type Credential func(castID, userID int64) (string, error)
 
-// Hosted mints a credential for the Watch Together session userID hosts, for a cast's receiver to play
-// it as their player (plans/cast-to-device.md §7), or "" when they host none: the hub's
-// HostedCredential.
-type Hosted func(userID int64) string
+// TogetherPart mints a credential for the Watch Together session userID is in, for a cast's receiver
+// to take their part in it, and whether it is the host's, which the receiver leads (plans/cast-to-
+// device.md §7; D371 §4), or "" when they are in none: the hub's TogetherPart.
+type TogetherPart func(userID int64) (credential string, isHost bool)
 
 // ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
 // sender told (D364 §6): a television switched off or its page closed, not one loaded again or
@@ -72,8 +72,9 @@ type Connection struct {
 type Registry struct {
 	credential Credential
 	clock      clock.Clock
-	// hosted, when set, mints a hosted session's credential for each hand-off (LeadsHostedBy).
-	hosted Hosted
+	// togetherPart, when set, mints the credential of the person's part in a Watch Together session
+	// for each hand-off (TakesPartBy).
+	togetherPart TogetherPart
 
 	mutex  sync.Mutex
 	people map[int64]*person // by user; guarded by mutex
@@ -113,13 +114,14 @@ func NewRegistry(credential Credential, clockSource clock.Clock) *Registry {
 	return &Registry{credential: credential, clock: clockSource, people: map[int64]*person{}}
 }
 
-// LeadsHostedBy has each cast's receiver handed, by hosted, a credential for the Watch Together session
-// its person hosts, if any, so that each film the person plays goes on for the group from it (D364 §11;
-// plans/cast-to-device.md §7).
-func (registry *Registry) LeadsHostedBy(hosted Hosted) {
+// TakesPartBy has each cast's receiver handed, by part, a credential for the Watch Together session
+// its person is in, if any, to take their part in it: as their host's player, leading it, so that each
+// film the person plays goes on for the group from it (D364 §11; plans/cast-to-device.md §7), or as a
+// guest's, just another follower (D371 §4).
+func (registry *Registry) TakesPartBy(part TogetherPart) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	registry.hosted = hosted
+	registry.togetherPart = part
 }
 
 // Connect registers a connection of userID's device deviceID, its tab in front or behind (isInFront),
@@ -415,16 +417,17 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 }
 
 // receiveOf is the receive message of cast, by credential, with a credential for the Watch Together
-// session its person hosts, if any (LeadsHostedBy).
+// session its person is in, if any, and whether the receiver follows it (TakesPartBy).
 func (registry *Registry) receiveOf(cast Cast, credential string) *Receive {
-	hostedCredential := ""
-	if registry.hosted != nil {
-		hostedCredential = registry.hosted(cast.UserID)
+	partCredential, isHost := "", false
+	if registry.togetherPart != nil {
+		partCredential, isHost = registry.togetherPart(cast.UserID)
 	}
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,
 		PositionMs: cast.PositionMs, FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
-		IsAccepted: cast.IsAccepted, TogetherCredential: hostedCredential,
+		IsAccepted: cast.IsAccepted, TogetherCredential: partCredential,
+		IsTogetherFollower: partCredential != "" && !isHost,
 	}
 }
 

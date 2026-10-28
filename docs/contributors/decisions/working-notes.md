@@ -23825,7 +23825,7 @@ catching up makes more sense. Also, your better way makes sense."
    catch up (the owner: "the others catching up makes more sense"), so no host's page plays, is held
    and plays again.
 
-**Status:** Decided 2026-10-28; built in part 2026-10-28, its first stage, the leader: the hub keeps
+**Status:** Decided 2026-10-28; built 2026-10-28 in three stages. The first, the leader: the hub keeps
 a leader for each session, the host's device that plays, the newest attached or the one that put the
 film on, the next taking the lead as it leaves (`internal/core/together/group.go`: `lead`,
 `leaderLeft`, `followLeader`; `hub.go`); the group's position is the leader's, placed by its state,
@@ -23846,7 +23846,14 @@ gone, `together_run_up_ms` retired); a long jump is snapped to its keyframe itse
 while its group stands for its leader plays as the leader plays and is nudged or sought into step,
 and catches up after a seek or a stall with the group told nothing; the core's log says each
 follower's catch-up at info, by seek or nudge and how far behind the leader
-(`logEvent=followerCaughtUp`, `player_log.go`). Stage 3 (a follower's cast) to build. Revisits D88,
+(`logEvent=followerCaughtUp`, `player_log.go`). Its third stage, a follower's cast, built the same
+day: a cast's receiver is handed its person's part in the Watch Together session they are in
+(`Hub.TogetherPart`, replacing `HostedCredential`; `live.Registry.TakesPartBy`; the receive
+message's `isTogetherFollower`), the host's leading it as before (D364 §11), a signed-in guest's
+following it as just another follower: the receiver's ready page plays the group's film in the
+guest's part (`FollowsTheGroupHere`, `cast-ready.tsx`, `together-viewer.tsx`), the guest's own
+page, which now holds the live connection, leaves the film to it and holds the group's controls its
+rights give, and the casting page leads to the session's page. Built 2026-10-28. Revisits D88,
 D247, D250, D268, D282 and D364 as above, and D283 §2–§3 and D285 §1 with them.
 
 Resolved in the build, where the decision left it open (say if any should go otherwise):
@@ -23872,11 +23879,22 @@ Resolved in the build, where the decision left it open (say if any should go oth
   the start lag of a few hundred milliseconds; a run-up would be a seek, which costs a refill. The
   learned start lag, kept per browser, is dropped with it.
 - **A long jump's snap** to its keyframe keeps no run-up after the keyframe (D285 §1 had one).
+- **Which part a cast takes**: the session the person hosts, else the newest they joined signed in
+  as a guest; a guest who joined by a link alone, not signed in, cannot cast (casting needs the
+  person's devices).
+- **A guest's cast follows the group only while it plays nothing of its own**: a film the guest plays
+  on their own Play page while casting still goes to the receiver as a cast of one, which it leads,
+  as before; a guest cannot change what the group plays.
+- **The guest's own page** stops its film while this device's cast is accepted (any cast), showing
+  "Playing on ‹Device›" and the group's controls; the casting page leads to the session's page for
+  a guest's cast with nothing of its own, as it does for a host (D364 §11). The receiver keeps its
+  controlled mode (Back, a double OK) over the guest's film; taking control back ends the cast, and
+  the receiver goes home, as from the ready page.
 
 **Proven by:**
 - 1: TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("is never nudged, skipped or sought", "plays the film it put on as soon as the group stands for it"), web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"); VQ101
 - 2: TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne, TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader, web/packages/sdk/src/together-leader.test.ts ("is nudged to the leader's place", "is held where the group stands for its leader, plays at once as the leader plays", "after a seek, holds where the leader went", "after a stall, jumps ahead to catch up to the leader"); VQ102
 - 3: TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves, TestHub_NoGuestNorPanelLeads
-- 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film"); VQ101; a follower's cast in stage 3
+- 4: TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm, TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut, TestCast_AHostsReceiverHasACredentialForTheirSession, TestCast_AGuestsReceiverTakesTheirPartAsAFollower, TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow, web/packages/sdk/src/together-leader.test.ts ("carries out another device's pause, play and seek once each", "tells its session how it plays the film"), web/apps/web/src/cast-remote.test.tsx ("shows how the receiver plays the film", "leaves a guest's cast with nothing of its own to their session's page"), web/apps/web/src/cast-ready.test.tsx ("follows its person's Watch Together session as just another follower"), web/apps/web/src/together-viewer-cast.test.tsx ("leaves the film to the device it casts to"); VQ101, VQ103
 - 5: web/apps/web/src/cast-receiver.test.tsx ("plays as the device plays a film alone while its roster says it leads"), TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut; VQ101
 - 6: TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays (no lead, the guest loading), TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands, web/packages/sdk/src/together-leader.test.ts ("plays the film it put on as soon as the group stands for it", "is held where the group stands for its leader, plays at once as the leader plays"); VQ102

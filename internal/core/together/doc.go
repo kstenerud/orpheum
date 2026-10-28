@@ -78,9 +78,11 @@
 //     of its devices why. Enforced by TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt
 //     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
-//     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a host's receiver is given a host's
-//     credential for their Watch Together session (D364 §11), enforced by
-//     TestCast_AHostsReceiverHasACredentialForTheirSession.
+//     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
+//     Watch Together session they are in, a host's credential leading it (D364 §11), a signed-in
+//     guest's following as just another follower (D371 §4), enforced by
+//     TestCast_AHostsReceiverHasACredentialForTheirSession and
+//     TestCast_AGuestsReceiverTakesTheirPartAsAFollower.
 //   - When the server's upload cannot carry every player at its lowest quality, the member who
 //     joined most recently with a player, never the host, is told the session ended for them with
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by

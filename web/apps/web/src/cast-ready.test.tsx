@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CastReady } from "./cast-ready.tsx";
 import { LiveProvider } from "./live.tsx";
 import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 
@@ -37,8 +38,11 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     mounted = undefined;
   });
 
-  /** The ready page of a receiver that said Use to a cast with nothing playing. */
-  async function readyPage(heard: Heard[]): Promise<{
+  /** The ready page of a receiver that said Use to a cast with nothing playing, handed as given. */
+  async function readyPage(
+    heard: Heard[],
+    handed: Readonly<Record<string, unknown>> = ready,
+  ): Promise<{
     readonly services: ReturnType<typeof servedBy>;
     readonly sockets: ReturnType<typeof liveAndSession>;
   }> {
@@ -46,6 +50,7 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
       {
         "POST /me/casts/5/accept": [200, { castId: 5 }],
         "POST /me/casts/5/end": [200, { positionMs: 0, isPlaying: false }],
+        "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
       },
       heard,
       "token",
@@ -60,11 +65,36 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
       ),
     );
     await sockets.live.accept();
-    await sockets.live.say({ type: "receive", receive: ready });
+    await sockets.live.say({ type: "receive", receive: handed });
     await click(buttonWithText(document.body, "Use"));
     await sockets.session.accept();
     return { services, sockets };
   }
+
+  it("follows its person's Watch Together session as just another follower, where the cast hands it their guest's part (D371 §4)", async () => {
+    const heard: Heard[] = [];
+    const { sockets } = await readyPage(heard, {
+      ...ready,
+      togetherCredential: "guest",
+      isTogetherFollower: true,
+    });
+    await sockets.session.acceptEach();
+    expect(sockets.session.heard).toContainEqual(
+      expect.objectContaining({ type: "hello", credential: "guest", role: "video" }),
+    );
+    await sockets.session.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 4,
+      deviceId: 9,
+      isHost: false,
+      group: { state: "Playing", positionMs: 61_000, rate: 1, fileId: 7 },
+      roster: [],
+    });
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/playback");
+    expect(mounted?.container.textContent).toContain("Metropolis");
+    expect(mounted?.container.textContent).not.toContain("Ready, controlled from Pixel");
+  });
 
   it("says it is ready, controlled from the sender, holding no player", async () => {
     const { sockets } = await readyPage([]);
