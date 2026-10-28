@@ -52,6 +52,23 @@ async function drawn(
   }
 }
 
+/**
+ * The places' icons on the tray's centre line and as white as its signs (the owner, 2026-10-28: "the
+ * new icons are darker than the cast and watch together ones. Also the two icon sets aren't
+ * vertically aligned").
+ */
+function expectPlacesLikeTheTray(container: Element): void {
+  const sign = container.querySelector(".app-shell__end .status-tray__button--off");
+  const centreOf = (element: Element | null | undefined): number =>
+    boxOf(element).top + boxOf(element).height / 2;
+  for (const place of container.querySelectorAll(".app-shell__watching a")) {
+    expect(
+      Math.abs(centreOf(place.querySelector("svg")) - centreOf(sign?.querySelector("svg"))),
+    ).toBeLessThan(1.5);
+    expect(getComputedStyle(place).color).toBe(getComputedStyle(sign ?? place).color);
+  }
+}
+
 describe("the shell, laid out by a real browser", () => {
   it("draws the logo as one link home, exactly the logo's size", async () => {
     const shell = (
@@ -119,6 +136,7 @@ describe("the shell, laid out by a real browser", () => {
               mark.height,
             );
           }
+          expectPlacesLikeTheTray(container);
           // Every place for watching in view, none scrolled out of the row.
           for (const place of container.querySelectorAll(".app-shell__watching a")) {
             expect(boxOf(place).right).toBeLessThanOrEqual(places.right + 1);
