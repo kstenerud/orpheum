@@ -21,7 +21,7 @@
      never record that library's names). D369, D368, the Fire TV fixes, the RealMedia fix (protocol 54), D370 (step 0062), D364, D367 + Configure
      merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
-     for nas.example. Connect packaged for prod: /yoloai/files/connect-production-0a3fcd5-2336a94f.run (VQ84, VQ87).
+     for nas.example. Prod connect package: /yoloai/files/connect-production-0a3fcd5-LATEST.run.
      Owner to choose (D368's status): loudness when stepping down from the copied sound.
    - Folded in 2026-10-28 (owner, serious), all on staging unless noted: Fire TV cast fixes, phone banner,
      chooser/menu as one modal drop-down, refused key → sign-in (needs connect re-pin + repackage for prod),
@@ -31,7 +31,7 @@
      on the remembered link, VQ110–114); dropped frames logged; the WebRTC relay cap (skew-safe, VQ115).
      No ABR drop with ≥20 s loaded; robust spread; sound switch keeps loaded sound (VQ116).
      The efficiency audit's six cheap fixes and dimmer placeholders: on staging (VQ118). LAN-origin tab at
-     home + Chrome WebRTC fixes next batch (plan file, last sections). Prod connect: repackage (loader 2).
+     home + Chrome WebRTC fixes next batch (plan file, last sections).
      Folded (owner, VQ97/VQ91 checks): drop-down fixes + anchored lists, sort chooser; a film started from 0
      never played; A Woman of Paris's copied sound; a leader's echo seek (all on staging).
      VQs owed: 85–118 (84, 89, 106, 111, 112, 114, 117, 119 passed; lead's notes on the rest).
