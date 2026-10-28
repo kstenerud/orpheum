@@ -14,11 +14,13 @@ import {
 import { reportFailure } from "@orpheum/sdk";
 import { useTranslation } from "react-i18next";
 
+import { listPlace } from "./drop-down-place.ts";
 import { focusTargetsIn, isFocusTarget } from "./focus-engine.ts";
 import { IconButton } from "./icon-button.tsx";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { isPhoneWidth } from "./phone-width.ts";
 import { CloseIcon } from "./player-icons.tsx";
 
 /** What names the opening button for a screen reader and a pointer's hover, where its content does not. */
@@ -53,7 +55,7 @@ function useFocusedPlaceShown(ref: RefObject<HTMLElement | null>): void {
 
 /**
  * Focuses the list's current place as it opens, the choice a chooser shows (route-chooser.tsx) or the
- * menu's page, else its first place: never its Close, which the browser's own opening focuses as the
+ * menu's page, marked aria-current, else its first place: never its Close, which the browser's own opening focuses as the
  * dialog's first control (the owner, 2026-10-28: "the initial selected widget is the close button.
  * It should have the first actual item selected instead"). Focused without scrolling the page, which
  * a drop-down's opening never moves; the list shows it within itself (useFocusedPlaceShown).
@@ -64,11 +66,80 @@ function useCurrentPlaceFocused(ref: RefObject<HTMLElement | null>): void {
     if (list === null) {
       return;
     }
-    const current = list.querySelector<HTMLElement>('[aria-current="page"]');
+    const current = list.querySelector<HTMLElement>(currentSelector);
     const onCurrent =
       current === null || isFocusTarget(current) ? current : (focusTargetsIn(current)[0] ?? null);
     (onCurrent ?? focusTargetsIn(list)[0])?.focus({ preventScroll: true });
   }, [ref]);
+}
+
+/** A place marked as the current one: a page's link (`page`), a chosen button (`true`). */
+const currentSelector = '[aria-current]:not([aria-current="false"])';
+
+/** The middle of what has focus inside dialog, in CSS pixels from the screen's top; undefined for none. */
+function focusedMiddleIn(dialog: HTMLDialogElement): number | undefined {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement) || focused === dialog || !dialog.contains(focused)) {
+    return undefined;
+  }
+  const box = focused.getBoundingClientRect();
+  return box.top + box.height / 2;
+}
+
+/**
+ * Lays dialog, a drop-down's open list, at opener (drop-down-place.ts); on a big screen, where the
+ * screen's edge kept its focused place off the button's middle, scrolls places, the part that
+ * scrolls, to bring it there as far as they can, as a select's long list opens.
+ */
+function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTMLElement): void {
+  const openerBox = opener.getBoundingClientRect();
+  const isPhone = isPhoneWidth();
+  dialog.setAttribute("data-placed", isPhone ? "over" : "at");
+  dialog.style.setProperty("--drop-down-opener-width", `${String(openerBox.width)}px`);
+  const box = dialog.getBoundingClientRect();
+  const focusedMiddle = focusedMiddleIn(dialog);
+  const { left, top } = listPlace({
+    opener: openerBox,
+    list: box,
+    focusedMiddle: focusedMiddle === undefined ? undefined : focusedMiddle - box.top,
+    screen: { width: window.innerWidth, height: window.innerHeight },
+    isPhone,
+  });
+  dialog.style.setProperty("left", `${String(left)}px`);
+  dialog.style.setProperty("top", `${String(top)}px`);
+  const laidMiddle = focusedMiddleIn(dialog);
+  if (!isPhone && laidMiddle !== undefined) {
+    places.scrollBy({ top: laidMiddle - (openerBox.top + openerBox.height / 2) });
+  }
+}
+
+/**
+ * Lays the open list at the button that opened it (layAtOpener), as it opens, its current place
+ * focused (useCurrentPlaceFocused, before it), and again as the screen changes size. The dialog's
+ * `data-placed` says how, which drop-down.css sizes it by: `at` a big screen's button, as wide as
+ * the button at least, or `over` a phone's.
+ */
+function useListPlacedAtOpener(
+  placesRef: RefObject<HTMLElement | null>,
+  openerRef: RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    const places = placesRef.current;
+    const dialog = places?.closest("dialog");
+    if (places === null || dialog === null || dialog === undefined) {
+      return undefined;
+    }
+    const lay = (): void => {
+      if (openerRef.current !== null) {
+        layAtOpener(dialog, places, openerRef.current);
+      }
+    };
+    lay();
+    window.addEventListener("resize", lay);
+    return () => {
+      window.removeEventListener("resize", lay);
+    };
+  }, [placesRef, openerRef]);
 }
 
 /** What has focus, in a few words for the core's log: its tag and classes, and whether in list. */
@@ -164,7 +235,10 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
  * the browser's own history step (Silk's on a Fire TV, D367 §10); at Left or Right, the list being one
  * column whose Up and Down move within it (the owner, 2026-10-28: "moving left/right while in a
  * chooser or menu closes it"), the press closing it alone; and by its own Close after its places,
- * which a remote's arrows reach. It opens on its current place, else its first (useCurrentPlaceFocused),
+ * which a remote's arrows reach. It opens at its button, a big screen's list its current place laid
+ * over the button as a select's is, a phone's a pop-up over the button (useListPlacedAtOpener; the
+ * owner, 2026-10-28: "the chooser opening a window in a different location feels weird"), on its
+ * current place, else its first (useCurrentPlaceFocused),
  * and neither its opening nor its closing moves the page under it (the owner, 2026-10-28, on a Fire
  * TV: the season picker "shifted the page up before displaying it"). Focus goes back to the button
  * (D361 §3).
@@ -182,12 +256,14 @@ export function DropDown(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
+  const openerRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => {
     setIsOpen(false);
   }, []);
   return (
     <>
       <button
+        ref={openerRef}
         type="button"
         className={props.openerClassName}
         aria-haspopup="dialog"
@@ -200,7 +276,12 @@ export function DropDown(props: {
         {props.opener}
       </button>
       {isOpen ? (
-        <DropDownList label={props.label} className={props.listClassName} onClose={close}>
+        <DropDownList
+          label={props.label}
+          className={props.listClassName}
+          openerRef={openerRef}
+          onClose={close}
+        >
           {props.children}
         </DropDownList>
       ) : null}
@@ -212,6 +293,7 @@ export function DropDown(props: {
 function DropDownList(props: {
   readonly label: string;
   readonly className: string | undefined;
+  readonly openerRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -227,6 +309,7 @@ function DropDownList(props: {
   useChoiceCloses(ref, onClose);
   useFocusedPlaceShown(ref);
   useCurrentPlaceFocused(ref);
+  useListPlacedAtOpener(ref, props.openerRef);
   useStuckArrowTold(contentRef, isClosingRef);
   // Heard on all the list holds, its Close too, which a remote's Up reaches (the owner, 2026-10-28:
   // "Left/right didn't close it", focus on the Close the opening had focused).

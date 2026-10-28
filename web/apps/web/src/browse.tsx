@@ -19,6 +19,7 @@ import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
+import { ActionChooser } from "./route-chooser.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -227,39 +228,36 @@ function BrowseAlphabetRail(props: {
   return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
 
-/** A choice's value in the select: its sort, and the way it runs when not the sort's own. */
+/** A choice's key among the sort's: its sort, and the way it runs when not the sort's own. */
 function choiceValue(choice: SortChoice): string {
   return choice.order === defaultOrderOf(choice.sort)
     ? choice.sort
     : `${choice.sort}:${choice.order}`;
 }
 
-/** The order to list in: each sort Films and Series offer, either way (D366 §2). */
+/**
+ * The order to list in: each sort Films and Series offer, either way (D366 §2), by the chooser the
+ * Libraries page's sort is (route-chooser.tsx), the page keeping the choice.
+ */
 export function SortChooser(props: {
   readonly choice: SortChoice;
   readonly onChoose: (choice: SortChoice) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const choices = sortChoicesOf(browseSorts);
+  const chosen = choiceValue(props.choice);
   return (
-    <label>
-      {t("browse.sort")}
-      <select
-        value={choiceValue(props.choice)}
-        onChange={(event) => {
-          const chosen = choices.find((choice) => choiceValue(choice) === event.target.value);
-          if (chosen !== undefined) {
-            props.onChoose(chosen);
-          }
-        }}
-      >
-        {choices.map((choice) => (
-          <option key={choiceValue(choice)} value={choiceValue(choice)}>
-            {sortChoiceLabel(t, choice)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ActionChooser
+      fieldLabel={t("browse.sort")}
+      current={sortChoiceLabel(t, props.choice)}
+      options={sortChoicesOf(browseSorts).map((choice) => ({
+        key: choiceValue(choice),
+        label: sortChoiceLabel(t, choice),
+        isCurrent: choiceValue(choice) === chosen,
+        onChoose: () => {
+          props.onChoose(choice);
+        },
+      }))}
+    />
   );
 }
 
