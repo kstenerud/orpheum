@@ -1128,3 +1128,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   60 carries `waitedForAheadMs` or a `loadedAheadMs` at or above refillAheadMs (10000), none has
   `loadedAheadMs=0`, and no "a player began holding its group up … why=notReady" follows its group's
   `leaderPlays` within a second. (`web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)
+- [ ] **VQ112** — a Fire TV's second start says what came before it (staging, 2026-10-28: fileId 5670
+  on the TV's own Play page logged `kind=started` twice 0.6 s apart, 9 s loaded, 6 of 21 frames
+  dropped, and nothing between), on staging. Passes when, the Fire TV (Silk) playing three films from
+  their Play pages, resumed part way: each "a player's play state changed" line with `kind=started`
+  carries `startedAfter` (`play` for the first) and `stoodMs`, with `readyState` and both buffers;
+  and, where a start comes twice again, the second's `startedAfter` says whether a wait for data
+  (`waiting`) or a seek (`seeking`, with `skippedBy` on a `kind=seeked` line if hls.js made it) came
+  between, which decides the cause the first commit could not. (`web/apps/web/src/play-state.ts`,
+  `internal/core/api/report_context.go`)
