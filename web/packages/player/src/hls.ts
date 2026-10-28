@@ -98,12 +98,26 @@ export function startWithAudio(hls: AudioStart, audioIndex: number): void {
   });
 }
 
+/**
+ * What hls.js compares of the sound it has loaded and the one it switches to, beside the name and
+ * language every group shares at a place (D368 §3): where either differs, it throws the loaded
+ * sound away.
+ */
+export interface SoundForm {
+  channels?: string | undefined;
+  audioCodec?: string | undefined;
+}
+
 /** What keeping the audio rendition's place across audio groups needs of hls.js. */
 export interface AudioKeeping {
   on: ((
     event: typeof Hls.Events.AUDIO_TRACKS_UPDATED,
-    listener: (event: unknown, data: { readonly audioTracks: readonly unknown[] }) => void,
+    listener: (event: unknown, data: { readonly audioTracks: readonly SoundForm[] }) => void,
   ) => void) &
+    ((
+      event: typeof Hls.Events.AUDIO_TRACK_SWITCHING,
+      listener: (event: unknown, data: SoundForm & { readonly id: number }) => void,
+    ) => void) &
     ((
       event: typeof Hls.Events.AUDIO_TRACK_SWITCHED,
       listener: (event: unknown, data: { readonly id: number }) => void,
@@ -112,33 +126,74 @@ export interface AudioKeeping {
 }
 
 /**
- * Keeps the audio rendition at its place, startIndex until another plays, as the quality playing
+ * Keeps the audio rendition at its place, startIndex until another plays, as the quality loading
  * moves between audio groups: a film's top quality plays its own sound in a group of its own, every
  * group listing its sounds in one order (D368 §3), and hls.js, matching a rendition across groups by
  * its name and channels, would take the first of its language for a copied 5.1 one, the standard
- * mix for the boosted. Returns the choosing of another rendition, which it keeps from then on.
+ * mix for the boosted. Before its first plays, the place is the one hls.js switched to.
+ *
+ * The move keeps the sound loaded: hls.js throws all of it away when the sound it switches to
+ * differs in channels or codec from the one loaded (`flushAudioIfNeeded`), and moves the sound with
+ * the picture's next chunk, which is loaded far ahead of where it plays, so a Fire TV whose quality
+ * stepped down from the film's own 5.1 sound kept 2.5 s of sound against 38.6 s of picture, asked
+ * for the light track's chunks from there, found them being made, and stalled (staging, Nosferatu,
+ * 2026-10-28). The rendition at the place is switched to in the loaded one's form, its own given
+ * back at once, so hls.js loads it on from the end of the sound loaded, as it does for two groups'
+ * stereo tracks, and the new sound is heard where the picture of its quality begins. Returns the
+ * choosing of another rendition, the person's, which it keeps from then on and which hls.js plays at
+ * once, the loaded sound thrown away (idiosyncrasies.md).
  */
 export function keepAudioRendition(
   hls: AudioKeeping,
   startIndex: number | undefined,
 ): (index: number) => void {
   let kept = startIndex;
+  let switchedTo: { readonly id: number; readonly form: SoundForm } | undefined;
+  hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, (_event, data) => {
+    switchedTo = { id: data.id, form: { channels: data.channels, audioCodec: data.audioCodec } };
+  });
   hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_event, data) => {
     kept = data.id;
   });
   // A group's tracks are listed before hls.js chooses one of them: a rendition chosen then is the
   // one it plays.
   hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_event, data) => {
-    if (kept !== undefined && kept < data.audioTracks.length && hls.audioTrack !== kept) {
-      // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
-      hls.audioTrack = kept;
+    const place = kept ?? switchedTo?.id;
+    if (place === undefined || place >= data.audioTracks.length || hls.audioTrack === place) {
+      return;
     }
+    switchInForm(hls, { place, sound: data.audioTracks[place] }, switchedTo?.form);
   });
   return (index) => {
     kept = index;
     // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
     hls.audioTrack = index;
   };
+}
+
+/**
+ * Switches hls.js to the sound at a place in form, the form of the sound loaded, and gives the
+ * sound its own form back once hls.js has read it; in its own where either is unknown.
+ */
+function switchInForm(
+  hls: Pick<AudioKeeping, "audioTrack">,
+  to: { readonly place: number; readonly sound: SoundForm | undefined },
+  form: SoundForm | undefined,
+): void {
+  const { place, sound } = to;
+  if (sound === undefined || form === undefined) {
+    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
+    hls.audioTrack = place;
+    return;
+  }
+  const own: SoundForm = { channels: sound.channels, audioCodec: sound.audioCodec };
+  Object.assign(sound, form);
+  try {
+    // eslint-disable-next-line no-param-reassign -- as above
+    hls.audioTrack = place;
+  } finally {
+    Object.assign(sound, own);
+  }
 }
 
 /** What telling the player's own moves needs of hls.js. */

@@ -23,6 +23,7 @@ import {
   tellLoading,
   tellOwnMoves,
   type AudioKeeping,
+  type SoundForm,
   type AudioStart,
   type NativeTarget,
 } from "./hls.ts";
@@ -290,6 +291,113 @@ describe("keeping the sound playing as the quality moves between audio groups (D
     expect(hls.audioTrack).toBe(4);
     hls.updated(2);
     expect(hls.audioTrack).toBe(0);
+  });
+});
+
+describe("keeping the sound loaded as the quality moves between audio groups (the owner, 2026-10-28)", () => {
+  /** A sound in a group, as hls.js lists it. */
+  interface Sound extends SoundForm {
+    readonly name: string;
+    readonly lang: string;
+  }
+
+  /** Whether hls.js 1.7.3 takes switching for the sound loaded (matchesOption, audioMatchPredicate). */
+  function isSameSound(loaded: Sound, switching: Sound): boolean {
+    const isSameCodec =
+      loaded.audioCodec === undefined ||
+      loaded.audioCodec.slice(0, 4) === (switching.audioCodec ?? "").slice(0, 4);
+    const isSameChannels =
+      loaded.channels === undefined || loaded.channels === (switching.channels ?? "2");
+    return (
+      loaded.name === switching.name &&
+      loaded.lang === switching.lang &&
+      isSameCodec &&
+      isSameChannels
+    );
+  }
+
+  /**
+   * A fake hls.js, its sound loaded as loaded says, which switches sound as hls.js
+   * 1.7.3 does (AudioTrackController.setAudioTrack, AudioStreamController.flushAudioIfNeeded): it
+   * tells the switch with a copy of the track, and throws every loaded second away when the copy
+   * differs from the sound loaded in name, language, channels or codec; else it loads the new sound
+   * on from the end of what is loaded.
+   */
+  function fakeHls(loaded: { readonly fromS: number; readonly toS: number }): AudioKeeping & {
+    readonly listGroup: (sounds: Sound[]) => void;
+    readonly soundLoaded: () => { readonly fromS: number; readonly toS: number } | undefined;
+  } {
+    const listeners = new Map<string, (event: unknown, data: never) => void>();
+    let group: Sound[] = [];
+    let trackId = -1;
+    let loadedSound: Sound | undefined;
+    let soundLoaded: { readonly fromS: number; readonly toS: number } | undefined = loaded;
+    const switchTo = (id: number): void => {
+      const track = group[id];
+      if (track === undefined) {
+        return;
+      }
+      trackId = id;
+      const switching = { ...track, id };
+      if (loadedSound !== undefined && !isSameSound(loadedSound, switching)) {
+        soundLoaded = undefined;
+      }
+      loadedSound = switching;
+      listeners.get(Hls.Events.AUDIO_TRACK_SWITCHING)?.(undefined, switching as never);
+    };
+    return {
+      on: (event: string, listener: (event: unknown, data: never) => void) => {
+        listeners.set(event, listener);
+      },
+      get audioTrack() {
+        return trackId;
+      },
+      set audioTrack(id: number) {
+        switchTo(id);
+      },
+      // hls.js lists a group's tracks with no track chosen yet, then chooses the first if none is.
+      listGroup: (sounds) => {
+        group = sounds;
+        trackId = -1;
+        listeners.get(Hls.Events.AUDIO_TRACKS_UPDATED)?.(undefined, {
+          audioTracks: sounds,
+        } as never);
+        if (trackId === -1) {
+          switchTo(0);
+        }
+      },
+      soundLoaded: () => soundLoaded,
+    };
+  }
+
+  /** Nosferatu's sound at the top, its own 5.1 copied, and at the lower qualities the light stereo track. */
+  function own(): Sound[] {
+    return [{ name: "English", lang: "en", channels: "6" }];
+  }
+  function light(): Sound[] {
+    return [{ name: "English", lang: "en", channels: "2" }];
+  }
+
+  it("keeps the sound loaded when its quality steps down to the light track, the new one loaded from its end", () => {
+    // The Fire TV's sound loaded as its quality stepped down (staging, 2026-10-28): 37 s ahead.
+    const hls = fakeHls({ fromS: 3049.13, toS: 3088.04 });
+    keepAudioRendition(hls, undefined);
+    hls.listGroup(own()); // the top, the film's own sound
+    const lightGroup = light();
+    hls.listGroup(lightGroup); // a lower quality loading
+    expect(hls.audioTrack).toBe(0);
+    expect(hls.soundLoaded()).toEqual({ fromS: 3049.13, toS: 3088.04 });
+    expect(lightGroup[0]?.channels).toBe("2"); // its own form given back
+    hls.listGroup(own()); // and back up
+    expect(hls.soundLoaded()).toEqual({ fromS: 3049.13, toS: 3088.04 });
+  });
+
+  it("plays a sound the person chooses at once, the loaded one thrown away", () => {
+    const hls = fakeHls({ fromS: 10, toS: 47 });
+    const choose = keepAudioRendition(hls, undefined);
+    hls.listGroup([...own(), { name: "English, dialogue raised", lang: "en", channels: "2" }]);
+    choose(1);
+    expect(hls.soundLoaded()).toBeUndefined();
   });
 });
 

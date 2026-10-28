@@ -52,6 +52,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
+| As the quality stepped down, a Fire TV kept 2.5 s of sound against 38.6 s of picture and stalled on the new sound's chunks. | [On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec](#on-a-level-in-another-audio-group-hlsjs-throws-all-the-sound-loaded-away-when-the-new-sound-differs-in-channels-or-codec) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
@@ -1448,6 +1449,34 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **Evidence:** **[source]** hls.js 1.7.3, `src/controller/audio-track-controller.ts` (`switchLevel`,
   `findTrackId`) and `src/utils/rendition-helper.ts` (`audioMatchPredicate`). The audible switch is
   VQ86's to hear.
+
+### On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec
+
+- **Symptom:** a Fire TV playing Nosferatu stepped down from the top of its ladder, its own 5.1 sound
+  copied, to a quality with the light stereo track: its sound held 3049.13–3051.62 against the
+  picture's 3049.46–3088.04, the light track's chunks from there were still being made (425), and
+  it stalled 1172 ms (staging, 2026-10-28, D368's revision).
+- **Cause:** hls.js moves the sound to a level's audio group when it asks for that level's playlist,
+  for the picture's next chunk, loaded far ahead of where it plays (`AudioTrackController.switchLevel`,
+  on `LEVEL_LOADING`), and switches with `flushImmediate`; `AudioStreamController.flushAudioIfNeeded`
+  then compares the sound loaded with the one switched to by name, language, characteristics, codec
+  (its first four letters) and channels, and where any differs flushes every second of sound loaded
+  and loads the new one from where the video plays. Two groups' stereo AAC tracks of one name are
+  kept and the new one loaded on from the end of the sound loaded. `nextAudioTrack` (no
+  `flushImmediate`) only delays the flush: it loads the new sound where the video plays and flushes
+  from 0.25 s past it (`nextAudioTrackBufferFlushForwardOffset`) once its first chunk arrives.
+- **What we do:** `keepAudioRendition` (`web/packages/player/src/hls.ts`) switches to the rendition at
+  the place playing in the form (channels, codec) of the sound loaded, as hls.js last told it in
+  `AUDIO_TRACK_SWITCHING`, and gives the rendition its own form back once hls.js has read it, so the
+  sound loaded plays out and the new quality's is heard where its picture begins. The browser learns
+  the new channels and codec from the new chunks' init segment, as it does after a flush (a codec
+  change by `changeType`, which hls.js does either way). A sound the person chooses is switched in its
+  own form, and heard at once.
+- **Evidence:** **[staging]** the stall above; **[source]** hls.js 1.7.3,
+  `src/controller/audio-track-controller.ts` (`switchLevel`, `setAudioTrack`),
+  `src/controller/audio-stream-controller.ts` (`onAudioTrackSwitching`, `flushAudioIfNeeded`,
+  `doTick`'s `targetBufferTime`), `src/utils/rendition-helper.ts` (`matchesOption`,
+  `audioMatchPredicate`). Whether the change of channels plays without a gap is VQ116's to hear.
 
 ### Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"
 
