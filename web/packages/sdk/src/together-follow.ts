@@ -468,6 +468,9 @@ class GroupFollower {
 
   #send(command: GroupCommand): void {
     this.#awaitAnswer();
+    if (command.command === "seek" && this.#isLeading()) {
+      this.#leader.sentSeek(command.positionMs);
+    }
     this.#connection.command(command);
     if (command.command === "pause" || command.command === "seek" || command.command === "play") {
       // Which of its player's events made the command: a host's play stopped 0.4 s later by a
