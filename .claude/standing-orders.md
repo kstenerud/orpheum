@@ -31,8 +31,8 @@
      passes to the longest-present player while the host's screen is gone; one session per person; §1–8 merged, on
      staging (VQ104–106); §9–10 next.** Also folded (owner 2026-10-28, yes): a player starts or resumes after a seek
      once its film ahead outlasts the next chunk's fetch × 1.5, followers too (Marrowgate stall); dropped frames in the player's log: merged, on
-     staging (VQ110). Staging WebRTC direct via the owner's VM UDP 8443 rule (lost on reboot). Fire TV start fixes on staging
-     (VQ111–112); folded (owner, yes): the WebRTC relay cap + start on remembered link: on staging (VQ113–114). Owner VQs owed: 85–100 open (84 passed, its
+     staging (VQ110). Staging WebRTC direct (owner's VM UDP rule). Fire TV start fixes on staging
+     (VQ111–112); folded (owner, yes): the WebRTC relay cap (redone skew-safe, VQ115) + start on remembered link (VQ114): on staging. Owner VQs owed: 85–100 open (84 passed, its
      package on prod-api).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
