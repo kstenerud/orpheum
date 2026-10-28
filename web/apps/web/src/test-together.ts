@@ -15,6 +15,8 @@ export interface FakeTogetherServer {
   readonly openedCount: () => number;
   /** The last socket opening, and its renders. */
   readonly accept: () => Promise<void>;
+  /** Every socket opened opening, and their renders: a page with more than one at once. */
+  readonly acceptEach: () => Promise<void>;
   /**
    * The server sending message to the page's own device, and its renders: the last socket that
    * said hello as anything but voice, which every page now attaches beside it (D281 §1); the last
@@ -67,6 +69,14 @@ export function fakeTogetherServer(): FakeTogetherServer {
         await Promise.resolve();
       });
     },
+    acceptEach: async () => {
+      await act(async () => {
+        for (const listeners of opened) {
+          listeners.onOpen();
+        }
+        await Promise.resolve();
+      });
+    },
     say: async (message) => {
       await act(async () => {
         device().onMessage(JSON.stringify({ v: 2, ...message }));
@@ -79,10 +89,11 @@ export function fakeTogetherServer(): FakeTogetherServer {
 }
 
 /**
- * Two fake servers behind one opener: the page's live connection, the first socket it opens, and a
- * cast's or a session's, every socket after (D337, D364).
+ * Two fake servers behind one opener: the page's live connection, the first socket it opens, or the
+ * liveOpenedAs'th where a page's own session opens first, and a cast's or a session's, every other
+ * (D337, D364).
  */
-export function liveAndSession(): {
+export function liveAndSession(liveOpenedAs = 1): {
   readonly live: FakeTogetherServer;
   readonly session: FakeTogetherServer;
   readonly openSocket: FakeTogetherServer["openSocket"];
@@ -95,7 +106,7 @@ export function liveAndSession(): {
     session,
     openSocket: (listeners) => {
       opened += 1;
-      return opened === 1 ? live.openSocket(listeners) : session.openSocket(listeners);
+      return opened === liveOpenedAs ? live.openSocket(listeners) : session.openSocket(listeners);
     },
   };
 }

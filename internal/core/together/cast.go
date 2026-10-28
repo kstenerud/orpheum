@@ -135,28 +135,39 @@ func (hub *Hub) CastReady(sessionID, userID int64) error {
 	return nil
 }
 
-// HostedCredential is a new credential for the Watch Together session userID hosts, for a cast's
-// receiver to play it as their player, so what they play plays for the group (D364 §11;
-// plans/cast-to-device.md §7); "" when they host none, or none can be made.
-func (hub *Hub) HostedCredential(userID int64) string {
+// TogetherPart is a new credential for the Watch Together session userID is in, for a cast's receiver
+// to take their part in it (D371 §4), and whether it is the host's: the session they host, the
+// receiver then playing it as their player, its leader, so what they play plays for the group (D364
+// §11; plans/cast-to-device.md §7); else one they joined signed in as a guest, the receiver then just
+// another follower. "" when they are in none, or none can be made; of several, the newest.
+func (hub *Hub) TogetherPart(userID int64) (credential string, isHost bool) {
 	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
+	var taken *member
+	var takenIn int64
 	for _, each := range hub.sessions {
-		if each.hostUserID != userID || each.isCast {
+		if each.isCast {
 			continue
 		}
-		for _, hostMember := range each.members {
-			if hostMember.isHost {
-				hostMember.addCredential(madeCredential{credential: made})
-				return made
+		for _, candidate := range each.members {
+			isTheirs := (candidate.isHost && each.hostUserID == userID) ||
+				(candidate.person != nil && candidate.person.UserID == userID)
+			isBetter := taken == nil || (candidate.isHost && !taken.isHost) ||
+				(candidate.isHost == taken.isHost && each.id > takenIn)
+			if isTheirs && isBetter {
+				taken, takenIn = candidate, each.id
 			}
 		}
 	}
-	return ""
+	if taken == nil {
+		return "", false
+	}
+	taken.addCredential(madeCredential{credential: made})
+	return made, taken.isHost
 }
 
 // castOf is the cast userID cast by sessionID.

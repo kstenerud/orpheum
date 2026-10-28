@@ -7,7 +7,7 @@ import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { tabStorage } from "./browser-storage.ts";
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { endCast, listMyCasts, moveCastOn, playInCast } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
@@ -175,12 +175,16 @@ function RemoteOf(props: {
   const { t } = useTranslation();
   const { api, navigation } = useServices();
   const isHosting = useMembership(tabStorage, "host") !== undefined;
+  const isGuest = useMembership(browserStorage, "viewer") !== undefined;
   const { sent } = props;
-  if (isHosting) {
+  if (isHosting || (isGuest && sent.fileId === 0)) {
+    // A guest's cast with nothing of its own follows their session: its page holds the controls.
     return (
       <>
         <p>{t("cast.withTogether", { name: sent.receiverName })}</p>
-        <Link to={{ screen: "watch-together" }}>{t("cast.toTogether")}</Link>
+        <Link to={{ screen: isHosting ? "watch-together" : "together" }}>
+          {t("cast.toTogether")}
+        </Link>
       </>
     );
   }

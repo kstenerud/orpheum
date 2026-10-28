@@ -74,10 +74,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   between videos the receiver waits full screen on "Ready, controlled from ‹Device›"
   (`/cast-ready`, `src/cast-ready.tsx`), at a film's end with nothing after it too; a cast replacing
   one received is received at once; should the sound still be refused, the first key, click or tap
-  turns it on, and does nothing else. Its video plays as its session does, never as it loads, so a
-  start plays once, not played by the browser while its group waits and paused again. The page
-  leads the cast's session from where the sender stood,
-  or, while its person hosts Watch Together, that session as their player; it fills the window and
+  turns it on, and does nothing else. The page leads the cast's session from where the sender stood,
+  or, while its person hosts Watch Together, that session as their player, playing as the device
+  plays a film alone, nothing steering it, each of the remote's commands carried out as its own press
+  (D371 §1, §5); while its person is a signed-in guest in a session, the ready page follows that
+  session's film in their part, just another follower, and the guest's own page leaves the film to it,
+  holding the group's controls its rights give (D371 §4). The remote shows how the receiver plays
+  the film: the file as it is or converted, its quality and its link (D371 §4). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
@@ -91,12 +94,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-ready.test.tsx`,
   `src/cast-return.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
-  `src/watching.test.ts`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76, VQ77, VQ90 and VQ99.
+  `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76,
+  VQ77, VQ90, VQ99, VQ101 and VQ103.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.
 - **The host's player leads their session while this tab hosts one, and is as before without
-  one**: the film goes on for everyone, and goes on as the host leaves the player (D364 §15, D246
+  one**: the film goes on for everyone, the host's player playing as it would alone and the guests
+  catching up to it (D371 §1, §6), and goes on as the host leaves the player (D364 §15, D246
   §5's stop on leaving withdrawn); the session's page holds its remote, the way back to the film and
   Stop for everyone, and Stop casting while the host casts too. `src/watch-together.test.tsx`.
 - **On a discovery's origin the page reaches its core through the discovery** (webrtc-transport.md

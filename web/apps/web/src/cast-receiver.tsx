@@ -202,7 +202,8 @@ function useReceiversSessions(cast: CastToReceive): {
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const token = useToken();
-  const isLeadingHosted = cast.togetherCredential !== undefined;
+  // A guest's part is followed from the ready page (cast-ready.tsx); a film of the cast's own leads it.
+  const isLeadingHosted = cast.togetherCredential !== undefined && cast.isTogetherFollower !== true;
   const castSession = useTogether({
     credential: cast.membershipCredential,
     sessionToken: token,

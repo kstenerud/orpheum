@@ -27,10 +27,13 @@ export interface CastToReceive {
   readonly fromDeviceId: number;
   readonly fromDeviceName: string;
   /**
-   * A credential for the Watch Together session the person hosts, if any, which the receiver plays
-   * as their player, so what they play plays for the group (D364 §11).
+   * A credential for the Watch Together session the person is in, if any: one they host, which the
+   * receiver plays as their player, leading it, so what they play plays for the group (D364 §11), or,
+   * isTogetherFollower, one they joined as a guest, which the receiver follows as just another follower
+   * (D371 §4).
    */
   readonly togetherCredential?: string | undefined;
+  readonly isTogetherFollower?: boolean;
 }
 
 /**
@@ -145,6 +148,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     fromDeviceId,
     fromDeviceName: typeof name === "string" ? name : "",
     togetherCredential: nonEmptyStringIn(record, "togetherCredential"),
+    ...(record["isTogetherFollower"] === true ? { isTogetherFollower: true } : {}),
   };
 }
 

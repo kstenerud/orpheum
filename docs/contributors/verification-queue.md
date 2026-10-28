@@ -1065,3 +1065,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   waited for each player at a start, a play and a seek, and a stalled player was waited for or
   left behind with "continuing without". (`internal/core/together/group.go`, `player_log.go`;
   `web/packages/sdk/src/together-follow.ts`)
+- [ ] **VQ103** — a guest casting to a second device follows the group there (D371 §4), on staging.
+  Passes when the Mac hosts a session playing a film and a guest, signed in on the iPhone as a
+  person of their own, joins it, then casts from the iPhone (the tray's Cast) to a second device of
+  theirs (the Fire TV or a computer's browser) and says Use there: (1) the second device plays the
+  group's film, in step with the host's screen, and the iPhone's own page stops its film, saying
+  "Playing on ‹Device›" with the group's controls its link gives; (2) the host's pause, play and a
+  jump each move the second device, which catches up as a follower, never holding the group up; (3)
+  the core's log has the second device attach as the guest's member with `role=video`, never named
+  `leaderDeviceId`, and `followerCaughtUp` lines from it; (4) Back on the second device ends the cast
+  and the iPhone's page plays the film again; Stop casting on the iPhone returns the second device to
+  the page it was on. (`internal/core/together/cast.go`; `internal/core/live/registry.go`;
+  `web/apps/web/src/cast-ready.tsx`, `together-viewer.tsx`)

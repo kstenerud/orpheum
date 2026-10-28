@@ -43,6 +43,8 @@ import { useShowsAFilm } from "./film-showing.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
+import { useLive } from "./live.tsx";
+import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
@@ -255,7 +257,7 @@ function ViewerSession(props: {
       <ViewingArea
         kept={kept}
         isVoiceWaiting={voice.tap.isWaiting}
-        membership={props.membership}
+        credential={props.membership.credential}
         connection={connection}
         snapshot={snapshot}
         volume={volume}
@@ -333,21 +335,56 @@ function LeaveButton(props: {
 }
 
 /**
+ * The group's film followed on a cast's receiver that takes a guest's part in their session (D371 §4):
+ * just another follower, by the guest's credential the cast handed it, as the guest's own device
+ * followed it, black while nothing plays. Its page's press, Use, gave it its sound.
+ */
+export function FollowsTheGroupHere(props: { readonly credential: string }): JSX.Element {
+  const token = useToken();
+  const { connection, snapshot } = useTogether({
+    credential: props.credential,
+    sessionToken: token,
+  });
+  const kept = useKeptVideo();
+  return (
+    <ViewingArea
+      kept={kept}
+      isVoiceWaiting={false}
+      credential={props.credential}
+      connection={connection}
+      snapshot={snapshot}
+      volume={1}
+    />
+  );
+}
+
+/**
  * Where the film plays: black while nothing does (D246 §6), else the group's film, followed, in the
  * session's kept video; over either, a tap asked for while the voices wait for one, as when a phone
  * call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the video").
+ * While this device casts, the device it casts to plays the film in its place, a follower too, and
+ * this one holds the group's controls its rights give (D371 §4).
  */
 function ViewingArea(props: {
   readonly kept: KeptVideo;
   readonly isVoiceWaiting: boolean;
-  readonly membership: Membership;
+  readonly credential: string;
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly volume: number;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { sending } = useLive();
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
+  if (sending?.isAccepted === true && fileId !== 0) {
+    return (
+      <section className="together-viewer__viewing" aria-label={t("together.stage")}>
+        <p>{t("cast.playingOn", { name: sending.receiverName })}</p>
+        <SessionRemote snapshot={props.snapshot} connection={connection} durationMs={0} />
+      </section>
+    );
+  }
   return (
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? (
@@ -365,7 +402,7 @@ function ViewingArea(props: {
           keptVideo={props.kept.video}
           isVoiceWaiting={props.isVoiceWaiting}
           fileId={fileId}
-          credential={props.membership.credential}
+          credential={props.credential}
           following={{ connection, volume: props.volume }}
         />
       )}

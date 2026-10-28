@@ -141,13 +141,53 @@ func TestCast_AHostsReceiverHasACredentialForTheirSession(t *testing.T) {
 	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}); err != nil {
 		t.Fatal(err)
 	}
-	if credential := stage.hub.HostedCredential(77); credential != "" {
+	if credential, _ := stage.hub.TogetherPart(77); credential != "" {
 		t.Errorf("a person with only a cast was given %q; want none", credential)
 	}
-	credential := stage.hub.HostedCredential(stage.owner.UserID)
+	credential, isHost := stage.hub.TogetherPart(stage.owner.UserID)
 	sessionID, memberID, isMember := stage.hub.MemberOf(credential)
-	if !isMember || sessionID != stage.opened.SessionID || stage.hub.hostOf(sessionID) != stage.owner.UserID {
-		t.Fatalf("the host's credential is of session %d, member %d (%v); want the party's host",
-			sessionID, memberID, isMember)
+	if !isMember || !isHost || sessionID != stage.opened.SessionID ||
+		stage.hub.hostOf(sessionID) != stage.owner.UserID {
+		t.Fatalf("the host's credential is of session %d, member %d (%v, host %v); want the party's host",
+			sessionID, memberID, isMember, isHost)
+	}
+}
+
+// A guest who joined signed in and casts has their receiver given a credential of their own
+// membership, to take their part in the session as just another follower; it never leads, and the
+// group never waits for it (D371 §4).
+func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner", Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guestPerson := Person{UserID: 42, Name: "Anna"}
+	joined, err := stage.hub.Join(made.Secret, "Anna", &guestPerson)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential, isHost := stage.hub.TogetherPart(guestPerson.UserID)
+	if sessionID, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost ||
+		sessionID != stage.opened.SessionID || memberID != joined.MemberID {
+		t.Fatalf("the guest's receiver was given session %d, member %d (%v, host %v); want the guest's own part",
+			sessionID, memberID, isMember, isHost)
+	}
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.ready(t, host, false)
+	receiver, _ := stage.attach(t, credential, RoleVideo)
+	seq := hostBox.last(MessageGroup).Seq
+	stage.report(t, receiver, 0, false, true)
+	for _, each := range hostBox.last(MessageRoster).Roster {
+		for _, attached := range each.Devices {
+			if attached.ID == receiver.DeviceID && attached.IsLeader {
+				t.Error("the guest's receiver leads the session; want it a follower")
+			}
+		}
+	}
+	if hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the guest's receiver loading changed the group: %+v", hostBox.last(MessageGroup).Group)
 	}
 }

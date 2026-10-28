@@ -206,6 +206,22 @@ describe("the casting page (D364 §8, §13)", () => {
     expect(buttonWithText(page, "Stop casting")).toBeDefined();
   });
 
+  it("leaves a guest's cast with nothing of its own to their session's page, its receiver following the group (D371 §4)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 3, credential: "viewer-credential" }),
+    );
+    try {
+      await casting({}, [], { ...sending, fileId: 0, titleName: "" });
+      const page = mounted!.container;
+      expect(page.textContent).toContain("Watch Together is on");
+      expect(page.querySelector('a[href="/together"]')).not.toBeNull();
+      expect(buttonWithText(page, "Stop casting")).toBeDefined();
+    } finally {
+      window.localStorage.removeItem("orpheum.together.viewer");
+    }
+  });
+
   it("says control was taken back, and offers to play here from where it stood, which it opens at (D364 §9)", async () => {
     const { services, sockets } = await casting({
       "GET /me/devices": [200, { devices: [] }],

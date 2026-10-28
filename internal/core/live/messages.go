@@ -79,9 +79,12 @@ type Receive struct {
 	FromDeviceName string `json:"fromDeviceName"`
 	// IsAccepted is whether the receiver said Use to the cast already, asked once (D364 §2).
 	IsAccepted bool `json:"isAccepted,omitempty"`
-	// TogetherCredential is a credential for the Watch Together session the person hosts, if any,
-	// which the receiver plays as their player, so what they play plays for the group (D364 §11).
+	// TogetherCredential is a credential for the Watch Together session the person is in, if any: one
+	// they host, which the receiver plays as their player, leading it, so what they play plays for the
+	// group (D364 §11), or, IsTogetherFollower, one they joined as a guest, which the receiver follows as
+	// just another follower (D371 §4).
 	TogetherCredential string `json:"togetherCredential,omitempty"`
+	IsTogetherFollower bool   `json:"isTogetherFollower,omitempty"`
 }
 
 // Sending is the cast a device sends, as its pages show it: to which device, what it plays there
