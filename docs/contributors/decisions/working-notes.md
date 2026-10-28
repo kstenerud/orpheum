@@ -23769,7 +23769,7 @@ Not seen on a device yet (VQ89).
 
 ## D371 — A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part
 
-**Proposed** (2026-10-28), from the owner's question after a day of casting fixes to the Fire TV: "We're
+**Decided** (2026-10-28), by the project owner ("yes, approved"), from the owner's question after a day of casting fixes to the Fire TV: "We're
 able to play files seamlessly on the tv stick, so it's our methodology when casting that breaks things.
 What is actually causing the problem, and do we really have to do things the way we're doing, or is
 there a better way to achieve the same effect?" A cast was a Watch Together session of one (D88,
@@ -23809,5 +23809,4 @@ catching up makes more sense. Also, your better way makes sense."
    catch up (the owner: "the others catching up makes more sense"), so no host's page plays, is held
    and plays again.
 
-**Status:** Proposed 2026-10-28, for the owner's approval. Revisits D88, D247, D250, D268, D282 and
-D364 as above.
+**Status:** Decided 2026-10-28; to build. Revisits D88, D247, D250, D268, D282 and D364 as above.
