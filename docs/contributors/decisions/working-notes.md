@@ -23766,3 +23766,48 @@ episodes, 15.6 ms against 14.3 ms before, the count dominating, within the 50 ms
 where the decision left it open: episode rows gained the check, not a progress bar; a series' check on
 its own page counts the episodes the ordering in use lists with a file, as its list's progress does.
 Not seen on a device yet (VQ89).
+
+## D371 — A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part
+
+**Proposed** (2026-10-28), from the owner's question after a day of casting fixes to the Fire TV: "We're
+able to play files seamlessly on the tv stick, so it's our methodology when casting that breaks things.
+What is actually causing the problem, and do we really have to do things the way we're doing, or is
+there a better way to achieve the same effect?" A cast was a Watch Together session of one (D88,
+D364), so the receiver was steered by a group's sync: it waited for the group to be ready (D250 §2),
+started at a scheduled moment with a run-up seek (D282), was held paused and sought back to the
+group's place while it waited, was nudged by rate to the group's clock (D268), and the group waited
+for it when it stalled (D247). With one screen there is nothing to keep it in step with, and each of
+those moves (a seek, a pause, a rate change) costs a Silk device a refill: every cast bug of
+2026-10-28 was one of them (the 0.9× nudge loop, the hold's seek back, the run-up's jump, the
+play-pause-play start, the receiver never counted ready). The owner, agreeing: "Yes, the others
+catching up makes more sense. Also, your better way makes sense."
+
+1. **Every session has one leader: the screen that is the film.** It plays exactly as a device plays
+   a film alone: it starts when it is ready, buffers as it needs, and is never held, sought to a
+   group's place, run up or nudged. The group's position is the leader's.
+2. **Everyone else catches up to the leader.** A follower seeks or nudges to the leader's position by
+   Watch Together's existing catch-up (D250's "a member's trouble is theirs to catch up on", D268's
+   correction). Nobody waits for anybody: the owner, "Let's make everyone catch up to the leader when
+   they stall." This replaces D247's group waiting once for a stalled viewer, D250 §2's waits for
+   members to be ready (and its 2026-10-28 amendment for a session's only player), and D282's
+   scheduled start with a run-up for the leader; a follower may still run up to meet the leader where
+   it helps it land in step.
+3. **The leader is the host's screen**: the device the host plays on, in Watch Together the session's
+   host, and alone the person playing.
+4. **A cast takes its sender's part.** The owner: "We need to handle the leader casting, and also a
+   follower casting. In each case the cast-to device behaves exactly as their main device would have.
+   For the leader, his cast-to device becomes the leading device. For a follower, his cast-to device is
+   just another follower." The sending device becomes a remote control (D88): play, pause, seek, the
+   next item and stop go to the device it casts to, which carries each out as its own press, and that
+   device's state (where it is, playing or paused, its quality and link) comes back for the sender to
+   show (the owner's earlier ask, 2026-10-28: "The controller side should get information about
+   playback, such as the transcoding and bandwidth choices").
+5. **A cast alone is a session with a leader and no followers**, so it plays as the device plays a film
+   alone. The hub and its connections stay the way commands and state travel (D364); what changes is
+   that nothing steers the leader.
+6. **The host's own start, in Watch Together, is the leader's**: it plays at once, and the guests
+   catch up (the owner: "the others catching up makes more sense"), so no host's page plays, is held
+   and plays again.
+
+**Status:** Proposed 2026-10-28, for the owner's approval. Revisits D88, D247, D250, D268, D282 and
+D364 as above.
