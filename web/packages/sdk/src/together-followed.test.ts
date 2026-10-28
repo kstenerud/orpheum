@@ -55,3 +55,36 @@ describe("a player's word that it followed its group's change (the owner, 2026-1
     ]);
   });
 });
+
+describe("a player's word of a play its follower did not make while its group held it (the owner's Marrowgate Family, 2026-10-28)", () => {
+  it("says the element's autoplay played it while its group waited, at where it stood, and pauses it", () => {
+    const media = new FakeMedia();
+    media.autoplay = true;
+    media.currentTime = 1607.085;
+    const { connection, notes } = fakeConnection({
+      ...paused,
+      state: "Waiting",
+      positionMs: 1_607_085,
+    });
+    followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
+    media.paused = false; // the browser's autoplay, as the film loaded enough
+    media.fire("play");
+    expect(media.paused).toBe(true);
+    expect(notes.filter((note) => note.kind === "playedWhileHeld")).toEqual([
+      { kind: "playedWhileHeld", positionMs: 1_607_085, why: "autoplay" },
+    ]);
+  });
+
+  it("says the page played it where the element does not autoplay, and says nothing of a play with its group", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, notes } = fakeConnection({ ...paused, state: "Waiting" });
+    followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
+    media.paused = false;
+    media.fire("play");
+    setGroup({ ...paused, state: "Playing", event: "everyoneReady" }, monotonicNowMs);
+    media.fire("play");
+    expect(notes.filter((note) => note.kind === "playedWhileHeld")).toEqual([
+      { kind: "playedWhileHeld", positionMs: 60_000, why: "page" },
+    ]);
+  });
+});

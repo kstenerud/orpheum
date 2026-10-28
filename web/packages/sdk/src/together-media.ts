@@ -20,6 +20,7 @@ export type FollowedMedia = Pick<
   HTMLMediaElement,
   | "currentTime"
   | "muted"
+  | "autoplay"
   | "playbackRate"
   | "preservesPitch"
   | "paused"

@@ -38,6 +38,7 @@ const (
 	eventFollowedOnlyPlayer = "followedOnlyPlayer"
 	eventPlayerBuffering    = "playerBuffering"
 	eventSoundMoved         = "soundMoved"
+	eventPlayedWhileHeld    = "playedWhileHeld"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
@@ -191,7 +192,8 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NoteSoundMoved:
 		current.logSoundMoved(ctx, who, from, note)
 		return true
-	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked:
+	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked,
+		NotePlayedWhileHeld:
 		current.logSound(ctx, who, from, note)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected,
@@ -240,8 +242,9 @@ func (current *session) logSoundMoved(ctx context.Context, who *member, from *de
 }
 
 // logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
-// or playing it, a press turning it on, full screen entered, refused or left, and a guest's page asking for
-// a tap to continue, each with the page's presses where it says them (D358).
+// or playing it, the film played while its group held it, a press turning it on, full screen
+// entered, refused or left, and a guest's page asking for a tap to continue, each with the page's
+// presses where it says them (D358).
 func (current *session) logSound(ctx context.Context, who *member, from *device, note *PlayerNote) {
 	attributes := current.deviceAttributes(who, from)
 	switch note.Kind {
@@ -257,6 +260,13 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 		current.logger.InfoContext(ctx, "watch together: the browser played the film with sound",
 			append(attributes, logEvent, eventPlayedWithSound, positionMsAttribute, note.PositionMs,
 				"page", note.Page)...)
+	case NotePlayedWhileHeld:
+		// What played a player its group held, and the group's state then: a Fire TV's cast started
+		// with a play, a pause and a play, and its log said only that it played (the owner's Marrowgate
+		// Family, staging, 2026-10-28).
+		current.logger.InfoContext(ctx, "watch together: a player played while its group held it; it is paused",
+			append(attributes, logEvent, eventPlayedWhileHeld, "groupState", string(current.group.state),
+				"by", note.Why, positionMsAttribute, note.PositionMs)...)
 	case NoteFullScreen:
 		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered, refused or left",
 			append(attributes, logEvent, eventFullScreen, "answer", note.Why, "by", note.By)...)

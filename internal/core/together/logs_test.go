@@ -624,3 +624,30 @@ func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
 		t.Errorf("an unknown command answered %+v; want rejected as invalid", rejected)
 	}
 }
+
+// A play its follower did not make, while the group does not play, says at info what began it and
+// the group's state: a Fire TV's cast started with a play, a pause and a play, and the log said only
+// that it played with sound (the owner's Marrowgate Family, staging, 2026-10-28). An unknown cause is
+// refused.
+func TestHub_LogsWhatPlayedAPlayerItsGroupHeld(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, device, CommandChangeItem, 7) // Waiting: its player not yet ready
+	for _, note := range []PlayerNote{
+		{Kind: NotePlayedWhileHeld, PositionMs: 1607085, Why: "autoplay"},
+		{Kind: NotePlayedWhileHeld, PositionMs: 1607086, Why: "elbow"},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	}
+	logged := stage.logs.String()
+	played := lineWith(t, logged, "playedWhileHeld")
+	for _, want := range []string{"level=INFO", "groupState=Waiting", "by=autoplay", "positionMs=1607085"} {
+		if !strings.Contains(played, want) {
+			t.Errorf("the log of a play the group held lacks %s:\n%s", want, played)
+		}
+	}
+	if strings.Contains(logged, "elbow") {
+		t.Errorf("the log took a play's cause it does not know:\n%s", logged)
+	}
+}

@@ -37,7 +37,7 @@ import {
   whenHidden,
   type GroupNow,
 } from "./together-lead.ts";
-import { FollowedChanges, heldByOf } from "./together-followed.ts";
+import { FollowedChanges, heldByOf, notePlayedWhileHeld } from "./together-followed.ts";
 import { OwnMoves } from "./together-own-moves.ts";
 import {
   nextPhase,
@@ -314,6 +314,7 @@ class GroupFollower {
         ? commandOfEvent(event, this.#media, where)
         : undefined;
     if (command === undefined || !mayLead(command, this.#options.leads)) {
+      notePlayedWhileHeld({ connection: this.#connection, event, media: this.#media, where });
       this.apply();
     } else {
       this.#lead(command);

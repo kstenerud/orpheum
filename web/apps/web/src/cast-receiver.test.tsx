@@ -17,7 +17,9 @@ import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
+import { PlayView } from "./play.tsx";
 import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -715,5 +717,50 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     isFullScreen(false);
     await fullScreenChanged();
     expect(onOver).toHaveBeenCalledOnce();
+  });
+});
+
+describe("a receiver's start, played once (the owner's Marrowgate Family, 2026-10-28)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    document.body.replaceChildren();
+  });
+
+  /** The Play page's video for file 4, receiving cast or playing as the device's own. */
+  async function playPagesVideo(isReceiving: boolean): Promise<HTMLVideoElement | null> {
+    const services = servedBy(
+      {
+        "GET /files/4/waits": [200, {}],
+        "GET /files/4/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <PlayView
+          fileId={4}
+          decision={directDecision()}
+          onDecideAgain={() => undefined}
+          receiving={
+            isReceiving ? { cast, onOver: () => undefined, onLeave: () => undefined } : undefined
+          }
+        />,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    return mounted.container.querySelector("video");
+  }
+
+  it("leaves its video to play as its session does, not as it loads: the browser's autoplay played it while its group waited, and the hold paused it again", async () => {
+    expect((await playPagesVideo(true))?.autoplay).toBe(false);
+  });
+
+  it("plays the device's own film at once as it loads", async () => {
+    expect((await playPagesVideo(false))?.autoplay).toBe(true);
   });
 });

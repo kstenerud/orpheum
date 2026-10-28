@@ -18347,6 +18347,14 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    plays along, a player's stall or drop holds the group where it was, waiting (event
    `waitingFor`) until a player is ready, past the sync wait; a waiting group never starts to no
    one. With another player along, the group plays on as above.
+
+   **Amended 2026-10-28**, for a session of one (a cast, D364): asked *"Should a session whose only
+   player never gets ready start anyway once its deadline passes?"*, the owner: *"yes"*. When the
+   session's only player is not ready as its wait's time (§3) is up, the group plays all the same
+   (event `continuedWithout`), the player catching up as it plays, and the group follows that
+   player, catching up or not, as it follows a session's only player while it plays (D88), so it
+   never runs on ahead of the one watching. A session with more than one player keeps the rule
+   above: with none ready, it waits on past its time.
 3. **A sync point waits at most 20 s**, a setting: then the group plays, and whoever is not ready
    catches up alone. The owner: *"30 seconds is too long. Let's start at 20."*
 4. **A member catching up jumps ahead and waits there**, as D247 §4's amendment had it, aiming to
@@ -18390,7 +18398,8 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    rules. The owner: *"I'll have her update her phone when she lands, so we can set the floor to
    ios 17.1."*
 
-**Status:** Decided 2026-10-06; §7 amended the same day; §2 and §5 amended 2026-10-12.
+**Status:** Decided 2026-10-06; §7 amended the same day; §2 and §5 amended 2026-10-12; §2 amended
+again 2026-10-28.
 
 ## D251 — The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
 

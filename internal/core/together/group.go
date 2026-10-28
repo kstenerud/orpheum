@@ -193,7 +193,8 @@ func (current *session) stalled(now time.Time, who *member, stalledDevice *devic
 // another stall, and started it ahead again, nudged, stalling, over and over (the owner's cast,
 // staging, 2026-10-28). Before the group starts moving its position is the start's, which the
 // player is held at or runs up to (D268 §3, D282), so nothing is moved then. Nothing is announced:
-// the followers read where the group is from their next pong.
+// the followers read where the group is from their next pong. An only player catching up, its wait
+// ended without it (endWait), is followed as well: the group plays where it is, not on ahead of it.
 func (current *session) followOnlyPlayer(
 	ctx context.Context, now time.Time, who *member, from *device, message Inbound,
 ) {
@@ -285,8 +286,12 @@ func (current *session) isAnyPlayingAlong() bool {
 
 // endWait ends a sync point's wait once its time, the sync wait, is up and a player is ready: the
 // players not yet ready catch up alone, and the group plays without them (D250 §3). While no player
-// is ready the group waits on, so it never plays to no one. It runs at every message a device
-// sends; a ready player sends one each second while the group waits, so the wait ends on time.
+// is ready the group waits on, so it never plays to no one; but a session whose only player is late
+// plays at its time all the same, the player catching up as it plays, for a session of one, a cast,
+// has no one else to play to and its one watcher waited long enough (D250 §2's amendment of
+// 2026-10-28, the owner: "Should a session whose only player never gets ready start anyway once its
+// deadline passes?: yes"). It runs at every message a device sends; a ready player sends one each
+// second while the group waits, so the wait ends on time.
 func (current *session) endWait(now time.Time) {
 	if current.group.state != GroupWaiting || now.Before(current.group.waitUntil) {
 		return
@@ -306,7 +311,7 @@ func (current *session) endWait(now time.Time) {
 			}
 		}
 	}
-	if !isAnyReady {
+	if !isAnyReady && (len(late) != 1 || !current.isOnlyPlayer(late[0])) {
 		return
 	}
 	for _, attached := range late {
