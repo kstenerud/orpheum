@@ -23,7 +23,7 @@ import {
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
-  qualitySwitchedOf,
+  noteQualitySwitched,
   type ChunkLoaded,
 } from "./together-player-events.ts";
 import {
@@ -34,6 +34,7 @@ import {
   type GroupNow,
   type ShownPage,
 } from "./together-lead.ts";
+import { FollowedChanges, heldByOf } from "./together-followed.ts";
 import { OwnMoves } from "./together-own-moves.ts";
 import {
   nextPhase,
@@ -43,7 +44,6 @@ import {
 } from "./together-phase.ts";
 import {
   haveFutureData,
-  haveMetadata,
   isInStep,
   isOnLoaded,
   loadedFromMs,
@@ -102,8 +102,11 @@ export interface FollowOptions {
   readonly monotonicMs: () => number;
   /** Where the device keeps how late its player starts; for the follower's life when not given (D282). */
   readonly startLag?: StartLagMemory;
-  /** The page the player is on, whose hiding pauses its video on iOS: the document, in a browser. */
-  readonly page?: ShownPage;
+  /**
+   * The page the player is on where hiding it pauses its video, a handheld's: while hidden, nothing
+   * moves the player. Absent on a computer, whose hidden page plays on and follows (heldByOf).
+   */
+  readonly page?: ShownPage | undefined;
 }
 
 /** The events a following player tells the group of, and is moved by. */
@@ -132,6 +135,8 @@ class GroupFollower {
   readonly #options: FollowOptions;
   /** The moves it makes itself, marked so their events are not taken for its person's. */
   readonly #ownMoves = new OwnMoves();
+  /** When it moved for each change of its group, against when the change reached it. */
+  readonly #followed: FollowedChanges;
   /** Where it is in correcting its drift. */
   #phase: CorrectionPhase = startingPhase;
   /** The group's last jump it told its player of, as "<from>-<to>" ms; undefined before one. */
@@ -191,6 +196,7 @@ class GroupFollower {
     this.#options = options;
     this.#start = new StartLearner(options.startLag ?? memoryOfTheSession());
     this.#loading = new GroupLoading(media, connection);
+    this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
   }
 
   /** The player's state as the group is told it. */
@@ -211,9 +217,11 @@ class GroupFollower {
 
   /** The connection changed: a command this player sent is answered once an answer was heard since. */
   readonly connectionChanged = (): void => {
-    if (this.#connection.snapshot().answersHeard !== this.#answersHeardAtCommand) {
+    const snapshot = this.#connection.snapshot();
+    if (snapshot.answersHeard !== this.#answersHeardAtCommand) {
       this.#isAwaitingGroup = false;
     }
+    this.#followed.heard(snapshot.groupSeq, this.#options.monotonicMs());
     this.apply();
   };
 
@@ -223,11 +231,12 @@ class GroupFollower {
     this.#answersHeardAtCommand = this.#connection.snapshot().answersHeard;
   }
 
-  /** Puts the player where the group is now, when the group plays its film; not while hidden. */
+  /** Puts the player where the group is now, when the group plays its film; not while held (heldByOf). */
   readonly apply = (): void => {
     const where = this.#whereNow();
-    const isHeld = this.#isAwaitingGroup || this.#options.page?.visibilityState === "hidden";
-    if (where === undefined || isHeld || this.#media.readyState < haveMetadata) {
+    const heldBy = heldByOf(this.#isAwaitingGroup, this.#options.page, this.#media);
+    const nowMs = this.#options.monotonicMs();
+    if (where === undefined || !this.#followed.mayFollow(heldBy, nowMs, this.#connection)) {
       return;
     }
     if (where.group.state === "Playing") {
@@ -723,16 +732,6 @@ class GroupFollower {
       (this.#soughtToMs !== undefined && Math.abs(toMs - this.#soughtToMs) > farMs)
     );
   }
-}
-
-/** Notes for the server's log each switch of quality the player tells of. */
-function noteQualitySwitched(connection: TogetherConnection): (event: Event) => void {
-  return (event) => {
-    const switched = qualitySwitchedOf(event);
-    if (switched !== undefined) {
-      connection.note({ kind: "qualitySwitched", ...switched });
-    }
-  };
 }
 
 /**

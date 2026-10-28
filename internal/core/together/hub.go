@@ -137,6 +137,9 @@ type group struct {
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
 	// waitUntil is when a group Waiting at a sync point stops waiting for players not yet ready.
 	waitUntil time.Time
+	// changedAt is when the change numbered seq was announced: a player's note that it followed that
+	// change says how long after it the player moved (NoteGroupFollowed).
+	changedAt time.Time
 }
 
 // member is a person in the session, with their devices (D120).
@@ -540,7 +543,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessageRTC:
 		handled.relay(from, message)
 	case MessageNote:
-		handled.logNote(ctx, sender, from, message.Note)
+		handled.logNote(ctx, now, sender, from, message.Note)
 	case MessageStanding:
 		handled.takeStanding(ctx, sender, from, message.Standing)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:

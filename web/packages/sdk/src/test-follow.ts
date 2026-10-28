@@ -147,6 +147,7 @@ export function fakeConnection(
         group: next,
         groupReceivedAtMs: receivedAtMs,
         groupPlacedByRttMs: placedByRttMs,
+        groupSeq: (snapshot.groupSeq ?? 0) + 1,
         answersHeard: snapshot.answersHeard + 1,
       };
       listener();

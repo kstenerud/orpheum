@@ -18,6 +18,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
 import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 
@@ -265,6 +266,31 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
         positionMs: 61_000,
       }),
     );
+  });
+
+  it("pauses at once as its remote pauses, though its page is hidden, telling the log it followed at once (the owner, 2026-10-28)", async () => {
+    const { server, video } = await receiver();
+    // A computer's video, playing: its hidden page plays on (pauseWhenHidden pauses a handheld's alone).
+    const isPaused = playingVideo(video, 70);
+    await server.say(welcome);
+    // Behind its remote's window on the same Mac, the receiver's page is hidden.
+    const show = hideTheDocument();
+    try {
+      await server.say({
+        type: "group",
+        seq: 2,
+        group: { state: "Paused", positionMs: 70_000, rate: 1, fileId: 4, event: "paused" },
+      });
+      expect(isPaused()).toBe(true);
+      expect(server.heard).toContainEqual(
+        expect.objectContaining({
+          type: "note",
+          note: { kind: "groupFollowed", seq: 2, heldMs: 0, why: "atOnce" },
+        }),
+      );
+    } finally {
+      show();
+    }
   });
 
   it("goes back to the page it was on before the cast when the remote stops casting (D338 §1)", async () => {

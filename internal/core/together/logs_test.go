@@ -200,6 +200,51 @@ func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
 	}
 }
 
+// A player's word that it followed a change of its group is logged at info: which change, how long
+// after the server announced it the word came, and how long the player held it and why. A change the
+// group has moved on from says only its number. A cast's receiver played on seven seconds after its
+// remote paused it, and nothing said where those seconds went (the owner, 2026-10-28).
+func TestHub_LogsHowLongAfterItsGroupsChangeAPlayerFollowedIt(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	player, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	remote, _ := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stage.ready(t, player, false)
+	stage.command(t, player, CommandChangeItem, 7)
+	stage.command(t, remote, CommandPause, 0)
+	paused := box.last(MessageGroup).Seq
+	stage.clock.Advance(6800 * time.Millisecond)
+	stage.hub.Handle(t.Context(), player, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteGroupFollowed, Seq: paused, HeldMs: 6750, Why: "hidden",
+	}})
+	line := lineWith(t, stage.logs.String(), "groupFollowed")
+	for _, want := range []string{"level=INFO", "heldMs=6750", "heldBy=hidden", "event=paused", "afterChangeMs=6800"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the followed change's line does not say %s:\n%s", want, line)
+		}
+	}
+	stage.command(t, remote, CommandPlay, 0)
+	stage.logs.Reset()
+	stage.hub.Handle(t.Context(), player, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteGroupFollowed, Seq: paused, HeldMs: 20, Why: "atOnce",
+	}})
+	if line := lineWith(t, stage.logs.String(), "groupFollowed"); strings.Contains(line, "afterChangeMs") ||
+		!strings.Contains(line, "groupSeq=") {
+		t.Errorf("a change the group moved on from: %s; want its number and the group's, no time", line)
+	}
+	for _, unknown := range []*PlayerNote{
+		{Kind: NoteGroupFollowed, Seq: paused, Why: "dawdled"},
+		{Kind: NoteGroupFollowed, Seq: 0, Why: "atOnce"},
+		{Kind: NoteGroupFollowed, Seq: paused, HeldMs: -1, Why: "atOnce"},
+	} {
+		stage.logs.Reset()
+		stage.hub.Handle(t.Context(), player, Inbound{Type: MessageNote, Note: unknown})
+		if strings.Contains(stage.logs.String(), "groupFollowed") || box.last(MessageRejected).Code != codeInvalid {
+			t.Errorf("note %+v: logged or not refused:\n%s", unknown, stage.logs)
+		}
+	}
+}
+
 // A follower that corrects by seeks alone from now on is logged at info, with what its rate's
 // returns cost it: which device holds its group less tightly, and why, is read from the log (D268 §2).
 func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {

@@ -309,6 +309,7 @@ func (current *session) announce(
 		current.group.waitUntil = now.Add(current.syncWait)
 	}
 	current.group.seq++
+	current.group.changedAt = now
 	current.logChange(now)
 	current.broadcast(Outbound{
 		V: ProtocolVersion, Type: MessageGroup, Seq: current.group.seq, Group: current.groupView(now),

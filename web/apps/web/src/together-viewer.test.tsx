@@ -25,6 +25,7 @@ import { directDecision } from "./test-fixtures.ts";
 import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
+import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
 
 const joined = {
@@ -157,6 +158,36 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(mounted.container.textContent).not.toContain("Sound:");
     expect(buttonWithText(mounted.container, "Change")).toBeUndefined();
     mounted.unmount();
+  });
+
+  it("pauses at once as its group pauses though its page is hidden, as a computer's hidden page plays on (the owner, 2026-10-28)", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await server.accept();
+    await server.say(welcome);
+    const playing = { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 };
+    await server.say({ type: "group", seq: 2, group: playing });
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no film shown");
+    }
+    const isPaused = playingVideo(video, 70);
+    const show = hideTheDocument();
+    try {
+      const pausedGroup = { ...playing, state: "Paused", event: "paused", byMemberId: 1 };
+      await server.say({ type: "group", seq: 3, group: pausedGroup });
+      expect(isPaused()).toBe(true);
+    } finally {
+      show();
+      mounted.unmount();
+    }
   });
 
   it("plays the film the host puts on, asked for by the membership, and names who did it", async () => {

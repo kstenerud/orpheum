@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
@@ -105,7 +106,7 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
             leads: everyRight,
             monotonicMs,
             startLag: startLagMemory(browserStorage()),
-            page: document,
+            page: pageThatPausesWhenHidden(),
           }),
     [connection, fileId, video],
   );
