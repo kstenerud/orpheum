@@ -34,6 +34,8 @@ export interface PlayerState {
  *   (D283 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
  *   left alone, so it corrects by seeks alone from now on (D268 §2);
+ * - buffering: began holding its playing group up, why (BufferingCause), with its readyState, rate,
+ *   what it has loaded ahead and how long since its rate changed;
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps
@@ -144,6 +146,23 @@ export type PlayerNote =
       readonly heldMs: number;
       readonly why: GroupHeldBy;
     }
+  | {
+      /**
+       * A following player beginning to hold its group up while the group plays: a Fire TV reported
+       * buffering some 350 ms after each nudge of its rate, and nothing said why (the owner's cast,
+       * staging, 2026-10-28).
+       */
+      readonly kind: "buffering";
+      readonly why: BufferingCause;
+      readonly positionMs: number;
+      readonly readyState: number;
+      /** The rate it plays at now. */
+      readonly rate: number;
+      /** How much film it has loaded ahead of where it is, in ms. */
+      readonly loadedAheadMs: number;
+      /** How long since its follower last changed its rate, in ms; absent when it never has. */
+      readonly sinceRateChangeMs?: number;
+    }
   | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
   | { readonly kind: "loadHeld"; readonly why: "held" | "goesOn" }
   | {
@@ -189,6 +208,13 @@ export type PlayerNote =
  * answer ("awaitingAnswer"), or its film not yet loaded far enough to be moved ("loading").
  */
 export type GroupHeldBy = "atOnce" | "hidden" | "awaitingAnswer" | "loading";
+
+/**
+ * What makes a following player hold its group up: it has not yet once been where the group is
+ * ("notCaughtUp"), or, seeking now or since, refilling after a seek ("seeking"), its video saying it
+ * has too little to play on ("notReady"), or refilling after its video waited for data ("waiting").
+ */
+export type BufferingCause = "notCaughtUp" | "seeking" | "notReady" | "waiting";
 
 /**
  * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its

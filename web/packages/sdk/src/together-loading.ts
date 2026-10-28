@@ -8,7 +8,11 @@
  */
 
 import type { GroupState } from "./together.ts";
-import type { TogetherConnection, TogetherSnapshot } from "./together-connection.ts";
+import {
+  otherPlayersOf,
+  type TogetherConnection,
+  type TogetherSnapshot,
+} from "./together-connection.ts";
 import type { FollowedMedia } from "./together-media.ts";
 import { holdLoadingEvent, loadingRunwayEvent } from "./together-player-events.ts";
 
@@ -20,11 +24,7 @@ export const cooperativeRunwayS = 10;
 
 /** Whether another player in the session than this device is still loading, by the roster. */
 function isAnotherLoading(snapshot: TogetherSnapshot): boolean {
-  return snapshot.roster.some((member) =>
-    member.devices.some(
-      (device) => device.id !== snapshot.deviceId && device.role !== "panel" && device.isBuffering,
-    ),
-  );
+  return otherPlayersOf(snapshot).some((device) => device.isBuffering);
 }
 
 /** What a following player last told its player to load, told again only when it changes. */

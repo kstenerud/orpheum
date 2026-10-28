@@ -12,6 +12,7 @@ import {
   type GroupView,
   type OpenTogetherSocket,
   type PlaybackRights,
+  type RosterDevice,
   type RosterMember,
   type Standing,
   type SyncTuning,
@@ -217,6 +218,21 @@ export function expectedGroupPositionMs(
  */
 export function groupStartsAtMs(snapshot: TogetherSnapshot): number | undefined {
   return snapshot.group === undefined ? undefined : startsAtMs(snapshot.group, placingOf(snapshot));
+}
+
+/** The devices in a snapshot's roster that play, other than this one: none a panel. */
+export function otherPlayersOf(snapshot: TogetherSnapshot): RosterDevice[] {
+  return snapshot.roster.flatMap((member) =>
+    member.devices.filter((device) => device.id !== snapshot.deviceId && device.role !== "panel"),
+  );
+}
+
+/**
+ * Whether this device is its session's only player, by a roster that says so: one not yet told the
+ * roster is not taken to be alone.
+ */
+export function isOnlyPlayer(snapshot: TogetherSnapshot): boolean {
+  return snapshot.roster.length > 0 && otherPlayersOf(snapshot).length === 0;
 }
 
 /** When what placed a snapshot's group arrived, and how long it took to (D66, D264). */

@@ -38,7 +38,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   nudge goes on past the group by that much, so it lands on it rather than nudging again. Once
   `returnsBeforeSeeksOnly` returns cost it more than `leaveDriftUpToMs`, it corrects by seeks alone,
   beyond `seekOnlyLeaveDriftUpToMs`, each aimed past the group by what its seeks have learned to lose
-  (D268 §2). `src/together-follow-devices.test.ts`.
+  (D268 §2). `src/together-follow-devices.test.ts`. A player its session's roster names as its only
+  player is neither nudged nor skipped: the hub places the group where that player says it is, so
+  there is no one to keep it in step with (D88; the owner's cast to a Fire TV, 2026-10-28, nudged
+  after every start and stalling at each nudge); a group beyond `seekDriftBeyondMs` is still sought
+  to. `src/together-follow-alone.test.ts`.
   `src/together-drift.test.ts`, `src/together-follow.test.ts`.
 - **Where a following player is in correcting its drift is one phase**: following, nudging,
   returning to the group's rate, skipping, or waiting ahead, moved only by `nextPhase`; what holds

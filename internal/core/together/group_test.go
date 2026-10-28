@@ -3,6 +3,7 @@
 package together
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -251,5 +252,57 @@ func TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime(t *testing.T) {
 	stage.tick(t, host)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != guest.MemberID {
 		t.Errorf("past its time with the host ready: %+v, want Playing on without the guest", group)
+	}
+}
+
+// A group whose only player is one device, a cast's receiver with its remote beside it, follows
+// that player rather than correcting it: each state it reports while the group plays places the
+// group where it is, and a stall holds the group where the player stalled, so its wait seeks the
+// player nowhere. One that waited where it reckoned its player should be sought a Fire TV back
+// 200 ms at each wait, each seek another stall (the owner's cast, staging, 2026-10-28). With a
+// second player, the group keeps its own time.
+func TestHub_AGroupWhoseOnlyPlayerIsOneDeviceFollowsIt(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	receiver, _ := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
+	remote, remoteBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stage.ready(t, receiver, false)
+	stage.command(t, remote, CommandChangeItem, 7)
+	report := func(attachment Attachment, positionMs int64, isBuffering bool) {
+		t.Helper()
+		stage.hub.Handle(t.Context(), attachment, Inbound{
+			Type: MessageState, PositionMs: positionMs, Playing: true, Buffering: isBuffering, RTTMs: 40,
+		})
+	}
+	stage.clock.Advance(10 * time.Second)
+	report(receiver, 10_200, false)
+	stage.clock.Advance(time.Second)
+	stage.hub.Handle(t.Context(), remote, Inbound{Type: MessagePing})
+	if group := remoteBox.last(MessagePong).Group; group.State != GroupPlaying || group.PositionMs != 11_220 {
+		t.Errorf("a second after the player said it plays at 10.2 s, 40 ms its round trip: %+v; "+
+			"want Playing at 11.22 s, where it is", group)
+	}
+	report(receiver, 11_300, true)
+	held := remoteBox.last(MessageGroup).Group
+	if held.State != GroupWaiting || held.Event != EventWaitingFor || held.PositionMs != 11_300 {
+		t.Fatalf("the player stalled at 11.3 s: %+v; want Waiting at 11.3 s, where it stalled", held)
+	}
+	report(receiver, 11_300, false)
+	if group := remoteBox.last(MessageGroup).Group; group.State != GroupPlaying || group.PositionMs != 11_300 {
+		t.Fatalf("the player ready again: %+v; want Playing from 11.3 s", group)
+	}
+	if line := lineWith(t, stage.logs.String(), eventFollowedOnlyPlayer); !strings.Contains(line, "steppedMs=220") {
+		t.Errorf("the group's first step to its player logged as %q; want steppedMs=220", line)
+	}
+
+	guest := stage.join(t)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
+	stage.ready(t, guestDevice, false)
+	stage.clock.Advance(10 * time.Second)
+	report(receiver, 22_000, false)
+	stage.hub.Handle(t.Context(), remote, Inbound{Type: MessagePing})
+	if group := remoteBox.last(MessagePong).Group; group.PositionMs != 21_300 {
+		t.Errorf("with a second player, the first said it plays at 22 s: the group at %d ms; "+
+			"want its own 21.3 s", group.PositionMs)
 	}
 }

@@ -265,6 +265,36 @@ func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 	}
 }
 
+// A following player beginning to hold its playing group up is logged at info, with what holds it,
+// its readyState and rate, what it has loaded ahead and how long since its rate changed: a Fire TV's
+// buffering after each nudge said none of it (the owner's cast, staging, 2026-10-28). A note that
+// names no known cause is refused.
+func TestHub_LogsWhatHoldsAPlayerThatBeganBuffering(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteBuffering, Why: "waiting", PositionMs: 320_687, ReadyState: 2, Rate: 0.9,
+		LoadedAheadMs: 11_400, SinceRateChangeMs: 356,
+	}})
+	line := lineWith(t, stage.logs.String(), eventPlayerBuffering)
+	for _, want := range []string{
+		"level=INFO", "why=waiting", "positionMs=320687", "readyState=2", "rate=0.9", "loadedAheadMs=11400",
+		"sinceRateChangeMs=356",
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the buffering line does not say %s:\n%s", want, line)
+		}
+	}
+	stage.logs.Reset()
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteBuffering, Why: "bored",
+	}})
+	if strings.Contains(stage.logs.String(), eventPlayerBuffering) || box.last(MessageRejected).Code != codeInvalid {
+		t.Errorf("a buffering note with no known cause: logged or not refused:\n%s", stage.logs)
+	}
+}
+
 // A ready player's loading held while its group waits, and going on, is logged, a word other than
 // those two refused; and a player ready again says which rule it was ready by and how fast its last
 // chunk loaded (D283; the owner, 2026-10-12: "add the logging first").

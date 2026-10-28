@@ -181,6 +181,13 @@ const (
 	// playing seven seconds after its remote paused it, and nothing said whether the pause came late
 	// or the player held it (the owner, 2026-10-28).
 	NoteGroupFollowed NoteKind = "groupFollowed"
+	// NoteBuffering is a following player beginning to hold its group up while the group plays, Why
+	// what holds it ("notCaughtUp", "seeking", "notReady", or a refill begun by "waiting", "seeking" or
+	// "notReady"), at PositionMs, with its ReadyState, Rate, LoadedAheadMs and SinceRateChangeMs: a Fire
+	// TV reported buffering some 350 ms after each nudge of its rate, again and again, its chunks
+	// loading fast, and nothing said what it held or that its rate had just changed (the owner's cast,
+	// staging, 2026-10-28).
+	NoteBuffering     NoteKind = "buffering"
 	NoteLeaderCommand NoteKind = "leaderCommand"
 	NoteUnmuted       NoteKind = "unmuted"
 	// NoteContinueAsked is a guest's page asking for a tap to continue, Why how the browser came to
@@ -265,6 +272,10 @@ type PlayerNote struct {
 	// change reached the player it moved.
 	Seq    int64 `json:"seq,omitempty"`
 	HeldMs int64 `json:"heldMs,omitempty"`
+	// LoadedAheadMs is a buffering note's film loaded ahead of where the player is; SinceRateChangeMs,
+	// how long since its follower last changed its rate, absent when it never has.
+	LoadedAheadMs     int64 `json:"loadedAheadMs,omitempty"`
+	SinceRateChangeMs int64 `json:"sinceRateChangeMs,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -325,6 +336,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteGroupFollowed:
 		return note.isKnownFollowing()
+	case NoteBuffering:
+		return note.isKnownBuffering()
 	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
 	case NoteFullScreen:
@@ -370,7 +383,7 @@ func (note PlayerNote) isKnownSound() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
 		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen,
-		NoteGroupFollowed: // isKnown reads them
+		NoteGroupFollowed, NoteBuffering: // isKnown reads them
 	}
 	return false
 }
@@ -379,6 +392,13 @@ func (note PlayerNote) isKnownSound() bool {
 // page hidden, its own command awaiting the group's answer, its film still loading, or nothing.
 func isGroupHeldBy(word string) bool {
 	return slices.Contains([]string{"atOnce", "hidden", "awaitingAnswer", "loading"}, word)
+}
+
+// isKnownBuffering is whether a buffering note is one the server logs: a known cause, and no
+// negative position, load or time.
+func (note PlayerNote) isKnownBuffering() bool {
+	return note.Track == "" && slices.Contains([]string{"notCaughtUp", "seeking", "notReady", "waiting"}, note.Why) &&
+		note.PositionMs >= 0 && note.LoadedAheadMs >= 0 && note.SinceRateChangeMs >= 0
 }
 
 // isKnownFollowing is whether a note of how a follower follows its group is one the server logs: a
@@ -401,7 +421,8 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.Seq > 0 && note.HeldMs >= 0 && isGroupHeldBy(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
-		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound: // isKnown reads them
+		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound,
+		NoteBuffering: // isKnown reads them
 	}
 	return false
 }
@@ -421,7 +442,7 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
 		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
-		NotePlayedWithSound, NoteGroupFollowed: // not voice's: isKnown reads them
+		NotePlayedWithSound, NoteGroupFollowed, NoteBuffering: // not voice's: isKnown reads them
 	}
 	return false
 }
