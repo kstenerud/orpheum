@@ -76,6 +76,46 @@ describe("the shell, laid out by a real browser", () => {
     });
   });
 
+  // The owner, 2026-10-28, on a phone: "the top bar stuff is overlapping".
+  for (const [width, height] of [
+    [360, 740],
+    [412, 915],
+  ] as const) {
+    it(`fits the logo, the realm's server's tray and the menu on a phone ${String(width)} wide, nothing overlapping`, async () => {
+      await page.viewport(width, height);
+      const shell = (
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={true}
+          currentScreen="films"
+          onSignOut={() => undefined}
+          signedInAs={{ name: "owner", deviceName: undefined }}
+          realm="staging"
+          showsDeviceTests={true}
+        >
+          <p>screen</p>
+        </AppShell>
+      );
+      try {
+        await drawn(shell, async ({ container }) => {
+          const logo = container.querySelector<HTMLImageElement>("img.app-shell__logo");
+          await loaded(logo);
+          const [mark, end] = [boxOf(logo), boxOf(container.querySelector(".app-shell__end"))];
+          expect(mark.right).toBeLessThanOrEqual(end.left);
+          expect(end.right).toBeLessThanOrEqual(width);
+          // The realm is the menu's to say, and the places for watching fit the row with no lab.
+          expect(
+            container.querySelector(".app-shell__end .app-shell__realm")?.getBoundingClientRect()
+              .width ?? 0,
+          ).toBe(0);
+          expect(container.querySelector('.app-shell__watching a[href="/lab"]')).toBeNull();
+        });
+      } finally {
+        await page.viewport(1280, 720);
+      }
+    });
+  }
+
   it("draws a poster's status cues as a tray down from its top-right corner, over the poster (D301 §4)", async () => {
     // One that cannot play and is a guess: the tray holds both cues, in their order.
     const entry: Entry = {
@@ -200,12 +240,21 @@ describe("the shell, laid out by a real browser", () => {
         <p>screen</p>
       </AppShell>
     );
-    await drawn(shell, ({ container }) => {
+    // The menu's height is capped by the banner's, which the page keeps once a resize observer has
+    // measured it (useBannerHeight): none left from another test, and none read before it is kept.
+    document.documentElement.style.removeProperty("--banner-height");
+    await drawn(shell, async ({ container }) => {
+      await expect
+        .poll(() => document.documentElement.style.getPropertyValue("--banner-height"))
+        .not.toBe("");
       const menu = container.querySelector("details");
       if (menu === null) {
         throw new Error("the shell draws no menu");
       }
       menu.open = true;
+      // Laid out open before a place is focused: Firefox scrolls a focused place into view in the
+      // layout it has, which the opening has not reached yet in the same task.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
       expect(places.at(-1)?.textContent).toBe("Sign out");
       for (const place of places) {

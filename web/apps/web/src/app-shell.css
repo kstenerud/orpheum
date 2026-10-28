@@ -53,6 +53,11 @@
   content: "";
 }
 
+/* The picture choosing the logo by the width, a block as the logo is, so the link is its size. */
+.app-shell__home picture {
+  display: block;
+}
+
 /* The wordmark: the laurel stands in for the O (the owner's logo, 2026-10-06). */
 .app-shell__logo {
   display: block;
@@ -217,6 +222,17 @@
   color: var(--color-accent);
 }
 
+/* The realm, under who is signed in: on a phone alone, where the banner has no room for it. */
+.app-shell__who-realm {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .app-shell__who-realm {
+    display: block;
+  }
+}
+
 .app-shell__menu .app-shell__who {
   padding: var(--space-1) var(--space-3) var(--space-2);
   border-block-end: 1px solid var(--color-border);
@@ -254,6 +270,18 @@
  * product's name.
  */
 @media (max-width: 599px) {
+  /* The bar's end beside the logo, in a phone's width: the realm said in the menu instead, the
+     logo the laurel alone (the owner, 2026-10-28: "the top bar stuff is overlapping"). The tray's
+     signs keep their fingertip square (D369 §1): with the laurel alone, they fit. */
+  .app-shell__end .app-shell__realm {
+    display: none;
+  }
+
+  /* The laurel alone (app-shell.tsx's HomeLogo), a little taller than the wordmark's letters. */
+  .app-shell__logo {
+    height: 2rem;
+  }
+
   .app-shell__watching a {
     padding-inline: var(--space-2);
     font-size: var(--font-size-small);
