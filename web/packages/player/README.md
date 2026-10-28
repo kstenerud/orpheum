@@ -85,6 +85,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.
+- **A chunked playback keeps `keptBehindS` (30 s) of what it played in the browser's buffer**, not
+  hls.js's everything, so a weak device's memory holds no film's played minutes (the efficiency
+  audit's finding 5). `chunked.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
   with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
   `chunked.test.ts`.
