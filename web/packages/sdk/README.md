@@ -118,17 +118,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
 - **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
   service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC
   page's loads under `/api/v1/` by asking the page over a message port, and the page answers
-  through its transport, signed in with its token; every other load, and every page on HTTP, goes
-  as it would. The body is relayed ahead of the worker's reader, in order, up to
-  `relayedAheadBytes` (1 MiB) in flight and queued, the worker granting room a quarter of it at a
-  time, each piece's buffer moved rather than copied; one piece for each round trip through a busy
-  page carried a Fire TV's chunks at 15–18 Mb/s (staging, 2026-10-28). The relay stays, rather than
-  hls.js loading its chunks through the transport in the page, because the worker is the one way
-  every load the browser makes by itself (images, a video's bytes, subtitle tracks, the client's
-  files under a discovery's loader) reaches the core over the page's path. A reader that gives the
-  body up, as a seek does, cancels the page's load. `src/rtc-media.test.ts`; in Chromium and
-  Firefox, `web/e2e/webrtc.spec.ts` plays a film with no API request reaching the network; the
-  Fire TV's speed, VQ113.
+  through its transport, signed in with its token, umi no tobira of the body each time the worker's
+  stream pulls; every other load, and every page on HTTP, goes as it would.
+  `src/rtc-media.test.ts`; in Chromium and Firefox, `web/e2e/webrtc.spec.ts` plays a film with no
+  API request reaching the network.
 - **On the WebRTC path the session socket is a data channel** (W3): it asks to become a WebSocket,
   opens on 101, carries one text message per message both ways, and closes with the code the core's
   binary close message names, or 1006 when the channel just ends. `src/rtc-together.test.ts`; in
