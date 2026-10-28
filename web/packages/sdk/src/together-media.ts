@@ -83,18 +83,37 @@ export function hasRefilled(media: FollowedMedia, aheadMs = refillAheadMs): bool
  */
 const onLoadedToleranceS = 0.001;
 
-/** The end, in seconds, of what the player loaded where it is, or undefined where it loaded nothing. */
+/**
+ * The widest hole in what a player loaded that it plays across as if there were none, in seconds:
+ * hls.js's own `maxBufferHole` (0.1 s by default, which the player keeps), the hole its gap
+ * controller steps over as the video plays. A paused video steps over nothing (idiosyncrasies.md, "A
+ * paused player is never stepped over a gap"), so a hole of 60 ms between two sound renditions'
+ * chunks, 1.5 s past where a cast's receiver was held for its group's wait, ended what it had
+ * loaded there: it never had enough ahead to be ready, and its group waited on it for good (the
+ * owner's cast to Firefox on a Mac, staging, 2026-10-28).
+ */
+export const playedAcrossHoleS = 0.1;
+
+/**
+ * The end, in seconds, of what the player loaded where it is, read on across holes no wider than
+ * playedAcrossHoleS; undefined where it loaded nothing.
+ */
 function loadedEndS(media: FollowedMedia): number | undefined {
   const { buffered, currentTime } = media;
+  let endS: number | undefined = undefined;
   for (let index = 0; index < buffered.length; index++) {
-    if (
-      buffered.start(index) - onLoadedToleranceS <= currentTime &&
-      currentTime <= buffered.end(index)
-    ) {
-      return buffered.end(index);
+    const startS = buffered.start(index);
+    const isOn =
+      endS === undefined
+        ? startS - onLoadedToleranceS <= currentTime && currentTime <= buffered.end(index)
+        : startS - endS <= playedAcrossHoleS;
+    if (isOn) {
+      endS = buffered.end(index);
+    } else if (endS !== undefined) {
+      break;
     }
   }
-  return undefined;
+  return endS;
 }
 
 /** Whether the player has loaded the film from fromMs through throughMs, in one stretch. */

@@ -53,7 +53,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
   given up and noted (D268 §4). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`.
 - **After a stall or a seek, a following player is ready again only with `refillAheadMs` loaded
-  ahead**, the film's end, or all the browser will load; it corrects nothing while it is still
+  ahead**, the film's end, or all the browser will load, read on across a hole no wider than
+  `playedAcrossHoleS`, which hls.js steps over as the video plays and a paused one never does (the
+  owner's cast to Firefox, 2026-10-28, whose group waited for good on a hole of 60 ms); a player
+  holding its group up says why, as it begins to while the group plays and once for each wait it
+  holds (`HoldingNotes`). `src/together-refill.test.ts`. It corrects nothing while it is still
   loading; a catch-up seek aims ahead by how long its last seek took to load, up to
   `aimAheadAtMostMs`, and once its link's speed is measured, further, by how long the link takes to
   load `refillAheadMs`, up to `waitAheadAtMostMs`, where a viewer waits paused for the group to

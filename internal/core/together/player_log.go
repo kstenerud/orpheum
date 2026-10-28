@@ -199,13 +199,15 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	return false
 }
 
-// logBuffering logs, at info, a following player beginning to hold its group up while it plays: what
-// holds it, where it is, its readyState and rate, how much it has loaded ahead, and how long since its
-// rate last changed. A Fire TV's buffering after each nudge of its rate said none of it, and no stall
-// diagnosis came, each wait's pause ending the stall before it was counted (the owner's cast, staging,
-// 2026-10-28).
+// logBuffering logs, at info, a following player beginning to hold its group up while it plays, or
+// holding up its wait: the group's state, what holds the player, where it is, its readyState and
+// rate, how much it has loaded ahead, and how long since its rate last changed. A Fire TV's buffering
+// after each nudge of its rate said none of it, and no stall diagnosis came, each wait's pause ending
+// the stall before it was counted; a Firefox held its group's wait for good, its film loaded, and
+// nothing said why (the owner's casts, staging, 2026-10-28).
 func (current *session) logBuffering(ctx context.Context, who *member, from *device, note *PlayerNote) {
 	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerBuffering,
+		"groupState", string(current.group.state),
 		"why", note.Why, positionMsAttribute, note.PositionMs, "readyState", note.ReadyState,
 		"rate", note.Rate, "loadedAheadMs", note.LoadedAheadMs)
 	if note.SinceRateChangeMs > 0 {

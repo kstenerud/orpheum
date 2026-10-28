@@ -271,9 +271,10 @@ func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 	}
 }
 
-// A following player beginning to hold its playing group up is logged at info, with what holds it,
-// its readyState and rate, what it has loaded ahead and how long since its rate changed: a Fire TV's
-// buffering after each nudge said none of it (the owner's cast, staging, 2026-10-28). A note that
+// A following player beginning to hold its playing group up, or holding up its wait, is logged at
+// info, with the group's state, what holds it, its readyState and rate, what it has loaded ahead and
+// how long since its rate changed: a Fire TV's buffering after each nudge said none of it, nor a
+// Firefox that held its group's wait for good (the owner's casts, staging, 2026-10-28). A note that
 // names no known cause is refused.
 func TestHub_LogsWhatHoldsAPlayerThatBeganBuffering(t *testing.T) {
 	t.Parallel()
@@ -285,8 +286,8 @@ func TestHub_LogsWhatHoldsAPlayerThatBeganBuffering(t *testing.T) {
 	}})
 	line := lineWith(t, stage.logs.String(), eventPlayerBuffering)
 	for _, want := range []string{
-		"level=INFO", "why=waiting", "positionMs=320687", "readyState=2", "rate=0.9", "loadedAheadMs=11400",
-		"sinceRateChangeMs=356",
+		"level=INFO", "groupState=Idle", "why=waiting", "positionMs=320687", "readyState=2", "rate=0.9",
+		"loadedAheadMs=11400", "sinceRateChangeMs=356",
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("the buffering line does not say %s:\n%s", want, line)

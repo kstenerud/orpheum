@@ -34,8 +34,9 @@ export interface PlayerState {
  *   (D283 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
  *   left alone, so it corrects by seeks alone from now on (D268 §2);
- * - buffering: began holding its playing group up, why (BufferingCause), with its readyState, rate,
- *   what it has loaded ahead and how long since its rate changed;
+ * - buffering: began holding its playing group up, or holds its waiting group up, why
+ *   (BufferingCause), with its readyState, rate, what it has loaded ahead and how long since its
+ *   rate changed (HoldingNotes);
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps
@@ -163,9 +164,10 @@ export type PlayerNote =
     }
   | {
       /**
-       * A following player beginning to hold its group up while the group plays: a Fire TV reported
-       * buffering some 350 ms after each nudge of its rate, and nothing said why (the owner's cast,
-       * staging, 2026-10-28).
+       * A following player beginning to hold its group up while the group plays, or holding up its
+       * group's wait: a Fire TV reported buffering some 350 ms after each nudge of its rate, and a
+       * Firefox held its group's wait for good, and nothing said why (the owner's casts, staging,
+       * 2026-10-28).
        */
       readonly kind: "buffering";
       readonly why: BufferingCause;
