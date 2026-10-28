@@ -8,7 +8,8 @@ import { timeFrames, type FrameTiming } from "./frame-timing.ts";
 /**
  * A line under the video saying how late its picture reaches the screen and how far behind its
  * sound (FrameTiming), for a person to read out: the owner's TCL TV showed the picture half a second
- * after its sound (2026-10-24). Nothing until the first timing; a browser that cannot say says so.
+ * after its sound (2026-10-24). Each start of play times a sample of frames, and the line keeps the
+ * latest (timeFrames). Nothing until the first timing; a browser that cannot say says so.
  */
 export function FrameTimingNote(props: { readonly video: HTMLVideoElement | null }): JSX.Element {
   const { t } = useTranslation();

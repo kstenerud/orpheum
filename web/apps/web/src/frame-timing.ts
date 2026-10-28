@@ -15,7 +15,7 @@ export interface FrameTiming {
   readonly behindSoundMs: number;
 }
 
-/** How many of the latest frames a timing is the middle of. */
+/** How many frames a timing is the middle of: one sample, two seconds of a 24 fps film. */
 export const framesTimed = 48;
 
 /** The middle of values, which a frame or two held up by a seek or a stall does not move. */
@@ -25,9 +25,13 @@ function median(values: readonly number[]): number {
 }
 
 /**
- * Times each frame video shows while it plays, and tells onTiming the middle of the latest
- * framesTimed every time that many more have been shown; it returns the stop. A browser without
- * requestVideoFrameCallback is told as undefined, once.
+ * Times a sample of framesTimed frames each time video starts playing, at its start and again after
+ * a pause, a seek or a wait, and tells onTiming their middle; between samples it asks the browser
+ * for no frame. A callback asked for on every frame runs the page's rendering steps for each, 24 to
+ * 60 a second, beside a weak device's decoding, for as long as the film plays (the efficiency
+ * audit's finding 2, web-client-efficiency-audit-2026-10-28.md). A video already playing is sampled
+ * at once. It returns the stop. A browser without requestVideoFrameCallback is told as undefined,
+ * once.
  */
 export function timeFrames(
   video: HTMLVideoElement,
@@ -38,9 +42,9 @@ export function timeFrames(
     return () => undefined;
   }
   let isStopped = false;
+  let isSampling = false;
   const displayAfter: number[] = [];
   const behind: number[] = [];
-  let sinceTold = 0;
   const onFrame = (nowMs: number, frame: VideoFrameCallbackMetadata): void => {
     if (isStopped) {
       return;
@@ -51,22 +55,33 @@ export function timeFrames(
       const soundAtS = video.currentTime + (frame.expectedDisplayTime - nowMs) / 1000;
       displayAfter.push(frame.expectedDisplayTime - frame.presentationTime);
       behind.push((soundAtS - frame.mediaTime) * 1000);
-      displayAfter.splice(0, Math.max(0, displayAfter.length - framesTimed));
-      behind.splice(0, Math.max(0, behind.length - framesTimed));
-      sinceTold += 1;
-      if (sinceTold >= framesTimed) {
-        sinceTold = 0;
+      if (behind.length >= framesTimed) {
+        isSampling = false;
         onTiming({
           frames: behind.length,
           displayAfterMs: Math.round(median(displayAfter)),
           behindSoundMs: Math.round(median(behind)),
         });
+        return;
       }
     }
     video.requestVideoFrameCallback(onFrame);
   };
-  video.requestVideoFrameCallback(onFrame);
+  const sample = (): void => {
+    if (isStopped || isSampling) {
+      return;
+    }
+    isSampling = true;
+    displayAfter.length = 0;
+    behind.length = 0;
+    video.requestVideoFrameCallback(onFrame);
+  };
+  video.addEventListener("playing", sample);
+  if (!video.paused) {
+    sample();
+  }
   return () => {
     isStopped = true;
+    video.removeEventListener("playing", sample);
   };
 }
