@@ -116,7 +116,7 @@ describe("the device lab", () => {
   it("is reached by Device tests in the menu, and its pages say the tests are off while the server has them off (the owner, 2026-10-25)", async () => {
     const on = await mountedAt("/lab", true);
     expect(on.container.querySelector("#lab-heading")?.textContent).toBe("Device lab");
-    expect(on.container.querySelector('.app-shell__watching a[href="/lab"]')?.textContent).toBe(
+    expect(on.container.querySelector('.app-shell__menu a[href="/lab"]')?.textContent).toBe(
       "Device tests",
     );
     expect(on.container.querySelector('a[href="/lab/device"]')).not.toBeNull();

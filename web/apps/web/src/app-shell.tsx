@@ -16,13 +16,24 @@ import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
+/** The laurel alone, which the page's favicon is, served beside the client (index.html). */
+const markOnly = "/favicon.svg";
+/** A phone's width, as app-shell.css's own breakpoint. */
+const PHONE_WIDTH = "(max-width: 599px)";
+
 function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
   return (
     <p className="app-shell__title">
       {/* The logo is the way home, as on most sites, and the banner's mark of being there
           (the owner, 2026-10-25: no Home entry; the logo, underlined at home). */}
       <Link to={{ screen: "home" }} className="app-shell__home" isCurrent={props.isHome}>
-        <img className="app-shell__logo" src={logo} alt={productName} />
+        {/* On a phone, the laurel alone, the favicon's mark: the wordmark beside the bar's end ran
+            into it (the owner, 2026-10-28: "reduce the orpheum text to just the logo when the screen
+            is small"). */}
+        <picture>
+          <source media={PHONE_WIDTH} srcSet={markOnly} />
+          <img className="app-shell__logo" src={logo} alt={productName} />
+        </picture>
       </Link>
     </p>
   );
@@ -98,10 +109,12 @@ const destinations: readonly Destination[] = [
     group: "watching",
   },
   {
+    // In the menu, not the places for watching: on a phone the row ran past the window (the owner,
+    // 2026-10-28: "the device tests could be moved into the menu").
     route: { screen: "lab" },
     labelKey: "deviceTests",
     audience: "tester",
-    group: "watching",
+    group: "own",
   },
   { route: { screen: "identify" }, labelKey: "identify", audience: "admin", group: "manage" },
   { route: { screen: "libraries" }, labelKey: "libraries", audience: "admin", group: "manage" },
@@ -125,8 +138,8 @@ const destinations: readonly Destination[] = [
  * main landmark holding the screen. The places for watching are always in view; everything else is
  * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
  * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
- * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Device
- * tests show to everyone while the admin offers them. Watch Together and Cast are no places here:
+ * destinations under Manage, shown to an admin only, the person's own places, Device tests among them
+ * while the admin offers them, and Sign out. Watch Together and Cast are no places here:
  * their signs in the status tray are their entry points (D364 §12). The server refuses a destination
  * to anyone else whatever the menu shows.
  */
@@ -251,6 +264,7 @@ function BannerEnd(props: {
       <StatusTray isAdmin={shell.isAdmin} canHostWatchTogether={shell.canHostWatchTogether} />
       <MainMenu
         signedInAs={shell.signedInAs}
+        realm={shell.realm}
         isCurrent={props.isMenuCurrent}
         onSignOut={shell.onSignOut}
         onSwitchHousehold={shell.onSwitchHousehold}
@@ -346,13 +360,15 @@ function Place(props: {
 function MainMenu(props: {
   readonly signedInAs:
     { readonly name: string; readonly deviceName: string | undefined } | undefined;
+  /** The realm signed in to, said here on a phone, where the banner has no room for it. */
+  readonly realm: string | undefined;
   readonly isCurrent: boolean;
   readonly onSignOut: () => void;
   readonly onSwitchHousehold: (() => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { signedInAs } = props;
+  const { signedInAs, realm } = props;
   return (
     <BannerMenu label={t("nav.menu")} isCurrent={props.isCurrent}>
       {signedInAs === undefined ? null : (
@@ -360,6 +376,9 @@ function MainMenu(props: {
           {signedInAs.deviceName === undefined
             ? t("nav.signedInAs", { name: signedInAs.name })
             : t("nav.signedInAsOn", { name: signedInAs.name, device: signedInAs.deviceName })}
+          {realm === undefined ? null : (
+            <span className="app-shell__who-realm">{t("nav.realmTitle", { realm })}</span>
+          )}
         </li>
       )}
       {props.children}
@@ -401,6 +420,20 @@ function closesMenu(event: Event, menu: HTMLDetailsElement): boolean {
  * the person presses or taps outside it or moves focus out of it, and on Back, Escape's included,
  * which it hears before anything else does (input-layer.tsx), its icon keeping focus.
  */
+/**
+ * Brings a focused place of the menu wholly into the menu's view, where the menu scrolls within
+ * itself: Firefox left a place partly below its end in view (the browser test, 2026-10-28), which a
+ * remote's focus could then not show whole.
+ */
+function showFocusedPlace(event: Event, menu: HTMLDetailsElement): void {
+  if (
+    event.target instanceof HTMLElement &&
+    menu.querySelector("ul")?.contains(event.target) === true
+  ) {
+    event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+}
+
 function BannerMenu(props: {
   /** Its name, for a screen reader and a pointer's hover: the eye sees the menu icon. */
   readonly label: string;
@@ -416,13 +449,20 @@ function BannerMenu(props: {
         menu.open = false;
       }
     };
+    const show = (event: Event): void => {
+      if (ref.current !== null) {
+        showFocusedPlace(event, ref.current);
+      }
+    };
     document.addEventListener("pointerdown", close);
     document.addEventListener("click", close);
     document.addEventListener("focusout", close);
+    document.addEventListener("focusin", show);
     return () => {
       document.removeEventListener("pointerdown", close);
       document.removeEventListener("click", close);
       document.removeEventListener("focusout", close);
+      document.removeEventListener("focusin", show);
     };
   }, []);
   useCommands(

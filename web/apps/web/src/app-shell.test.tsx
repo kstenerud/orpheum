@@ -30,7 +30,7 @@ describe("AppShell", () => {
     );
     expect(markup.match(/<main/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
+      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/" class="app-shell__home"><picture><source media="\(max-width: 599px\)" srcSet="\/favicon\.svg"\/><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/picture><\/a><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     // No Watch Together or Cast in the top bar: their signs in the status tray (D364 §12).
@@ -226,8 +226,8 @@ describe("AppShell", () => {
     expect(markupWith(false)).not.toContain('href="/ui-gallery"');
   });
 
-  it("offers Device tests among the places for watching, to everyone, only while the server offers them (the owner, 2026-10-25)", () => {
-    const watchingWith = (showsDeviceTests: boolean | undefined): string => {
+  it("offers Device tests in the menu, to everyone, only while the server offers them (the owner, 2026-10-25, 2026-10-28)", () => {
+    const shellWith = (showsDeviceTests: boolean | undefined): string => {
       const markup = renderToStaticMarkup(
         withServices(
           <AppShell
@@ -242,13 +242,17 @@ describe("AppShell", () => {
           </AppShell>,
         ),
       );
-      return /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
+      return markup;
     };
-    expect(watchingWith(true)).toMatch(
-      /href="\/browse"[^>]*>Libraries<\/a><\/li><li><a href="\/lab"[^>]*>Device tests<\/a>/u,
+    const watching = (markup: string): string =>
+      /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
+    // On a phone the row of places ran past the window: the device tests are the menu's.
+    expect(shellWith(true)).toMatch(
+      /<details class="app-shell__menu[^]*href="\/lab"[^>]*>Device tests<\/a>/u,
     );
-    expect(watchingWith(false)).not.toContain('href="/lab"');
-    expect(watchingWith(undefined)).not.toContain('href="/lab"');
+    expect(watching(shellWith(true))).not.toContain('href="/lab"');
+    expect(shellWith(false)).not.toContain('href="/lab"');
+    expect(shellWith(undefined)).not.toContain('href="/lab"');
   });
 
   it("offers to switch household only while a discovery's loader runs the page (D308 §8)", async () => {
