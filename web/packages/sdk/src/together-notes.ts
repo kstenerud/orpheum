@@ -14,8 +14,6 @@ export interface PlayerState {
   readonly isPlaying: boolean;
   /** Not ready to play along: loading, seeking, or not yet at the group's position. */
   readonly isBuffering: boolean;
-  /** How late its player has learned it starts, in ms; absent until it has started once (D282). */
-  readonly startLagMs?: number;
   /**
    * How much film loaded ahead it is ready on now, and how many times faster than it plays its last
    * chunk of picture loaded: which ready rule applies (D283 §1).
@@ -32,7 +30,7 @@ export interface PlayerState {
  * - nudged: played at rate for a moment, driftMs behind the group (ahead when negative);
  * - sought: moved itself from positionMs to toMs, why: "catchUp" (jumping ahead of a group it fell
  *   behind), "hold" (to where a stopped group is), "skip" (a small seek of a player that corrects
- *   by seeks alone, D268 §2), "runUp" (back to run up to where the group starts, D282), or, a leader's
+ *   by seeks alone, D268 §2), or, a leader's
  *   (D371 §1), "join" (to where a group under way is, as it began to lead) or "command" (where another
  *   device's seek asked, carried out as its own press);
  * - loadHeld: a ready player held its loading while its group waits ("held"), or went on ("goesOn")
@@ -102,7 +100,7 @@ export type PlayerNote =
       readonly kind: "sought";
       readonly positionMs: number;
       readonly toMs: number;
-      readonly why: "catchUp" | "hold" | "skip" | "runUp" | "join" | "command";
+      readonly why: "catchUp" | "hold" | "skip" | "join" | "command";
     }
   | {
       readonly kind: "chunkLoaded";

@@ -50,6 +50,14 @@ func RetiredKeys() []RetiredKey {
 			Key: "together_sync_wait_seconds", Release: afterBeta7,
 			Reason: "a Watch Together group waits for no one but its leader, which nothing holds (D371 §2)",
 		},
+		{
+			Key: "together_start_lead_ms", Release: afterBeta7,
+			Reason: "a Watch Together group plays at once as its leader plays, and the others catch up (D371 §2, §6)",
+		},
+		{
+			Key: "together_run_up_ms", Release: afterBeta7,
+			Reason: "a Watch Together player runs up to no named start; it catches up to its leader (D371 §2)",
+		},
 	}
 }
 

@@ -37,6 +37,7 @@ const (
 	eventGroupFollowed     = "groupFollowed"
 	eventFollowedLeader    = "followedLeader"
 	eventLeaderChanged     = "leaderChanged"
+	eventFollowerCaughtUp  = "followerCaughtUp"
 	eventPlayerBuffering   = "playerBuffering"
 	eventSoundMoved        = "soundMoved"
 	eventPlayedWhileHeld   = "playedWhileHeld"
@@ -62,9 +63,6 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 	if !from.playerChangedAt.IsZero() {
 		attributes = append(attributes, "lastStateMs", now.Sub(from.playerChangedAt).Milliseconds())
 	}
-	if message.StartLagMs != nil {
-		attributes = append(attributes, "startLagMs", *message.StartLagMs)
-	}
 	if message.ReadyOnMs != 0 {
 		attributes = append(attributes, "readyOnMs", message.ReadyOnMs, "loadsFaster", message.LoadsFaster)
 	}
@@ -83,7 +81,7 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 		current.logFollowed(ctx, now, who, from, note)
 		return
 	}
-	if current.logAtInfo(ctx, who, from, note) {
+	if current.logCatchUp(ctx, now, who, from, note) || current.logAtInfo(ctx, who, from, note) {
 		return
 	}
 	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerNoted, "kind", string(note.Kind))
@@ -117,6 +115,29 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 		attributes = append(attributes, "track", note.Track)
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player noted", attributes...)
+}
+
+// logCatchUp logs, at info, a follower's move to catch up to its leader (D371 §2), and reports whether
+// it did: a seek, why ("catchUp", ahead of where the leader is; "skip", a small one; "hold", to where a
+// group standing for its leader stands), from where to where, or a nudge, at which rate, each with
+// how far behind the leader it was, behind when positive, so a report can be read from the log. A
+// leader's own seeks, carried out for another device or as it joined, are logNote's.
+func (current *session) logCatchUp(
+	ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote,
+) bool {
+	if (note.Kind != NoteSought && note.Kind != NoteNudged) || from.id == current.leaderID {
+		return false
+	}
+	attributes := append(current.deviceAttributes(who, from), logEvent, eventFollowerCaughtUp,
+		"leaderDeviceId", current.leaderID, positionMsAttribute, note.PositionMs)
+	if note.Kind == NoteNudged {
+		attributes = append(attributes, "by", "nudge", "behindMs", note.DriftMs, "rate", note.Rate)
+	} else {
+		attributes = append(attributes, "by", "seek", "why", note.Why, "toMs", note.ToMs,
+			"behindMs", current.positionAt(now).Milliseconds()-note.PositionMs)
+	}
+	current.logger.InfoContext(ctx, "watch together: a follower caught up to its leader", attributes...)
+	return true
 }
 
 // logFollowed logs, at info, a player moving as a change of its group asked: which change, how long

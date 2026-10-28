@@ -1052,3 +1052,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   steered: a 0.9× nudge loop, a hold's seek back, a run-up's jump, a play-pause-play start.
   (`internal/core/together/group.go`; `web/packages/sdk/src/together-leader.ts`;
   `web/apps/web/src/cast-remote.tsx`)
+- [ ] **VQ102** — in Watch Together the host's screen leads and a guest catches up to it (D371 §2,
+  §6), on staging. Passes when the Mac hosts a session, casting to the Fire TV (Silk), and the
+  iPhone joins as a guest on mobile data: (1) as the host plays a film, the TV starts at once and
+  plays on, never paused or sought for the iPhone, which starts as it can and is nudged or jumps
+  into step; (2) with the iPhone's link throttled until it stalls, the TV plays on through each of
+  its stalls, and the iPhone catches up to the TV once it has loaded; (3) the host's pause, play and
+  a 2-minute jump from the Mac each move the TV once, and the iPhone follows; (4) the core's log
+  names the TV's device as `leaderDeviceId` on each `groupChanged` line, and has a
+  `followerCaughtUp` line at info for each of the iPhone's catch-ups, by seek or nudge, with how far
+  behind it was (`behindMs`), and no `groupChanged` line for an iPhone stall. Before D371 the group
+  waited for each player at a start, a play and a seek, and a stalled player was waited for or
+  left behind with "continuing without". (`internal/core/together/group.go`, `player_log.go`;
+  `web/packages/sdk/src/together-follow.ts`)

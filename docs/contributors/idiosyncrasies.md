@@ -1360,7 +1360,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   buffered for as long as it was held, and its group waited on it for good (staging, 2026-10-28).
   What a player has loaded ahead is now read on across a hole no wider than hls.js's `maxBufferHole`
   (0.1 s), which its gap controller steps over as the video plays (`playedAcrossHoleS`,
-  `web/packages/sdk/src/together-media.ts`). VQ98.
+  `web/packages/sdk/src/together-media.ts`). VQ98. Since D371 no group waits for such a player, and
+  a cast's receiver, its session's leader, is never held paused at all: the hole now holds up only
+  a follower's own catching up.
 - **Evidence:** [staging] 2026-10-06. The cause is stated in the comment, but hls.js's source is not cited.
   **[source]** confirmed in hls.js 1.7.3 `gap-controller.ts`: `pausedEndedOrHalted` (`media.paused &&
   !seeking`) returns before any gap handling, and the start-gap jump itself runs only `if (!media.paused)`.

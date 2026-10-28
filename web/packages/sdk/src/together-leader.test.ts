@@ -206,6 +206,67 @@ describe("a following player whose session another device leads", () => {
     return { media, notes };
   }
 
+  /** A follower of a session device 40 leads, its media at 60 s, paused, and its connection. */
+  function following(group: GroupView): { media: FakeMedia } & ReturnType<typeof fakeConnection> {
+    const media = new FakeMedia();
+    media.currentTime = 60;
+    const fake = fakeConnection(group);
+    const devices = [device(thisDevice, "video"), device(40, "video", true)];
+    followGroup(media, withRoster(fake.connection, devices), {
+      fileId: 5,
+      leads: noRight,
+      monotonicMs,
+    });
+    return { media, ...fake };
+  }
+
+  it("is held where the group stands for its leader, plays at once as the leader plays, and is nudged into step (D371 §2, §6)", () => {
+    const { media, setGroup, commands } = following({
+      ...paused,
+      state: "Waiting",
+      event: "changedItem",
+    });
+    expect(media.paused).toBe(true);
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, 1000);
+    expect(media.paused).toBe(false); // at once: no moment named, no run-up
+    expect(media.currentTime).toBe(60);
+    monotonicNowMs = 2000;
+    vi.advanceTimersByTime(checkDriftEveryMs); // it did not move on: a second behind the leader
+    expect(media.playbackRate).toBeCloseTo(1.1);
+    expect(commands).toEqual([]);
+  });
+
+  it("after a seek, holds where the leader went until it plays, then plays from there", () => {
+    const { media, setGroup, notes } = following({ ...paused, state: "Playing" });
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 600_000 },
+      0,
+    );
+    expect(media.paused).toBe(true);
+    expect(media.currentTime).toBe(600);
+    expect(notes.filter((note) => note.kind === "sought")).toEqual([
+      { kind: "sought", positionMs: 60_000, toMs: 600_000, why: "hold" },
+    ]);
+    setGroup({ ...paused, state: "Playing", event: "leaderPlays", positionMs: 600_000 }, 0);
+    expect(media.paused).toBe(false);
+  });
+
+  it("after a stall, jumps ahead to catch up to the leader, the group playing on and told nothing", () => {
+    const { media, setGroup, notes, commands } = following(paused);
+    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, 0);
+    media.readyState = 2; // it stalls at 60 s while the leader plays on
+    media.fire("waiting");
+    monotonicNowMs = 5000;
+    media.readyState = 4; // loaded again, 5 s behind the leader
+    vi.advanceTimersByTime(5 * checkDriftEveryMs);
+    expect(notes.filter((note) => note.kind === "sought" && note.why === "catchUp")).toHaveLength(
+      1,
+    );
+    expect(media.currentTime).toBeGreaterThanOrEqual(65);
+    expect(commands).toEqual([]);
+  });
+
   it("is nudged to the leader's place (D371 §2)", () => {
     const { media, notes } = aSecondBehind([device(thisDevice, "both"), device(40, "video", true)]);
     expect(media.playbackRate).toBeCloseTo(1.1);

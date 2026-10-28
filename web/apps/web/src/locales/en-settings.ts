@@ -386,8 +386,6 @@ export const enSettingsCatalogue = {
       "How far a Watch Together player may drift from the group before it is corrected.",
     togetherNudgeMostPercent:
       "The most a drifting Watch Together player is sped up or slowed down by.",
-    togetherRunUpMs:
-      "How much earlier a new Watch Together player starts, to learn how late it is.",
     togetherSeekDriftBeyondMs:
       "How far a Watch Together player may drift before it jumps instead of speeding up or slowing down.",
     togetherSeekOnlyDriftLeftAloneMs:
@@ -396,8 +394,6 @@ export const enSettingsCatalogue = {
       "How long after a play, jump or speed change a Watch Together player's position is not checked.",
     togetherSnapSeeksBeyondSeconds:
       "How far a Watch Together jump must go to be moved to a keyframe.",
-    togetherStartLeadMs:
-      "How far ahead a Watch Together start is set, so every player starts at the same moment.",
     togetherIdleSessionEndHours:
       "How long a Watch Together session with nothing playing and no one doing anything lasts before it ends.",
     togetherLinkLifetimeSeconds: "How long a Watch Together link lets its person in.",

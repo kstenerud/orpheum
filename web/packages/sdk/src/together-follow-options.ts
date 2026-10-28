@@ -7,7 +7,6 @@
 
 import type { PlaybackReport, PlaybackRights } from "./together.ts";
 import type { ShownPage } from "./together-lead.ts";
-import type { StartLagMemory } from "./together-start.ts";
 
 /**
  * How often a following player checks its drift while the group plays, and reports its state while
@@ -35,8 +34,6 @@ export interface FollowOptions {
    */
   readonly leads: PlaybackRights;
   readonly monotonicMs: () => number;
-  /** Where the device keeps how late its player starts; for the follower's life when not given (D282). */
-  readonly startLag?: StartLagMemory;
   /**
    * The page the player is on where hiding it pauses its video, a handheld's: while hidden, nothing
    * moves the player. Absent on a computer, whose hidden page plays on and follows (heldByOf).

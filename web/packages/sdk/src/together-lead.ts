@@ -57,8 +57,6 @@ export interface GroupNow {
   readonly group: GroupView;
   readonly expectedMs: number;
   readonly nowMs: number;
-  /** When a playing group starts moving, on the monotonic clock (D268 §3). */
-  readonly startsAtMs: number;
   /** How to follow it, as the welcome said (D250 §1). */
   readonly tuning: SyncTuning;
 }

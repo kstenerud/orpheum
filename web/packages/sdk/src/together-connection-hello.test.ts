@@ -120,30 +120,3 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
     vi.useRealTimers();
   });
 });
-
-describe("what a device says of its player in its state", () => {
-  it("tells the group, in its state, how late its player starts, once it has learned it (D282)", () => {
-    const sockets = fakeSockets();
-    const connection = createTogetherConnection({
-      credential: "c",
-      openSocket: sockets.open,
-      monotonicMs,
-    });
-    connection.open();
-    let startLagMs: number | undefined = undefined;
-    connection.setPlayer(() => ({
-      positionMs: 0,
-      isPlaying: false,
-      isBuffering: false,
-      ...(startLagMs === undefined ? {} : { startLagMs }),
-    }));
-    sockets.opened[0]!.onOpen();
-    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
-    const lastState = (): Record<string, unknown> | undefined =>
-      sockets.sent.filter((each) => each["type"] === "state").at(-1);
-    expect(lastState()).not.toHaveProperty("startLagMs"); // not learned: the group gives a run-up
-    startLagMs = 170;
-    connection.reportState();
-    expect(lastState()?.["startLagMs"]).toBe(170);
-  });
-});

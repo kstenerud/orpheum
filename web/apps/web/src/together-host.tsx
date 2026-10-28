@@ -12,12 +12,12 @@ import {
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
-import { forgetMembership, startLagMemory, type Membership } from "./together-storage.ts";
+import { forgetMembership, type Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
@@ -112,7 +112,6 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
             fileId,
             leads: everyRight,
             monotonicMs,
-            startLag: startLagMemory(browserStorage()),
             page: pageThatPausesWhenHidden(),
             delivery,
           }),

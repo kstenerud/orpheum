@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { expectedPositionMs, startsAtMs } from "./together-drift.ts";
+import { expectedPositionMs } from "./together-drift.ts";
 import type { PlayerNote, PlayerState } from "./together-notes.ts";
 import {
   noRight,
@@ -218,15 +218,6 @@ export function expectedGroupPositionMs(
     : expectedPositionMs(group, { ...placingOf(snapshot), nowMs });
 }
 
-/**
- * When, on the monotonic clock, the playing group a snapshot follows starts moving: when the
- * message that placed it was sent, plus what was left of its start's lead (D268 §3); undefined
- * while it follows none.
- */
-export function groupStartsAtMs(snapshot: TogetherSnapshot): number | undefined {
-  return snapshot.group === undefined ? undefined : startsAtMs(snapshot.group, placingOf(snapshot));
-}
-
 /** The devices in a snapshot's roster that play, other than this one: none a panel. */
 export function otherPlayersOf(snapshot: TogetherSnapshot): RosterDevice[] {
   return snapshot.roster.flatMap((member) =>
@@ -281,11 +272,7 @@ function afterGroup(current: TogetherSnapshot, group: GroupView, nowMs: number):
     // (staging, 2026-10-06).
     return {
       ...current,
-      group: {
-        ...group,
-        positionMs: current.group.positionMs,
-        startsInMs: current.group.startsInMs,
-      },
+      group: { ...group, positionMs: current.group.positionMs },
     };
   }
   return {
@@ -325,11 +312,7 @@ function afterPong(
     isBetterPlacing(current, rttMs, nowMs)
     ? {
         ...measured,
-        group: {
-          ...current.group,
-          positionMs: message.group.positionMs,
-          startsInMs: message.group.startsInMs,
-        },
+        group: { ...current.group, positionMs: message.group.positionMs },
         groupReceivedAtMs: nowMs,
         groupPlacedByRttMs: rttMs,
       }
@@ -502,7 +485,6 @@ class SessionConnection
         playing: state.isPlaying,
         buffering: state.isBuffering,
         rttMs: this.#snapshot.minimumRttMs ?? 0,
-        ...(state.startLagMs === undefined ? {} : { startLagMs: state.startLagMs }),
         ...(state.readyOnMs === undefined ? {} : { readyOnMs: state.readyOnMs }),
         ...(state.loadsFaster === undefined ? {} : { loadsFaster: state.loadsFaster }),
         ...(state.playback === undefined ? {} : { playback: wholePlayback(state.playback) }),

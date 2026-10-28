@@ -89,9 +89,7 @@ func (current *session) transport(
 			refuse(codeInvalid)
 			return
 		}
-		if now.After(current.group.at) { // a start's lead is kept
-			current.group.position, current.group.at = current.positionAt(now), now
-		}
+		current.group.position, current.group.at = current.positionAt(now), now
 		current.group.rate = message.Rate
 		current.change(now, current.group.state, EventChangedRate, sender.id)
 	case CommandChangeItem, CommandStop:
@@ -120,12 +118,12 @@ func (current *session) changeItem(now time.Time, sender *member, from *device, 
 }
 
 // seekTarget is where a seek takes the group: where it was asked, or, for a jump of more than the
-// session's snapSeeksBeyond whose keyframe is known, the run-up after the keyframe at or before it. Every
-// player then loads from a chunk's start, the encoded qualities' too, and none needs a second chunk
-// for what lies past where it aimed; a run-up runs on what is loaded (D285 §1). A jump along the
-// timeline is imprecise, the owner said, and no one would notice it land a little early. The
-// leader's own seek lands where it asked: the leader is already there, and is never sought to the
-// group's place (D371 §1).
+// session's snapSeeksBeyond whose keyframe is known, the keyframe at or before it. Every player then
+// loads from a chunk's start, the encoded qualities' too, and none needs a second chunk for what lies
+// past where it aimed (D285 §1; there is no run-up after it since D371). A jump along the timeline is
+// imprecise, the owner said, and no one would notice it land a little early. The leader's own seek
+// lands where it asked: the leader is already there, and is never sought to the group's place
+// (D371 §1).
 func (current *session) seekTarget(now time.Time, from *device, message Inbound) time.Duration {
 	asked := time.Duration(message.PositionMs) * time.Millisecond
 	jump := asked - current.positionAt(now)
@@ -133,7 +131,7 @@ func (current *session) seekTarget(now time.Time, from *device, message Inbound)
 		(jump <= current.snapSeeksBeyond && jump >= -current.snapSeeksBeyond) {
 		return asked
 	}
-	return time.Duration(message.keyframeMs)*time.Millisecond + current.runUp
+	return time.Duration(message.keyframeMs) * time.Millisecond
 }
 
 // seek moves the group to position. A playing group with a leader stands there until its leader
@@ -261,48 +259,18 @@ func (current *session) isAnyPlayer() bool {
 	return false
 }
 
-// startOf is where and when a group that starts playing now starts moving. With a leader, that is
-// where the group stands, now: the leader plays already (D371 §1). With none, the start's lead from
-// now (D268 §3); while a player has not yet learned how late it starts, the lead is the run-up, which
-// it plays through from before where the group starts, and a group at the film's first moments starts
-// the run-up in, so there is film to run up through (D282).
-func (current *session) startOf(now time.Time) (time.Duration, time.Time) {
-	position := current.positionAt(now)
-	if current.leader() != nil {
-		return position, now
-	}
-	if current.runUp <= current.startLead || !current.isAnyStartUnlearned() {
-		return position, now.Add(current.startLead)
-	}
-	return max(position, current.runUp), now.Add(current.runUp)
-}
-
-// isAnyStartUnlearned is whether a player has not yet learned how late it starts.
-func (current *session) isAnyStartUnlearned() bool {
-	for _, each := range current.members {
-		for _, attached := range each.devices {
-			if attached.role.plays() && attached.hasBeenReady && !attached.knowsStartLag {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // change moves the group to state, naming the event and who caused it, and tells every device.
 func (current *session) change(now time.Time, state GroupState, event EventKind, byMember int64) {
 	current.announce(now, state, event, byMember, 0)
 }
 
-// announce is change, with where a seek jumped from. A group that starts playing starts moving as
-// startOf says; one that plays on moves on as it was.
+// announce is change, with where a seek jumped from. A group that starts playing moves on from where
+// it stands at once, with no lead and no run-up: its leader plays already, or, with none, the
+// players catch up as they can (D371 §1, §2, §6). One that plays on moves on as it was.
 func (current *session) announce(
 	now time.Time, state GroupState, event EventKind, byMember int64, seekedFrom time.Duration,
 ) {
-	switch {
-	case state == GroupPlaying && current.group.state != GroupPlaying:
-		current.group.position, current.group.at = current.startOf(now)
-	case state != GroupPlaying || current.group.state != GroupPlaying:
+	if state != GroupPlaying || current.group.state != GroupPlaying {
 		current.group.position, current.group.at = current.positionAt(now), now
 	}
 	current.group.state = state
@@ -327,16 +295,12 @@ func (current *session) logChange(now time.Time) {
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
 		positionMsAttribute, current.positionAt(now).Milliseconds(), "leaderDeviceId", current.leaderID,
 	}
-	if startsIn := current.startsIn(now); startsIn > 0 {
-		attributes = append(attributes, "startsInMs", startsIn.Milliseconds())
-	}
 	current.logger.Info("watch together: the group changed", attributes...)
 }
 
-// positionAt is where the group is at now: moving at its rate while it plays, once its start's
-// lead is over.
+// positionAt is where the group is at now: moving at its rate while it plays.
 func (current *session) positionAt(now time.Time) time.Duration {
-	if current.group.state != GroupPlaying || now.Before(current.group.at) {
+	if current.group.state != GroupPlaying {
 		return current.group.position
 	}
 	elapsed := now.Sub(current.group.at)
@@ -348,16 +312,8 @@ func (current *session) groupView(now time.Time) *GroupView {
 	return &GroupView{
 		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
 		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
-		SeekedFromMs: current.group.seekedFrom.Milliseconds(), StartsInMs: current.startsIn(now).Milliseconds(),
+		SeekedFromMs: current.group.seekedFrom.Milliseconds(),
 	}
-}
-
-// startsIn is how long after now a playing group starts moving: what is left of its start's lead.
-func (current *session) startsIn(now time.Time) time.Duration {
-	if current.group.state != GroupPlaying || !now.Before(current.group.at) {
-		return 0
-	}
-	return current.group.at.Sub(now)
 }
 
 // everyPlayerSetsRate is whether every device that plays can set its rate: a group's rate stays

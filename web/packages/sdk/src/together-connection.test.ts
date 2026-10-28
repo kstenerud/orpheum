@@ -324,42 +324,6 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(pings()).toBe(before + youngPings);
   });
 
-  it("expects a group that starts in a while to stand still until then, however it is told again (D268 §3)", () => {
-    const sockets = fakeSockets();
-    const connection = createTogetherConnection({
-      credential: "c",
-      openSocket: sockets.open,
-      monotonicMs,
-    });
-    connection.open();
-    const socket = sockets.opened[0]!;
-    socket.onOpen();
-    socket.onMessage(JSON.stringify(welcome));
-    monotonicNowMs = 1100;
-    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 })); // 50 ms each way
-    const starting = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3, startsInMs: 500 };
-    monotonicNowMs = 2000;
-    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: starting }));
-    // Sent at 1950, it starts at 2450.
-    expect(expectedGroupPositionMs(connection.snapshot(), 2400)).toBe(10_000);
-    expect(expectedGroupPositionMs(connection.snapshot(), 3450)).toBe(11_000);
-    // The same timeline told again, someone left behind, keeps its start.
-    monotonicNowMs = 2100;
-    socket.onMessage(
-      JSON.stringify({ v: 2, type: "group", seq: 3, group: { ...starting, startsInMs: 0 } }),
-    );
-    expect(expectedGroupPositionMs(connection.snapshot(), 2400)).toBe(10_000);
-    // A pong that places it says what is left of the lead: sent at 2200, back at 2240.
-    monotonicNowMs = 2240;
-    socket.onMessage(
-      JSON.stringify({ v: 2, type: "pong", tMono: 2200, group: { ...starting, startsInMs: 200 } }),
-    );
-    expect(connection.snapshot().groupPlacedByRttMs).toBe(40);
-    // Answered at 2220, it starts at 2420.
-    expect(expectedGroupPositionMs(connection.snapshot(), 2420)).toBe(10_000);
-    expect(expectedGroupPositionMs(connection.snapshot(), 3420)).toBe(11_000);
-  });
-
   it("places nothing, and notes nothing of it, on a voice device, which plays nothing", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
@@ -719,7 +683,6 @@ describe("reading the server's messages", () => {
           event: undefined,
           seekedFromMs: 0,
           byMemberId: undefined,
-          startsInMs: 0,
         },
       },
     );
