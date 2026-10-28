@@ -10,6 +10,7 @@ import {
   type RosterMember,
 } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
+import { isFollowingAGroup } from "./following-a-group.ts";
 import { checkDriftEveryMs, followGroup } from "./together-follow.ts";
 import { playerSwitchedQualityEvent, type QualitySwitched } from "./together-player-events.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
@@ -72,6 +73,32 @@ function leading(
 }
 
 describe("a player that leads its session (D371 §1)", () => {
+  it("chooses its quality as a device alone does, not keeping the film's own picture for a group", () => {
+    // The Fire TV, leading a cast, jumped to its film's own picture on its second chunk with a link
+    // of 1.5 Mb/s (2026-10-28): the follower's rule of D286 §2, judged on one sample.
+    const media = new FakeMedia();
+    const fake = fakeConnection(paused);
+    const stop = followGroup(media, withRoster(fake.connection, castAlone), {
+      fileId: 5,
+      leads: everyRight,
+      monotonicMs,
+    });
+    expect(isFollowingAGroup()).toBe(false);
+    stop();
+    const follower = followGroup(
+      new FakeMedia(),
+      withRoster(fake.connection, [device(thisDevice, "video"), device(9, "video", true)]),
+      {
+        fileId: 5,
+        leads: everyRight,
+        monotonicMs,
+      },
+    );
+    expect(isFollowingAGroup(), "a follower keeps it").toBe(true);
+    follower();
+    expect(isFollowingAGroup()).toBe(false);
+  });
+
   it("is never nudged, skipped or sought to where the group reckons it should be: the group follows it", () => {
     const { media, setGroup, notes, commands } = leading(paused, { mediaAtS: 60, isPlaying: true });
     monotonicNowMs = 1000;

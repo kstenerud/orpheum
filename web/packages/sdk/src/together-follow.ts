@@ -769,7 +769,9 @@ export function followGroup(
     media.addEventListener(event, listener);
   }
   connection.setPlayer(follower.playerState);
-  const unmarkFollowing = markFollowingAGroup();
+  // A leader chooses its quality as a device alone does (D371 §1): only a follower keeps the film's
+  // own picture for its group (D286 §2).
+  const unmarkFollowing = markFollowingAGroup(() => isFollowerOf(connection.snapshot()));
   const unsubscribe = connection.subscribe(follower.connectionChanged);
   const checker = setInterval(follower.tick, checkDriftEveryMs);
   const stopHearingPage = whenVisibilityChanges(options.page, follower.visibilityChanged);
