@@ -121,12 +121,28 @@
   flex: none;
 }
 
-/* A place for watching drawn as its icon (place-icons.tsx), a fingertip square wide. */
+/* A place for watching drawn as its icon (place-icons.tsx): a fingertip square, white as the tray's
+   signs are and on their centre line, the place shown marked by a line drawn under it rather than a
+   border that would lift the icon (the owner, 2026-10-28: "the new icons are darker than the cast and
+   watch together ones. Also the two icon sets aren't vertically aligned"). */
 .app-shell__watching a.app-shell__place-icon {
+  position: relative;
   display: grid;
   place-items: center;
   min-width: var(--size-control);
-  padding-inline: 0;
+  min-height: var(--size-control);
+  padding: 0;
+  border-block-end: 0;
+  color: var(--color-text);
+}
+
+.app-shell__watching [aria-current="page"] a.app-shell__place-icon::after {
+  position: absolute;
+  inset-inline: var(--space-2);
+  inset-block-end: 0;
+  height: 2px;
+  background: var(--color-accent);
+  content: "";
 }
 
 .app-shell__place-glyph {
