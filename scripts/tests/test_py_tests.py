@@ -35,7 +35,8 @@ class Runner(unittest.TestCase):
         home."""
         sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_env(self):\n"
                 "        self.assertEqual(sorted(os.environ), ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', "
-                "'GOCACHE', 'GOMODCACHE', 'GOPROXY', 'HOME', 'LC_ALL', 'PATH', 'PYTHONDONTWRITEBYTECODE', 'TZ'])\n"
+                "'GOCACHE', 'GOMODCACHE', 'GOPROXY', 'HOME', 'LC_ALL', 'PATH', 'PYTHONDONTWRITEBYTECODE', 'TMPDIR', "
+                "'TZ'])\n"
                 "        self.assertNotEqual(os.environ['HOME'], '/home/caller')\n")
         root = Path(tempfile.mkdtemp(prefix="py-tests-"))
         (root / "scripts" / "tests").mkdir(parents=True)
@@ -59,6 +60,24 @@ class Runner(unittest.TestCase):
         done = subprocess.run([sys.executable, str(RUNNER)], cwd=root, capture_output=True, text=True,
                               check=False, env=caller)
         self.assertEqual(done.returncode, 0, done.stdout)
+
+    def test_a_modules_temporary_files_are_deleted_with_its_home(self):
+        """Tests that never removed their mkdtemp directories left thousands in /tmp (2026-10-28)."""
+        leaks = ("import os\nimport tempfile\nimport unittest\n\n\nclass T(unittest.TestCase):\n"
+                 "    def test_leak(self):\n"
+                 "        made = tempfile.mkdtemp(prefix='leaked-')\n"
+                 "        self.assertTrue(made.startswith(os.environ['HOME'] + os.sep), made)\n"
+                 "        print(made)\n")
+        root = Path(tempfile.mkdtemp(prefix="py-tests-"))
+        (root / "scripts" / "tests").mkdir(parents=True)
+        (root / "scripts" / "tests" / "test_leak.py").write_text(leaks)
+        outside = Path(tempfile.mkdtemp(prefix="py-tests-tmp-"))
+        caller = {"PATH": os.environ["PATH"], "TMPDIR": str(outside)}
+        done = subprocess.run([sys.executable, str(RUNNER), "scripts/tests/test_leak.py"], cwd=root,
+                              capture_output=True, text=True, check=False, env=caller)
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual([path.name for path in outside.iterdir() if path.name.startswith("leaked-")], [])
+        self.assertEqual(list(outside.glob("py-tests-home-*")), [], "the home went with what it held")
 
     def test_a_pass_is_one_line(self):
         done = self.run_in({"test_a.py": PASSES, "test_b.py": PASSES})

@@ -42,6 +42,12 @@ export PATH := $(TOOLS_BIN):$(GOPATH_BIN)$(PATH)
 # its own source's path (internal/testutil finds go.mod instead). dev-debug clears it for Delve.
 export GOFLAGS := $(strip $(GOFLAGS) -trimpath)
 
+# Node's compile cache and Playwright's transform cache, kept between runs beside the other caches:
+# both default to the temporary directory, which is each gate run's own and deleted at its end
+# (scripts/gate_lock.py); scripts/disk_guard.py caps the first.
+export NODE_COMPILE_CACHE := $(or $(NODE_COMPILE_CACHE),$(HOME)/.cache/orpheum/node-compile-cache)
+export PWTEST_CACHE_DIR := $(or $(PWTEST_CACHE_DIR),$(HOME)/.cache/orpheum/playwright-transform-cache)
+
 # A Go suite's run keeps its timings, each test's and package's, always (scripts/go_test_timings.py,
 # web/e2e/test-timings.ts; the owner, 2026-10-20): it reads `go test -json` and prints go test's own text.
 GO_TIMINGS = $(PYTHON) scripts/go_test_timings.py
@@ -78,6 +84,8 @@ spot: hooks ## Spot check while working: tests of what changed since BASE (defau
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
 check-verbose: check-tools web-deps go-warm ## The gate with every step's output
+	@# Room on the disk first, the caches trimmed to their caps (the disk-full review, 2026-10-28).
+	@$(PYTHON) scripts/disk_guard.py
 	@# The tree as the gate starts: only that tree, unchanged at the end, is recorded as passed.
 	@$(PYTHON) scripts/check_stamp.py begin
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
@@ -304,6 +312,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	  started="$$(date +%s)"; head="$$(git rev-parse HEAD)"; \
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
+	  $(PYTHON) scripts/disk_guard.py; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \

@@ -57,9 +57,13 @@ def go_caches() -> dict[str, str]:
 
 
 def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
+    # The module's temporary files go in its home, deleted with it: tests that made directories with
+    # mkdtemp and never removed them left them in /tmp at every run (the disk-full review, 2026-10-28).
     with tempfile.TemporaryDirectory(prefix="py-tests-home-") as home:
+        temporary = Path(home) / "tmp"
+        temporary.mkdir()
         env = {name: os.environ[name] for name in PASSED_THROUGH if name in os.environ}
-        env |= HERMETIC | go_caches() | {"HOME": home}
+        env |= HERMETIC | go_caches() | {"HOME": home, "TMPDIR": str(temporary)}
         done = subprocess.run([sys.executable, "-m", "unittest", "-q", str(module)], capture_output=True,
                               text=True, check=False, env=env)
     return module, done

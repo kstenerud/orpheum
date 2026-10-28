@@ -52,21 +52,24 @@ const EXCLUDE = [...configDefaults.exclude, "**/*.browser.test.{ts,tsx}"];
 // 5.6 s there against 0.2 s alone, failing the default 5 s (test-weight.md §10; a test that hangs
 // still fails, at 15 s); transforms are kept on disk between runs, keyed by each file's content:
 // every run transformed the whole module graph afresh, and revert-red's 54 runs of the related
-// tests took 38 s each, most of it that (check-pr's timings, 2026-10-13); the list as it runs, and
-// every test's and file's timings kept (e2e/vitest-timings.ts).
+// tests took 38 s each, most of it that (check-pr's timings, 2026-10-13).
 const SHARED = {
   environment: "node" as const,
   allowOnly: false,
-  passWithNoTests: false,
   testTimeout: 15_000,
   fsModuleCache: true,
-  reporters: ["default", new VitestTimings({ suite: "vitest" })],
 };
 
 export default defineConfig({
   plugins: [react()],
   server: FS_DENY,
   test: {
+    // The run's own settings, which vitest reads at the root alone and ignores in a project: no
+    // file matched is a failure; the list as it runs, and every test's and file's timings kept
+    // (e2e/vitest-timings.ts), which none were from the projects' split on 2026-10-26 to the
+    // caching audit (caching-audit-2026-10-28.md, finding 11).
+    passWithNoTests: false,
+    reporters: ["default", new VitestTimings({ suite: "vitest" })],
     projects: [
       {
         extends: true,
