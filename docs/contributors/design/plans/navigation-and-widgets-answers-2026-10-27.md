@@ -157,3 +157,15 @@ The owner agreed every other answer and recommendation above (2026-10-27).
     `POST /items/{id}/match-by-link`), but it matches at once. Add the check: the id looked up first,
     its card shown (poster, name, year, kind, a line of overview, as a candidate is), and the match
     made only on the person's confirm.
+
+## Reaching production from outside (the owner, 2026-10-28)
+
+- **Next batch (the owner: "It's fine for now"):** a phone in Australia, on mobile data, opening an
+  invitation to nas.example was told it could not reach the network; on Wi-Fi it got in. Production has no
+  IPv4 way in from outside: its config has no tunnel (`domain = ""`), so no relay either (D314 §4), and
+  the home is DS-Lite, so a network without IPv6 cannot reach it. Two items: (1) put nas.example on the edge
+  VPS's tunnel (orpheum-ops edge runbook; peer 10.77.0.2 was kept for it; the VPS step is the owner's,
+  over his laptop's WireGuard), after this batch's nas.example deploy; (2) a page that cannot reach its core
+  reports why to the discovery (its network, whether it has IPv6, the ways tried) so the failure is seen
+  on prod-api, and tells the person in words ("this network has no IPv6, and the server has no IPv4 way
+  in yet"). Nothing reached nas.example's log from the failed attempt; the core cannot log what never arrives.
