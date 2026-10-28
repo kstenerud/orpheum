@@ -19,8 +19,9 @@
      sign-in, not the discovery's. (e) Watched marks: D370 (owner agreed the
      defaults; a white check, no fading). (f) RealMedia cook sound never cut right (file 15102 on nas.example;
      never record that library's names). D369, D368, the Fire TV fixes, the RealMedia fix (protocol 54), D370 (step 0062), D364, D367 + Configure
-     merged, on staging; VQ81 fixed. All in: the batch's check-pr runs. Prod needs
-     orpheum-connect repackaged from this batch (the loader names a Fire TV and returns to the discovery: VQ84, VQ87).
+     merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
+     wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
+     for nas.example. Connect packaged for prod: /yoloai/files/connect-production-0a3fcd5-2336a94f.run (VQ84, VQ87).
      Owner to choose (D368's status): loudness when stepping down from the copied sound. Runs overnight.
    - Answers to build from: design/plans/navigation-and-widgets-answers-2026-10-27.md (also the guest's
      words, the warning sign's page, the uncertain match: queued, not this batch).
