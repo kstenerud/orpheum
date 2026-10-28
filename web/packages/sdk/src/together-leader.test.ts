@@ -166,6 +166,34 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(commands).toEqual([]);
   });
 
+  it("does not seek back to its own seek as its group's change for it comes, having played on", () => {
+    // A Fire TV leading a cast sought back about 200 ms after each of its own 10 s skips (staging,
+    // 2026-10-28, 18:32:39 and 18:32:44).
+    const { media, setGroup, notes, commands } = leading(
+      { ...paused, state: "Playing" },
+      { mediaAtS: 60, isPlaying: true },
+    );
+    media.currentTime = 70;
+    media.fire("seeking");
+    media.fire("seeked");
+    vi.advanceTimersByTime(1000);
+    expect(commands).toEqual([{ command: "seek", positionMs: 70_000 }]);
+    media.currentTime = 70.3; // it plays on as the group hears of its seek
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
+      2000,
+    );
+    expect(media.currentTime).toBe(70.3);
+    expect(notes.filter((note) => note.kind === "sought")).toEqual([]);
+    // Another device's seek to the same place later is carried out.
+    media.currentTime = 90;
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 90_000, positionMs: 70_000 },
+      3000,
+    );
+    expect(media.currentTime).toBe(70);
+  });
+
   it("sends its own person's pause as a command, the group following it", () => {
     const { media, commands } = leading(
       { ...paused, state: "Playing" },

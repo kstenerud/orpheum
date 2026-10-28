@@ -43,6 +43,8 @@ export class GroupLeader {
   #carriedOutSeq: number | undefined = undefined;
   /** Whether it has found its group yet, as it began to lead. */
   #hasJoined = false;
+  /** Where its own last seek, sent to its group, went, until its group's change for it comes. */
+  #ownSeekToMs: number | undefined = undefined;
 
   constructor(parts: LeaderParts) {
     this.#parts = parts;
@@ -66,6 +68,14 @@ export class GroupLeader {
     this.#hasJoined = true;
     this.#carriedOutSeq = seq;
     this.#playOrPauseAs(where.group);
+  }
+
+  /**
+   * Its own seek, sent to its group as a command: the group's change for it is its own, carried out
+   * already, not another device's to seek to.
+   */
+  sentSeek(toMs: number): void {
+    this.#ownSeekToMs = toMs;
   }
 
   /**
@@ -113,11 +123,25 @@ export class GroupLeader {
     }
   }
 
-  /** Seeks where another device's seek asked, as its own press, unless it is there already. */
+  /**
+   * Seeks where another device's seek asked, as its own press, unless it is there already. Its own
+   * seek's change is no other's: a Fire TV leading a cast sought back about 200 ms after each of its
+   * own 10 s skips, its group's change for the skip coming as it had played on past where it went
+   * (staging, 2026-10-28, 18:32:39 and 18:32:44). A cast's remote is its person's too, so the
+   * change's member cannot tell them apart; where its own seek went can.
+   */
   #seekAsAsked(group: GroupView, tuning: SyncTuning): void {
+    const ownToMs = this.#ownSeekToMs;
+    const isOwn =
+      group.event === "seeked" &&
+      ownToMs !== undefined &&
+      Math.abs(group.positionMs - ownToMs) <= 1;
+    if (group.event === "seeked") {
+      this.#ownSeekToMs = undefined;
+    }
     const isFar =
       Math.abs(group.positionMs - positionMsOf(this.#parts.media)) > tuning.leaveDriftUpToMs;
-    if (group.event === "seeked" && isFar) {
+    if (group.event === "seeked" && isFar && !isOwn) {
       this.#seek(group.positionMs, "command");
     }
   }
