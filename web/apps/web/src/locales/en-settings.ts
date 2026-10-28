@@ -156,8 +156,6 @@ export const enSettingsCatalogue = {
       "A host may forget to end their session. Once nothing has played in it and no one has done anything in it for this long, it ends as if the host had ended it, and its links stop working.",
     togetherLinkLifetimeSeconds:
       "A Watch Together invitation is short-lived: a link not used within this long of being made lets no one in. Whoever already joined by it stays.",
-    togetherSyncWaitSeconds:
-      "When a film starts, or the host plays or jumps, every player waits until all are ready. After this long, those that are ready play without the rest, who catch up.",
     uploadCrowdedKeepsPercent:
       "While the upload is crowded, the films' share is lowered in steps, each keeping this much of the share before it.",
     uploadCrowdedSlowPlayersAtLeast:
@@ -403,8 +401,6 @@ export const enSettingsCatalogue = {
     togetherIdleSessionEndHours:
       "How long a Watch Together session with nothing playing and no one doing anything lasts before it ends.",
     togetherLinkLifetimeSeconds: "How long a Watch Together link lets its person in.",
-    togetherSyncWaitSeconds:
-      "How long a Watch Together group waits for everyone to be ready before playing without those who are not.",
     readerLimitUnknownDisk: "How many may read a disk of an unknown kind at once.",
     uploadCrowdedFloorPercent:
       "The lowest the films' share is lowered to, while the upload is crowded.",

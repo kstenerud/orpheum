@@ -102,18 +102,24 @@ each change with a sequence number. A seek made against a group another seek has
 refused as stale. Everything rides the session WebSocket, one per device; never a WebRTC data
 channel.
 
-**The group stops only at its own sync points** (D250 §2): a film put on or started over, the
-host's play after a pause, and the host's seek. There it is `Waiting` until every player that has
-once been ready is ready again, those catching up included. A player still loading its first
-picture, or whose page still waits for its tap, holds no one up (D246 §6; no one chooses their
-speakers since D336 §4). A player is
+**Every session has one leader, the screen that is the film**
+([D371](../../decisions/working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part)
+§1, §3): the host's device that plays, the newest attached or the one that put the film on; a
+cast's receiver in a cast. It plays exactly as a device plays a film alone: it starts when it is
+ready and buffers as it needs, and is never held, sought to the group's place, run up or nudged.
+**The group's position is the leader's**: each state the leader reports places the group where it
+is, a stall of the leader's holds the group where it stands (`Waiting`, event `waitingFor`), and a
+group to play (a film put on, a play, a seek) stands where it is until its leader plays, then plays
+from there at once (event `leaderPlays`). Another device's play, pause or seek, a cast's remote's or
+a guest's, the leader carries out as its own press. As the leader leaves, the host's newest other
+player leads, or none does, and a group that stood for it plays on for whoever plays still (event
+`leaderLeft`). Without a leader the group plays on the server's clock. A player is
 ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than
-it plays (D283 §1). While the group waits, a player already ready holds its loading, leaving the
-upload to the others (D283 §2). A sync point waits at most `together_sync_wait_seconds` (20 s), then plays without whoever is
-not ready, but never to no one (D250 §3). The host's pause is immediate. **A sync point's end
-names the moment every player starts** (D268 §3): the group stands at its position for
+it plays (D283 §1). While the group stands for its leader, a follower already ready holds its
+loading, leaving the upload to the leader (D283 §2). The host's pause is immediate. **A group with
+no leader names the moment every player starts** (D268 §3): the group stands at its position for
 `together_start_lead_ms` (500 ms), each group message and pong saying what is left of that lead,
 and each player, held there until then, plays at once with the others rather than as the message
 reaches it. **Each presses play early by how late it has learned it starts** (D282), which its
@@ -122,11 +128,9 @@ device keeps for every session; while any player along has not learned it, the l
 making its lag up before the moment. A group starting in the film's first two seconds starts at
 two seconds, so there is film to run up through.
 
-**The group never stops for one member** (D250 §2). A stall, a slow link or a dropped connection
-is that member's alone, the host's player included: the group plays on, everyone is told who it
-continues without, and that player catches up by itself. When no other player plays along, the
-group waits for it instead, where it stalled or dropped, until a player is ready: playing on
-would play to no one (D250 §2's amendment of 2026-10-12). **Catching up** is a jump ahead of the
+**The group waits for no one but its leader** (D371 §2). A stall, a slow link or a dropped
+connection is a follower's alone: the group plays on, and that player catches up to the leader by
+itself. **Catching up** is a jump ahead of the
 group to wait there, paused and loading: far enough that, at the speed it measured itself
 loading, it has `together_catch_up_buffer_percent` (80%) of what it loads ahead filled when the
 group arrives, and at most a minute ahead (D250 §4). Catching up never starts an encode; the

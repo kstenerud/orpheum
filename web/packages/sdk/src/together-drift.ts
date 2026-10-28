@@ -72,21 +72,6 @@ export function driftCorrection(
   return { kind: "nudge", rate: drift.groupRate * factor };
 }
 
-/**
- * The correction for a player, when it is its group's only player: none but a seek to where the
- * group is, beyond the seek threshold, as a player that joins a playing film finds it. With no one
- * else to keep in step with, the group follows its player (the hub places it by the player's state),
- * and a nudge or a skip would only move the player to the group's reckoning of it: a Fire TV cast
- * to as a session of one (D88, D364) was nudged after every start, stalled at each nudge, and its
- * film stuttered (the owner's cast, staging, 2026-10-28).
- */
-export function aloneCorrection<Correction extends { readonly kind: string }>(
-  correction: Correction,
-  isOnlyPlayer: boolean,
-): Correction | { readonly kind: "none" } {
-  return correction.kind === "seek" || !isOnlyPlayer ? correction : { kind: "none" };
-}
-
 /** What to do, for a player that corrects by seeks alone, about its distance from the group. */
 export type SeekOnlyCorrection =
   | { readonly kind: "none" }

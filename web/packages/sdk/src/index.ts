@@ -171,6 +171,7 @@ export type {
   GroupState,
   GroupView,
   OpenTogetherSocket,
+  PlaybackReport,
   PlaybackRights,
   RosterDevice,
   RosterMember,
@@ -179,7 +180,12 @@ export type {
   TogetherEndReason,
   VoiceSignal,
 } from "./together.ts";
-export { createTogetherConnection, expectedGroupPositionMs } from "./together-connection.ts";
+export {
+  createTogetherConnection,
+  expectedGroupPositionMs,
+  isLeaderOf,
+  leaderOf,
+} from "./together-connection.ts";
 export { createLiveConnection } from "./live-connection.ts";
 export { scrubPauseWindowMs } from "./together-lead.ts";
 export type {

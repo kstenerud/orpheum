@@ -6,6 +6,7 @@
  * fires at it, to hold its loading while the group waits.
  */
 
+import type { GroupView } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import type { SoundMovedBy } from "./together-notes.ts";
 
@@ -45,6 +46,27 @@ export const catchUpSeekEvent = "orpheumcatchupseek";
  * (D286 §3).
  */
 export const groupJumpedEvent = "orpheumgroupjumped";
+
+/** The jumps of its group a following player told its player of, each once (groupJumpedEvent). */
+export class GroupJumpsTold {
+  /** The last told, as "<from>-<to>" ms; undefined before one. */
+  #told: string | undefined = undefined;
+
+  /** Tells media of the group's jump, when its last change is one not told yet. */
+  tell(
+    media: Pick<EventTarget, "dispatchEvent">,
+    group: Pick<GroupView, "event" | "seekedFromMs" | "positionMs">,
+  ): void {
+    const jump =
+      group.event === "seeked"
+        ? `${String(group.seekedFromMs)}-${String(group.positionMs)}`
+        : undefined;
+    if (jump !== undefined && jump !== this.#told) {
+      this.#told = jump;
+      media.dispatchEvent(new Event(groupJumpedEvent));
+    }
+  }
+}
 
 /**
  * The event a player fires at its video as it loads a chunk: a ChunkLoaded in its detail, which a

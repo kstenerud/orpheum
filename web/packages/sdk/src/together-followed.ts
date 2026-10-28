@@ -37,7 +37,7 @@ export function heldByOf(
 
 /**
  * Notes to connection event, a play of media its follower did not make, as no command came of it,
- * while its group, where it is, does not play; any other event it leaves. The follower plays its
+ * while its group, where it is, does not play; any other event, and any of a leader's, it leaves. The follower plays its
  * player only with its group (followGroup), and pauses it again, so the note says what played it:
  * the element's own autoplay as it loaded, or the page, a press or a media key. A Fire TV's cast
  * played, paused and played as it started, and nothing said what played it first (the owner's Marrowgate
@@ -49,9 +49,16 @@ export function notePlayedWhileHeld(played: {
   readonly media: Pick<FollowedMedia, "autoplay" | "currentTime">;
   /** Where its group is, undefined while it plays another film or none. */
   readonly where: { readonly group: Pick<GroupView, "state"> } | undefined;
+  /** Whether the player leads its session, which its group holds nowhere (D371 §1). */
+  readonly isLeading?: boolean;
 }): void {
   const { connection, event, media, where } = played;
-  if (event !== "play" || where === undefined || where.group.state === "Playing") {
+  if (
+    event !== "play" ||
+    where === undefined ||
+    where.group.state === "Playing" ||
+    played.isLeading === true
+  ) {
     return;
   }
   connection.note({

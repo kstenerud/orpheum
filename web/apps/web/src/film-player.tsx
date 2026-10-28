@@ -14,7 +14,7 @@ import {
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import { healPageAudio, type CannotKeepUp } from "@orpheum/sdk";
+import { healPageAudio, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -99,6 +99,19 @@ export interface MovedDown {
   readonly mediaToken: string;
   readonly offer: LadderOffer;
   readonly positionMs: number;
+}
+
+/**
+ * How the film is given to the player, as a cast's remote shows it (D371 §4): the file as it is, or
+ * converted, its ladder, which a player that moved to a lower quality plays too.
+ */
+export function deliveryOf(
+  decision: PlaybackDecision,
+  moved: MovedDown | undefined,
+): PlaybackReport["delivery"] {
+  return decision.delivery === "direct" && decision.onLadder === undefined && moved === undefined
+    ? "direct"
+    : "converted";
 }
 
 /**

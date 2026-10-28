@@ -5,7 +5,10 @@ import { apiPrefix } from "./client.ts";
 /** The version of the session WebSocket's messages, every message's v (cut-a §5.1). */
 export const togetherProtocolVersion = 2;
 
-/** The group's play state (watch-together.md, Sync): Waiting is paused until every player is ready. */
+/**
+ * The group's play state (watch-together.md, Sync): Waiting is to play, standing where its leader is
+ * until the leader plays (D371 §1).
+ */
 export type GroupState = "Idle" | "Waiting" | "Paused" | "Playing";
 
 /** What changed the group: the server's codes for its events (internal/core/together, EventKind). */
@@ -16,9 +19,9 @@ export type GroupEvent =
   | "changedRate"
   | "changedItem"
   | "stopped"
-  | "everyoneReady"
-  | "continuedWithout"
-  | "waitingFor";
+  | "leaderPlays"
+  | "waitingFor"
+  | "leaderLeft";
 
 const groupEvents: readonly GroupEvent[] = [
   "played",
@@ -27,9 +30,9 @@ const groupEvents: readonly GroupEvent[] = [
   "changedRate",
   "changedItem",
   "stopped",
-  "everyoneReady",
-  "continuedWithout",
+  "leaderPlays",
   "waitingFor",
+  "leaderLeft",
 ];
 
 /** The group as the server tells it: what plays, where, how fast, and the named event that made it so. */
@@ -92,6 +95,18 @@ function deviceStatusIn(value: unknown): DeviceStatus | undefined {
   return deviceStatuses.find((status) => status === value);
 }
 
+/**
+ * How a player plays the film, as it tells its session (D371 §4): delivered as it is ("direct") or
+ * from its ladder ("converted"), the quality it plays and the link it estimated as it chose it, in
+ * kb/s, each undefined while unknown. A cast's remote shows the receiver's: the owner, "The controller
+ * side should get information about playback, such as the transcoding and bandwidth choices".
+ */
+export interface PlaybackReport {
+  readonly delivery: "direct" | "converted";
+  readonly qualityKbps?: number | undefined;
+  readonly linkKbps?: number | undefined;
+}
+
 /** One device of a member in the roster, and its health. */
 export interface RosterDevice {
   readonly id: number;
@@ -101,6 +116,13 @@ export interface RosterDevice {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** Where it stands with its group (DeviceStatus). */
   readonly status: DeviceStatus | undefined;
+  /**
+   * Whether it leads the session: the screen that is the film, whose position is the group's, which
+   * nothing steers (D371 §1); absent from a roster that does not say.
+   */
+  readonly isLeader?: boolean;
+  /** How it plays the film, as it said (D371 §4); undefined until it says. */
+  readonly playback?: PlaybackReport | undefined;
 }
 
 /** One member in the roster: the name they chose, whether they host, and their devices. */
@@ -315,12 +337,28 @@ function parseRoster(value: unknown): RosterMember[] {
                   isBuffering: fields["isBuffering"] === true,
                   cannotKeepUp: cannotKeepUpIn(fields["cannotKeepUp"]),
                   status: deviceStatusIn(fields["status"]),
+                  isLeader: fields["isLeader"] === true,
+                  playback: playbackIn(fields["playback"]),
                 },
               ];
         }),
       },
     ];
   });
+}
+
+/** A roster device's playback, or undefined when it has none or names no delivery this client knows. */
+function playbackIn(value: unknown): PlaybackReport | undefined {
+  const fields = recordOf(value);
+  const delivery = fields?.["delivery"];
+  if (fields === undefined || (delivery !== "direct" && delivery !== "converted")) {
+    return undefined;
+  }
+  const kbps = (key: string): number | undefined => {
+    const each = fields[key];
+    return typeof each === "number" && each > 0 ? each : undefined;
+  };
+  return { delivery, qualityKbps: kbps("qualityKbps"), linkKbps: kbps("linkKbps") };
 }
 
 /** A roster device's cannotKeepUp, or undefined when it has none or it is not its shape. */

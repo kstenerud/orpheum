@@ -57,7 +57,7 @@ func (hub *Hub) OpenCast(host Person) (CastOpened, error) {
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, isCast: true, links: map[int64]*link{},
 		members: map[int64]*member{}, group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()},
-		logger: hub.logger, syncWait: StartingSyncWait, snapSeeksBeyond: StartingSnapSeeksBeyond,
+		logger: hub.logger, snapSeeksBeyond: StartingSnapSeeksBeyond,
 		lastRights: everyRight(),
 	}
 	hub.lastID++

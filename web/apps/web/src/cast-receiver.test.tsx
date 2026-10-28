@@ -242,6 +242,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
           video={video}
           startPositionMs={0}
           hasNext={hasNext}
+          delivery="direct"
         />,
         { ...services, openTogetherSocket: server.openSocket },
       ),
@@ -293,6 +294,32 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     } finally {
       show();
     }
+  });
+
+  it("plays as the device plays a film alone while its roster says it leads, telling its remote how it plays (D371 §1, §4, §5)", async () => {
+    const { server, video } = await receiver();
+    const isPaused = playingVideo(video, 61);
+    const leads = [
+      { id: 2, name: "owner", isHost: true, devices: [{ id: 6, role: "video", isLeader: true }] },
+    ];
+    await server.say({ ...welcome, roster: leads });
+    // The group stands for it as its film is put on, and again as it buffers: nothing pauses it.
+    for (const [seq, event] of [
+      [2, "changedItem"],
+      [3, "waitingFor"],
+    ] as const) {
+      await server.say({
+        type: "group",
+        seq,
+        group: { state: "Waiting", positionMs: 61_000, rate: 1, fileId: 4, event },
+      });
+      expect(isPaused(), event).toBe(false);
+    }
+    expect(server.heard).toContainEqual(
+      expect.objectContaining({ type: "state", playback: { delivery: "direct" } }),
+    );
+    const notes = server.heard.filter((each) => each["type"] === "note");
+    expect(JSON.stringify(notes)).not.toContain("playedWhileHeld");
   });
 
   it("goes back to the page it was on before the cast when the remote stops casting (D338 §1)", async () => {

@@ -38,12 +38,17 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   nudge goes on past the group by that much, so it lands on it rather than nudging again. Once
   `returnsBeforeSeeksOnly` returns cost it more than `leaveDriftUpToMs`, it corrects by seeks alone,
   beyond `seekOnlyLeaveDriftUpToMs`, each aimed past the group by what its seeks have learned to lose
-  (D268 §2). `src/together-follow-devices.test.ts`. A player its session's roster names as its only
-  player is neither nudged nor skipped: the hub places the group where that player says it is, so
-  there is no one to keep it in step with (D88; the owner's cast to a Fire TV, 2026-10-28, nudged
-  after every start and stalling at each nudge); a group beyond `seekDriftBeyondMs` is still sought
-  to. `src/together-follow-alone.test.ts`.
-  `src/together-drift.test.ts`, `src/together-follow.test.ts`.
+  (D268 §2). `src/together-follow-devices.test.ts`, `src/together-drift.test.ts`,
+  `src/together-follow.test.ts`.
+- **A player its session's roster names as its leader is never steered** (D371 §1): it plays as a
+  device plays a film alone, loading as it would, never held, sought to the group's place, run up or
+  nudged, and the server places the group by its state. Each change of its group another device made,
+  a remote's or a guest's pause, play or seek, it carries out once, as its own press, sending no
+  command; it takes the place of a group under way far from it once, as it begins to lead, and joins
+  a film it put on where it is; it says it buffers only while it cannot play on; and it tells its
+  session how it plays the film, its delivery, the quality it began and the link it chose it on, for
+  a cast's remote to show (D371 §4). Its person's own moves are commands, as any player's. A follower
+  whose session another device leads follows the group as above. `src/together-leader.test.ts`.
 - **Where a following player is in correcting its drift is one phase**: following, nudging,
   returning to the group's rate, skipping, or waiting ahead, moved only by `nextPhase`; what holds
   beside any phase (refilling, a command awaiting the group, settling, correcting by seeks alone)
@@ -131,6 +136,8 @@ for Watch Together:
 - [D268](../../../docs/contributors/decisions/working-notes.md#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls):
   a placing ages, drift is corrected as the device measures it, the group starts at a named
   moment, and a follower's own moves are marked.
+- [D371](../../../docs/contributors/decisions/working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part):
+  a session's leader plays as a device plays alone, and everyone else catches up to it.
 
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §5;
 [watch-together.md](../../../docs/contributors/design/plans/watch-together.md), Sync;
@@ -150,5 +157,5 @@ for Watch Together:
   commands, reconnecting),
   `src/together-connection.ts`; following the group with a video element,
   `src/together-follow.ts`, by where the group is and what a drift calls for,
-  `src/together-drift.ts`; voice's calls, `src/together-voice.ts`, over the
+  `src/together-drift.ts`, or leading it, `src/together-leader.ts`; voice's calls, `src/together-voice.ts`, over the
   browser's microphone, RTCPeerConnection and Web Audio in `src/together-voice-browser.ts`.

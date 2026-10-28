@@ -28,15 +28,15 @@ describe("the group's changes as named events (D188)", () => {
     expect(groupEventText(i18n.t, group("seeked", 1, 723_000), roster)).toBe(
       "Karl jumped from 12:03 to 41:12",
     );
-    expect(groupEventText(i18n.t, group("continuedWithout", 2), roster)).toBe(
-      "Continuing without Someone, who will catch up",
+    expect(groupEventText(i18n.t, group("leaderLeft", 2), roster)).toBe(
+      "Someone's screen left; playing on from 41:12",
     );
-    expect(groupEventText(i18n.t, group("continuedWithout", 1), roster)).toBe(
-      "Continuing without Karl, who will catch up",
+    expect(groupEventText(i18n.t, group("leaderPlays", 1), roster)).toBe(
+      "Karl's screen plays from 41:12",
     );
   });
 
-  it("says whose player the group waits for when no other plays along", () => {
+  it("says whose screen, the session's leader, the group waits for (D371 §1)", () => {
     const parsed = parseTogetherMessage(
       JSON.stringify({
         type: "group",

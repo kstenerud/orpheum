@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-// A group that starts playing at a sync point's end starts moving the start's lead from then, and
-// says what is left of it, so every player starts at once rather than each as the message reaches
-// it; one that plays on moves on as it was (D268 §3).
+// A group with no leader that starts playing starts moving the start's lead from then, and says what
+// is left of it, so every player starts at once rather than each as the message reaches it; one that
+// plays on moves on as it was (D268 §3). A group with a leader has no lead: it plays as its leader
+// does (D371 §1).
 func TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	tuning := testTuning
 	tuning.StartLeadMs = 500
 	box := &inbox{}
-	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
+	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePanel, true, nil, tuning, box.send)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	if group := box.last(MessageGroup).Group; group.State != GroupPlaying || group.StartsInMs != 500 ||
 		group.PositionMs != 0 {
@@ -48,7 +48,8 @@ func TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds(t *testing.T) 
 	}
 }
 
-// While a player along has not yet learned how late it starts, the group's start lead is the run-up,
+// While a player of a group with no leader has not yet learned how late it starts, the group's start
+// lead is the run-up,
 // which that player plays through from before where the group starts; at the film's first moments
 // the group starts the run-up in. Once every player has learned it, the lead is the start's alone,
 // from where the group is (D282).
@@ -67,12 +68,13 @@ func TestHub_AGroupGivesARunUpWhileAPlayerHasNotLearnedHowLateItStarts(t *testin
 		stage := newStage(t)
 		tuning := testTuning
 		tuning.StartLeadMs, tuning.RunUpMs = 500, 2000
+		guestDevice, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
 		box := &inbox{}
-		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
+		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePanel, true, nil, tuning, box.send)
 		if err != nil {
 			t.Fatal(err)
 		}
-		stage.hub.Handle(t.Context(), host, Inbound{Type: MessageState, StartLagMs: start.startLagMs})
+		stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageState, StartLagMs: start.startLagMs})
 		stage.hub.Handle(t.Context(), host, Inbound{
 			Type: MessageCommand, Command: CommandChangeItem, FileID: 7, PositionMs: start.fromMs,
 		})
@@ -84,38 +86,9 @@ func TestHub_AGroupGivesARunUpWhileAPlayerHasNotLearnedHowLateItStarts(t *testin
 	}
 }
 
-// A player loading before the group starts moving, as one running up to the start loads from before
-// it, is starting, not stalled: the group starts as it named, and only a stall after that is one
-// (D282; the browser tier, 2026-10-12, where every run-up was taken for a stall).
-func TestHub_APlayerLoadingBeforeTheGroupStartsIsNoStall(t *testing.T) {
-	t.Parallel()
-	stage := newStage(t)
-	tuning := testTuning
-	tuning.StartLeadMs, tuning.RunUpMs = 500, 2000
-	box := &inbox{}
-	host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stage.ready(t, host, false)
-	stage.command(t, host, CommandChangeItem, 7)
-	seq := box.last(MessageGroup).Seq
-	stage.clock.Advance(time.Second)
-	stage.ready(t, host, true) // its run-up loads
-	stage.ready(t, host, false)
-	if box.last(MessageGroup).Seq != seq {
-		t.Errorf("a player loading its run-up changed the group: %+v", box.last(MessageGroup).Group)
-	}
-	stage.clock.Advance(2 * time.Second)
-	stage.ready(t, host, true)
-	if group := box.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventWaitingFor {
-		t.Errorf("the player stalling once the group moves: %+v; want Waiting for it", group)
-	}
-}
-
 // A jump of more than 30 s, or the setting's distance, is snapped back to the keyframe at or before
-// it, the group starting the run-up after it; a shorter skip, or one whose film's keyframes are not
-// known, lands where asked (D285 §1; the owner: "Using the scroll bar to jump is by nature
+// it, the group starting the run-up after it; a shorter skip, one whose film's keyframes are not
+// known, or the leader's own, lands where asked (D285 §1; the owner: "Using the scroll bar to jump is by nature
 // imprecise").
 func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T) {
 	t.Parallel()
@@ -141,12 +114,13 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		})
 		tuning := testTuning
 		tuning.RunUpMs, tuning.SnapSeeksBeyondMs = 2000, jump.snapMs
+		leader, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 		box := &inbox{}
-		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RoleVideo, true, nil, tuning, box.send)
+		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePanel, true, nil, tuning, box.send)
 		if err != nil {
 			t.Fatal(err)
 		}
-		stage.hub.Handle(t.Context(), host, Inbound{Type: MessageState, StartLagMs: new(int64(100))})
+		stage.hub.Handle(t.Context(), leader, Inbound{Type: MessageState, StartLagMs: new(int64(100))})
 		stage.hub.Handle(t.Context(), host, Inbound{
 			Type: MessageCommand, Command: CommandChangeItem, FileID: 7, PositionMs: 60_000,
 		})
@@ -159,6 +133,13 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		}
 		if len(asked) != 2 || asked[0] != 7 || asked[1] != jump.toMs {
 			t.Errorf("%s: asked for the keyframe of %v; want film 7's at %d ms", jump.name, asked, jump.toMs)
+		}
+		stage.hub.Handle(t.Context(), leader, Inbound{
+			Type: MessageCommand, Command: CommandSeek, PositionMs: jump.toMs, BasedOnSeq: box.last(MessageGroup).Seq,
+		})
+		if group := box.last(MessageGroup).Group; group.PositionMs != jump.toMs {
+			t.Errorf("%s, the leader's own seek to %d ms: the group at %d ms; want where the leader went, "+
+				"the leader never sought to the group's place (D371 §1)", jump.name, jump.toMs, group.PositionMs)
 		}
 	}
 }

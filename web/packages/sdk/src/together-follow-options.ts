@@ -5,7 +5,7 @@
  * follows by. Kept apart from the follower (together-follow.ts), which reads them.
  */
 
-import type { PlaybackRights } from "./together.ts";
+import type { PlaybackReport, PlaybackRights } from "./together.ts";
 import type { ShownPage } from "./together-lead.ts";
 import type { StartLagMemory } from "./together-start.ts";
 
@@ -42,6 +42,11 @@ export interface FollowOptions {
    * moves the player. Absent on a computer, whose hidden page plays on and follows (heldByOf).
    */
   readonly page?: ShownPage | undefined;
+  /**
+   * How the player is given its film, for its session's roster, a cast's remote showing it (D371
+   * §4): the file as it is, or converted, its ladder; absent where nothing is to be said.
+   */
+  readonly delivery?: PlaybackReport["delivery"] | undefined;
 }
 
 /** The events a following player tells the group of, and is moved by. */

@@ -11,6 +11,7 @@ import {
   type DeviceRole,
   type GroupView,
   type OpenTogetherSocket,
+  type PlaybackReport,
   type PlaybackRights,
   type RosterDevice,
   type RosterMember,
@@ -186,13 +187,19 @@ const startingSnapshot: TogetherSnapshot = {
   tuning: startingTuning,
 };
 
-/** Whether next keeps playing the film current plays, at its rate: the same timeline, told again. */
+/**
+ * Whether next keeps playing the film current plays, at its rate, from where it was: the same
+ * timeline, told again. A seek or a film put on again is a new one, as a group that plays on through
+ * them, with no leader to stand for, tells them (D371 §2).
+ */
 function isSameTimeline(current: GroupView | undefined, next: GroupView): current is GroupView {
   return (
     current?.state === "Playing" &&
     next.state === "Playing" &&
     current.fileId === next.fileId &&
-    current.rate === next.rate
+    current.rate === next.rate &&
+    next.event !== "seeked" &&
+    next.event !== "changedItem"
   );
 }
 
@@ -228,11 +235,32 @@ export function otherPlayersOf(snapshot: TogetherSnapshot): RosterDevice[] {
 }
 
 /**
- * Whether this device is its session's only player, by a roster that says so: one not yet told the
- * roster is not taken to be alone.
+ * The device that leads a snapshot's session, the screen that is the film (D371 §1), by its roster;
+ * undefined while none does.
  */
-export function isOnlyPlayer(snapshot: TogetherSnapshot): boolean {
-  return snapshot.roster.length > 0 && otherPlayersOf(snapshot).length === 0;
+export function leaderOf(snapshot: Pick<TogetherSnapshot, "roster">): RosterDevice | undefined {
+  return snapshot.roster
+    .flatMap((member) => member.devices)
+    .find((device) => device.isLeader === true);
+}
+
+/**
+ * Whether this device leads its session, by a roster that says so (D371 §1): the leader plays as a
+ * device plays a film alone, and is never held, sought to the group's place, run up or nudged.
+ */
+export function isLeaderOf(snapshot: TogetherSnapshot): boolean {
+  const leader = leaderOf(snapshot);
+  return leader !== undefined && leader.id === snapshot.deviceId;
+}
+
+/** A playback in whole numbers, as the server reads them. */
+function wholePlayback(playback: PlaybackReport): PlaybackReport {
+  const { qualityKbps, linkKbps } = playback;
+  return {
+    delivery: playback.delivery,
+    ...(qualityKbps === undefined ? {} : { qualityKbps: Math.round(qualityKbps) }),
+    ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+  };
 }
 
 /** When what placed a snapshot's group arrived, and how long it took to (D66, D264). */
@@ -477,6 +505,7 @@ class SessionConnection
         ...(state.startLagMs === undefined ? {} : { startLagMs: state.startLagMs }),
         ...(state.readyOnMs === undefined ? {} : { readyOnMs: state.readyOnMs }),
         ...(state.loadsFaster === undefined ? {} : { loadsFaster: state.loadsFaster }),
+        ...(state.playback === undefined ? {} : { playback: wholePlayback(state.playback) }),
         ...(this.#cannotKeepUp === undefined
           ? {}
           : {

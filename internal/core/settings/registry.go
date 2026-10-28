@@ -106,7 +106,6 @@ const (
 	ChunkSoundKbps                            Key = "chunk_sound_kbps"
 	ServerUploadMbps                          Key = "server_upload_mbps"
 	WebRTCConnectionsPerNetwork               Key = "webrtc_connections_per_network"
-	TogetherSyncWaitSeconds                   Key = "together_sync_wait_seconds"
 	TogetherStartLeadMs                       Key = "together_start_lead_ms"
 	TogetherRunUpMs                           Key = "together_run_up_ms"
 	TogetherCatchUpBufferPercent              Key = "together_catch_up_buffer_percent"
@@ -317,10 +316,6 @@ func togetherDefinitions() []Definition {
 				"the drift left alone, may be off the group's position before it seeks (D268 §2)"),
 			"D268 §2: the sync review's 300 to 500 ms for Safari, where a seek or a rate change lands 100 to "+
 				"500 ms off (hls.js#7616) and MediaSync corrects by seeks alone"),
-		sourced(durationSetting(TogetherSyncWaitSeconds, time.Second, "20", 1, 600,
-			"seconds a Watch Together group waits for its players at a sync point (a film put on, the "+
-				"host's play after a pause, the host's seek) before playing without those not ready (D250 §3)"),
-			"D250 §3: the owner, 2026-10-06: \"30 seconds is too long. Let's start at 20.\""),
 		sourced(integerSetting(TogetherStartLeadMs, "500", 0, 5_000,
 			"ms after a Watch Together group's sync point ends that every player starts playing, at once, "+
 				"rather than each as the message reaches it (D268 §3)"),

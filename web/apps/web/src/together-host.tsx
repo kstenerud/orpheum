@@ -6,6 +6,7 @@ import {
   playedMutedEvent,
   soundOnAtTap,
   type CannotKeepUp,
+  type PlaybackReport,
   type TogetherConnection,
 } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
@@ -34,12 +35,14 @@ interface HostPlayer {
   readonly startPositionMs: number;
   /** Whether even the host's lowest quality cannot keep up, which everyone is told (D247 §8). */
   readonly cannotKeepUp: CannotKeepUp | undefined;
+  /** How the film is given to the player, which the session is told (D371 §4). */
+  readonly delivery?: PlaybackReport["delivery"] | undefined;
 }
 
 /**
  * The host's player in their Watch Together session, while this tab hosts one (D246 §5): the film
  * the host starts plays for everyone; the host's own play, pause and seeks are the group's; the
- * host's video waits for the viewers only at the group's sync points (D250 §2). Leaving the player
+ * host's video leads the session, playing as it would alone, and the viewers catch up to it (D371). Leaving the player
  * leaves the film playing for the group, on the server's clock, the host's session page holding its
  * controls; Stop there, or another film the host plays, ends it (D364 §15, withdrawing D246 §5's stop
  * on leaving). With no session it shows nothing and does nothing.
@@ -73,15 +76,19 @@ interface LeadingPlayer {
   readonly startPositionMs: number;
   /** Where the film is put on from whatever the video says: where a cast's sender stood. */
   readonly putOnAtMs?: number | undefined;
+  /** How the film is given to the player, which the session is told (D371 §4). */
+  readonly delivery?: PlaybackReport["delivery"] | undefined;
 }
 
 /**
  * Leads a session from this player: once welcomed, puts its film on for the session from where the
- * video stands, unless the session plays it already; the player's own play, pause and seeks are the
- * session's, as it follows the session (D268); the film plays at the tab's volume (D281 §5).
+ * video stands, unless the session plays it already; the session's roster names this player its
+ * leader, which plays as it would alone, the group following it, and carries out another device's
+ * play, pause and seek as its own press; its own play, pause and seeks are the session's (D371);
+ * the film plays at the tab's volume (D281 §5).
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
-  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs } = leading;
+  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
   const hasPutOnRef = useRef(false);
   useEffect(() => {
     if (connection === undefined || !isWelcomed || hasPutOnRef.current) {
@@ -107,8 +114,9 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
             monotonicMs,
             startLag: startLagMemory(browserStorage()),
             page: pageThatPausesWhenHidden(),
+            delivery,
           }),
-    [connection, fileId, video],
+    [connection, fileId, video, delivery],
   );
   useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
 }
@@ -123,12 +131,12 @@ function HostLeading(
     credential: props.membership.credential,
     sessionToken: token,
   });
-  const { fileId, video, startPositionMs, onOver } = props;
+  const { fileId, video, startPositionMs, onOver, delivery } = props;
   // The tab's one voice for the session, shared with the session's page (D281 §5).
   const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
   const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;
-  useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs });
+  useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs, delivery });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
     if (isOver) {

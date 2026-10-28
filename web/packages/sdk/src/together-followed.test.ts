@@ -81,7 +81,7 @@ describe("a player's word of a play its follower did not make while its group he
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     media.paused = false;
     media.fire("play");
-    setGroup({ ...paused, state: "Playing", event: "everyoneReady" }, monotonicNowMs);
+    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, monotonicNowMs);
     media.fire("play");
     expect(notes.filter((note) => note.kind === "playedWhileHeld")).toEqual([
       { kind: "playedWhileHeld", positionMs: 60_000, why: "page" },

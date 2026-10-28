@@ -9,6 +9,7 @@ import {
   type Api,
   type CannotKeepUp,
   type CastToReceive,
+  type PlaybackReport,
   type Press,
   type TogetherConnection,
   type TogetherEndReason,
@@ -67,6 +68,8 @@ export function PlaysAlong(props: {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** Whether an episode plays after the film, which its Up next plays (plans/up-next.md). */
   readonly hasNext: boolean;
+  /** How the film is given to the player, which its session is told (D371 §4). */
+  readonly delivery?: PlaybackReport["delivery"] | undefined;
 }): JSX.Element {
   const { receiving, hasNext, ...player } = props;
   return receiving === undefined ? (
@@ -135,6 +138,8 @@ export function CastReceiver(props: {
   readonly startPositionMs: number;
   /** Whether an episode plays after the film, whose Up next moves the cast on to it at its end. */
   readonly hasNext?: boolean;
+  /** How the film is given to the player, which the remote shows (D371 §4). */
+  readonly delivery?: PlaybackReport["delivery"] | undefined;
 }): JSX.Element {
   const { api } = useServices();
   const { cast, onOver, onLeave } = props.receiving;
@@ -147,6 +152,7 @@ export function CastReceiver(props: {
     video,
     startPositionMs: props.startPositionMs,
     putOnAtMs: cast.positionMs,
+    delivery: props.delivery,
   });
   useFillsTheWindow(video);
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });

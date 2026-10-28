@@ -152,7 +152,6 @@ var sectionByKey = map[Key]Section{
 	TogetherStartLeadMs:                            SectionTogether,
 	TogetherLinkLifetimeSeconds:                    SectionTogether,
 	TogetherIdleSessionEndHours:                    SectionTogether,
-	TogetherSyncWaitSeconds:                        SectionTogether,
 	VoiceRelayCredentialHours:                      SectionTogether,
 	AssignedJobLimitHours:                          SectionNodes,
 	ReaderLimitNetworkShare:                        SectionNodes,

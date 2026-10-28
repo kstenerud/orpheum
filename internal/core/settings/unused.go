@@ -46,6 +46,10 @@ func RetiredKeys() []RetiredKey {
 			Key: "scan_subtitle_extensions", Release: afterBeta7,
 			Reason: "the extensions a scan reads as subtitles are the code's, the formats the node converts (D360)",
 		},
+		{
+			Key: "together_sync_wait_seconds", Release: afterBeta7,
+			Reason: "a Watch Together group waits for no one but its leader, which nothing holds (D371 §2)",
+		},
 	}
 }
 

@@ -71,7 +71,7 @@ func TestHub_ASessionIdleForItsIdleEndIsEnded(t *testing.T) {
 	stage.command(t, stage.host, CommandPause, 0)
 	stage.clock.Advance(5 * time.Hour)
 	stage.ready(t, stage.guestDevice, false)
-	stage.tick(t, stage.host)
+	stage.hub.Handle(t.Context(), stage.host, Inbound{Type: MessagePing})
 	if ended := stage.hub.EndStale(lifetimes); len(ended) != 0 {
 		t.Fatalf("a session paused for 5 hours was ended: %v", ended)
 	}
