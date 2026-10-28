@@ -33,6 +33,7 @@ const (
 	eventFullScreen        = "fullScreen"
 	eventPlayedWithSound   = "playedWithSound"
 	eventGroupChanged      = "groupChanged"
+	eventGroupFollowed     = "groupFollowed"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
@@ -67,9 +68,13 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 
 // logNote logs, at debug, one thing a device's player did, with only its kind's fields; a note
 // of no known kind is refused as invalid.
-func (current *session) logNote(ctx context.Context, who *member, from *device, note *PlayerNote) {
+func (current *session) logNote(ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote) {
 	if note == nil || !note.isKnown() {
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+		return
+	}
+	if note.Kind == NoteGroupFollowed {
+		current.logFollowed(ctx, now, who, from, note)
 		return
 	}
 	if current.logAtInfo(ctx, who, from, note) {
@@ -105,6 +110,23 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		attributes = append(attributes, "track", note.Track)
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player noted", attributes...)
+}
+
+// logFollowed logs, at info, a player moving as a change of its group asked: which change, how long
+// after the server announced it the player's word of it arrived, which holds the trip there and back
+// and the player's own wait, and how long the player held it and why. A cast's receiver played on
+// seven seconds after its remote paused it, and nothing said where those seconds went (the owner,
+// 2026-10-28). A change the group has since moved on from has no time kept: only its number is said.
+func (current *session) logFollowed(ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote) {
+	attributes := append(current.deviceAttributes(who, from), logEvent, eventGroupFollowed,
+		"seq", note.Seq, "heldMs", note.HeldMs, "heldBy", note.Why)
+	if note.Seq == current.group.seq {
+		attributes = append(attributes, "event", string(current.group.event),
+			"afterChangeMs", now.Sub(current.group.changedAt).Milliseconds())
+	} else {
+		attributes = append(attributes, "groupSeq", current.group.seq)
+	}
+	current.logger.InfoContext(ctx, "watch together: a player followed its group's change", attributes...)
 }
 
 // logAtInfo logs, at info, a note that says what a person asks about, voice and what a player held
@@ -161,7 +183,8 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked:
 		current.logSound(ctx, who, from, note)
 		return true
-	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected,
+		NoteGroupFollowed: // logNote logs them
 	}
 	return false
 }
@@ -192,7 +215,7 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
-		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand: // logAtInfo logs them
+		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed: // logAtInfo logs them
 	}
 }
 

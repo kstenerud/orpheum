@@ -4,7 +4,6 @@ import "./film-player.css";
 
 import {
   keepScreenAwake,
-  isHandheld,
   pauseWhenHidden,
   mediaErrorFailure,
   meterBufferGrowth,
@@ -33,6 +32,7 @@ import { useTranslation } from "react-i18next";
 import { startingAudioTrack } from "./audio-tracks.tsx";
 import { camelKey } from "./catalogue-key.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
+import { isThisHandheld } from "./handheld.ts";
 import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
@@ -191,11 +191,7 @@ function Stage(
   useHealedOnEmptied(videoRef);
   useEffect(() => {
     const video = videoRef.current;
-    const signs = {
-      maxTouchPoints: navigator.maxTouchPoints,
-      matchMedia: (query: string) => window.matchMedia(query),
-    };
-    return video === null ? undefined : pauseWhenHidden(video, document, isHandheld(signs));
+    return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
   return (
     <>

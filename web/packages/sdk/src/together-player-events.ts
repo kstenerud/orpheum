@@ -6,6 +6,8 @@
  * fires at it, to hold its loading while the group waits.
  */
 
+import type { TogetherConnection } from "./together-connection.ts";
+
 /**
  * The event a player fires at its video as it moves the video itself, before the seeking that
  * follows: hls.js steps over a gap in what it loaded, or nudges a stalled video on. That seek is
@@ -100,6 +102,16 @@ export function chunkLoadedOf(event: Event): ChunkLoaded | undefined {
     typeof filmMs === "number"
     ? { track, loadMs, loadedKbps, qualityKbps, filmMs }
     : undefined;
+}
+
+/** Notes for the server's log each switch of quality the player tells of. */
+export function noteQualitySwitched(connection: TogetherConnection): (event: Event) => void {
+  return (event) => {
+    const switched = qualitySwitchedOf(event);
+    if (switched !== undefined) {
+      connection.note({ kind: "qualitySwitched", ...switched });
+    }
+  };
 }
 
 /** A playerSwitchedQualityEvent's quality, or undefined when the event carries none. */

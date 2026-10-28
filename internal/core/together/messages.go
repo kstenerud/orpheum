@@ -176,8 +176,13 @@ const (
 	// NoteCorrectsBySeeks is a follower whose rate's returns to its group's cost it ReturnCostMs,
 	// more than the drift left alone, correcting by seeks alone from then on (D268 §2).
 	NoteCorrectsBySeeks NoteKind = "correctsBySeeks"
-	NoteLeaderCommand   NoteKind = "leaderCommand"
-	NoteUnmuted         NoteKind = "unmuted"
+	// NoteGroupFollowed is a player moving as a change of its group, Seq, asks, HeldMs after the
+	// change reached it, Why what held it that long ("atOnce" for nothing): a cast's receiver went on
+	// playing seven seconds after its remote paused it, and nothing said whether the pause came late
+	// or the player held it (the owner, 2026-10-28).
+	NoteGroupFollowed NoteKind = "groupFollowed"
+	NoteLeaderCommand NoteKind = "leaderCommand"
+	NoteUnmuted       NoteKind = "unmuted"
 	// NoteContinueAsked is a guest's page asking for a tap to continue, Why how the browser came to
 	// show it ("navigate", "reload", "back_forward", "prerender") and Page what else it knows: an
 	// iPhone that joined by its keyboard's Go was asked straight after, and nothing said whether the
@@ -256,6 +261,10 @@ type PlayerNote struct {
 	Page string `json:"page,omitempty"`
 	// By is how the person pressed for an unmuted or fullScreen note: "tap", "click" or "key".
 	By string `json:"by,omitempty"`
+	// Seq is a groupFollowed note's change of the group, by its number; HeldMs, how long after the
+	// change reached the player it moved.
+	Seq    int64 `json:"seq,omitempty"`
+	HeldMs int64 `json:"heldMs,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -314,7 +323,7 @@ func (note PlayerNote) isKnown() bool {
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall, NoteVoiceTalk:
 		return note.isKnownVoice()
-	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld:
+	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteGroupFollowed:
 		return note.isKnownFollowing()
 	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked, NotePlayedWithSound:
 		return note.isKnownSound()
@@ -360,9 +369,16 @@ func (note PlayerNote) isKnownSound() bool {
 			note.By == ""
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
-		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen: // isKnown reads them
+		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen,
+		NoteGroupFollowed: // isKnown reads them
 	}
 	return false
+}
+
+// isGroupHeldBy is whether word may say what held a player from following its group's change: its
+// page hidden, its own command awaiting the group's answer, its film still loading, or nothing.
+func isGroupHeldBy(word string) bool {
+	return slices.Contains([]string{"atOnce", "hidden", "awaitingAnswer", "loading"}, word)
 }
 
 // isKnownFollowing is whether a note of how a follower follows its group is one the server logs: a
@@ -381,6 +397,8 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.ReturnCostMs >= 0 && note.Why == ""
 	case NoteLoadHeld:
 		return note.Why == "held" || note.Why == "goesOn"
+	case NoteGroupFollowed:
+		return note.Seq > 0 && note.HeldMs >= 0 && isGroupHeldBy(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
 		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound: // isKnown reads them
@@ -403,7 +421,7 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
 		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
-		NotePlayedWithSound: // not voice's: isKnown reads them
+		NotePlayedWithSound, NoteGroupFollowed: // not voice's: isKnown reads them
 	}
 	return false
 }

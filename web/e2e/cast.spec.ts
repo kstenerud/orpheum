@@ -12,13 +12,34 @@
 import { expect, type Browser, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { oneBrowserTag } from "./only-these-tests.ts";
+import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
 import { isPlaying, openFilm, signIn } from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 
 /** Whether the page's video is paused. */
 async function isPaused(page: Page): Promise<boolean> {
   return await page.locator("video").evaluate((video: HTMLVideoElement) => video.paused);
+}
+
+/**
+ * How soon a receiver pauses after its remote's Pause, at most, in ms: a LAN's push takes tens of
+ * milliseconds, and a receiver behind its remote's window took seven seconds (the owner, 2026-10-28).
+ */
+const pausedWithinMs = 1000;
+
+/**
+ * Shows the page as hidden, or shown again, as a browser does a window behind another: the receiver
+ * and its remote side by side on one computer, the remote's window over the receiver's. A headless
+ * browser's page is never hidden of itself.
+ */
+async function setHidden(page: Page, isHidden: boolean): Promise<void> {
+  await page.evaluate((isNowHidden) => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (isNowHidden ? "hidden" : "visible"),
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, isHidden);
 }
 
 /** The status tray's Cast sign, white while nothing is cast and blue while a cast is on. */
@@ -77,13 +98,19 @@ async function castFromOneToTheOther(
 
 test(
   "a person casts to another of their devices, controls it, plays a second film there with no question, and takes control back",
-  { tag: oneBrowserTag },
+  // Timed: the receiver pauses within pausedWithinMs of its remote's Pause.
+  { tag: [oneBrowserTag, timingTag] },
   async ({ browser }) => {
     await castBetweenTwo(browser, async ({ sender, receiver }) => {
       await expect(receiver.locator(".tv-controls")).toHaveCount(1);
 
+      // A computer's hidden page plays on, so its receiver follows its remote hidden or not.
+      await setHidden(receiver, true);
       await sender.getByRole("button", { name: "Pause" }).click();
-      await expect.poll(async () => await isPaused(receiver), { timeout: 10_000 }).toBe(true);
+      await expect
+        .poll(async () => await isPaused(receiver), { timeout: pausedWithinMs, intervals: [50] })
+        .toBe(true);
+      await setHidden(receiver, false);
       await sender.getByRole("button", { name: "Play", exact: true }).click();
       await expect.poll(async () => await isPaused(receiver), { timeout: 10_000 }).toBe(false);
 

@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage } from "./browser-storage.ts";
+import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { idempotent } from "./idempotent.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
@@ -588,7 +589,7 @@ function useFollowing(
       leads: { canPlayPause, canSeek },
       monotonicMs,
       startLag: startLagMemory(browserStorage()),
-      page: document,
+      page: pageThatPausesWhenHidden(),
     });
     return () => {
       stopFollowing();

@@ -52,6 +52,9 @@ export interface PlayerState {
  *   residuals of a placing kept for minutes are the two clocks' skew (D264, D268 §1);
  * - ownMarkExpired: a seek or pause the follower made fired no event within ownMarkLastsMs, and its
  *   mark was given up (D268 §4);
+ * - groupFollowed: the player moved as the group's change seq asks, heldMs after the change reached
+ *   it, why what held it that long (GroupHeldBy): a cast's receiver played on seven seconds after
+ *   its remote paused it, and nothing said where those seconds went (the owner, 2026-10-28);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
  *   tap, and it plays muted (playedMutedEvent), page whether the page had been pressed
  *   (pageActivation);
@@ -133,6 +136,14 @@ export type PlayerNote =
       readonly by?: Press;
     }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
+  | {
+      readonly kind: "groupFollowed";
+      /** The change of the group the player moved for, by its number (TogetherSnapshot's groupSeq). */
+      readonly seq: number;
+      /** How long after the change reached it the player moved, in ms. */
+      readonly heldMs: number;
+      readonly why: GroupHeldBy;
+    }
   | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
   | { readonly kind: "loadHeld"; readonly why: "held" | "goesOn" }
   | {
@@ -171,6 +182,13 @@ export type PlayerNote =
       /** How long since the page loaded, and whether it joined itself. */
       readonly page: string;
     };
+
+/**
+ * What held a player from following its group's change as it arrived: nothing ("atOnce"), its page
+ * hidden on a handheld, whose film waits there ("hidden"), its own command awaiting the group's
+ * answer ("awaitingAnswer"), or its film not yet loaded far enough to be moved ("loading").
+ */
+export type GroupHeldBy = "atOnce" | "hidden" | "awaitingAnswer" | "loading";
 
 /**
  * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its

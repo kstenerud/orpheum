@@ -99,6 +99,11 @@ export interface TogetherSnapshot {
   /** What this device's member may do to playback, as the welcome said (D271 §4). */
   readonly rights: PlaybackRights;
   readonly group: GroupView | undefined;
+  /**
+   * The number of the group's change that group is, as the server counts them; absent until the
+   * welcome. A player's word that it followed a change names it (the groupFollowed note).
+   */
+  readonly groupSeq?: number;
   /** The monotonic time at which group arrived: a playing group has moved on from it since. */
   readonly groupReceivedAtMs: number;
   /**
@@ -303,6 +308,7 @@ function afterMessage(
         isHost: message.isHost,
         rights: message.rights,
         group: message.group,
+        groupSeq: message.seq,
         groupReceivedAtMs: nowMs,
         groupPlacedByRttMs: undefined,
         roster: message.roster,
@@ -313,6 +319,7 @@ function afterMessage(
     case "group":
       return {
         ...afterGroup(current, message.group, nowMs),
+        groupSeq: message.seq,
         answersHeard: current.answersHeard + 1,
       };
     case "roster":

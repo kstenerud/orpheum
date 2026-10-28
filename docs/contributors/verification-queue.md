@@ -930,3 +930,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   Back and Close shut it, and the account page no longer lists libraries. On an iPhone's installed
   app, the edge swipe goes back, from the player too. (`web/apps/web/src/navigation.ts`, `upward.ts`,
   `up-trail.tsx`, `series.tsx`, `play-up.tsx`, `tv-controls.tsx`, `library-configure.tsx`)
+- [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
+  Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
+  receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's
+  sound at once, never seconds later; (2) Play plays it again within a second, and a step forward
+  or back moves it at once; (3) the same with Watch Together off; (4) a Watch Together guest on a
+  computer whose browser window is behind another follows the host's pause and play at once; (5)
+  an iPhone guest whose browser goes to the background still pauses its film, plays nothing
+  there, and rejoins the group when shown. In the core's log each player's `groupFollowed` line
+  says `heldBy=atOnce` with an `afterChangeMs` of tens of milliseconds, and the iPhone's
+  `heldBy=hidden` while it was away. (`web/apps/web/src/handheld.ts`, `together-host.tsx`,
+  `together-viewer.tsx`; `web/packages/sdk/src/together-follow.ts`, `together-followed.ts`;
+  `internal/core/together/player_log.go`)

@@ -181,6 +181,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A test driving fake timers past a real-time bound with one big `advanceTimersByTimeAsync` call hung to vitest's own test timeout, only on the path where the awaited condition resolved partway through. | [One large `advanceTimersByTimeAsync` call can leave a loop awaiting React's `act()` never resolving](#one-large-advancetimersbytimeasync-call-can-leave-a-loop-awaiting-reacts-act-never-resolving) |
 | An iPhone pauses a video as its own full-screen player closes | [An iPhone pauses a video as its own full-screen player closes](#an-iphone-pauses-a-video-as-its-own-full-screen-player-closes) |
 | An iPhone in a group paused everyone as its screen locked | [iOS pauses a playing video as its screen locks, before the page is told it is hidden](#ios-pauses-a-playing-video-as-its-screen-locks-before-the-page-is-told-it-is-hidden) |
+| A cast's receiver on a Mac played on seconds after its remote paused it | [A computer's browser hides a page whose window is covered, and plays its film on](#a-computers-browser-hides-a-page-whose-window-is-covered-and-plays-its-film-on) |
 | Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
 | Playwright grants "microphone" only on Chromium; | [Playwright grants "microphone" only on Chromium; Firefox needs prefs](#playwright-grants-microphone-only-on-chromium-firefox-needs-prefs) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
@@ -956,6 +957,27 @@ User-Agent (D263; the User-Agent is logged only).
   browser's, a page gets it only with keyboard lock, at the top level); [MDN,
   fullscreenchange](https://developer.mozilla.org/docs/Web/API/Document/fullscreenchange_event)
   (read 2026-10-27).
+
+
+### A computer's browser hides a page whose window is covered, and plays its film on
+
+- **Technology:** `document.visibilityState` in desktop Chrome on macOS (and other desktop browsers
+  for a page in another tab or Space).
+- **Symptom:** a cast's receiver, Chrome on the same Mac as its remote's Firefox, went on playing
+  seven seconds after the remote paused it (the owner, staging, 2026-10-28; the core's log: the
+  receiver's play report `isPageHidden=true`, and `ownMarkExpired move=pause` just after each
+  command).
+- **Cause:** Chrome on macOS drives `visibilityState` by the window's occlusion: a window covered
+  by another is `hidden`, though its video and sound play on. A Watch Together follower held every
+  change of its group while its page was hidden, a rule made for an iPhone, whose hidden page has
+  its film paused (`pauseWhenHidden`).
+- **What we do:** a following player waits on a hidden page only on a handheld
+  (`pageThatPausesWhenHidden`, `web/apps/web/src/handheld.ts`); a computer's follows its group
+  hidden or not. Each player tells the log how long after a change it followed it
+  (`logEvent=groupFollowed`, `heldBy`). VQ92.
+- **Evidence:** [owner] staging 2026-10-28. **[web]** [Mozilla 1779559](https://bugzilla.mozilla.org/show_bug.cgi?id=1779559)
+  (Chrome's `visibilityState` reflects window occlusion on macOS); [Disable Chrome Window
+  Occlusion](https://dev.to/giancarlorocha/disable-chrome-window-occlusion-56l3) (read 2026-10-28).
 
 
 ### Secure-context APIs are simply absent on plain HTTP off localhost
