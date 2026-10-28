@@ -6,6 +6,7 @@ import Hls from "hls.js";
 
 import { playerBufferedFirstEvent } from "@orpheum/sdk";
 
+import { moveSoundEarlier, SoundShift, soundKeptAtShiftS } from "./audio-shift.ts";
 import {
   codecsOf,
   diagnose,
@@ -135,6 +136,27 @@ describe("what a stalled video held, for its report (D266)", () => {
     listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, type: "audio" });
     listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, startOffset: 12.5, type: null });
     expect(diagnosisOf(video)?.steps).toBe("audio flushed from 0.00; all flushed from 12.50");
+  });
+
+  it("says where a sound moved earlier is thrown away: past the window kept ahead of the playhead", () => {
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+      trigger: (event: string, data: unknown) => {
+        listeners.get(event)?.(event, data);
+        return true;
+      },
+    };
+    const video = Object.assign(new EventTarget(), { error: null, currentTime: 100 });
+    diagnose(hls as unknown as DiagnosedHls, video);
+    const element = video as unknown as HTMLMediaElement;
+    new SoundShift().attach(hls, element);
+    moveSoundEarlier(element, 331);
+    expect(diagnosisOf(video)?.steps).toBe(
+      `audio flushed from ${(100 + soundKeptAtShiftS).toFixed(2)}`,
+    );
   });
 
   it("keeps the player's own last three choices after its steps, and none for a video not diagnosed", () => {
