@@ -59,7 +59,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A chunked playback keeps its sound's place as its quality moves between audio groups**: the
   top of a film's ladder plays its own sound in a group of its own, every group in one order
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
-  matches one by name and channels (`keepAudioRendition`, `src/hls.ts`; idiosyncrasies.md).
+  matches one by name and channels, in the form of the sound loaded, so hls.js keeps the sound
+  loaded and loads the new one on from its end; only a sound the person chooses throws the loaded
+  sound away (`keepAudioRendition`, `src/hls.ts`; D368's revision of 2026-10-28; idiosyncrasies.md).
   `hls.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
   plays on after a seek, only once what it loaded ahead, picture and sound both, outlasts its next

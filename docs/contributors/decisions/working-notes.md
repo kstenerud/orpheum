@@ -23687,6 +23687,25 @@ channels. The start's log line (`internal/core/api/playback.go`) says `delivery=
 quality. A device that cannot play a track's codec and channels gets the light stereo track at the
 top too, D336 §2's made sound.
 
+**Revised 2026-10-28** by the owner ("yes", agreeing the lead's fix for the batch): §3's switch
+threw the loaded sound away. A Fire TV playing Nosferatu (staging, file 5671, device 60) stepped down
+from the top (D352's revision of the same day): hls.js moves the sound to the new quality's group
+as it asks for the picture's next chunk, loaded 37 s ahead of where it plays, and, the light
+track's channels differing from the copied sound's, flushes all the sound loaded
+(`flushAudioIfNeeded`). The sound held 3049.13–3051.62 against the picture's 3049.46–3088.04, the
+light track's chunks from there were being made (425), and the TV stalled 1172 ms. **The sound
+loaded plays out, and the new quality's sound is loaded on from its end**, so it is heard where
+that quality's picture begins: the player switches to the rendition at the place in the form
+(channels, codec) of the sound loaded, and gives the rendition its own form back at once
+(`keepAudioRendition`, `web/packages/player/src/hls.ts`), which hls.js takes for the same sound and
+loads on from the end of the sound loaded, as it does for two groups' stereo tracks of one name; the
+init segment the new chunks carry tells the browser their channels and codec, as after a flush. A
+sound the person chooses (another track, the dialogue boost) still plays at once, the loaded sound
+thrown away. Whether the browser plays the change of channels at the boundary without a gap is
+VQ116's to hear (idiosyncrasies.md, hls.js's entry). *Proven by:* web/packages/player/src/hls.test.ts
+("keeps the sound loaded when its quality steps down to the light track, the new one loaded from its
+end"; "plays a sound the person chooses at once, the loaded one thrown away"); VQ116.
+
 ## D369 — Every device plays with the app's own player controls, built from one standard set of player widgets
 
 **Decided** (2026-10-27), by the project owner. On a computer the Play page used the browser's own video
