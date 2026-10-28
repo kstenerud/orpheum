@@ -1007,7 +1007,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   replaced, and a library chosen, then Back, returns to the library before. The owner, 2026-10-28:
   "with the chooser widget I can only exit without choosing by pressing the back button, which
   actually brings me back a page." (`web/apps/web/src/navigation.ts`'s `holdBack`,
-  `modal-dialog.tsx`, `drop-down.tsx`, `route-chooser.tsx`, `app-shell.tsx`)
+  `modal-dialog.tsx`, `drop-down.tsx`, `route-chooser.tsx`, `app-shell.tsx`) Changed after the
+  owner's check of 2026-10-28 ("it shifted the page up before displaying it", "Left/right didn't
+  close it", "the initial selected widget is the close button"): (7) a list opens on its current
+  choice, else its first place, never its Close; (8) opening and closing a chooser on a series' page
+  scrolled down, and Up to its Close, leave the page where it was, the picker in view after Back; (4)
+  holds from the Close too; and should Left or Right leave a list open, the core's log has a client
+  problem "a drop-down stayed open at …" saying which layer took the key: note it here.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays

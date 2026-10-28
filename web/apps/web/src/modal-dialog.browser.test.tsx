@@ -11,7 +11,7 @@ import "./base.css";
 
 import { useState, type JSX } from "react";
 import { describe, expect, it } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { ModalDialog } from "./modal-dialog.tsx";
 import { mount } from "./test-dom.tsx";
@@ -69,6 +69,60 @@ describe("a modal dialog, laid out by a real browser", () => {
     expect(document.activeElement?.closest("dialog")).not.toBeNull();
     await userEvent.keyboard("{Backspace}");
     expect(mounted.container.querySelector("dialog")).toBeNull();
+    mounted.unmount();
+  });
+
+  // The owner on a Fire TV, 2026-10-28: a chooser's button left off the screen as its list closed
+  // was brought back to its middle, the page jumping under the remote.
+  it("gives focus back to its opener without moving the page where the opener shows, and brings one off the screen in only as far as it must", async () => {
+    await page.viewport(960, 480);
+    function Opened(): JSX.Element {
+      const [isOpen, setIsOpen] = useState(false);
+      return (
+        <>
+          <div style={{ height: "1500px" }} />
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(true);
+            }}
+          >
+            opener
+          </button>
+          <div style={{ height: "1500px" }} />
+          {isOpen ? (
+            <ModalDialog
+              label="Which"
+              onClose={() => {
+                setIsOpen(false);
+              }}
+            >
+              <button type="button">inside</button>
+            </ModalDialog>
+          ) : null}
+        </>
+      );
+    }
+    const mounted = await mount(withServices(<Opened />));
+    const opener = page.getByRole("button", { name: "opener" }).element();
+    const openAndClose = async (): Promise<void> => {
+      await userEvent.click(opener);
+      await expect.poll(() => document.querySelector("dialog")).not.toBeNull();
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.activeElement).toBe(opener);
+    };
+    window.scrollTo({ top: 1500 - 240 });
+    const shown = window.scrollY;
+    await openAndClose();
+    expect(window.scrollY).toBe(shown);
+    // Opened, then the page moved off it: it comes in at the screen's bottom edge, not its middle.
+    await userEvent.click(opener);
+    await expect.poll(() => document.querySelector("dialog")).not.toBeNull();
+    window.scrollTo({ top: 0 });
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => document.activeElement).toBe(opener);
+    expect(opener.getBoundingClientRect().bottom).toBeGreaterThan(window.innerHeight - 4);
+    expect(opener.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight + 1);
     mounted.unmount();
   });
 });

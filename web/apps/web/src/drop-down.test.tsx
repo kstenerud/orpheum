@@ -1,0 +1,87 @@
+// @vitest-environment happy-dom
+// SPDX-License-Identifier: MPL-2.0
+
+import "./i18n.ts";
+
+import { sendFailuresTo } from "@orpheum/sdk";
+import { act, type ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { DropDown } from "./drop-down.tsx";
+import { fire, mount } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
+
+/** A drop-down of two places, around which tree is drawn. */
+function twoPlaces(around: (tree: ReactNode) => ReactNode): ReactNode {
+  return around(
+    <DropDown label="Which" opener="Open" openerClassName="opener" openerNaming={{}}>
+      <li>
+        <button type="button">one</button>
+      </li>
+      <li aria-current="page">
+        <button type="button">two</button>
+      </li>
+    </DropDown>,
+  );
+}
+
+/** Presses Left where focus is, and lets the drop-down's check of it run. */
+async function pressLeft(): Promise<void> {
+  await fire(
+    document.activeElement,
+    new KeyboardEvent("keydown", { key: "ArrowLeft", code: "ArrowLeft", bubbles: true }),
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+describe("a drop-down", () => {
+  afterEach(() => {
+    sendFailuresTo(() => undefined);
+    vi.restoreAllMocks();
+  });
+
+  it("opens on its current place, not its Close", async () => {
+    const mounted = await mount(twoPlaces((tree) => withServices(tree)));
+    await fire(
+      mounted.container.querySelector(".opener"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    expect(document.activeElement?.textContent).toBe("two");
+    mounted.unmount();
+  });
+
+  // The owner's Fire TV, 2026-10-28: Left and Right left the list open, focus on a place.
+  it("tells the core's log of a Left that left it open: the key, who took it, and where focus was", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    // No input layer: nothing turns the key into a command, so nothing closes the list.
+    const mounted = await mount(twoPlaces((tree) => tree));
+    await fire(
+      mounted.container.querySelector(".opener"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    await pressLeft();
+    expect(mounted.container.querySelector("dialog")).not.toBeNull();
+    expect(sent).toEqual([
+      "Error: a drop-down stayed open at left: key ArrowLeft, keyCode 0, code ArrowLeft, taken before the app false, taken after false, focus on button in the list",
+    ]);
+    mounted.unmount();
+  });
+
+  it("tells nothing of a Left that closed it", async () => {
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const mounted = await mount(twoPlaces((tree) => withServices(tree)));
+    await fire(
+      mounted.container.querySelector(".opener"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    await pressLeft();
+    expect(mounted.container.querySelector("dialog")).toBeNull();
+    expect(sent).toEqual([]);
+    mounted.unmount();
+  });
+});

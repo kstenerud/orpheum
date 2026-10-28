@@ -4,6 +4,7 @@ import "./modal-dialog.css";
 
 import { use, useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 
+import { scrollIntoViewGently } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
 import { ServicesContext } from "./services.tsx";
 
@@ -33,13 +34,17 @@ function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): v
  * page and focus is nowhere else: in the dialog going, or lost to the page with it. The browser gives
  * it back itself only to a dialog closed while on the page, and the page closes one by removing it,
  * so focus fell to the page's start, and a keyboard or a remote began again from there (D361 §3).
- * Focus something else took meanwhile, as a page moved to, stays where it is.
+ * Focus something else took meanwhile, as a page moved to, stays where it is. Given back without
+ * scrolling the page, which brings it into view only where it is out of it: the browser's own focus
+ * scrolled the page to a chooser's button the opening had moved off the screen (the owner on a Fire
+ * TV, 2026-10-28), and centres what it brings in.
  */
 function giveFocusBack(dialog: HTMLDialogElement, focusedBefore: Element | null): void {
   const now = document.activeElement;
   const isLost = now === null || now === document.body || dialog.contains(now);
   if (isLost && focusedBefore instanceof HTMLElement && focusedBefore.isConnected) {
-    focusedBefore.focus();
+    focusedBefore.focus({ preventScroll: true });
+    scrollIntoViewGently(focusedBefore);
   }
 }
 

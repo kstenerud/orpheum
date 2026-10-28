@@ -11,9 +11,12 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { reportFailure } from "@orpheum/sdk";
 import { useTranslation } from "react-i18next";
 
+import { focusTargetsIn, isFocusTarget } from "./focus-engine.ts";
 import { IconButton } from "./icon-button.tsx";
+import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { CloseIcon } from "./player-icons.tsx";
@@ -46,6 +49,81 @@ function useFocusedPlaceShown(ref: RefObject<HTMLElement | null>): void {
       list.removeEventListener("focusin", show);
     };
   }, [ref]);
+}
+
+/**
+ * Focuses the list's current place as it opens, the choice a chooser shows (route-chooser.tsx) or the
+ * menu's page, else its first place: never its Close, which the browser's own opening focuses as the
+ * dialog's first control (the owner, 2026-10-28: "the initial selected widget is the close button.
+ * It should have the first actual item selected instead"). Focused without scrolling the page, which
+ * a drop-down's opening never moves; the list shows it within itself (useFocusedPlaceShown).
+ */
+function useCurrentPlaceFocused(ref: RefObject<HTMLElement | null>): void {
+  useEffect(() => {
+    const list = ref.current;
+    if (list === null) {
+      return;
+    }
+    const current = list.querySelector<HTMLElement>('[aria-current="page"]');
+    const onCurrent =
+      current === null || isFocusTarget(current) ? current : (focusTargetsIn(current)[0] ?? null);
+    (onCurrent ?? focusTargetsIn(list)[0])?.focus({ preventScroll: true });
+  }, [ref]);
+}
+
+/** What has focus, in a few words for the core's log: its tag and classes, and whether in list. */
+function focusedDescribed(list: Element | null): string {
+  const focused = document.activeElement;
+  if (focused === null || focused === document.body) {
+    return "nothing";
+  }
+  const where = list?.contains(focused) === true ? "in the list" : "outside the list";
+  const named = [focused.tagName.toLowerCase(), ...focused.classList].join(".");
+  return `${named} ${where}`;
+}
+
+/**
+ * Tells the core's log of a Left or Right that left the list open: on the owner's Fire TV (Silk 138,
+ * spatial navigation) neither closed it with focus on a place, where Chromium and Firefox close it
+ * by the same key (2026-10-28; idiosyncrasies.md). It says which key came, whether something had
+ * taken it before the app heard it and after, and where focus was, so the next check on the device
+ * shows which layer kept it. isClosingRef says the list was told to close, which it does a render
+ * later.
+ */
+function useStuckArrowTold(
+  ref: RefObject<HTMLElement | null>,
+  isClosingRef: RefObject<boolean>,
+): void {
+  useEffect(() => {
+    const checks = new Set<ReturnType<typeof setTimeout>>();
+    const heard = (event: KeyboardEvent): void => {
+      const direction = directionOfKey(event.key, keyCodeOf(event));
+      if (direction !== "left" && direction !== "right") {
+        return;
+      }
+      const isTakenBefore = event.defaultPrevented;
+      const focused = focusedDescribed(ref.current);
+      const check = setTimeout(() => {
+        checks.delete(check);
+        if (!isClosingRef.current) {
+          reportFailure(
+            new Error(
+              `a drop-down stayed open at ${direction}: key ${event.key}, keyCode ${String(keyCodeOf(event))}, code ${event.code}, taken before the app ${String(isTakenBefore)}, taken after ${String(event.defaultPrevented)}, focus on ${focused}`,
+            ),
+          );
+        }
+      }, 0);
+      checks.add(check);
+    };
+    // At the window, capturing: before the app's input layer and anything else of the page.
+    globalThis.addEventListener("keydown", heard, true);
+    return () => {
+      globalThis.removeEventListener("keydown", heard, true);
+      for (const check of checks) {
+        clearTimeout(check);
+      }
+    };
+  }, [ref, isClosingRef]);
 }
 
 /**
@@ -86,7 +164,10 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
  * the browser's own history step (Silk's on a Fire TV, D367 §10); at Left or Right, the list being one
  * column whose Up and Down move within it (the owner, 2026-10-28: "moving left/right while in a
  * chooser or menu closes it"), the press closing it alone; and by its own Close after its places,
- * which a remote's arrows reach. Focus goes back to the button (D361 §3).
+ * which a remote's arrows reach. It opens on its current place, else its first (useCurrentPlaceFocused),
+ * and neither its opening nor its closing moves the page under it (the owner, 2026-10-28, on a Fire
+ * TV: the season picker "shifted the page up before displaying it"). Focus goes back to the button
+ * (D361 §3).
  */
 export function DropDown(props: {
   /** The list's name for a screen reader. */
@@ -136,10 +217,20 @@ function DropDownList(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
-  const { onClose } = props;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const isClosingRef = useRef(false);
+  const { onClose: tellClosed } = props;
+  const onClose = useCallback(() => {
+    isClosingRef.current = true;
+    tellClosed();
+  }, [tellClosed]);
   useChoiceCloses(ref, onClose);
   useFocusedPlaceShown(ref);
-  useCommands(ref, (detail, event) => {
+  useCurrentPlaceFocused(ref);
+  useStuckArrowTold(contentRef, isClosingRef);
+  // Heard on all the list holds, its Close too, which a remote's Up reaches (the owner, 2026-10-28:
+  // "Left/right didn't close it", focus on the Close the opening had focused).
+  useCommands(contentRef, (detail, event) => {
     if (detail.command === "left" || detail.command === "right") {
       event.preventDefault();
       onClose();
@@ -155,17 +246,19 @@ function DropDownList(props: {
       onClose={onClose}
       shouldCloseOnOutsidePress
     >
-      {/* Its Close, a cross at the top-right that stays put, its places scrolling under it (the
-          owner, 2026-10-28: "a static close button in the top-right corner that the scrollable
-          portion scrolls under"). */}
-      <IconButton
-        label={t("dropDown.close")}
-        icon={<CloseIcon />}
-        onClick={onClose}
-        className="drop-down__close"
-      />
-      <div ref={ref} className="drop-down__places">
-        <ul>{props.children}</ul>
+      <div ref={contentRef} className="drop-down__content">
+        {/* Its Close, a cross at the top-right that stays put, its places scrolling under it (the
+            owner, 2026-10-28: "a static close button in the top-right corner that the scrollable
+            portion scrolls under"). */}
+        <IconButton
+          label={t("dropDown.close")}
+          icon={<CloseIcon />}
+          onClick={onClose}
+          className="drop-down__close"
+        />
+        <div ref={ref} className="drop-down__places">
+          <ul>{props.children}</ul>
+        </div>
       </div>
     </ModalDialog>
   );
