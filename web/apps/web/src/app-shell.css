@@ -132,6 +132,9 @@
 
 /* The status tray and the menu, together at the banner's end. */
 .app-shell__end {
+  /* How far apart its signs stand on a phone: three quarters of a fingertip square. */
+  --size-banner-sign-phone: calc(var(--size-control) * 0.75);
+
   display: flex;
   flex: none;
   align-items: center;
@@ -271,10 +274,20 @@
  */
 @media (max-width: 599px) {
   /* The bar's end beside the logo, in a phone's width: the realm said in the menu instead, the
-     logo the laurel alone (the owner, 2026-10-28: "the top bar stuff is overlapping"). The tray's
-     signs keep their fingertip square (D369 §1): with the laurel alone, they fit. */
+     logo the laurel alone (the owner, 2026-10-28: "the top bar stuff is overlapping"). */
   .app-shell__end .app-shell__realm {
     display: none;
+  }
+
+  /* The tray's signs and the menu's icon a quarter closer together than a fingertip square apart
+     (D369 §1's size elsewhere): the owner, 2026-10-28, "the top icons on the phone feel too far
+     apart, regardless of the available real estate. Try putting them about 1/4 closer". */
+  .app-shell__end .status-tray__button {
+    min-width: var(--size-banner-sign-phone);
+  }
+
+  .app-shell__end .app-shell__menu > summary {
+    padding-inline: calc((var(--size-banner-sign-phone) - 1.5rem) / 2);
   }
 
   /* The laurel alone (app-shell.tsx's HomeLogo), a little taller than the wordmark's letters. */

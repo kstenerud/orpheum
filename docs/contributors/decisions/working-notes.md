@@ -23659,6 +23659,12 @@ looks; a tap shows the bar and does not pause; `VolumeRange` stays the slider fo
 `Timeline`; Watch Together's viewer keeps the browser's controls and the settings rows' and Talk's
 icon buttons keep their own (both named in `player-widgets.test.ts` as waiting), for the batches of
 §5. Not seen on a device yet (VQ85).
+Revised for the phone's banner (the owner, 2026-10-28): "the top icons on the phone feel too far
+apart, regardless of the available real estate. Try putting them about 1/4 closer to each other". Below
+600 pixels wide, the status tray's signs and the menu's icon stand three quarters of a fingertip
+square apart (`app-shell.css`, `--size-banner-sign-phone`); every other icon button keeps §1's
+square (app-shell.browser.test.tsx measures the phone's, player-widgets.browser.test.tsx the rest
+from a tablet up).
 
 **Proven by:**
 - 1: web/apps/web/src/colour-tokens.test.ts, icon-button.test.tsx, timeline.test.tsx, player-controls.test.tsx, cast-remote.test.tsx, tv-controls.test.tsx, player-widgets.browser.test.tsx, ui-gallery.test.tsx; VQ85

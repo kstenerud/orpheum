@@ -15,6 +15,7 @@ import "./i18n.ts";
 
 import { act, createRef } from "react";
 import { describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 
 import { commandEventName } from "./input-commands.ts";
 import { IconButton } from "./icon-button.tsx";
@@ -51,6 +52,9 @@ const videoCard = "rgba(0, 0, 0, 0.8)";
 
 describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws every icon button, the status tray's signs too, a fingertip square: 2.75rem", async () => {
+    // From a tablet up: on a phone the banner's signs stand a quarter closer, by the owner's word
+    // (2026-10-28), which app-shell.browser.test.tsx measures.
+    await page.viewport(1280, 720);
     await drawn(<UiGallery />, (mounted) => {
       const sizes = [
         ...mounted.container.querySelectorAll(".icon-button, .status-tray__button--warning"),
