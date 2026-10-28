@@ -10,6 +10,7 @@ import { Icon } from "./icon.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
+import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
 import { productName } from "./product-name.ts";
@@ -114,11 +115,25 @@ interface Destination {
    * (the owner, 2026-10-11 and 2026-10-17).
    */
   readonly group: "watching" | "manage" | "develop" | "own";
+  /** Its icon, which a place for watching shows in the banner in place of its name (2026-10-28). */
+  readonly icon?: (props: { readonly className: string }) => JSX.Element;
 }
 
 const destinations: readonly Destination[] = [
-  { route: { screen: "films" }, labelKey: "films", audience: "everyone", group: "watching" },
-  { route: { screen: "series" }, labelKey: "series", audience: "everyone", group: "watching" },
+  {
+    route: { screen: "films" },
+    labelKey: "films",
+    audience: "everyone",
+    group: "watching",
+    icon: FilmsIcon,
+  },
+  {
+    route: { screen: "series" },
+    labelKey: "series",
+    audience: "everyone",
+    group: "watching",
+    icon: SeriesIcon,
+  },
   {
     // The Libraries page (D349 §9.1), which replaces Search in the top bar; its own labelKey is
     // the admin's "libraries" (Manage), reused: both say "Libraries", each at its own place.
@@ -126,6 +141,7 @@ const destinations: readonly Destination[] = [
     labelKey: "libraries",
     audience: "everyone",
     group: "watching",
+    icon: LibrariesIcon,
   },
   {
     // In the menu, not the places for watching: on a phone the row ran past the window (the owner,
@@ -360,16 +376,27 @@ export function MenuIcon(): JSX.Element {
   );
 }
 
-/** One place in the menu, marked when it is the current screen. */
+/**
+ * One place, in the banner or the menu, marked when it is the current screen: by its icon where it
+ * has one, its name then its label for a screen reader and a pointer's hover.
+ */
 function Place(props: {
   readonly destination: Destination;
   readonly isCurrent: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { destination } = props;
+  const name = t(`nav.${destination.labelKey}`);
+  const PlaceIcon = destination.icon;
   return (
     <li aria-current={props.isCurrent ? "page" : undefined}>
-      <Link to={destination.route}>{t(`nav.${destination.labelKey}`)}</Link>
+      {PlaceIcon === undefined ? (
+        <Link to={destination.route}>{name}</Link>
+      ) : (
+        <Link to={destination.route} className="app-shell__place-icon" label={name}>
+          <PlaceIcon className="app-shell__place-glyph" />
+        </Link>
+      )}
     </li>
   );
 }

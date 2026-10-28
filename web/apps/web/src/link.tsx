@@ -9,7 +9,7 @@ import { useServices } from "./services.tsx";
 export function Link(props: {
   readonly to: Route;
   readonly className?: string;
-  /** Its name for a screen reader, when its content is only an icon. */
+  /** Its name for a screen reader and a pointer's hover, when its content is only an icon. */
   readonly label?: string;
   /** Whether it leads to the page shown now, marked for the eye and a screen reader alike. */
   readonly isCurrent?: boolean;
@@ -45,6 +45,7 @@ export function Link(props: {
       href={routeHref(props.to)}
       className={props.className}
       aria-label={props.label}
+      title={props.label}
       aria-current={props.isCurrent === true ? "page" : undefined}
       onClick={follow}
     >
