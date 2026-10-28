@@ -28,6 +28,17 @@ export const seekReadyLoadsAtLeast = 1.5;
 /** Why the player is loading before it can play on: a stall or a catch-up's seek, or a seek. */
 type RefillCause = "stall" | "seek";
 
+/** What began a refill: a seek, the video waiting for data, or its readyState too low to play on. */
+export type RefillStart = "seeking" | "waiting" | "notReady";
+
+/** What event, heard with media as it is, begins a refill with. */
+function startedByOf(event: string, media: FollowedMedia): RefillStart {
+  if (event === "seeking" || media.seeking) {
+    return "seeking";
+  }
+  return event === "waiting" ? "waiting" : "notReady";
+}
+
 /** Whether a player refills, why, and how fast its last chunk of picture loaded. */
 export class Refill {
   #isRefilling = false;
@@ -36,6 +47,14 @@ export class Refill {
   #isNextSeekCatchUp = false;
   /** Film loaded per wall time of its last chunk of picture; undefined before one loaded. */
   #loadsFaster: number | undefined;
+
+  /** What began the refill under way, or the last one. */
+  #startedBy: RefillStart = "waiting";
+
+  /** What began the refill under way, or the last one: a seek, a wait for data, or too little to play. */
+  get startedBy(): RefillStart {
+    return this.#startedBy;
+  }
 
   /** Whether it is refilling. */
   get isRefilling(): boolean {
@@ -63,11 +82,19 @@ export class Refill {
       this.#cause = "stall";
     }
     if (event === "waiting" || event === "seeking" || media.readyState < haveFutureData) {
-      this.#isRefilling = true;
+      this.#startRefilling(event, media);
     } else if (this.#isRefilling && hasRefilled(media, this.#readyAheadMs())) {
       this.#isRefilling = false;
     }
   };
+
+  /** Refills, by event as media is, unless it already does. */
+  #startRefilling(event: string, media: FollowedMedia): void {
+    if (!this.#isRefilling) {
+      this.#startedBy = startedByOf(event, media);
+      this.#isRefilling = true;
+    }
+  }
 
   /** How much film loaded ahead it is ready on now. */
   readonly readyOnMs = (): number => this.#readyAheadMs();

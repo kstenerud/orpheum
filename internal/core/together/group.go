@@ -3,6 +3,7 @@
 package together
 
 import (
+	"context"
 	"slices"
 	"time"
 )
@@ -181,6 +182,52 @@ func (current *session) stalled(now time.Time, who *member, stalledDevice *devic
 	}
 	stalledDevice.isCatchingUp = true
 	current.change(now, GroupPlaying, EventContinuedWithout, who.id)
+}
+
+// followOnlyPlayer moves a playing group to where its only player says it is, as the player's state
+// reaches the server: with no other player to keep in step with, the group is its one player's, and
+// is not to correct it (D88: a cast is Watch Together with a group of one). A playing player is
+// placed half its round trip on from where it said; a stalled one where it stands. Every later
+// change of the group, a stall's wait, a pause, a start, is then where the player is: a group that
+// waited where it reckoned its player should be sought a Fire TV back 200 ms at each wait, each seek
+// another stall, and started it ahead again, nudged, stalling, over and over (the owner's cast,
+// staging, 2026-10-28). Before the group starts moving its position is the start's, which the
+// player is held at or runs up to (D268 §3, D282), so nothing is moved then. Nothing is announced:
+// the followers read where the group is from their next pong.
+func (current *session) followOnlyPlayer(
+	ctx context.Context, now time.Time, who *member, from *device, message Inbound,
+) {
+	if current.group.state != GroupPlaying || now.Before(current.group.at) || !message.Playing ||
+		!current.isOnlyPlayer(from) {
+		return
+	}
+	position := time.Duration(message.PositionMs) * time.Millisecond
+	if !message.Buffering {
+		rttMs := from.rttMs
+		if message.RTTMs > 0 {
+			rttMs = message.RTTMs
+		}
+		rtt := time.Duration(rttMs) * time.Millisecond
+		position += time.Duration(float64(rtt/2) * current.group.rate)
+	}
+	stepped := position - current.positionAt(now)
+	current.group.position, current.group.at = position, now
+	current.logger.DebugContext(ctx, "watch together: the group follows its only player",
+		append(current.deviceAttributes(who, from), logEvent, eventFollowedOnlyPlayer,
+			positionMsAttribute, position.Milliseconds(), "steppedMs", stepped.Milliseconds())...)
+}
+
+// isOnlyPlayer is whether the device is the session's only player: no other device of any member
+// plays.
+func (current *session) isOnlyPlayer(only *device) bool {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached != only && attached.role.plays() {
+				return false
+			}
+		}
+	}
+	return only.role.plays()
 }
 
 // dropped takes a player's leaving: a playing group it was the last to play along with waits, as

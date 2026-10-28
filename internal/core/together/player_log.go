@@ -15,25 +15,27 @@ const logEvent = "logEvent"
 
 // logEvent's values, one per log line that carries it.
 const (
-	eventPlayerChanged     = "playerChanged"
-	eventPlayerNoted       = "playerNoted"
-	eventVoiceMeasured     = "voiceMeasured"
-	eventVoiceCallStep     = "voiceCallStep"
-	eventPongResidual      = "pongResidual"
-	eventVoiceOff          = "voiceOff"
-	eventMicrophoneChanged = "microphoneChanged"
-	eventLoadHeldChanged   = "loadHeldChanged"
-	eventCorrectsBySeeks   = "correctsBySeeks"
-	eventOwnMarkExpired    = "ownMarkExpired"
-	eventLeaderCommand     = "leaderCommand"
-	eventPlayerDiagnosis   = "playerDiagnosis"
-	eventPlayedMuted       = "playedMuted"
-	eventUnmutedTap        = "unmutedTap"
-	eventContinueAsked     = "continueAsked"
-	eventFullScreen        = "fullScreen"
-	eventPlayedWithSound   = "playedWithSound"
-	eventGroupChanged      = "groupChanged"
-	eventGroupFollowed     = "groupFollowed"
+	eventPlayerChanged      = "playerChanged"
+	eventPlayerNoted        = "playerNoted"
+	eventVoiceMeasured      = "voiceMeasured"
+	eventVoiceCallStep      = "voiceCallStep"
+	eventPongResidual       = "pongResidual"
+	eventVoiceOff           = "voiceOff"
+	eventMicrophoneChanged  = "microphoneChanged"
+	eventLoadHeldChanged    = "loadHeldChanged"
+	eventCorrectsBySeeks    = "correctsBySeeks"
+	eventOwnMarkExpired     = "ownMarkExpired"
+	eventLeaderCommand      = "leaderCommand"
+	eventPlayerDiagnosis    = "playerDiagnosis"
+	eventPlayedMuted        = "playedMuted"
+	eventUnmutedTap         = "unmutedTap"
+	eventContinueAsked      = "continueAsked"
+	eventFullScreen         = "fullScreen"
+	eventPlayedWithSound    = "playedWithSound"
+	eventGroupChanged       = "groupChanged"
+	eventGroupFollowed      = "groupFollowed"
+	eventFollowedOnlyPlayer = "followedOnlyPlayer"
+	eventPlayerBuffering    = "playerBuffering"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
@@ -180,6 +182,9 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
 				"mapping", note.Mapping, "mediaSourceState", note.MediaSourceState)...)
 		return true
+	case NoteBuffering:
+		current.logBuffering(ctx, who, from, note)
+		return true
 	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked:
 		current.logSound(ctx, who, from, note)
 		return true
@@ -187,6 +192,21 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		NoteGroupFollowed: // logNote logs them
 	}
 	return false
+}
+
+// logBuffering logs, at info, a following player beginning to hold its group up while it plays: what
+// holds it, where it is, its readyState and rate, how much it has loaded ahead, and how long since its
+// rate last changed. A Fire TV's buffering after each nudge of its rate said none of it, and no stall
+// diagnosis came, each wait's pause ending the stall before it was counted (the owner's cast, staging,
+// 2026-10-28).
+func (current *session) logBuffering(ctx context.Context, who *member, from *device, note *PlayerNote) {
+	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerBuffering,
+		"why", note.Why, positionMsAttribute, note.PositionMs, "readyState", note.ReadyState,
+		"rate", note.Rate, "loadedAheadMs", note.LoadedAheadMs)
+	if note.SinceRateChangeMs > 0 {
+		attributes = append(attributes, "sinceRateChangeMs", note.SinceRateChangeMs)
+	}
+	current.logger.InfoContext(ctx, "watch together: a player began holding its group up", attributes...)
 }
 
 // logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
@@ -215,7 +235,7 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
-		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed: // logAtInfo logs them
+		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed, NoteBuffering: // logAtInfo logs them
 	}
 }
 

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { GroupView, PlaybackRights, SyncTuning } from "./together.ts";
+import type { GroupView, SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   groupStartsAtMs,
+  isOnlyPlayer,
   type GroupCommand,
   type PlayerState,
   type TogetherConnection,
 } from "./together-connection.ts";
 import {
+  aloneCorrection,
   driftCorrection,
   learnedLossMs,
   nudgeForMs,
@@ -32,7 +34,6 @@ import {
   sendAfterMs,
   whenHidden,
   type GroupNow,
-  type ShownPage,
 } from "./together-lead.ts";
 import { FollowedChanges, heldByOf } from "./together-followed.ts";
 import { OwnMoves } from "./together-own-moves.ts";
@@ -56,12 +57,15 @@ import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
+import { bufferingCauseOf, bufferingNote } from "./together-buffering.ts";
 import {
-  memoryOfTheSession,
-  runningPositionMs,
-  StartLearner,
-  type StartLagMemory,
-} from "./together-start.ts";
+  checkDriftEveryMs,
+  followedEvents,
+  recentEventsKept,
+  returnsBeforeSeeksOnly,
+  type FollowOptions,
+} from "./together-follow-options.ts";
+import { memoryOfTheSession, runningPositionMs, StartLearner } from "./together-start.ts";
 
 export { browserPauseWindowMs, scrubPauseWindowMs, type ShownPage } from "./together-lead.ts";
 export {
@@ -73,54 +77,12 @@ export {
   playerLoadsAheadMs,
   waitAheadAtMostMs,
 } from "./together-load-speed.ts";
-
-/**
- * How often a following player checks its drift while the group plays, and reports its state while
- * the group waits.
- */
-export const checkDriftEveryMs = 1000;
-
-/**
- * How many of its rate's returns to the group's a player learns from before it may correct by
- * seeks alone: one return's loss may be a stall's, and a Chrome taken for an iPhone would hold its
- * group less tightly for nothing (D268 §2).
- */
-export const returnsBeforeSeeksOnly = 2;
-
-/** How many of its player's last events a leading player's command note carries. */
-export const recentEventsKept = 8;
-
-/** How a player follows its group. */
-export interface FollowOptions {
-  /** The film this player plays: a group playing another is not followed. */
-  readonly fileId: number;
-  /**
-   * Which of its person's moves are the group's: the host's every one, a guest's those their link
-   * gives (D271 §4). A move it may not make is undone, the player put back where the group is.
-   */
-  readonly leads: PlaybackRights;
-  readonly monotonicMs: () => number;
-  /** Where the device keeps how late its player starts; for the follower's life when not given (D282). */
-  readonly startLag?: StartLagMemory;
-  /**
-   * The page the player is on where hiding it pauses its video, a handheld's: while hidden, nothing
-   * moves the player. Absent on a computer, whose hidden page plays on and follows (heldByOf).
-   */
-  readonly page?: ShownPage | undefined;
-}
-
-/** The events a following player tells the group of, and is moved by. */
-const followedEvents = [
-  "loadedmetadata",
-  "canplay",
-  "playing",
-  "waiting",
-  "play",
-  "pause",
-  "seeking",
-  "seeked",
-  "ended",
-] as const;
+export {
+  checkDriftEveryMs,
+  recentEventsKept,
+  returnsBeforeSeeksOnly,
+  type FollowOptions,
+} from "./together-follow-options.ts";
 
 /**
  * One player following its group, as followGroup describes it. Where it is in correcting its drift
@@ -160,6 +122,8 @@ class GroupFollower {
   #isCorrectingBySeeks = false;
   /** Where its seeks land short of where they aim, as learned (seekOnlyCorrection). */
   #seekLoss: LearnedLoss = { costMs: 0, moves: 0 };
+  /** When (monotonic) it last changed its rate itself; undefined before it has. */
+  #rateChangedAtMs: number | undefined = undefined;
   /** Until when (monotonic) it is not nudged: Safari's position stands still after a change. */
   #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
@@ -202,6 +166,9 @@ class GroupFollower {
   /** The player's state as the group is told it. */
   readonly playerState = (): PlayerState => {
     const isBuffering = this.#isBuffering();
+    if (isBuffering && this.#wasReportedBuffering === false) {
+      this.#noteBuffering();
+    }
     this.#wasReportedBuffering = isBuffering;
     const startLagMs = this.#start.lagMs();
     const loadsFaster = this.#refill.loadsFaster();
@@ -214,6 +181,17 @@ class GroupFollower {
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
     };
   };
+
+  /** Notes what makes it begin to hold its playing group up (bufferingNote). */
+  #noteBuffering(): void {
+    if (this.#connection.snapshot().group?.state === "Playing") {
+      const why = bufferingCauseOf(this.#media, this.#hasCaughtUp, this.#refill);
+      const changedAtMs = this.#rateChangedAtMs;
+      const sinceMs =
+        changedAtMs === undefined ? undefined : this.#options.monotonicMs() - changedAtMs;
+      this.#connection.note(bufferingNote(this.#media, why, sinceMs));
+    }
+  }
 
   /** The connection changed: a command this player sent is answered once an answer was heard since. */
   readonly connectionChanged = (): void => {
@@ -580,6 +558,7 @@ class GroupFollower {
     this.#move({ kind: "rateChanged", returnedBehindMs: isNudgeEnding ? behindMs : undefined });
     media.preservesPitch = where.tuning.shouldNudgeKeepPitch;
     media.playbackRate = rate;
+    this.#rateChangedAtMs = this.#options.monotonicMs();
     this.#settle();
   }
 
@@ -592,10 +571,16 @@ class GroupFollower {
       return;
     }
     const isNudging = media.playbackRate !== where.group.rate;
-    const correction = driftCorrection(
-      { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
-      where.tuning,
-      isNudging ? this.#returnCost.costMs : 0,
+    const correction = this.#alone(
+      driftCorrection(
+        {
+          expectedMs: where.expectedMs,
+          actualMs: positionMsOf(media),
+          groupRate: where.group.rate,
+        },
+        where.tuning,
+        isNudging ? this.#returnCost.costMs : 0,
+      ),
     );
     // Safari's position stands still up to 250 ms after a change (D250 §7): no nudge on that, but a
     // drift to seek across is far beyond what a still position makes, and is sought across at once.
@@ -623,20 +608,29 @@ class GroupFollower {
     }
   }
 
+  /** The correction for this player, as it is its group's only player or not (aloneCorrection). */
+  #alone<Correction extends { readonly kind: string }>(
+    correction: Correction,
+  ): Correction | { readonly kind: "none" } {
+    return aloneCorrection(correction, isOnlyPlayer(this.#connection.snapshot()));
+  }
+
   /**
    * Corrects a playing player's drift, behindMs, by seeks alone: skipped across past the group by
    * what its skips have learned to lose, or sought across to catch up (D268 §2). Its rate is the
    * group's, a nudge under way when it began correcting so ending.
    */
   #correctBySeeks(where: GroupNow, behindMs: number): void {
-    const correction = seekOnlyCorrection(
-      {
-        expectedMs: where.expectedMs,
-        actualMs: positionMsOf(this.#media),
-        groupRate: where.group.rate,
-      },
-      where.tuning,
-      this.#seekLoss.costMs,
+    const correction = this.#alone(
+      seekOnlyCorrection(
+        {
+          expectedMs: where.expectedMs,
+          actualMs: positionMsOf(this.#media),
+          groupRate: where.group.rate,
+        },
+        where.tuning,
+        this.#seekLoss.costMs,
+      ),
     );
     if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
       return;

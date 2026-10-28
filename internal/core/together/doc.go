@@ -31,6 +31,10 @@
 //   - The group never stops for one member: a stall or a drop leaves it playing, and the player
 //     catches up alone (D250 §2). Enforced by TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone and
 //     TestHub_ADroppedPlayerStopsNoOne.
+//   - A playing group whose only player is one device follows it: each state that player reports
+//     places the group where it is, so a stall waits where it stalled and a pause or start is where
+//     it is; with a second player the group keeps its own time (D88: a cast is a group of one; the
+//     owner's cast, 2026-10-28). Enforced by TestHub_AGroupWhoseOnlyPlayerIsOneDeviceFollowsIt.
 //   - A sync point waits at most the sync wait its devices were welcomed with, then plays without
 //     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3). Enforced
 //     by TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady and

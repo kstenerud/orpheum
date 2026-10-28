@@ -949,3 +949,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   `heldBy=hidden` while it was away. (`web/apps/web/src/handheld.ts`, `together-host.tsx`,
   `together-viewer.tsx`; `web/packages/sdk/src/together-follow.ts`, `together-followed.ts`;
   `internal/core/together/player_log.go`)
+- [ ] **VQ93** — a cast to the Fire TV plays smoothly, on staging. Passes when, the Mac casting to the
+  Fire TV (Silk) with Watch Together off, a converted film (a ladder) played for five minutes from
+  its middle: (1) the picture and sound never stutter or stop after the start; (2) the core's log
+  for the cast's session has no `nudged` note and no `sought` note with `why=hold` while it plays,
+  and its `followedOnlyPlayer` lines step the group by tens of milliseconds, not hundreds; (3) a
+  pause and a play from the remote pause and play it where it was, with no jump; (4) any
+  `playerBuffering` line says what held it (`why`, `readyState`, `loadedAheadMs`,
+  `sinceRateChangeMs`): note them in the item, as they say whether Silk stalls after a rate
+  change on its own. Then (5) with an iPhone guest in a Watch Together session the Fire TV plays
+  in, the Fire TV's `nudged` notes and its `playerBuffering` lines are noted too: a stall a few
+  hundred ms after each nudge is the platform's, for the idiosyncrasies. (`internal/core/together/group.go`,
+  `player_log.go`; `web/packages/sdk/src/together-follow.ts`, `together-refill.ts`)
