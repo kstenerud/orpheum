@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A47 — Read a player's first quality note as a switch up, and told the owner so (2026-10-28)
+
+- **What happened:** the Fire TV stuttered as a cast started. The lead read one log line,
+  `qualitySwitched qualityKbps=15635 linkEstimateKbps=5000` 50 ms after the start, and told the owner
+  the quality chooser "jumped to the top quality" against a 5 Mb/s link, then briefed an agent to fix
+  that jump. The agent found no switch: the core starts a device with no remembered link at the top
+  rung (D260 §2), the note was hls.js announcing its first quality, the 5000 was hls.js's default
+  rather than a measurement, and the stall came from the sound's buffer being thrown away when the
+  Web Audio latency moved it earlier.
+- **Caught by:** the agent, reading every chunk the device loaded rather than one note.
+- **Gate:** none checks a reading of a log. The rule: a note named "switched" is checked against the
+  chunks around it before it is called a switch; and the fix makes the log say it: a first
+  quality carries no `fromQualityKbps`, an estimate is the controller's own or none, and a buffer
+  thrown away is a step of its own.
+
 ### A46 — Blamed a browser for a path the server's own network chose (2026-10-27)
 
 - **What happened:** the owner said staging worked in Brave on the Mac; the lead saw staging's log warn
