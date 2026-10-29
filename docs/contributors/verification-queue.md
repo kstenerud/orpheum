@@ -1552,7 +1552,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/packages/sdk/src/rtc-transport.ts`, `rtc-peer.ts`, `rtc-reopen.ts`, `rtc-connect.ts`,
   `together-connection.ts`;
   `web/apps/web/src/kept-path.ts`)
-- [ ] **VQ131** — a Watch Together guest who was signed in before joining by the host's link reaches
+- [x] **VQ131** — a Watch Together guest who was signed in before joining by the host's link reaches
   the server again after a lost connection, on staging. On the Mac, Firefox signed in as dan at the
   household through staging's discovery (the core's log says `over=webrtc` for it), and Chrome as the
   admin hosting a Watch Together session; the host makes a link, and Firefox opens it and joins
@@ -1563,6 +1563,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   does not hold" for the page and the core's none of `an offer's proof does not hold` from the join
   on. (`web/packages/sdk/src/discovery.ts`, `rtc-transport.ts`;
   `web/apps/web/src/discovery-gate.tsx`, `loader-at-client-origin.tsx`, `kept-path.ts`)
+  **Passed 2026-10-29 (the owner, staging):** Wi-Fi off ~1 min with both Mac browsers in the session; Firefox
+  (`back after 69261 ms`) and Chrome (`58049 ms`) reconnected within a second of each other once it
+  returned; the session had paused as everyone had gone (D372 §7, the S23 locked).
 - [ ] **VQ132** — Show debug tools, and Watch Together's leader debug view, on staging. On the Mac's
   Chrome (signed in as the host) and the S23 (a signed-in guest), turn on Your account → Testing →
   Show debug tools; reload neither. (1) A film on its ladder shows "Play the original file" under the
