@@ -28,6 +28,7 @@ const eventKeys: Readonly<Record<Exclude<GroupEvent, "seeked">, string>> = {
   changedRate: "changedRate",
   waitingFor: "waitingFor",
   everyoneLeft: "everyoneLeft",
+  resumedOnReturn: "resumedOnReturn",
 };
 
 /**
@@ -49,6 +50,9 @@ export function groupEventText(
   if (group.event === "seeked") {
     const from = filmPositionText(group.seekedFromMs, i18n.language);
     return t("together.event.seeked", { name, from, to: at });
+  }
+  if (group.event === "everyoneLeft" && group.isHeldPlaying) {
+    return t("together.event.everyoneLeftWhilePlaying", { at }); // held, to play on (D375)
   }
   return t(`together.event.${eventKeys[group.event]}`, { name, at });
 }

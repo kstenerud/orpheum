@@ -61,9 +61,17 @@
 //     TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows,
 //     TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes and
 //     TestHub_AGuestsLeadingPlayerCarriesTheClockOnly.
-//   - With no one left who can lead, a Watch Together group that plays pauses where it stands, and
-//     ends by its idle end; a cast is left to its receiver's return (D372 §7). Enforced by
-//     TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle.
+//   - With no one left who can lead, a Watch Together group with a film on is held Paused where it
+//     stood as its last contender went, its clock still, and keeps whether it was playing (to play or
+//     standing for its leader) or a person had paused it: the hold is no person's pause, and the group
+//     says it (isHeldPlaying), the log too (heldPlaying). The first contender back leads it on as it
+//     was, with no time limit: one held playing stands where it was held for its leader (Waiting,
+//     resumedOnReturn), then plays as the leader plays; one a person paused stays paused (D375 §1,
+//     §2). A held group is idle, and ends by its idle end; a cast is left to its receiver's return
+//     (D372 §7, D375 §3). Enforced by TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle,
+//     TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns,
+//     TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns and
+//     TestHub_AGroupHeldForWantOfAPlayerEndsIdle.
 //   - The group's position is its leader's, which nothing steers (D371 §1): each state the leader
 //     reports while the group plays places the group where it is, and a group to play (a film put
 //     on, a play, a seek) stands where it is until its leader plays, then plays from there at once:
@@ -183,6 +191,8 @@
 //   - D374: only a device playing the film contends for the lead, a cast's sender never; a lone
 //     contender's stall is waited for (amending D373 §1); a leader recovered within the grace catches
 //     up to its group.
+//   - D375: a session left with no player keeps its playing state, and goes on as it was when a
+//     leader returns (amending D372 §7).
 //   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.

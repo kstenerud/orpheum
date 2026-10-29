@@ -19,6 +19,7 @@ function group(event: GroupEvent | undefined, byMemberId?: number, seekedFromMs 
     event,
     byMemberId,
     seekedFromMs,
+    isHeldPlaying: false,
   };
 }
 
@@ -33,6 +34,30 @@ describe("the group's changes as named events (D188)", () => {
     );
     expect(groupEventText(i18n.t, group("leaderPlays", 1), roster)).toBe(
       "Karl's screen plays from 41:12",
+    );
+  });
+
+  it("says a group everyone's screen left while it played is held, and plays on as one is back (D375)", () => {
+    const parsed = parseTogetherMessage(
+      JSON.stringify({
+        type: "group",
+        group: {
+          state: "Paused",
+          positionMs: 2_472_000,
+          rate: 1,
+          fileId: 7,
+          event: "everyoneLeft",
+          isHeldPlaying: true,
+        },
+      }),
+    );
+    const held = parsed?.type === "group" ? parsed.group : undefined;
+    expect(held?.isHeldPlaying).toBe(true);
+    expect(held && groupEventText(i18n.t, held, roster)).toBe(
+      "Everyone's screen left; held at 41:12, and plays on when a screen is back",
+    );
+    expect(groupEventText(i18n.t, group("resumedOnReturn", 1), roster)).toBe(
+      "Karl's screen is back; playing on from 41:12",
     );
   });
 

@@ -1595,3 +1595,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   `playerChanged` after it a `behindGroupMs` no more negative than `aheadForLoadMs`, which on staging's
   link is a few seconds, never a minute. (`web/packages/sdk/src/rtc-media.ts`,
   `together-load-speed.ts`, `together-follow.ts`; `internal/core/together/player_log.go`)
+- [ ] **VQ134** — a Watch Together session left with no player keeps its playing state (D375), on
+  staging. On the Mac, Chrome hosting a session and Firefox a guest, both playing the film; the S23
+  in it too, then locked. (1) Turn the Mac's Wi-Fi off for about a minute, then on. Passes when the
+  core's log has `groupChanged state=Paused event=everyoneLeft … heldPlaying=true` as the last of
+  them went, and as the first came back `groupChanged state=Waiting event=resumedOnReturn` at the same
+  `positionMs`, then `state=Playing event=leaderPlays`; both browsers play the film on from about
+  where it held, no one pressing Play. (2) Again, with the host having paused first. Passes
+  when the log says `heldPlaying=false`, and both come back to the film paused where it was, until
+  someone presses Play. (`internal/core/together/leader.go`, `group.go`;
+  `web/packages/sdk/src/together.ts`, `web/apps/web/src/together-events.ts`)

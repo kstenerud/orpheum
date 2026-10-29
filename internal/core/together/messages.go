@@ -556,6 +556,10 @@ type GroupView struct {
 	ByMemberID int64     `json:"byMemberId,omitempty"`
 	// SeekedFromMs is where a seek jumped from; PositionMs is where it jumped to.
 	SeekedFromMs int64 `json:"seekedFromMs,omitempty"`
+	// IsHeldPlaying is whether a Paused group is held for want of a player, everyone's screen gone
+	// while it played, and plays on from where it stands as one comes back (D375); false for a
+	// person's pause, which stays paused.
+	IsHeldPlaying bool `json:"isHeldPlaying,omitempty"`
 }
 
 // EventKind is what changed the group: a code a client words for its viewer, never words.
@@ -576,9 +580,13 @@ const (
 	// a cast's receiver stalled: the group's position is the leader's (D371 §1). A Watch Together
 	// group waits for no one's stall (D373 §1).
 	EventWaitingFor EventKind = "waitingFor"
-	// EventEveryoneLeft is the group paused where it stands, its leader gone with no one left who
-	// can lead: every player gone, its page elsewhere or hidden (D372 §7).
+	// EventEveryoneLeft is the group held Paused where it stood as its leader went with no one left
+	// who can lead: every player gone, its page elsewhere or hidden (D372 §7). It keeps whether it
+	// was playing (GroupView.IsHeldPlaying), which a player's return carries on (D375).
 	EventEveryoneLeft EventKind = "everyoneLeft"
+	// EventResumedOnReturn is a group held for want of a player, which was playing, standing where
+	// it was held for the first contender back, which leads it from there (Waiting, D375 §2).
+	EventResumedOnReturn EventKind = "resumedOnReturn"
 )
 
 // Rights are what a guest may do to playback, each given or withheld by the host in their link

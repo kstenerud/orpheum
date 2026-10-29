@@ -228,4 +228,5 @@ export const paused: GroupView = {
   event: undefined,
   seekedFromMs: 0,
   byMemberId: undefined,
+  isHeldPlaying: false,
 };

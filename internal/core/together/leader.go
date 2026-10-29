@@ -21,7 +21,8 @@ import (
 // player no longer playing the film) hands the lead on at once (§5, D374 §1), and one stalled past
 // stalledLeaderGrace while its Watch Together group plays hands it on then, the group playing on
 // (D373 §2), unless it is the only contender, whose stall its group stands for (D374 §3). With no one
-// left to lead, a Watch Together group that plays pauses where it stands (D372 §7).
+// left to lead, a Watch Together group is held where it stands, its clock still, keeping whether it
+// played, and the first contender back leads it on as it was (D372 §7, D375).
 
 // The reasons a session's leader changes, as its log says them (D371, D372).
 const (
@@ -221,6 +222,7 @@ func (current *session) arrived(now time.Time, who *member, from *device, isAtta
 			why = leadAttached
 		}
 		current.lead(now, who, from, why)
+		current.resumeOnReturn(now, who)
 	case who.isHost && isAttaching && leaderMember.isHost:
 		current.lead(now, who, from, leadAttached) // the newest of the host's players leads
 	}
@@ -258,16 +260,32 @@ func (current *session) inStep(now time.Time, from *device, message Inbound) (in
 }
 
 // leaderGone hands the lead on at once from a leader gone, because (handOn); with no contender left,
-// a Watch Together group that plays or stands for its leader pauses where it stands (D372 §7). A cast
-// is a session of one, its receiver's return taking up where it stood, and is not paused.
+// a Watch Together group with a film on is held Paused where it stands, its clock stopped as the last
+// contender went, keeping whether it was playing or standing to play (isHeldPlaying) or a person had
+// paused it (D372 §7, D375 §1): the hold is no person's pause, and the first contender back carries it
+// on (resumeOnReturn). A cast is a session of one, its receiver's return taking up where it stood, and
+// is not held.
 func (current *session) leaderGone(now time.Time, wasHost bool, because GoneBecause) {
 	if current.handOn(now, wasHost, because) {
 		return
 	}
 	state := current.group.state
-	if !current.isCast && current.group.fileID != 0 && (state == GroupPlaying || state == GroupWaiting) {
-		current.change(now, GroupPaused, EventEveryoneLeft, 0)
+	if current.isCast || current.group.fileID == 0 || state == GroupIdle {
+		return
 	}
+	current.group.isHeldPlaying = state == GroupPlaying || state == GroupWaiting
+	current.change(now, GroupPaused, EventEveryoneLeft, 0)
+}
+
+// resumeOnReturn carries on a group held for want of a player as the first contender back, who,
+// takes the lead (D375 §2): one that was playing is to play again from where it was held, standing
+// there for its leader, as a film put on does, until the leader plays (Waiting, then leaderPlays,
+// D371 §1, D373 §4); one a person had paused stays paused there. No time limits the hold.
+func (current *session) resumeOnReturn(now time.Time, who *member) {
+	if !current.group.isHeldPlaying || current.group.state != GroupPaused {
+		return
+	}
+	current.change(now, current.playingState(), EventResumedOnReturn, who.id)
 }
 
 // handOn hands the lead on from a leader gone, because, to the host's newest other contender (D371

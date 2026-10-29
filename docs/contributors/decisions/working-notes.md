@@ -24325,4 +24325,32 @@ play/pause)."
    ever. No time limit (the lead's proposed 2-minute window was not taken).
 3. **The idle end still applies** (D372 §7, `together_idle_session_end_hours`, D346).
 
-**Status:** Decided 2026-10-29; not built.
+**Status:** Decided 2026-10-29; built 2026-10-29. §1: the last contender gone, a Watch Together group
+with a film on is held `Paused` where the core placed it then, its clock still, and keeps whether it
+was playing or standing to play (`group.isHeldPlaying`, told as the group's `isHeldPlaying`) or a
+person had paused it (`internal/core/together/leader.go`: `leaderGone`); the `groupChanged … event=everyoneLeft`
+line says `heldPlaying=true|false` (`group.go`: `logChange`). A person's pause while it is held ends
+the hold's playing (it is theirs now); a seek or a rate keeps it; a play, a film put on or a stop ends
+it. §2: the first contender back, leading as none did (`arrived`), carries it on (`resumeOnReturn`):
+held playing, the group stands where it held for its leader (`Waiting`, event `resumedOnReturn`,
+logged with `positionMs`) and plays as the leader plays (`leaderPlays`), the start rule; held paused,
+it stays paused. §3: a held group is not played to a player, so `EndStale` ends it at its idle end.
+The web client follows a held group as any paused one, and says it is held and plays on when a
+screen is back (`web/packages/sdk/src/together.ts`, `web/apps/web/src/together-events.ts`).
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **The state** is `Paused` with a flag, not a new state: every client already shows a paused group,
+  with no catch-up to a moving clock, and a new state would have reached every client's follow and
+  lead; the event (`everyoneLeft`) and the flag say it is no person's pause.
+- **Where the held film goes on from** is the start rule's: the group stands at the held position
+  for its leader, and plays from where its leader then says it plays. A returning player farther from
+  the held position than a follower seeks across seeks to it as it joins (`#joinAt`); one nearer
+  plays from where it is, which places the group there.
+- **A cast** is unchanged: its group plays on for its receiver's return (D372 §7), never held.
+- **A lone contender's stall** (D374 §3) is unchanged: the one returning is its group's only
+  contender, which the group stands for while it loads.
+
+**Proven by:**
+- 1: TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns, TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns, TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle, web/apps/web/src/together-events.test.ts ("says a group everyone's screen left while it played is held …"); VQ134
+- 2: TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns, TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns; VQ134
+- 3: TestHub_AGroupHeldForWantOfAPlayerEndsIdle, TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle

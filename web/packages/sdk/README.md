@@ -55,6 +55,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   session how it plays the film, its delivery, the quality it began and the link it chose it on, for
   a cast's remote to show (D371 §4). Its person's own moves are commands, as any player's. A follower
   whose session another device leads follows the group as above. `src/together-leader.test.ts`.
+- **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
+  holds it `Paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
+  screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock
+  still. `apps/web/src/together-events.test.ts`.
 - **Every state a player tells says the film it has** (`fileId`), by which the server counts it a
   contender for its session's lead; a page whose film went to a cast's receiver, its connection
   kept, says it has none (`tellsNoFilmHere`), so it never leads in its receiver's place (D374 §1).
@@ -85,7 +89,7 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   was down measures nothing, and by how fast its buffer grew only where its player tells none, and
   the last seek's load counts no more than `aimAheadAtMostMs` there too: a minute without Wi-Fi read
   as a link that loads nothing, and the owner's Chrome, back 15 s behind its group, jumped a minute
-  ahead of it (staging, 2026-10-29; VQ133). Its note says the aim's parts (`CatchUpAimNote`). While
+  ahead of it (staging, 2026-10-29; VQ134). Its note says the aim's parts (`CatchUpAimNote`). While
   the group waits it reports its state at every check, so the server can end the wait on time (D250
   §3). `src/together-follow.test.ts`, `src/together-load-speed.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
@@ -181,7 +185,7 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   except where that word comes back to this copy, as it does when the loader and the client are one
   build sharing it, which is answered from this copy's own state: asking itself, it ran the stack
   out inside hls.js's handling of each chunk that failed, a fatal "Maximum call stack size
-  exceeded" (the owner's Chrome offline, staging, 2026-10-29; VQ133). `src/rtc-transport.test.ts`,
+  exceeded" (the owner's Chrome offline, staging, 2026-10-29; VQ134). `src/rtc-transport.test.ts`,
   `src/rtc-media.test.ts`.
 - **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
   service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC

@@ -20,6 +20,7 @@ describe("where the group is (D66: no clock sync)", () => {
     event: undefined,
     seekedFromMs: 0,
     byMemberId: undefined,
+    isHeldPlaying: false,
   };
 
   it("moves on at its rate from when its message arrived while it plays", () => {
