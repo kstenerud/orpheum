@@ -50,8 +50,10 @@ type Grid struct {
 // to the film's end at durationMs (D259 §1, chunks.md §1): the first keyframe starts the first
 // chunk, and the first keyframe at or after each later multiple of segmentMs starts the next, so
 // each start depends only on the keyframes near it and a stretch of the film cut alone agrees with
-// the whole film's grid. A keyframe at or after the film's end starts nothing, and a last chunk
-// shorter than segmentMs is merged into the one before it. It fails with ErrCannotBeCut for a
+// the whole film's grid. So a chunk may be shorter than segmentMs, never merged into another: one
+// started by a keyframe just before a multiple ends at the next keyframe past it. A keyframe at or
+// after the film's end starts nothing, and a last chunk shorter than segmentMs is merged into the one
+// before it. It fails with ErrCannotBeCut for a
 // picture with no keyframe before the film's end, and for a segmentMs that is not positive.
 func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
 	if segmentMs <= 0 {
@@ -79,9 +81,11 @@ func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
 }
 
 // Grid is the grid the file's film is cut on, from its main picture's timeline as a read-through
-// kept it, merged so each chunk is at least hls_segment_length_seconds long. It reports false, with
-// no error, while the picture has no timeline: a sweep reads every film through, and a player that
-// will not wait for it asks readthrough.Service.ReadForPlay. A film with no picture, or whose
+// kept it, its keyframes merged into chunks by GridOf at hls_segment_length_seconds: a chunk may be
+// shorter than that, down to the gap between two keyframes, where the first keyframe past one
+// multiple falls just before the next, as each start is its multiple's own (D259 §1). It reports
+// false, with no error, while the picture has no timeline: a sweep reads every film through, and a
+// player that will not wait for it asks readthrough.Service.ReadForPlay. A film with no picture, or whose
 // picture cannot be cut, fails with ErrCannotBeCut. The film's length is its probe's, or, when the
 // probe does not say, the timeline's seconds.
 func (service *Service) Grid(ctx context.Context, fileID int64) (Grid, bool, error) {

@@ -33,7 +33,8 @@
 //
 //   - A grid starts at the picture's first keyframe, and each next start is the first keyframe at or
 //     after the next multiple of the segment length, so a stretch cut alone agrees with the whole
-//     film's (D259 §1); a last chunk shorter than that is merged into the one before, and a picture
+//     film's (D259 §1); so a chunk may be shorter than the length, down to the gap between two
+//     keyframes, and only a last chunk shorter than that is merged into the one before; a picture
 //     with no keyframe before its end cannot be cut (ErrCannotBeCut).
 //     Enforced by TestGridOf_StartsAChunkAtTheFirstKeyframeAtOrAfterEachMultipleOfTheLength,
 //     TestGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
