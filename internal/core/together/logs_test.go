@@ -518,6 +518,48 @@ func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
 	}
 }
 
+// A page shown again says whether its socket answered and how fast, or connected again because it did
+// not, and a play the browser refused then says how and whether the page had been pressed: an S23
+// unlocked sat 20 s, paused, on a socket that heard nothing, and nothing said so (the owner's VQ105,
+// 2026-10-29). An unknown word is refused.
+func TestHub_LogsAPageShownAgainItsSocketsAnswerAndAPlayRefused(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	page := "hasBeenActive=true isActive=false loadedMsAgo=900000 navigation=navigate"
+	for _, note := range []PlayerNote{
+		{Kind: NoteShownAgain, Why: "alive", RoundTripMs: 80},
+		{Kind: NoteReconnected, OfflineMs: 2100, Why: "shown"},
+		{Kind: NotePlayRefused, Why: "AbortError", PositionMs: 2280010, Page: page},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	}
+	logged := stage.logs.String()
+	if shown := lineWith(t, logged, "shownAgain"); !strings.Contains(shown, "level=INFO") ||
+		!strings.Contains(shown, "socket=alive roundTripMs=80") {
+		t.Errorf("the log does not say the socket answered in 80 ms:\n%s", logged)
+	}
+	if !strings.Contains(logged, "kind=reconnected offlineMs=2100 why=shown") {
+		t.Errorf("the log does not say it connected again as nothing answered once shown:\n%s", logged)
+	}
+	if refused := lineWith(t, logged, "playRefused"); !strings.Contains(refused, "refusal=AbortError") ||
+		!strings.Contains(refused, "positionMs=2280010") || !strings.Contains(refused, `page="`+page+`"`) {
+		t.Errorf("the log does not say how the play was refused, where, and the page's activation:\n%s", logged)
+	}
+	for _, unknown := range []PlayerNote{
+		{Kind: NoteShownAgain, Why: "dead"},
+		{Kind: NotePlayRefused, Why: "Sulking"},
+		{Kind: NoteReconnected, Why: "lost"},
+	} {
+		stage.logs.Reset()
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &unknown})
+		logged := stage.logs.String()
+		if box.last(MessageRejected).Code != codeInvalid || strings.Contains(logged, string(unknown.Kind)) {
+			t.Errorf("note %+v: logged or not refused:\n%s", unknown, stage.logs)
+		}
+	}
+}
+
 // A tap's sound state is logged, at the tap and again after it, so an iPhone that stays silent
 // after its tap says whether its film was muted again, paused, or in which audio session (the
 // owner's VQ30, 2026-10-12); an unknown why is refused.

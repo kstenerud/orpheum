@@ -89,6 +89,7 @@ export function useVoice(
         monotonicMs,
         fetchIceServers: () => iceServersFor(api, { sessionId, credential }),
         devices,
+        page: document,
       }),
     [api, sessionId, credential, sessionToken, openTogetherSocket, devices],
   );

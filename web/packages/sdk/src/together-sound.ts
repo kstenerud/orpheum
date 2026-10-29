@@ -2,6 +2,7 @@
 
 import { healPageAudio } from "./page-audio.ts";
 import type { Press, TogetherConnection } from "./together-connection.ts";
+import type { PlayRefusal } from "./together-notes.ts";
 
 /** The part of a video or audio element playing a film with or without its sound uses. */
 export type SoundedMedia = Pick<
@@ -40,20 +41,110 @@ function positionMsOf(media: SoundedMedia): number {
   return media.currentTime * 1000;
 }
 
+/** How a refusal reads in a playRefused note: the error's name where it is one a browser gives. */
+function refusalOf(error: unknown): PlayRefusal {
+  const name: unknown =
+    typeof error === "object" && error !== null && "name" in error ? error.name : undefined;
+  return name === "NotAllowedError" || name === "AbortError" || name === "NotSupportedError"
+    ? name
+    : "other";
+}
+
+/** A play made as its page was shown again, which a refusal of any kind is not left at. */
+export interface PlayAsShown {
+  /**
+   * Whether the player still wants to play as the refusal comes: its own pause, which refuses a
+   * play under way, is no refusal to answer.
+   */
+  readonly isStillWanted: () => boolean;
+  /** A refusal was noted and offered at a tap: once is enough. */
+  readonly answered: () => void;
+}
+
+/**
+ * Whether a following player's page was shown again and it has not played since: a refusal of any
+ * kind of its play then, while it still wants to play, is noted and offered at a tap, once
+ * (playOrPlayMuted's asShown), as a phone unlocked may not let its film play on (the owner,
+ * 2026-10-29).
+ */
+export class ShownAgain {
+  #isShown = false;
+
+  /** Its page was shown again, for a follower (true), or hidden (false). */
+  set(isShown: boolean): void {
+    this.#isShown = isShown;
+  }
+
+  /** One of its player's events: once it plays, it is no longer just shown again. */
+  heard(event: string): void {
+    if (event === "playing") {
+      this.#isShown = false;
+    }
+  }
+
+  /** What a play passes playOrPlayMuted while shown again, isStillWanted its wish; else nothing. */
+  play(isStillWanted: () => boolean): PlayAsShown | undefined {
+    return this.#isShown
+      ? {
+          isStillWanted,
+          answered: () => {
+            this.#isShown = false;
+          },
+        }
+      : undefined;
+  }
+}
+
 /**
  * Plays media. A play the browser refuses for want of a recent tap is played again muted, which
  * browsers allow, and said with playedMutedEvent and a note, so the page offers the sound at a tap
  * and the log says why the film was silent; any other refusal leaves it paused, for its caller to
- * try again.
+ * try again. A play as its page was shown again (asShown) whose refusal, of any kind, or whose video
+ * stays paused though its play resolved, comes while it is still wanted, is noted (playRefused) and
+ * answered the same way: a phone unlocked may not let its film play on, and its follower sat paused
+ * with nothing to say why (the owner, 2026-10-29).
  */
 export function playOrPlayMuted(
   media: SoundedMedia,
   connection: Pick<TogetherConnection, "note">,
+  asShown?: PlayAsShown,
 ): void {
-  media.play().catch((error: unknown) => {
-    if (!isRefusedForWantOfATap(error) || media.muted) {
-      return;
+  const refusedAsShown = (why: PlayRefusal): boolean => {
+    if (asShown?.isStillWanted() !== true) {
+      return false;
     }
+    asShown.answered();
+    const page = pageActivation();
+    connection.note({
+      kind: "playRefused",
+      why,
+      positionMs: positionMsOf(media),
+      ...(page === undefined ? {} : { page }),
+    });
+    playMuted(media, connection);
+    return true;
+  };
+  media.play().then(
+    () => {
+      if (media.paused && !media.ended) {
+        refusedAsShown("stayedPaused");
+      }
+    },
+    (error: unknown) => {
+      if (refusedAsShown(refusalOf(error)) || !isRefusedForWantOfATap(error) || media.muted) {
+        return;
+      }
+      playMuted(media, connection);
+    },
+  );
+}
+
+/**
+ * Plays media muted, which browsers allow without a tap, saying so with a note (where it was not
+ * muted already) and playedMutedEvent, by which its page offers the tap that plays it with sound.
+ */
+function playMuted(media: SoundedMedia, connection: Pick<TogetherConnection, "note">): void {
+  if (!media.muted) {
     // eslint-disable-next-line no-param-reassign -- muting the element is how it may play
     media.muted = true;
     const page = pageActivation();
@@ -62,9 +153,9 @@ export function playOrPlayMuted(
       positionMs: positionMsOf(media),
       ...(page === undefined ? {} : { page }),
     });
-    media.dispatchEvent(new Event(playedMutedEvent));
-    media.play().catch(() => undefined); // even muted, a phone saving power may refuse: the tap plays it
-  });
+  }
+  media.dispatchEvent(new Event(playedMutedEvent));
+  media.play().catch(() => undefined); // even muted, a phone saving power may refuse: the tap plays it
 }
 
 /**

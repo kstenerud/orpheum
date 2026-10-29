@@ -6,7 +6,7 @@
  */
 
 import type { PlaybackReport, PlaybackRights } from "./together.ts";
-import type { ShownPage } from "./together-lead.ts";
+import type { ShownPage } from "./shown-page.ts";
 
 /**
  * How often a following player checks its drift while the group plays, and reports its state while
@@ -23,6 +23,24 @@ export const returnsBeforeSeeksOnly = 2;
 
 /** How many of its player's last events a leading player's command note carries. */
 export const recentEventsKept = 8;
+
+/** A player's last recentEventsKept events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
+export class RecentEvents {
+  #events: string[] = [];
+
+  /** Keeps event, at nowMs, made by the follower itself where isOwn. */
+  keep(event: string, isOwn: boolean, nowMs: number): void {
+    const atMs = Math.round(nowMs);
+    this.#events = [...this.#events, `${event}${isOwn ? "(own)" : ""}@${String(atMs)}`].slice(
+      -recentEventsKept,
+    );
+  }
+
+  /** The events kept, oldest first, apart by a space. */
+  text(): string {
+    return this.#events.join(" ");
+  }
+}
 
 /** How a player follows its group. */
 export interface FollowOptions {

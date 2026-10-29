@@ -11,6 +11,8 @@
  * design/research/ios-silent-switch-2026-10-12.md).
  */
 
+import { whenVisibilityChanges, type ShownPage } from "./shown-page.ts";
+
 /** What the page's audio session is told it plays. */
 export type PageAudio = "auto" | "playback";
 
@@ -44,27 +46,16 @@ export function healPageAudio(): void {
   }, 0);
 }
 
-/** A page that says when it is shown again: a browser's document. */
-export interface ShownAgainPage {
-  readonly visibilityState: DocumentVisibilityState;
-  addEventListener(type: "visibilitychange", listener: () => void): void;
-  removeEventListener(type: "visibilitychange", listener: () => void): void;
-}
-
 /**
  * Keeps the page's audio session as a video app's from now, and heals it each time the page is shown
  * again, as after Safari was in the background, when its GPU process may have ended. Returns the
  * stopping.
  */
-export function keepPageAudio(page: ShownAgainPage): () => void {
+export function keepPageAudio(page: ShownPage): () => void {
   setPageAudio("playback");
-  const onVisibility = (): void => {
-    if (page.visibilityState === "visible") {
+  return whenVisibilityChanges(page, (isHidden) => {
+    if (!isHidden) {
       healPageAudio();
     }
-  };
-  page.addEventListener("visibilitychange", onVisibility);
-  return () => {
-    page.removeEventListener("visibilitychange", onVisibility);
-  };
+  });
 }

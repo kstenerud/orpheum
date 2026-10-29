@@ -164,7 +164,8 @@
 //
 // # Where to change
 //
-//   - messages.go: the wire messages, as cut-a §5.1 lists them.
+//   - messages.go: the wire messages, as cut-a §5.1 lists them; note_known.go, which of a device's
+//     notes the server logs.
 //   - hub.go: sessions, memberships and devices. links.go: the links a person joins by, and the
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.

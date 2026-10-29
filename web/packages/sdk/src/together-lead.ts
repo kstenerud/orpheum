@@ -27,32 +27,9 @@ export const scrubPauseWindowMs = 300;
  */
 export const browserPauseWindowMs = 500;
 
-/** A page that tells when it is hidden or shown again: a browser's document. */
-export interface ShownPage {
-  readonly visibilityState: DocumentVisibilityState;
-  addEventListener(type: "visibilitychange", listener: () => void): void;
-  removeEventListener(type: "visibilitychange", listener: () => void): void;
-}
-
 /** How long a leading player's pause or seek waits before it is sent. */
 export function sendAfterMs(command: GroupCommand): number {
   return command.command === "pause" ? browserPauseWindowMs : scrubPauseWindowMs;
-}
-
-/** Calls changed each time page is hidden or shown, if there is a page; returns the stopping. */
-export function whenVisibilityChanges(
-  page: ShownPage | undefined,
-  changed: (isHidden: boolean) => void,
-): () => void {
-  const onVisibility = (): void => {
-    if (page !== undefined) {
-      changed(page.visibilityState === "hidden");
-    }
-  };
-  page?.addEventListener("visibilitychange", onVisibility);
-  return () => {
-    page?.removeEventListener("visibilitychange", onVisibility);
-  };
 }
 
 /** The group a player follows, where it is expected now, and when now is. */

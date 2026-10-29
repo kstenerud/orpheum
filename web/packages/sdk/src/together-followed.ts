@@ -9,7 +9,7 @@
 
 import type { GroupView } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
-import type { ShownPage } from "./together-lead.ts";
+import type { ShownPage } from "./shown-page.ts";
 import { haveMetadata, type FollowedMedia } from "./together-media.ts";
 import type { GroupHeldBy, PlayerNote } from "./together-notes.ts";
 

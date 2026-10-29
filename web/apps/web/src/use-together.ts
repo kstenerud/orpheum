@@ -58,6 +58,8 @@ export function useTogether(device: TogetherDevice): {
             role,
             openSocket: openTogetherSocket,
             monotonicMs,
+            // Shown again, its socket is checked at once: an unlocked phone's may have died unseen.
+            page: document,
           }),
     [credential, sessionToken, role, openTogetherSocket],
   );

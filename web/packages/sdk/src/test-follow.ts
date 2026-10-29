@@ -73,6 +73,7 @@ export class FakeMedia {
   muted = false;
   autoplay = false;
   preservesPitch = true;
+  volume = 1;
   paused = true;
   ended = false;
   seeking = false;

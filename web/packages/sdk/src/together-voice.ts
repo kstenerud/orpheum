@@ -10,11 +10,11 @@ import {
   createTogetherConnection,
   type RelaysVoiceSignals,
   type TogetherConnection,
+  type TogetherConnectionOptions,
   type VoiceCallStep,
 } from "./together-connection.ts";
 import {
   startingTuning,
-  type OpenTogetherSocket,
   type RosterMember,
   type SyncTuning,
   type VoiceSignal,
@@ -214,15 +214,14 @@ export interface TogetherVoice {
   readonly readMicrophoneLevel: () => number;
 }
 
-/** What voice needs. */
-export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> {
-  /** The membership's credential, by which a second device attaches for voice (D120). */
-  readonly credential: string;
-  /** The web client's script the page runs, said in the voice device's hello for the log. */
-  readonly client?: string | undefined;
-  readonly sessionToken?: string | undefined;
-  readonly openSocket: OpenTogetherSocket;
-  readonly monotonicMs: () => number;
+/**
+ * What voice needs: what its second device of the membership, attached for voice (D120), connects
+ * by, its page's showing again checking its socket at once; its relay's ICE servers; its devices.
+ */
+export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> extends Pick<
+  TogetherConnectionOptions,
+  "credential" | "client" | "sessionToken" | "openSocket" | "monotonicMs" | "page"
+> {
   /** The relay's ICE servers for this membership (GET /together/{id}/ice). */
   readonly fetchIceServers: () => Promise<readonly RTCIceServer[]>;
   readonly devices: VoiceDevices<Microphone>;
@@ -537,6 +536,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       role: "panel",
       openSocket: this.#options.openSocket,
       monotonicMs: this.#options.monotonicMs,
+      page: this.#options.page,
     });
     this.#connection = connection;
     this.#unsubscribes = [
