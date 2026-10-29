@@ -294,8 +294,7 @@ had leaned on.
   every 5 s for a Watch Together session that no longer exists (`GET /together/73`, 404, staging
   2026-10-28): the host's screen said the session was over but kept the tab's membership, so its
   background check asked again. It now forgets the membership once the server says the session is over.
-- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a remote opened
-  just as its cast ends said only "The cast is over." Its hello reached a session
+- **A remote opened just as its cast ends says only "The cast is over."** Its hello reaches a session
   already gone ("no such Watch Together session"), so it never hears that the receiver took control
   back, though the core logged `reason=takenBack` the same millisecond (browser tier, 2026-10-29). The
   refusal could carry a recently ended session's reason. It does now: for a minute after a cast ends,

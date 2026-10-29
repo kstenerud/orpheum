@@ -52,23 +52,35 @@ export function WatchTogether(): JSX.Element {
  * started, and run it. Leaving the film for it stops nothing (D364 §15).
  */
 export function WatchTogetherControls(): JSX.Element {
+  const { t } = useTranslation();
   // Started here, or had back from the server on another of the host's devices (D267 §2).
   const membership = useMembership(tabStorage, "host");
+  // A session the server says is over is forgotten, so nothing asks for it again; the screen says
+  // it is over until a new one starts (staging, 2026-10-28: a page asked every 5 s for one gone).
+  const [isOver, setIsOver] = useState(false);
   const start = (started: Membership): void => {
+    setIsOver(false);
     keepMembership(tabStorage(), "host", started);
+  };
+  const forget = (): void => {
+    forgetMembership(tabStorage(), "host");
   };
   return (
     <>
       {membership === undefined ? (
-        <StartSession onStarted={start} />
+        <>
+          {isOver ? <output>{t("watchTogether.over")}</output> : null}
+          <StartSession onStarted={start} />
+        </>
       ) : (
         <HostedSession
           key={membership.sessionId}
           membership={membership}
-          onStarted={start}
-          onEnded={() => {
-            forgetMembership(tabStorage(), "host");
+          onOver={() => {
+            setIsOver(true);
+            forget();
           }}
+          onEnded={forget}
         />
       )}
     </>
@@ -125,13 +137,15 @@ function isSessionOver(cause: unknown): boolean {
   return cause instanceof ApiProblem && (cause.code === "not_found" || cause.code === "forbidden");
 }
 
-/** The session this tab hosts, read again as people join; over, it offers a new one. */
+/**
+ * The session this tab hosts, read again as people join; over, as the server says when it is asked,
+ * it is given up (onOver), and asked for no more.
+ */
 function HostedSession(props: {
   readonly membership: Membership;
-  readonly onStarted: (membership: Membership) => void;
+  readonly onOver: () => void;
   readonly onEnded: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
+}): JSX.Element | null {
   const { api } = useServices();
   const { sessionId } = props.membership;
   const [asked, reload] = useResource(
@@ -142,13 +156,15 @@ function HostedSession(props: {
   const known = knownDetailsOf(sessionId);
   const details: typeof asked =
     asked.state === "loading" && known !== undefined ? { state: "loaded", value: known } : asked;
-  if (details.state === "failed" && isSessionOver(details.cause)) {
-    return (
-      <>
-        <output>{t("watchTogether.over")}</output>
-        <StartSession onStarted={props.onStarted} />
-      </>
-    );
+  const isOver = details.state === "failed" && isSessionOver(details.cause);
+  const { onOver } = props;
+  useEffect(() => {
+    if (isOver) {
+      onOver();
+    }
+  }, [isOver, onOver]);
+  if (isOver) {
+    return null; // forgotten at once, and the screen offers a new one
   }
   return (
     <Loaded

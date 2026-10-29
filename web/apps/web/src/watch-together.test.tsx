@@ -275,6 +275,19 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     mounted.unmount();
   });
 
+  it("forgets a session the server says is over, asking for it no more, and offers a new one", async () => {
+    hostSession();
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /together/3": refusal(404, "not_found") }, heard, "token");
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    expect(mounted.container.querySelector("output")?.textContent).toBe("That session is over.");
+    expect(buttonWithText(mounted.container, "Start a session")).toBeDefined();
+    // Remembered, the session was asked for again at every background check (staging, 2026-10-28).
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+    expect(heard.filter((each) => each.methodAndPath === "GET /together/3")).toHaveLength(1);
+    mounted.unmount();
+  });
+
   it("shows each link again after a reload, waiting or used, to pass on (D267 §5)", async () => {
     hostSession();
     const discoveryLink =
