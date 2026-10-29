@@ -24354,3 +24354,17 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 1: TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns, TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns, TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle, web/apps/web/src/together-events.test.ts ("says a group everyone's screen left while it played is held …"); VQ134
 - 2: TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns, TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns; VQ134
 - 3: TestHub_AGroupHeldForWantOfAPlayerEndsIdle, TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle
+
+## D376 — Whoever takes the lead sets the group's position from where it plays
+
+**Decided** (2026-10-29), by the project owner, amending D375 §2 after its first device run (VQ134):
+"having it playback from the core's remembered position feels weird. Whoever takes leadership role
+should give their current playback position as the new official position."
+
+1. **A device taking the lead, for any reason, makes its own current position the group's** (D372, D373,
+   D374, D375): the group's clock is set from where that device plays, not from where the core last had
+   the group, and the other players catch up to it as ever.
+2. **A session held with no player** (D375 §1) keeps whether it was playing or paused; the first
+   contender back resumes it from its own position, not the held one.
+
+**Status:** Decided 2026-10-29; not built.

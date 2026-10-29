@@ -380,7 +380,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most — *revisited by D373, D374, D375*
 - [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead — *revisited by D374*
 - [D374](working-notes.md#d374--only-a-device-playing-the-film-can-lead-a-casts-sender-never-does) Only a device playing the film can lead; a cast's sender never does
-- [D375](working-notes.md#d375--a-session-left-with-no-player-keeps-its-playing-state-and-goes-on-as-it-was-when-a-leader-returns) A session left with no player keeps its playing state, and goes on as it was when a leader returns
+- [D375](working-notes.md#d375--a-session-left-with-no-player-keeps-its-playing-state-and-goes-on-as-it-was-when-a-leader-returns) A session left with no player keeps its playing state, and goes on as it was when a leader returns — *revisited by D376*
+- [D376](working-notes.md#d376--whoever-takes-the-lead-sets-the-groups-position-from-where-it-plays) Whoever takes the lead sets the group's position from where it plays
 
 ## Archived
 
