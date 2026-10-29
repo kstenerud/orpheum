@@ -871,7 +871,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   click enters and leaves full screen (emulated); Tab and the arrows reach every control; Left and
   Right seek 10 s; Space plays and pauses from Mute, Full screen or the timeline without pressing
   them. Left for the owner: phones, the Fire TV, a cast's remote, the tray's feel.
-- [ ] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
+- [x] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
   E-AC-3) and a stereo one. Passes when each starts at the top on its own sound (the tracks note says
   "E-AC-3 5.1 (original)" or "AAC stereo (original)", and the core's `a playback started` line says
   `delivery=ladder`, `ladderQuality=picture`, `ladderSound=sound0-own`); a forced step down to a lower
@@ -903,6 +903,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   then played and was kept across a step up. Fixed: also passes when turning the boost on (and off)
   plays on with no freeze, the other mix heard a moment later, and the core's log says `sound <n>
   chosen (boostOn)` then `sound <n> heard (boostOn)` in the playback's link notes.
+  **Passed 2026-10-29 (the owner, Chrome on the Mac):** Thimbleford's own 5.1 sound at the top, the
+  step down to the light stereo and back, and, through the discovery over WebRTC (device 30,
+  13:55–13:56), the boost turned on and off five times with no freeze: each `sound n chosen (boostOn|
+  boostOff)` then `heard`, no stall reported; levelling switched at once.
 - [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
@@ -1415,7 +1419,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   key counted as another press, and Android's first repeat comes 400–500 ms after the press, inside
   the 500 ms window (`design/research/starts-chunks-remote-2026-10-29.md` §3.3).
   (`web/apps/web/src/cast-receiver.tsx`, `input-commands.ts`)
-- [ ] **VQ123** — In Chrome on the Mac, through staging's discovery, open the home page, then in
+- [x] **VQ123** — In Chrome on the Mac, through staging's discovery, open the home page, then in
   DevTools tick "Bypass for network" (Application → Service workers) and open a film you have not
   opened since the page loaded. Passes when, after about a second, the page says "This page could not
   load." with Reload, Copy what happened, and the line that developer tools may be bypassing the
@@ -1423,3 +1427,5 @@ An item is ticked only by the person who did it, and only with what they saw.
   core's log has a "page reported a failure" line naming the screen and the file. Then, with the box
   unticked, open the home page in a tab after staging's connectd was rebuilt since that Chrome's last
   visit, and open a film: its page opens. (`web/apps/web/src/screen-load.tsx`, `sw.ts`)
+  **Passed 2026-10-29 (the owner, Chrome on the Mac):** the first load through the discovery after the
+  deploy (13:55, over WebRTC) opened Thimbleford's page and player with no failed screen.
