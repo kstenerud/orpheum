@@ -18,7 +18,7 @@
      never record that library's names). D369, D368, the Fire TV fixes, the RealMedia fix (protocol 54), D370 (step 0062), D364, D367 + Configure
      merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
-     for nas.example. Prod connect package: /yoloai/files/connect-production-0a3fcd5-0bf8059c.run.
+     for nas.example. Prod connect package: /yoloai/files/connect-production-0a3fcd5-8b73c5dc.run.
      Owner to choose (D368's status): loudness when stepping down from the copied sound.
    - Folded in 2026-10-28 (owner, serious), all on staging unless noted: Fire TV cast fixes, phone banner,
      chooser/menu as one modal drop-down, refused key → sign-in (needs connect re-pin + repackage for prod),
