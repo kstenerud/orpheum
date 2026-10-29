@@ -137,9 +137,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   (rtcapi's `TestChannel_AChannelTheClientClosesEndsItsRequest`), its room given back when the
   close comes. Nothing waits on the core for good: a request that hears nothing for
   `silentAtMostMs` (40 s, past the core's longest hold of a chunk) while it waits for its head
-  (one with no body of its own), for the end of a response with no body, or while its reader waits
-  for its body fails with a `SilentRequestError`, its channel closed; a reader that does not read
-  waits unbounded, the core having no room to send. Requests go
+  (one with a body once all of it has left the browser, its buffered amount drained: a Play page's
+  playback, a POST, otherwise said "Loading…" for good), for the end of a response with no body, or
+  while its reader waits for its body fails with a `SilentRequestError`, its channel closed; a
+  reader that does not read, or a body still on its way, waits unbounded. Requests go
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.

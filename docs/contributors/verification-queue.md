@@ -1632,3 +1632,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   page could not load."; and the core's log has a "page reported a failure" line saying "the page
   reloaded for a newer client, once", naming the title screen and its file.
   (`web/apps/web/src/newer-client.ts`, `screen-load.tsx`)
+- [ ] **VQ138** — a Watch Together host's Play page left for another site and come back by Back
+  attaches its player, on staging. On the Mac, Chrome hosting a session on its Play page, Firefox and
+  the S23 guests, the film playing. In Chrome go to google.com, then press Back. Passes when Chrome
+  plays the film within a few seconds, in step with the others, and the core's log has a `role=video`
+  device connecting for the host's member after its `a playback started … cause=playPage`; never
+  "Loading…" for good. If its playback's answer was lost over WebRTC, the core's log has the page's
+  `a request failed … nothing came for /api/v1/playback` and a second `a playback started`, then the
+  `role=video` device. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/play.tsx`,
+  `reopen.ts`)

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { SilentRequestError } from "@orpheum/sdk";
+
 import { ApiProblem } from "./problem.ts";
 
 /**
@@ -35,6 +37,20 @@ export function mayPass(cause: unknown): boolean {
     return isNodeAway || passingRefusalCodes.has(cause.code);
   }
   return cause instanceof TypeError; // fetch's own failure: no answer at all
+}
+
+/**
+ * Whether a request failed for hearing nothing from the core for silentAtMostMs over WebRTC
+ * (SilentRequestError), the failure itself or what a path's naming of it wraps: its connection is
+ * replaced then, so asked again it goes on a new one.
+ */
+export function isUnanswered(cause: unknown): boolean {
+  for (let each: unknown = cause; each instanceof Error; each = each.cause) {
+    if (each instanceof SilentRequestError) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Whether the server refused because it no longer has the playback: it restarted, or ended it. */
@@ -76,6 +92,39 @@ export async function askUntilAnswered<T>(
       }
     }
     await wait(waitMs);
+  }
+  return await ask();
+}
+
+/**
+ * How many times a request the core answered nothing for is asked in all (askWhileUnanswered): each
+ * unanswered ask takes silentAtMostMs, 40 s, so three keep a page waiting two minutes at most before
+ * it says it failed, and the second goes on a new connection, the silent one replaced.
+ */
+export const unansweredAsksAtMost = 3;
+
+/**
+ * What ask answers, asked again at once each time the core answered nothing over WebRTC
+ * (isUnanswered), whose connection is replaced so the next ask goes on a new one, up to
+ * unansweredAsksAtMost asks; each such failure is told to report, for the core's log. Any other
+ * failure is thrown at once, as the last unanswered one is. A Play page whose playback the core
+ * started but whose answer never came said "Loading…" for good, and its host's Watch Together player,
+ * drawn only once the playback is, never attached (the owner's Chrome back from another site, staging,
+ * 2026-10-29).
+ */
+export async function askWhileUnanswered<T>(
+  ask: () => Promise<T>,
+  report: (cause: unknown) => void,
+): Promise<T> {
+  for (let asked = 1; asked < unansweredAsksAtMost; asked += 1) {
+    try {
+      return await ask();
+    } catch (cause) {
+      if (!isUnanswered(cause)) {
+        throw cause;
+      }
+      report(cause);
+    }
   }
   return await ask();
 }
