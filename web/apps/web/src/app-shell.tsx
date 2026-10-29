@@ -12,6 +12,7 @@ import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
+import { NoticeNote } from "./notice-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
 import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
@@ -271,12 +272,13 @@ function isShownTo(
   }
 }
 
-/** The screen, under any word the page has about what the browser is doing. */
+/** The screen, under any word the page has about what the browser is doing, and the tab's notice. */
 function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
   return (
     <main className="app-shell__main" data-focus-memory="">
       <PlainHttpNote />
       <LocalNetworkNote />
+      <NoticeNote />
       {props.children}
     </main>
   );

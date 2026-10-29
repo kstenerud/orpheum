@@ -73,7 +73,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves
-  the address once used. `src/together-viewer.test.tsx`.
+  the address once used. Their session ended, a guest by link alone is told so on that page; a
+  signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`,
+  closed by its × or gone at the next screen), but for one sent away for the host's connection, who
+  keeps Join again (the owner, 2026-10-29). `src/together-viewer.test.tsx`,
+  `src/together-viewer-over.test.tsx`,
+  `src/notice-note.test.tsx`.
 - **Casting is a session with a device: whatever the person plays goes there while it lasts, and
   the receiver keeps a television's controls** (D364, revising D337, D338 and D358;
   plans/cast-to-device.md): every signed-in page holds a live connection (`src/live.tsx`) that says

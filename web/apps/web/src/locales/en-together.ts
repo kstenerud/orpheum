@@ -91,6 +91,21 @@ export const enTogether = {
       receiverGone: "The device that played was gone too long. You can close this page.",
       joinAgain: "Join again",
     },
+    // Said on the home page a signed-in guest is taken to as their session ends (notice.ts); sent
+    // away for the host's connection (uploadFull), they stay on the session's page with Join again.
+    overNotice: {
+      hostEnded: "The host ended the Watch Together session.",
+      idle: "The Watch Together session was closed because nothing had happened in it for hours.",
+      ejected: "The host removed you from the Watch Together session.",
+      movedAway: "You joined the Watch Together session on another device, so it ended here.",
+      left: "You left the Watch Together session.",
+      gone: "The Watch Together session is over.",
+      takenBack: "Control was taken back, so the Watch Together session ended here.",
+      replaced: "Another device took over the Watch Together session.",
+      stopped: "Casting stopped, so the Watch Together session ended here.",
+      receiverGone:
+        "The device that played was gone too long, so the Watch Together session ended.",
+    },
     event: {
       played: "{{name}} played from {{at}}",
       paused: "{{name}} paused at {{at}}",

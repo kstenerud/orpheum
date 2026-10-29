@@ -42,6 +42,7 @@ import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
+import { showNotice } from "./notice.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
@@ -82,7 +83,7 @@ export function TogetherViewer(): JSX.Element {
   // The membership this browser keeps, unless a link other than the one it joined by was opened:
   // the same link opened again comes back as the same member (D267 §1).
   const membership = secret === undefined || kept?.link === secret ? kept : undefined;
-  const { endReason, over } = useSessionEnd();
+  const { endReason, over } = useSessionEnd(token !== undefined);
   // Made before the Join, so its tap, and any tap after, lets the film and the voices play with
   // sound: one tap gives a guest both, whichever starts first (the owner, 2026-10-13).
   const keptVideo = useKeptVideo();
@@ -165,18 +166,30 @@ function usePastedLinks(setSecret: (secret: string) => void, again: () => void):
 /**
  * Why the session is over for this viewer, if it is, and how it ends and starts again: ended, the
  * membership is forgotten, but for a viewer sent away for the host's upload, who is still a member
- * and may come back (D286 §5).
+ * and may come back (D286 §5). A signed-in guest has the app to go back to: ended, they are taken
+ * home, told why there, as a page that said only "You can close this page" stopped their app in
+ * its tracks (the owner, 2026-10-29); a guest by link alone has nowhere else, and is told here.
  */
-function useSessionEnd(): {
+function useSessionEnd(isSignedIn: boolean): {
   readonly endReason: TogetherEndReason | undefined;
   readonly over: { readonly end: (reason: TogetherEndReason) => void; readonly again: () => void };
 } {
+  const { t } = useTranslation();
+  const { navigation } = useServices();
   const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
   const over = useMemo(
     () => ({
       end: (reason: TogetherEndReason) => {
-        if (reason !== "uploadFull") {
-          forgetMembership(browserStorage(), "viewer");
+        if (reason === "uploadFull") {
+          setEndReason(reason);
+          return;
+        }
+        forgetMembership(browserStorage(), "viewer");
+        if (isSignedIn) {
+          // Home first, so the notice is first seen there, the screen it stays on (notice-note.tsx).
+          navigation.replace({ screen: "home" });
+          showNotice(t(`together.overNotice.${reason}`));
+          return;
         }
         setEndReason(reason);
       },
@@ -184,7 +197,7 @@ function useSessionEnd(): {
         setEndReason(undefined);
       },
     }),
-    [],
+    [isSignedIn, navigation, t],
   );
   return { endReason, over };
 }

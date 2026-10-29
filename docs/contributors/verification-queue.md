@@ -1450,3 +1450,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   visit, and open a film: its page opens. (`web/apps/web/src/screen-load.tsx`, `sw.ts`)
   **Passed 2026-10-29 (the owner, Chrome on the Mac):** the first load through the discovery after the
   deploy (13:55, over WebRTC) opened Thimbleford's page and player with no failed screen.
+- [ ] **VQ124** — On the owner's Android phone, signed in, join a Watch Together session as a guest
+  from a host on another device, and have the host end it. Passes when the phone's page goes to the
+  home page (not "This session is over. You can close this page.") with a note at its top, "The host
+  ended the Watch Together session.", that the × closes, and that goes on its own once another screen
+  is opened. Then the same on the Fire TV signed in as a guest: the host ends the session, the TV
+  goes home with the note, and the remote's arrows reach its × and OK closes it. A guest joined by
+  link alone, not signed in, still sees the page that says the session is over.
+  (`web/apps/web/src/together-viewer.tsx`, `notice-note.tsx`)
