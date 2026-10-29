@@ -23,31 +23,43 @@
 //   - Starts no goroutine: a device's reading and writing are the API's, and the hub sends to a
 //     device through the Sender it attached with, which must never block. Review-only (standards/go.md,
 //     Concurrency); the race detector runs in make test-all.
-//   - A session has at most one leader, the screen that is the film (D371 §1). The host's devices
-//     are preferred (D372 §3): the host's device that plays, the newest attached or the one that put
-//     the film on; as it leaves, the host's newest other player. While none of the host's can lead,
-//     the player present longest without a break leads, a guest's as readily, by the moment the
-//     core saw it arrive, to the microsecond, ties to the lower id (D372 §1); a device that comes
-//     back is present only since (§2). A host's player coming back while a guest's leads a film
-//     follows until it plays within the drift a follower leaves alone, then leads (§3). No panel
-//     and no hidden page leads (§6). The roster says who leads, and each change of leader is logged
-//     with why and the new leader's seniority. Enforced by
-//     TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves,
+//   - A session has at most one leader, the screen that is the film (D371 §1), chosen among its
+//     contenders alone: the devices whose player has the session's film, as its latest state says
+//     (its fileId) or as it put it on, on a page its browser shows (D374 §1, contends); attached in
+//     a playing role is not enough, and with nothing on no one leads. Every choice of leader goes
+//     through the one predicate. The host's contenders are preferred (D372 §3, D374 §2): the one
+//     that put the film on, and the newest as it first contends; as it leaves, the host's newest
+//     other contender. While none of the host's contends, the contender present longest without a
+//     break leads, a guest's as readily, by the moment the core saw it arrive, to the microsecond,
+//     ties to the lower id (D372 §1); a device that comes back is present only since (§2). A host's
+//     player coming back while a guest's leads a film follows until it plays within the drift a
+//     follower leaves alone, then leads (§3). No panel, no hidden page and no player without the
+//     film leads: a cast's sender whose page keeps its connection says it plays no film, and its
+//     receiver contends in its place. The roster says who leads, and each change of leader is logged
+//     with why, the new leader's seniority, and each player passed over and why (passedOver).
+//     Enforced by TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves,
 //     TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan,
 //     TestHub_TheLeadPassesToThePlayerPresentLongest,
-//     TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack and
-//     TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads.
-//   - A leader whose connection closes or goes silent, whose page its browser hides, or whose member
-//     is removed is gone, and the lead passes at once (D372 §5); a Watch Together leader stalled
-//     while its group plays is gone once its stall outlasts stalledLeaderGrace, and the lead passes
-//     to a player that plays on, the log saying goneBecause=stalled and how long (D373 §2); a
-//     shorter stall keeps the lead. The host's player stalled follows, and takes the lead back once
+//     TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack,
+//     TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads,
+//     TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes,
+//     TestHub_APlayerNotPlayingTheFilmIsPassedOverForTheLead and
+//     TestHub_TheHostsPlayerPuttingAFilmOnLeadsItWhileItLoads.
+//   - A leader whose connection closes or goes silent, whose page its browser hides, whose member
+//     is removed, or whose player no longer has the film (goneBecause noFilm or otherFilm) is gone,
+//     and the lead passes at once (D372 §5, D374 §1); a Watch Together leader stalled while its
+//     group plays is gone once its stall outlasts stalledLeaderGrace, and the lead passes to a
+//     contender that plays on, the log saying goneBecause=stalled and how long (D373 §2). A shorter
+//     stall keeps the lead, and the leader, playing again behind its group, catches up to it as a
+//     follower does, its states placing the group only once in step, so the group never steps back
+//     for it (D374; leaderCaughtUp). The host's player stalled follows, and takes the lead back once
 //     in step; a guest's just follows (D373 §3). Leading carries the clock only: every right stays
 //     the host's or the link's (D372 §4). Enforced by
 //     TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot,
 //     TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn,
 //     TestHub_ALeadersStallWithinItsGraceKeepsTheLead,
-//     TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows and
+//     TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows,
+//     TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes and
 //     TestHub_AGuestsLeadingPlayerCarriesTheClockOnly.
 //   - With no one left who can lead, a Watch Together group that plays pauses where it stands, and
 //     ends by its idle end; a cast is left to its receiver's return (D372 §7). Enforced by
@@ -59,12 +71,14 @@
 //     TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays,
 //     TestHub_AHostsSeekStillWaitsForItsLeaderAndPassesNoLead and
 //     TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing.
-//   - No one's stall holds a Watch Together group that plays (D373 §1): neither its leader's nor a
-//     follower's moves it to Waiting, and each stall is logged as it ends, who and how long
-//     (stallNotWaitedFor); a cast's group, a session of one, stands for its receiver's stall.
-//     Enforced by TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing,
-//     TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn and
-//     TestCast_AReceiversStallStandsItsGroupForIt.
+//   - No one's stall holds a Watch Together group that plays while another contender plays the film
+//     (D373 §1): neither its leader's nor a follower's moves it to Waiting, and each stall is logged
+//     as it ends, who and how long (stallNotWaitedFor). The only contender's stall its group stands
+//     for, where it stalled, its clock still, as a film played alone waits (D374 §3); a cast's
+//     receiver, a session of one, is that case, one rule. Enforced by
+//     TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing,
+//     TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn,
+//     TestHub_TheOnlyContendersStallIsWaitedFor and TestCast_AReceiversStallStandsItsGroupForIt.
 //   - The group waits for no one but its leader as it starts (D371 §2): a follower loading,
 //     stalling or dropping changes nothing, its trouble its own to catch up on; without a leader a
 //     play or a seek plays at once. Enforced by TestHub_AJoiningViewerHoldsNoOneUp,
@@ -166,6 +180,9 @@
 //     person is in one session at most.
 //   - D373: no one's stall holds a Watch Together group; a leader stalled past a short grace passes
 //     the lead. It amends D372 §5 and D371's resolution that the group stands for its leader's stall.
+//   - D374: only a device playing the film contends for the lead, a cast's sender never; a lone
+//     contender's stall is waited for (amending D373 §1); a leader recovered within the grace catches
+//     up to its group.
 //   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
@@ -186,7 +203,7 @@
 //     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the commands, and following the leader.
-//   - leader.go: who leads, and how the lead passes (D371, D372).
+//   - leader.go: who contends for the lead, who leads, and how the lead passes (D371, D372, D374).
 //   - places.go: a person in one session at most (D372 §8).
 //   - lifetimes.go: how long a link admits, and when an idle session ends (D346).
 //   - cast.go: a cast's session of one (D337; plans/cast-to-device.md §3).

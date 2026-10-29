@@ -236,7 +236,7 @@ export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export { isVoiceLive } from "./voice-live.ts";
 export { isFollowingAGroup } from "./following-a-group.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
-export { followGroup } from "./together-follow-group.ts";
+export { followGroup, tellsNoFilmHere } from "./together-follow-group.ts";
 export { waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export { isAskedToPlay, loadedAheadMsOf, startGateOf } from "./start-gate.ts";

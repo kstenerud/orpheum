@@ -26,7 +26,7 @@ import {
   GroupJumpsTold,
   type ChunkLoaded,
 } from "./together-player-events.ts";
-import { GroupLeader, PlaybackTold } from "./together-leader.ts";
+import { GroupLeader, isCaughtUp, LeaderCatchUp, PlaybackTold } from "./together-leader.ts";
 import { commandOfEvent, mayLead, sendAfterMs, type GroupNow } from "./together-lead.ts";
 import { FollowedChanges, heldByOf, notePlayedWhileHeld } from "./together-followed.ts";
 import { OwnMoves } from "./together-own-moves.ts";
@@ -149,6 +149,8 @@ export class GroupFollower {
   readonly #stopAsking: () => void;
   /** Whether its page was shown again and it has not played since, a follower. */
   readonly #shownAgain = new ShownAgain();
+  /** Whether, leading, it catches up to its group after a stall the group played on through (D374). */
+  readonly #leaderCatchUp = new LeaderCatchUp();
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -158,10 +160,11 @@ export class GroupFollower {
     this.#followed = new FollowedChanges(connection.snapshot().groupSeq);
     const startGate = startGateOf(media);
     this.#startGate = startGate;
-    // Aside only once its welcome says it follows: until then a play its page asks waits, as a
-    // leader's does, and a follower's is given up at its welcome, its follower playing it.
-    this.#stopStandingAside = startGate.standAsideWhile(() =>
-      isFollowerOf(this.#connection.snapshot()),
+    // Aside only once its welcome says it follows, or while it catches up as a follower would:
+    // until then a play its page asks waits, as a leader's does, and a follower's is given up at its
+    // welcome, its follower playing it.
+    this.#stopStandingAside = startGate.standAsideWhile(
+      () => isFollowerOf(this.#connection.snapshot()) || this.#isCatchingUp(),
     );
     this.#stopAsking = startGate.asksToPlayWhile(() => isAskedByItsGroup(connection.snapshot()));
     this.#leader = new GroupLeader({
@@ -184,15 +187,31 @@ export class GroupFollower {
     return isLeaderOf(this.#connection.snapshot());
   }
 
-  /** The player's state as the group is told it: a leader buffers only while it cannot play on. */
+  /** Whether it leads, and catches up to its group after a stall the group played on through (D374). */
+  #isCatchingUp(): boolean {
+    return (
+      this.#isLeading() && this.#leaderCatchUp.isCatchingUp(this.#connection.snapshot().groupSeq)
+    );
+  }
+
+  /**
+   * The player's state as the group is told it, with the film it plays, by which it contends for its
+   * session's lead (D374 §1): a leader buffers only while it cannot play on, and its stall, told while
+   * its group plays, is one it catches up after (LeaderCatchUp).
+   */
   readonly playerState = (): PlayerState => {
     const isLeading = this.#isLeading();
     const isBuffering = isLeading ? this.#leader.isLoading() : this.#isBuffering();
+    if (isLeading) {
+      const { group, groupSeq } = this.#connection.snapshot();
+      this.#leaderCatchUp.told(isBuffering, { group, seq: groupSeq }, this.#isAwaitingGroup);
+    }
     this.#noteBuffering(isBuffering, isLeading);
     this.#wasReportedBuffering = isBuffering;
     const loadsFaster = this.#refill.loadsFaster();
     const playback = this.#playback.report();
     return {
+      fileId: this.#options.fileId,
       positionMs: positionMsOf(this.#media),
       isPlaying: !this.#media.paused,
       isBuffering,
@@ -235,7 +254,9 @@ export class GroupFollower {
 
   /**
    * Puts the player where the group is now, when the group plays its film; not while held (heldByOf).
-   * A leader is put nowhere: it carries out what another device asked, and loads as it would alone.
+   * A leader is put nowhere: it carries out what another device asked, and loads as it would alone;
+   * one catching up after a stall its group played on through follows as a follower does until in
+   * step (D374).
    */
   readonly apply = (): void => {
     const where = this.#whereNow();
@@ -244,7 +265,7 @@ export class GroupFollower {
     if (where === undefined || !this.#followed.mayFollow(heldBy, nowMs, this.#connection)) {
       return;
     }
-    if (this.#isLeading()) {
+    if (this.#isLeading() && !this.#catchesUp(where)) {
       this.#hasCaughtUp = true; // its person's moves are the group's from the first
       this.#loading.stop();
       this.#leader.lead(where, this.#connection.snapshot().groupSeq);
@@ -260,6 +281,26 @@ export class GroupFollower {
     this.#loading.follow(where.group.state, !this.#isBuffering());
     this.#jumps.tell(this.#media, where.group);
   };
+
+  /**
+   * Whether this leader still catches up to its group, where, after a stall the group played on
+   * through (D374), following it as a follower does, nudged or sought: once in step it leads from
+   * there, at the group's rate, and tells its state, by which the server has it place the group again.
+   */
+  #catchesUp(where: GroupNow): boolean {
+    if (!this.#isCatchingUp()) {
+      return false;
+    }
+    if (!isCaughtUp(this.#media, where.expectedMs, where.tuning)) {
+      this.#leaderCatchUp.followed();
+      return true;
+    }
+    if (this.#leaderCatchUp.caughtUp()) {
+      this.#setRate(where.group.rate, where, where.expectedMs - positionMsOf(this.#media));
+      this.#connection.reportState();
+    }
+    return false;
+  }
 
   /**
    * Follows a playing group: waiting ahead of it, or playing along at once, as the group plays from
@@ -386,8 +427,9 @@ export class GroupFollower {
 
   /**
    * Each checkDriftEveryMs: applies the group, and tells it this player's state while it waits (D247
-   * §4), while this is the host's player following a guest's lead, to be seen in step (D372 §3), and
-   * while it leads stalled, to have its lead handed on past the grace (D373 §2).
+   * §4), while this is the host's player following a guest's lead, to be seen in step (D372 §3),
+   * while it leads stalled, to have its lead handed on past the grace (D373 §2), and while it leads
+   * catching up, to be seen in step (D374).
    */
   readonly tick = (): void => {
     for (const move of this.#ownMoves.expired(this.#options.monotonicMs())) {
@@ -397,7 +439,8 @@ export class GroupFollower {
     this.apply();
     const snapshot = this.#connection.snapshot();
     const isStalledLeader = this.#wasReportedBuffering === true && this.#isLeading();
-    if (snapshot.group?.state === "Waiting" || isHostAwaitingLead(snapshot) || isStalledLeader) {
+    const isToTell = isHostAwaitingLead(snapshot) || isStalledLeader || this.#isCatchingUp();
+    if (snapshot.group?.state === "Waiting" || isToTell) {
       this.#connection.reportState();
     }
   };

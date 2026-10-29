@@ -24212,7 +24212,10 @@ the stalled leader keeps the lead and the group plays on. The host's player stal
 the lead back in step (`takeLeadInStep`, `hostInStep`, as D372 §3 built it). The web client's
 leader tells its state each second while it says it buffers (`tick`,
 `web/packages/sdk/src/together-follow.ts`), so the core sees the grace pass. Revisits D372 §5
-and D371's resolved point "a group standing for its leader" (its stall).
+and D371's resolved point "a group standing for its leader" (its stall). Revisited by D374 the same
+day: a leader that plays again within the grace now catches up forward to the group, which no longer
+steps back to it (the resolved point "a leader's stall within the grace" below), and the cast's
+exemption is one rule with any lone contender's (D374 §3).
 
 Resolved in the build, where the decision left it open (say if any should go otherwise):
 - **The grace** is a named constant, as D372's silence limit is, not a setting: 3 s, fixed by
@@ -24262,4 +24265,47 @@ are actually playing video can be contenders for leadership."
 Also agreed the same day, on D373's build: a leader that recovers within D373's grace catches up to the
 group rather than placing the group back at itself, so no one sees a stretch twice.
 
-**Status:** Decided 2026-10-29; not built.
+**Status:** Decided 2026-10-29; built 2026-10-29. A player's state says the film it has (`fileId`,
+0 for none), and a contender for the lead is a player on a shown page whose latest state, or the
+film it put on itself, is the session's film (`internal/core/together/leader.go`: `contends`,
+`whyPassedOver`); every choice of leader goes through it (`arrived`, now run as a device first
+contends, `takeLeadInStep`, `nextLeader`, `passStalledLead`), and a leader that stops contending,
+its page hidden, its player gone or another film's, hands the lead on at once (`takeContention`,
+`goneBecause=noFilm`, `otherFilm`, `hidden`); a film put on, or stopped, hands on a lead that does
+not play it (`filmChanged`). Each `leaderChanged` line for a lead handed on says each player passed
+over and why (`passedOver="<device id>:<why> …"`: `noFilm`, `otherFilm`, `hidden`, `nothingOn`,
+`stalled`). The guest's page while its device casts says it has no film (`tellsNoFilmHere`,
+`web/apps/web/src/together-viewer.tsx`), and the web client's player says its film in each state
+(`web/packages/sdk/src/together-follow.ts`). §3: the group stands for its only contender's stall
+(`isOnlyContender`, `followLeader`), the cast's own exemption folded into it. The catch-up: a
+leader's stall that ends within the grace while its group played on sets it catching up
+(`catchingUpSince`, logged on the `stallNotWaitedFor` line with `catchesUp=true behindGroupMs=…`);
+its states place the group only once in step (`leaderCatchesUp`, `logEvent=leaderCaughtUp`
+`offGroupMs`, `catchingUpMs`), its catch-up moves logged as a follower's (`followerCaughtUp`
+`isLeaderCatchingUp=true`); the web client's leader follows as a follower does until in step
+(`LeaderCatchUp`, `web/packages/sdk/src/together-leader.ts`). Revisits D372 §6 and its resolved point
+"the host's player attaching while a guest's leads and nothing is on" (with nothing on no one
+leads now), and D373 §1 and its resolved points "a leader's stall within the grace" and "a cast".
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **"Playing the film"** is the player having the session's film loaded, as its state says, whether
+  it plays, buffers, or is paused with its group: a stall is D373's grace's to judge, and a paused
+  group needs a leader for its play. The host's player that puts a film on contends for it at once,
+  before its first state, so a film put on still stands for its leader while it loads (D373 §4).
+- **With nothing on, no one leads**: there is no film to play. A film put on by a panel, no player
+  of it yet, plays at once (D371 §2), and the first to play it leads.
+- **A casting sender**: a host's Play page is left as the cast starts, so its video device's
+  connection closes; a guest's page keeps its connection and now says it has no film. Both are
+  passed over; the receiver, attaching as the host's player, leads once it plays in step
+  (`hostInStep`) or, if the host's own still led, at once as the host's newest (`attached`).
+- **A second contender arriving while the only one's stall is waited for** is held where the group
+  stands, as every follower is, so the group goes on as its leader plays again; two contenders, one
+  leaving while the leader stalls, the leader's next state (each second) stands the group where the
+  leader is.
+- **A lone contender catching up**: none, since its group waited for it.
+
+**Proven by:**
+- 1: TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes, TestHub_APlayerNotPlayingTheFilmIsPassedOverForTheLead, TestHub_TheHostsPlayerPuttingAFilmOnLeadsItWhileItLoads, TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, web/apps/web/src/together-viewer-cast.test.tsx ("leaves the film to the device it casts to"), web/packages/sdk/src/together-connection.test.ts ("reports the player's state …"); VQ129
+- 2: TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes, TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves; VQ129
+- 3: TestHub_TheOnlyContendersStallIsWaitedFor, TestCast_AReceiversStallStandsItsGroupForIt; VQ129
+- The catch-up: TestHub_ALeadersStallWithinItsGraceKeepsTheLead, TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, web/packages/sdk/src/together-leader.test.ts ("catches up to its group after a stall the group played on through, nudged forward, then leads from there (D374)"); VQ129

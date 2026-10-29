@@ -44,6 +44,8 @@ func TestHub_TheLeadPassesToThePlayerPresentLongest(t *testing.T) {
 	stage.clock.Advance(time.Microsecond / 2) // the next two arrive in the same microsecond
 	sameFirst, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
 	sameSecond, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
+	stage.ready(t, sameSecond, false)
+	stage.ready(t, sameFirst, false)
 	stage.clock.Advance(90 * time.Second)
 	stage.hub.Detach(stage.host, GoneClosed)
 	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
@@ -260,8 +262,10 @@ func TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn(t *testin
 }
 
 // A leader's stall shorter than stalledLeaderGrace, as a quality switch's, keeps the lead, so the
-// lead is not handed back and forth; the group plays on through it, and once the leader plays again
-// it places the group where it is (D373 §2).
+// lead is not handed back and forth; the group plays on through it (D373 §2), and the leader playing
+// again behind it catches up to it, the group never stepping back for the stall, and leads from where
+// it caught up; the log says it catches up, how far behind, its catch-up's move, and once in step
+// (D374).
 func TestHub_ALeadersStallWithinItsGraceKeepsTheLead(t *testing.T) {
 	t.Parallel()
 	stage := withGuests(t, 1)
@@ -270,15 +274,43 @@ func TestHub_ALeadersStallWithinItsGraceKeepsTheLead(t *testing.T) {
 	stage.stall(t, stage.host)
 	stage.clock.Advance(stalledLeaderGrace - time.Millisecond)
 	stage.stall(t, stage.guests[0]) // a follower's state, as the grace nearly ends
-	stage.report(t, stage.host, 10_000, true, false)
+	seq := stage.hostBox.last(MessageGroup).Seq
+	stage.report(t, stage.host, 11_000, true, false) // plays again where it stalled
 	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
 		t.Errorf("device %d leads, the host's player stalled just under its grace; want the host's still", leader)
 	}
-	if group := stage.hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
-		t.Errorf("the group through its leader's short stall: %+v; want Playing", group)
+	if last := stage.hostBox.last(MessageGroup); last.Group.State != GroupPlaying || last.Seq != seq {
+		t.Errorf("the group through its leader's short stall: %+v; want Playing, untold", last.Group)
 	}
-	if at := stage.groupPositionMs(stage.opened.SessionID); at != 10_020 {
-		t.Errorf("the group is at %d ms as its leader plays again at 10 s; want 10.02 s, the leader's", at)
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 13_999 {
+		t.Errorf("the group is at %d ms as its leader plays again at 11 s; want 13.999 s, playing on, "+
+			"not stepped back to the leader (D374)", at)
+	}
+	if line := lineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
+		"isLeader=true stalledMs=2999 positionMs=11000 catchesUp=true behindGroupMs=2979") {
+		t.Errorf("the leader's stall logged as %q; want it catching up, 2.979 s behind", line)
+	}
+	stage.hub.Handle(t.Context(), stage.host, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 11_000, ToMs: 14_500, Why: "catchUp",
+	}})
+	if line := lineWith(t, stage.logs.String(), eventFollowerCaughtUp); !strings.Contains(line,
+		"isLeaderCatchingUp=true") {
+		t.Errorf("the leader's catch-up seek logged as %q; want it said, the leader catching up", line)
+	}
+	stage.report(t, stage.host, 14_000, false, false) // waiting ahead, paused, for the group
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 13_999 ||
+		stage.hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the leader waits ahead for its group: the group at %d ms, %+v; want it playing on, untold",
+			at, stage.hostBox.last(MessageGroup).Group)
+	}
+	stage.clock.Advance(time.Millisecond)
+	stage.report(t, stage.host, 14_100, true, false) // in step
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 14_120 {
+		t.Errorf("the group is at %d ms as its leader plays in step at 14.1 s; want 14.12 s, the leader's", at)
+	}
+	if line := lineWith(t, stage.logs.String(), eventLeaderCaughtUp); !strings.Contains(line,
+		"offGroupMs=120 catchingUpMs=1") {
+		t.Errorf("the leader's catch-up logged as %q; want how far off and after how long", line)
 	}
 	stage.clock.Advance(time.Hour)
 	stage.ready(t, stage.guests[0], false)

@@ -329,7 +329,14 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(true);
     media.readyState = 4;
     media.fire("seeked");
-    const ready = { positionMs: 60_000, isPlaying: false, isBuffering: false, readyOnMs: 10_000 };
+    // Its film said too, by which it contends for its session's lead (D374 §1).
+    const ready = {
+      fileId: 5,
+      positionMs: 60_000,
+      isPlaying: false,
+      isBuffering: false,
+      readyOnMs: 10_000,
+    };
     expect(reports.at(-1)).toEqual(ready);
   });
 

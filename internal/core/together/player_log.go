@@ -38,6 +38,7 @@ const (
 	eventFollowedLeader    = "followedLeader"
 	eventLeaderChanged     = "leaderChanged"
 	eventFollowerCaughtUp  = "followerCaughtUp"
+	eventLeaderCaughtUp    = "leaderCaughtUp"
 	eventPlayerBuffering   = "playerBuffering"
 	eventStallNotWaitedFor = "stallNotWaitedFor"
 	eventSoundMoved        = "soundMoved"
@@ -126,16 +127,23 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 // logCatchUp logs, at info, a follower's move to catch up to its leader (D371 §2), and reports whether
 // it did: a seek, why ("catchUp", ahead of where the leader is; "skip", a small one; "hold", to where a
 // group standing for its leader stands), from where to where, or a nudge, at which rate, each with
-// how far behind the leader it was, behind when positive, so a report can be read from the log. A
-// leader's own seeks, carried out for another device or as it joined, are logNote's.
+// how far behind the leader it was, behind when positive, so a report can be read from the log; a
+// leader catching up to its group after a stall the group played on through, as a follower does, is
+// logged as one too, isLeaderCatchingUp (D374). A leader's own seeks, carried out for another device
+// or as it joined, are logNote's.
 func (current *session) logCatchUp(
 	ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote,
 ) bool {
-	if (note.Kind != NoteSought && note.Kind != NoteNudged) || from.id == current.leaderID {
+	isLeaderCatchingUp := from.id == current.leaderID && !from.catchingUpSince.IsZero()
+	if (note.Kind != NoteSought && note.Kind != NoteNudged) ||
+		(from.id == current.leaderID && !isLeaderCatchingUp) {
 		return false
 	}
 	attributes := append(current.deviceAttributes(who, from), logEvent, eventFollowerCaughtUp,
 		leaderDeviceIDAttribute, current.leaderID, positionMsAttribute, note.PositionMs)
+	if isLeaderCatchingUp {
+		attributes = append(attributes, "isLeaderCatchingUp", true)
+	}
 	if note.Kind == NoteNudged {
 		attributes = append(attributes, "by", "nudge", "behindMs", note.DriftMs, "rate", note.Rate)
 	} else {

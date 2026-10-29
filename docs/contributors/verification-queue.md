@@ -1518,3 +1518,23 @@ An item is ticked only by the person who did it, and only with what they saw.
   follower stalling (the S23 on a slow link, or throttled) pauses no one, its own
   `stallNotWaitedFor` line saying `isLeader=false`. (`internal/core/together/leader.go`,
   `group.go`; `web/packages/sdk/src/together-follow.ts`)
+- [ ] **VQ129** — only a device playing the film leads, a lone player's stall is waited for, and a
+  leader recovered within its grace catches up forward (D374), on staging. (1) With the Mac's
+  Chrome hosting a Watch Together session that plays, and the S23 (Chrome) following, cast from the
+  Mac to the Fire TV. Passes when, from the cast on, no `leaderChanged` line names the Mac's Chrome
+  video device as leader while the Fire TV plays: the Mac's lead passes as its Play page is left
+  (`goneBecause=closed`, or `noFilm` with `passedOver=<its id>:noFilm`), and the Fire TV takes it as
+  the host's player (`why=attached` or `why=hostInStep`); stop the cast and play on the Mac again to
+  see it lead (`why=putOn` or `attached`). If the TV can be throttled (Silk's developer tools, or the
+  router), a 1–2 s stall of it while the S23 plays makes the TV catch up, below. (2) The Mac's Chrome
+  hosting and leading, the S23 following: force a brief stall of the Mac's film, a quality switch
+  (DevTools' Network panel, Fast 4G for a moment and back) or 1–2 s Offline. Passes when the Mac's
+  player catches up forward, a `stallNotWaitedFor … isLeader=true … catchesUp=true behindGroupMs=…`
+  line then `leaderCaughtUp … offGroupMs=… catchingUpMs=…`, keeps the lead, and the S23 never jumps
+  back (no `followerCaughtUp` on the S23 with a negative `behindMs` near it, no stretch seen twice).
+  (3) Lock the S23 (its page hidden, it contends no more) and stall the Mac's film as in (2), longer
+  than 3 s. Passes when the group waits for the Mac (`groupChanged state=Waiting event=waitingFor`),
+  the lead does not pass, and the film plays on from where it stalled once the Mac loads, nothing
+  skipped. (`internal/core/together/leader.go`, `group.go`;
+  `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`;
+  `web/apps/web/src/together-viewer.tsx`)

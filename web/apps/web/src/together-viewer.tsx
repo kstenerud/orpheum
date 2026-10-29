@@ -6,6 +6,7 @@ import {
   followGroup,
   playedMutedEvent,
   soundOnAtTap,
+  tellsNoFilmHere,
   type CannotKeepUp,
   type Standing,
   type BrowserVoiceDevices,
@@ -377,7 +378,8 @@ export function FollowsTheGroupHere(props: { readonly credential: string }): JSX
  * session's kept video; over either, a tap asked for while the voices wait for one, as when a phone
  * call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the video").
  * While this device casts, the device it casts to plays the film in its place, a follower too, and
- * this one holds the group's controls its rights give (D371 §4).
+ * this one holds the group's controls its rights give (D371 §4), telling its session it plays no
+ * film, so it never leads in its receiver's place (D374 §1).
  */
 function ViewingArea(props: {
   readonly kept: KeptVideo;
@@ -391,7 +393,12 @@ function ViewingArea(props: {
   const { sending } = useLive();
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
-  if (sending?.isAccepted === true && fileId !== 0) {
+  const isCasting = sending?.isAccepted === true && fileId !== 0;
+  useEffect(
+    () => (isCasting && connection !== undefined ? tellsNoFilmHere(connection) : undefined),
+    [isCasting, connection],
+  );
+  if (isCasting) {
     return (
       <section className="together-viewer__viewing" aria-label={t("together.stage")}>
         <p>{t("cast.playingOn", { name: sending.receiverName })}</p>

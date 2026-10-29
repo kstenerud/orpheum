@@ -9,12 +9,13 @@ import (
 	"time"
 )
 
-// report is attachment's state: where its player is, whether it plays, and whether it buffers, its
-// round trip 40 ms.
+// report is attachment's state: where its player, which has the session's film, is, whether it
+// plays, and whether it buffers, its round trip 40 ms.
 func (stage sessionStage) report(t *testing.T, attachment Attachment, positionMs int64, isPlaying, isBuffering bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
 		Type: MessageState, PositionMs: positionMs, Playing: isPlaying, Buffering: isBuffering, RTTMs: 40,
+		FileID: stage.filmOn(attachment.SessionID),
 	})
 }
 
@@ -23,8 +24,18 @@ func (stage sessionStage) hide(t *testing.T, attachment Attachment, isHidden boo
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
 		Type: MessageState, PositionMs: stage.groupPositionMs(attachment.SessionID), Buffering: true,
-		PageHidden: isHidden,
+		PageHidden: isHidden, FileID: stage.filmOn(attachment.SessionID),
 	})
+}
+
+// filmOn is the film the session has on, which a player following it has loaded; 0 for none.
+func (stage sessionStage) filmOn(sessionID int64) int64 {
+	stage.hub.mutex.Lock()
+	defer stage.hub.mutex.Unlock()
+	if held, found := stage.hub.sessions[sessionID]; found {
+		return held.group.fileID
+	}
+	return 0
 }
 
 // pongGroup is the group as a pong to attachment says it is now.
@@ -76,7 +87,8 @@ func TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays(t *testin
 // The group's position is its leader's: each state the leader reports while the group plays places
 // the group where it is, with or without followers, and nothing corrects the leader (D371 §1); a
 // leader's stall holds no one: the group plays on, and the leader playing again within its grace
-// places it where it is (D373 §1, §2). A follower's stall changes nothing: it catches up (D371 §2).
+// catches up to it, the group never stepping back (D373 §1, §2, D374). A follower's stall changes
+// nothing: it catches up (D371 §2).
 func TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
@@ -103,9 +115,9 @@ func TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing(t *testi
 		t.Errorf("2 s into its leader's stall, the group: %+v; want Playing on at 12.22 s", group)
 	}
 	stage.report(t, host, 10_300, true, false)
-	if at := stage.groupPositionMs(stage.opened.SessionID); at != 10_320 || hostBox.last(MessageGroup).Seq != seq {
-		t.Errorf("the leader plays again at 10.3 s: the group at %d ms, %+v; want it there, 10.32 s, untold",
-			at, hostBox.last(MessageGroup).Group)
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 12_220 || hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the leader plays again at 10.3 s: the group at %d ms, %+v; want it playing on at 12.22 s, "+
+			"untold, for the leader to catch up to (D374)", at, hostBox.last(MessageGroup).Group)
 	}
 	if line := lineWith(t, stage.logs.String(), eventFollowedLeader); !strings.Contains(line, "steppedMs=-780") {
 		t.Errorf("the group's first step to its leader logged as %q; want steppedMs=-780", line)
@@ -157,33 +169,35 @@ func TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut(t *testing.T)
 	}
 }
 
-// The host's newest device that plays leads, as it attaches, and the one that puts a film on, as it
-// does; the leader leaving hands the lead to the host's newest other player, and with none of the
-// host's, to the player present longest, a guest's, which the group then stands for (D371 §3,
-// D372 §1). Each change is logged with why, and the roster says who leads.
+// The host's device that puts a film on leads, as it does, and the host's newest player leads as it
+// first plays the film; the leader leaving hands the lead to the host's newest other player, and
+// with none of the host's, to the player present longest, a guest's, which the group then stands for
+// (D371 §3, D372 §1, D374 §1). Each change is logged with why, and the roster says who leads.
 func TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	older, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	newer, _ := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
 	guest := stage.join(t)
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleVideo)
 	leaderOf := func() int64 { return rosterLeader(watchBox) }
-	if leaderOf() != newer.DeviceID {
-		t.Errorf("the roster's leader is device %d; want the newest of the host's players, %d",
-			leaderOf(), newer.DeviceID)
-	}
 	stage.command(t, older, CommandChangeItem, 7)
 	if leaderOf() != older.DeviceID {
 		t.Errorf("the roster's leader is device %d; want the player that put the film on, %d",
 			leaderOf(), older.DeviceID)
 	}
-	stage.hub.Detach(older, GoneClosed)
+	newer, _ := stage.attach(t, stage.opened.MembershipCredential, RoleBoth)
+	stage.ready(t, newer, true)
+	stage.ready(t, guestDevice, true)
 	if leaderOf() != newer.DeviceID {
-		t.Errorf("the roster's leader is device %d; want the host's other player, %d", leaderOf(), newer.DeviceID)
+		t.Errorf("the roster's leader is device %d; want the newest of the host's players, %d",
+			leaderOf(), newer.DeviceID)
 	}
-	stage.hub.Detach(newer, GoneSilent)
+	stage.hub.Detach(newer, GoneClosed)
+	if leaderOf() != older.DeviceID {
+		t.Errorf("the roster's leader is device %d; want the host's other player, %d", leaderOf(), older.DeviceID)
+	}
+	stage.hub.Detach(older, GoneSilent)
 	if leaderOf() != guestDevice.DeviceID {
 		t.Errorf("the roster's leader is device %d; want the guest's player, the one left, %d",
 			leaderOf(), guestDevice.DeviceID)
@@ -196,10 +210,10 @@ func TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves(t *testing.T) {
 		fmt.Sprintf("leaderDeviceId=%d leaderMemberId=%d why=attached", newer.DeviceID, newer.MemberID),
 		fmt.Sprintf("leaderDeviceId=%d leaderMemberId=%d why=putOn", older.DeviceID, older.MemberID),
 		fmt.Sprintf("leaderDeviceId=%d leaderMemberId=%d why=leaderGone leaderIsHost=true previousLeaderDeviceId=%d",
-			newer.DeviceID, newer.MemberID, older.DeviceID),
+			older.DeviceID, older.MemberID, newer.DeviceID),
 		"goneBecause=closed goneLeaderWasHost=true",
 		fmt.Sprintf("leaderDeviceId=%d leaderMemberId=%d why=leaderGone leaderIsHost=false previousLeaderDeviceId=%d",
-			guestDevice.DeviceID, guestDevice.MemberID, newer.DeviceID),
+			guestDevice.DeviceID, guestDevice.MemberID, older.DeviceID),
 		"goneBecause=silent goneLeaderWasHost=true",
 	} {
 		if !strings.Contains(logs, want) {
@@ -220,23 +234,32 @@ func rosterLeader(box *inbox) int64 {
 	return 0
 }
 
-// A panel never leads; while none of the host's devices can lead, a guest's does, and the host's
-// player that attaches while nothing is on takes the lead at once, nothing to jump (D372 §1, §3).
+// A panel never leads, nor, with nothing on, any player: there is no film to play (D374 §1); while
+// none of the host's devices can lead, a guest's playing the film does, and the host's player that
+// comes to play it while a guest's leads follows until in step (D372 §1, §3).
 func TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	_, panelBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	panel, panelBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	if leader := rosterLeader(panelBox); leader != 0 {
 		t.Errorf("device %d leads, the host's panel alone attached; want none", leader)
 	}
 	guest := stage.join(t)
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RoleBoth)
+	stage.ready(t, guestDevice, false)
+	if leader := rosterLeader(panelBox); leader != 0 {
+		t.Errorf("device %d leads, nothing on; want none", leader)
+	}
+	stage.command(t, panel, CommandChangeItem, 7)
+	stage.ready(t, guestDevice, false)
 	if leader := rosterLeader(panelBox); leader != guestDevice.DeviceID {
 		t.Errorf("device %d leads; want the guest's player, %d, the only one", leader, guestDevice.DeviceID)
 	}
 	host, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	if leader := rosterLeader(panelBox); leader != host.DeviceID {
-		t.Errorf("device %d leads, nothing on; want the host's player that attached, %d", leader, host.DeviceID)
+	stage.report(t, host, 0, false, true)
+	if leader := rosterLeader(panelBox); leader != guestDevice.DeviceID {
+		t.Errorf("device %d leads, the host's player loading the film; want the guest's still, %d, until "+
+			"the host's plays in step", leader, guestDevice.DeviceID)
 	}
 	if !strings.Contains(stage.logs.String(), fmt.Sprintf(
 		"leaderDeviceId=%d leaderMemberId=%d why=noneLed leaderIsHost=false", guestDevice.DeviceID, guest.MemberID)) {
