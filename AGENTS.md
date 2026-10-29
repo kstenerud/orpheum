@@ -49,7 +49,9 @@ done. *Standards: makefile.md §4.*
 1. **Design is the owner's.** Cut A's design was frozen (D193 §8) until it shipped; it no longer
    is, so never refuse or defer a change because of it (agent-failures A40). If the plan is
    silent, ambiguous or wrong, propose and ask the owner; do not invent design, and do not
-   quietly build around it. *Review, and the owner.*
+   quietly build around it. A decision is the best answer on what was known then: when evidence
+   shows one wrong, or you find a better way, tell the owner at once with the change you propose,
+   recorded as a new decision naming what it amends (principles §27). *Review, and the owner.*
 2. **The gates are the owner's.** Edits to lint and compiler configuration, `Makefile`,
    `scripts/`, `.claude/`, `.githooks/`, `.github/`, `deps/*.allow`, `internal/archtest/` and
    test baselines are refused. Never loosen a gate to make code pass; if one is wrong, tell the
