@@ -369,6 +369,34 @@ func (registry *Registry) Accept(userID, deviceID, castID int64) (Cast, error) {
 	return held.Cast, nil
 }
 
+// PartChanged hands each cast userID sends again to its receiver, by the connection that holds it,
+// as the Watch Together session they are in changed: one started while they cast, which the receiver
+// takes their part in, as their host's player leading it with the film it plays (D364 §11, D371 §4,
+// D372 §8). Where each cast stands now, in milliseconds, is positionOf's, the film playing on from
+// there; false leaves where it was to start. It returns the casts handed again.
+func (registry *Registry) PartChanged(userID int64, positionOf func(castID int64) (int64, bool)) []Cast {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[userID]
+	if owner == nil {
+		return []Cast{}
+	}
+	handed := []Cast{}
+	for _, held := range owner.casts {
+		holder := owner.connections[held.heldBy]
+		if holder == nil {
+			continue // the next connection of the receiver is handed it, with the part as it is then
+		}
+		if positionMs, isKnown := positionOf(held.ID); isKnown && held.FileID != 0 {
+			held.PositionMs = &positionMs
+		}
+		registry.handOff(held, holder)
+		handed = append(handed, held.Cast)
+	}
+	slices.SortFunc(handed, func(one, other Cast) int { return cmp.Compare(one.ID, other.ID) })
+	return handed
+}
+
 // EndGone ends every cast whose receiver has had no connection for ReceiverGoneAfter (D364 §6), its
 // sender's pages told, and returns them for their sessions to be ended.
 func (registry *Registry) EndGone() []Cast {

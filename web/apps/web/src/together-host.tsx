@@ -89,19 +89,17 @@ interface LeadingPlayer {
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
   const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
-  const hasPutOnRef = useRef(false);
+  // The session it put its film on for: each it comes to lead, once (a cast's receiver taking its
+  // host's part in a Watch Together session started while it played, D364 §11).
+  const putOnForRef = useRef<TogetherConnection | undefined>(undefined);
   useEffect(() => {
-    if (connection === undefined || !isWelcomed || hasPutOnRef.current) {
+    if (connection === undefined || !isWelcomed || putOnForRef.current === connection) {
       return;
     }
-    hasPutOnRef.current = true;
+    const isFirst = putOnForRef.current === undefined;
+    putOnForRef.current = connection;
     if (connection.snapshot().group?.fileId !== fileId) {
-      const positionMs =
-        putOnAtMs ??
-        (video !== null && video.readyState >= HTMLMediaElement.HAVE_METADATA
-          ? video.currentTime * 1000
-          : startPositionMs);
-      connection.command({ command: "changeItem", fileId, positionMs });
+      putOn(connection, { fileId, video, startPositionMs, putOnAtMs }, isFirst);
     }
   }, [connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs]);
   useEffect(
@@ -118,6 +116,33 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
     [connection, fileId, video, delivery],
   );
   useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
+}
+
+/**
+ * Puts the leading player's film on for the session connection: the first session it leads from
+ * putOnAtMs, else where the video stands, else where the film starts; a session it is led on into
+ * later, the same film playing on, from where the video stands, and paused if it is.
+ */
+function putOn(
+  connection: TogetherConnection,
+  film: Pick<LeadingPlayer, "fileId" | "video" | "startPositionMs" | "putOnAtMs">,
+  isFirst: boolean,
+): void {
+  const { fileId, video, startPositionMs, putOnAtMs } = film;
+  const standsAtMs = whereItStandsMs(video);
+  const positionMs = isFirst
+    ? (putOnAtMs ?? standsAtMs ?? startPositionMs)
+    : (standsAtMs ?? putOnAtMs ?? startPositionMs);
+  connection.command({ command: "changeItem", fileId, positionMs });
+  if (!isFirst && video?.paused === true) {
+    connection.command({ command: "pause" });
+  }
+}
+
+/** Where video stands, in ms, once it knows; undefined while there is none or it cannot yet say. */
+function whereItStandsMs(video: HTMLVideoElement | null): number | undefined {
+  const haveMetadata = 1; // HTMLMediaElement.HAVE_METADATA, which a plain page may not define
+  return video !== null && video.readyState >= haveMetadata ? video.currentTime * 1000 : undefined;
 }
 
 /** The host's player, leading the session it is connected to. */

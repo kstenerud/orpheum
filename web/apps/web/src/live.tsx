@@ -236,7 +236,11 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
       }
       receivedRef.current = handed;
       setReceiving((current) =>
-        current?.castId === handed.castId && current.fileId === handed.fileId ? current : handed,
+        current?.castId === handed.castId &&
+        current.fileId === handed.fileId &&
+        isSamePart(current, handed)
+          ? current
+          : handed,
       );
     },
     [navigation],
@@ -315,6 +319,20 @@ function useAsking(
     [receive],
   );
   return { asked, answer, onAnswered };
+}
+
+/**
+ * Whether a cast handed again takes the same part in Watch Together as the one received: in no
+ * session, or in one as its host's player, or as a guest's. A host who starts Watch Together while
+ * they cast has the cast handed again with their part in it, the same film playing on, and the
+ * receiver takes it, leading that one session (D364 §11, D372 §8); a credential minted afresh for the
+ * same part, as the connection comes back, changes nothing.
+ */
+function isSamePart(received: CastToReceive, handed: CastToReceive): boolean {
+  return (
+    (received.togetherCredential === undefined) === (handed.togetherCredential === undefined) &&
+    (received.isTogetherFollower === true) === (handed.isTogetherFollower === true)
+  );
 }
 
 /** Where a cast received shows: its film's Play page, or the ready page between videos (D364 §5). */

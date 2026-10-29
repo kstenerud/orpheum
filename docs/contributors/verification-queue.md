@@ -971,6 +971,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   returned the TV to The Kid, and the TV's Back then played Back to the Lantern as its own.
   Fixed, to check again: after Stop casting (or control taken back on the ready page), the remote's
   Back on the TV goes to the page before the one it returned to, never into a film the cast played.
+  **The owner's finding, 2026-10-29 ~14:00** (staging, Firefox on the Mac casting Back to the Lantern
+  to Chrome on the Mac): turning Watch Together on from Firefox while casting made a second session,
+  which the phone joined; the receiver stayed in the cast's own, paused, and the casting page's way to
+  Watch Together's page led to that second session, with no film and no controls. Fixed, to check
+  again: casting a film, then turning Watch Together on from the sender, the receiver goes on with the
+  same film from where it stood, paused if it was, now leading the Watch Together session (no second
+  session: the receiver is handed the host's part in it, D364 §11, D372 §8); a guest invited then
+  joins and sees that film; Watch Together's page shows the film with its controls, which play and
+  pause the receiver, and the casting page leads there; Stop on Watch Together's page and Stop
+  casting behave as above. And the reverse order still works: Watch Together on first, then cast,
+  the receiver leading the session with the film played.
 - [ ] **VQ91** — D367, Back and Up, and a library's Configure, on staging. Passes when, on a computer
   or a phone, no page shows a Back of its own and each page below the top shows its trail
   (`Series › Copper Kettle › S1E1 Pilot`), each part leading up: (1) Continue Watching on Home → play an

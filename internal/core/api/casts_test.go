@@ -475,6 +475,80 @@ func TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession(t *testing.T) {
 	}
 }
 
+// A host who starts Watch Together while they cast has one session, not two (D364 §11, D372 §8): the
+// receiver is handed the cast again with the host's part in the new session and the film from where
+// the cast stands, takes it, leading it, and a guest who joins finds that film on and the receiver
+// leading (D371 §4). The owner's staging, 2026-10-29: the receiver stayed in the cast's session, and
+// Watch Together's page, where the casting page sent them, held a session with nothing on.
+func TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	session, tokens, sockets := harness.sessionWithNothingOn(t)
+	playPath := fmt.Sprintf("/me/casts/%d/play", session.CastID)
+	if played := harness.do(t, http.MethodPost, playPath, tokens[0],
+		map[string]any{"fileId": 1, "positionMs": 7_000}); played.status != http.StatusOK {
+		t.Fatalf("POST %s = %d %s", playPath, played.status, played.body)
+	}
+	handed := sockets[1].await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.FileID == 1
+	}).Receive
+	castPlayer := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	castPlayer.awaitWelcome()
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem,
+		FileID: 1, PositionMs: 7_000,
+	})
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageState, Playing: true, PositionMs: 42_000,
+	})
+	castPlayer.awaitGroup(together.GroupPlaying)
+	castPlayer.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandPause,
+	})
+	castPlayer.awaitGroup(together.GroupPaused)
+	hosted := harness.openTogether(t, tokens[0])
+	part := sockets[1].await(live.MessageReceive, func(message live.Outbound) bool {
+		return message.Receive.TogetherCredential != ""
+	}).Receive
+	if part.CastID != session.CastID || part.FileID != 1 || part.IsTogetherFollower || part.PositionMs == nil ||
+		*part.PositionMs != 42_000 {
+		t.Fatalf("the TV was handed %+v; want the same cast of film 1 from 42 s, leading", part)
+	}
+	player := harness.dialCast(t, part.TogetherCredential, together.RoleVideo)
+	welcome := player.awaitWelcome()
+	if !welcome.IsHost || welcome.SessionID != hosted.Body.SessionID {
+		t.Fatalf("the TV's welcome = %+v; want the host's, in session %d", welcome, hosted.Body.SessionID)
+	}
+	player.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem,
+		FileID: 1, PositionMs: *part.PositionMs,
+	})
+	player.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageState, Playing: true, PositionMs: *part.PositionMs,
+	})
+	player.awaitGroup(together.GroupPlaying)
+	guest := harness.joinByLink(t, tokens[0], hosted.Body.SessionID, "my partner", "Anna")
+	guestWelcome := harness.dialTogether(t, guest.Body.MembershipCredential).awaitWelcome()
+	if guestWelcome.SessionID != hosted.Body.SessionID || guestWelcome.Group.FileID != 1 {
+		t.Errorf("the guest's welcome = %+v; want session %d playing film 1", guestWelcome, hosted.Body.SessionID)
+	}
+	if !leads(guestWelcome.Roster, welcome.DeviceID) {
+		t.Errorf("the guest's roster %+v; want the TV, device %d, leading", guestWelcome.Roster, welcome.DeviceID)
+	}
+}
+
+// leads is whether device deviceID leads in roster.
+func leads(roster []together.MemberView, deviceID int64) bool {
+	for _, member := range roster {
+		for _, device := range member.Devices {
+			if device.ID == deviceID {
+				return device.IsLeader
+			}
+		}
+	}
+	return false
+}
+
 // The session's page names what plays and how long it lasts, for its remote (D364 §15).
 func TestTogether_TheHostsDetailsNameWhatPlays(t *testing.T) {
 	t.Parallel()

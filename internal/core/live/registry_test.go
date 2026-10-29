@@ -454,6 +454,51 @@ func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
 	}
 }
 
+// A person who starts Watch Together while they cast has their receiver handed the cast again, on the
+// connection that holds it, with their part in the new session and the film from where the cast
+// stands, so the receiver leads that one session with the film it plays (D364 §11, D372 §8); another
+// person's casts are left alone.
+func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	parts := map[int64]string{}
+	registry.TakesPartBy(func(userID int64) (string, bool) { return parts[userID], true })
+	receiver, partnerReceiver := &inbox{}, &inbox{}
+	registry.Connect(owner, phone, inFront, (&inbox{}).send)
+	registry.Connect(owner, television, inFront, receiver.send)
+	registry.Connect(partner, 20, inFront, (&inbox{}).send)
+	registry.Connect(partner, 21, inFront, partnerReceiver.send)
+	sevenSeconds := int64(7_000)
+	ownCast := Cast{
+		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, FileID: 3,
+		TitleName: "Metropolis", PositionMs: &sevenSeconds,
+	}
+	if _, err := registry.Cast(ownCast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	partnerCast := Cast{ID: 6, UserID: partner, SenderDeviceID: 20, ReceiverDeviceID: 21}
+	if _, err := registry.Cast(partnerCast, "b"); err != nil {
+		t.Fatal(err)
+	}
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "" {
+		t.Fatalf("before any session the TV was handed %q", handed.Receive.TogetherCredential)
+	}
+	parts[owner], parts[partner] = "hosted", "partner's"
+	handed := registry.PartChanged(owner, func(castID int64) (int64, bool) { return castID * 10_000, true })
+	if len(handed) != 1 || handed[0].ID != 5 {
+		t.Fatalf("PartChanged handed %+v again; want cast 5 alone", handed)
+	}
+	told, _ := receiver.last(MessageReceive)
+	if told.Receive.CastID != 5 || told.Receive.FileID != 3 || told.Receive.TogetherCredential != "hosted" ||
+		told.Receive.IsTogetherFollower || told.Receive.PositionMs == nil || *told.Receive.PositionMs != 50_000 {
+		t.Errorf("the TV was handed %+v; want cast 5 again, film 3 from 50 s, leading the host's session",
+			told.Receive)
+	}
+	if count := partnerReceiver.count(MessageReceive); count != 1 {
+		t.Errorf("the partner's TV was handed %d casts; want its one, left alone", count)
+	}
+}
+
 // A cast ends once its receiver has had no connection for ReceiverGoneAfter, its sender told, and not
 // before; a receiver that comes back in time, loaded again, keeps it (D364 §6).
 func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
