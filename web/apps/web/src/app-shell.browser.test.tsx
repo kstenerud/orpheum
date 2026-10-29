@@ -403,6 +403,45 @@ describe("the shell, laid out by a real browser", () => {
     });
   });
 
+  // The owner's Fire TV, 2026-10-29: "The menu opens up partially scrolled down (I see from Needs a
+  // match to Device tests) rather than showing from the top of the list." A menu has no choice to lay
+  // over its icon, the page it is on among its places or not.
+  it.each(["series", "jobs"] as const)(
+    "opens the menu from its top on a Fire TV's Silk, its first place focused, on the %s page",
+    async (currentScreen) => {
+      await page.viewport(960, 480);
+      document.documentElement.style.removeProperty("--banner-height");
+      await drawn(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen={currentScreen}
+          onSignOut={() => undefined}
+          signedInAs={{ name: "owner", deviceName: "Silk on Fire TV" }}
+          showsDeveloperPages={true}
+          showsDeviceTests={true}
+          onSwitchHousehold={() => undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        async ({ container }) => {
+          await expect
+            .poll(() => document.documentElement.style.getPropertyValue("--banner-height"))
+            .not.toBe("");
+          await userEvent.click(page.getByRole("button", { name: "Menu" }));
+          const menu = container.querySelector("dialog");
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const places = menu?.querySelector<HTMLElement>(".drop-down__places");
+          const first = menu?.querySelector<HTMLElement>("ul a, ul button");
+          expect(places?.scrollTop).toBe(0);
+          expect(document.activeElement).toBe(first);
+          expect(boxOf(menu).top).toBeGreaterThanOrEqual(0);
+          expect(boxOf(first).top).toBeGreaterThanOrEqual(boxOf(places).top);
+        },
+      );
+    },
+  );
+
   // The owner, 2026-10-28: "the drop-down menu should be modal".
   it("takes a press outside the open menu itself, closing it and pressing nothing under it", async () => {
     await page.viewport(960, 480);

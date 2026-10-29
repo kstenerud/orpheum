@@ -428,6 +428,7 @@ function MainMenu(props: {
         openerClassName="app-shell__menu-button"
         openerNaming={{ "aria-label": label, title: label }}
         listClassName="app-shell__menu-list"
+        isFromItsTop
       >
         <MenuPlaces
           signedInAs={props.signedInAs}
