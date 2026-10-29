@@ -8,11 +8,8 @@
  */
 
 import type { GroupState } from "./together.ts";
-import {
-  otherPlayersOf,
-  type TogetherConnection,
-  type TogetherSnapshot,
-} from "./together-connection.ts";
+import type { TogetherConnection, TogetherSnapshot } from "./together-connection.ts";
+import { otherPlayersOf } from "./together-roster.ts";
 import type { FollowedMedia } from "./together-media.ts";
 import { holdLoadingEvent, loadingRunwayEvent } from "./together-player-events.ts";
 

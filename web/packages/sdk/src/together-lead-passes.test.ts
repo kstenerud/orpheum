@@ -3,7 +3,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { everyRight, noRight, type RosterDevice, type RosterMember } from "./together.ts";
-import { isHostAwaitingLead, type TogetherConnection } from "./together-connection.ts";
+import type { TogetherConnection } from "./together-connection.ts";
+import { isHostAwaitingLead } from "./together-roster.ts";
 import { checkDriftEveryMs } from "./together-follow.ts";
 import {
   FakeMedia,

@@ -3,14 +3,16 @@
 import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
-  isHostAwaitingLead,
-  isAskedByItsGroup,
-  isFollowerOf,
-  isLeaderOf,
   type GroupCommand,
   type PlayerState,
   type TogetherConnection,
 } from "./together-connection.ts";
+import {
+  isHostAwaitingLead,
+  isAskedByItsGroup,
+  isFollowerOf,
+  isLeaderOf,
+} from "./together-roster.ts";
 import {
   driftCorrection,
   learnedLossMs,
@@ -32,13 +34,8 @@ import {
   type ChunkLoaded,
 } from "./together-player-events.ts";
 import { GroupLeader, PlaybackTold } from "./together-leader.ts";
-import {
-  commandOfEvent,
-  mayLead,
-  sendAfterMs,
-  whenVisibilityChanges,
-  type GroupNow,
-} from "./together-lead.ts";
+import { commandOfEvent, mayLead, sendAfterMs, type GroupNow } from "./together-lead.ts";
+import { whenVisibilityChanges } from "./shown-page.ts";
 import { FollowedChanges, heldByOf, notePlayedWhileHeld } from "./together-followed.ts";
 import { OwnMoves } from "./together-own-moves.ts";
 import {
@@ -58,18 +55,18 @@ import { catchUpTargetMs, LoadSpeed, waitAheadAtMostMs } from "./together-load-s
 import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
-import { playOrPlayMuted } from "./together-sound.ts";
+import { playOrPlayMuted, ShownAgain } from "./together-sound.ts";
 import { startGateOf, type StartGate } from "./start-gate.ts";
 import { bufferingCauseOf, bufferingNote, HoldingNotes } from "./together-buffering.ts";
 import {
   checkDriftEveryMs,
   followedEvents,
-  recentEventsKept,
+  RecentEvents,
   returnsBeforeSeeksOnly,
   type FollowOptions,
 } from "./together-follow-options.ts";
 
-export { browserPauseWindowMs, scrubPauseWindowMs, type ShownPage } from "./together-lead.ts";
+export { browserPauseWindowMs, scrubPauseWindowMs } from "./together-lead.ts";
 export {
   aimAheadAtMostMs,
   loadedCatchUpLeadMs,
@@ -110,7 +107,7 @@ class GroupFollower {
   /** What it tells its player to load while its group waits or another is behind (D283 §2, D285 §2). */
   readonly #loading: GroupLoading;
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
-  #recentEvents: string[] = [];
+  readonly #recentEvents = new RecentEvents();
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
   #returnCost: LearnedLoss = { costMs: 0, moves: 0 };
   /**
@@ -161,6 +158,8 @@ class GroupFollower {
   readonly #stopStandingAside: () => void;
   /** Ends its start gate's counting it asked to play while its group asks it (isAskedByItsGroup). */
   readonly #stopAsking: () => void;
+  /** Whether its page was shown again and it has not played since, a follower. */
+  readonly #shownAgain = new ShownAgain();
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -296,6 +295,7 @@ class GroupFollower {
     if (event === "playing" || event === "seeked") {
       this.#settle();
     }
+    this.#shownAgain.heard(event);
     this.#noteLoading(event);
     const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
@@ -382,12 +382,15 @@ class GroupFollower {
   };
 
   /**
-   * The page was hidden, where hiding pauses its film, or shown again: the group is told at once,
-   * as a hidden page cannot lead and one shown again comes back (D372 §2, §5).
+   * The page was hidden, where hiding pauses its film, or shown again, and then put where its group
+   * is, not paused till its next check (VQ105): the group is told at once (D372 §2, §5).
    */
   readonly visibilityChanged = (isHidden: boolean): void => {
+    this.#shownAgain.set(!isHidden && !this.#isLeading());
     if (isHidden) {
       this.browserPaused();
+    } else {
+      this.apply();
     }
     this.#connection.reportState();
   };
@@ -483,21 +486,16 @@ class GroupFollower {
       this.#connection.note({
         kind: "leaderCommand",
         why: command.command,
-        recentEvents: this.#recentEvents.join(" "),
+        recentEvents: this.#recentEvents.text(),
       });
     }
     this.#connection.reportState();
   }
 
-  /** Keeps event, its time and whether the follower made it, among the last recentEventsKept. */
+  /** Keeps event, its time and whether the follower made it, among its recent events. */
   #keepEvent(event: string): void {
     const nowMs = this.#options.monotonicMs();
-    const isOwn = this.#ownMoves.isOwn(event, nowMs);
-    const atMs = Math.round(nowMs);
-    this.#recentEvents = [
-      ...this.#recentEvents,
-      `${event}${isOwn ? "(own)" : ""}@${String(atMs)}`,
-    ].slice(-recentEventsKept);
+    this.#recentEvents.keep(event, this.#ownMoves.isOwn(event, nowMs), nowMs);
   }
 
   #whereNow(): GroupNow | undefined {
@@ -549,9 +547,11 @@ class GroupFollower {
     this.#correct(where);
   }
 
-  /** Plays, muted if the browser will not play it with sound (playOrPlayMuted). */
+  /** Plays, muted if refused, offered at a tap if shown again and still wanted (playOrPlayMuted). */
   #startPlaying(): void {
-    playOrPlayMuted(this.#media, this.#connection);
+    const isWanted = (): boolean =>
+      this.#connection.snapshot().group?.state === "Playing" && this.#phase.kind !== "waitingAhead";
+    playOrPlayMuted(this.#media, this.#connection, this.#shownAgain.play(isWanted));
   }
 
   /** Reads no drift from the player's position for the tuning's settleAfterChangeMs from now. */

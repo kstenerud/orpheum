@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createTogetherConnection, isLeaderOf, leaderOf } from "./together-connection.ts";
+import { createTogetherConnection } from "./together-connection.ts";
+import { isLeaderOf, leaderOf } from "./together-roster.ts";
 import type { TogetherSocketListeners } from "./together.ts";
 
 /** A stand-in for the server's end of one socket: what it heard, and its listeners. */

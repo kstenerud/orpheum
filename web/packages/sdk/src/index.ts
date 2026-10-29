@@ -186,12 +186,8 @@ export type {
   TogetherEndReason,
   VoiceSignal,
 } from "./together.ts";
-export {
-  createTogetherConnection,
-  expectedGroupPositionMs,
-  isLeaderOf,
-  leaderOf,
-} from "./together-connection.ts";
+export { createTogetherConnection, expectedGroupPositionMs } from "./together-connection.ts";
+export { isLeaderOf, leaderOf } from "./together-roster.ts";
 export { createLiveConnection } from "./live-connection.ts";
 export { scrubPauseWindowMs } from "./together-lead.ts";
 export type {
@@ -270,7 +266,8 @@ export {
   soundOnAtTap,
 } from "./together-sound.ts";
 export { healPageAudio, keepPageAudio, setPageAudio } from "./page-audio.ts";
-export type { PageAudio, ShownAgainPage } from "./page-audio.ts";
+export type { PageAudio } from "./page-audio.ts";
+export type { ShownPage } from "./shown-page.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */

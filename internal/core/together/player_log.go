@@ -41,6 +41,8 @@ const (
 	eventPlayerBuffering   = "playerBuffering"
 	eventSoundMoved        = "soundMoved"
 	eventPlayedWhileHeld   = "playedWhileHeld"
+	eventShownAgain        = "shownAgain"
+	eventPlayRefused       = "playRefused"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.
@@ -218,7 +220,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logSoundMoved(ctx, who, from, note)
 		return true
 	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked,
-		NotePlayedWhileHeld:
+		NotePlayedWhileHeld, NotePlayRefused, NoteShownAgain:
 		current.logSound(ctx, who, from, note)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected,
@@ -268,8 +270,9 @@ func (current *session) logSoundMoved(ctx context.Context, who *member, from *de
 
 // logSound logs, at info, a note of a player's sound or screen: the browser refusing the film's sound
 // or playing it, the film played while its group held it, a press turning it on, full screen
-// entered, refused or left, and a guest's page asking for a tap to continue, each with the page's
-// presses where it says them (D358).
+// entered, refused or left, a guest's page asking for a tap to continue, each with the page's
+// presses where it says them (D358), and a page shown again: whether its socket answered, and a play
+// the browser refused then (the owner's VQ105, 2026-10-29).
 func (current *session) logSound(ctx context.Context, who *member, from *device, note *PlayerNote) {
 	attributes := current.deviceAttributes(who, from)
 	switch note.Kind {
@@ -298,6 +301,14 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 	case NoteContinueAsked:
 		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
 			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
+	case NoteShownAgain:
+		current.logger.InfoContext(ctx, "watch together: a device's page was shown again and its socket answered",
+			append(attributes, logEvent, eventShownAgain, "socket", note.Why, "roundTripMs", note.RoundTripMs)...)
+	case NotePlayRefused:
+		current.logger.InfoContext(ctx,
+			"watch together: the browser refused a player's play as its page was shown again; it offers a tap",
+			append(attributes, logEvent, eventPlayRefused, "refusal", note.Why, positionMsAttribute, note.PositionMs,
+				"page", note.Page)...)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
 		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed, NoteBuffering,

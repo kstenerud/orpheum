@@ -57,8 +57,16 @@ export interface PlayerState {
  *   device remembered (rememberedMs): a Fire TV's start waited twice as its move threw its sound
  *   away, and nothing said when or by how much the move changed (the owner's cast, staging,
  *   2026-10-28);
- * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
- *   (nothing was heard on it);
+ * - reconnected: connected again after offlineMs, why: "closed" (its socket closed), "silent"
+ *   (nothing was heard on it) or "shown" (nothing was heard within shownAnswerWithinMs of its page
+ *   shown again; offlineMs counted from when it was shown);
+ * - shownAgain: its page was shown again and its socket answered the ping sent then, why "alive",
+ *   after roundTripMs: an S23 unlocked sat 20 s on a socket that heard nothing, and nothing said
+ *   so (the owner's VQ105, 2026-10-29);
+ * - playRefused: a following player's play, as its page was shown again, was refused, why the
+ *   browser's error ("NotAllowedError", "AbortError", "NotSupportedError", "other") or
+ *   "stayedPaused" (it said it played and stayed paused), at positionMs, page whether the page had
+ *   been pressed (pageActivation): it plays muted and its page offers the tap (playedMutedEvent);
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
  * - voiceCall: a voice call with partnerDeviceId took a step, why: VoiceCallStep, so a call that
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
@@ -139,7 +147,19 @@ export type PlayerNote =
       /** The latency the device remembered as its levelling began; absent where it had none. */
       readonly rememberedMs?: number;
     }
-  | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
+  | {
+      readonly kind: "reconnected";
+      readonly offlineMs: number;
+      readonly why: "closed" | "silent" | "shown";
+    }
+  | { readonly kind: "shownAgain"; readonly why: "alive"; readonly roundTripMs: number }
+  | {
+      readonly kind: "playRefused";
+      readonly why: PlayRefusal;
+      readonly positionMs: number;
+      /** The page's activation then (pageActivation), where the browser says it. */
+      readonly page?: string;
+    }
   | {
       readonly kind: "voiceStats";
       readonly voice: VoiceCallStats & {
@@ -255,6 +275,14 @@ export type PlayerNote =
  * ("direct").
  */
 export type SoundMovedBy = "remembered" | "measured" | "offset" | "direct";
+
+/**
+ * How a browser refused a following player's play: the error its play() was rejected with, by the
+ * names a browser gives (any other is "other"), or "stayedPaused", resolved with the video still
+ * paused.
+ */
+export type PlayRefusal =
+  "NotAllowedError" | "AbortError" | "NotSupportedError" | "other" | "stayedPaused";
 
 /**
  * What held a player from following its group's change as it arrived: nothing ("atOnce"), its page

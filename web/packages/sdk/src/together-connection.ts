@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { ShownCheck } from "./shown-check.ts";
+import { whenVisibilityChanges, type ShownPage } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
 import type { PlayerNote, PlayerState } from "./together-notes.ts";
 import {
@@ -13,7 +15,6 @@ import {
   type OpenTogetherSocket,
   type PlaybackReport,
   type PlaybackRights,
-  type RosterDevice,
   type RosterMember,
   type Standing,
   type SyncTuning,
@@ -168,6 +169,12 @@ export interface TogetherConnectionOptions {
   readonly openSocket: OpenTogetherSocket;
   /** A monotonic clock in ms (performance.now): no clock is shared with the server (D66). */
   readonly monotonicMs: () => number;
+  /**
+   * The page the device is on, whose showing again has the socket checked at once
+   * (shownAnswerWithinMs): a locked phone, a sleeping computer or a tab in the background may come
+   * back on a socket that died meanwhile. Absent, nothing is checked but by the pings.
+   */
+  readonly page?: ShownPage | undefined;
 }
 
 const startingSnapshot: TogetherSnapshot = {
@@ -216,67 +223,6 @@ export function expectedGroupPositionMs(
   return group === undefined
     ? undefined
     : expectedPositionMs(group, { ...placingOf(snapshot), nowMs });
-}
-
-/** The devices in a snapshot's roster that play, other than this one: none a panel. */
-export function otherPlayersOf(snapshot: TogetherSnapshot): RosterDevice[] {
-  return snapshot.roster.flatMap((member) =>
-    member.devices.filter((device) => device.id !== snapshot.deviceId && device.role !== "panel"),
-  );
-}
-
-/**
- * The device that leads a snapshot's session, the screen that is the film (D371 §1), by its roster;
- * undefined while none does.
- */
-export function leaderOf(snapshot: Pick<TogetherSnapshot, "roster">): RosterDevice | undefined {
-  return snapshot.roster
-    .flatMap((member) => member.devices)
-    .find((device) => device.isLeader === true);
-}
-
-/**
- * Whether this device leads its session, by a roster that says so (D371 §1): the leader plays as a
- * device plays a film alone, and is never held, sought to the group's place, run up or nudged.
- */
-export function isLeaderOf(snapshot: TogetherSnapshot): boolean {
-  const leader = leaderOf(snapshot);
-  return leader !== undefined && leader.id === snapshot.deviceId;
-}
-
-/**
- * Whether this device follows its session: welcomed, with a roster that names another device its
- * leader, or none. Before its welcome a device is neither leader nor follower: a cast's receiver
- * whose start gate took it for a follower then played at once, with nothing loaded, and led its
- * session so (the owner's cast to a Fire TV, staging, 2026-10-28).
- */
-export function isFollowerOf(snapshot: TogetherSnapshot): boolean {
-  return snapshot.deviceId !== undefined && !isLeaderOf(snapshot);
-}
-
-/**
- * Whether this device follows a group that plays, or waits for its players to: its player, held
- * paused while it loads, is asked to play, and its slow load is a stall (D247 §2); one a paused
- * group holds is not.
- */
-export function isAskedByItsGroup(snapshot: TogetherSnapshot): boolean {
-  const state = snapshot.group?.state;
-  return isFollowerOf(snapshot) && (state === "Playing" || state === "Waiting");
-}
-
-/**
- * Whether this device is the host's, following while a guest's device leads: the host's screen come
- * back, which takes the lead back once it plays in step, as the server judges by its states (D372
- * §3).
- */
-export function isHostAwaitingLead(snapshot: TogetherSnapshot): boolean {
-  const leader = leaderOf(snapshot);
-  if (!snapshot.isHost || leader === undefined || leader.id === snapshot.deviceId) {
-    return false;
-  }
-  return !snapshot.roster.some(
-    (member) => member.isHost && member.devices.some((device) => device.id === leader.id),
-  );
 }
 
 /** A playback in whole numbers, as the server reads them. */
@@ -459,6 +405,15 @@ export interface TellsStanding {
   readonly setStanding: (standing: Standing) => void;
 }
 
+/**
+ * How a socket was lost, and since when: it closed, nothing was heard on it for its pings, or
+ * nothing within shownAnswerWithinMs of its page shown again.
+ */
+interface Lost {
+  readonly atMs: number;
+  readonly why: "closed" | "silent" | "shown";
+}
+
 class SessionConnection
   implements TogetherConnection, TellsCannotKeepUp, TellsStanding, RelaysVoiceSignals
 {
@@ -481,7 +436,22 @@ class SessionConnection
   /** Pings sent on the current socket since anything was last heard on it. */
   #unansweredPings = 0;
   /** When, on the monotonic clock, and how the last socket was lost, until a welcome again. */
-  #lost: { readonly atMs: number; readonly why: "closed" | "silent" } | undefined;
+  #lost: Lost | undefined;
+  /** The check of the socket as the page is shown again, whose silence drops it as dead. */
+  readonly #shownCheck = new ShownCheck({
+    nowMs: () => this.#now(),
+    ping: (tMono) => {
+      this.#send({ type: "ping", tMono });
+    },
+    alive: (roundTripMs) => {
+      this.note({ kind: "shownAgain", why: "alive", roundTripMs });
+    },
+    dead: (atMs) => {
+      this.#dropDeadSocket({ atMs, why: "shown" });
+    },
+  });
+  /** Ends hearing the page hidden and shown; undefined while closed or with no page. */
+  #stopHearingPage: (() => void) | undefined;
 
   constructor(options: TogetherConnectionOptions) {
     this.#options = options;
@@ -566,18 +536,26 @@ class SessionConnection
   };
 
   readonly open = (): void => {
-    clearTimeout(this.#reconnectTimer);
+    this.#cancelReconnect();
     this.#stopTimers();
     this.#socket?.close();
     this.#change(startingSnapshot);
     this.#attempt = 0;
     this.#lost = undefined; // a fresh connection, not one connecting again
+    this.#stopHearingPage?.();
+    this.#stopHearingPage = whenVisibilityChanges(this.#options.page, (isHidden) => {
+      if (!isHidden) {
+        this.#shownAgain();
+      }
+    });
     this.#connect();
   };
 
   readonly close = (): void => {
     this.#generation += 1;
-    clearTimeout(this.#reconnectTimer);
+    this.#cancelReconnect();
+    this.#stopHearingPage?.();
+    this.#stopHearingPage = undefined;
     this.#stopTimers();
     this.#change({ ...this.#snapshot, status: "ended" });
     this.#socket?.close();
@@ -656,11 +634,31 @@ class SessionConnection
     });
   }
 
-  /** Gives up on a socket nothing is heard on, as if it closed: it connects again after a wait. */
-  #dropDeadSocket(): void {
+  /**
+   * Gives up on a socket nothing is heard on, as if it closed: it connects again after a wait, lost
+   * as its pings found it, or as its page shown again found it.
+   */
+  #dropDeadSocket(lost: Lost = { atMs: this.#now(), why: "silent" }): void {
     this.#generation += 1; // its close, whenever it comes, is not heard
     this.#socket?.close();
-    this.#reconnectLater("silent");
+    this.#reconnectLater(lost);
+  }
+
+  /**
+   * The page was shown again, where a lock, a sleep or the background may have killed its socket
+   * unseen: one waiting to connect again connects now, and a connected one is pinged, and dropped
+   * as dead unless it answers within shownAnswerWithinMs, the one way a socket is dropped as dead
+   * (#dropDeadSocket), sooner than its pings would.
+   */
+  #shownAgain(): void {
+    if (this.#snapshot.status === "reconnecting" && this.#reconnectTimer !== undefined) {
+      this.#cancelReconnect();
+      this.#connect();
+      return;
+    }
+    if (this.#snapshot.status === "connected") {
+      this.#shownCheck.start();
+    }
   }
 
   #stopTimers(): void {
@@ -668,6 +666,13 @@ class SessionConnection
       clearInterval(timer);
     }
     this.#timers = [];
+    this.#shownCheck.stop();
+  }
+
+  /** Stops a wait to connect again, if one is under way. */
+  #cancelReconnect(): void {
+    clearTimeout(this.#reconnectTimer);
+    this.#reconnectTimer = undefined;
   }
 
   #welcomed(): void {
@@ -703,6 +708,9 @@ class SessionConnection
       }
       return;
     }
+    if (message.type === "pong") {
+      this.#shownCheck.heardPong(message.tMono);
+    }
     this.#seq = seqOf(message) ?? this.#seq;
     const before = this.#snapshot;
     const nowMs = this.#now();
@@ -726,15 +734,19 @@ class SessionConnection
       this.#change({ ...this.#snapshot, status: "ended", endReason: "gone" });
       return;
     }
-    this.#reconnectLater("closed");
+    this.#reconnectLater({ atMs: this.#now(), why: "closed" });
   }
 
-  /** Says it is connecting again, and does after a wait that grows with each failure. */
-  #reconnectLater(why: "closed" | "silent"): void {
-    this.#lost ??= { atMs: this.#now(), why };
+  /**
+   * Says it is connecting again, and does after a wait that grows with each failure; lost is how,
+   * kept from the first loss until a welcome.
+   */
+  #reconnectLater(lost: Lost): void {
+    this.#lost ??= lost;
     this.#stopTimers();
     this.#change({ ...this.#snapshot, status: "reconnecting" });
     this.#reconnectTimer = setTimeout(() => {
+      this.#reconnectTimer = undefined;
       this.#connect();
     }, reconnectWaitMs(this.#attempt));
     this.#attempt += 1;
@@ -772,7 +784,8 @@ class SessionConnection
  * A device's connection to its session in its role, which connects when opened: says hello, keeps
  * the group, the roster and the shortest round trip, pings, tells the group where the player is on
  * every change and every minute, relays voice signalling, and connects again with a growing wait
- * after a drop, until the session ends for it or it is closed. A hello the server refuses before
+ * after a drop, or at once as its page is shown again on a socket that does not answer within
+ * shownAnswerWithinMs, until the session ends for it or it is closed. A hello the server refuses before
  * any welcome ends it as "gone". Every number it sends is whole, as the server reads them.
  */
 export function createTogetherConnection(

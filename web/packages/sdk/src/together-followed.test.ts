@@ -56,10 +56,9 @@ describe("a player's word that it followed its group's change (the owner, 2026-1
     setGroup({ ...paused, positionMs: 90_000, event: "seeked" }, monotonicNowMs);
     advance(3 * checkDriftEveryMs);
     expect(notes.some((note) => note.kind === "groupFollowed")).toBe(false);
-    page.show();
-    advance(checkDriftEveryMs);
+    page.show(); // followed as it is shown, not at its next check (the owner's VQ105, 2026-10-29)
     expect(notes.filter((note) => note.kind === "groupFollowed")).toEqual([
-      { kind: "groupFollowed", seq: 1, heldMs: 4 * checkDriftEveryMs, why: "hidden" },
+      { kind: "groupFollowed", seq: 1, heldMs: 3 * checkDriftEveryMs, why: "hidden" },
     ]);
   });
 });

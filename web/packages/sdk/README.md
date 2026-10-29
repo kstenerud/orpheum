@@ -92,7 +92,17 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   refused the sign-in. `src/live-connection.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
-  the hello. `src/together-connection.test.ts`.
+  the hello. `src/together-connection.test.ts`. **Its page shown again, it pings at once and drops
+  the socket as dead, the one way its pings drop one, unless answered within `shownAnswerWithinMs`**,
+  and one waiting to connect again connects then: an S23 unlocked sat 20 s on a socket that heard
+  nothing (the owner's VQ105, 2026-10-29). The video device's and the voice device's connections are
+  given the page; the page's live connection (`src/live-connection.ts`) keeps its own pings and is not.
+  `src/together-connection.test.ts`.
+- **A follower whose page is shown again is put where its group is at once** (`apply`, as each change
+  of its group puts it), not left paused where it was hidden; a refusal of any kind of its play
+  before it plays again, while it still follows a playing group, is noted (`playRefused`) and answered
+  as a refused sound is, played muted and offered at its page's tap (`playedMutedEvent`), whose play
+  it then catches up as any. `src/together-shown-again.test.ts`; on a phone, VQ125.
 - **Voice attaches a second device of the membership with the `voice` role** (D120), and keeps
   one call with every other person's `voice` or `both` device in the roster, never its own
   person's; the lower device id makes the offer; a device leaving the roster ends its call, and a
@@ -208,7 +218,9 @@ for Watch Together:
 - Watch Together: the wire messages and the browser's socket, `src/together.ts`; the
   connection (hello, ping and the minimum round trip, where the group is placed, state reports,
   commands, reconnecting),
-  `src/together-connection.ts`; following the group with a video element,
+  `src/together-connection.ts`, its socket checked as its page is shown again,
+  `src/shown-check.ts`; who its roster says leads and follows, `src/together-roster.ts`; following
+  the group with a video element,
   `src/together-follow.ts`, by where the group is and what a drift calls for,
   `src/together-drift.ts`, or leading it, `src/together-leader.ts`; voice's calls, `src/together-voice.ts`, over the
   browser's microphone, RTCPeerConnection and Web Audio in `src/together-voice-browser.ts`.
