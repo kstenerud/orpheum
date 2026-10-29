@@ -24361,10 +24361,17 @@ Resolved in the build, where the decision left it open (say if any should go oth
 "having it playback from the core's remembered position feels weird. Whoever takes leadership role
 should give their current playback position as the new official position."
 
-1. **A device taking the lead, for any reason, makes its own current position the group's** (D372, D373,
-   D374, D375): the group's clock is set from where that device plays, not from where the core last had
-   the group, and the other players catch up to it as ever.
-2. **A session held with no player** (D375 §1) keeps whether it was playing or paused; the first
-   contender back resumes it from its own position, not the held one.
+Refined the same minute: "If the new leader remembers where its position should be (i.e. it was actually
+playing, and isn't just connecting fresh while taking leadership), its position becomes the new official
+position. If nobody can remember, then the core's current position remains the official one."
+
+1. **A new leader that remembers its place sets the group's position**: a device taking the lead, for any
+   reason (D372, D373, D374, D375), that was itself playing the session's film until then (a follower in
+   step, a stalled leader's successor, a device back from a dropped connection with its film still
+   loaded) makes its own current position the group's, and the others catch up to it as ever.
+2. **A leader with nothing to remember keeps the core's position**: a device connecting fresh as it takes
+   the lead (a reloaded page, a new player) takes the group's position from the core, as before.
+3. **A session held with no player** (D375 §1) keeps whether it was playing or paused; the first contender
+   back resumes it from its own position if it remembers one (1), else from the held one (2).
 
 **Status:** Decided 2026-10-29; not built.
