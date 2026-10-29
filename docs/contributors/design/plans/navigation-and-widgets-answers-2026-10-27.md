@@ -228,6 +228,30 @@ had leaned on.
   film. Find what the page and service worker do in the minute after an update and defer it while a
   film starts; a start after a plain reload shows small hiccups at most (3% of frames dropped in its
   first 8 s, file 5670, 18:39).
+- **Looked into (2026-10-29), nothing removed yet.** The run of 08:13 to 08:36 (Nosferatu, device 60, the
+  discovery's page on WebRTC, the first film after the 02:43 deploy) dropped frames in 11 of its 138
+  reports, 3 to 7 of about 240 each, eight of them between 08:19:29 and 08:21:18 and none in the 15
+  minutes after; the drops follow neither the loading (08:13:58 to 08:14:48 loaded 5 to 7 MB per 10 s,
+  about 5 Mb/s, with no drop; the rest about 2 MB per 10 s, the film's own rate) nor any other
+  request in the core's log. What the page does while a film plays on the TV, from the code, after
+  the audit's fixes: the frame timing samples 48 frames at each `playing` only; the bar reads no
+  `timeupdate` while hidden; nothing else renders on a tick (the quality poll's `setState` gets the
+  same hls.js level object and bails; Up next's `useEnding` runs only for an episode); the timers
+  left are the controller's 500 ms look, the standstill and link meters' 1 s, the report's 10 s and
+  `GET /me`'s 60 s (code-debt.md), each a few reads; the console logs nothing per chunk; no endless
+  animation runs on the Play page; and the service worker caches nothing ahead (its `install` only
+  skips waiting): under a loader it fetches each client file through the page's WebRTC and hashes it
+  at its first use, so after a deploy the film page's and the Play page's scripts (hls.js's 577 KiB
+  among them) come over the link and are compiled afresh at the first film's page and Play, which
+  can explain a first film's first seconds, not its twentieth minute. What does run for the whole
+  film and is not cheap: **its sound through Web Audio** (`isThroughWebAudio=true`, levelling on, as
+  dialogue boost was off), a second audio path on the stick for the film's length (audit, "Not
+  covered"); **hls.js's demuxing on the main thread** (audit finding 6); and the WebRTC relay, each
+  chunk's bytes crossing the main thread twice. Next: on the Fire TV, the same film from the same
+  point with levelling off and on, compared by `a player dropped frames`; then finding 6's worker,
+  measured the same way. Warming the Play page's scripts while the person browses (an idle
+  `import()` under a loader) would move a deploy's fetch and compile out of the first start, if the
+  first seconds are what the owner sees.
 
 ## From the owner's VQ89 check (2026-10-28), next batch
 
