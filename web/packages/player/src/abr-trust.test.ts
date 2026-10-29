@@ -129,8 +129,8 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     loadAt(choosing, 3, { mbps: 1, seconds: 2 });
     choosing.stalled();
     expect(scene.steps).toEqual([
-      "ceiling 3 to 0: a stall; confident 1000 kb/s (estimate 1000, error none, 1 sample), 0.0 s ahead," +
-        " steadiness 0, hold 30 s",
+      "ceiling 3 to 0: a stall; confident 615 kb/s (estimate 1000, spread 0.38, z 1.28, error none," +
+        " 1 sample), 0.0 s ahead, steadiness 0, hold 30 s",
     ]);
     for (let index = 0; index < linkSamplesKept; index += 1) {
       loadAt(choosing, 0, { mbps: 12 });
@@ -153,15 +153,19 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(choosing.isStarting()).toBe(true);
     playFor(hls, lookAtChunkEveryMs);
     expect(choosing.isStarting()).toBe(false);
-    expect(scene.steps[0]).toMatch(/^started, ceiling 2 kept; confident 20000 kb\/s/u);
+    expect(scene.steps[0]).toMatch(
+      /^started, ceiling 2 kept; confident \d+ kb\/s \(estimate 20000, /u,
+    );
     expect(choosing.nextLevel()).toBe(2); // 20 Mb/s carries the picture, but not above the start
   });
 
-  it("reports its confident estimate as the link's speed, remembered for the device's next start", () => {
+  it("reports its estimate as the link's speed, remembered for the device's next start's prior, never a bound of it", () => {
     const { choosing } = choosingFrom(40_000_000);
     loadAt(choosing, 3, { mbps: 10 });
+    expect(choosing.linkKbps()).toBeUndefined(); // never a lone first sample
     loadAt(choosing, 3, { mbps: 8 });
-    expect(choosing.linkKbps()).toBeCloseTo(7155, 0); // 8.9 Mb/s, discounted by its 25% error
+    // 8.9 Mb/s, the centre of 10 and 8: a bound, remembered, would start each playback lower.
+    expect(choosing.linkKbps()).toBeCloseTo(Math.sqrt(10 * 8) * 1000, 0);
   });
 });
 
@@ -201,9 +205,10 @@ describe("a playback with plenty loaded ahead, which holds its quality (the owne
     hls.levels = nosferatu;
     expect(choosing.firstLevel()).toBe(3);
     hls.mainForwardBufferInfo = { len: 37.3 };
-    for (const [bytes, arrivedMs] of fireTvSamples) {
-      load(choosing, 3, { bytes, loadMs: arrivedMs + 50 });
-      expect(choosing.nextLevel()).toBe(3); // the slow one included
+    // A link slower than the top, as most of its samples say.
+    for (const mbps of [4, 14, 4, 14, 4]) {
+      loadAt(choosing, 3, { mbps });
+      expect(choosing.nextLevel()).toBe(3); // each slow one included
     }
     playFor(hls, startingPlayedMs + lookAtChunkEveryMs);
     expect(choosing.isStarting()).toBe(false);
@@ -216,6 +221,24 @@ describe("a playback with plenty loaded ahead, which holds its quality (the owne
     hls.mainForwardBufferInfo = { len: holdsQualityAheadS - 5 };
     expect(choosing.nextLevel()).toBe(2);
     expect(scene.steps.at(-1)).toMatch(/^ceiling 3 to 2: link; confident \d+ kb\/s/u);
+  });
+
+  it("keeps the top at starting's end with 10 s loaded through one slow sample of five (failure 3, P4)", () => {
+    // The Fire TV's five samples cut its ceiling from the top to the second lowest: the divisor of
+    // one plus its largest error read 1.3 Mb/s (staging, Nosferatu, 2026-10-28). A top of 6 Mb/s, above
+    // what 70% of that divisor's reading carries over this estimate, 5.1, and within its bound's 6.6.
+    const { hls, choosing } = choosingFrom(40_000_000);
+    hls.levels = [...nosferatu.slice(0, 3), { bitrate: 30_000_000, averageBitrate: 6_000_000 }];
+    expect(choosing.firstLevel()).toBe(3);
+    hls.mainForwardBufferInfo = { len: 10 };
+    for (const [bytes, arrivedMs] of fireTvSamples) {
+      load(choosing, 3, { bytes, loadMs: arrivedMs + 50 });
+    }
+    playFor(hls, startingPlayedMs + lookAtChunkEveryMs);
+    expect(choosing.isStarting()).toBe(false);
+    expect(scene.steps[0]).toMatch(/^started, ceiling 3 kept; confident \d+ kb\/s .* z 0\.84, /u);
+    hls.setVideoAside();
+    expect(choosing.nextLevel()).toBe(3);
   });
 
   it("holds the quality loading against a slow link while the hold is loaded, and says so once", () => {

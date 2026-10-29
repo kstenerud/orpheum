@@ -36,9 +36,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   probing the lowest first, whose chunks are made only for a player that needs them (D247 §10);
   while starting, until four chunks measured the link and the video played 20 s, a choice below the
   ceiling is the next chunk's alone, and only a chunk given up or a stall lowers the ceiling, which
-  at the end becomes the highest quality the confident estimate (the estimate over one plus its
-  largest recent error, the single most extreme set aside once five samples are kept) carries, no
-  higher than the start (D352 §1); holds the quality loading against any reading of the link, the
+  at the end becomes the highest quality the confident estimate carries, no higher than the start
+  (D352 §1), the confident estimate being the estimate's lower bound for a choice held over many
+  chunks, e^(centre − z × spread / √n), z 1.28 with nothing loaded ahead, 0.84 at 10 s and 0 from
+  20 s (`boundDeviationsByAheadS`), where it was the estimate over one plus its largest recent error
+  (P4); holds the quality loading against any reading of the link, the
   next chunk's choice and the ceiling alike, while `holdsQualityAheadS` (20 s) is loaded ahead,
   noting the hold (D352's revision of 2026-10-28); gives up a slow chunk on its
   way, playing or not, for the lowest quality too, a sample of the link only while its bytes were
@@ -55,8 +57,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   live; and counts neither a chunk from the browser's cache, as its Resource Timing says or, where
   it does not, a load under 10 ms, nor one its pace held back as a measure of the link, and times a
   chunk that does from its first byte to its last, never the wait for its first (D247 §9). It
-  reports its confident estimate as the link's speed, never from a lone first sample (D352 §1), and
-  its steadiness level, with every play report (D352 Q2); and notes each choice with what it rests
+  reports its estimate as the link's speed, never a bound of it and never from a lone first sample
+  (D352 §1), with its spread, and its steadiness level, with every play report (D352 Q2, P2); and notes each choice with what it rests
   on, and its last five samples in every stall's and seek's report, in their own `linkSamples`
   beside the steps (D352 §5), and tells each switch of quality why it was chosen, with the samples
   then, for a Watch Together player's note (`whyChose`). A quality whose video, asked to play, stands still while its chunks arrive is
