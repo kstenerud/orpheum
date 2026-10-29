@@ -11,7 +11,13 @@
 
 import { reportFailure } from "./problem.ts";
 import type { CandidatePairSeen } from "./rtc-pairs.ts";
-import { backAfter, BackOnline, withinOpenTry, type Without } from "./rtc-reopen.ts";
+import {
+  backAfter,
+  BackOnline,
+  isRefusedForGood,
+  withinOpenTry,
+  type Without,
+} from "./rtc-reopen.ts";
 import { abortReason, sendOnChannel, silentAtMostMs, type ChannelLike } from "./rtc-request.ts";
 
 /**
@@ -267,8 +273,10 @@ export interface Growth {
  * idleClosesAfterMs. It takes one that is gone out of use at once and opens another in its place when
  * it is still wanted, retrying each failure, a refusal included, and each try that takes longer than
  * openTryMostMs, after a wait that doubles up to replaceMostMs, and at once when the browser comes
- * back online, a try under way then given up (plans/webrtc-transport.md W2d). `fetch` is what the
- * API client sends requests with; while no connection is up, a request waits for one.
+ * back online, a try under way then given up (plans/webrtc-transport.md W2d); a try refused for good
+ * (RefusedForGood) ends the tries, and is told (onRefused). `fetch` is what the API client sends
+ * requests with; while no connection is up, a request waits for one, and fails once one is refused
+ * for good.
  */
 export class RtcTransport {
   private readonly links: Link[] = [];
@@ -282,6 +290,9 @@ export class RtcTransport {
   /** Since when, and why, it has had no connection; undefined while it has one. */
   private without: Without | undefined;
   private readonly backListeners = new Set<() => void>();
+  /** The try refused for good, after which none is made; undefined until one is. */
+  private refusal: Error | undefined;
+  private readonly refusedListeners = new Set<(refusal: Error) => void>();
   private readonly stopHearingOnline: () => void;
   private isClosed = false;
   private readonly waiting: (() => void)[] = [];
@@ -321,6 +332,21 @@ export class RtcTransport {
     this.backListeners.add(listener);
     return () => {
       this.backListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Tells listener once the core refused a try to connect for good (RefusedForGood), at once when it
+   * did already: no try is made after it, and the page tells its person how to go on. Returns its
+   * removal.
+   */
+  onRefused(listener: (refusal: Error) => void): () => void {
+    if (this.refusal !== undefined) {
+      listener(this.refusal);
+    }
+    this.refusedListeners.add(listener);
+    return () => {
+      this.refusedListeners.delete(listener);
     };
   }
 
@@ -549,7 +575,12 @@ export class RtcTransport {
    * the growth's size.
    */
   private wantsAnother(growth: Growth): boolean {
-    if (this.isClosed || this.opening > 0 || this.links.length >= growth.size) {
+    if (
+      this.isClosed ||
+      this.refusal !== undefined ||
+      this.opening > 0 ||
+      this.links.length >= growth.size
+    ) {
       return false;
     }
     return (
@@ -586,7 +617,9 @@ export class RtcTransport {
         this.without.tries += 1;
         this.without.lastFailure = problem instanceof Error ? problem.message : String(problem);
       }
-      if (trying.signal.reason instanceof BackOnline) {
+      if (isRefusedForGood(problem)) {
+        this.refuse(problem instanceof Error ? problem : new Error(String(problem)));
+      } else if (trying.signal.reason instanceof BackOnline) {
         // The browser came back online: tried anew at once, the wait already started over.
         this.grow();
       } else {
@@ -597,6 +630,27 @@ export class RtcTransport {
       if (this.trying === trying) {
         this.trying = undefined;
       }
+    }
+  }
+
+  /**
+   * Ends the tries for good: the core refused what the page proves its offers by. The core's log is
+   * told when any path reaches it (the discovery logs each refusal itself), the requests waiting fail,
+   * and each onRefused listener is told.
+   */
+  private refuse(refusal: Error): void {
+    if (this.refusal !== undefined) {
+      return;
+    }
+    this.refusal = refusal;
+    reportFailure(
+      new Error(
+        `the core refused what this page proves its WebRTC connections by, and none is tried again: ${refusal.message}`,
+      ),
+    );
+    this.wakeWaiting();
+    for (const listener of this.refusedListeners) {
+      listener(refusal);
     }
   }
 
@@ -621,7 +675,7 @@ export class RtcTransport {
    * session connection is told (onBack).
    */
   private backOnline(): void {
-    if (this.isClosed) {
+    if (this.isClosed || this.refusal !== undefined) {
       return;
     }
     this.retryMs = replaceFirstMs;
@@ -678,6 +732,9 @@ export class RtcTransport {
       }
       if (this.isClosed) {
         throw new Error("the WebRTC transport is closed");
+      }
+      if (this.refusal !== undefined) {
+        throw this.refusal;
       }
       if (signal.aborted) {
         throw abortReason(signal);

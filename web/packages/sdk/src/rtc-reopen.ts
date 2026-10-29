@@ -2,7 +2,8 @@
 
 /**
  * A WebRTC transport's tries to make a connection again (rtc-transport.ts): each bounded, given up
- * when the browser comes back online, and the time the transport had none said once one is back.
+ * when the browser comes back online, and the time the transport had none said once one is back;
+ * and the failure no later try mends (RefusedForGood).
  */
 
 import { abortReason } from "./rtc-request.ts";
@@ -86,4 +87,36 @@ export function backAfter(without: Without, nowMs: number): string {
     `a WebRTC connection to the core is back after ${String(Math.round(nowMs - without.sinceMs))} ms` +
     ` with none; the last was taken as gone because ${without.why}; ${tried}`
   );
+}
+
+/**
+ * A try to connect that no later try mends: the core refused what the page proves its offers by,
+ * having tried what else it holds (the discovery's KeyRefused). The transport tries no more after
+ * one, and says so (RtcTransport.onRefused): Firefox, a Watch Together guest whose every offer was
+ * refused under a spent link's key, tried every 10 s for good, its Play page spinning, saying nothing
+ * (the owner's Mac, staging, 2026-10-29).
+ */
+export class RefusedForGood extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RefusedForGood";
+  }
+}
+
+/** Whether problem, or any cause or alternative behind it, is a try no later try mends. */
+export function isRefusedForGood(problem: unknown): boolean {
+  const seen: unknown[] = [problem];
+  for (let index = 0; index < seen.length && index < 32; index += 1) {
+    const each = seen[index];
+    if (each instanceof RefusedForGood) {
+      return true;
+    }
+    if (each instanceof AggregateError) {
+      seen.push(...Array.from<unknown>(each.errors));
+    }
+    if (each instanceof Error && each.cause !== undefined) {
+      seen.push(each.cause);
+    }
+  }
+  return false;
 }

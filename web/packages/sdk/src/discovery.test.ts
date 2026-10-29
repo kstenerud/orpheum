@@ -187,6 +187,106 @@ describe("a signaller through a discovery", () => {
     ]);
   });
 
+  // The owner's Firefox, signed in and then a Watch Together guest by the host's link, through
+  // staging's discovery: every offer after the join was refused under the spent link's key, for good
+  // (2026-10-29).
+  describe("an offer the core refuses as unproven", () => {
+    const refusal = "the core refused the offer: the offer's proof does not hold";
+    const signed = {
+      offerId: "1",
+      sdp: answer.sdp,
+      signature: vectors.answerSignature,
+      publicKey: vectors.publicKey,
+    };
+    /** A discovery that refuses every offer proven by refused, and answers the rest. */
+    const refusingUnder =
+      (refused: string, heard: unknown[]): typeof fetch =>
+      (_url, init) => {
+        const body: unknown = JSON.parse(typeof init?.body === "string" ? init.body : "null");
+        heard.push(body);
+        const offers: unknown = Reflect.get(body as object, "offers");
+        const proof: unknown = Array.isArray(offers)
+          ? Reflect.get(offers[0] as object, "proof")
+          : "";
+        const answered = proof === refused ? { offerId: "1", refusal } : signed;
+        return Promise.resolve(new Response(JSON.stringify({ answers: [answered] })));
+      };
+
+    it("is sent once more under what the device holds now, which proves the offers after", async () => {
+      const linkKey = await offerKey("abc_DEF-123");
+      const session = await sessionOfferKey("a session token");
+      const heard: unknown[] = [];
+      let fallbacks = 0;
+      const signaller = discoverySignaller({
+        clientApi: "https://discovery.example/client/v1",
+        coreId: "k7xq2",
+        fingerprint: vectors.fingerprint,
+        held: { bootstrapToken: "a-token" },
+        key: linkKey,
+        fallback: () => {
+          fallbacks += 1;
+          return Promise.resolve({ held: { locator: "a-locator" }, key: session });
+        },
+        fetch: refusingUnder(await offerProof(linkKey, "sha-256 AB:CD"), heard),
+      });
+      await expect(signaller(offer)).resolves.toEqual({ type: "answer", sdp: answer.sdp });
+      await expect(signaller(offer)).resolves.toEqual({ type: "answer", sdp: answer.sdp });
+      const sessionProof = await offerProof(session, "sha-256 AB:CD");
+      expect(heard).toEqual([
+        { bootstrapToken: "a-token", offers: [{ sdp: offer.sdp, proof: vectors.offerProof }] },
+        { locator: "a-locator", offers: [{ sdp: offer.sdp, proof: sessionProof }] },
+        // The next offer goes under what was answered, the spent link's key tried no more.
+        { locator: "a-locator", offers: [{ sdp: offer.sdp, proof: sessionProof }] },
+      ]);
+      expect(fallbacks).toBe(1);
+    });
+
+    it("is the device's key refused once what it holds now is refused too, asked for once", async () => {
+      const linkKey = await offerKey("abc_DEF-123");
+      const heard: unknown[] = [];
+      let fallbacks = 0;
+      const signaller = discoverySignaller({
+        clientApi: "https://discovery.example/client/v1",
+        coreId: "k7xq2",
+        fingerprint: vectors.fingerprint,
+        held: { bootstrapToken: "a-token" },
+        key: linkKey,
+        fallback: async () => {
+          fallbacks += 1;
+          return { held: { locator: "a-locator" }, key: await sessionOfferKey("a revoked one") };
+        },
+        // Every offer refused, whatever proves it.
+        fetch: (_url, init) => {
+          heard.push(init?.body);
+          return Promise.resolve(
+            new Response(JSON.stringify({ answers: [{ offerId: "1", refusal }] })),
+          );
+        },
+      });
+      const problem: unknown = await signaller(offer).catch((caught: unknown) => caught);
+      expect(problem).toBeInstanceOf(KeyRefused);
+      expect(heard).toHaveLength(2);
+      expect(fallbacks).toBe(1);
+      // Nothing else held: the one refusal is the answer.
+      const alone = discoverySignaller({
+        clientApi: "https://discovery.example/client/v1",
+        coreId: "k7xq2",
+        fingerprint: vectors.fingerprint,
+        held: { bootstrapToken: "a-token" },
+        key: linkKey,
+        fallback: () => Promise.resolve({ held: { bootstrapToken: "a-token" }, key: linkKey }),
+        fetch: (_url, init) => {
+          heard.push(init?.body);
+          return Promise.resolve(
+            new Response(JSON.stringify({ answers: [{ offerId: "1", refusal }] })),
+          );
+        },
+      });
+      await expect(alone(offer)).rejects.toBeInstanceOf(KeyRefused);
+      expect(heard).toHaveLength(3);
+    });
+  });
+
   it("refuses an answer the core did not sign, or signed with a key its link does not name", async () => {
     const forged = await signalling(
       answering({

@@ -9,6 +9,7 @@
 
 import type { Description, Signaller } from "./rtc-connect.ts";
 import { offerThroughDiscovery } from "./relayed-offer.ts";
+import { RefusedForGood } from "./rtc-reopen.ts";
 
 /** A core's link's fragment: `<coreId>.<secret>.<fingerprint>`, after `#`. */
 export interface LinkFragment {
@@ -260,7 +261,7 @@ export const proofRefusal = "the offer's proof does not hold";
  * reached, and its network is not to blame: what it holds for the core is spent, and its person signs
  * in again (the owner's Fire TV, 2026-10-28, told to change networks after its device was removed).
  */
-export class KeyRefused extends Error {
+export class KeyRefused extends RefusedForGood {
   constructor(readonly refusal: string) {
     super(`the server refused the key this device proved its offer by: ${refusal}`);
     this.name = "KeyRefused";
@@ -332,6 +333,15 @@ export interface DiscoverySignalling {
    * the core gave them. Undefined, or answering undefined, keeps held and key.
    */
   readonly latest?: (() => Promise<Proving | undefined>) | undefined;
+  /**
+   * What the device holds now, asked afresh once the core refuses an offer's proof: the offer is sent
+   * once more under it, or under held and key when it is what was refused, and what is answered then
+   * proves the offers after. A second refusal is the device's key refused (KeyRefused). A Watch
+   * Together guest signed in before joining held the same session once they joined, so latest kept
+   * the spent link's key, and every connection after it was refused, for good (the owner's Firefox,
+   * staging, 2026-10-29).
+   */
+  readonly fallback?: (() => Promise<Proving | undefined>) | undefined;
   /** How the signaller posts: the browser's fetch, unless a test gives another. */
   readonly fetch?: typeof fetch | undefined;
 }
@@ -339,60 +349,110 @@ export interface DiscoverySignalling {
 /** The protocol version every call carries (discoveryproto.ProtocolVersion). */
 export const protocolVersion = "1.0";
 
+/** Whether two provings are the same: the same holding, under the same key. */
+function isSameProving(one: Proving, other: Proving): boolean {
+  return (
+    JSON.stringify(one.held) === JSON.stringify(other.held) &&
+    one.key.length === other.key.length &&
+    one.key.every((byte, index) => byte === other.key[index])
+  );
+}
+
+/**
+ * The proving an offer refused under proving is sent again with: the device's fallback when it holds
+ * another, else the signaller's own when proving was not it; undefined when it holds nothing else.
+ */
+async function otherThan(
+  proving: Proving,
+  signalling: DiscoverySignalling,
+): Promise<Proving | undefined> {
+  const candidates = [await signalling.fallback?.(), signalling];
+  return candidates.find((each) => each !== undefined && !isSameProving(each, proving));
+}
+
 /**
  * A signaller that passes each offer to the core through its discovery, proven under the key, and
  * takes only an answer the core signed, by the key whose fingerprint the client holds; any other is
- * refused, so a discovery that relays the offer cannot answer it itself (the protocol's §2.5).
+ * refused, so a discovery that relays the offer cannot answer it itself (the protocol's §2.5). An
+ * offer whose proof the core refuses is sent once more under what else the device holds (fallback),
+ * and what is answered then proves the offers after.
  */
 export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
-  const post = signalling.fetch ?? fetch;
+  let answeredAfterRefusal: Proving | undefined;
   return async (offer: Description, signal?: AbortSignal): Promise<Description> => {
-    const { held, key } = (await signalling.latest?.()) ?? signalling;
-    const fingerprint = fingerprintOf(offer.sdp);
-    const proof = await offerProof(key, fingerprint);
-    const response = await post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
-      method: "POST",
-      signal: signal ?? null,
-      headers: {
-        "Content-Type": "application/json",
-        "Orpheum-Discovery-Protocol": protocolVersion,
-      },
-      body: JSON.stringify({
-        ...held,
-        offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`the discovery answered ${String(response.status)}`);
+    const first =
+      answeredAfterRefusal ?? (await signalling.latest?.()) ?? (signalling satisfies Proving);
+    try {
+      return await offerUnder(signalling, first, { offer, signal });
+    } catch (problem: unknown) {
+      if (!(problem instanceof KeyRefused)) {
+        throw problem;
+      }
+      answeredAfterRefusal = undefined;
+      const other = await otherThan(first, signalling);
+      if (other === undefined) {
+        throw problem;
+      }
+      const answer = await offerUnder(signalling, other, { offer, signal });
+      answeredAfterRefusal = other;
+      return answer;
     }
-    const answered = firstAnswer(await response.json());
-    if (answered === coreNotConnectedRefusal) {
-      throw new CoreOffline();
-    }
-    if (typeof answered === "string" && answered.endsWith(proofRefusal)) {
-      throw new KeyRefused(answered);
-    }
-    if (typeof answered === "string") {
-      throw new Error(`the server refused the offer: ${answered}`);
-    }
-    const isTheCores = await verifyAnswer({
-      publicKey: fromBase64(answered.publicKey),
-      fingerprint: signalling.fingerprint,
-      answer: {
-        coreId: signalling.coreId,
-        offerId: answered.offerId,
-        offerFingerprint: fingerprint,
-        sdp: answered.sdp,
-      },
-      signature: fromBase64(answered.signature),
-    });
-    if (!isTheCores) {
-      throw new Error(
-        "the answer is not the server's own: its key or signature does not match its link",
-      );
-    }
-    return { type: "answer", sdp: answered.sdp };
   };
+}
+
+/** Passes the offer sent to the core through the discovery, proven by proving, and checks its answer. */
+async function offerUnder(
+  signalling: DiscoverySignalling,
+  proving: Proving,
+  sent: { readonly offer: Description; readonly signal: AbortSignal | undefined },
+): Promise<Description> {
+  const { offer, signal } = sent;
+  const post = signalling.fetch ?? fetch;
+  const { held, key } = proving;
+  const fingerprint = fingerprintOf(offer.sdp);
+  const proof = await offerProof(key, fingerprint);
+  const response = await post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
+    method: "POST",
+    signal: signal ?? null,
+    headers: {
+      "Content-Type": "application/json",
+      "Orpheum-Discovery-Protocol": protocolVersion,
+    },
+    body: JSON.stringify({
+      ...held,
+      offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`the discovery answered ${String(response.status)}`);
+  }
+  const answered = firstAnswer(await response.json());
+  if (answered === coreNotConnectedRefusal) {
+    throw new CoreOffline();
+  }
+  if (typeof answered === "string" && answered.endsWith(proofRefusal)) {
+    throw new KeyRefused(answered);
+  }
+  if (typeof answered === "string") {
+    throw new Error(`the server refused the offer: ${answered}`);
+  }
+  const isTheCores = await verifyAnswer({
+    publicKey: fromBase64(answered.publicKey),
+    fingerprint: signalling.fingerprint,
+    answer: {
+      coreId: signalling.coreId,
+      offerId: answered.offerId,
+      offerFingerprint: fingerprint,
+      sdp: answered.sdp,
+    },
+    signature: fromBase64(answered.signature),
+  });
+  if (!isTheCores) {
+    throw new Error(
+      "the answer is not the server's own: its key or signature does not match its link",
+    );
+  }
+  return { type: "answer", sdp: answered.sdp };
 }
 
 /** The discovery finds no core by what the device holds: never registered, used up or ended. */

@@ -27,6 +27,7 @@ import {
   type Proving,
   type RealmTyped,
   type RtcTransport,
+  type Signaller,
 } from "@orpheum/sdk";
 
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
@@ -167,6 +168,11 @@ export interface Target {
    * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
    */
   readonly latest?: (() => Promise<Proving | undefined>) | undefined;
+  /**
+   * What the device holds now, asked once the core refuses a later offer's proof, which is then sent
+   * once more under it (DiscoverySignalling.fallback).
+   */
+  readonly fallback?: (() => Promise<Proving | undefined>) | undefined;
 }
 
 /**
@@ -476,18 +482,25 @@ function askingWhereTried(
     isDenied || target.lanUrls.length === 0 ? () => undefined : localNetwork.onAsking(listener);
 }
 
+/**
+ * The signaller of the target's offers through the discovery: each proven by what the device holds
+ * by then (latest), sent once more under what it holds now when the core refuses it (fallback), and
+ * its answer checked.
+ */
+export function signallerOf(client: DiscoveryClient, target: Target): Signaller {
+  return discoverySignaller({
+    clientApi: client.clientApi,
+    coreId: target.coreId,
+    fingerprint: target.fingerprint,
+    held: target.held,
+    key: target.key,
+    latest: target.latest,
+    fallback: target.fallback,
+    fetch: client.fetch,
+  });
+}
+
 /** Connects to the target through the discovery, its offers proven and its answers checked. */
 export function connectThrough(client: DiscoveryClient, target: Target): Promise<RtcTransport> {
-  return connectRtc(
-    discoverySignaller({
-      clientApi: client.clientApi,
-      coreId: target.coreId,
-      fingerprint: target.fingerprint,
-      held: target.held,
-      key: target.key,
-      latest: target.latest,
-      fetch: client.fetch,
-    }),
-    { iceServers: target.iceServers },
-  );
+  return connectRtc(signallerOf(client, target), { iceServers: target.iceServers });
 }
