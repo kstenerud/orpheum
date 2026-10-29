@@ -1185,6 +1185,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   waited for each player at a start, a play and a seek, and a stalled player was waited for or
   left behind with "continuing without". (`internal/core/together/group.go`, `player_log.go`;
   `web/packages/sdk/src/together-follow.ts`)
+  **The owner's run 2026-10-29 (the Mac hosting, cast to the Fire TV, the owner's Samsung S23 in
+  Chrome as the guest, on home Wi-Fi):** (1), (3) and (4) hold: one leader (device 17) named on every
+  `groupChanged`, the S23 (device 7) caught up by nudges within 0.25 s (`followerCaughtUp`, 21 lines),
+  no group change for a follower's stall; the owner saw everything work. Left: (2), the guest's link
+  throttled until it stalls (the S23's mobile data is out until 2026-11-01; Chrome's remote debugging
+  was too fiddly) — to do then, or with another phone.
 - [ ] **VQ103** — a guest casting to a second device follows the group there (D371 §4), on staging.
   Passes when the Mac hosts a session playing a film and a guest, signed in on the iPhone as a
   person of their own, joins it, then casts from the iPhone (the tray's Cast) to a second device of
