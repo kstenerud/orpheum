@@ -352,3 +352,7 @@ had leaned on.
 - **Not scheduled — the major UX rewrite** (the owner, 2026-10-29): deferred until enough features are in,
   so it is done once, coherently; until then only small UI changes, and fixes where things get too ugly.
   The Watch Together page's way back to watching (VQ104: the host missed it) is one of its inputs.
+  Another (the owner, 2026-10-29, "beginning to think"): Watch Together and Cast as pop-up modals over
+  wherever the person is, not pages to navigate to, being "functions of playback circumstances, so you
+  shouldn't have to navigate away from where you are just to activate their controls". Would replace
+  D364 §13's sign-to-page table; a signed-in guest's own page and the cast receiver are unaffected.
