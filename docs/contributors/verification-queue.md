@@ -892,6 +892,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   buffer's 30 s below the top), and was paused before reaching the film's own picture: one quality at a
   time after drops, as D352 §3 has it. Faster climbing after a clean recovery is filed with the
   step-up research for the next batch. Left: a 5.1 film's own sound (Thimbleford, 5712), the boost.
+  **The owner's run 2026-10-29, Thimbleford (5712), Chrome on the Mac over HTTP:** the top played the
+  film's own 5.1 sound (`ladderSound=sound0-own`); throttled, it stepped down to the light stereo
+  (`sound0-96k-ownlevel`) with no stall; freed, it climbed one quality a minute (as with 5682 above);
+  the boost played the boosted mix and kept it across a step up, but turning it on froze 2.2 s while
+  the server made the boosted mix (fixed in the batch: the loaded sound plays on until the boosted
+  mix is ready). Levelling is the player's own gain and switches at once. Left: the boost fix seen.
 - [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
