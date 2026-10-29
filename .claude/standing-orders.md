@@ -18,7 +18,7 @@
      never record that library's names). D369, D368, the Fire TV fixes, the RealMedia fix (protocol 54), D370 (step 0062), D364, D367 + Configure
      merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
      wait on the owner's VQ85, VQ86, VQ87, VQ88, VQ90, VQ91 (+VQ89); then check-pr-failed, then the owner's go
-     for nas.example. Prod connect package: /yoloai/files/connect-production-0a3fcd5-f872bbf9.run.
+     for nas.example. Prod connect package: /yoloai/files/connect-production-0a3fcd5-f11cd77e.run.
      Owner to choose (D368's status): loudness when stepping down from the copied sound.
    - Folded in 2026-10-28 (owner, serious), all on staging unless noted: Fire TV cast fixes, phone banner,
      chooser/menu as one modal drop-down, refused key → sign-in (needs connect re-pin + repackage for prod),
@@ -31,8 +31,8 @@
      home + Chrome WebRTC fixes next batch (plan file, last sections).
      Folded (owner, VQ97/VQ91 checks): drop-down fixes + anchored lists, sort chooser; a film started from 0
      never played; A Woman of Paris's copied sound; a leader's echo seek (all on staging); the link estimate's
-     P1–P6 (research/bandwidth-sampling-2026-10-29.md, owner 2026-10-29; no re-ask on another connection; agent).
-     VQs owed: 85–118 (84, 89, 106, 111, 112, 114, 117, 119 passed; lead's notes on the rest).
+     P1–P6; forward buffer by quality+memory; scrub preview; nav/menu fixes; loader error page (2026-10-29).
+     VQs owed: 85–122 (84, 89, 106, 111, 112, 114, 117, 119 passed; 91(4), 120(2) seen; notes on the rest).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
      player's controls, the nameless-series parser, the Libraries icon as a menu, invitation links shown
