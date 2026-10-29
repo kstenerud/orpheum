@@ -6,7 +6,10 @@ import {
   chunksNotHeld,
   chunksWhileStill,
   heldAheadAtLeastS,
+  arrivingWithinMs,
   giveUpFor,
+  givenUpSample,
+  givenUpText,
   isUnplayable,
   isWaitingToPlay,
   linkShare,
@@ -292,5 +295,41 @@ describe("the common quality a group's encoded devices start a jump on (D286 §3
     expect(commonStartLevel(ladder)).toBe(1);
     expect(commonStartLevel([ladder[0]!, ladder[2]!])).toBe(0);
     expect(commonStartLevel([ladder[2]!])).toBe(-1);
+  });
+});
+
+describe("what a chunk given up says of the link (bandwidth-sampling-2026-10-29.md P3)", () => {
+  const arriving = {
+    level: 3,
+    loadingMs: 6000,
+    firstByteMs: 400,
+    arrivedBytes: 700_000,
+    sinceArrivedMs: 200,
+  };
+
+  it("is a sample over its first byte to the give-up while its bytes were arriving", () => {
+    expect(givenUpSample(arriving)).toEqual({
+      level: 3,
+      bytes: 700_000,
+      arrivedMs: 5600,
+      firstByteMs: 400,
+    });
+    expect(
+      givenUpText({ loadedBytes: 700_000, loadingMs: 6000, sinceArrivedMs: 200, isSample: true }),
+    ).toBe("700000 B in 6000 ms");
+  });
+
+  it("is none when it was stuck, or too few of its bytes came to measure the link", () => {
+    expect(givenUpSample({ ...arriving, sinceArrivedMs: arrivingWithinMs + 1 })).toBeUndefined();
+    expect(
+      givenUpSample({ ...arriving, arrivedBytes: measuresFromBytesAtLeast - 1 }),
+    ).toBeUndefined();
+    expect(givenUpSample({ ...arriving, firstByteMs: undefined, arrivedBytes: 0 })).toBeUndefined();
+    expect(
+      givenUpText({ loadedBytes: 5000, loadingMs: 6000, sinceArrivedMs: 5500, isSample: false }),
+    ).toBe("stuck: 5000 B in 6000 ms, none for 5500 ms");
+    expect(
+      givenUpText({ loadedBytes: 9000, loadingMs: 6000, sinceArrivedMs: 0, isSample: false }),
+    ).toBe("9000 B in 6000 ms, too few to measure");
   });
 });

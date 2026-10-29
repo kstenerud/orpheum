@@ -32,6 +32,23 @@ import {
 
 useScene({ beforeEach, afterEach, vi });
 
+/** A ladder like Nosferatu's on staging: its own picture at 9018 kb/s on top, q700k432p second. */
+const nosferatu = [
+  { bitrate: 600_000, averageBitrate: 450_000 },
+  { bitrate: 1_000_000, averageBitrate: 800_000 },
+  { bitrate: 3_000_000, averageBitrate: 2_200_000 },
+  { bitrate: 30_000_000, averageBitrate: 9_018_000 },
+];
+
+/** The Fire TV's five samples of Nosferatu as its stall report gave them, bytes and ms to arrive (staging, 2026-10-28). */
+const fireTvSamples = [
+  [191_842, 159],
+  [895_044, 393],
+  [555_018, 349],
+  [376_471, 1200],
+  [801_491, 284],
+] as const;
+
 describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
   it("a low first sample does not hold the playback low once its next chunks arrive fast", () => {
     const { choosing } = choosingFrom(40_000_000);
@@ -73,6 +90,37 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
       loadAt(choosing, 0, { mbps: 12 });
     }
     expect(choosing.nextLevel()).toBe(0); // the step-up's to raise again
+  });
+
+  it("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Nosferatu, P3)", () => {
+    // A Fire TV's Nosferatu: picture chunks at 14–18 Mb/s, then one that delivered a few kilobytes and
+    // nothing more, counted as a speed of 14 kb/s; the estimate read 69 kb/s and the TV played its
+    // lowest quality for 75 s (staging, 2026-10-28; bandwidth-sampling-2026-10-29.md §1.1).
+    const { hls, choosing, givenUp } = choosingFrom(40_000_000);
+    hls.levels = nosferatu;
+    expect(choosing.firstLevel()).toBe(3);
+    for (const mbps of [14, 18, 15, 16]) {
+      loadAt(choosing, 3, { mbps });
+    }
+    const samplesBefore = scene.samplesNoted.at(-1);
+    const stuck = chunkAt(3);
+    choosing.loading(stuck);
+    stuck.stats.loaded = 5000;
+    stuck.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
+    waitMs(lookAtChunkEveryMs);
+    waitMs(5500); // none more for 5.5 s
+    expect(givenUp).toEqual([stuck]);
+    expect(scene.samplesNoted.at(-1)).toBe(samplesBefore); // no speed sample
+    expect(choosing.linkKbps()).toBeGreaterThan(10_000); // where it read 69
+    expect(scene.steps.at(-1)).toMatch(
+      /^gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; /u,
+    );
+    expect(choosing.isStarting()).toBe(true);
+    loadAt(choosing, 3, { mbps: 15 });
+    expect(choosing.nextLevel()).toBe(3); // the top again, the ceiling never latched at the bottom
+    // It was a drop: a second within ten minutes makes the playback steadier (D352 §4).
+    choosing.stalled();
+    expect(choosing.steadiness()).toBe(1);
   });
 
   it("a stall while starting lowers the ceiling to what the estimate chooses", () => {
@@ -148,23 +196,6 @@ describe("the step-up (D352 §2)", () => {
 });
 
 describe("a playback with plenty loaded ahead, which holds its quality (the owner, 2026-10-28)", () => {
-  /** A ladder like Nosferatu's on staging: its own picture at 9018 kb/s on top, q700k432p second. */
-  const nosferatu = [
-    { bitrate: 600_000, averageBitrate: 450_000 },
-    { bitrate: 1_000_000, averageBitrate: 800_000 },
-    { bitrate: 3_000_000, averageBitrate: 2_200_000 },
-    { bitrate: 30_000_000, averageBitrate: 9_018_000 },
-  ];
-
-  /** The Fire TV's five samples as its stall report gave them, bytes and ms to arrive. */
-  const fireTvSamples = [
-    [191_842, 159],
-    [895_044, 393],
-    [555_018, 349],
-    [376_471, 1200],
-    [801_491, 284],
-  ] as const;
-
   it("keeps its quality at starting's end with 37.3 s loaded, and decides once less is loaded", () => {
     const { hls, choosing } = choosingFrom(40_000_000);
     hls.levels = nosferatu;

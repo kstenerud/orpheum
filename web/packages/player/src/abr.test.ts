@@ -59,6 +59,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     const chunk = chunkAt(3);
     choosing.loading(chunk);
     chunk.stats.loaded = 750_000; // 1 Mb/s over six seconds
+    chunk.stats.loading = { start: 0, first: 50, end: 0 };
     scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(givenUp).toEqual([chunk]);
@@ -137,7 +138,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     chunk.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
     waitMs(6000);
     expect(scene.steps[2]).toMatch(
-      /^ceiling 1 to 0: gave up a chunk of 1: 100000 B in 6000 ms; confident \d+ kb\/s \(estimate \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
+      /^ceiling 1 to 0: gave up a chunk of 1, 100000 B in 6000 ms, too few to measure; confident \d+ kb\/s \(estimate \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
     hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
     hls.currentLevel = 0;
@@ -176,7 +177,8 @@ describe("choosing a chunked playback's quality (D265)", () => {
     switchedTo(choosing.firstLevel());
     const chunk = chunkAt(3);
     choosing.loading(chunk);
-    chunk.stats.loaded = 750_000; // its first byte's time unknown: none counted as arrived
+    chunk.stats.loaded = 750_000; // arriving at 1 Mb/s from its first byte, 50 ms in
+    chunk.stats.loading = { start: 0, first: 50, end: 0 };
     scene.nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     switchedTo(choosing.nextLevel());
@@ -184,10 +186,10 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(told[1]?.fromQualityKbps).toBe(36_208.176);
     expect(told[1]?.qualityKbps).toBe(696);
     expect(told[1]?.why).toMatch(
-      /^gave up a chunk of 3: 750000 B in 6000 ms; confident 0 kb\/s \(estimate 0, error none, 1 sample\), /u,
+      /^gave up a chunk of 3, 750000 B in 6000 ms; confident 1008 kb\/s \(estimate 1008, error none, 1 sample\), /u,
     );
-    // The sample it took: a chunk with no byte counted arrived is one byte over the wait.
-    expect(told[1]?.linkSamples).toBe("samples 3 1B 6000ms fb6000ms");
+    // The sample it took: its bytes over its first byte to the give-up.
+    expect(told[1]?.linkSamples).toBe("samples 3 750000B 5950ms fb50ms");
   });
 
   it("tells the page its last samples, each its quality, bytes, time to arrive and wait for its first byte (D352 §5)", () => {
