@@ -1705,3 +1705,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the receiver (on 2026-10-29 one took it from 9018 to 1896 kb/s on a link of 18451 kb/s).
   (`web/packages/sdk/src/together-player-events.ts`, `together-follow.ts`)
   **Passed 2026-10-29 (the owner, staging):** Nosferatu cast to the Fire TV held 9018 kb/s through six seeks of the remote; no common-quality step.
+- [ ] **VQ142** — a cast replacing another of the person's casts on the same receiver is taken, on
+  staging. (1) Host a Watch Together session from one admin device (the S23's Firefox) with a guest
+  in it; from Chrome on the Mac, with nothing playing, cast to the Fire TV (Use on the TV), then play a
+  film on Chrome. Passes when it plays on the TV, Chrome's Cast sign stays blue and its casting page
+  shows the remote. (2) With the TV already receiving the S23's cast, cast to it from Chrome with
+  nothing playing: the TV goes to "Ready, controlled from Chrome" unasked, Chrome's casting page shows
+  "Ready on Fire TV" (not "asking"), and the core's log says `cast: a device cast to another …
+  replaced=1 accepted=true`; play a film on Chrome: it plays on the TV, Chrome's sign staying on.
+  Before this change Chrome waited on a Use the TV never asked for, and its Play stayed in Chrome (the
+  owner, staging, 2026-10-29). (`internal/core/live/registry.go`)

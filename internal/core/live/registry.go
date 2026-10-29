@@ -247,25 +247,32 @@ func (registry *Registry) Connected(userID int64) []int64 {
 // came to the front last (D338 §2), and telling the sender's pages it sends it. It replaces the cast
 // its receiver had, and the one its sender controlled, which it returns for their sessions to be
 // ended, their senders told (D337 §6: the last cast wins). The receiver must be another of the
-// person's devices, connected now, with a tab in front.
-func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced []Cast, err error) {
+// person's devices, connected now, with a tab in front. It returns the cast as it started: accepted
+// already when it replaces one its receiver said Use to on the tab it is handed to, which receives it
+// at once, asking nothing (D364 §2, the receiver asks once).
+func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Cast, replaced []Cast, err error) {
 	if cast.ReceiverDeviceID == cast.SenderDeviceID {
-		return nil, ErrToItself
+		return Cast{}, nil, ErrToItself
 	}
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[cast.UserID]
 	if owner == nil || !owner.isConnected(cast.ReceiverDeviceID) || cast.ReceiverDeviceID == 0 {
-		return nil, ErrNotConnected
+		return Cast{}, nil, ErrNotConnected
 	}
 	front := owner.frontOf(cast.ReceiverDeviceID)
 	if front == nil {
-		return nil, ErrNotInFront
+		return Cast{}, nil, ErrNotInFront
 	}
 	for receiverID, held := range owner.casts {
 		if receiverID == cast.ReceiverDeviceID || held.SenderDeviceID == cast.SenderDeviceID {
 			replaced = append(replaced, held.Cast)
 			delete(owner.casts, receiverID)
+		}
+		if receiverID == cast.ReceiverDeviceID && held.IsAccepted && held.heldBy == front.id {
+			// The tab receives a cast already, so takes this one at once, unasked (live.tsx's
+			// useReceiving): no Use will come, and the sender's Play would stay on the sender.
+			cast.IsAccepted = true
 		}
 	}
 	owner.casts[cast.ReceiverDeviceID] = &heldCast{Cast: cast, heldBy: front.id}
@@ -276,7 +283,7 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced [
 		}
 	}
 	owner.tellSending(cast.SenderDeviceID)
-	return replaced, nil
+	return cast, replaced, nil
 }
 
 // CastsOf is the casts userID's device deviceID sends or receives.
