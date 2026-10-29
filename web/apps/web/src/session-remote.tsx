@@ -13,6 +13,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
+import { useSeekAhead, type SeekAhead } from "./seek-ahead.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** How often a remote's position moves on while the film plays, in ms: a clock's second. */
@@ -23,7 +24,9 @@ const tickEveryMs = 1000;
  * Together with a group of one): a cast's receiver from its sender (D337 §5), and a Watch Together
  * group from its host's session page (D364 §15). One remote for both (rule 11). Its bar is the
  * player's own (D369 §1): play and pause, its steps back and forward and its timeline, a drag along
- * the timeline sent once it has rested (scrubPauseWindowMs), as a leading player's drag is one seek.
+ * the timeline and steps in a row sent as one seek once they have rested (scrubPauseWindowMs), as a
+ * leading player's drag is one seek, the timeline showing its place meanwhile and until the film
+ * is there (seek-ahead.ts).
  */
 export function SessionRemote(props: {
   readonly snapshot: TogetherSnapshot | undefined;
@@ -33,13 +36,17 @@ export function SessionRemote(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const positionMs = usePositionNow(props.snapshot);
+  const { connection, durationMs } = props;
+  const ahead = useSeekAhead((atMs) => {
+    const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
+    connection?.command({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
+  });
   return (
     <>
       <output>{stateText(t, props.snapshot?.group?.state)}</output>
       <PlayerControls
-        source={remoteSource({ ...props, positionMs })}
+        source={remoteSource({ ...props, positionMs, ahead })}
         controls={["play", "steps", "timeline"]}
-        settleMs={scrubPauseWindowMs}
       />
     </>
   );
@@ -68,30 +75,32 @@ export function usePositionNow(snapshot: TogetherSnapshot | undefined): number |
 
 /**
  * A session's film as the remote's bar plays it: where it stands, as its player last said and the
- * clock has moved it on, and its commands sent over the session.
+ * clock has moved it on, or where a seek being chosen sends it (ahead); its commands sent over the
+ * session, a seek once its moves rest.
  */
 function remoteSource(remote: {
   readonly snapshot: TogetherSnapshot | undefined;
   readonly connection: TogetherConnection | undefined;
   readonly positionMs: number | undefined;
   readonly durationMs: number;
+  readonly ahead: SeekAhead;
 }): PlayerSource {
-  const { connection, positionMs, durationMs } = remote;
+  const { connection, positionMs, durationMs, ahead } = remote;
   const isPlaying = remote.snapshot?.group?.state === "Playing";
   const send = (command: GroupCommand): void => {
     connection?.command(command);
   };
   return {
-    atMs: positionMs ?? 0,
+    atMs: ahead.shownMs(positionMs ?? 0),
     durationMs,
     isPaused: !isPlaying,
     isReady: remote.snapshot?.status === "connected" && positionMs !== undefined,
     playOrPause: () => {
+      ahead.land();
       send({ command: isPlaying ? "pause" : "play" });
     },
     seekTo: (atMs) => {
-      const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
-      send({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
+      ahead.aim(atMs, scrubPauseWindowMs);
     },
   };
 }

@@ -365,12 +365,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   video, on the player's own controls over it or on nothing, a 10 s seek by the seeking buttons, the
   browser's media controls and Left and Right while the video, nothing or the player's timeline has
   focus, and Back leaving full screen before the page; every control over and under the video is
-  reached by arrows. A television's overlay (`src/tv-controls.tsx`) seeks by Left and Right on its
+  reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): a held or repeated
+  arrow or seeking button moves the timeline's marker and time alone, by 10 s steps, 30 s from 2 s
+  on and 60 s from 4 s, and the film seeks once, there, as the presses rest (half a second, a key's
+  after its release); a press on the timeline shows its place at once; and the place shown stays
+  until the seek lands. A remote's drags and steps are one command once they rest the same way
+  (the owner, Fire TV, 2026-10-29). A television's overlay (`src/tv-controls.tsx`) seeks by Left and Right on its
   timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
   button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is the same bar over
   the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
   by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
   film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
+  `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
   `src/player-commands.test.tsx`, `src/tv-controls.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,

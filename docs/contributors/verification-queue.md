@@ -855,8 +855,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   across the room; and on a cast's remote (a phone casting to the Fire TV or a computer), the remote's
   play, pause, Back 10 s, Forward 10 s and timeline command the receiver, a drag sent once it rests.
   The status tray's signs, now 2.75rem wide, are looked at for how they feel (the owner, 2026-10-27).
+  **Seeks shown before they are made (2026-10-29):** on the Fire TV, holding Right (overlay hidden or
+  on the scrub bar) runs the marker and time ahead, faster after 2 s and again after 4 s, the film
+  playing on where it was, and one seek, to the place shown, follows the release by about half a
+  second (the core's log: one `kind=seeked` line, not one per repeat); Left the same backwards;
+  pressing Right a few times in a row is one seek too; a click or tap on the timeline (a computer, a
+  phone) moves the marker and time there at once and they stay there, not jumping back, until the
+  film plays on from there; on a cast's remote, Forward 10 s pressed three times quickly moves the
+  remote's time 30 s at once and the receiver seeks once; in Watch Together, a held Right on the
+  host's player gives the guests one seek.
   (`web/apps/web/src/page-controls.tsx`, `player-controls.tsx`, `timeline.tsx`, `icon-button.tsx`,
-  `tv-controls.tsx`, `cast-remote.tsx`)
+  `tv-controls.tsx`, `cast-remote.tsx`, `seek-ahead.ts`)
   **The lead's check 2026-10-28 (headless Chromium on Linux, computer part only):** the app's bar in
   place of the browser's controls, hidden 5.05 s after a move; a click plays and pauses, a double
   click enters and leaves full screen (emulated); Tab and the arrows reach every control; Left and

@@ -10,22 +10,18 @@
  * dialog open over it answers Back before the player hears it.
  */
 
-import { seekTo } from "@orpheum/player";
 import { useEffect } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
+import type { CommandSource } from "./input-commands.ts";
+import { seekAheadOf } from "./seek-ahead.ts";
 
-/**
- * How far a seek moves, in milliseconds: the usual step of a TV's player, the app having had no
- * keyboard seeking of its own to follow. A justified constant.
- */
-export const seekStepMs = 10_000;
-
-/** Plays video where it is paused, else pauses it. */
+/** Plays video where it is paused, else pauses it, making a seek being chosen first. */
 function playOrPause(video: HTMLVideoElement): void {
+  seekAheadOf(video).land();
   if (video.paused) {
     video.play().catch(() => undefined);
   } else {
@@ -33,10 +29,19 @@ function playOrPause(video: HTMLVideoElement): void {
   }
 }
 
-/** Moves video by byMs, never before its start nor past its end. */
-function seekBy(video: HTMLVideoElement, byMs: number): void {
+/**
+ * Moves where video's player shows a step towards direction, never before its start nor past its
+ * end, and seeks it there once the presses rest (seek-ahead.ts), a key's once it is released: a
+ * held key seeked at each of its repeats (the owner, Fire TV, 2026-10-29).
+ */
+function seekBy(
+  video: HTMLVideoElement,
+  direction: -1 | 1,
+  source: CommandSource | undefined,
+): void {
   const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : Infinity;
-  seekTo(video, Math.min(Math.max(video.currentTime * 1000 + byMs, 0), durationMs));
+  const film = { atMs: video.currentTime * 1000, mostMs: durationMs };
+  seekAheadOf(video).step(direction, film, source === "key");
 }
 
 /**
@@ -67,31 +72,36 @@ function leaveFullscreen(): boolean {
   return true;
 }
 
-/** Each command's answer for a video, by command: whether it answered. Up and Down move focus. */
-const answers: Readonly<Partial<Record<Command, (video: HTMLVideoElement) => boolean>>> = {
+/**
+ * Each command's answer for a video, by command, told where it came from (none: a click's): whether
+ * it answered. Up and Down move focus.
+ */
+const answers: Readonly<
+  Partial<Record<Command, (video: HTMLVideoElement, source?: CommandSource) => boolean>>
+> = {
   playPause: (video) => {
     playOrPause(video);
     return true;
   },
-  seekBack: (video) => {
-    seekBy(video, -seekStepMs);
+  seekBack: (video, source) => {
+    seekBy(video, -1, source);
     return true;
   },
-  seekForward: (video) => {
-    seekBy(video, seekStepMs);
+  seekForward: (video, source) => {
+    seekBy(video, 1, source);
     return true;
   },
-  left: (video) => {
+  left: (video, source) => {
     const isSeeking = isVideosToSeek(video);
     if (isSeeking) {
-      seekBy(video, -seekStepMs);
+      seekBy(video, -1, source);
     }
     return isSeeking;
   },
-  right: (video) => {
+  right: (video, source) => {
     const isSeeking = isVideosToSeek(video);
     if (isSeeking) {
-      seekBy(video, seekStepMs);
+      seekBy(video, 1, source);
     }
     return isSeeking;
   },
@@ -105,9 +115,16 @@ const answers: Readonly<Partial<Record<Command, (video: HTMLVideoElement) => boo
   back: () => leaveFullscreen(),
 };
 
-/** Answers command for video; whether it did. */
-export function answerPlayerCommand(video: HTMLVideoElement, command: Command): boolean {
-  return answers[command]?.(video) ?? false;
+/**
+ * Answers command for video, as source gave it (a key's seek waits for the key's release; none is a
+ * click's); whether it did.
+ */
+export function answerPlayerCommand(
+  video: HTMLVideoElement,
+  command: Command,
+  source?: CommandSource,
+): boolean {
+  return answers[command]?.(video, source) ?? false;
 }
 
 /**
@@ -195,7 +212,7 @@ export function usePlayerCommands(video: HTMLVideoElement | null): void {
   useSpacePlaysAndPauses(video);
   useMediaSeeks();
   useCommands("document", (detail, event) => {
-    if (video !== null && answerPlayerCommand(video, detail.command)) {
+    if (video !== null && answerPlayerCommand(video, detail.command, detail.source)) {
       event.preventDefault();
     }
   });

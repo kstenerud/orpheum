@@ -9,9 +9,10 @@ import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
-import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
+import { answerPlayerCommand } from "./player-commands.ts";
 import { OverlayUpAndBack } from "./play-up.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
+import { seekStepMs } from "./seek-ahead.ts";
 
 /**
  * How long the overlay stays after the last press while the film plays, in milliseconds: a TV
@@ -26,7 +27,11 @@ export type OverlayShown = "none" | "scrub" | "all";
 export interface OverlayAnswer {
   readonly shown: OverlayShown;
   readonly isTaken: boolean;
-  /** A seek the press asks for, in ms: Left and Right while hidden or on the scrub bar. */
+  /**
+   * A seek the press asks for, in ms, back where negative: Left and Right while hidden or on the
+   * scrub bar, a step that a held or repeated press lengthens, made as the presses rest
+   * (seek-ahead.ts).
+   */
   readonly seekByMs?: number;
   /** Whether focus goes to play, as the whole overlay opens. */
   readonly isFocusToPlay?: boolean;
@@ -85,6 +90,11 @@ function seekOfArrow(command: Command): number | undefined {
   return command === "right" ? seekStepMs : undefined;
 }
 
+/** The player's command for a seek of byMs: back where negative, else forward. */
+function seekCommandOf(byMs: number): Command {
+  return byMs < 0 ? "seekBack" : "seekForward";
+}
+
 /**
  * A television's player overlay (tv-device.ts), over the film inside its stage so it stays in full
  * screen: play or pause, the scrub bar, where the film stands and when it ends. The browser's own
@@ -118,7 +128,7 @@ export function TvControls(props: FilmParts): JSX.Element {
       notePress();
       const video = videoRef.current;
       if (answer.seekByMs !== undefined && video !== null) {
-        answerPlayerCommand(video, answer.seekByMs < 0 ? "seekBack" : "seekForward");
+        answerPlayerCommand(video, seekCommandOf(answer.seekByMs), detail.source);
       }
       if (answer.isFocusToPlay === true) {
         requestAnimationFrame(() => playRef.current?.focus());

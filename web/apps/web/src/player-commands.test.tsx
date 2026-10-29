@@ -10,9 +10,9 @@ import { BarePlayer } from "./bare-player.tsx";
 import {
   answerPlayerCommand,
   playerControlsAttribute,
-  seekStepMs,
   usePlayerCommands,
 } from "./player-commands.ts";
+import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 import { mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -30,6 +30,7 @@ describe("the player's answers to a remote's commands", () => {
   afterEach(() => {
     document.body.replaceChildren();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("plays and pauses by play/pause wherever focus is, and by OK on the video alone", () => {
@@ -50,10 +51,13 @@ describe("the player's answers to a remote's commands", () => {
   });
 
   it("seeks a step by the seeking buttons, and by Left and Right while the video or nothing has focus", () => {
+    vi.useFakeTimers();
     const video = videoAt(30);
     expect(answerPlayerCommand(video, "seekForward")).toBe(true);
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
     expect(answerPlayerCommand(video, "left")).toBe(true);
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(30);
     const control = document.createElement("button");
     document.body.append(control);
@@ -64,11 +68,15 @@ describe("the player's answers to a remote's commands", () => {
   });
 
   it("never seeks before the start nor past the end", () => {
+    vi.useFakeTimers();
     const video = videoAt(4, 20);
     answerPlayerCommand(video, "seekBack");
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(0);
     video.currentTime = 15;
+    video.dispatchEvent(new Event("seeked")); // as a browser says a seek landed
     answerPlayerCommand(video, "seekForward");
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(20);
   });
 
@@ -117,9 +125,13 @@ describe("the bare player's answers to a remote's commands", () => {
       bubbles: true,
       cancelable: true,
     });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     act(() => {
       video.dispatchEvent(arrow);
+      video.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      vi.advanceTimersByTime(seekRestMs);
     });
+    vi.useRealTimers();
     expect(arrow.defaultPrevented).toBe(true);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
     mounted.unmount();

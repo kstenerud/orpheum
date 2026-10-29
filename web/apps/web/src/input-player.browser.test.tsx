@@ -16,8 +16,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { focusTargetsIn } from "./focus-engine.ts";
-import { seekStepMs } from "./player-commands.ts";
 import { routeHref } from "./router.ts";
+import { seekStepMs } from "./seek-ahead.ts";
 import { directDecision } from "./test-fixtures.ts";
 import {
   filmDetail,
@@ -137,10 +137,11 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
         positionS = toS;
       },
     });
+    // Each seek is made once the presses rest (seek-ahead.ts).
     await press("{ArrowRight}");
-    expect(video.currentTime).toBeCloseTo(30 + seekStepMs / 1000, 1);
+    await expect.poll(() => video.currentTime).toBeCloseTo(30 + seekStepMs / 1000, 1);
     await press("{ArrowLeft}{ArrowLeft}");
-    expect(video.currentTime).toBeCloseTo(30 - seekStepMs / 1000, 1);
+    await expect.poll(() => video.currentTime).toBeCloseTo(30 - seekStepMs / 1000, 1);
     expect(document.activeElement).toBe(video);
     const playsBefore = play.mock.calls.length;
     await press("{Enter}");
@@ -232,9 +233,32 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     scrub?.focus();
     expect(document.activeElement).toBe(scrub);
     await press("{ArrowRight}");
-    expect(positionAt()).toBeCloseTo(30 + seekStepMs / 1000, 1);
+    await expect.poll(positionAt).toBeCloseTo(30 + seekStepMs / 1000, 1);
     await press("{ArrowLeft}{ArrowLeft}");
-    expect(positionAt()).toBeCloseTo(30 - seekStepMs / 1000, 1);
+    await expect.poll(positionAt).toBeCloseTo(30 - seekStepMs / 1000, 1);
+    expect(document.activeElement).toBe(scrub);
+  });
+
+  // Each repeat of a held Right seeked the video, the marker moving only as each landed, so a
+  // person guessed how long to hold (the owner, Fire TV, 2026-10-29).
+  it("runs the scrub bar's time ahead while Right is held, and seeks once, there, after its release", async () => {
+    const video = await onAFireTv();
+    const seeks: number[] = [];
+    Object.defineProperty(video, "duration", { configurable: true, get: () => 600 });
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => 30,
+      set: (toS: number) => {
+        seeks.push(toS);
+      },
+    });
+    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
+    scrub?.focus();
+    await press("{ArrowRight>4/}"); // held: three repeats, then released
+    expect(scrub?.getAttribute("aria-valuetext")).toBe("1:10");
+    expect(seeks).toEqual([]);
+    await expect.poll(() => seeks).toEqual([70]);
+    expect(scrub?.getAttribute("aria-valuetext")).toBe("1:10"); // until the seek lands
     expect(document.activeElement).toBe(scrub);
   });
 

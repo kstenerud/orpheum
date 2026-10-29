@@ -259,9 +259,18 @@ had leaned on.
   over the screenshot" (the episode's still, as on a poster's tray).
 - **The check inside a chooser's items** "looks awful"; moot once seasons are chosen by posters (the
   season posters item above), so not fixed in the chooser.
-- **The scrub bar:** "Clicking on the scrub bar doesn't move the marker until the movie actually starts
-  playing from there, which makes it feel like it didn't work." The marker (and the time shown) should
-  move to the pressed place at once and stay there while the seek loads.
+- **Fixed in the batch (the owner: "yes, fold it in", 2026-10-29): the scrub bar:** "Clicking on the
+  scrub bar doesn't move the marker until the movie actually starts playing from there, which makes it
+  feel like it didn't work." The marker (and the time shown) should move to the pressed place at once
+  and stay there while the seek loads. With it the owner's Fire TV report of 2026-10-29: a held Right
+  seeked the film at each of the key's repeats (~150 seeks in a minute), the marker moving only as
+  each landed, so "I have to guess how long to hold left or right down". Now a seek is shown before it
+  is made (`web/apps/web/src/seek-ahead.ts`): a held or repeated arrow moves the marker and time
+  alone, 10 s steps, then 30 s from 2 s on and 60 s from 4 s, and the film seeks once, there, half a
+  second after the presses rest (a key's after its release); a press on the timeline shows its place
+  at once; the place shown stays until the seek lands; a cast remote's drags and Back 10 s / Forward
+  10 s presses in a row are one command the same way, so a leading player's or a remote's seek is the
+  one final seek. VQ85 on the Fire TV.
 - **A full VoiceOver pass** once the UI is final (the owner, 2026-10-28), VQ89's "Watched" among it.
 
 ## From the lead's overnight checks (2026-10-28), next batch unless the owner folds one
