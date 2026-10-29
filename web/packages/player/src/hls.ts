@@ -16,9 +16,11 @@ import Hls, { PlaylistLevelType, type AudioTrackSwitchingData, type ErrorData } 
 
 import { isRecovered } from "./abr-controller.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
+import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import { failureText } from "./diagnosis.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
+import { linkNoter } from "./link-estimate.ts";
 
 /** Why the person's sound changes as it plays: the dialogue boost turned on or off (D217 §3). */
 export type SoundChoiceCause = "boostOn" | "boostOff";
@@ -530,6 +532,7 @@ export function playHls(
     };
   }
   const hls = new Hls(preparedHlsConfig);
+  const stopRecoveringDecoding = recoverFromDecodingErrors(hls, { note: linkNoter(video) });
   failOnFatal(hls, onFailed);
   const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex);
   tellOwnMoves(hls, video);
@@ -540,6 +543,7 @@ export function playHls(
   return {
     setAudioRendition: chooseAudio,
     destroy: () => {
+      stopRecoveringDecoding();
       hls.destroy();
     },
     estimateKbps,

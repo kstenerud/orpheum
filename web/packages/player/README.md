@@ -99,6 +99,16 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   carried it, the time in a row and the wait, and each ask with why then. Taken as the end, a load
   that failed while the owner's Chrome was offline stopped its playback for good, though the link
   came back (staging, 2026-10-29; VQ125). `load-again.test.ts`.
+- **A fatal decoding error (hls.js's MEDIA_ERROR) is recovered once before it fails the playback**,
+  as hls.js's own guide asks: hls.js's decoding is built anew from where the video stands
+  (`recoverMediaError`, `loadAgainFrom`, which also recovers a hole it cannot step over, D266) and
+  the error marked recovered, so failOnFatal passes it by (`recoverFromDecodingErrors`,
+  `src/decode-recovery.ts`); a second one within `decodingRecoveryWindowMs` (30 s) of the last
+  recovery is not recovered again, and fails as today, since the rebuild did not mend it, and
+  v1.7.3's guide no longer recommends `hls.swapAudioCodec()` first ("should no longer be required
+  and is not recommended"). MUX_ERROR is left to fail as today too: the guide's own sample code has
+  no case for it either. Each attempt and its outcome is noted (the owner, 2026-10-29).
+  `decode-recovery.test.ts`.
 - **A chunked playback keeps its sound's place as its quality moves between audio groups**: the
   top of a film's ladder plays its own sound in a group of its own, every group in one order
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
