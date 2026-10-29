@@ -1473,7 +1473,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   connection) during the stall. Then the same with Offline held for two minutes: it resumes within
   about forty seconds, a silent connection replaced. (`web/packages/player/src/abr.ts`,
   `web/packages/sdk/src/rtc-transport.ts`, `rtc-request.ts`)
-- [ ] **VQ126** — a follower unlocked catches up at once, on staging. With the S23 (Chrome) following
+- [x] **VQ126** — a follower unlocked catches up at once, on staging. With the S23 (Chrome) following
   a Watch Together session that another device leads and plays, lock the S23 for about 30 s and
   unlock it, pressing nothing. Passes when, within about 3 s of the unlock, the S23's film plays at
   the group's place, not paused where it was locked; and the core's log, for the S23's video device,
@@ -1484,3 +1484,5 @@ An item is ticked only by the person who did it, and only with what they saw.
   is acceptable: its tap plays it at the group's place; say which of the two happened. Repeat once
   with the S23's Wi-Fi off during the lock (mobile data) to see the reconnect path.
   (`web/packages/sdk/src/together-connection.ts`, `together-follow.ts`, `together-sound.ts`)
+  **Passed 2026-10-29 (the owner, staging):** the S23 follower, locked and unlocked, played on in step
+  without a press.
