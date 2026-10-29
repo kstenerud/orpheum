@@ -378,7 +378,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D370](working-notes.md#d370--a-video-a-person-has-watched-shows-a-white-check-in-its-posters-tray-and-a-person-can-mark-it-watched-or-unwatched-on-its-page) A video a person has watched shows a white check in its poster's tray, and a person can mark it watched or unwatched on its page
 - [D371](working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part) A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part — *revisited by D372*
 - [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most — *revisited by D373*
-- [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead
+- [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead — *revisited by D374*
 - [D374](working-notes.md#d374--only-a-device-playing-the-film-can-lead-a-casts-sender-never-does) Only a device playing the film can lead; a cast's sender never does
 
 ## Archived

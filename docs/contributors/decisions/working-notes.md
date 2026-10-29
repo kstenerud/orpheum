@@ -24252,6 +24252,13 @@ are actually playing video can be contenders for leadership."
 2. **The host's preference holds among contenders only** (D372 §3): a host whose film plays on a device
    they cast to leads through that receiver, never through the sender.
 
+3. **With one contender left, its stall is waited for** (amends D373 §1): the owner, "When the leader is
+   the only one left actually playing the video, the end-user behavior is that stalls don't cause it to
+   jump ahead (because there's no one who would be affected). Playback waits when there is only one
+   viable player." The group stands where its only contender stalled, as a film played alone does,
+   and goes on from there; it never skips ahead on the group's clock. A cast's receiver, a session of
+   one, is the same case (D373's build already exempted it).
+
 Also agreed the same day, on D373's build: a leader that recovers within D373's grace catches up to the
 group rather than placing the group back at itself, so no one sees a stretch twice.
 
