@@ -74,6 +74,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
    a member while elsewhere, even playing another film only they see, shown away in the roster, and
    catches up to the shared film on coming back; a guest by link alone may leave the page and come back
    while the session lasts and they are not removed. Builds on item 4; D372 §1–§8 are this batch's.
+   Its device check, with it (the owner, 2026-10-29): a guest by link alone, not signed in, closes the
+   tab and opens the same link again in that browser, and is back as the same member; from another
+   browser the spent link is refused.
 
 ## Seen on staging (the owner, 2026-10-28)
 
