@@ -283,16 +283,22 @@ had leaned on.
   and a start waited 10 s on a confident estimate of 753 kb/s (18:24:01) where the film before had
   measured 17 Mb/s.
 - **After a throttle is lifted, a desktop playback stayed at 360p for 50 s and once stood still at
-  1231.3 s for 50 s** (headless Chromium with DevTools throttling; a second run played on).
+  1231.3 s for 50 s** (headless Chromium with DevTools throttling; a second run played on). Partly
+  fixed in the batch (2026-10-29): held low after a drop, it had loaded 450 s of 360p ahead, as hls.js
+  loads ahead by bytes; a playback now loads at most 60 s ahead at any quality (the 60 s for the owner
+  to confirm). Its step up after a drop waits D352's hold, one quality at a time.
 - **A drop-down in a short window** (1920×600) moves up 22 px to stay on screen, its choice no longer over
   its button's centre.
 - **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a WARN "a request
   that only reads wrote to the database" from `forgetAttempt` when the boost stopped an own-sound run
   (20:57:08), where every other such line is DEBUG with a reason. The store's list allows it, with why:
   it is the cancel's hook, as the cancel is.
-- **Pages keep asking every 5 s for a Watch Together session that no longer exists.**
-- **A remote opened just as its cast ends says only "The cast is over."** Its hello reaches a session
-  already gone ("no such Watch Together session"), so it never hears that the receiver took control
+- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** pages kept asking
+  every 5 s for a Watch Together session that no longer exists (`GET /together/73`, 404, staging
+  2026-10-28): the host's screen said the session was over but kept the tab's membership, so its
+  background check asked again. It now forgets the membership once the server says the session is over.
+- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a remote opened
+  just as its cast ends said only "The cast is over." Its hello reached a session already gone ("no such Watch Together session"), so it never hears that the receiver took control
   back, though the core logged `reason=takenBack` the same millisecond (browser tier, 2026-10-29). The
   refusal could carry a recently ended session's reason. It does now: for a minute after a cast ends,
   a hello with one of its credentials is sent the same `ended` message, with its reason, before the
