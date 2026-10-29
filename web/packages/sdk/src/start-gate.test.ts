@@ -7,7 +7,7 @@ import {
   setReadyAheadPercent,
   tellNextChunkLoadMs,
 } from "./ready-ahead.ts";
-import { startCheckEveryMs, startGateOf } from "./start-gate.ts";
+import { isAskedToPlay, startCheckEveryMs, startGateOf } from "./start-gate.ts";
 import { everyRight, type RosterDevice, type RosterMember } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 import { refillAheadMs } from "./together-media.ts";
@@ -378,5 +378,38 @@ describe("a cast's receiver asked to play before its session's welcome says it l
     media.loaded = [[2725.92, 2727.77 + refillAheadMs / 1000]];
     vi.advanceTimersByTime(startCheckEveryMs);
     expect(media.paused).toBe(false);
+  });
+});
+
+describe("whether a paused element is asked to play, which makes its slow load a stall (starts-chunks-remote-2026-10-29.md §1.1)", () => {
+  it("is while its start gate's play waits, and not before nor once given up", () => {
+    const media = marrowgateResumed();
+    expect(isAskedToPlay(media)).toBe(false); // a film page's hidden player, loading before Play
+    const gate = startGateOf(media);
+    expect(isAskedToPlay(media)).toBe(false);
+    gate.play(countedPlay(media).how);
+    expect(isAskedToPlay(media)).toBe(true);
+    gate.cancel();
+    expect(isAskedToPlay(media)).toBe(false);
+  });
+
+  it("is while it follows a group that plays or waits, not one paused, nor once it follows no more", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup } = fakeConnection(paused);
+    const unfollow = followGroup(media, connection, {
+      fileId: 5,
+      leads: everyRight,
+      monotonicMs: () => 0,
+    });
+    expect(isAskedToPlay(media)).toBe(false);
+    setGroup({ ...paused, state: "Waiting" }, 0);
+    expect(isAskedToPlay(media)).toBe(true);
+    setGroup({ ...paused, state: "Playing" }, 0);
+    expect(isAskedToPlay(media)).toBe(true);
+    setGroup(paused, 0);
+    expect(isAskedToPlay(media)).toBe(false);
+    setGroup({ ...paused, state: "Waiting" }, 0);
+    unfollow();
+    expect(isAskedToPlay(media)).toBe(false);
   });
 });

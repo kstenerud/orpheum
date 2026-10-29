@@ -100,6 +100,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   #changedAtMs: number;
   /** The chunk of picture on its way, followed to judge whether to give it up. */
   readonly #onItsWay = new ChunkOnItsWay<Chunk>();
+  readonly isAwaitingTheCore = (): boolean => this.#onItsWay.isAwaitingTheCore();
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */

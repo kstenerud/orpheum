@@ -4,6 +4,7 @@ import type { SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   isHostAwaitingLead,
+  isAskedByItsGroup,
   isFollowerOf,
   isLeaderOf,
   type GroupCommand,
@@ -158,6 +159,8 @@ class GroupFollower {
   readonly #startGate: StartGate;
   /** Ends its start gate's standing aside, which it does while it follows, its follower moving it. */
   readonly #stopStandingAside: () => void;
+  /** Ends its start gate's counting it asked to play while its group asks it (isAskedByItsGroup). */
+  readonly #stopAsking: () => void;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -172,6 +175,7 @@ class GroupFollower {
     this.#stopStandingAside = startGate.standAsideWhile(() =>
       isFollowerOf(this.#connection.snapshot()),
     );
+    this.#stopAsking = startGate.asksToPlayWhile(() => isAskedByItsGroup(connection.snapshot()));
     this.#leader = new GroupLeader({
       media,
       connection,
@@ -436,6 +440,7 @@ class GroupFollower {
     clearTimeout(this.#pendingCommand);
     this.#loading.stop();
     this.#stopStandingAside();
+    this.#stopAsking();
   };
 
   /**

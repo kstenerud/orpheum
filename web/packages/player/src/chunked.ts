@@ -350,16 +350,22 @@ function obeyGroup(
 
 /**
  * Tells the bitrate controller of each of video's stalls (watchStalls, D247 §2): a drop, which it
- * weighs as a flaky link's sign and, while starting, lowers its ceiling for (D352 §1, §4). Returns
- * the stopping.
+ * weighs as a flaky link's sign and, while starting, lowers its ceiling for (D352 §1, §4); a slow
+ * load is none while the chunk on its way waits on the core, which is making it. Returns the
+ * stopping.
  */
 export function tellStalls(
   video: WatchedMedia,
-  choosing: () => { readonly stalled: () => void } | undefined,
+  choosing: () =>
+    { readonly stalled: () => void; readonly isAwaitingTheCore: () => boolean } | undefined,
 ): () => void {
-  return watchStalls(video, () => {
-    choosing()?.stalled();
-  });
+  return watchStalls(
+    video,
+    () => {
+      choosing()?.stalled();
+    },
+    { isAwaitingTheCore: () => choosing()?.isAwaitingTheCore() ?? false },
+  );
 }
 
 /**
