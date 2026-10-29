@@ -31,6 +31,10 @@ type ReportInput struct {
 		// does not keep; LinkKbps is its link's speed as it measured it, 0 when it has not.
 		Stalls   []StallBody `json:"stalls,omitempty" required:"false"`
 		LinkKbps int64       `json:"linkKbps,omitempty" minimum:"0" required:"false"`
+		// LinkSpread is the spread of the natural logs of the samples LinkKbps rests on, which the
+		// core keeps beside it for the player's next playback on this network
+		// (bandwidth-sampling-2026-10-29.md P2); absent from a player that says none.
+		LinkSpread float64 `json:"linkSpread,omitempty" maximum:"10" minimum:"0" required:"false"`
 		// Steadiness is the steadiness level a chunked player stands at (D352 §3), which the core
 		// keeps beside the speed for its next playback on this network (D352 Q2); absent from a
 		// player with none.
@@ -281,13 +285,20 @@ type LadderBody struct {
 	// chunk taking four times what that chunk promised (staging, 2026-10-28). Absent for none, and
 	// on a lower quality offered after a stall.
 	RememberedLinkKbps *int64 `json:"rememberedLinkKbps,omitempty" minimum:"1" required:"false"`
+	// RememberedLinkSpread is the spread of the natural logs of the samples RememberedLinkKbps rested
+	// on, absent where its player said none, and RememberedLinkSamples how many of the playback's own
+	// samples it counts as in its player's estimate: two while under an hour old, less in step with
+	// its age after, none at link_speed_fresh_hours (bandwidth-sampling-2026-10-29.md P2). Each absent
+	// with RememberedLinkKbps.
+	RememberedLinkSpread  *float64 `json:"rememberedLinkSpread,omitempty"  minimum:"0" required:"false"`
+	RememberedLinkSamples *float64 `json:"rememberedLinkSamples,omitempty" minimum:"0" required:"false"`
 }
 
 // ladderBody is a place on a film's ladder offered to the playback a media token names, by its
 // chunks' master playlist, whether it is ready, the steadiness level its player starts at and the
-// link its device last measured on its network, 0 for none.
+// link its device last measured on its network, the zero value for none.
 func ladderBody(
-	token string, offer chunks.Offer, isReady bool, steadiness int, rememberedLinkKbps int64,
+	token string, offer chunks.Offer, isReady bool, steadiness int, remembered playback.RememberedLink,
 ) *LadderBody {
 	body := &LadderBody{
 		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
@@ -295,8 +306,12 @@ func ladderBody(
 		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
 		LinkSharePercent: offer.LinkSharePercent, Steadiness: steadiness,
 	}
-	if rememberedLinkKbps > 0 {
-		body.RememberedLinkKbps = &rememberedLinkKbps
+	if remembered.Kbps > 0 {
+		body.RememberedLinkKbps = &remembered.Kbps
+		body.RememberedLinkSamples = &remembered.CountsAsSamples
+		if remembered.LogSpread > 0 {
+			body.RememberedLinkSpread = &remembered.LogSpread
+		}
 	}
 	return body
 }
@@ -314,7 +329,8 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	report := playback.Report{
 		ReportSeq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
 		PositionReadMonoMs: input.Body.PositionReadMonoMs, LinkKbps: input.Body.LinkKbps,
-		Steadiness: input.Body.Steadiness, ClientAddress: input.clientAddress,
+		LinkLogSpread: input.Body.LinkSpread,
+		Steadiness:    input.Body.Steadiness, ClientAddress: input.clientAddress,
 	}
 	for _, stall := range input.Body.Stalls {
 		report.Stalls = append(report.Stalls, playback.Stall{PositionMs: stall.PositionMs})
@@ -353,7 +369,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	if offer := answer.LowerQuality; offer != nil {
 		output.Body.LowerQuality = ladderBody(
-			input.Token, *offer, answer.IsLowerQualityReady, answer.LowerQualitySteadiness, 0)
+			input.Token, *offer, answer.IsLowerQualityReady, answer.LowerQualitySteadiness, playback.RememberedLink{})
 	}
 	return output, nil
 }

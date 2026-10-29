@@ -130,6 +130,8 @@ INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 17
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO title_watched (user_id, title_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
+INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at, steadiness, steadiness_at, said_at)
+  VALUES ('device 1', '2001:db8:1:2::/64', 17000, 0.31, 1790000000000, 1, 1790000000000, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000),
          (2, 'work', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);

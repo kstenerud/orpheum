@@ -9,7 +9,12 @@
 // # Invariants
 //
 //   - A link speed a player measured is kept by player, a device or a deviceless session, and by
-//     network, an IPv6 /64 or an IPv4 address, for a day (D257), in memory, and beside it the
+//     network, an IPv6 /64 or an IPv4 address, for a day (D257), with the spread of the samples it
+//     rested on, in the store (link_memory), so a restart keeps it, by
+//     TestLinkSpeeds_OutliveTheCoreThatHeardThem; a start's offer hands it to the player as a prior
+//     counting as two of its own samples while under an hour old, fading to none at
+//     link_speed_fresh_hours (bandwidth-sampling-2026-10-29.md P2), by
+//     TestRememberedLink_CountsAsTwoSamplesFadingWithItsAge; and beside it the
 //     steadiness level its chunked player last reported, which every ladder offer hands back
 //     relaxed by one for each `link_steadiness_relaxes_seconds` since, an hour to start (D352 Q2), by
 //     TestLinkSteadiness_IsKeptBesideTheSpeedAndRelaxesAnHourAtATime,
@@ -184,7 +189,8 @@
 //
 // # Where to change
 //
-//   - tokens.go: media tokens, in memory. playback.go: starting a playback, finding a direct
+//   - tokens.go: media tokens, in memory. speeds.go: each player's link on each network, kept in
+//     the store. playback.go: starting a playback, finding a direct
 //     playback's bytes, and a playback's subtitles through internal/core/subtitles. chunks.go: a playback as its
 //     film's chunks are served to it, through internal/core/chunks (D247 §10). report.go: the play report, its
 //     log and the guarded position. resume.go: where a playback starts. watched.go: a title watched

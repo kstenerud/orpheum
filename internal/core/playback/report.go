@@ -44,6 +44,10 @@ type Report struct {
 	Stalls []Stall
 	// LinkKbps is the link's speed as the player measured it, zero when it has not (D247 §1).
 	LinkKbps int64
+	// LinkLogSpread is the spread of the natural logs of the samples LinkKbps rests on, which its
+	// next playback on the network starts its estimate by (bandwidth-sampling-2026-10-29.md P2);
+	// zero where the player says none.
+	LinkLogSpread float64
 	// Steadiness is the steadiness level a chunked player stands at (D352 §3), kept beside the speed
 	// for its next playback on the network (D352 Q2); nil from a player that has none.
 	Steadiness *int
@@ -180,9 +184,8 @@ func (service *Service) Report(
 	}
 	timing := service.timingNow()
 	freshFor := timing.speedFreshFor
-	service.speeds.remember(link, report.LinkKbps, now, freshFor)
-	if report.Steadiness != nil {
-		service.speeds.rememberSteadiness(link, *report.Steadiness, now, freshFor)
+	if rememberErr := service.rememberReported(ctx, link, report, now, freshFor); rememberErr != nil {
+		return Answer{}, rememberErr
 	}
 	service.keepLink(token, report.LinkKbps, now)
 	offer, isOffered, err := service.offerFor(ctx, token, playback, report)
@@ -190,13 +193,32 @@ func (service *Service) Report(
 		return answer, err
 	}
 	answer.LowerQuality = &offer
-	answer.LowerQualitySteadiness = service.speeds.steadiness(link, now, freshFor, timing.steadinessRelaxesEvery)
+	answer.LowerQualitySteadiness, err = service.speeds.steadiness(ctx, link, now, freshFor,
+		timing.steadinessRelaxesEvery)
+	if err != nil {
+		return Answer{}, err
+	}
 	answer.IsLowerQualityReady, err = service.chunks.IsReadyAt(
 		ctx, chunksPlaybackOf(playback), offer, report.PositionMs)
 	if err != nil {
 		return Answer{}, fmt.Errorf("see whether a lower quality is ready: %w", err)
 	}
 	return answer, nil
+}
+
+// rememberReported keeps what a report says of its player's link on its network at now: its speed
+// with its samples' spread, and its steadiness level where it says one (D257 §1, D352 Q2).
+func (service *Service) rememberReported(
+	ctx context.Context, link speedKey, report Report, now time.Time, freshFor time.Duration,
+) error {
+	speed := measuredSpeed{kbps: report.LinkKbps, logSpread: report.LinkLogSpread, at: now}
+	if err := service.speeds.remember(ctx, link, speed, freshFor); err != nil {
+		return err
+	}
+	if report.Steadiness == nil {
+		return nil
+	}
+	return service.speeds.rememberSteadiness(ctx, link, *report.Steadiness, now, freshFor)
 }
 
 // offerFor is the lower quality a playback is offered, and whether there is one (D253 §1): the one

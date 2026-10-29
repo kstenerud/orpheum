@@ -9,7 +9,7 @@ import {
   startingPlayedMs,
   startingSamples,
 } from "./abr.ts";
-import { linkSamplesKept } from "./link-estimate.ts";
+import { assumedLogSpread, linkSamplesKept } from "./link-estimate.ts";
 import { holdBeforeStepUpMsAt, relaxEveryMs, swingWithinHolds } from "./steadiness.ts";
 import { stepUpBufferMs } from "./step-up.ts";
 import {
@@ -45,6 +45,19 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(choosing.nextLevel()).toBe(3); // the ceiling stood: back on the film's own picture
     expect(choosing.isStarting()).toBe(true);
     expect(scene.steps).toEqual([]);
+  });
+
+  it("starts its estimate from the link its device remembers: one bad first sample does not choose the lowest (P2)", () => {
+    const remembered = { kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 };
+    const { choosing } = choosingFrom(40_000_000, undefined, { rememberedLink: remembered });
+    expect(choosing.firstLevel()).toBe(3);
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 });
+    expect(choosing.nextLevel()).toBe(3); // near 12.6 Mb/s, where alone it read 1
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 }); // a second agrees: the link has changed
+    expect(choosing.nextLevel()).toBe(0);
+    // The spread is noted once the link is reported, for the core to keep beside it: the prior
+    // dropped, two samples measure none, so it is the one assumed.
+    expect(scene.spreadsNoted).toEqual([assumedLogSpread]);
   });
 
   it("a chunk given up while starting lowers the ceiling", () => {

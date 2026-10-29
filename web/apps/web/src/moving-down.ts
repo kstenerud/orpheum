@@ -13,11 +13,15 @@ export type LadderOffer = components["schemas"]["LadderBody"];
  * Where a chunked player starts on an offer, at positionMs of the film: the quality the offer chose,
  * from there, choosing its own within the share of the link the offer says (D247 §6), at the
  * steadiness level the offer says its device last ended at on its network (D352 Q2), and knowing the
- * link the offer says its device last measured there, where it says one (D257 §1).
+ * link the offer says its device last measured there, where it says one (D257 §1), with its spread
+ * and how many samples it counts as, which the player's estimate starts from
+ * (bandwidth-sampling-2026-10-29.md P2).
  */
 export function startOn(
   offer: Pick<LadderOffer, "startAtBps" | "linkSharePercent" | "steadiness"> & {
-    readonly rememberedLinkKbps?: LadderOffer["rememberedLinkKbps"] | undefined;
+    readonly rememberedLinkKbps?: number | undefined;
+    readonly rememberedLinkSpread?: number | undefined;
+    readonly rememberedLinkSamples?: number | undefined;
   },
   positionMs: number,
 ): {
@@ -26,15 +30,18 @@ export function startOn(
   readonly startPositionS: number;
   readonly startSteadiness: number;
   readonly rememberedLinkKbps?: number;
+  readonly rememberedLinkSpread?: number;
+  readonly rememberedLinkSamples?: number;
 } {
+  const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
   return {
     startAtBps: offer.startAtBps,
     linkSharePercent: offer.linkSharePercent,
     startPositionS: positionMs / 1000,
     startSteadiness: offer.steadiness,
-    ...(offer.rememberedLinkKbps === undefined
-      ? {}
-      : { rememberedLinkKbps: offer.rememberedLinkKbps }),
+    ...(rememberedLinkKbps === undefined ? {} : { rememberedLinkKbps }),
+    ...(rememberedLinkSpread === undefined ? {} : { rememberedLinkSpread }),
+    ...(rememberedLinkSamples === undefined ? {} : { rememberedLinkSamples }),
   };
 }
 

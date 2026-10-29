@@ -98,6 +98,7 @@ export class PlayReporter {
   private pathMoves: PlayPathMove[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private readSteadiness: () => number | undefined = () => undefined;
+  private readLinkSpread: () => number | undefined = () => undefined;
   private readFrames: () => FramesShown | undefined = () => undefined;
   /** The frames counted when the last report was sent, from which the next counts. */
   private framesSent: FramesShown | undefined;
@@ -167,6 +168,15 @@ export class PlayReporter {
    */
   reportSteadinessWith(read: () => number | undefined): void {
     this.readSteadiness = read;
+  }
+
+  /**
+   * Reports the spread of the link's samples, in natural log, as read says it, with every report
+   * that carries the link's speed from now on, which the server keeps beside it for the device's
+   * next start (bandwidth-sampling-2026-10-29.md P2); undefined where it says none.
+   */
+  reportLinkSpreadWith(read: () => number | undefined): void {
+    this.readLinkSpread = read;
   }
 
   /**
@@ -323,12 +333,17 @@ export class PlayReporter {
     return { totalFrames: since.total, droppedFrames: since.dropped };
   }
 
-  /** The link's speed and the player's steadiness level as read now, each absent where unsaid. */
-  private linkNow(): Pick<PlayReport, "linkKbps" | "steadiness"> {
+  /**
+   * The link's speed, with its samples' spread, and the player's steadiness level as read now, each
+   * absent where unsaid.
+   */
+  private linkNow(): Pick<PlayReport, "linkKbps" | "linkSpread" | "steadiness"> {
     const linkKbps = this.readLinkKbps();
+    const linkSpread = linkKbps === undefined ? undefined : this.readLinkSpread();
     const steadiness = this.readSteadiness();
     return {
       ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+      ...(linkSpread === undefined ? {} : { linkSpread: Math.round(linkSpread * 1000) / 1000 }),
       ...(steadiness === undefined ? {} : { steadiness }),
     };
   }

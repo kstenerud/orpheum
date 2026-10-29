@@ -20,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -564,6 +565,52 @@ export function useBufferMeter(
 }
 
 /**
+ * The link an offer says its device last measured on its network (D257 §1), with its spread and how
+ * many samples it counts as (bandwidth-sampling-2026-10-29.md P2), one object while they stay the
+ * same, so a playback is not started again for a new offer that says the same.
+ */
+function useRememberedLink(
+  offer: Pick<LadderOffer, "rememberedLinkKbps" | "rememberedLinkSpread" | "rememberedLinkSamples">,
+): {
+  readonly rememberedLinkKbps: number | undefined;
+  readonly rememberedLinkSpread: number | undefined;
+  readonly rememberedLinkSamples: number | undefined;
+} {
+  const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
+  return useMemo(
+    () => ({ rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples }),
+    [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples],
+  );
+}
+
+/**
+ * Follows playback in video: the quality playing, each second, and, at each stall, whether even its
+ * lowest quality is beyond the link (D247 §8). Returns the end of it.
+ */
+function followChunkedPlayback(
+  video: HTMLVideoElement,
+  playback: ChunkedPlayback,
+  tell: {
+    readonly setPlaying: (playing: PlayedLevel | undefined) => void;
+    readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp) => void;
+  },
+): () => void {
+  const looking = setInterval(() => {
+    tell.setPlaying(playback.playing());
+  }, 1000);
+  const stopWatching = watchStalls(video, () => {
+    const beyond = playback.beyondTheLink();
+    if (beyond !== undefined) {
+      tell.setCannotKeepUp(beyond);
+    }
+  });
+  return () => {
+    clearInterval(looking);
+    stopWatching();
+  };
+}
+
+/**
  * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
  * and, once its lowest quality stalls, that the link cannot keep up (D247 §8). Each playback starts
  * with the audio rendition startAudioRef holds as it starts, the playlist's default when none.
@@ -582,7 +629,8 @@ export function useChunkedPlayback(
   readonly cannotKeepUp: CannotKeepUp | undefined;
 } {
   const { positionMs, startAudioRef } = starting;
-  const { url, startAtBps, linkSharePercent, steadiness, rememberedLinkKbps } = starting.offer;
+  const { url, startAtBps, linkSharePercent, steadiness } = starting.offer;
+  const remembered = useRememberedLink(starting.offer);
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
@@ -595,22 +643,21 @@ export function useChunkedPlayback(
     const playback = playChunked(video, url, {
       onFailed,
       ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
-      ...startOn({ startAtBps, linkSharePercent, steadiness, rememberedLinkKbps }, positionMs),
+      ...startOn(
+        {
+          startAtBps,
+          linkSharePercent,
+          steadiness,
+          ...remembered,
+        },
+        positionMs,
+      ),
       monotonicMs,
     });
     playbackRef.current = playback;
-    const looking = setInterval(() => {
-      setPlaying(playback.playing());
-    }, 1000);
-    const stopWatching = watchStalls(video, () => {
-      const beyond = playback.beyondTheLink();
-      if (beyond !== undefined) {
-        setCannotKeepUp(beyond);
-      }
-    });
+    const stopFollowing = followChunkedPlayback(video, playback, { setPlaying, setCannotKeepUp });
     return () => {
-      clearInterval(looking);
-      stopWatching();
+      stopFollowing();
       playback.destroy();
       playbackRef.current = undefined;
     };
@@ -620,7 +667,7 @@ export function useChunkedPlayback(
     startAtBps,
     linkSharePercent,
     steadiness,
-    rememberedLinkKbps,
+    remembered,
     positionMs,
     onFailed,
     startAudioRef,

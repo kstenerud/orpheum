@@ -121,3 +121,50 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
     );
   });
 });
+
+describe("the link its device remembers, as a prior (bandwidth-sampling-2026-10-29.md P2)", () => {
+  /** An estimate from a fresh remembered 17 Mb/s, spread 0.3, counting as two samples, then each sample. */
+  function fromRemembered(...mbps: number[]): LinkEstimate {
+    const estimate = new LinkEstimate({ kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 });
+    for (const speed of mbps) {
+      estimate.add(sampleAt(speed));
+    }
+    return estimate;
+  }
+
+  it("outlives one bad early sample: a first chunk at 1 Mb/s reads near 12.6 Mb/s, not 1", () => {
+    const one = fromRemembered(1);
+    expect((one.estimateBps() ?? 0) / 1e6).toBeGreaterThan(11);
+    expect(one.prior()?.isKept).toBe(true);
+    expect(one.countsAsSamples()).toBe(3);
+    // A fast one and a slow one disagree with each other: the prior stays.
+    const mixed = fromRemembered(17, 0.3);
+    expect(mixed.prior()?.isKept).toBe(true);
+    expect((mixed.estimateBps() ?? 0) / 1e6).toBeGreaterThan(8);
+  });
+
+  it("is dropped when two of the playback's own samples agree against it: a real fall still lowers the estimate", () => {
+    const fell = fromRemembered(1);
+    fell.add(sampleAt(1.05));
+    expect(fell.prior()).toMatchObject({ isKept: false, droppedAtSample: 2 });
+    expect((fell.estimateBps() ?? 0) / 1e6).toBeLessThan(1.2);
+    fell.add(sampleAt(0.95));
+    expect((fell.estimateBps() ?? 0) / 1e6).toBeLessThan(1.2);
+    // Two at 753 kb/s, a link that really was slow then, drop it too.
+    expect((fromRemembered(0.753, 0.753).estimateBps() ?? 0) / 1000).toBeCloseTo(753, -1);
+  });
+
+  it("is retired once the playback's own samples fill the window, and counts nothing without a sample of its own", () => {
+    const retired = fromRemembered(10, 10, 10, 10, 10, 10);
+    expect(retired.prior()?.isKept).toBe(false);
+    expect(retired.prior()?.droppedAtSample).toBeUndefined();
+    expect(retired.estimateBps()).toBeCloseTo(10_000_000, -1);
+    // The prior alone is the centre, but no estimate the choices read.
+    const unmeasured = fromRemembered();
+    expect(unmeasured.estimateBps()).toBeUndefined();
+    expect(Math.exp(unmeasured.centre() ?? 0)).toBeCloseTo(17_000_000, -1);
+    expect(unmeasured.spread()).toBe(0.3);
+    // One that counts as nothing, too old, is none.
+    expect(new LinkEstimate({ kbps: 17_000, countsAsSamples: 0 }).prior()).toBeUndefined();
+  });
+});

@@ -3598,6 +3598,10 @@ export interface components {
             /** Format: int64 */
             rememberedLinkKbps?: number;
             /** Format: double */
+            rememberedLinkSamples?: number;
+            /** Format: double */
+            rememberedLinkSpread?: number;
+            /** Format: double */
             soundCarriedGainDb: number;
             /** Format: int64 */
             startAtBps: number;
@@ -4326,6 +4330,8 @@ export interface components {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
             linkKbps?: number;
+            /** Format: double */
+            linkSpread?: number;
             pathMoves?: components["schemas"]["PathMoveBody"][] | null;
             /** Format: int64 */
             positionMs: number;

@@ -3,6 +3,7 @@
 import {
   eventContextOf,
   framesShownOf,
+  linkSpreadOf,
   PlayReporter,
   playerFoundUnplayableEvent,
   ReportRefused,
@@ -519,6 +520,16 @@ function watchForReport(
   };
 }
 
+/**
+ * Has reporter send, with every report, what video's player says of itself: its steadiness level
+ * (D352 Q2), its link's spread (bandwidth-sampling-2026-10-29.md P2) and the frames it showed.
+ */
+function reportPlayerOf(video: HTMLVideoElement, reporter: PlayReporter): void {
+  reporter.reportSteadinessWith(() => steadinessOf(video));
+  reporter.reportLinkSpreadWith(() => linkSpreadOf(video));
+  reporter.reportFramesWith(() => framesShownOf(video));
+}
+
 function startReporting(
   video: HTMLVideoElement,
   playback: PlayStateOf & { readonly api: Api },
@@ -554,8 +565,7 @@ function startReporting(
   }, reportSeqCounter(mediaToken));
   const loss = watchForLoss(video, listener, () => videoEvents.lastPositionMs());
   reporter.measureLinkWith(playback.readLinkKbps);
-  reporter.reportSteadinessWith(() => steadinessOf(video));
-  reporter.reportFramesWith(() => framesShownOf(video));
+  reportPlayerOf(video, reporter);
   const page = watchPage(video, reporter, playback.pathMoves);
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
   const stopWatching = watchForReport(video, reporter, movingDown);
@@ -743,8 +753,7 @@ export function useStallReports(
       movingDown.answered(answer.lowerQuality);
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
-    reporter.reportSteadinessWith(() => steadinessOf(video));
-    reporter.reportFramesWith(() => framesShownOf(video));
+    reportPlayerOf(video, reporter);
     const stopWatching = watchForReport(video, reporter, movingDown);
     return () => {
       movingDown.stop();

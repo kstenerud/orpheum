@@ -131,6 +131,25 @@ describe("where a chunked player starts on an offer", () => {
     expect(startOn(offer, 0)).not.toHaveProperty("rememberedLinkKbps");
   });
 
+  it("knows the remembered link's spread and how many samples it counts as, for its estimate's prior (bandwidth-sampling P2)", () => {
+    expect(
+      startOn(
+        {
+          ...offer,
+          rememberedLinkKbps: 17_000,
+          rememberedLinkSpread: 0.31,
+          rememberedLinkSamples: 2,
+        },
+        0,
+      ),
+    ).toMatchObject({
+      rememberedLinkKbps: 17_000,
+      rememberedLinkSpread: 0.31,
+      rememberedLinkSamples: 2,
+    });
+    expect(startOn(offer, 0)).not.toHaveProperty("rememberedLinkSamples");
+  });
+
   it("starts at the steadiness level the offer says its device last ended at (D352 Q2)", () => {
     expect(startOn({ ...offer, steadiness: 2 }, 0)).toEqual({
       startAtBps: 1_896_000,

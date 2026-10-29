@@ -204,6 +204,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
 | other_video (an other video's date, where it came from, its file's name and sort key) | persistent.db | TO, resolved (a person's correction is field_override's, T1) | yes | the pass's, from the file, its probe and the override (D349) |
 | item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway. See F12 |
+| link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement; the schema calls it "class C") | yes | in persistent.db, not cache.db, so a release that rebuilds cache.db keeps it: kept in memory, each deploy forgot it (step 0063, bandwidth-sampling-2026-10-29.md P2); its rows deleted a day after their last word |
 | schema_meta, schema_step | persistent.db | runner record | yes | — |
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
