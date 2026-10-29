@@ -196,7 +196,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		FileID: film.FileID, TitleID: film.TitleID, TitleName: film.TitleName, DurationMs: film.DurationMs,
 		PositionMs: input.Body.PositionMs,
 	}
-	replaced, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
+	cast, replaced, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {
 		//nolint:errcheck // just opened, it ends
 		_ = dependencies.Together.EndCast(opened.SessionID, principal.UserID, together.CastStopped)
@@ -210,7 +210,8 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		_ = dependencies.Together.EndCast(each.ID, principal.UserID, reason) //nolint:errcheck // gone is ended
 	}
 	server.logger.InfoContext(ctx, "cast: a device cast to another", "castId", cast.ID, logKeyUserID, cast.UserID,
-		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "replaced", len(replaced))
+		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "replaced", len(replaced),
+		"accepted", cast.IsAccepted)
 	return &StartCastOutput{Body: castBodyOf(cast, principal.DeviceID, opened.SenderCredential)}, nil
 }
 

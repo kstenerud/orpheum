@@ -29,11 +29,13 @@
 //     TestCast_GoesOnlyToADeviceWithATabInFront in internal/core/api.
 //   - A cast is a session with the receiver (D364): it plays another film, or nothing between videos,
 //     only at its sender's or its receiver's asking, in the same cast, its receiver handed it again;
-//     only the receiver says Use, once; and the sender's every page is told the cast it sends, as a
-//     page opens before its devices, and at each change and its end (plans/up-next.md). Enforced by
-//     TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
-//     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
-//     TestRegistry_ACastIsASessionTheSenderIsToldOf.
+//     only the receiver says Use, once, a cast replacing one it said Use to on the tab it is handed to
+//     taken already, as that tab takes it unasked; and the sender's every page is told the cast it
+//     sends, as a page opens before its devices, and at each change and its end (plans/up-next.md).
+//     Enforced by TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
+//     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver,
+//     TestRegistry_ACastIsASessionTheSenderIsToldOf and
+//     TestRegistry_ACastReplacingOneTheReceiverTookIsTakenToo.
 //   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
 //     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
 //   - A receiver whose person is in a Watch Together session is handed a credential for it with each
