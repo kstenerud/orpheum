@@ -172,6 +172,44 @@ describe("the Libraries page (D349)", () => {
     expect(services.navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
 
+  // The owner's Fire TV, 2026-10-29: Back to a list showed its top, the entry left from on a later
+  // page never drawn, so never focused.
+  it("returned to by Back, loads its pages until the film it was left from is drawn, for focus to find it", async () => {
+    const film = (id: number) => ({
+      id,
+      name: `Film ${String(id)}`,
+      kind: "movie",
+      identificationState: "identified",
+      libraryId: 1,
+      addedAt: 1,
+    });
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
+      "GET /titles": [
+        [200, { titles: [film(1)], nextCursor: "c2" }],
+        [200, { titles: [film(2)], nextCursor: "" }],
+      ],
+      "GET /titles/letters": lettersPage(),
+    });
+    services.navigation.noteOnEntry({ href: "/titles/2", ordinal: 0 });
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(
+          <LibraryBrowse
+            library={1}
+            view={undefined}
+            folder={undefined}
+            sort={undefined}
+            query=""
+          />,
+          services,
+        )}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => mounted?.container.querySelector('a[href="/titles/2"]') !== null);
+    expect(mounted.container.querySelector('a[href="/titles/1"]')).not.toBeNull();
+  });
+
   it("defaults an other library's sort to newest recorded, and a films library's to name", async () => {
     const otherHeard: Heard[] = [];
     mounted = await mountBrowse(

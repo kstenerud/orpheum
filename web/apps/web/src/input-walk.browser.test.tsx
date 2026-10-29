@@ -12,9 +12,13 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
+import { apiPrefix } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { createNavigation } from "./navigation.ts";
+import type { Services } from "./services.tsx";
+import { fakePlace, testServices } from "./test-services.tsx";
 import {
   filmDetail,
   films,
@@ -114,7 +118,74 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     }
     expect(focusedTile()).toMatch(/^Film \d+$/u);
   });
+
+  // The owner's Fire TV, 2026-10-29: "Pressing back from the Copper Kettle page brought me back to the
+  // top of the series list. It should bring me back to the point in the list where Copper Kettle is,
+  // still highlighted." Silk's Back is a step of the history, and the list drew its first page alone.
+  it("goes back by the browser's own Back to a series on the list's second page, focused and in view", async () => {
+    await page.viewport(width, height);
+    const place = fakePlace("/series");
+    walking = await mountApp({
+      ...pagedSeriesServices(70),
+      navigation: createNavigation(place, false),
+    });
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    const tileOf65 = (): HTMLElement | null =>
+      document.querySelector<HTMLElement>('.poster-grid a[href="/series/265"]');
+    for (let tries = 0; tries < 20 && tileOf65() === null; tries += 1) {
+      window.scrollTo({ top: document.documentElement.scrollHeight });
+      await new Promise((settled) => setTimeout(settled, 50));
+    }
+    tileOf65()?.focus();
+    await expect.poll(focusedTile).toBe("Series 65");
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => document.querySelector("h1")?.textContent).toBe("Series 65");
+    place.history.back();
+    await expect.poll(focusedTile).toBe("Series 65");
+    expect(isFocusInView()).toBe(true);
+  });
 });
+
+/**
+ * The signed-in app's services, its Series list count series long, Series 1 to Series count with ids
+ * from 201, sent sixty a page by the cursor asked for, and each series' page.
+ */
+function pagedSeriesServices(count: number): Services {
+  const all = Array.from({ length: count }, (_, index) => ({
+    id: 201 + index,
+    kind: "series",
+    name: `Series ${String(index + 1)}`,
+    year: 2000,
+  }));
+  const pageSize = 60;
+  return testServices("token", "/series", async (request) => {
+    await Promise.resolve();
+    const url = new URL(request.url);
+    const path = url.pathname.slice(apiPrefix.length);
+    if (request.method === "GET" && path === "/titles") {
+      const from = Number(url.searchParams.get("cursor") ?? "0");
+      const next = from + pageSize < count ? String(from + pageSize) : "";
+      return Response.json({ titles: all.slice(from, from + pageSize), nextCursor: next });
+    }
+    const series = /^\/collections\/(\d+)$/u.exec(path);
+    if (request.method === "GET" && series !== null) {
+      const id = Number(series[1]);
+      return Response.json({
+        id,
+        kind: "series",
+        name: `Series ${String(id - 200)}`,
+        libraryId: 1,
+        art: {},
+        seasons: [{ seasonNumber: 1, episodeCount: 0 }],
+      });
+    }
+    const answers: WalkAnswers = signedIn;
+    const key = `${request.method} ${path}`;
+    return key in answers
+      ? Response.json(answers[key])
+      : Response.json({ error: { code: "not_found", message: "no such thing" } }, { status: 404 });
+  });
+}
 
 /** A standard pad as navigator.getGamepads gives it, its buttons held as the test says. */
 interface HeldPad {

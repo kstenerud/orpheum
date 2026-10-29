@@ -20,7 +20,7 @@ import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
 import { ActionChooser } from "./route-chooser.tsx";
-import { itemRoute } from "./router.ts";
+import { itemRoute, routeHref } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import {
@@ -31,6 +31,7 @@ import {
   type SortChoice,
 } from "./sort-choices.ts";
 import { Loaded } from "./loaded.tsx";
+import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { useTilesInView } from "./tile-interest.ts";
 import { usePages, type Page } from "./use-pages.ts";
@@ -290,6 +291,10 @@ function BrowsePages(props: {
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
+  useListLoadsToFocusNoted(
+    pages,
+    useCallback((entry: Entry) => routeHref(itemRoute(kind, entry.id)), [kind]),
+  );
   useLetterJump({
     kind,
     sort: "name",

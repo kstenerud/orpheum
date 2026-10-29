@@ -975,7 +975,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   chosen far down the Series list, and any page a link or OK opens, shows from its top (title,
   backdrop, Next Up's Play, the season picker), the first arrow starting on its first control, even
   after an episode of that series was played from Continue Watching; only Back or Up from one of its
-  episodes shows that episode's season with it focused.
+  episodes shows that episode's season with it focused. (8) "Pressing back from the Copper Kettle page
+  brought me back to the top of the series list. It should bring me back to the point in the list
+  where Copper Kettle is, still highlighted": the remote's Back from a series or film opened far down
+  Series, Films or a library's list (past its first 60 titles too) returns to the list with that
+  title focused and in view.
 - [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
   Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
   receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's

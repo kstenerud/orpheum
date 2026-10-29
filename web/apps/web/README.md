@@ -206,7 +206,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`src/episode-reached.ts`), it shows that episode's season with the episode focused; opened by a
   step forward, as from a list, it shows from its top, every episode reached let go at each step
   forward, and any page a step forward opens starts at its top (`src/input-layer.tsx`; the owner's
-  Fire TV, 2026-10-29). `src/series-page.test.tsx`, `src/input-layer.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
+  Fire TV, 2026-10-29). A list Back returns to (Films, Series, a library's) loads its pages until the
+  entry it was left from is drawn, which then takes focus in view (`useListLoadsToFocusNoted`).
+  `src/series-page.test.tsx`, `src/input-layer.test.tsx`, `src/input-walk.browser.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
   `src/input-player.browser.test.tsx`.
 - **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
