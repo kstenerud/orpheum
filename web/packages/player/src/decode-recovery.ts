@@ -16,6 +16,7 @@ import Hls, { type ErrorData } from "hls.js";
 
 import { isRecovered, loadAgainFrom, recoverFrom } from "./abr-controller.ts";
 import { failureText } from "./diagnosis.ts";
+import { resumePositionOf, type ResumingHls } from "./resume-position.ts";
 
 /**
  * How long after recovering from a fatal decoding error the playback must go on before another is
@@ -33,14 +34,13 @@ export const decodingRecoveryWindowMs = 30_000;
 export type RecoveringFromDecoding = Pick<
   Hls,
   "on" | "off" | "once" | "recoverMediaError" | "startLoad"
-> & {
-  readonly media: Pick<HTMLMediaElement, "currentTime"> | null;
-};
+> &
+  ResumingHls;
 
 /**
  * Recovers once from a fatal decoding error (hls.js's MEDIA_ERROR, never its MUX_ERROR): hls.js's
- * decoding is built anew from where the video stands (loadAgainFrom, which also recovers a hole it
- * cannot step over, D266) and the error marked recovered, so failOnFatal, told after, passes it by.
+ * decoding is built anew from where the playback resumes (resumePositionOf; loadAgainFrom, which also
+ * recovers a hole it cannot step over, D266) and the error marked recovered, so failOnFatal, told after, passes it by.
  * One already recovered by another means (isRecovered) is left to it. A second fatal decoding error
  * within decodingRecoveryWindowMs of the last recovery is not recovered again, and fails as today.
  * Each attempt and its outcome is noted, with what failed and what carried it (failureText, by
@@ -71,7 +71,7 @@ export function recoverFromDecodingErrors(
     }
     recoverFrom(data);
     recoveredAtMs = now;
-    const positionS = hls.media?.currentTime ?? -1;
+    const positionS = resumePositionOf(hls);
     by.note(
       `a decoding error is recovered, loading again from ${positionS.toFixed(1)} s: ` +
         failureText(data, by.carrierOf),

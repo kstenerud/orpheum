@@ -1764,6 +1764,26 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   around a `recoverMediaError`, and [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035) is a
   related loss of state across it.
 
+### hls.js's `mainForwardBufferInfo` can say tens of seconds loaded ahead while the video holds none
+
+- **Technology:** hls.js 1.7.3, `hls.mainForwardBufferInfo`, headless Chrome on Linux.
+- **Symptom:** a minute into an outage, every load failing, the video stood at 67.96 s with what it held,
+  picture and sound, ending at 68.01 s, and `mainForwardBufferInfo.len` read 33.9 s, steady for as long as it
+  stood. D266's rule that a video standing still with 4 s held ahead cannot keep up with its decoder took the
+  top quality for unplayable, gave it up for the rest of the playback and rebuilt its decoding.
+- **Cause:** not established. `mainForwardBufferInfo` measures the picture's buffer alone where the sound is
+  in its own group, from hls.js's `playhead`, which is its load position rather than the video's whenever
+  hls.js holds that it has not loaded enough to start (`base-stream-controller.ts`, `getFwdBufferInfo`,
+  `playhead`, `getLoadPosition`) [source]. Which of these gave 33.9 s here was not traced.
+- **What we do:** D266's judgement reads how far ahead the video holds what it plays from the element's own
+  `buffered` (`loadedAheadOf`, `web/packages/player/src/abr-choice.ts`), the lower of that and hls.js's
+  figure, and counts its standing still only with at least 1 s of it held ahead and its loads arriving
+  (`StandingStill`, `web/packages/player/src/abr-video.ts`).
+- **Evidence:** [measured] 2026-10-29, real hls.js and our player in headless Chrome against a local ladder
+  whose loads all failed for 70 s: the controller's own reading, 33.896 s, logged at each look while the
+  video stood at 67.96 s, and the quality given up 6 s after it stood. **[web]** not searched: the session's
+  search budget was spent.
+
 ---
 
 ## WebRTC

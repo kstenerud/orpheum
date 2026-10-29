@@ -491,6 +491,12 @@ export function rememberedLinkOf(offer: RememberedOffer): RememberedLink | undef
     : { kbps, logSpread: offer.rememberedLinkSpread, countsAsSamples };
 }
 
+/** Whether the browser says it is offline (navigator.onLine); never where it says nothing, as in Node. */
+function isBrowserOffline(): boolean {
+  const said: unknown = Reflect.get(globalThis.navigator, "onLine");
+  return said === false;
+}
+
 /**
  * What the bitrate controller of video's chunked playback chooses by (D265): starting within
  * startAtBps at the steadiness level its offer says (D352 Q2), giving way to live voice and to its
@@ -515,6 +521,7 @@ export function choosingOptionsOf(
     monotonicMs: options.monotonicMs,
     isVoiceLive,
     isInAGroup: isFollowingAGroup,
+    isOffline: isBrowserOffline,
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     onUnplayable: sendUnplayable(video),
     noteStep: stepNoter(video),
