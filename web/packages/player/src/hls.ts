@@ -16,7 +16,8 @@ import Hls, { PlaylistLevelType, type AudioTrackSwitchingData, type ErrorData } 
 
 import { isRecovered } from "./abr-controller.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
-import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
+import { failureText } from "./diagnosis.ts";
+import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
 
 /** Why the person's sound changes as it plays: the dialogue boost turned on or off (D217 §3). */
@@ -399,21 +400,24 @@ export interface LoadingHls {
 
 /**
  * Tells onFailed why, when hls.js says the playback cannot go on, unless the player recovers from
- * it by itself (isRecovered), or when the core says its film cannot be read now (a 503), which
- * hls.js holds no failure: a sound chunk's 503 it only loaded again every two seconds, the player
- * spinning and saying nothing (the owner's test, 2026-10-21).
+ * it by itself (isRecovered: a hole given up, or loading asked again after a load that failed), or
+ * when the core says its film cannot be read now (a 503), which hls.js holds no failure: a sound
+ * chunk's 503 it only loaded again every two seconds, the player spinning and saying nothing (the
+ * owner's test, 2026-10-21). With the code goes what failed, for the core's log alone (failureText,
+ * what carried it read by carrierOf where given).
  */
 export function failOnFatal(
   hls: Pick<Hls, "on" | "stopLoad">,
-  onFailed: (failure: PlaybackFailure) => void,
+  onFailed: PlaybackFailed,
+  carrierOf?: (url: string) => string,
 ): void {
   hls.on(Hls.Events.ERROR, (_event, data) => {
     if (data.response?.code === unreachableStatus) {
       // Loading again finds it no more readable: the page plays it anew once it can be read.
       hls.stopLoad();
-      onFailed(hlsErrorFailure(data));
+      onFailed(hlsErrorFailure(data), failureText(data, carrierOf));
     } else if (data.fatal && !isRecovered(data)) {
-      onFailed(hlsErrorFailure(data));
+      onFailed(hlsErrorFailure(data), failureText(data, carrierOf));
     }
   });
 }
@@ -507,7 +511,7 @@ export function playHls(
   url: string,
   options: {
     /** Called with why, as a code, when the playback cannot go on. */
-    readonly onFailed: (failure: PlaybackFailure) => void;
+    readonly onFailed: PlaybackFailed;
     /** The audio rendition to start with; the playlist's default when omitted. */
     readonly startAudioRenditionIndex?: number;
   },

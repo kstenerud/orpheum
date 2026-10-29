@@ -25,6 +25,12 @@ export type PlaybackFailure =
   /** It failed and said nothing more we know. */
   | "unknown";
 
+/**
+ * Told when a playback cannot go on: why, as a code for the viewer's words, and, where the player
+ * knows it, what failed, in a line for the core's log alone, never for the viewer (failureText).
+ */
+export type PlaybackFailed = (failure: PlaybackFailure, whatFailed?: string) => void;
+
 /** Every playback failure, for a caller that must have words for each. */
 export const playbackFailures: readonly PlaybackFailure[] = [
   "hls_unsupported",
@@ -61,6 +67,25 @@ export const unreachableStatus = 503;
 
 /** HTTP's 425 Too Early: on a chunk's path, the core's word that it is being made, and to ask again. */
 export const tooEarlyStatus = 425;
+
+/**
+ * Whether a fatal hls.js error only stopped its loading, which asking it to load on may mend: any but
+ * the media's own (MEDIA_ERROR, MUX_ERROR), which alone end a playback, a load failing or timing out,
+ * its playlist's or its chunk's, or an exception hls.js caught in its own handling; never the core's
+ * 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
+ * D241 §7). A load that failed while the owner's Chrome was offline ended its playback for good,
+ * though the link came back (staging, 2026-10-29; VQ125).
+ */
+export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response">): boolean {
+  const code = data.response?.code;
+  return (
+    data.fatal &&
+    data.type !== Hls.ErrorTypes.MEDIA_ERROR &&
+    data.type !== Hls.ErrorTypes.MUX_ERROR &&
+    code !== noRoomToMakeStatus &&
+    code !== unreachableStatus
+  );
+}
 
 /** A fatal hls.js error as a failure, by its type, and a load's by the core's answer. */
 export function hlsErrorFailure(data: Pick<ErrorData, "type" | "response">): PlaybackFailure {

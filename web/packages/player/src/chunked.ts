@@ -17,11 +17,12 @@ import {
   noRoomToMakeStatus,
   tooEarlyStatus,
   unreachableStatus,
-  type PlaybackFailure,
+  type PlaybackFailed,
 } from "./failure.ts";
 import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
 import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
+import { loadOnAfterFailures } from "./load-again.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -440,7 +441,7 @@ export function tellChunkedLoading(
 function playWithoutHlsJs(
   video: HTMLVideoElement,
   url: string,
-  onFailed: (failure: PlaybackFailure) => void,
+  onFailed: PlaybackFailed,
 ): ChunkedPlayback | undefined {
   const method = hlsMethod(hlsSupport(video));
   const unknowing = {
@@ -525,6 +526,27 @@ export function choosingOptionsOf(
 }
 
 /**
+ * Tells onFailed when the playback cannot go on (failOnFatal), what failed with it, and asks a load
+ * that failed again instead (loadOnAfterFailures), heard first, so failOnFatal passes it by. Returns
+ * the stopping.
+ */
+function failOrLoadOn(
+  hls: Hls,
+  video: HTMLVideoElement,
+  by: { readonly abr: OrpheumAbr; readonly onFailed: PlaybackFailed },
+): () => void {
+  const { abr, onFailed } = by;
+  const stop = loadOnAfterFailures(hls, {
+    askingAgain: () => abr.choosing()?.askingAgain(),
+    note: linkNoter(video),
+    carrierOf: mediaCarrierOf,
+    page: typeof window === "undefined" ? undefined : window,
+  });
+  failOnFatal(hls, onFailed, mediaCarrierOf);
+  return stop;
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, its
  * quality chosen by a bitrate controller of our own from startAtBps (D265); else with the element's
  * own HLS, which adapts by itself.
@@ -533,7 +555,7 @@ export function playChunked(
   video: HTMLVideoElement,
   url: string,
   options: {
-    readonly onFailed: (failure: PlaybackFailure) => void;
+    readonly onFailed: PlaybackFailed;
     readonly startAtBps: number;
     /**
      * The share of a measured link, in percent, a quality may take, as the playback's offer says
@@ -577,13 +599,13 @@ export function playChunked(
     }),
     abrController: abr.controller,
   });
-  failOnFatal(hls, options.onFailed);
+  const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
   const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex, linkNoter(video));
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
-  const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop];
+  const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);
   hls.attachMedia(video);

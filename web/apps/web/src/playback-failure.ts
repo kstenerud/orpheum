@@ -11,7 +11,8 @@ import { useServices } from "./services.tsx";
 /**
  * What the viewer is told when playback fails: what the player saw, at once, and, when the server
  * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
- * (D241 §7). A file that can be read leaves the player's words. The server is told what the player saw.
+ * (D241 §7). A file that can be read leaves the player's words. The server is told what the player saw,
+ * and what failed where the player says (whatFailed), for its log alone.
  * While the file cannot be read, the server is asked again, each ask held until it can
  * (useMediaBack), and once it can, onMediaBack is told where the video stood, to open the film
  * again from there (the owner, 2026-10-21: a player an outage stopped stayed stopped once the
@@ -20,17 +21,23 @@ import { useServices } from "./services.tsx";
 export function usePlaybackFailure(
   fileId: number | undefined,
   back?: MediaBack,
-): [string | undefined, (seen: string) => void] {
+): [string | undefined, (seen: string, whatFailed?: string) => void] {
   const { api } = useServices();
   const { t } = useTranslation();
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const [isUnreachable, setIsUnreachable] = useState(false);
   const fail = useCallback(
-    (seen: string) => {
+    (seen: string, whatFailed?: string) => {
       setFailure(seen);
       // The server is told, beside the page's own words: a film that stopped for good said so
-      // only on the person's screen (the owner's test, 2026-10-18).
-      reportFailure(new Error(`the player failed: ${seen}`));
+      // only on the person's screen (the owner's test, 2026-10-18); with what failed where the player
+      // says, which the page's words alone never did ("the browser gave no reason", staging,
+      // 2026-10-29).
+      reportFailure(
+        new Error(
+          `the player failed: ${seen}${whatFailed === undefined ? "" : ` (${whatFailed})`}`,
+        ),
+      );
       if (fileId === undefined) {
         return;
       }

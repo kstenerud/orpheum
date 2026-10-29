@@ -152,9 +152,35 @@ export function rangesText(ranges: Pick<TimeRanges, "length" | "start" | "end">)
   return parts.join(" ");
 }
 
+/** What hls.js's error says went wrong, as a listener of its errors reads it. */
+type ErrorSaid = Pick<ErrorData, "details" | "fatal"> & {
+  /**
+   * Its error, which hls.js types as always there but a caller may leave out: read in hls.js's own
+   * handling of an error, a throw for its absence would be hls.js's next fatal error.
+   */
+  readonly error?: Pick<Error, "message"> | undefined;
+};
+
 /** What hls.js said went wrong, in a line. */
-function errorText(data: Pick<ErrorData, "details" | "fatal" | "error">): string {
-  return `${data.details}${data.fatal ? " (fatal)" : ""}: ${data.error.message}`.slice(0, 200);
+function errorText(data: ErrorSaid): string {
+  const message = data.error?.message ?? "no message";
+  return `${data.details}${data.fatal ? " (fatal)" : ""}: ${message}`.slice(0, 200);
+}
+
+/**
+ * What failed, for the core's log: hls.js's error, its type, details, whether fatal and its message
+ * (errorText), the answer's status, none where no answer came, and what carried the load
+ * (carrierOf, the SDK's mediaCarrierOf), "unknown" where nothing says. A load that failed while the
+ * owner's Chrome was offline was reported only as "the browser gave no reason" (staging, 2026-10-29).
+ */
+export function failureText(
+  data: ErrorSaid & Pick<ErrorData, "type" | "response" | "frag" | "url">,
+  carrierOf: ((url: string) => string) | undefined,
+): string {
+  const url = data.frag?.url ?? data.response?.url ?? data.url;
+  const carrier = url === undefined || carrierOf === undefined ? "unknown" : carrierOf(url);
+  const code = data.response === undefined ? "none" : String(data.response.code);
+  return `${data.type} ${errorText(data)}; status ${code}; carried ${carrier}`;
 }
 
 /** What diagnosing a playback needs of hls.js. */
@@ -198,10 +224,7 @@ export interface DiagnosedHls {
         data: { readonly timeRanges: Partial<Record<string, TimeRanges>> },
       ) => void,
     ) => void) &
-    ((
-      event: typeof Hls.Events.ERROR,
-      listener: (event: string, data: Pick<ErrorData, "details" | "fatal" | "error">) => void,
-    ) => void) &
+    ((event: typeof Hls.Events.ERROR, listener: (event: string, data: ErrorSaid) => void) => void) &
     ((
       event: (typeof stepEvents)[number],
       listener: (event: string, data: StepData) => void,

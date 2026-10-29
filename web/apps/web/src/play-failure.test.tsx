@@ -11,6 +11,7 @@ import {
   mediaBackAfterFailureMs,
   mediaBackAskAgainMs,
   mediaBackWaitSeconds,
+  usePlaybackFailure,
 } from "./playback-failure.ts";
 import { Play, PlayView } from "./play.tsx";
 import type { ReopenAt } from "./reopen.ts";
@@ -111,6 +112,28 @@ describe("a playback that fails (D241 §7)", () => {
     );
     await fire(mounted.container.querySelector("video"), new Event("error"));
     expect(sent.some((text) => text.startsWith("Error: the player failed: "))).toBe(true);
+    sendFailuresTo(() => undefined);
+  });
+
+  it("tells the server what failed where the player says, which its words alone never did (staging, 2026-10-29)", async () => {
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const services = servedBy({ "GET /files/2/availability": [200, {}] });
+    let fail: ((seen: string, whatFailed?: string) => void) | undefined;
+    function Failing(): null {
+      [, fail] = usePlaybackFailure(2);
+      return null;
+    }
+    mounted = await mount(withServices(<Failing />, services));
+    await act(async () => {
+      fail?.("the browser gave no reason", "otherError internalException (fatal): x; status none");
+      await Promise.resolve();
+    });
+    expect(sent).toContainEqual(
+      expect.stringMatching(
+        /^Error: the player failed: the browser gave no reason \(otherError internalException \(fatal\): x; status none\)/u,
+      ),
+    );
     sendFailuresTo(() => undefined);
   });
 

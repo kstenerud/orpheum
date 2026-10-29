@@ -27,6 +27,12 @@ export interface JudgedChunk<Chunk extends FollowedChunk> {
   readonly isAnswered: boolean;
 }
 
+/** The playback asking again: after how long, and which time in a row since a chunk loaded, from 1. */
+export interface AskingAgain {
+  readonly waitMs: number;
+  readonly inARow: number;
+}
+
 /** The chunk of picture on its way, followed from its ask to its load, or until given up. */
 export class ChunkOnItsWay<Chunk extends FollowedChunk> {
   #following:
@@ -40,7 +46,10 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
       }
     | undefined;
 
-  /** How many times in a row a chunk stuck on its way was asked for again, since one last loaded. */
+  /**
+   * How many times in a row the playback asked again, since a chunk last loaded: for a chunk stuck on
+   * its way (stuck), or after hls.js stopped loading for a load that failed (askingAgain).
+   */
   #asksAgain = 0;
 
   /** chunk began loading at nowMs. */
@@ -73,6 +82,16 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
     }
   }
 
+  /**
+   * The playback asks again, this time in a row (from 1), after waitMs: asksAgainWaitMs of the times
+   * before, so a chunk stuck and a load hls.js stopped wait alike, each in a row twice as long.
+   */
+  askingAgain(): AskingAgain {
+    const waitMs = asksAgainWaitMs(this.#asksAgain);
+    this.#asksAgain += 1;
+    return { waitMs, inARow: this.#asksAgain };
+  }
+
   /** chunk loaded: followed no more, and the next one stuck is asked for again after the first wait. */
   loaded(chunk: Chunk): void {
     this.#asksAgain = 0;
@@ -103,12 +122,11 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
     const { chunk } = judged;
     const came = givenUpText({ ...judged, isSample: false });
     if (isToAskAgain(judged, this.#asksAgain)) {
-      const waitedMs = asksAgainWaitMs(this.#asksAgain);
-      this.#asksAgain += 1;
+      const { waitMs, inARow } = this.askingAgain();
       this.ended(chunk);
       const note =
-        `asked again for a chunk of ${String(chunk.level)}, time ${String(this.#asksAgain)} in a` +
-        ` row, after ${String(waitedMs)} ms with nothing: ${came}; ${carried()}`;
+        `asked again for a chunk of ${String(chunk.level)}, time ${String(inARow)} in a` +
+        ` row, after ${String(waitMs)} ms with nothing: ${came}; ${carried()}`;
       return { note, isAskedAgain: true };
     }
     if (isStuck(judged) && this.isStuckToNote(chunk)) {

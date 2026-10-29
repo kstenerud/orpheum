@@ -10,7 +10,7 @@
  */
 
 export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.ts";
-export type { PlaybackFailure } from "./failure.ts";
+export type { PlaybackFailed, PlaybackFailure } from "./failure.ts";
 export { codecsOf, diagnosisOf } from "./diagnosis.ts";
 export { steadinessNoter, steadinessOf } from "./steadiness.ts";
 export { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";

@@ -11,6 +11,7 @@ import {
   watchStalls,
   type ChunkedPlayback,
   type LinkMeter,
+  type PlaybackFailed,
   type PlaybackFailure,
   type PlayedLevel,
   type SoundChoiceCause,
@@ -437,8 +438,8 @@ function ChunkedFilm(props: {
     videoRef,
   });
   const onFailed = useCallback(
-    (seen: PlaybackFailure) => {
-      setFailure(playbackFailureText(t, seen));
+    (seen: PlaybackFailure, whatFailed?: string) => {
+      setFailure(playbackFailureText(t, seen), whatFailed);
     },
     [setFailure, t],
   );
@@ -511,7 +512,7 @@ function useLadderPlayback(
     readonly tracks: PlaybackDecision["tracks"] | undefined;
     readonly sound: PlayingSound | undefined;
   },
-  onFailed: (failure: PlaybackFailure) => void,
+  onFailed: PlaybackFailed,
 ): ReturnType<typeof useChunkedPlayback> & {
   readonly sound: PlayingSound | undefined;
   readonly playSound: (sound: PlayingSound) => void;
@@ -637,7 +638,7 @@ export function useChunkedPlayback(
     readonly positionMs: number;
     readonly startAudioRef?: RefObject<number | undefined>;
   },
-  onFailed: (failure: PlaybackFailure) => void,
+  onFailed: PlaybackFailed,
 ): {
   readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
   readonly playing: PlayedLevel | undefined;

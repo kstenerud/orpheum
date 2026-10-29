@@ -1467,12 +1467,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   link alone, not signed in, still sees the page that says the session is over.
   (`web/apps/web/src/together-viewer.tsx`, `notice-note.tsx`)
 - [ ] **VQ125** — In Chrome on the Mac, over WebRTC through staging's discovery (the core's log says
-  `over=webrtc`), play a film, then in DevTools' Network panel set a slow preset or Offline until the
-  film stalls, wait half a minute, and set throttling back to none. Passes when playback resumes by
-  itself within a few seconds of unthrottling, with no reload, and the core's log shows the player's
-  link notes "asked again for a chunk of …, time n in a row" (or "failed to load" with the carrying
-  connection) during the stall. Then the same with Offline held for two minutes: it resumes within
-  about forty seconds, a silent connection replaced. (`web/packages/player/src/abr.ts`,
+  `over=webrtc`), play a film; it covers both ways a throttled load stopped playback for good. First,
+  the stuck chunk: in DevTools' Network panel set a slow preset until the film stalls, wait half a
+  minute, and set throttling back to none. Passes when playback resumes by itself within a few
+  seconds of unthrottling, with no reload, and the core's log shows the player's link notes "asked
+  again for a chunk of …, time n in a row" (or "failed to load" with the carrying connection) during
+  the stall. Second, the load that failed: set Offline and hold it until the film stalls or the
+  player's loading fails, then set throttling back to none. Passes when the page shows no failure
+  ("The film could not play: …") at any point, only its wait, playback resumes by itself within a few
+  seconds of going back online, with no reload, and the core's log shows the link notes "loading
+  stopped: networkError … ; status …; carried …; asking again in 8000 ms, time 1 in a row" (then
+  16000 ms, time 2 …) while offline and "asked again to load from … s, the browser back online" as
+  it comes back; no "the player failed" line, and any that appears for another cause names hls.js's
+  error after the words. Then Offline held for two minutes: it resumes within about forty seconds, a
+  silent connection replaced. (`web/packages/player/src/abr.ts`, `chunked.ts`,
   `web/packages/sdk/src/rtc-transport.ts`, `rtc-request.ts`)
 - [x] **VQ126** — a follower unlocked catches up at once, on staging. With the S23 (Chrome) following
   a Watch Together session that another device leads and plays, lock the S23 for about 30 s and
