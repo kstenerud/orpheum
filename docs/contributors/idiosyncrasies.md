@@ -95,6 +95,7 @@ User-Agent (D263; the User-Agent is logged only).
 | #5826 reads a throttled 1 Mb/s link as 404 MB/s. | [There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)](#there-is-no-cache-hit-filter-a-chunk-from-the-browsers-cache-reads-as-link-speed-hlsjs5826-open) |
 | Chrome or Silk on WebRTC never measured its link: no finished chunk in `linkSamples`, `linkKbps=0`. | [Chromium times a service worker's own response as a cache hit](#chromium-times-a-service-workers-own-response-as-a-cache-hit) |
 | At a client origin, the client's script 404 (`…/assets/index-….js?client`) after "media now goes over WebRTC", and a black page at every reload while DevTools was open. | [Chrome DevTools' "Bypass for network" sends a client origin's client files to the discovery](#chrome-devtools-bypass-for-network-sends-a-client-origins-client-files-to-the-discovery) |
+| A screen whose module failed to load once stays failed: asking again sends no request. | [A dynamic import that failed fails again without a request](#a-dynamic-import-that-failed-fails-again-without-a-request) |
 | After a deploy, pages on WebRTC connected and loaded nothing through their service worker: a black page. | [A page and its service worker run different releases across a deploy](#a-page-and-its-service-worker-run-different-releases-across-a-deploy) |
 | In a browser-mode test under Firefox, a page whose `controller` is a worker fetched past it, or its iframe never loaded. | [Playwright's Firefox lets loads of a page its worker did not answer pass the worker](#playwrights-firefox-lets-loads-of-a-page-its-worker-did-not-answer-pass-the-worker) |
 | The `abrController` config type is nominal, so a custom controller must subclass | [The `abrController` config type is nominal, so a custom controller must subclass](#the-abrcontroller-config-type-is-nominal-so-a-custom-controller-must-subclass) |
@@ -926,6 +927,17 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** the owner's report and staging's core log, 2026-10-29; the Playwright reproduction
   the same day (Chromium 153, a profile kept across runs: the page loads, then with the bypass on
   every reload is black with the same 404, not answered by the worker).
+- **Not the only cause:** the second black page that day (13:13 UTC: the home page loaded, a film's
+  page did not, its screens' chunks `title-…`, `play-…`, `film-player-…` 404 at the client origin)
+  came with the box unticked, the owner says. The same signature comes from the worker itself when
+  the list of the client's files it holds does not name the page's: it answers such a file as one of
+  the loader's own, from the discovery, which has none. Reproduced in Playwright on staging by
+  replacing the kept list and stopping the worker (CDP's `ServiceWorker.stopAllWorkers`): the next
+  screen's chunks 404 and the page is black. That was the first load in that Chrome since staging's
+  connectd was rebuilt at 11:43, so a new worker took the page over during the load (the entry on
+  releases across a deploy, below); a worker that read the list before the loader named the files to
+  the other kept what it read. The worker now reads the list again before taking a file for the
+  loader's (`sw.ts`), and a screen that does not load says so (`screen-load.tsx`).
 
 ### Brave on Android refused the microphone
 
@@ -943,6 +955,22 @@ User-Agent (D263; the User-Agent is logged only).
 
 ## Web platform, all browsers
 
+
+### A dynamic import that failed fails again without a request
+
+- **Technology:** ES module loading, `import()` (measured in Chromium 153).
+- **Symptom:** a screen whose code is loaded as it is first shown failed to load once, and asking
+  again at once or a second later failed the same way, `Failed to fetch dynamically imported
+  module: …`, with no request for the file.
+- **Cause:** the document's module map keeps a module whose fetch failed as failed, and answers
+  every later import of the same address from it; only a new document fetches it again.
+- **What we do:** a screen's code is asked for once more after a second, for a browser that does
+  fetch it again, and then the page says it could not load, with Reload, which makes a new document
+  (`web/apps/web/src/screen-load.tsx`). A different address would fetch the file again, but the
+  chunks it imports in turn, which failed with it, would not.
+- **Evidence:** **[measured]** 2026-10-29, Chromium 153 under Playwright against a local server: a
+  module that 404'd, then was made, imported again from the same page failed again, and the server
+  saw no second request for it.
 
 ### A cast receiver is started by a message, so the browser gives it neither sound nor full screen
 

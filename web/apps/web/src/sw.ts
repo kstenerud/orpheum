@@ -224,11 +224,19 @@ async function underALoader(
   event: FetchEventLike,
   key: string,
 ): Promise<Response> {
-  const files = await clientFilesOf(worker);
+  const path = key.slice(1);
+  let files = await clientFilesOf(worker);
+  if (!files.has(path)) {
+    // What this worker read may be older than what is kept: a worker started while the page's loader
+    // named its client's files to the worker before it read the list first, and never heard them. It
+    // answered every file of the client it had not kept with the discovery's 404, and each screen
+    // that loads as it is first shown left the page black (the owner's Chrome, staging, 2026-10-29).
+    files = await clientFilesOf(worker, { isReadAgain: true });
+  }
   if (files.size === 0) {
     return await networkFetch(event.request);
   }
-  const sha256 = files.get(key.slice(1));
+  const sha256 = files.get(path);
   return sha256 === undefined
     ? await keptLoaderFile(worker, event, key)
     : await clientFile(worker, event, sha256);
@@ -240,9 +248,15 @@ async function keepClientFiles(worker: WorkerScope, files: Map<string, string>):
   await cache.put(clientFilesListKey, new Response(JSON.stringify([...files])));
 }
 
-/** The client's files' hashes by path, as last kept. */
-async function clientFilesOf(worker: WorkerScope): Promise<Map<string, string>> {
-  if (clientFiles !== undefined) {
+/**
+ * The client's files' hashes by path, as last kept: read once, or read again when isReadAgain, since
+ * a loader may have named them to another worker of this origin, which kept them, since.
+ */
+async function clientFilesOf(
+  worker: WorkerScope,
+  read: { readonly isReadAgain: boolean } = { isReadAgain: false },
+): Promise<Map<string, string>> {
+  if (clientFiles !== undefined && !read.isReadAgain) {
     return clientFiles;
   }
   const kept = await (await worker.caches.open(clientFilesCache)).match(clientFilesListKey);
