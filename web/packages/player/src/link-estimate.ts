@@ -96,6 +96,14 @@ export interface LinkSample {
   readonly arrivedMs: number;
   /** From its ask to its first byte, in ms. */
   readonly firstByteMs: number;
+  /**
+   * How long its bytes were expected to take to arrive, in ms, at the estimate that stood before it,
+   * and at that estimate's next-chunk bound then, which it should take longer than about as often as
+   * the bound's quantile says: its calibration (bandwidth-sampling-2026-10-29.md P6); absent before
+   * any estimate.
+   */
+  readonly expectedMs?: number;
+  readonly boundMs?: number;
 }
 
 /**
@@ -229,14 +237,27 @@ export class LinkEstimate {
       prior !== undefined && prior.kbps > 0 && prior.countsAsSamples > 0 ? prior : undefined;
   }
 
-  /** Takes a chunk that measured the link. */
-  add(sample: LinkSample): void {
+  /**
+   * Takes a chunk that measured the link, with bufferAheadS loaded ahead as it came, noting how long
+   * the estimate before it expected it to take, and its next-chunk bound then.
+   */
+  add(sample: LinkSample, bufferAheadS = 0): void {
     const arrivedMs = Math.max(1, sample.arrivedMs);
+    const predictedBps = this.estimateBps();
+    const boundBps = this.nextChunkBps(bufferAheadS);
+    const msAt = (bps: number | undefined): { readonly ms?: number } =>
+      bps === undefined ? {} : { ms: Math.round((sample.bytes * 8 * 1000) / bps) };
+    // Expected at the centre, the prior's alone before any sample, so a start's first chunk counts too.
+    const centre = this.centre();
+    const expected = msAt(centre === undefined ? undefined : Math.exp(centre)).ms;
+    const bound = msAt(boundBps).ms;
     this.#samples.push({
       ...sample,
       arrivedMs,
       bps: Math.max(1, (sample.bytes * 8 * 1000) / arrivedMs),
-      predictedBps: this.estimateBps(),
+      predictedBps,
+      ...(expected === undefined ? {} : { expectedMs: expected }),
+      ...(bound === undefined ? {} : { boundMs: bound }),
     });
     this.#samples = this.#samples.slice(-linkSamplesKept);
     this.#count += 1;
@@ -490,18 +511,86 @@ function priorText(estimate: LinkEstimate): string {
 }
 
 /**
- * The samples in a line, oldest first, each its quality, bytes, time to arrive and wait for its
- * first byte: "samples 4 812345B 1203ms fb340ms, 4 ..."; "" for none. Kept short, as it rides in a
- * stall's and a seek's linkSamples, which the server takes up to 300 characters of.
+ * A sample in a few words: its quality, bytes, time to arrive and wait for its first byte: "4
+ * 812345B 1203ms fb340ms".
+ */
+export function sampleText(sample: LinkSample): string {
+  return (
+    `${String(sample.level)} ${String(sample.bytes)}B ${String(Math.round(sample.arrivedMs))}ms` +
+    ` fb${String(Math.round(sample.firstByteMs))}ms`
+  );
+}
+
+/**
+ * A sample for its note on the link (P6): its sampleText, and where the estimate before it had one,
+ * the time it expected and its next-chunk bound's, "below" when it took longer than the bound said:
+ * "4 812345B 1203ms fb340ms exp900 lo1100 below".
+ */
+export function sampleCalibrationText(sample: LinkSample): string {
+  if (sample.expectedMs === undefined || sample.boundMs === undefined) {
+    return sampleText(sample);
+  }
+  const below = sample.arrivedMs > sample.boundMs ? " below" : "";
+  return `${sampleText(sample)} exp${String(sample.expectedMs)} lo${String(sample.boundMs)}${below}`;
+}
+
+/**
+ * The note on the link of the sample estimate took last (P6): its sampleCalibrationText, and the
+ * prior's drop where it dropped it: "sample 3 812345B 1203ms fb340ms exp900 lo1500, prior dropped";
+ * undefined before any.
+ */
+export function lastSampleNote(estimate: LinkEstimate): string | undefined {
+  const taken = estimate.samples().at(-1);
+  if (taken === undefined) {
+    return undefined;
+  }
+  const isDropping = estimate.prior()?.droppedAtSample === estimate.count();
+  return `sample ${sampleCalibrationText(taken)}${isDropping ? ", prior dropped" : ""}`;
+}
+
+/** A playback's prior for its note on the link (P6): "prior 17000 kb/s, spread 0.30, as 2 samples". */
+export function priorNoteText(prior: RememberedLink): string {
+  return (
+    `prior ${String(Math.round(prior.kbps))} kb/s, spread ${prior.logSpread?.toFixed(2) ?? "none"},` +
+    ` as ${String(Math.round(prior.countsAsSamples * 10) / 10)} samples`
+  );
+}
+
+/**
+ * The samples in a line, oldest first (sampleText): "samples 4 812345B 1203ms fb340ms, 4 ..."; "" for
+ * none. Kept short, as it rides in a stall's and a seek's linkSamples, which the server takes up to
+ * 300 characters of.
  */
 export function samplesText(samples: readonly LinkSample[]): string {
-  if (samples.length === 0) {
-    return "";
-  }
-  const each = samples.map(
-    (sample) =>
-      `${String(sample.level)} ${String(sample.bytes)}B ${String(Math.round(sample.arrivedMs))}ms` +
-      ` fb${String(Math.round(sample.firstByteMs))}ms`,
-  );
-  return `samples ${each.join(", ")}`;
+  return samples.length === 0 ? "" : `samples ${samples.map(sampleText).join(", ")}`;
+}
+
+/**
+ * How many of a video's notes on its link a play report carries at most, and how long each may be,
+ * as the server takes them (internal/core/api's ReportInput.LinkNotes); older ones beyond are dropped.
+ */
+export const linkNotesKept = 20;
+export const linkNoteMost = 200;
+
+/** Each video's chunked playback's notes on its link not yet sent, oldest first. */
+const linkNotes = new WeakMap<object, string[]>();
+
+/**
+ * What keeps the notes of video's chunked playback on its link, each sample with its expected time
+ * and bound's, each chunk given up or stuck and what carried it, and its prior (P6), for its next
+ * play report, which the server logs.
+ */
+export function linkNoter(video: object): (note: string) => void {
+  return (note) => {
+    const kept = linkNotes.get(video) ?? [];
+    kept.push(note.slice(0, linkNoteMost));
+    linkNotes.set(video, kept.slice(-linkNotesKept));
+  };
+}
+
+/** The notes of video's chunked playback on its link since they were last taken, oldest first, taken now. */
+export function takeLinkNotes(video: object): readonly string[] {
+  const kept = linkNotes.get(video) ?? [];
+  linkNotes.delete(video);
+  return kept;
 }

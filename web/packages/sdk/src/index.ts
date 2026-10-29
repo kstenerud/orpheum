@@ -128,6 +128,8 @@ export {
   answerLoad,
   askPathOf,
   carryMediaOver,
+  mediaCarrierOf,
+  tellMediaCarriers,
   isClaimMessage,
   isFetchMessage,
   isPathMessage,
@@ -147,7 +149,7 @@ export type {
   PortLike,
 } from "./rtc-media.ts";
 export type { Description, Signaller } from "./rtc-connect.ts";
-export type { FetchRequest } from "./rtc-transport.ts";
+export type { CarrierSeen, FetchRequest } from "./rtc-transport.ts";
 export { candidatePairsOf, pairsReportedMost, type CandidatePairSeen } from "./rtc-pairs.ts";
 export {
   ApiProblem,

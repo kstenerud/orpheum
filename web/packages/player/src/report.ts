@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { linkNotesKept } from "./link-estimate.ts";
 import { diagnosisOf } from "./diagnosis.ts";
 import { framesBetween, type FramesShown } from "./frames.ts";
 import type { components } from "@orpheum/sdk";
@@ -99,6 +100,9 @@ export class PlayReporter {
   private readLinkKbps: () => number | undefined = () => undefined;
   private readSteadiness: () => number | undefined = () => undefined;
   private readLinkSpread: () => number | undefined = () => undefined;
+  private takeLinkNotes: () => readonly string[] = () => [];
+  /** Notes on the link a report that failed carried, sent again with the next. */
+  private linkNotesUnsent: string[] = [];
   private readFrames: () => FramesShown | undefined = () => undefined;
   /** The frames counted when the last report was sent, from which the next counts. */
   private framesSent: FramesShown | undefined;
@@ -177,6 +181,16 @@ export class PlayReporter {
    */
   reportLinkSpreadWith(read: () => number | undefined): void {
     this.readLinkSpread = read;
+  }
+
+  /**
+   * Reports the player's notes on its link since the last report, as take hands them over, with
+   * every report from now on, which the server logs: each sample with its expected time and its
+   * bound's, each chunk given up or stuck and what carried it (bandwidth-sampling-2026-10-29.md P6;
+   * the owner, 2026-10-29).
+   */
+  reportLinkNotesWith(take: () => readonly string[]): void {
+    this.takeLinkNotes = take;
   }
 
   /**
@@ -273,8 +287,11 @@ export class PlayReporter {
     }
     const now = this.readMonotonicMs();
     const framesBefore = this.framesSent;
+    const linkNotes = [...this.linkNotesUnsent, ...this.takeLinkNotes()].slice(-linkNotesKept);
+    this.linkNotesUnsent = [];
     const report: PlayReport = {
       ...this.framesSinceSent(),
+      ...(linkNotes.length === 0 ? {} : { linkNotes }),
       reportSeq: this.nextReportSeq(),
       sentMonoMs: now,
       positionMs: Math.max(0, Math.round(positionMs)),
@@ -318,6 +335,7 @@ export class PlayReporter {
         this.seeks = [...(report.seeks ?? []), ...this.seeks];
         this.standstills = [...(report.standstills ?? []), ...this.standstills];
         this.pathMoves = [...(report.pathMoves ?? []), ...this.pathMoves];
+        this.linkNotesUnsent = [...(report.linkNotes ?? []), ...this.linkNotesUnsent];
       },
     );
   }

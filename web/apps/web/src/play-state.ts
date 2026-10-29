@@ -11,6 +11,7 @@ import {
   seekTo,
   skippedByOf,
   steadinessOf,
+  takeLinkNotes,
   unplayableOf,
   watchMediaSession,
   watchStalls,
@@ -522,11 +523,13 @@ function watchForReport(
 
 /**
  * Has reporter send, with every report, what video's player says of itself: its steadiness level
- * (D352 Q2), its link's spread (bandwidth-sampling-2026-10-29.md P2) and the frames it showed.
+ * (D352 Q2), its link's spread and its notes on its link (bandwidth-sampling-2026-10-29.md P2, P6)
+ * and the frames it showed.
  */
 function reportPlayerOf(video: HTMLVideoElement, reporter: PlayReporter): void {
   reporter.reportSteadinessWith(() => steadinessOf(video));
   reporter.reportLinkSpreadWith(() => linkSpreadOf(video));
+  reporter.reportLinkNotesWith(() => takeLinkNotes(video));
   reporter.reportFramesWith(() => framesShownOf(video));
 }
 

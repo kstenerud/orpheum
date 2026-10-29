@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import Hls from "hls.js";
 
+import { linkNoteMost, linkNoter, linkNotesKept, takeLinkNotes } from "./link-estimate.ts";
 import { diagnose, samplesNoter, type DiagnosedHls } from "./diagnosis.ts";
 import { bufferedTextMost, PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
 import { settled } from "./test-timing.ts";
@@ -245,6 +246,37 @@ describe("reporting play state", () => {
     reporter.flush(10_000);
     await settled();
     expect(sent[1]).toMatchObject({ linkKbps: 17_000, linkSpread: 0.312 });
+  });
+
+  it("sends the player's notes on its link with the next report, and again after one that failed (P6)", async () => {
+    const { reporter, sent, setNow, failNext } = fakeReporter();
+    const video = {};
+    const note = linkNoter(video);
+    reporter.reportLinkNotesWith(() => takeLinkNotes(video));
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    expect(sent[0]).not.toHaveProperty("linkNotes");
+    note("sample 3 812345B 1203ms fb340ms exp900 lo1500");
+    failNext();
+    reporter.flush(10_000);
+    await settled();
+    note("gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; carried http");
+    reporter.flush(20_000);
+    await settled();
+    expect(sent.at(-1)?.linkNotes).toEqual([
+      "sample 3 812345B 1203ms fb340ms exp900 lo1500",
+      "gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; carried http",
+    ]);
+    // At most linkNotesKept, the newest, each at most linkNoteMost long.
+    for (let index = 0; index < linkNotesKept + 5; index += 1) {
+      note(`${String(index)} ${"x".repeat(linkNoteMost)}`);
+    }
+    reporter.flush(30_000);
+    await settled();
+    expect(sent.at(-1)?.linkNotes).toHaveLength(linkNotesKept);
+    expect(sent.at(-1)?.linkNotes?.[0]).toMatch(/^5 x/u);
+    expect(sent.at(-1)?.linkNotes?.[0]).toHaveLength(linkNoteMost);
   });
 
   it("tells a stall the link's last samples apart from its steps (D352 §5)", async () => {

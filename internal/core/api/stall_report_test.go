@@ -215,6 +215,34 @@ func TestReport_TheLinksSamplesAreLoggedApartFromTheSteps(t *testing.T) {
 	}
 }
 
+// A chunked player's notes on its link since its last report are logged, each sample with the time
+// expected and its bound's, and each chunk given up or stuck with the transport and connection that
+// carried it (bandwidth-sampling-2026-10-29.md P6; the owner, 2026-10-29: the logs are to show
+// whether stalls are per-connection); a report sent again logs none twice, and a note past its
+// length is cut.
+func TestReport_TheLinksNotesAreLoggedWithWhatCarriedEachStuckChunk(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	const stuck = "gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms;" +
+		" carried WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago"
+	body := reportBody(1, 4_000, 0)
+	body["linkNotes"] = []string{"sample 3 812345B 1203ms fb340ms exp900 lo1500", stuck, strings.Repeat("y", 300)}
+	for range 2 {
+		if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+			t.Fatalf("the report: %d %s", answer.status, answer.body)
+		}
+	}
+	logged := harness.logs.String()
+	want := `"linkNotes":["sample 3 812345B 1203ms fb340ms exp900 lo1500","` + stuck + `","` +
+		strings.Repeat("y", 200) + `"]`
+	if strings.Count(logged, want) != 1 {
+		t.Errorf("the log has %d of %s, want it once:\n%s", strings.Count(logged, want), want, logged)
+	}
+}
+
 // A report carrying where the player, asked to play, kept its position is logged with what its video
 // showed: a phone's Brave stood at 0:00 "playing", and the log said only that it started (the owner's
 // friend, 2026-10-12).

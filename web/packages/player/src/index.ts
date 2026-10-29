@@ -13,7 +13,7 @@ export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.
 export type { PlaybackFailure } from "./failure.ts";
 export { codecsOf, diagnosisOf } from "./diagnosis.ts";
 export { steadinessNoter, steadinessOf } from "./steadiness.ts";
-export { linkSpreadOf } from "./link-estimate.ts";
+export { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
 export type { PlaybackDiagnosis } from "./diagnosis.ts";
 export {
   canSetVolume,

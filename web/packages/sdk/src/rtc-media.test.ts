@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   answerLoad,
   askPathOf,
+  carrierText,
   isPathMessage,
   isPathQueryMessage,
+  mediaCarrierOf,
   responseFromPort,
   relayedAheadBytes,
   type FetchMessage,
@@ -389,5 +391,19 @@ describe("media over the WebRTC path", () => {
     expect(await askPathOf(carrying)).toBe("webrtc");
     const silent = { postMessage: () => undefined };
     expect(await askPathOf(silent, 20)).toBe("http");
+  });
+});
+
+describe("what carries a load, for a stuck chunk's log (the owner, 2026-10-29)", () => {
+  it("is http while the page carries no media itself, and names a WebRTC connection's state", () => {
+    expect(mediaCarrierOf("https://app.example/api/v1/bytes/media/chunks/t/00001.m4s")).toBe(
+      "http",
+    );
+    expect(carrierText({ connection: 2, upMs: 41_400, underWay: 3, sinceDeliveredMs: 5512 })).toBe(
+      "WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago",
+    );
+    expect(
+      carrierText({ connection: 1, upMs: 900, underWay: 1, sinceDeliveredMs: undefined }),
+    ).toBe("WebRTC connection 1, up 1 s, 1 under way, no bytes yet");
   });
 });

@@ -99,6 +99,8 @@ export interface Scene {
   steadinessNoted: number[];
   /** The link's spread, each time the choosing told it. */
   spreadsNoted: number[];
+  /** The notes on the link for the play report, in order. */
+  linkNotes: string[];
 }
 
 export const scene: Scene = {
@@ -110,6 +112,7 @@ export const scene: Scene = {
   samplesNoted: [],
   steadinessNoted: [],
   spreadsNoted: [],
+  linkNotes: [],
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -132,6 +135,7 @@ export function useScene(vitest: {
     scene.samplesNoted = [];
     scene.steadinessNoted = [];
     scene.spreadsNoted = [];
+    scene.linkNotes = [];
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -187,6 +191,8 @@ export function choosingFrom(
       noteSamples: (samples) => scene.samplesNoted.push(samples),
       noteSteadiness: (level) => scene.steadinessNoted.push(level),
       noteLinkSpread: (spread) => scene.spreadsNoted.push(spread),
+      noteLink: (note) => scene.linkNotes.push(note),
+      carrierOf: (url) => `WebRTC connection 2 for ${url}`,
     },
     {
       giveUp: (chunk) => givenUp.push(chunk),

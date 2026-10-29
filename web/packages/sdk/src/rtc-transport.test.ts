@@ -613,3 +613,30 @@ describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", (
     expect(transport.size).toBe(1);
   });
 });
+
+describe("the connection a request is carried on, for a stuck chunk's log (the owner, 2026-10-29)", () => {
+  it("names it, how long it has been up, what it carries and how long since bytes came over it, while the request is under way", async () => {
+    const clock = { nowMs: 1000 };
+    const peer = new FakePeer();
+    const transport = new RtcTransport([peer], undefined, () => clock.nowMs);
+    const url = "https://app.example/api/v1/bytes/media/chunks/t/picture/00042.m4s";
+    const answered = transport.fetch(new Request(url));
+    void transport.fetch(new Request("https://app.example/api/v1/poster")).catch(() => undefined);
+    await settle();
+    clock.nowMs = 3000;
+    const carrier = transport.carrierOf(url);
+    expect(carrier?.connection).toBeGreaterThan(0);
+    expect(carrier).toMatchObject({ upMs: 2000, underWay: 2, sinceDeliveredMs: undefined });
+    const channel = peer.channels[0];
+    channel?.answer(JSON.stringify({ status: 200 }));
+    await answered;
+    clock.nowMs = 3500;
+    channel?.answer(new Uint8Array([1, 2, 3]).buffer);
+    clock.nowMs = 9000;
+    expect(transport.carrierOf(url)?.sinceDeliveredMs).toBe(5500); // none since, over any request
+    expect(transport.carrierOf("https://app.example/other")).toBeUndefined();
+    channel?.answer(new ArrayBuffer(0));
+    channel?.closeFromTheCore();
+    expect(transport.carrierOf(url)).toBeUndefined(); // no longer under way
+  });
+});

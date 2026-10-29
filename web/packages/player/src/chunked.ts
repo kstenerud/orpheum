@@ -4,7 +4,13 @@ import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.j
 
 import { shiftingFragmentLoader, SoundShift } from "./audio-shift.ts";
 
-import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
+import {
+  groupJumpedEvent,
+  isFollowingAGroup,
+  isVoiceLive,
+  mediaCarrierOf,
+  type CannotKeepUp,
+} from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
 import {
@@ -34,7 +40,7 @@ import {
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
-import { linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
+import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 
 /**
@@ -457,6 +463,8 @@ export function choosingOptionsOf(
     noteSamples: samplesNoter(video),
     noteSteadiness: steadinessNoter(video),
     noteLinkSpread: linkSpreadNoter(video),
+    noteLink: linkNoter(video),
+    carrierOf: mediaCarrierOf,
   };
 }
 

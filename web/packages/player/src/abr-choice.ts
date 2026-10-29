@@ -220,6 +220,20 @@ export function givenUpSample(chunk: GivenUpChunk): LinkSample | undefined {
 }
 
 /**
+ * Whether a chunk on its way is stuck, worth a note though it is not given up: loading for half the
+ * time it plays, as one is before it may be given up, with nothing arriving for arrivingWithinMs.
+ */
+export function isStuck(chunk: {
+  readonly chunk: { readonly duration: number };
+  readonly loadingMs: number;
+  readonly sinceArrivedMs: number;
+}): boolean {
+  return (
+    chunk.loadingMs >= (chunk.chunk.duration * 1000) / 2 && chunk.sinceArrivedMs > arrivingWithinMs
+  );
+}
+
+/**
  * How a chunk given up came, for its note: "750000 B in 6000 ms", a sample; "stuck: 5000 B in 6000 ms,
  * none for 4500 ms", nothing arriving within arrivingWithinMs; or "100000 B in 6000 ms, too few to
  * measure".

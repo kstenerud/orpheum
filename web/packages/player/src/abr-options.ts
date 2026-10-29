@@ -69,6 +69,17 @@ export interface ChoosingOptions {
    * and seek's report (D352 §5).
    */
   readonly noteSamples?: (samples: string) => void;
+  /**
+   * Told each note on the link for the next play report, which the server logs: its prior, each
+   * sample with its expected time and its bound's, each chunk given up or stuck and what carried it
+   * (bandwidth-sampling-2026-10-29.md P6; the owner, 2026-10-29).
+   */
+  readonly noteLink?: (note: string) => void;
+  /**
+   * Which transport, and which WebRTC connection of it, carries the load of url now, for the notes
+   * of a chunk given up or stuck (the SDK's mediaCarrierOf); absent where nothing says.
+   */
+  readonly carrierOf?: (url: string) => string;
   /** Told the steadiness level as it starts and at each change, for every play report (D352 Q2). */
   readonly noteSteadiness?: (level: number) => void;
   /**

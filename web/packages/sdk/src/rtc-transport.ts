@@ -105,7 +105,11 @@ export const closingHoldsMs = 5000;
  * did, past its 16, and each refusal freed room for another, the queue draining as broken posters
  * (nas.example, 2026-10-19: eighteen refusals in two milliseconds).
  */
-function countedChannel(channel: ChannelLike, release: () => void): ChannelLike {
+function countedChannel(
+  channel: ChannelLike,
+  release: () => void,
+  delivered: () => void,
+): ChannelLike {
   let isReleased = false;
   const releaseOnce = (): void => {
     if (!isReleased) {
@@ -127,6 +131,10 @@ function countedChannel(channel: ChannelLike, release: () => void): ChannelLike 
     listen: (listener) => {
       channel.listen({
         ...listener,
+        message: (data) => {
+          delivered();
+          listener.message(data);
+        },
         close: () => {
           releaseOnce();
           listener.close();
@@ -203,15 +211,26 @@ export const idleClosesAfterMs = 30_000;
  */
 export const settledAfterMs = 10_000;
 
+/** How many connections this page's transports have opened, which numbers each for its log. */
+let connectionsOpened = 0;
+
 /** One of the transport's connections, what it carries, and whether it is still new. */
 class Link {
   underWay = 0;
   /** How many sockets' channels it holds open (openChannel), which keep it from closing as idle. */
   sockets = 0;
   isNew = true;
+  /** Its number among the page's connections, from 1, for its log. */
+  readonly number = (connectionsOpened += 1);
+  /** When a byte of any request's answer last came over it, on the transport's clock; undefined before one. */
+  deliveredAtMs: number | undefined;
   private idle: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(readonly peer: PeerLike) {}
+  constructor(
+    readonly peer: PeerLike,
+    /** When it was taken into use, on the transport's clock. */
+    readonly upSinceMs: number,
+  ) {}
 
   /** Whether it carries nothing: no request under way, and no socket. */
   get isIdle(): boolean {
@@ -235,6 +254,21 @@ class Link {
     clearTimeout(this.idle);
     this.idle = undefined;
   }
+}
+
+/**
+ * The connection carrying a request, as its log names it (carrierOf): its number among the page's
+ * connections, how long it has been up, how many requests it carries, and how long since a byte of
+ * any came over it, in ms, undefined before one did. A Fire TV's chunk stuck on its way gave up a
+ * quality, and nothing said which connection it waited on, nor whether that connection carried
+ * anything else meanwhile (the owner, 2026-10-29: the logs are to show whether stalls are
+ * per-connection).
+ */
+export interface CarrierSeen {
+  readonly connection: number;
+  readonly upMs: number;
+  readonly underWay: number;
+  readonly sinceDeliveredMs: number | undefined;
 }
 
 /** The link of links with the fewest requests under way, or none. */
@@ -268,11 +302,20 @@ export class RtcTransport {
   private retryMs = replaceFirstMs;
   private isClosed = false;
   private readonly waiting: (() => void)[] = [];
+  /** The connection carrying each request under way, by its URL, the latest asked for of each. */
+  private readonly carrying = new Map<string, Link>();
+  private readonly nowMs: () => number;
 
-  constructor(peers: readonly PeerLike[], growth?: Growth) {
+  /** A transport over peers, growing as growth says, its connections' times read from nowMs. */
+  constructor(
+    peers: readonly PeerLike[],
+    growth?: Growth,
+    nowMs: () => number = () => performance.now(),
+  ) {
     if (peers.length === 0) {
       throw new Error("a transport needs at least one connection");
     }
+    this.nowMs = nowMs;
     this.growth = growth;
     for (const peer of peers) {
       this.add(peer);
@@ -297,11 +340,22 @@ export class RtcTransport {
     // Chosen at once while one has room, so requests made together spread across the connections.
     const link = this.claimNow() ?? (await this.claim(signal));
     this.grow();
-    const channel = countedChannel(link.peer.createDataChannel("request"), () => {
-      link.underWay -= 1;
-      this.closeWhenIdle(link);
-      this.wakeWaiting();
-    });
+    const { url } = request;
+    this.carrying.set(url, link);
+    const channel = countedChannel(
+      link.peer.createDataChannel("request"),
+      () => {
+        link.underWay -= 1;
+        if (this.carrying.get(url) === link) {
+          this.carrying.delete(url);
+        }
+        this.closeWhenIdle(link);
+        this.wakeWaiting();
+      },
+      () => {
+        link.deliveredAtMs = this.nowMs();
+      },
+    );
     try {
       return await sendOnChannel(channel, request);
     } catch (problem: unknown) {
@@ -337,6 +391,24 @@ export class RtcTransport {
     return (await this.links[0]?.peer.candidatePairs?.()) ?? [];
   }
 
+  /**
+   * The connection carrying the request for url while it is under way, as its log names it; undefined
+   * for one this transport does not carry now.
+   */
+  carrierOf(url: string): CarrierSeen | undefined {
+    const link = this.carrying.get(url);
+    if (link === undefined) {
+      return undefined;
+    }
+    const nowMs = this.nowMs();
+    return {
+      connection: link.number,
+      upMs: nowMs - link.upSinceMs,
+      underWay: link.underWay,
+      sinceDeliveredMs: link.deliveredAtMs === undefined ? undefined : nowMs - link.deliveredAtMs,
+    };
+  }
+
   /** Closes every connection, and opens no more. */
   close(): void {
     this.isClosed = true;
@@ -355,7 +427,7 @@ export class RtcTransport {
    * wanted: at once for one that had lived settledAfterMs, after the growing wait for one that had not.
    */
   private add(peer: PeerLike): void {
-    const link = new Link(peer);
+    const link = new Link(peer, this.nowMs());
     this.links.push(link);
     setTimeout(() => {
       link.isNew = false;

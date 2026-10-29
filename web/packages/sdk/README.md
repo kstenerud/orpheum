@@ -115,6 +115,12 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   four tabs (staging, 2026-10-25). A connection counts as up only once the core's verdict holds it
   (rtcapi's `Verdict`); one the core turns away fails with `TurnedAway`, which `isTurnedAway` reads.
   `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
+- **A load says what carries it, for a stuck chunk's log**: a transport names the connection
+  carrying each request under way (`carrierOf`), its number among the page's connections, how long
+  it has been up, what it carries and how long since bytes of any request came over it; the page's
+  media says it of a load by URL (`mediaCarrierOf`): that connection, the other origin it is
+  carried over, or "http" (the owner, 2026-10-29: the logs are to show whether stalls are
+  per-connection). `src/rtc-transport.test.ts`, `src/rtc-media.test.ts`.
 - **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
   service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC
   page's loads under `/api/v1/` by asking the page over a message port, and the page answers
