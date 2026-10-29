@@ -356,3 +356,6 @@ had leaned on.
   wherever the person is, not pages to navigate to, being "functions of playback circumstances, so you
   shouldn't have to navigate away from where you are just to activate their controls". Would replace
   D364 §13's sign-to-page table; a signed-in guest's own page and the cast receiver are unaffected.
+  The modal still needs "Back to the playing film" when Watch Together plays on this device (no
+  cast): someone browsing other films while the shared one plays has no easy way back otherwise (the
+  owner, 2026-10-29).
