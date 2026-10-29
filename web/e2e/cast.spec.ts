@@ -130,6 +130,12 @@ test(
       await sender.goto(new URL("/films", sender.url()).href);
       await castSign(sender).click();
       await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
+      // The remote has joined its session again, which says how the receiver plays: "Playing on"
+      // comes first, from the live connection, and a cast ended as the remote said hello was
+      // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
+      await expect(sender.getByText(/^Plays (the file as it is|it converted)/u)).toBeVisible({
+        timeout: 10_000,
+      });
 
       await receiver.keyboard.press("Escape");
       await expect(sender.getByText(/took control back/u)).toBeVisible({ timeout: 10_000 });
