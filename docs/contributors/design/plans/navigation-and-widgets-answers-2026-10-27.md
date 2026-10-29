@@ -363,6 +363,8 @@ had leaned on.
   875.2 s, then 22:35:27.097 `seeked` back to 866.2 s (`fromPositionMs=876522 toPositionMs=866181`), a
   seek the remote did not send; find who sought back (a stale seek-ahead target? the leader's own
   undo, `GroupLeader.undo`?) and why the picture then raced its sound.
+  Again in VQ110's run, The Marrowgate Family (file 5908): the remote's second jump, 22:38:56 UTC, to 3549.2 s
+  (`readyAfterMs=4033 pictureAfterMs=1431 soundAfterMs=150`), then the same fast silent play.
 - **Next batch (the owner, 2026-10-29):** the core and its discovery must find each other again whatever
   order they restart in ("It should be able to figure itself out either way"). Staging, 22:19:56: the
   core restarted, then connectd; the core's signalling said it connected (22:19:58), yet every offer then

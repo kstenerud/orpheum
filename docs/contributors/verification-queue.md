@@ -1254,7 +1254,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-10-28 (the owner, on staging):** all three; the core's log has the `in_another_session`
   refusals (a host's own and "you are in dan's … session") and `a person left a session for another`
   for a host and for a guest.
-- [ ] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
+- [x] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
   loaded outlasts its next chunk's load, and its dropped frames reach the log (the owner, 2026-10-28),
   on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off: (1) The
   Marrowgate Family, resumed part way where its first chunk ends a second or two past the resume point
@@ -1272,6 +1272,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   without `waitedForAheadMs`, even after the film page preloaded 12 s, though each played 160–300 ms
   after the page asked (whether "absent" is the right test is the owner's to say); the 2-minute seek
   holds (`readyAfterMs=307`, ~115 s loaded, no pause told).
+  **Passed 2026-10-29 (the owner, staging):** The Marrowgate Family cast to the Fire TV resumed with one play
+  (`playingAfterMs=3333 loadedAheadMs=10025 waitedForAheadMs=881`); the jumps played on, the second
+  with the fast silent play filed for the next batch (VQ101's quirk).
 - [x] **VQ111** — a cast's receiver waits for enough loaded before its first play, whenever its
   session's welcome comes (staging, 2026-10-28: fileId 5664, cast from the Mac, played with
   `loadedAheadMs=0` and no `waitedForAheadMs`), on staging. Passes when, the Mac casting five films in
