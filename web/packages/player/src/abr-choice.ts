@@ -6,6 +6,7 @@
  * leaves the film, and what counts as a measurement of the link. abr.ts asks them.
  */
 
+import type { LinkSample } from "./link-estimate.ts";
 import { haveFutureData } from "./stalls.ts";
 
 /** A quality as the controller reads it: its peak bit rate, BANDWIDTH, and its average, the sound's included. */
@@ -32,6 +33,14 @@ export const linkShareWhenAhead = 0.95;
 /** How far ahead, in seconds, the share starts rising from linkShareForQuality, and reaches linkShareWhenAhead. */
 export const shareRisesFromS = 10;
 export const shareRisesToS = 25;
+
+/**
+ * How recently, in ms, bytes of a chunk given up must have arrived for it to have been arriving, its
+ * bytes a measure of the link, rather than stuck (bandwidth-sampling-2026-10-29.md P3): the stuck
+ * chunks of a Fire TV's Nosferatu delivered a few kilobytes and then nothing (staging, 2026-10-28). A
+ * starting value, a second, twice the controller's look; to be measured.
+ */
+export const arrivingWithinMs = 1000;
 
 /** The share of the link the film may take while voice is live (D262 §2). */
 export const voiceLinkShare = 0.5;
@@ -168,6 +177,66 @@ export function giveUpFor(chunk: ChunkOnItsWay): number | undefined {
   );
   const chosenS = secondsFor(((levels[chosen]?.averageBitrate ?? 0) * durationS) / 8, bps);
   return chosenS < leftS || bps === 0 ? chosen : undefined;
+}
+
+/** A chunk given up on its way, as what it says of the link reads it. */
+export interface GivenUpChunk {
+  readonly level: number;
+  /** How long it had been loading, and when its first byte came, both in ms from when it began. */
+  readonly loadingMs: number;
+  readonly firstByteMs: number | undefined;
+  /** How many of its bytes had arrived, none of them the core's answers that it is being made. */
+  readonly arrivedBytes: number;
+  /** How long since its last bytes arrived, in ms. */
+  readonly sinceArrivedMs: number;
+}
+
+/**
+ * What a chunk given up says of the link's speed (bandwidth-sampling-2026-10-29.md P3): one that was
+ * arriving, its bytes coming within arrivingWithinMs of the give-up and at least
+ * measuresFromBytesAtLeast of them, is a sample of those bytes over its first byte to the give-up, as
+ * arrivalMs times a whole chunk; one stuck, nothing arriving, says nothing of it: undefined. It is a
+ * censored measurement, "slower than this, or the transport stopped", which belongs to the link's
+ * reliability, a drop (D352 §4), never to its speed. Counted as one byte over the whole wait, one
+ * such chunk among four at 14–18 Mb/s made the estimate 69 kb/s, and a Fire TV played Nosferatu at its
+ * lowest quality for 75 s (staging, 2026-10-28). hls.js samples only the wait of a fragment it
+ * abandons with nothing loaded.
+ */
+export function givenUpSample(chunk: GivenUpChunk): LinkSample | undefined {
+  const { firstByteMs, arrivedBytes } = chunk;
+  if (
+    firstByteMs === undefined ||
+    arrivedBytes < measuresFromBytesAtLeast ||
+    chunk.sinceArrivedMs > arrivingWithinMs
+  ) {
+    return undefined;
+  }
+  return {
+    level: chunk.level,
+    bytes: arrivedBytes,
+    arrivedMs: Math.max(1, chunk.loadingMs - firstByteMs),
+    firstByteMs,
+  };
+}
+
+/**
+ * How a chunk given up came, for its note: "750000 B in 6000 ms", a sample; "stuck: 5000 B in 6000 ms,
+ * none for 4500 ms", nothing arriving within arrivingWithinMs; or "100000 B in 6000 ms, too few to
+ * measure".
+ */
+export function givenUpText(chunk: {
+  readonly loadedBytes: number;
+  readonly loadingMs: number;
+  readonly sinceArrivedMs: number;
+  readonly isSample: boolean;
+}): string {
+  const came = `${String(chunk.loadedBytes)} B in ${String(chunk.loadingMs)} ms`;
+  if (chunk.isSample) {
+    return came;
+  }
+  return chunk.sinceArrivedMs > arrivingWithinMs
+    ? `stuck: ${came}, none for ${String(chunk.sinceArrivedMs)} ms`
+    : `${came}, too few to measure`;
 }
 
 /**

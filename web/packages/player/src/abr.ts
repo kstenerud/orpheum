@@ -3,6 +3,8 @@
 import {
   arrivalMs,
   giveUpFor,
+  givenUpSample,
+  givenUpText,
   highestWithin,
   linkShare,
   isUnplayable,
@@ -85,8 +87,9 @@ export class Choosing<Chunk extends FollowedChunk> {
   #ceiling: number | undefined;
   #changedAtMs: number;
   /**
-   * The chunk of picture on its way: since when it is judged, and how many of its bytes were the
-   * core's 425 answers, which say it is being made and are none of it (beingMade).
+   * The chunk of picture on its way: since when it is judged, how many of its bytes were the core's
+   * 425 answers, which say it is being made and are none of it (beingMade), and when its bytes last
+   * grew, as the looks saw them, and to how many.
    */
   #onItsWay:
     | {
@@ -94,6 +97,7 @@ export class Choosing<Chunk extends FollowedChunk> {
         readonly sinceMs: number;
         readonly answeredBytes: number;
         readonly isBeingMade: boolean;
+        readonly arrived: { loadedBytes: number; atMs: number };
       }
     | undefined;
   /** The pace each paced chunk was asked to arrive at, bits a second. */
@@ -265,11 +269,13 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture began loading, at the pace asked while voice is live. */
   loading(chunk: Chunk): void {
+    const nowMs = this.#options.monotonicMs();
     this.#onItsWay = {
       chunk,
-      sinceMs: this.#options.monotonicMs(),
+      sinceMs: nowMs,
       answeredBytes: 0,
       isBeingMade: false,
+      arrived: { loadedBytes: 0, atMs: nowMs },
     };
     const paceKbps = this.paceKbps();
     if (paceKbps !== undefined) {
@@ -289,11 +295,13 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (this.#onItsWay?.chunk === chunk) {
       // Its 425's own body is counted loaded, its first byte with it: 81 bytes in two seconds gave
       // the twin up for 360p and measured the link at 667 kb/s (the owner's Firefox, 2026-10-20).
+      const nowMs = this.#options.monotonicMs();
       this.#onItsWay = {
         chunk,
-        sinceMs: this.#options.monotonicMs(),
+        sinceMs: nowMs,
         answeredBytes: chunk.stats.loaded,
         isBeingMade: true,
+        arrived: { loadedBytes: chunk.stats.loaded, atMs: nowMs },
       };
     }
   }
@@ -347,14 +355,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * what the link's estimate now chooses (§1).
    */
   stalled(): void {
-    const steady = steadyLevel({
-      levels: this.#hls.levels,
-      ceiling: this.#ceilingNow(),
-      linkBps: this.#linkBps(),
-      bufferAheadS: this.#bufferAheadS(),
-      shareForQuality: this.#options.shareForQuality,
-    });
-    this.#lower(steady, () => `a stall; ${this.#stateText()}`);
+    this.#lower(this.#carriedNow(), () => `a stall; ${this.#stateText()}`);
     this.#noteSteadiness(this.#steadiness.dropped(this.#options.monotonicMs()));
   }
 
@@ -407,8 +408,13 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (onItsWay === undefined || onItsWay.chunk.stats.aborted) {
       return;
     }
-    const { chunk, sinceMs, answeredBytes } = onItsWay;
+    const { chunk, sinceMs, answeredBytes, arrived } = onItsWay;
     const { loading, loaded, total } = chunk.stats;
+    const nowMs = this.#options.monotonicMs();
+    if (loaded > arrived.loadedBytes) {
+      arrived.loadedBytes = loaded;
+      arrived.atMs = nowMs;
+    }
     // Only bytes past the core's 425 answers are the chunk arriving. One the core is making is
     // waited for until it arrives: a lower quality would be made too, and slower, and an encoder that
     // cannot keep up moves its players down itself (D286 §4, D323 §4).
@@ -416,52 +422,80 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (onItsWay.isBeingMade && !hasArrived) {
       return;
     }
+    const firstByteMs = hasArrived ? loading.first - loading.start : undefined;
     const chosen = giveUpFor({
       shareForQuality: this.#options.shareForQuality,
       levels: this.#hls.levels,
       loadingLevel: chunk.level,
       lowestLevel: this.#hls.minAutoLevel,
       durationS: chunk.duration,
-      loadingMs: this.#options.monotonicMs() - sinceMs,
-      firstByteMs: hasArrived ? loading.first - loading.start : undefined,
+      loadingMs: nowMs - sinceMs,
+      firstByteMs,
       loadedBytes: hasArrived ? loaded : 0,
       totalBytes: total,
       linkBps: this.#linkBps(),
       bufferAheadS: this.#bufferAheadS(),
     });
     if (chosen !== undefined) {
-      this.#giveUp(chunk, { sinceMs, hasArrived }, chosen);
+      const sample = givenUpSample({
+        level: chunk.level,
+        loadingMs: nowMs - sinceMs,
+        firstByteMs,
+        arrivedBytes: loaded - answeredBytes,
+        sinceArrivedMs: nowMs - arrived.atMs,
+      });
+      this.#giveUp(chunk, { sinceMs, sinceArrivedMs: nowMs - arrived.atMs, sample }, chosen);
     }
   }
 
   /**
-   * Gives up a chunk on its way for chosen: what it showed of the link is a sample, hls.js's
-   * estimator fed it too, the ceiling lowers, and it is a drop (D265 §3, D352 §4).
+   * Gives up a chunk on its way for chosen (D265 §3), a drop (D352 §4). One that was arriving is a
+   * sample of the link, hls.js's estimator fed it too, and lowers the ceiling to chosen; one stuck is
+   * no sample, and lowers the ceiling while starting only as far as the estimate then carries, as a
+   * stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport is not a slow link, and a
+   * lower quality's chunk travels it no better.
    */
   #giveUp(
     chunk: Chunk,
-    judged: { readonly sinceMs: number; readonly hasArrived: boolean },
+    judged: {
+      readonly sinceMs: number;
+      readonly sinceArrivedMs: number;
+      readonly sample: LinkSample | undefined;
+    },
     chosen: number,
   ): void {
-    const { loading, loaded } = chunk.stats;
+    const { loaded } = chunk.stats;
     this.#onItsWay = undefined;
     const nowMs = this.#options.monotonicMs();
-    const givenUpMs = Math.max(1, nowMs - judged.sinceMs);
-    const givenUpBytes = Math.max(1, judged.hasArrived ? loaded : 0);
-    this.#link.measureGivenUp(givenUpMs, givenUpBytes);
-    this.#sample({
-      level: chunk.level,
-      bytes: givenUpBytes,
-      firstByteMs: judged.hasArrived ? loading.first - loading.start : givenUpMs,
-      arrivedMs: givenUpMs,
-    });
-    const why =
-      `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(nowMs - judged.sinceMs)} ms;` +
-      ` ${this.#stateText()}`;
-    this.#lower(chosen, () => why);
+    const { sample } = judged;
+    if (sample !== undefined) {
+      this.#link.measureGivenUp(sample.firstByteMs + sample.arrivedMs, sample.bytes);
+      this.#sample(sample);
+    }
+    const why = `gave up a chunk of ${String(chunk.level)}, ${givenUpText({
+      loadedBytes: loaded,
+      loadingMs: nowMs - judged.sinceMs,
+      sinceArrivedMs: judged.sinceArrivedMs,
+      isSample: sample !== undefined,
+    })}; ${this.#stateText()}`;
+    const isStuckStarting = sample === undefined && this.#isStarting;
+    if (!this.#lower(isStuckStarting ? Math.max(chosen, this.#carriedNow()) : chosen, () => why)) {
+      this.#options.noteStep?.(why); // a give-up is always told, the ceiling lowered or not
+    }
     this.#noteSteadiness(this.#steadiness.dropped(nowMs));
     this.#choose(chosen, () => why);
     this.#link.giveUp(chunk);
+  }
+
+  /** The quality the link's estimate carries now, under the ceiling, by D265 §4's share; the ceiling with no estimate. */
+  #carriedNow(): number {
+    return steadyLevel({
+      levels: this.#hls.levels,
+      ceiling: this.#ceilingNow(),
+      linkBps: this.#linkBps(),
+      bufferAheadS: this.#bufferAheadS(),
+      shareForQuality: this.#options.shareForQuality,
+    });
   }
 
   /**
