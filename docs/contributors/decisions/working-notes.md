@@ -24374,4 +24374,35 @@ position. If nobody can remember, then the core's current position remains the o
 3. **A session held with no player** (D375 §1) keeps whether it was playing or paused; the first contender
    back resumes it from its own position if it remembers one (1), else from the held one (2).
 
-**Status:** Decided 2026-10-29; not built.
+**Status:** Decided 2026-10-29; not built: replaced by D377 the same day.
+
+## D377 — Who leads a Watch Together session, and from where: one procedure
+
+**Decided** (2026-10-29), by the project owner, consolidating and replacing D372 §1–§3 and D376 (D373's
+grace, D374's contenders and D375's held state stand, restated here where they meet). The owner proposed
+the procedure ("I'm trying to think of a foolproof procedure for deciding who leads"); the lead named six
+gaps with answers (1–6 below), and the owner agreed them all ("agreed").
+
+1. **Contenders.** Only a device with a player open on the session's film that is playing or ready to
+   play can lead (D374 §1): a cast's receiver, never its sender.
+2. **Order.** The host's contender first (D372 §3); else the guest's contender with the earliest start of
+   its current run. A run starts when the core hears the device playing or ready, stamped by the core's
+   clock (never a device's); it ends, and the device goes to the back, when it disconnects, its page is
+   hidden, it leaves the Play page or changes film, or it stays stalled past D373's grace. Connecting
+   alone starts no run.
+3. **The official position on connecting.** The core gives every connecting device the group's position.
+   A device that was playing, or trying to, keeps where it was and waits to hear of the leader; while a
+   leader exists, the device takes the leader's position.
+4. **A device's own position becomes official only when no one leads.** Chosen to lead in a leaderless
+   session, a device presents its own position if it has one, and the core takes it; if it has none (a
+   fresh page), the core's stands. A handover from a live leader needs no position: the successor is in
+   step. All others take on the leader's position.
+5. **Play or pause is the session's, not the device's** (D375): a device presents its position only; a
+   device paused by a dropped network, a locked phone or its browser does not pause the group. Only a
+   person's Pause or Play changes it.
+6. **The host returning takes the lead in step**: it first takes the current leader's position, then the
+   lead, so no one sees a jump; after a leaderless race the first contender to present wins, and a host
+   arriving later takes over the same way, without churn.
+7. **No one left**: the session holds where it stood with its play or pause (D375), and rule 4 resumes it.
+
+**Status:** Decided 2026-10-29; not built (D376's build is redirected to this).
