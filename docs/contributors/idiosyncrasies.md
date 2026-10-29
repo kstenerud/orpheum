@@ -94,6 +94,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After an abandon, it resets the estimator to a nominal bitrate | [After an abandon, it resets the estimator to a nominal bitrate](#after-an-abandon-it-resets-the-estimator-to-a-nominal-bitrate) |
 | #5826 reads a throttled 1 Mb/s link as 404 MB/s. | [There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)](#there-is-no-cache-hit-filter-a-chunk-from-the-browsers-cache-reads-as-link-speed-hlsjs5826-open) |
 | Chrome or Silk on WebRTC never measured its link: no finished chunk in `linkSamples`, `linkKbps=0`. | [Chromium times a service worker's own response as a cache hit](#chromium-times-a-service-workers-own-response-as-a-cache-hit) |
+| At a client origin, the client's script 404 (`…/assets/index-….js?client`) after "media now goes over WebRTC", and a black page at every reload while DevTools was open. | [Chrome DevTools' "Bypass for network" sends a client origin's client files to the discovery](#chrome-devtools-bypass-for-network-sends-a-client-origins-client-files-to-the-discovery) |
 | After a deploy, pages on WebRTC connected and loaded nothing through their service worker: a black page. | [A page and its service worker run different releases across a deploy](#a-page-and-its-service-worker-run-different-releases-across-a-deploy) |
 | In a browser-mode test under Firefox, a page whose `controller` is a worker fetched past it, or its iframe never loaded. | [Playwright's Firefox lets loads of a page its worker did not answer pass the worker](#playwrights-firefox-lets-loads-of-a-page-its-worker-did-not-answer-pass-the-worker) |
 | The `abrController` config type is nominal, so a custom controller must subclass | [The `abrController` config type is nominal, so a custom controller must subclass](#the-abrcontroller-config-type-is-nominal-so-a-custom-controller-must-subclass) |
@@ -894,15 +895,37 @@ User-Agent (D263; the User-Agent is logged only).
 - **Cause:** throttling is per DevTools target; the page's requests the service worker answers,
   and the worker's own fetches to the network, belong to the worker, which the tab's setting does
   not touch.
-- **What we do:** to test a slow link, tick "Bypass for network" under Application → Service
-  workers and reload, or open the worker from `chrome://inspect/#service-workers` and throttle in
-  its own window. Nothing in the code: the worker (`web/apps/web/src/sw.ts`) is the client
-  origin's loader (D308).
+- **What we do:** to test a slow link, open the worker from `chrome://inspect/#service-workers`
+  and throttle in its own window. Never tick "Bypass for network" under Application → Service
+  workers at a client origin: the worker is how the loader runs the core's client there (D308), and
+  bypassed, the page stays black (the next entry). Nothing in the code: the worker
+  (`web/apps/web/src/sw.ts`) is the client origin's loader.
 - **Evidence:** the owner's test on staging, 2026-10-18. **[web]** "Setting network throttle
   doesn't affect requests handled by the worker" ([mswjs/msw discussion
   804](https://github.com/mswjs/msw/discussions/804)); Chrome's own [request conditions
   documentation](https://developer.chrome.com/docs/devtools/request-conditions) throttles per
   panel (read 2026-10-18).
+
+### Chrome DevTools' "Bypass for network" sends a client origin's client files to the discovery
+
+- **Symptom:** at a client origin, after "Orpheum: requests now go over WebRTC" and "media now
+  goes over WebRTC", the console said `GET …/assets/index-….js?client net::ERR_ABORTED 404` and the
+  page stayed black, at every reload while DevTools was open (the owner's Chrome 156 on a Mac,
+  staging, 2026-10-29). The core's log shows the page's WebRTC connection carried three requests,
+  the path report, the manifest and the page, and never the script.
+- **Cause:** "Bypass for network" (Application → Service workers) sends every load of a page the
+  worker controls to the network, and it stays ticked across DevTools sessions. The core's client's
+  files come only through the worker, over the page's path (D308 §6); the discovery serving the
+  client origin holds none of them and answers 404. Reproduced in Playwright with CDP's
+  `Network.setBypassServiceWorker`; with it off, the same profile loads the page.
+- **What we do:** the loader shows "Your server was reached, but its page did not load" with what
+  happened to copy, which names the file and whether a worker controls the page, when a script of
+  the client's does not load (`web/apps/web/src/loader-client-failed.tsx`), never a black page; and
+  the worker fetches a client's file the discovery has not through the page that asked, never
+  answering with the discovery's 404 (`web/apps/web/src/sw.ts`). Untick the box to use the page.
+- **Evidence:** the owner's report and staging's core log, 2026-10-29; the Playwright reproduction
+  the same day (Chromium 153, a profile kept across runs: the page loads, then with the bypass on
+  every reload is black with the same 404, not answered by the worker).
 
 ### Brave on Android refused the microphone
 

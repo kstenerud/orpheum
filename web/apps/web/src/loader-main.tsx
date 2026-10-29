@@ -93,6 +93,12 @@ function loaderPage(): JSX.Element | undefined {
           root.unmount();
         },
         tellWorker,
+        showFailure: (failure) => {
+          // The loader's root is down: the failure gets a root of its own.
+          const shown = document.createElement("div");
+          document.body.append(shown);
+          createRoot(shown).render(<StrictMode>{failure}</StrictMode>);
+        },
       }}
     />
   );
