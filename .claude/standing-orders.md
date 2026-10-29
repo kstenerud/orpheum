@@ -13,10 +13,7 @@
      leaving the film no longer stops it; no mini player); D367 revised (Up never adds history: back to the
      nearest parent behind, else replace; one series page with a season picker preselecting the season
      left; a trail on computers and phones, "‹ Parent" on TVs); the library Configure dialog.
-   - Folded in (owner 2026-10-27, serious): (d) the Fire TV still named "Chrome on Android" (VQ84 failed;
-     its sign-in was through the discovery's page); no way to sign out on the Fire TV; a device removed
-     elsewhere keeps showing its page until touched (should clear at once); and then lands on the core's
-     sign-in, not the discovery's. (e) Watched marks: D370 (owner agreed the
+   - Folded in (owner 2026-10-27, serious): (d) the Fire TV's name, sign-out, a removed device cleared at once to the discovery's sign-in. (e) Watched marks: D370 (owner agreed the
      defaults; a white check, no fading). (f) RealMedia cook sound never cut right (file 15102 on nas.example;
      never record that library's names). D369, D368, the Fire TV fixes, the RealMedia fix (protocol 54), D370 (step 0062), D364, D367 + Configure
      merged, on staging; VQ81 fixed. check-pr: all green but revert-red's device-only files, which
