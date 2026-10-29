@@ -6,7 +6,7 @@
  */
 
 import { type GroupView, noRight, startingTuning, type SyncTuning } from "./together.ts";
-import { followGroup as followGroupForGood } from "./together-follow.ts";
+import { followGroup as followGroupForGood } from "./together-follow-group.ts";
 import type {
   GroupCommand,
   PlayerNote,
