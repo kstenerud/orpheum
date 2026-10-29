@@ -136,7 +136,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.
