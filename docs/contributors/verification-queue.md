@@ -896,6 +896,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   owner, 2026-10-27: no way to sign out on the TV; a removed TV kept its films until pressed; it
   landed on the server's sign-in.) (`web/apps/web/src/app-shell.css`, `live.tsx`,
   `loader-at-client-origin.tsx`, `loader-households.ts`, `internal/core/live/registry.go`)
+  **The owner's finding on the Fire TV, 2026-10-29,** fixed and to check again: "When I sign out, it
+  goes to the core's sign-in page for a while and then switches to the discovery's sign-in page.
+  That would be confusing for a user": Sign out shows only "Signed out. Taking you to sign in…" until
+  the discovery's sign-in replaces it, never the server's sign-in between (`web/apps/web/src/app.tsx`).
 - [ ] **VQ88** — On nas.example in Chrome, play file 15102 (RealMedia, RealVideo 4 with cook sound) from
   its start, then seek to about the middle and near the end. Passes when it plays with sound from the
   start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did

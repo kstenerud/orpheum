@@ -78,6 +78,7 @@ export const en = {
     noAdminYet:
       "No one can sign in until the first admin is created with the setup code from the server's log.",
     useCode: "Get a code",
+    leaving: "Signed out. Taking you to sign in…",
   },
   problem: {
     signedOut: {

@@ -328,6 +328,29 @@ describe("App", () => {
     );
   });
 
+  // The owner's Fire TV, 2026-10-29: "When I sign out, it goes to the core's sign-in page for a while
+  // and then switches to the discovery's sign-in page. That would be confusing for a user."
+  it("signed out under a discovery's loader through a realm, draws no server's sign-in while the loader leaves", async () => {
+    const services = servedBy(
+      {
+        ...backgroundAnswers,
+        "GET /me": [200, { id: 1, name: "owner", role: "viewer", isAdmin: false }],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "DELETE /session": [204, undefined],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<App />, { ...services, realm: "family" }));
+    await click(mounted.container.querySelector(".app-shell__menu-button"));
+    await click(buttonWithText(mounted.container, "Sign out"));
+    await settleUntil(() => services.session.token() === undefined);
+    expect(mounted.container.querySelector(".credentials-form")).toBeNull();
+    expect(mounted.container.textContent).toContain("Signed out. Taking you to sign in");
+    mounted.unmount();
+  });
+
   it("turns Watch Together's sign blue, on every screen, while this tab hosts a session, with no top-bar item (D364 §12)", async () => {
     window.sessionStorage.clear();
     const services = servedBy(
