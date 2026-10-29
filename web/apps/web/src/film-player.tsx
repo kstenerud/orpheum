@@ -13,6 +13,7 @@ import {
   type LinkMeter,
   type PlaybackFailure,
   type PlayedLevel,
+  type SoundChoiceCause,
 } from "@orpheum/player";
 import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
@@ -65,7 +66,11 @@ export interface FilmParts {
          * stalled player moved to, whose sounds no decision named.
          */
         readonly sound: PlayingSound | undefined;
-        /** Plays another of the ladder's sounds at once, as the next of its playbacks starts with. */
+        /**
+         * Plays another of the ladder's sounds, the boost turned on or off, as the next of its
+         * playbacks starts with: the sound loaded plays on until the other's chunk at the playhead
+         * has loaded (keepAudioRendition, @orpheum/player).
+         */
         readonly playSound: (sound: PlayingSound) => void;
       }
     | undefined;
@@ -412,7 +417,8 @@ function DirectFilm(props: {
  * by itself and back up with care: from where it starts (D260), or where a stalled player moved to
  * it (D247 §2, §10). It says which quality plays, and when its lowest cannot keep up (D247 §8). On
  * its film's ladder it starts with the sound the decision names, boosted as the person left the
- * boost, and plays another its page chooses at once (playSound).
+ * boost, and plays another its page chooses once that one's chunk at the playhead has loaded,
+ * playing on meanwhile (playSound).
  */
 function ChunkedFilm(props: {
   readonly offer: LadderOffer;
@@ -493,8 +499,9 @@ export function ladderAudioRenditionIndex(
 
 /**
  * A chunked playback (useChunkedPlayback) with the sound it plays, among its tracks' sounds: the one
- * it starts with, the boosted mix as the person left the boost, and another chosen by playSound at
- * once, which a playback started again, as for another place, starts with too.
+ * it starts with, the boosted mix as the person left the boost, and another chosen by playSound, the
+ * boost turned on or off, heard once its chunk at the playhead has loaded, which a playback started
+ * again, as for another place, starts with too.
  */
 function useLadderPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -520,12 +527,20 @@ function useLadderPlayback(
       if (index !== undefined) {
         setSound(chosen);
         startAudioRef.current = index;
-        playbackRef.current?.setAudioRendition(index);
+        playbackRef.current?.setAudioRendition(index, soundChoiceCause(chosen));
       }
     },
     [tracks, playbackRef],
   );
   return { ...chunked, sound, playSound };
+}
+
+/**
+ * Why the ladder's sound changes as it plays, for its player's note: a sound chosen in place is the
+ * boost turned on or off, the only choice switched in place (a track chosen asks again, LadderUnder).
+ */
+export function soundChoiceCause(chosen: PlayingSound): SoundChoiceCause {
+  return chosen.isBoosted ? "boostOn" : "boostOff";
 }
 
 /**

@@ -484,7 +484,7 @@ export function hasACentre(decision: PlaybackDecision): boolean {
 /**
  * Under the film on its ladder: what sits under every video, its play state kept from where it
  * started, not where the person last left the file; its sound carries its levelling; and a switch
- * for the dialogue boost where the track playing has a boosted mix (D217 §3, D222), which changes the ladder's sound at once. The boosted mix carries
+ * for the dialogue boost where the track playing has a boosted mix (D217 §3, D222), which changes the ladder's sound as soon as the other mix has loaded at the playhead, playing on meanwhile. The boosted mix carries
  * its track's gain, as the standard one does (D226 §3), so the level stays. Its lowest quality's word
  * that it cannot keep up goes to a host's session (D247 §8).
  */
@@ -513,6 +513,8 @@ function LadderUnder(
         {...props}
         decision={decision}
         level={level}
+        // Asked for again, not switched in place as the boost is: the offer's carried gain and the
+        // decision's levelling are the starting track's alone, so another would play at the wrong level.
         onAudioChosen={decideAgainFor({ ...props, decision }, "audioChosen")}
       />
       {canBoost ? (
@@ -523,6 +525,7 @@ function LadderUnder(
           }}
         />
       ) : null}
+      {/* A debug tool, which loads the file's own source in place of the ladder (the owner, 2026-10-29). */}
       <PlayOriginal onChosen={decideAgainFor({ ...props, decision }, "originalChosen")} />
     </>
   );

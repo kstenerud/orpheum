@@ -9,6 +9,7 @@ import {
   ladderAudioRenditionIndex,
   ladderStartingAudio,
   playbackFailureText,
+  soundChoiceCause,
 } from "./film-player.tsx";
 import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
 import { playUp, playUpward } from "./play-up.tsx";
@@ -201,6 +202,11 @@ describe("playing a file", () => {
     expect(ladderStartingAudio(tracks, { audioTrackIndex: 0, isBoosted: true })).toBe(1);
     expect(ladderStartingAudio(tracks, { audioTrackIndex: 0, isBoosted: false })).toBe(undefined);
     expect(ladderStartingAudio(tracks, { audioTrackIndex: 1, isBoosted: true })).toBe(undefined);
+  });
+
+  it("tells its player a sound chosen in place as the boost turned on or off, which its note says", () => {
+    expect(soundChoiceCause({ audioTrackIndex: 0, isBoosted: true })).toBe("boostOn");
+    expect(soundChoiceCause({ audioTrackIndex: 0, isBoosted: false })).toBe("boostOff");
   });
 
   it("offers the file's audio tracks, starting with the one the playback starts with", () => {

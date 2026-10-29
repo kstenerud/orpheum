@@ -1558,8 +1558,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `AUDIO_TRACK_SWITCHING`, and gives the rendition its own form back once hls.js has read it, so the
   sound loaded plays out and the new quality's is heard where its picture begins. The browser learns
   the new channels and codec from the new chunks' init segment, as it does after a flush (a codec
-  change by `changeType`, which hls.js does either way). A sound the person chooses is switched in its
-  own form, and heard at once.
+  change by `changeType`, which hls.js does either way). A sound the person chooses, the dialogue
+  boost turned on or off, is switched by `nextAudioTrack`, so the sound loaded plays on until the new
+  one's chunk at the playhead arrives, and is heard from there: switched by `audioTrack`, the boost
+  turned on at the top of Thimbleford's ladder threw the film's own 5.1 sound away and froze the video
+  2.2 s while the server made the boosted mix's chunk (staging, 2026-10-29). A group's place set
+  while such a choice is on its way is set by `nextAudioTrack` too, which never flushes at once.
 - **Evidence:** **[staging]** the stall above; **[source]** hls.js 1.7.3,
   `src/controller/audio-track-controller.ts` (`switchLevel`, `setAudioTrack`),
   `src/controller/audio-stream-controller.ts` (`onAudioTrackSwitching`, `flushAudioIfNeeded`,

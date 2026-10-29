@@ -12,17 +12,23 @@ import {
   type ChunkLoaded,
   type QualitySwitched,
 } from "@orpheum/sdk";
-import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
+import Hls, { PlaylistLevelType, type AudioTrackSwitchingData, type ErrorData } from "hls.js";
 
 import { isRecovered } from "./abr-controller.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
 
+/** Why the person's sound changes as it plays: the dialogue boost turned on or off (D217 §3). */
+export type SoundChoiceCause = "boostOn" | "boostOff";
+
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
-  /** Plays the audio rendition at index, in the master playlist's order. */
-  readonly setAudioRendition: (index: number) => void;
+  /**
+   * Plays the audio rendition at index, in the master playlist's order, for cause: the sound loaded
+   * plays on until the new one's chunk at the playhead has loaded (keepAudioRendition).
+   */
+  readonly setAudioRendition: (index: number, cause: SoundChoiceCause) => void;
   /** Stops playing and lets go of the element. */
   readonly destroy: () => void;
   /** The link's speed in kb/s as hls.js measures its segments, or undefined where it cannot say. */
@@ -118,13 +124,19 @@ export interface AudioKeeping {
   ) => void) &
     ((
       event: typeof Hls.Events.AUDIO_TRACK_SWITCHING,
-      listener: (event: unknown, data: SoundForm & { readonly id: number }) => void,
+      listener: (
+        event: unknown,
+        data: SoundForm &
+          Readonly<Pick<AudioTrackSwitchingData, "flushImmediate">> & { readonly id: number },
+      ) => void,
     ) => void) &
     ((
       event: typeof Hls.Events.AUDIO_TRACK_SWITCHED,
       listener: (event: unknown, data: { readonly id: number }) => void,
     ) => void);
   audioTrack: number;
+  /** hls.js's switch that loads the new sound at the playhead while the sound loaded plays on. */
+  nextAudioTrack: number;
 }
 
 /**
@@ -141,21 +153,38 @@ export interface AudioKeeping {
  * for the light track's chunks from there, found them being made, and stalled (staging, Nosferatu,
  * 2026-10-28). The rendition at the place is switched to in the loaded one's form, its own given
  * back at once, so hls.js loads it on from the end of the sound loaded, as it does for two groups'
- * stereo tracks, and the new sound is heard where the picture of its quality begins. Returns the
- * choosing of another rendition, the person's, which it keeps from then on and which hls.js plays at
- * once, the loaded sound thrown away (idiosyncrasies.md).
+ * stereo tracks, and the new sound is heard where the picture of its quality begins.
+ *
+ * Returns the choosing of another rendition, the person's (the dialogue boost turned on or off), which
+ * it keeps from then on: one way for every change of sound as the film plays. The sound loaded plays
+ * on while hls.js asks for the new one's chunk at the playhead, which starts the server making it,
+ * and the new one is heard from that chunk once it has loaded, the sound loaded after it thrown away
+ * (`nextAudioTrack`): switched with `audioTrack`, hls.js threw all of it away at once and the video
+ * waited for the new one's chunk, a boost turned on at the top of Thimbleford's ladder froze it 2.2 s
+ * (staging, 2026-10-29). A switch to the place while one chosen is on its way, as the quality moves
+ * to another group, is made the same way. Each choice is noted, with its cause, and again as it is
+ * heard (idiosyncrasies.md).
  */
 export function keepAudioRendition(
   hls: AudioKeeping,
   startIndex: number | undefined,
-): (index: number) => void {
+  note: (text: string) => void = () => undefined,
+): (index: number, cause: SoundChoiceCause) => void {
   let kept = startIndex;
   let switchedTo: { readonly id: number; readonly form: SoundForm } | undefined;
+  let chosen: { readonly id: number; readonly cause: SoundChoiceCause } | undefined;
   hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, (_event, data) => {
-    switchedTo = { id: data.id, form: { channels: data.channels, audioCodec: data.audioCodec } };
+    // A choice on its way leaves the sound loaded as it was until its chunk is heard.
+    if (data.flushImmediate !== false) {
+      switchedTo = { id: data.id, form: { channels: data.channels, audioCodec: data.audioCodec } };
+    }
   });
   hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_event, data) => {
     kept = data.id;
+    if (chosen?.id === data.id) {
+      note(`sound ${String(data.id)} heard (${chosen.cause})`);
+      chosen = undefined;
+    }
   });
   // A group's tracks are listed before hls.js chooses one of them: a rendition chosen then is the
   // one it plays.
@@ -164,13 +193,40 @@ export function keepAudioRendition(
     if (place === undefined || place >= data.audioTracks.length || hls.audioTrack === place) {
       return;
     }
+    if (chosen?.id === place) {
+      // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
+      hls.nextAudioTrack = place;
+      return;
+    }
     switchInForm(hls, { place, sound: data.audioTracks[place] }, switchedTo?.form);
   });
-  return (index) => {
+  return (index, cause) => {
+    if (index === kept && chosen === undefined) {
+      return;
+    }
+    note(
+      `sound ${String(index)} chosen (${cause}), loading at the playhead as sound ${String(kept ?? hls.audioTrack)} plays`,
+    );
     kept = index;
-    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
-    hls.audioTrack = index;
+    chosen = { id: index, cause };
+    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
+    hls.nextAudioTrack = index;
   };
+}
+
+/**
+ * Starts with the audio rendition at startIndex, the playlist's default when omitted, and keeps it as
+ * the quality moves (keepAudioRendition); returns the one way the person's sound changes as the film
+ * plays, on a ladder and a prepared rendition alike, noting each change by note.
+ */
+export function startAndKeepAudio(
+  hls: AudioStart & AudioKeeping,
+  startIndex: number | undefined,
+  note?: (text: string) => void,
+): (index: number, cause: SoundChoiceCause) => void {
+  startWithAudio(hls, startIndex ?? 0);
+  // 0 is the playlist's default, which hls.js starts with: kept once it plays.
+  return keepAudioRendition(hls, startIndex === 0 ? undefined : startIndex, note);
 }
 
 /**
@@ -471,24 +527,14 @@ export function playHls(
   }
   const hls = new Hls(preparedHlsConfig);
   failOnFatal(hls, onFailed);
-  startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
+  const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
   const estimateKbps = measuredKbps(hls);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
-    setAudioRendition: (index) => {
-      hls.audioTrack = index;
-      // hls.js drops the buffered audio of the old mix, but the browser has already decoded a
-      // few seconds of it ahead and would play those out first. Seeking to where it is makes it
-      // discard them, so the new mix is heard at once, after a moment's pause.
-      if (!video.paused || video.currentTime > 0) {
-        video.dispatchEvent(new Event(playerMovedItselfEvent));
-        // eslint-disable-next-line no-param-reassign, no-self-assign -- a media element seeks when currentTime is set; the same value drops what it decoded ahead
-        video.currentTime = video.currentTime;
-      }
-    },
+    setAudioRendition: chooseAudio,
     destroy: () => {
       hls.destroy();
     },
