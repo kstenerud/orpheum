@@ -522,7 +522,7 @@ export function playChunked(
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
-  stops.push(tellNextChunkLoad(hls, video, { ...options, confidentKbps: linkKbps }));
+  stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

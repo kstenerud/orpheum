@@ -27,6 +27,7 @@ import type {
 } from "./abr-options.ts";
 import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
 import { ChunkOnItsWay, type JudgedChunk } from "./abr-on-its-way.ts";
+import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
 import { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs } from "./step-up.ts";
@@ -38,10 +39,12 @@ export const lookAtChunkEveryMs = 500;
 export const lookForStepUpEveryMs = 10_000;
 
 /**
- * How many chunks must have measured the link, and how long the playback must have played, before
- * it stops starting (D352 §1): four are the fewest whose spread says anything, and by 20 s played
- * the player has filled its first buffer, a dozen chunks or more, so a bad first sample has left the
- * estimate's five.
+ * How long the playback must have played before it stops starting, and how many chunks that
+ * measured the link end it at the latest (D352 §1): by 20 s played the player has filled its first
+ * buffer, a dozen chunks or more, so a bad first sample has left the estimate's five. Evidence ends
+ * it sooner: samples that settle the ceiling, the same with any one left out (#startingSettles,
+ * bandwidth-sampling-2026-10-29.md P5), which a lone sample never does. Four end it however they
+ * disagree: a playback still starting never steps up.
  */
 export const startingSamples = 4;
 export const startingPlayedMs = 20_000;
@@ -107,8 +110,9 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** How steady the link has been, which sets the step-up's hold and headroom (D352 §3–§4). */
   readonly #steadiness: Steadiness;
   /**
-   * Whether the playback is starting: until startingSamples chunks measured the link and it played
-   * startingPlayedMs, a choice below the ceiling does not lower it (D352 §1).
+   * Whether the playback is starting: until it played startingPlayedMs and its samples settle the
+   * ceiling or startingSamples measured the link, a choice below the ceiling does not lower it
+   * (D352 §1, P5).
    */
   #isStarting = true;
   /** Whether the hold of the quality loading (holdsQualityAheadS) was noted since it began. */
@@ -360,6 +364,22 @@ export class Choosing<Chunk extends FollowedChunk> {
       : estimateBps / 1000;
   }
 
+  /**
+   * The link its next chunk's load is reckoned over, for the start gate (next-chunk.ts): the
+   * estimate's next-chunk bound at what is loaded ahead, from the remembered link alone before any
+   * sample, and the wait its first byte is expected to take; undefined with neither (P5).
+   */
+  nextChunkLink(): NextChunkLink | undefined {
+    const bps = this.#estimate.nextChunkBps(this.#bufferAheadS());
+    return bps === undefined
+      ? undefined
+      : {
+          kbps: bps / 1000,
+          firstByteMs: this.#estimate.firstByteMs(),
+          from: this.#estimate.kept() > 0 ? "confident" : "remembered",
+        };
+  }
+
   /** The playback's steadiness level (D352 §3). */
   steadiness(): number {
     return this.#steadiness.level();
@@ -552,26 +572,17 @@ export class Choosing<Chunk extends FollowedChunk> {
   }
 
   /**
-   * Ends starting once startingSamples chunks measured the link and the video played
-   * startingPlayedMs: the ceiling becomes the highest quality the confident estimate carries, by
-   * D265 §4's share, no higher than it was (D352 §1), and the end is noted with its samples.
+   * Ends starting once the video played startingPlayedMs and its samples settle the ceiling or
+   * startingSamples measured the link: the ceiling becomes the highest quality the confident estimate carries, by D265 §4's share, no
+   * higher than it was (D352 §1), and the end is noted with its samples.
    */
   #endStartingWhenDone(): void {
-    if (
-      !this.#isStarting ||
-      this.#estimate.count() < startingSamples ||
-      this.#played.playedMs() < startingPlayedMs
-    ) {
+    if (!this.#isStarting || !this.#hasStarted()) {
       return;
     }
     this.#isStarting = false;
     const ceiling = this.#ceilingNow();
-    const carried = highestWithin(
-      this.#hls.levels,
-      ceiling,
-      linkShare(this.#bufferAheadS(), this.#options.shareForQuality) *
-        (this.#estimate.confidentBps(this.#bufferAheadS()) ?? 0),
-    );
+    const carried = this.#confidentlyCarried(this.#estimate) ?? ceiling;
     const held = this.#heldAbove(carried, ceiling);
     const lowered = held ?? carried;
     let change =
@@ -590,6 +601,42 @@ export class Choosing<Chunk extends FollowedChunk> {
       this.#ceilingWhy = `started; ${this.#stateText()}`;
       this.#changedAtMs = this.#options.monotonicMs();
     }
+  }
+
+  /** Whether the video played startingPlayedMs, and its samples settle the ceiling or startingSamples measured the link. */
+  #hasStarted(): boolean {
+    return (
+      this.#played.playedMs() >= startingPlayedMs &&
+      (this.#estimate.count() >= startingSamples || this.#startingSettles())
+    );
+  }
+
+  /**
+   * Whether the samples settle the ceiling starting's end would set: it is the same with any one of
+   * them left out (P5). Agreeing samples and a prior settle it in two or three; samples that
+   * disagree take more; a lone sample never does, nothing being left without it.
+   */
+  #startingSettles(): boolean {
+    const whole = this.#confidentlyCarried(this.#estimate);
+    return (
+      whole !== undefined &&
+      this.#estimate.withoutEach().every((without) => this.#confidentlyCarried(without) === whole)
+    );
+  }
+
+  /**
+   * The highest quality, no higher than the ceiling, estimate's confident estimate carries by D265
+   * §4's share; undefined before it has one.
+   */
+  #confidentlyCarried(estimate: LinkEstimate): number | undefined {
+    const bps = estimate.confidentBps(this.#bufferAheadS());
+    return bps === undefined
+      ? undefined
+      : highestWithin(
+          this.#hls.levels,
+          this.#ceilingNow(),
+          linkShare(this.#bufferAheadS(), this.#options.shareForQuality) * bps,
+        );
   }
 
   /**

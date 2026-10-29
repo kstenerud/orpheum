@@ -370,6 +370,29 @@ export class LinkEstimate {
     return this.#samples;
   }
 
+  /**
+   * The wait a chunk's first byte is expected to take, in ms: the median of the samples kept, as
+   * Media3 keeps its own apart (bandwidth-sampling §5.1); 0 before any.
+   */
+  firstByteMs(): number {
+    return medianOf(this.#samples.map((sample) => sample.firstByteMs)) ?? 0;
+  }
+
+  /**
+   * The estimate each sample kept would leave without it, its prior with it while the prior counts:
+   * whether a choice rests on no one sample (P5).
+   */
+  withoutEach(): LinkEstimate[] {
+    const prior = this.prior();
+    return this.#samples.map((_left, index) => {
+      const without = new LinkEstimate(prior?.isKept === true ? prior : undefined);
+      for (const sample of this.#samples.filter((_each, each) => each !== index)) {
+        without.add(sample);
+      }
+      return without;
+    });
+  }
+
   /** The natural logs of the samples' speeds, oldest first. */
   #logs(): number[] {
     return this.#samples.map((sample) => Math.log(sample.bps));
