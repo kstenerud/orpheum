@@ -24355,7 +24355,7 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 2: TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns, TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns; VQ134
 - 3: TestHub_AGroupHeldForWantOfAPlayerEndsIdle, TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle
 
-## D376 — Whoever takes the lead sets the group's position from where it plays
+## D376 — A new leader that remembers its place sets the group's position; else the core's stands
 
 **Decided** (2026-10-29), by the project owner, amending D375 §2 after its first device run (VQ134):
 "having it playback from the core's remembered position feels weird. Whoever takes leadership role

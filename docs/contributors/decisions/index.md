@@ -381,7 +381,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead — *revisited by D374*
 - [D374](working-notes.md#d374--only-a-device-playing-the-film-can-lead-a-casts-sender-never-does) Only a device playing the film can lead; a cast's sender never does
 - [D375](working-notes.md#d375--a-session-left-with-no-player-keeps-its-playing-state-and-goes-on-as-it-was-when-a-leader-returns) A session left with no player keeps its playing state, and goes on as it was when a leader returns — *revisited by D376*
-- [D376](working-notes.md#d376--whoever-takes-the-lead-sets-the-groups-position-from-where-it-plays) Whoever takes the lead sets the group's position from where it plays
+- [D376](working-notes.md#d376--a-new-leader-that-remembers-its-place-sets-the-groups-position-else-the-cores-stands) A new leader that remembers its place sets the group's position; else the core's stands
 
 ## Archived
 
