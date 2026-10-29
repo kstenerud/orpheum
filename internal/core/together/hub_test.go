@@ -121,7 +121,7 @@ func (stage sessionStage) ready(t *testing.T, attachment Attachment, isBuffering
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
 		Type: MessageState, Playing: !isBuffering, Buffering: isBuffering,
-		PositionMs: stage.groupPositionMs(attachment.SessionID),
+		PositionMs: stage.groupPositionMs(attachment.SessionID), FileID: stage.filmOn(attachment.SessionID),
 	})
 }
 
@@ -750,17 +750,20 @@ func TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm(t *testing.T) {
 		return DeviceView{}
 	}
 	converted := Playback{Delivery: DeliveryConverted, QualityKbps: 4200, LinkKbps: 18_000}
-	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true, Playback: &converted})
+	stage.command(t, receiver, CommandChangeItem, 12)
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageState, Playing: true, Playback: &converted, FileID: 12,
+	})
 	if got := receiverInRoster(); !got.IsLeader || got.Playback == nil || *got.Playback != converted {
 		t.Errorf("the receiver in the remote's roster = %+v (%+v); want the leader, converted at 4200 kb/s "+
 			"on 18000", got, got.Playback)
 	}
-	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true})
+	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true, FileID: 12})
 	if got := receiverInRoster().Playback; got == nil || *got != converted {
 		t.Errorf("after a state that says none, the receiver plays %+v; want the last said", got)
 	}
 	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, Playback: &Playback{Delivery: "teleported"},
+		Type: MessageState, Playing: true, Playback: &Playback{Delivery: "teleported"}, FileID: 12,
 	})
 	if got := receiverInRoster().Playback; got == nil || *got != converted {
 		t.Errorf("after a delivery no player says, the receiver plays %+v; want the last known", got)

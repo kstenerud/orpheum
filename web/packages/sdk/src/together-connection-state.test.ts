@@ -54,7 +54,7 @@ describe("what a device's state tells its session of its player (cut-a §5.1)", 
       monotonicMs,
     });
     connection.open();
-    connection.setPlayer(() => ({ positionMs: 0, isPlaying: false, isBuffering: true }));
+    connection.setPlayer(() => ({ fileId: 7, positionMs: 0, isPlaying: false, isBuffering: true }));
     sockets.opened[0]!.onOpen();
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
     const lastState = (): Record<string, unknown> | undefined =>
@@ -77,6 +77,7 @@ describe("what a device's state tells its session of its player (cut-a §5.1)", 
     connection.open();
     let isPageHidden = true;
     connection.setPlayer(() => ({
+      fileId: 7,
       positionMs: 0,
       isPlaying: false,
       isBuffering: false,

@@ -57,6 +57,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	stage.command(t, device, CommandChangeItem, 7) // the host's player leads the film it put on
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteSought, PositionMs: 50_000, ToMs: 124_000, Why: "catchUp",
 	}})

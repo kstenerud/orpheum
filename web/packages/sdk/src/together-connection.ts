@@ -485,6 +485,7 @@ class SessionConnection
     if (state !== undefined) {
       this.#send({
         type: "state",
+        fileId: state.fileId,
         positionMs: Math.max(0, Math.round(state.positionMs)),
         tMono: this.#now(),
         playing: state.isPlaying,

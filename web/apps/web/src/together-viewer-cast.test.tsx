@@ -76,6 +76,10 @@ describe("a signed-in guest's page while their device casts (D371 §4)", () => {
     });
     expect(mounted.container.querySelector("video")).toBeNull();
     expect(mounted.container.textContent).toContain("Playing on Fire TV");
+    // Its session is told it plays no film, so it never leads in its receiver's place (D374 §1).
+    const states = sockets.session.heard.filter((each) => each["type"] === "state");
+    expect(states.at(-1)).toMatchObject({ fileId: 0, playing: false });
+    expect(states.some((each) => each["fileId"] === 5)).toBe(true);
     mounted.unmount();
   });
 });

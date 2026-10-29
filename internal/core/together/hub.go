@@ -192,7 +192,18 @@ type device struct {
 	// which the group does not wait for (D373 §1); zero while it plays on, and once the group stops
 	// playing, its loading then the start's (takeStall).
 	stalledSince time.Time
-	send         Sender
+	// playerFileID is the film its player has loaded, as its latest state said, or as it put it on
+	// itself; 0 while it has none: not yet loaded, its player gone, or its film handed to a cast's
+	// receiver. Only a device whose player has the session's film contends for the lead (D374 §1).
+	playerFileID int64
+	// hasContended is whether it has contended for the lead since it attached: its first time is its
+	// arriving as a player, when the newest of the host's takes the lead (arrived, D371 §3).
+	hasContended bool
+	// catchingUpSince is when it, the leader, played again after a stall its group played on through
+	// within the grace: until its state is in step with the group it catches up as a follower would,
+	// and its states do not place the group, so no one sees a stretch twice (D374); zero otherwise.
+	catchingUpSince time.Time
+	send            Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering, round trip and playback,
@@ -201,7 +212,8 @@ func (each *device) takeState(message Inbound) {
 	switch message.Type {
 	case MessageState:
 		each.buffering = message.Buffering
-		if !message.Buffering {
+		each.playerFileID = message.FileID
+		if !message.Buffering && message.FileID != 0 {
 			each.hasBeenReady = true
 		}
 		if message.RTTMs > 0 {
@@ -445,7 +457,6 @@ func (hub *Hub) Attach(
 		id: hub.lastID, role: role, canSetRate: canSetRate, send: send, arrivedAt: seniorityAt(now),
 	}
 	attachedMember.devices[hub.lastID] = attachedDevice
-	attached.arrived(now, attachedMember, attachedDevice, true)
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
@@ -538,18 +549,22 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	}
 }
 
-// takeState takes what a device says of itself, and everyone is told: whether its page is hidden,
-// which hands on a lead (D372 §5); a host's device in step taking the lead back from a guest's
-// (§3); the leader's state places the group (followLeader), and no one else's moves it, a
-// follower's trouble its own to catch up on (D371 §2); no one's stall is waited for (takeStall,
-// D373 §1). Its first word that even its lowest quality is beyond its link is logged.
+// takeState takes what a device says of itself, and everyone is told: whether its page is hidden
+// and which film its player has, by which it contends for the lead or no longer does, a leader that
+// no longer does handing it on (takeContention, D372 §5, D374 §1); a host's device in step taking
+// the lead back from a guest's (D372 §3); the leader's state places the group (followLeader), and no
+// one else's moves it, a follower's trouble its own to catch up on (D371 §2); no one's stall is
+// waited for while another plays the film (takeStall, D373 §1, D374 §3). Its first word that even
+// its lowest quality is beyond its link is logged.
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
+	wasContender := current.contends(from)
 	current.logPlayer(ctx, now, who, from, message)
 	from.takeState(message)
 	if message.Type == MessageState {
 		current.takeVisibility(now, who, from, message.PageHidden)
 		current.takeStall(ctx, now, who, from, message)
+		current.takeContention(now, who, from, wasContender)
 		current.takeLeadInStep(now, who, from, message)
 	}
 	if message.Type == MessageState && from.id == current.leaderID {

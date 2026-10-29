@@ -4,32 +4,39 @@ package together
 
 import (
 	"cmp"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
-// A session's leader is the screen that is the film (D371 §1). The host's devices are preferred
-// (D372 §3, confirmed): among them D371's rule, the newest that plays as it attaches and the one
-// that puts a film on. While none of the host's can lead, the lead passes down the line to the
-// player present longest without a break, a guest's as readily as the host's (D372 §1), by the
-// seniority the core stamped as it saw the device arrive. A leader gone (its connection closed or
-// silent, its page hidden, its member removed) hands the lead on at once (§5), and one stalled past
+// A session's leader is the screen that is the film (D371 §1), chosen among its contenders alone:
+// the devices whose player plays the session's film now, on a page its browser shows (D374 §1,
+// contends). The host's contenders are preferred (D372 §3, confirmed; D374 §2): among them D371's
+// rule, the newest as it first contends and the one that puts a film on. While none of the host's
+// contends, the lead passes down the line to the contender present longest without a break, a
+// guest's as readily as the host's (D372 §1), by the seniority the core stamped as it saw the device
+// arrive. A leader gone (its connection closed or silent, its page hidden, its member removed, its
+// player no longer playing the film) hands the lead on at once (§5, D374 §1), and one stalled past
 // stalledLeaderGrace while its Watch Together group plays hands it on then, the group playing on
-// (D373 §2). With no one left to lead, a Watch Together group that plays pauses where it stands (§7).
+// (D373 §2), unless it is the only contender, whose stall its group stands for (D374 §3). With no one
+// left to lead, a Watch Together group that plays pauses where it stands (D372 §7).
 
 // The reasons a session's leader changes, as its log says them (D371, D372).
 const (
-	// A host's device that plays attaching, while the host's device leads or none
-	// does, or while nothing is on: the newest leads (D371 §3).
+	// A host's contender arriving, while the host's device leads or none does: the newest leads
+	// (D371 §3).
 	leadAttached = "attached"
 	// A host's device putting a film on: the screen that is the film.
 	leadPutOn = "putOn"
-	// A device that can lead arriving, or shown again, while none leads (D372 §1).
+	// A contender arriving, or shown again, while none leads (D372 §1).
 	leadNoneLed = "noneLed"
 	// A host's device that came back taking the lead back from a guest's once it
 	// plays in step with the group, so the film never jumps for its return (D372 §3).
 	leadHostInStep = "hostInStep"
-	// The leader gone (GoneBecause): the host's newest other player leads, else the
-	// most senior player, else none (D372 §1, §5).
+	// The leader gone (GoneBecause): the host's newest other contender leads, else the
+	// most senior contender, else none (D372 §1, §5).
 	leadLeaderGone = "leaderGone"
 )
 
@@ -48,7 +55,16 @@ const (
 	goneRemoved GoneBecause = "removed"
 	// Its player stalled past stalledLeaderGrace while its Watch Together group played (D373 §2).
 	goneStalled GoneBecause = "stalled"
+	// Its player has no film: gone, not yet loaded, or its film handed to a cast's receiver (D374 §1).
+	goneNoFilm GoneBecause = "noFilm"
+	// Its player has another film than the session's (D374 §1).
+	goneOtherFilm GoneBecause = "otherFilm"
+	// The session has no film on, so no one plays it (D374 §1).
+	goneNothingOn GoneBecause = "nothingOn"
 )
+
+// passedOverPanel is why a panel, which plays nothing, never contends for the lead (D120).
+const passedOverPanel = "panel"
 
 // stalledLeaderGrace is how long a Watch Together leader's stall lasts, while its group plays, before
 // the leader is gone for the lead (D373 §2). A justified constant, as the session socket's
@@ -59,17 +75,81 @@ const (
 // (checkDriftEveryMs, web/packages/sdk/src/together-follow-options.ts), so the core sees a stall up
 // to a second late. Three seconds outlasts both, so such a stall never hands the lead back and forth.
 // It is also no longer than a follower's drift before it seeks rather than nudges
-// (together_seek_drift_beyond_ms' starting value): a leader that plays again within the grace steps
-// the group back to where it is by no more than that, which its followers nudge across.
+// (together_seek_drift_beyond_ms' starting value): a leader that plays again within the grace is no
+// further behind its group than a follower nudges across as it catches up (D374).
 const stalledLeaderGrace = 3 * time.Second
 
 // seniorityLayout is how a device's seniority is logged: the core's clock to the microsecond.
 const seniorityLayout = "2006-01-02T15:04:05.000000Z07:00"
 
-// canLead is whether the device may lead: it plays the film, on a page its browser shows (D372 §5,
-// §6). Its page elsewhere, it is not attached at all.
-func (each *device) canLead() bool {
-	return each.role.plays() && !each.isPageHidden
+// contends is whether the device contends for the lead (D374 §1): every choice of leader is among
+// the contenders alone.
+func (current *session) contends(each *device) bool {
+	return current.whyPassedOver(each) == ""
+}
+
+// whyPassedOver is why the device does not contend for the lead, "" when it does: a contender is a
+// player on a page its browser shows (D372 §5, §6) whose player has the session's film, as its latest
+// state says or as it put it on itself (D374 §1). Attached in a playing role is not enough: a device
+// whose film went to a cast's receiver may keep its connection with no player, and its receiver
+// contends in its place. Its page elsewhere, it is not attached at all.
+func (current *session) whyPassedOver(each *device) string {
+	switch {
+	case !each.role.plays():
+		return passedOverPanel
+	case each.isPageHidden:
+		return string(goneHidden)
+	case current.group.fileID == 0:
+		return string(goneNothingOn)
+	case each.playerFileID == 0:
+		return string(goneNoFilm)
+	case each.playerFileID != current.group.fileID:
+		return string(goneOtherFilm)
+	}
+	return ""
+}
+
+// isOnlyContender is whether the device is the session's one contender for the lead: its stall is
+// then waited for, as a film played alone waits, there being no one else it would hold up (D374 §3).
+func (current *session) isOnlyContender(from *device) bool {
+	if !current.contends(from) {
+		return false
+	}
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached.id != from.id && current.contends(attached) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// takeContention takes a device's state as it bears on the lead (D374 §1): becoming a contender, its
+// player having the session's film on a page that shows, it arrives for the lead (arrived), its first
+// time since it attached as a device attaching; a leader that no longer contends, its page hidden,
+// its player gone or showing another film, is gone, and the lead passes at once (D372 §5).
+func (current *session) takeContention(now time.Time, who *member, from *device, wasContender bool) {
+	isContender := current.contends(from)
+	switch {
+	case isContender && !wasContender:
+		isFirst := !from.hasContended
+		from.hasContended = true
+		current.arrived(now, who, from, isFirst)
+	case !isContender && from.id == current.leaderID:
+		current.leaderGone(now, who.isHost, GoneBecause(current.whyPassedOver(from)))
+	}
+}
+
+// filmChanged hands the lead on, telling the group nothing, from a leader that does not play the
+// film the session now has on, or has nothing on (D374 §1): to a contender for it, or none, the group
+// then playing it at once (D371 §2). A film the host's player puts on is that player's, which leads
+// it (changeItem).
+func (current *session) filmChanged(now time.Time) {
+	leaderMember, leading := current.leaderAndMember()
+	if leading != nil && !current.contends(leading) {
+		current.handOn(now, leaderMember.isHost, GoneBecause(current.whyPassedOver(leading)))
+	}
 }
 
 // leader is the session's leader, the device that is the film (D371 §1); nil while none leads.
@@ -99,6 +179,7 @@ func (current *session) lead(now time.Time, who *member, leading *device, why st
 	}
 	previous := current.leaderID
 	current.leaderID = leading.id
+	leading.catchingUpSince = time.Time{}
 	attributes := append([]any{
 		logEvent, eventLeaderChanged, sessionIDAttribute, current.id,
 		leaderDeviceIDAttribute, leading.id, "leaderMemberId", who.id, "why", why,
@@ -109,12 +190,13 @@ func (current *session) lead(now time.Time, who *member, leading *device, why st
 	current.logger.Info("watch together: the session's leader changed", attributes...)
 }
 
-// arrived takes a device that can lead as it arrives, isAttaching, or is shown again: it leads when
-// none does; a host's leads at once when it attaches and the host's leads already (D371 §3), or
-// when nothing is on; a host's coming back while a guest's leads a film follows until it plays in
-// step (takeLeadInStep), so the film never jumps for its return (D372 §3).
+// arrived takes a device as it comes to contend for the lead, isAttaching its first time since it
+// attached, or as it is shown again: it leads when none does; a host's leads at once, its first
+// time, when the host's leads already (D371 §3); a host's coming back while a guest's leads follows
+// until it plays in step (takeLeadInStep), so the film never jumps for its return (D372 §3). A
+// contender plays the session's film, so a guest's never leads while nothing is on (D374 §1).
 func (current *session) arrived(now time.Time, who *member, from *device, isAttaching bool) {
-	if !from.canLead() {
+	if !current.contends(from) {
 		return
 	}
 	leaderMember, leading := current.leaderAndMember()
@@ -127,15 +209,13 @@ func (current *session) arrived(now time.Time, who *member, from *device, isAtta
 		current.lead(now, who, from, why)
 	case who.isHost && isAttaching && leaderMember.isHost:
 		current.lead(now, who, from, leadAttached) // the newest of the host's players leads
-	case who.isHost && !leaderMember.isHost && current.group.fileID == 0:
-		current.lead(now, who, from, leadAttached) // nothing on, nothing to jump
 	}
 }
 
-// takeLeadInStep hands the lead back to a host's device a guest's leads in place of, once its state
-// says it plays in step with the group (D372 §3).
+// takeLeadInStep hands the lead back to a host's contender a guest's leads in place of, once its
+// state says it plays in step with the group (D372 §3).
 func (current *session) takeLeadInStep(now time.Time, who *member, from *device, message Inbound) {
-	if !who.isHost || !from.canLead() || from.id == current.leaderID {
+	if !who.isHost || !current.contends(from) || from.id == current.leaderID {
 		return
 	}
 	leaderMember, leading := current.leaderAndMember()
@@ -163,37 +243,53 @@ func (current *session) inStep(now time.Time, from *device, message Inbound) (in
 	return off.Milliseconds(), off <= current.driftLeftAlone
 }
 
-// leaderGone hands the lead on at once from a leader gone, because: to the host's newest other
-// device that can lead (D371 §3), else to the most senior player (D372 §1); with none, a Watch
-// Together group that plays or stands for its leader pauses where it stands (§7). A cast is a
-// session of one, its receiver's return taking up where it stood, and is not paused.
+// leaderGone hands the lead on at once from a leader gone, because (handOn); with no contender left,
+// a Watch Together group that plays or stands for its leader pauses where it stands (D372 §7). A cast
+// is a session of one, its receiver's return taking up where it stood, and is not paused.
 func (current *session) leaderGone(now time.Time, wasHost bool, because GoneBecause) {
-	previous := current.leaderID
-	gone := []any{"goneBecause", string(because), "goneLeaderWasHost", wasHost}
-	// The leader gone is detached, removed or hidden, so it is never the next.
-	if who, next := current.nextLeader((*device).canLead); next != nil {
-		current.lead(now, who, next, leadLeaderGone, gone...)
+	if current.handOn(now, wasHost, because) {
 		return
 	}
-	current.leaderID = 0
-	current.logger.Info("watch together: the session's leader changed", append([]any{
-		logEvent, eventLeaderChanged, sessionIDAttribute, current.id, leaderDeviceIDAttribute, 0, "why", leadLeaderGone,
-		"previousLeaderDeviceId", previous,
-	}, gone...)...)
 	state := current.group.state
 	if !current.isCast && current.group.fileID != 0 && (state == GroupPlaying || state == GroupWaiting) {
 		current.change(now, GroupPaused, EventEveryoneLeft, 0)
 	}
 }
 
-// nextLeader is who leads once the leader is gone: of the devices isEligible takes, the host's
-// newest, else the one present longest, ties to the lower id; nils for none.
-func (current *session) nextLeader(isEligible func(*device) bool) (*member, *device) {
+// handOn hands the lead on from a leader gone, because, to the host's newest other contender (D371
+// §3), else the most senior contender (D372 §1), and reports whether one took it; with none, no one
+// leads. The log says each player passed over, and why (D374 §1).
+func (current *session) handOn(now time.Time, wasHost bool, because GoneBecause) bool {
+	previous := current.leaderID
+	// The leader gone is detached, removed, hidden or plays the film no more: it never contends.
+	who, next, passedOver := current.nextLeader(current.whyPassedOver)
+	gone := []any{"goneBecause", string(because), "goneLeaderWasHost", wasHost, "passedOver", passedOver}
+	if next != nil {
+		current.lead(now, who, next, leadLeaderGone, gone...)
+		return true
+	}
+	current.leaderID = 0
+	current.logger.Info("watch together: the session's leader changed", append([]any{
+		logEvent, eventLeaderChanged, sessionIDAttribute, current.id, leaderDeviceIDAttribute, 0, "why", leadLeaderGone,
+		"previousLeaderDeviceId", previous,
+	}, gone...)...)
+	return false
+}
+
+// nextLeader is who leads once the leader is gone: of the devices whyNot passes over for nothing, the
+// host's newest, else the one present longest, ties to the lower id; nils for none. It says each
+// player passed over and why, "<device id>:<why>" apart by spaces in device order, for the log (D374
+// §1); a panel, never a player, goes unsaid.
+func (current *session) nextLeader(whyNot func(*device) string) (*member, *device, string) {
 	var hostMember, seniorMember *member
 	var hostNewest, senior *device
+	passedOver := map[int64]string{}
 	for _, each := range current.members {
 		for _, attached := range each.devices {
-			if !isEligible(attached) {
+			if why := whyNot(attached); why != "" {
+				if why != passedOverPanel {
+					passedOver[attached.id] = why
+				}
 				continue
 			}
 			if each.isHost && (hostNewest == nil || attached.id > hostNewest.id) {
@@ -205,19 +301,30 @@ func (current *session) nextLeader(isEligible func(*device) bool) (*member, *dev
 		}
 	}
 	if hostNewest != nil {
-		return hostMember, hostNewest
+		return hostMember, hostNewest, passedOverSaid(passedOver)
 	}
-	return seniorMember, senior
+	return seniorMember, senior, passedOverSaid(passedOver)
+}
+
+// passedOverSaid is the players passed over for the lead, by device id, as the log says them:
+// "<device id>:<why>", apart by spaces, in device order.
+func passedOverSaid(passedOver map[int64]string) string {
+	said := make([]string, 0, len(passedOver))
+	for _, id := range slices.Sorted(maps.Keys(passedOver)) {
+		said = append(said, strconv.FormatInt(id, 10)+":"+passedOver[id])
+	}
+	return strings.Join(said, " ")
 }
 
 // passStalledLead hands the lead on from a leader stalled past stalledLeaderGrace while its Watch
-// Together group plays (D373 §2): to the host's newest other player that plays on, else the most
+// Together group plays (D373 §2): to the host's newest other contender that plays on, else the most
 // senior, as from a leader gone (D372 §1); the group plays on, and a host's stalled device takes the
-// lead back once it plays in step again (takeLeadInStep, D373 §3). A player stalled too is passed
-// over; with no one else to lead, the stalled leader keeps the lead and the group plays on. A cast's
-// group stands for its receiver's stall instead (followLeader): a session of one holds no one up.
+// lead back once it plays in step again (takeLeadInStep, D373 §3). A contender stalled too is passed
+// over; with no one else to lead, the stalled leader keeps the lead and the group plays on. The only
+// contender's stall, a cast's receiver's among them, its group stands for instead (followLeader,
+// D374 §3), so its group does not play.
 func (current *session) passStalledLead(now time.Time) {
-	if current.isCast || current.group.state != GroupPlaying {
+	if current.group.state != GroupPlaying {
 		return
 	}
 	leaderMember, leading := current.leaderAndMember()
@@ -228,14 +335,20 @@ func (current *session) passStalledLead(now time.Time) {
 	if stalledFor < stalledLeaderGrace {
 		return
 	}
-	who, next := current.nextLeader(func(each *device) bool {
-		return each.canLead() && each.id != leading.id && !each.buffering
+	who, next, passedOver := current.nextLeader(func(each *device) string {
+		if why := current.whyPassedOver(each); why != "" {
+			return why
+		}
+		if each.buffering {
+			return string(goneStalled)
+		}
+		return ""
 	})
 	if next == nil {
 		return
 	}
 	current.lead(now, who, next, leadLeaderGone, "goneBecause", string(goneStalled),
-		"goneLeaderWasHost", leaderMember.isHost, "stalledMs", stalledFor.Milliseconds())
+		"goneLeaderWasHost", leaderMember.isHost, "stalledMs", stalledFor.Milliseconds(), "passedOver", passedOver)
 	current.sendRoster()
 }
 
@@ -257,8 +370,9 @@ func (current *session) leaderStillHere(now time.Time, wasHost bool, because Gon
 }
 
 // takeVisibility takes a device's word that its page is hidden, its film paused by its browser, or
-// shown again: hidden, it is gone for the lead, which passes at once (D372 §5); shown again, its
-// seniority starts anew, now, and it may lead as a device arriving would (§2, §3).
+// shown again: hidden, it contends no more, and a leader's lead passes at once (takeContention, D372
+// §5); shown again, its seniority starts anew, now, and it contends again as a device arriving would
+// (§2, §3).
 func (current *session) takeVisibility(now time.Time, who *member, from *device, isHidden bool) {
 	if isHidden == from.isPageHidden {
 		return
@@ -266,14 +380,9 @@ func (current *session) takeVisibility(now time.Time, who *member, from *device,
 	from.isPageHidden = isHidden
 	current.logger.Info("watch together: a device's page was hidden or shown",
 		append(current.deviceAttributes(who, from), "isPageHidden", isHidden)...)
-	if isHidden {
-		if from.id == current.leaderID {
-			current.leaderGone(now, who.isHost, goneHidden)
-		}
-		return
+	if !isHidden {
+		from.arrivedAt = seniorityAt(now)
 	}
-	from.arrivedAt = seniorityAt(now)
-	current.arrived(now, who, from, false)
 }
 
 // seniorityAt is a device's seniority arriving at now: the core's clock at microsecond resolution

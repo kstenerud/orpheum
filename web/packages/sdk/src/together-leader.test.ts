@@ -255,6 +255,41 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(reports.length).toBe(again);
   });
 
+  it("catches up to its group after a stall the group played on through, nudged forward, then leads from there (D374)", () => {
+    const media = new FakeMedia();
+    media.currentTime = 60;
+    media.paused = false;
+    const fake = fakeConnection({ ...paused, state: "Playing", positionMs: 60_000 });
+    const withAFollower = [device(thisDevice, "video", true), device(9, "video")];
+    followGroup(media, withRoster(fake.connection, withAFollower), {
+      fileId: 5,
+      leads: everyRight,
+      monotonicMs,
+    });
+    const { connection, reports, notes, commands } = fake;
+    media.readyState = 2; // stalled, the group playing on
+    connection.reportState();
+    monotonicNowMs = 2000; // the group 2 s on
+    media.readyState = 4; // plays again where it stalled, 2 s behind
+    connection.reportState();
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.playbackRate, "nudged forward to its group, as a follower is").toBeGreaterThan(1);
+    expect(notes.some((note) => note.kind === "nudged")).toBe(true);
+    expect(commands, "the group is moved back for no stall").toEqual([]);
+    const catchingUp = reports.length;
+    monotonicNowMs = 3000;
+    media.currentTime = 63; // caught up
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.playbackRate, "leading again, at its group's rate").toBe(1);
+    expect(reports.length).toBeGreaterThan(catchingUp);
+    expect(reports.at(-1)).toMatchObject({ positionMs: 63_000, isBuffering: false });
+    const caughtUp = reports.length;
+    monotonicNowMs = 5000; // drifting from its group as a leader may: it is never steered again
+    vi.advanceTimersByTime(3 * checkDriftEveryMs);
+    expect(media.playbackRate).toBe(1);
+    expect(reports.length).toBe(caughtUp);
+  });
+
   it("tells its session how it plays the film: its delivery, the quality it began and the link it chose it on (D371 §4)", () => {
     const { media, reports } = leading(
       { ...paused, state: "Playing" },

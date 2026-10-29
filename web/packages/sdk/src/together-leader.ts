@@ -176,6 +176,90 @@ export class GroupLeader {
 }
 
 /**
+ * A leader's catching up to its group after a stall the group played on through (D374): the group
+ * waits for no one's stall while another device plays the film (D373 §1), so a leader that plays
+ * again within its grace, still leading, is behind its group, and catches up to it as a follower
+ * does, nudged or sought, before it leads again from there; the server's group moves on its own clock
+ * meanwhile, never stepping back for the stall, so no one sees a stretch twice. A stall begins while
+ * the leader says it buffers and its group plays, within one change of the group; it ends as it no
+ * longer buffers, that change still the group's, and the catching up lasts while it is, until in step.
+ * A change of the group (a seek, a pause, the group standing for its only player's stall, D374 §3)
+ * ends either: the leader leads that change as it would. Its own command, awaiting its answer, is no
+ * stall: its loading is its own seek's.
+ */
+export class LeaderCatchUp {
+  /** The playing group's change in which the leader stalls, while it does. */
+  #stall: { readonly seq: number | undefined } | undefined = undefined;
+  /**
+   * The playing group's change the leader catches up in, after its stall ended, and whether it has
+   * followed its group out of step since.
+   */
+  #catchingUp: { readonly seq: number | undefined; hasFollowed: boolean } | undefined = undefined;
+
+  /**
+   * Takes the leader's state as it tells it, isBuffering, with its group as its connection knows it,
+   * its change seq; isAwaitingGroup while a command of its own awaits its answer, which no stall is.
+   */
+  told(
+    isBuffering: boolean,
+    where: {
+      readonly group: Pick<GroupView, "state"> | undefined;
+      readonly seq: number | undefined;
+    },
+    isAwaitingGroup: boolean,
+  ): void {
+    if (where.group?.state !== "Playing" || isAwaitingGroup) {
+      this.#stall = undefined;
+      return;
+    }
+    if (isBuffering) {
+      this.#stall = { seq: where.seq };
+      return;
+    }
+    if (this.#stall !== undefined && this.#stall.seq === where.seq) {
+      this.#catchingUp = { seq: where.seq, hasFollowed: false };
+    }
+    this.#stall = undefined;
+  }
+
+  /** Whether the leader catches up to its group now, the group at its change seq. */
+  isCatchingUp(seq: number | undefined): boolean {
+    return this.#catchingUp !== undefined && this.#catchingUp.seq === seq;
+  }
+
+  /** The leader, catching up, followed its group, out of step with it. */
+  followed(): void {
+    if (this.#catchingUp !== undefined) {
+      this.#catchingUp.hasFollowed = true;
+    }
+  }
+
+  /**
+   * The leader is in step with its group: it leads from here. Whether it followed its group to get
+   * here: a stall that ended in step said so in its own state, and needs no other.
+   */
+  caughtUp(): boolean {
+    const hasFollowed = this.#catchingUp?.hasFollowed === true;
+    this.#catchingUp = undefined;
+    return hasFollowed;
+  }
+}
+
+/**
+ * Whether a leader catching up is in step with its group, expectedMs, and so leads again: playing,
+ * ready, not seeking, within the drift a follower leaves alone (leaveDriftUpToMs, D250 §1), as the
+ * server judges it in step by its state.
+ */
+export function isCaughtUp(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): boolean {
+  return (
+    !media.paused &&
+    !media.seeking &&
+    media.readyState >= haveFutureData &&
+    Math.abs(positionMsOf(media) - expectedMs) <= tuning.leaveDriftUpToMs
+  );
+}
+
+/**
  * How a player plays its film, as it tells its session for a cast's remote to show (D371 §4): the
  * delivery it was given, and the quality it plays and the link it estimated as it chose it, from
  * its player's word of each quality it begins (playerSwitchedQualityEvent).

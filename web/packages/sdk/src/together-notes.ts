@@ -10,6 +10,11 @@ import type { VoiceCallStats } from "./together-voice-stats.ts";
 
 /** Where this device's player is, as it tells the group. */
 export interface PlayerState {
+  /**
+   * The film its player has loaded, 0 for none: a page whose film plays on a cast's receiver says 0
+   * (tellsNoFilmHere). Only a device playing its session's film contends for the lead (D374 §1).
+   */
+  readonly fileId: number;
   readonly positionMs: number;
   readonly isPlaying: boolean;
   /** Not ready to play along: loading, seeking, or not yet at the group's position. */

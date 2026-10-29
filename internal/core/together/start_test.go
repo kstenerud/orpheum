@@ -69,6 +69,7 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		stage.hub.Handle(t.Context(), host, Inbound{
 			Type: MessageCommand, Command: CommandChangeItem, FileID: 7, PositionMs: 60_000,
 		})
+		stage.ready(t, leader, true) // the host's player, loading the film, leads it
 		stage.hub.Handle(t.Context(), host, Inbound{
 			Type: MessageCommand, Command: CommandSeek, PositionMs: jump.toMs, BasedOnSeq: box.last(MessageGroup).Seq,
 		})

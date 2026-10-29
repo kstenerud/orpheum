@@ -413,9 +413,12 @@ type Inbound struct {
 	Playback *Playback `json:"playback,omitempty"`
 	// PageHidden, in a state, is the device's page hidden by its browser, its film paused: a
 	// handheld's, a locked phone's. Such a device cannot lead (D372 §5).
-	PageHidden bool          `json:"pageHidden,omitempty"`
-	Command    CommandKind   `json:"command,omitempty"`
-	Rate       float64       `json:"rate,omitempty"`
+	PageHidden bool        `json:"pageHidden,omitempty"`
+	Command    CommandKind `json:"command,omitempty"`
+	Rate       float64     `json:"rate,omitempty"`
+	// FileID is a changeItem's film to put on; in a state, the film the device's player has
+	// loaded, 0 when it has none: its player gone, its film handed to a cast's receiver, or not yet
+	// loaded. Only a device whose player has the session's film contends for the lead (D374 §1).
 	FileID     int64         `json:"fileId,omitempty"`
 	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
 	Reason     SuspendReason `json:"reason,omitempty"`

@@ -128,7 +128,9 @@ func putOn(host, viewer socket, fileID int64) {
 	host.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: fileID,
 	})
-	host.send(together.Inbound{V: together.ProtocolVersion, Type: together.MessageState, Playing: true})
+	host.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageState, Playing: true, FileID: fileID,
+	})
 	for {
 		if playing := viewer.awaitGroup(together.GroupPlaying); playing.Group.FileID == fileID {
 			return

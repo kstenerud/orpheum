@@ -190,6 +190,7 @@ func (hub *Hub) CastReady(sessionID, userID int64) error {
 		return nil
 	}
 	cast.group.fileID, cast.group.position = 0, 0
+	cast.filmChanged(hub.clock.Now()) // nothing on, no one leads (D374 §1)
 	cast.change(hub.clock.Now(), GroupIdle, EventStopped, 0)
 	return nil
 }

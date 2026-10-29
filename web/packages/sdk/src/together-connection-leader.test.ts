@@ -102,6 +102,7 @@ describe("a session's leader, as its roster says (D371 §1)", () => {
   it("tells the session in its state how its player plays the film, in whole numbers", () => {
     const { connection, socket } = welcomed([]);
     connection.setPlayer(() => ({
+      fileId: 7,
       positionMs: 10_000,
       isPlaying: true,
       isBuffering: false,

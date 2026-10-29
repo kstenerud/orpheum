@@ -100,3 +100,17 @@ export function followGroup(
     }
   };
 }
+
+/**
+ * Tells connection's session this page plays no film now, its film handed to a cast's receiver while
+ * its connection stays (D371 §4): its state says no film, so the device contends for no lead, and a
+ * lead it held passes at once, its receiver contending in its place (D374 §1). Returns the undoing,
+ * for when a player of its own follows the group again.
+ */
+export function tellsNoFilmHere(connection: TogetherConnection): () => void {
+  connection.setPlayer(() => ({ fileId: 0, positionMs: 0, isPlaying: false, isBuffering: false }));
+  connection.reportState();
+  return () => {
+    connection.setPlayer(undefined);
+  };
+}

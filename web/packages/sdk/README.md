@@ -48,10 +48,18 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   command; it takes the place of a group under way far from it once, as it begins to lead, and joins
   a film it put on where it is; it says it buffers only while it cannot play on, and tells its state
   each second while it does, so the server hands its lead on once its stall outlasts the grace, the
-  group playing on, for no one's stall holds a Watch Together group (D373 §1, §2); and it tells its
+  group playing on, for no one's stall holds a Watch Together group (D373 §1, §2); a stall its
+  group played on through that ends while it still leads, it catches up after as a follower does,
+  nudged or sought forward to the group, telling its state each second, and leads again from there
+  once in step, the group never stepping back for it (D374, `LeaderCatchUp`); and it tells its
   session how it plays the film, its delivery, the quality it began and the link it chose it on, for
   a cast's remote to show (D371 §4). Its person's own moves are commands, as any player's. A follower
   whose session another device leads follows the group as above. `src/together-leader.test.ts`.
+- **Every state a player tells says the film it has** (`fileId`), by which the server counts it a
+  contender for its session's lead; a page whose film went to a cast's receiver, its connection
+  kept, says it has none (`tellsNoFilmHere`), so it never leads in its receiver's place (D374 §1).
+  `src/together-connection.test.ts`, `src/together-follow.test.ts`; the guest's page,
+  `apps/web/src/together-viewer-cast.test.tsx`.
 - **Where a following player is in correcting its drift is one phase**: following, nudging,
   returning to the group's rate, skipping, or waiting ahead, moved only by `nextPhase`; what holds
   beside any phase (refilling, a command awaiting the group, settling, correcting by seeks alone)
