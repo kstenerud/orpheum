@@ -1683,3 +1683,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`why=hostInStep`), no one's film jumping. (`internal/core/together/leader.go`,
   `web/packages/sdk/src/together-follow.ts`, `together-roster.ts`)
   **Passed 2026-10-29 (the owner, staging):** handover moved no one; the host took the lead back in step; with no one left, the first back resumed from its own place, and a pause stayed. Firefox took ~45 s to recover after the outage (Chrome quicker): filed for the next batch.
+- [ ] **VQ140** — On the Fire TV (Silk), playing a film on its own Play page with its controls shown
+  (out of full screen), move down with the remote onto the scrub bar and press Down again. Passes when
+  the film stays where it was (no step back a second at each Down) and focus stays on the scrub bar or
+  moves below it. Before this change Down at the bottom of the controls fell to the browser, which steps
+  a focused slider's value (the owner, staging, 2026-10-29). (`web/apps/web/src/input-commands.ts`)
