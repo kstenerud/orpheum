@@ -26,7 +26,11 @@ func readerWritesAllowed() map[string]string {
 		"jobqueue.(*Queue[...]).Enqueue": "a play's GET queues the run of chunks, the read-through or the " +
 			"text it plays",
 		"jobqueue.(*Queue[...]).CancelOpenOf": "a play's GET cancels the run of chunks a seek went past (D250 §5)",
-		"chunks.(*Service).storeIDOf":         "a play's GET names the chunk store its first run makes",
+		// The cancel's hook: the node holding the cancelled run is told to stop, and its attempt,
+		// kept in cache.db through a restart (D234 §7), is dropped with it.
+		"nodes.(*Exchanges).forgetAttempt": "a play's GET that cancels a run a node holds (a seek past it, " +
+			"or the dialogue boost's turn ending an own-sound run) forgets the node's attempt at it",
+		"chunks.(*Service).storeIDOf": "a play's GET names the chunk store its first run makes",
 		// Once a place, never once a read: the place is noted, and the reads after it skip it.
 		"library.(*Scans).request": "a play's GET that finds its file not at a place asks for a scan of " +
 			"the place's folder, which sees it there again or removes it (D363 §8)",

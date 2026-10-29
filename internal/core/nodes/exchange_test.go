@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -257,6 +258,21 @@ func TestExchange_ACancelTellsTheNodeToStop(t *testing.T) {
 	if attempt := testutil.Receive(t, cancelled, "the kind told of the cancel"); attempt.Token != sent.AttemptToken {
 		t.Errorf("the kind was told of attempt %s's cancel, want %s", attempt.Token, sent.AttemptToken)
 	}
+}
+
+// A play's GET that cancels a run a node holds (a seek past it, the dialogue boost's turn ending an
+// own-sound run) forgets the node's attempt, a write a request that only reads may make, with why:
+// the server logs it at debug, not as a warning (staging, 2026-10-28), and storetest's cache fails
+// the test of any write its list does not allow (D303, DL10).
+func TestExchange_ACancelUnderARequestThatOnlyReadsForgetsTheAttemptAsItMay(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	cancelled := make(chan nodes.Attempt, 1)
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), cancelled))
+	sent := bench.assign(t)
+	bench.exchanges.Cancelled(waiting.ForAReader(t.Context()), 7)
+	bench.wantToldToStop(t, sent)
+	testutil.Receive(t, cancelled, "the kind told of the cancel")
 }
 
 // A job whose time ran out (assigned_job_limit_hours) tells its node to stop the work, and its
