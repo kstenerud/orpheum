@@ -1193,6 +1193,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   no group change for a follower's stall; the owner saw everything work. Left: (2), the guest's link
   throttled until it stalls (the S23's mobile data is out until 2026-11-01; Chrome's remote debugging
   was too fiddly) — to do then, or with another phone.
+  **Again 2026-10-29 23:07 (Mac Chrome casting to the Fire TV, the S23 as guest, pause, play and
+  jumps from Chrome and then from the TV's remote):** the S23 stayed in step; one leader (device 64)
+  on every `groupChanged`, the S23 (device 67) caught up by a seek at each jump and nudges to within
+  0.5 s. (2) still left.
 - [ ] **VQ103** — a guest casting to a second device follows the group there (D371 §4), on staging.
   Passes when the Mac hosts a session playing a film and a guest, signed in on the iPhone as a
   person of their own, joins it, then casts from the iPhone (the tray's Cast) to a second device of
