@@ -44,6 +44,7 @@ import {
   type FollowedMedia,
 } from "./together-media.ts";
 import { catchUpTargetMs, LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
+import type { CatchUpAimNote } from "./together-notes.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted, ShownAgain } from "./together-sound.ts";
@@ -464,6 +465,7 @@ export class GroupFollower {
   /** A chunk loaded: how fast the link carries the film, for when it is ready after a seek. */
   readonly chunkLoaded = (loaded: ChunkLoaded): void => {
     this.#refill.chunkLoaded(loaded);
+    this.#loadSpeed.chunkLoaded(loaded);
   };
 
   /** The player moves the video itself: the seeking that follows is not its person's. */
@@ -546,8 +548,14 @@ export class GroupFollower {
     };
   }
 
-  #seek(toMs: number, why: "catchUp" | "hold" | "skip"): void {
-    this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
+  #seek(toMs: number, why: "catchUp" | "hold" | "skip", aim: CatchUpAimNote = {}): void {
+    this.#connection.note({
+      kind: "sought",
+      positionMs: positionMsOf(this.#media),
+      toMs,
+      why,
+      ...aim,
+    });
     this.#loadSpeed.forget();
     this.#move({ kind: "sought" });
     this.#ownMoves.mark("seek", this.#options.monotonicMs());
@@ -728,11 +736,19 @@ export class GroupFollower {
     if (this.#hasCaughtUp) {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
-    const targetMs = catchUpTargetMs(this.#media, { toMs, rate: where.group.rate }, () =>
+    const aim = catchUpTargetMs(this.#media, { toMs, rate: where.group.rate }, () =>
       this.#loadSpeed.catchUpLeadMs(this.#lastLoadMs, where.group.rate, where.tuning),
     );
+    const { targetMs } = aim;
+    const ratio = this.#loadSpeed.ratio();
     this.#media.dispatchEvent(new Event(catchUpSeekEvent));
-    this.#seek(targetMs, "catchUp");
+    this.#seek(targetMs, "catchUp", {
+      groupAtMs: Math.round(toMs),
+      aheadForLoadMs: Math.round(aim.aheadForLoadMs),
+      aimedBy: aim.aimedBy,
+      lastLoadMs: Math.round(this.#lastLoadMs),
+      ...(ratio === undefined ? {} : { loadsFaster: Math.round(ratio * 10) / 10 }),
+    });
     this.#move({ kind: "jumpedAhead", atMs: targetMs });
   }
 

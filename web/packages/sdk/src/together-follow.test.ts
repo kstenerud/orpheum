@@ -583,6 +583,66 @@ describe("a player following its group", () => {
     expect(media.currentTime).toBe(104 + waitAheadAtMostMs / 1000);
   });
 
+  it("back after a minute without its link, aims ahead of the group by its link's time to load, not a minute (the owner's Chrome, staging, 2026-10-29; VQ133)", () => {
+    const media = new FakeMedia();
+    media.currentTime = 100;
+    media.loaded = [[0, 105]];
+    const { connection, notes } = fakeConnection({
+      ...paused,
+      state: "Playing",
+      positionMs: 100_000,
+    });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    // Its link carries the film 2.5 times as fast as it plays: 4 s of picture in 1.6 s.
+    const chunk: ChunkLoaded = {
+      track: "video",
+      loadMs: 1600,
+      loadedKbps: 5000,
+      qualityKbps: 2000,
+      filmMs: 4000,
+    };
+    for (let atMs = 1000; atMs <= 4000; atMs += 1000) {
+      monotonicNowMs = atMs;
+      media.currentTime = 100 + atMs / 1000;
+      media.loaded = [[0, 105 + (2.5 * atMs) / 1000]];
+      media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: chunk }));
+      media.fire("progress");
+      vi.advanceTimersByTime(checkDriftEveryMs);
+    }
+    // Wi-Fi off for a minute: every load fails, nothing more arrives, and it plays out what it
+    // loaded, standing still the last 15 s while the group plays on.
+    for (let atMs = 5000; atMs <= 64_000; atMs += 1000) {
+      monotonicNowMs = atMs;
+      media.currentTime = Math.min(104 + (atMs - 4000) / 1000, 149);
+      media.loaded = [[0, 149]];
+      if (media.currentTime === 149 && media.readyState === 4) {
+        media.readyState = 2;
+        media.fire("waiting");
+      }
+      vi.advanceTimersByTime(checkDriftEveryMs);
+    }
+    // Back: a chunk loads at its link's speed, and it can play, 15 s behind its group at 164 s.
+    media.loaded = [[0, 153]];
+    media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: chunk }));
+    media.fire("progress");
+    media.readyState = 4;
+    media.fire("canplay");
+    // 80% of the 30 s it loads ahead, at 2.5 s of film a second, is 9.6 s ahead (D250 §4); a
+    // minute's samples of nothing arriving read as a link that loads nothing, and it jumped 60 s.
+    expect(media.currentTime).toBe(173.6);
+    expect(notes.findLast((note) => note.kind === "sought")).toEqual({
+      kind: "sought",
+      positionMs: 149_000,
+      toMs: 173_600,
+      why: "catchUp",
+      groupAtMs: 164_000,
+      aheadForLoadMs: 9600,
+      aimedBy: "fill",
+      lastLoadMs: 0,
+      loadsFaster: 2.5,
+    });
+  });
+
   it("waiting ahead, follows a group that pauses to where it paused, and plays on from there", () => {
     const { media, setGroup } = fallenBehindOnAHalfSpeedLink();
     media.fire("seeked");

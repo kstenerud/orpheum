@@ -107,6 +107,33 @@ export interface PlayerState {
  *   picture's and sound's buffered ranges, its last error, how hls.js placed its first chunks and
  *   whether its media source lets it load.
  */
+/** What a catch-up seek's aim ahead of its group rests on (together-load-speed.ts), for its note. */
+export type CatchUpAimedBy =
+  /** The film held there already: a moment ahead (loadedCatchUpLeadMs). */
+  | "loaded"
+  /** How long its last seek took to load, with no measure of its link yet. */
+  | "lastLoad"
+  /** Its last seek's load and the time its link, as measured, takes to fill its buffer (D250 §4). */
+  | "fill"
+  /** As far as a person waits for their group, its link slower than that (waitAheadAtMostMs). */
+  | "mostAhead";
+
+/**
+ * A catch-up seek's aim, as its sought note tells it, every part absent for every other seek: where
+ * it expected the group then, groupAtMs; how far ahead of the group it aimed, for its load, aheadForLoadMs,
+ * by aimedBy (CatchUpAimedBy); and what that rested on, how long its last seek took to load,
+ * lastLoadMs, and the film loaded per second of its link, to a tenth, loadsFaster, absent with no
+ * measure. A catch-up a minute ahead of its group said nothing of why (the owner's Chrome, staging,
+ * 2026-10-29).
+ */
+export interface CatchUpAimNote {
+  readonly groupAtMs?: number;
+  readonly aheadForLoadMs?: number;
+  readonly aimedBy?: CatchUpAimedBy;
+  readonly lastLoadMs?: number;
+  readonly loadsFaster?: number;
+}
+
 export type PlayerNote =
   | {
       readonly kind: "nudged";
@@ -116,12 +143,12 @@ export type PlayerNote =
       /** What the player learned its rate going back to the group's costs it (driftCorrection). */
       readonly returnCostMs: number;
     }
-  | {
+  | ({
       readonly kind: "sought";
       readonly positionMs: number;
       readonly toMs: number;
       readonly why: "catchUp" | "hold" | "skip" | "join" | "command" | "undone";
-    }
+    } & CatchUpAimNote)
   | {
       readonly kind: "chunkLoaded";
       readonly track: "video" | "audio";

@@ -74,6 +74,11 @@ describe("a follower whose page is shown again (the owner's VQ105, 2026-10-29)",
       positionMs: 60_000,
       toMs: groupMs,
       why: "catchUp",
+      // Its aim's parts: no seek loaded yet, and no measure of its link, so no lead.
+      groupAtMs: groupMs,
+      aheadForLoadMs: 0,
+      aimedBy: "lastLoad",
+      lastLoadMs: 0,
     });
     media.currentTime += checkDriftEveryMs / 1000; // it plays on, as the group does
     advance(checkDriftEveryMs);

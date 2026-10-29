@@ -17,11 +17,17 @@ func isNoteWord(word string) bool {
 	return false
 }
 
+// isCatchUpAimedBy is whether word may say what a catch-up seek's aim rested on (PlayerNote.AimedBy),
+// or "" for none.
+func isCatchUpAimedBy(word string) bool {
+	return slices.Contains([]string{"", "loaded", "lastLoad", "fill", "mostAhead"}, word)
+}
+
 // isKnown is whether the note is one the server logs: a known kind, carrying only known words.
 func (note PlayerNote) isKnown() bool {
 	switch note.Kind {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteReconnected:
-		return isNoteWord(note.Why) && isNoteWord(note.Track)
+		return isNoteWord(note.Why) && isNoteWord(note.Track) && isCatchUpAimedBy(note.AimedBy)
 	case NoteQualitySwitched:
 		return note.Track == "" && len(note.Why) <= diagnosisTextMost && len(note.LinkSamples) <= diagnosisTextMost
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall, NoteVoiceTalk:
