@@ -945,6 +945,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   and returns to the session by it. (`web/apps/web/src/status-tray.tsx`, `cast-remote.tsx`,
   `cast-to.tsx`, `cast-ready.tsx`, `cast-receiver.tsx`, `together-plays.tsx`, `live.tsx`,
   `internal/core/live/registry.go`, `internal/core/api/casts.go`)
+  **The owner's finding on the Fire TV, 2026-10-29** (staging, device 68): the TV playing A Christmas
+  Carol (file 5664) as its own, a cast put Back to the Lantern (5682) on it; Stop casting on the Mac
+  returned the TV to The Kid, and the TV's Back then played Back to the Lantern as its own.
+  Fixed, to check again: after Stop casting (or control taken back on the ready page), the remote's
+  Back on the TV goes to the page before the one it returned to, never into a film the cast played.
 - [ ] **VQ91** — D367, Back and Up, and a library's Configure, on staging. Passes when, on a computer
   or a phone, no page shows a Back of its own and each page below the top shows its trail
   (`Series › Copper Kettle › S1E1 Pilot`), each part leading up: (1) Continue Watching on Home → play an

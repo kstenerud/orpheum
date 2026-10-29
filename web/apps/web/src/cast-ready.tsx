@@ -10,7 +10,7 @@ import { leaveFullScreen } from "./cast-asked.tsx";
 import { ControlledMode, useEndsAsTheCastDoes } from "./cast-receiver.tsx";
 import { endCast } from "./cast.ts";
 import { Link } from "./link.tsx";
-import { useLive } from "./live.tsx";
+import { leaveTheCastsEntries, useLive } from "./live.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { FollowsTheGroupHere } from "./together-viewer.tsx";
 import { useTogether } from "./use-together.ts";
@@ -53,7 +53,7 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
   const goHome = useCallback(() => {
     endReceiving();
     leaveFullScreen(document);
-    navigation.go({ screen: "home" });
+    leaveTheCastsEntries(navigation, { screen: "home" });
   }, [endReceiving, navigation]);
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
     onOver: goHome,
