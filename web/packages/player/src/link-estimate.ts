@@ -98,12 +98,14 @@ export interface LinkSample {
   readonly firstByteMs: number;
   /**
    * How long its bytes were expected to take to arrive, in ms, at the estimate that stood before it,
-   * and at that estimate's next-chunk bound then, which it should take longer than about as often as
-   * the bound's quantile says: its calibration (bandwidth-sampling-2026-10-29.md P6); absent before
-   * any estimate.
+   * and at that estimate's next-chunk bound with nothing loaded, its 90% bound, which it should take
+   * longer than about one time in ten: its calibration (bandwidth-sampling-2026-10-29.md P6); absent
+   * before any estimate.
    */
   readonly expectedMs?: number;
   readonly boundMs?: number;
+  /** The next-chunk bound a choice read as it came, with what was loaded ahead then, in ms. */
+  readonly readBoundMs?: number;
 }
 
 /**
@@ -238,19 +240,24 @@ export class LinkEstimate {
   }
 
   /**
-   * Takes a chunk that measured the link, with bufferAheadS loaded ahead as it came, noting how long
-   * the estimate before it expected it to take, and its next-chunk bound then.
+   * Takes a chunk that measured the link, noting how long the estimate before it expected it to take,
+   * its 90% next-chunk bound then, and the bound a choice read with bufferAheadS loaded ahead.
    */
   add(sample: LinkSample, bufferAheadS = 0): void {
     const arrivedMs = Math.max(1, sample.arrivedMs);
     const predictedBps = this.estimateBps();
-    const boundBps = this.nextChunkBps(bufferAheadS);
+    // Calibrated against the bound read with nothing loaded, the one whose quantile the log can check
+    // (about one sample in ten slower): the bound a choice reads with 20 s loaded is the centre, which
+    // half the samples fall below by construction (98 of 241 on a Fire TV's Nosferatu, staging,
+    // 2026-10-29), saying nothing of the estimate's calibration.
+    const boundBps = this.nextChunkBps(0);
     const msAt = (bps: number | undefined): { readonly ms?: number } =>
       bps === undefined ? {} : { ms: Math.round((sample.bytes * 8 * 1000) / bps) };
     // Expected at the centre, the prior's alone before any sample, so a start's first chunk counts too.
     const centre = this.centre();
     const expected = msAt(centre === undefined ? undefined : Math.exp(centre)).ms;
     const bound = msAt(boundBps).ms;
+    const readBound = msAt(this.nextChunkBps(bufferAheadS)).ms;
     this.#samples.push({
       ...sample,
       arrivedMs,
@@ -258,6 +265,7 @@ export class LinkEstimate {
       predictedBps,
       ...(expected === undefined ? {} : { expectedMs: expected }),
       ...(bound === undefined ? {} : { boundMs: bound }),
+      ...(readBound === undefined ? {} : { readBoundMs: readBound }),
     });
     this.#samples = this.#samples.slice(-linkSamplesKept);
     this.#count += 1;
@@ -523,15 +531,16 @@ export function sampleText(sample: LinkSample): string {
 
 /**
  * A sample for its note on the link (P6): its sampleText, and where the estimate before it had one,
- * the time it expected and its next-chunk bound's, "below" when it took longer than the bound said:
- * "4 812345B 1203ms fb340ms exp900 lo1100 below".
+ * the time it expected, its 90% next-chunk bound's, the bound's a choice read then, and "below" when
+ * it took longer than the 90% bound: "4 812345B 1203ms fb340ms exp900 lo1100 read950 below".
  */
 export function sampleCalibrationText(sample: LinkSample): string {
   if (sample.expectedMs === undefined || sample.boundMs === undefined) {
     return sampleText(sample);
   }
   const below = sample.arrivedMs > sample.boundMs ? " below" : "";
-  return `${sampleText(sample)} exp${String(sample.expectedMs)} lo${String(sample.boundMs)}${below}`;
+  const read = sample.readBoundMs === undefined ? "" : ` read${String(sample.readBoundMs)}`;
+  return `${sampleText(sample)} exp${String(sample.expectedMs)} lo${String(sample.boundMs)}${read}${below}`;
 }
 
 /**

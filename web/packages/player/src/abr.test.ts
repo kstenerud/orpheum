@@ -215,8 +215,10 @@ describe("choosing a chunked playback's quality (D265)", () => {
     loadAt(choosing, 3, { mbps: 1, seconds: 2 }); // slower than the prior's bound said
     loadAt(choosing, 3, { mbps: 1, seconds: 2 }); // and agreeing: the prior dropped
     expect(scene.linkNotes.slice(1)).toEqual([
-      expect.stringMatching(/^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ below$/u),
-      expect.stringMatching(/^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ below, prior dropped$/u),
+      expect.stringMatching(/^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ read\d+ below$/u),
+      expect.stringMatching(
+        /^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ read\d+ below, prior dropped$/u,
+      ),
     ]);
     // A chunk of the lowest quality, which is never given up, stuck: noted once, with its carrier.
     const lowest = chunkAt(0);
@@ -240,6 +242,20 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(givenUp).toEqual([stuck]);
     expect(scene.linkNotes.at(-1)).toBe(
       "gave up a chunk of 3, stuck: 5000 B in 6500 ms, none for 6000 ms; carried WebRTC connection 2 for /c/3.m4s",
+    );
+  });
+
+  it("notes each sample against its 90% bound, whatever is loaded, so its calibration can be read (P6)", () => {
+    // With 20 s or more loaded a choice reads the link at its centre, which half the samples fall
+    // below: 98 of 241 noted "below" on a Fire TV's Nosferatu (staging, 2026-10-29).
+    const { choosing, hls } = choosingFrom(40_000_000);
+    hls.mainForwardBufferInfo = { len: 30 };
+    for (let index = 0; index < linkSamplesKept; index += 1) {
+      loadAt(choosing, 3, { mbps: 8, seconds: 2 });
+    }
+    loadAt(choosing, 3, { mbps: 7, seconds: 2 }); // a little slower than the centre, well within the 90% bound
+    expect(scene.linkNotes.at(-1)).toMatch(
+      /^sample 3 1750000B 2000ms fb50ms exp\d+ lo\d+ read\d+$/u,
     );
   });
 
