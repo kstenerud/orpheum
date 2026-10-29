@@ -886,6 +886,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   also sat still at 1231.3 s for 50 s; a second run played on: perhaps the throttling's own); the
   boost at the top switches to the boosted mix. Left for the owner: the Mac's Chrome, loudness and
   blips by ear, the boost kept across steps.
+  **The owner's run 2026-10-29 (Chrome on the Mac, Back to the Lantern, file 5682, over HTTP):** throttled
+  to 3G it stepped down to the lowest quality with no hiccup heard; freed, it climbed one quality a
+  minute (11:25:36 to level 1, 11:26:43 to level 2, each shown about 31 s after its step, the forward
+  buffer's 30 s below the top), and was paused before reaching the film's own picture: one quality at a
+  time after drops, as D352 §3 has it. Faster climbing after a clean recovery is filed with the
+  step-up research for the next batch. Left: a 5.1 film's own sound (Thimbleford, 5712), the boost.
 - [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
