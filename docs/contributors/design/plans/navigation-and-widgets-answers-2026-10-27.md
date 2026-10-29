@@ -357,6 +357,15 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
+- **Next batch (the owner, 2026-10-29, VQ139's run):** Firefox took ~45 s to come back after the Mac's
+  Wi-Fi returned; Chrome far less. Find why (Firefox's ICE state machine, D-numbers in idiosyncrasies.md's
+  Firefox entry; the re-offer's backoff) and bring it in line.
+- **Next batch (the owner, 2026-10-29):** a Play page navigated away to another site should give up the
+  lead at once, as closing the tab does: on `pagehide`, close the session's sockets (the page may sit in
+  the back/forward cache with them open, and the core waits out its silence limit), and reconnect on
+  `pageshow`.
+- **Next batch (the owner, 2026-10-29, cosmetic):** the notice that a Watch Together session ended is a
+  modal popup (the shared ModalDialog), not the top-of-page note.
 - **Next batch (the owner, 2026-10-29, cosmetic): a title page's misidentification actions, one entry.**
   "Identified incorrectly", "Rescan this" and "Report filed wrongly" all stem from a wrongly identified
   file: keep only "Identified incorrectly", which opens a modal (the shared ModalDialog) offering

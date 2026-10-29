@@ -1461,7 +1461,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   visit, and open a film: its page opens. (`web/apps/web/src/screen-load.tsx`, `sw.ts`)
   **Passed 2026-10-29 (the owner, Chrome on the Mac):** the first load through the discovery after the
   deploy (13:55, over WebRTC) opened Thimbleford's page and player with no failed screen.
-- [ ] **VQ124** — On the owner's Android phone, signed in, join a Watch Together session as a guest
+- [x] **VQ124** — On the owner's Android phone, signed in, join a Watch Together session as a guest
   from a host on another device, and have the host end it. Passes when the phone's page goes to the
   home page (not "This session is over. You can close this page.") with a note at its top, "The host
   ended the Watch Together session.", that the × closes, and that goes on its own once another screen
@@ -1469,6 +1469,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes home with the note, and the remote's arrows reach its × and OK closes it. A guest joined by
   link alone, not signed in, still sees the page that says the session is over.
   (`web/apps/web/src/together-viewer.tsx`, `notice-note.tsx`)
+  **Passed 2026-10-29 (the owner, staging):** the session ended by the host: the S23 and Firefox went Home with the note.
 - [ ] **VQ125** — In Chrome on the Mac, over WebRTC through staging's discovery (the core's log says
   `over=webrtc`), play a film; it covers both ways a throttled load stopped playback for good. First,
   the stuck chunk: in DevTools' Network panel set a slow preset until the film stalls, wait half a
@@ -1507,7 +1508,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `no service worker controls the page … reloading the page once` line, the page reloaded itself
   and must show its posters after it. (`web/apps/web/src/sw.ts`, `web/packages/sdk/src/rtc-media.ts`,
   `web/apps/web/src/loader-at-client-origin.tsx`)
-- [ ] **VQ128** — no one's stall holds a Watch Together group (D373), on staging. With the Mac's
+- [x] **VQ128** — no one's stall holds a Watch Together group (D373), on staging. With the Mac's
   Chrome as the host, leading a session that plays, and the S23 (Chrome) and Firefox following,
   throttle the Mac's Chrome in DevTools' Network panel (a slow preset, or Offline) until its film
   stalls. Passes when: (1) within about 3 s of its stall the lead passes (the core's log says
@@ -1518,6 +1519,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   follower stalling (the S23 on a slow link, or throttled) pauses no one, its own
   `stallNotWaitedFor` line saying `isLeader=false`. (`internal/core/together/leader.go`,
   `group.go`; `web/packages/sdk/src/together-follow.ts`)
+  **Passed 2026-10-29 (the owner, staging):** Chrome leading stalled (Wi-Fi off): the lead passed to the S23 after the grace, the others played on.
 - [ ] **VQ129** — only a device playing the film leads, a lone player's stall is waited for, and a
   leader recovered within its grace catches up forward (D374), on staging. (1) With the Mac's
   Chrome hosting a Watch Together session that plays, and the S23 (Chrome) following, cast from the
@@ -1582,7 +1584,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   and from the other device of the same person after its next read of who they are (a reload).
   (`internal/core/preferences`, `internal/core/api/session.go`, `internal/core/together/leader.go`;
   `web/apps/web/src/debug-tools.tsx`, `together-debug.tsx`, `app.tsx`)
-- [ ] **VQ133** — a Watch Together follower's page offline for a minute neither overflows its stack
+- [x] **VQ133** — a Watch Together follower's page offline for a minute neither overflows its stack
   nor comes back a minute ahead, on staging. With the Mac's Chrome following in a Watch Together
   session over WebRTC through its client origin (the loader and the client of one build, the core's
   log saying `over=webrtc`) and the S23 leading, play a film; turn the Mac's Wi-Fi off until Chrome's
@@ -1595,6 +1597,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `playerChanged` after it a `behindGroupMs` no more negative than `aheadForLoadMs`, which on staging's
   link is a few seconds, never a minute. (`web/packages/sdk/src/rtc-media.ts`,
   `together-load-speed.ts`, `together-follow.ts`; `internal/core/together/player_log.go`)
+  **Passed 2026-10-29 (the owner, staging):** Chrome back from a minute's outage near the group, no stack overflow.
 - [x] **VQ134** — a Watch Together session left with no player keeps its playing state (D375), on
   staging. On the Mac, Chrome hosting a session and Firefox a guest, both playing the film; the S23
   in it too, then locked. (1) Turn the Mac's Wi-Fi off for about a minute, then on. Passes when the
@@ -1607,7 +1610,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `web/packages/sdk/src/together.ts`, `web/apps/web/src/together-events.ts`)
   **Passed 2026-10-29 (the owner, staging):** held and played on with no press; the owner then asked that
   a returning leader's own position win (D376, built separately).
-- [ ] **VQ135** — a film's playback through a minute's outage neither restarts from the start nor
+- [x] **VQ135** — a film's playback through a minute's outage neither restarts from the start nor
   condemns its top quality, on staging. With the Mac's Chrome playing a film alone at its top quality
   (the core's log saying the top level for it), turn the Mac's Wi-Fi off for about a minute, past
   where the film stalls, then on. Passes when (1) the film plays on from where it stood, never from
@@ -1616,6 +1619,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   judged unplayable, its loads not arriving` or `too little loaded ahead`; and (3) within a few
   minutes it climbs back to its top quality. (`web/packages/player/src/abr-video.ts`, `abr.ts`,
   `resume-position.ts`, `load-again.ts`)
+  **Passed 2026-10-29 (the owner, staging):** the outage neither restarted the film nor dropped its top quality.
 - [ ] **VQ136** — a signed-in guest whose session the server lost goes home, on staging. On the Mac,
   signed in, join a Watch Together session as a guest from the S23 hosting it, and leave the guest's
   page on the session; restart staging's core. Passes when the Mac's page goes to the home page with
@@ -1632,7 +1636,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   page could not load."; and the core's log has a "page reported a failure" line saying "the page
   reloaded for a newer client, once", naming the title screen and its file.
   (`web/apps/web/src/newer-client.ts`, `screen-load.tsx`)
-- [ ] **VQ138** — a Watch Together host's Play page left for another site and come back by Back
+- [x] **VQ138** — a Watch Together host's Play page left for another site and come back by Back
   attaches its player, on staging. On the Mac, Chrome hosting a session on its Play page, Firefox and
   the S23 guests, the film playing. In Chrome go to google.com, then press Back. Passes when Chrome
   plays the film within a few seconds, in step with the others, and the core's log has a `role=video`
@@ -1641,7 +1645,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   `a request failed … nothing came for /api/v1/playback` and a second `a playback started`, then the
   `role=video` device. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/play.tsx`,
   `reopen.ts`)
-- [ ] **VQ139** — who leads a Watch Together session, and from where (D377), on staging. On the Mac,
+  **Passed 2026-10-29 (the owner, staging):** the host's Play page, away to google.com and Back, attached and played in step.
+- [x] **VQ139** — who leads a Watch Together session, and from where (D377), on staging. On the Mac,
   Chrome hosting a session and Firefox a guest, the S23 a guest too, all playing the film. (1) Close
   the host's Chrome tab while it leads. Passes when the lead passes to the guest whose run started
   first, the core's `leaderChanged … why=leaderGone` line saying `positionFrom=core`, and no one's film
@@ -1656,3 +1661,4 @@ An item is ticked only by the person who did it, and only with what they saw.
   (5) Reopen Chrome's page while Firefox leads: Chrome takes Firefox's position, then the lead in step
   (`why=hostInStep`), no one's film jumping. (`internal/core/together/leader.go`,
   `web/packages/sdk/src/together-follow.ts`, `together-roster.ts`)
+  **Passed 2026-10-29 (the owner, staging):** handover moved no one; the host took the lead back in step; with no one left, the first back resumed from its own place, and a pause stayed. Firefox took ~45 s to recover after the outage (Chrome quicker): filed for the next batch.
