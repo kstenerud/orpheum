@@ -54,23 +54,24 @@ function useFocusedPlaceShown(ref: RefObject<HTMLElement | null>): void {
 }
 
 /**
- * Focuses the list's current place as it opens, the choice a chooser shows (route-chooser.tsx) or the
- * menu's page, marked aria-current, else its first place: never its Close, which the browser's own opening focuses as the
- * dialog's first control (the owner, 2026-10-28: "the initial selected widget is the close button.
- * It should have the first actual item selected instead"). Focused without scrolling the page, which
- * a drop-down's opening never moves; the list shows it within itself (useFocusedPlaceShown).
+ * Focuses the list's current place as it opens, the choice a chooser shows (route-chooser.tsx),
+ * marked aria-current, else, and always where isFromItsTop, its first place: never its Close, which
+ * the browser's own opening focuses as the dialog's first control (the owner, 2026-10-28: "the
+ * initial selected widget is the close button. It should have the first actual item selected
+ * instead"). Focused without scrolling the page, which a drop-down's opening never moves; the list
+ * shows it within itself (useFocusedPlaceShown).
  */
-function useCurrentPlaceFocused(ref: RefObject<HTMLElement | null>): void {
+function useCurrentPlaceFocused(ref: RefObject<HTMLElement | null>, isFromItsTop: boolean): void {
   useEffect(() => {
     const list = ref.current;
     if (list === null) {
       return;
     }
-    const current = list.querySelector<HTMLElement>(currentSelector);
+    const current = isFromItsTop ? null : list.querySelector<HTMLElement>(currentSelector);
     const onCurrent =
       current === null || isFocusTarget(current) ? current : (focusTargetsIn(current)[0] ?? null);
     (onCurrent ?? focusTargetsIn(list)[0])?.focus({ preventScroll: true });
-  }, [ref]);
+  }, [ref, isFromItsTop]);
 }
 
 /** A place marked as the current one: a page's link (`page`), a chosen button (`true`). */
@@ -90,16 +91,21 @@ function focusedMiddleIn(dialog: HTMLDialogElement): number | undefined {
  * Lays dialog, a drop-down's open list, at opener (drop-down-place.ts); on a big screen, where the
  * screen's edge cuts it, cuts places, the part that scrolls, to the height shown; and where its
  * focused place is off the button's middle, scrolls places to bring it there as far as they can, as
- * a select's list opens.
+ * a select's list opens. A list shown from its top (DropDown's isFromItsTop) has no choice to lay
+ * over the button: its top is the button's, as a phone's is, and its places are not scrolled.
  */
-function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTMLElement): void {
-  const openerBox = opener.getBoundingClientRect();
+function layAtOpener(
+  dialog: HTMLDialogElement,
+  places: HTMLElement,
+  at: { readonly opener: HTMLElement; readonly isFromItsTop: boolean },
+): void {
+  const openerBox = at.opener.getBoundingClientRect();
   const isPhone = isPhoneWidth();
   dialog.setAttribute("data-placed", isPhone ? "over" : "at");
   dialog.style.setProperty("--drop-down-opener-width", `${String(openerBox.width)}px`);
   places.style.removeProperty("max-height");
   const box = dialog.getBoundingClientRect();
-  const focusedMiddle = focusedMiddleIn(dialog);
+  const focusedMiddle = at.isFromItsTop ? undefined : focusedMiddleIn(dialog);
   const { left, top, height } = listPlace({
     opener: openerBox,
     list: box,
@@ -113,7 +119,7 @@ function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTM
     const placesHeight = places.getBoundingClientRect().height;
     places.style.setProperty("max-height", `${String(placesHeight - (box.height - height))}px`);
   }
-  const laidMiddle = focusedMiddleIn(dialog);
+  const laidMiddle = at.isFromItsTop ? undefined : focusedMiddleIn(dialog);
   if (!isPhone && laidMiddle !== undefined) {
     places.scrollBy({ top: laidMiddle - (openerBox.top + openerBox.height / 2) });
   }
@@ -128,6 +134,7 @@ function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTM
 function useListPlacedAtOpener(
   placesRef: RefObject<HTMLElement | null>,
   openerRef: RefObject<HTMLElement | null>,
+  isFromItsTop: boolean,
 ): void {
   useEffect(() => {
     const places = placesRef.current;
@@ -137,7 +144,7 @@ function useListPlacedAtOpener(
     }
     const lay = (): void => {
       if (openerRef.current !== null) {
-        layAtOpener(dialog, places, openerRef.current);
+        layAtOpener(dialog, places, { opener: openerRef.current, isFromItsTop });
       }
     };
     lay();
@@ -145,7 +152,7 @@ function useListPlacedAtOpener(
     return () => {
       window.removeEventListener("resize", lay);
     };
-  }, [placesRef, openerRef]);
+  }, [placesRef, openerRef, isFromItsTop]);
 }
 
 /** What has focus, in a few words for the core's log: its tag and classes, and whether in list. */
@@ -244,7 +251,9 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
  * which a remote's arrows reach. It opens at its button, a big screen's list its current place laid
  * over the button as a select's is, a phone's a pop-up over the button (useListPlacedAtOpener; the
  * owner, 2026-10-28: "the chooser opening a window in a different location feels weird"), on its
- * current place, else its first (useCurrentPlaceFocused),
+ * current place, else its first (useCurrentPlaceFocused); the menu, which has no choice, from its
+ * top on its first place (isFromItsTop; the owner's Fire TV, 2026-10-29: "The menu opens up
+ * partially scrolled down ... rather than showing from the top of the list"),
  * and neither its opening nor its closing moves the page under it (the owner, 2026-10-28, on a Fire
  * TV: the season picker "shifted the page up before displaying it"). Focus goes back to the button
  * (D361 §3).
@@ -258,6 +267,11 @@ export function DropDown(props: {
   readonly openerNaming: OpenerNaming;
   /** The class of the list's dialog, beside the drop-down's own. */
   readonly listClassName?: string;
+  /**
+   * Whether the list opens showing its top, on its first place, its top at the button's: a menu's,
+   * which has no current choice to lay over its button, though the page it is on is marked.
+   */
+  readonly isFromItsTop?: boolean;
   /** Its places, each a list item. */
   readonly children: ReactNode;
 }): JSX.Element {
@@ -286,6 +300,7 @@ export function DropDown(props: {
           label={props.label}
           className={props.listClassName}
           openerRef={openerRef}
+          isFromItsTop={props.isFromItsTop === true}
           onClose={close}
         >
           {props.children}
@@ -300,6 +315,7 @@ function DropDownList(props: {
   readonly label: string;
   readonly className: string | undefined;
   readonly openerRef: RefObject<HTMLElement | null>;
+  readonly isFromItsTop: boolean;
   readonly onClose: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -314,8 +330,8 @@ function DropDownList(props: {
   }, [tellClosed]);
   useChoiceCloses(ref, onClose);
   useFocusedPlaceShown(ref);
-  useCurrentPlaceFocused(ref);
-  useListPlacedAtOpener(ref, props.openerRef);
+  useCurrentPlaceFocused(ref, props.isFromItsTop);
+  useListPlacedAtOpener(ref, props.openerRef, props.isFromItsTop);
   useStuckArrowTold(contentRef, isClosingRef);
   // Heard on all the list holds, its Close too, which a remote's Up reaches (the owner, 2026-10-28:
   // "Left/right didn't close it", focus on the Close the opening had focused).

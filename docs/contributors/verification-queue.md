@@ -1062,6 +1062,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   screen's bottom opens with its list cut at the screen's edge, scrolling within itself, its current
   choice over the button; and a chooser so low that the cut list would keep less than half its height
   opens moved up whole, inside the screen. Left for the owner: everything on the Fire TV.
+  **The owner's findings on the Fire TV, 2026-10-29,** fixed and to check again there: (12) "The
+  menu opens up partially scrolled down (I see from Needs a match to Device tests) rather than
+  showing from the top of the list": the banner's menu opens showing its top, its top at its icon,
+  its first place focused, on any page, one of its own places too; the choosers still open on
+  their current choice.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays
