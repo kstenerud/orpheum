@@ -27,7 +27,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { forgetReturn, noteReturn, takeReturn } from "./cast-return.ts";
 import type { Navigation } from "./navigation.ts";
-import type { Route } from "./router.ts";
+import { routeHref, type Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
 
@@ -254,9 +254,22 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
     const back = takeReturn(tabStorage());
     setReceiving(undefined);
     leaveFullScreen(document);
-    navigation.go(back);
+    leaveTheCastsEntries(navigation, back);
   }, [navigation]);
   return { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving };
+}
+
+/**
+ * Goes to to, the page a cast took the tab over from (or home), by going back through the history to
+ * the nearest entry showing it, Up's way (Navigation's up), else in the current entry's place: the
+ * entries the cast added, its films' Play pages and its ready page, are left ahead, never behind, so
+ * Back from the page returned to goes to what came before it. Pushed on top of them, the page's Back
+ * stepped into the cast's film, which then played as the device's own (the owner's Fire TV,
+ * 2026-10-29).
+ */
+export function leaveTheCastsEntries(navigation: Navigation, to: Route): void {
+  const href = routeHref(to);
+  navigation.up(to, (route) => routeHref(route) === href);
 }
 
 /**

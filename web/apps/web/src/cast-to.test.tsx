@@ -20,7 +20,8 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { createNavigation } from "./navigation.ts";
+import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
 
 /** A cast's session of one welcoming a device, nothing on yet. */
@@ -416,6 +417,41 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(services.navigation.route()).toEqual(before);
     expect(mounted.container.textContent).not.toContain("receiving");
     expect(tabStorage().getItem(castReturnKey)).toBeNull();
+  });
+
+  // The owner's Fire TV, 2026-10-29: playing The Kid as its own, cast Back to the Lantern,
+  // the cast stopped and the TV back on The Kid; its Back then played Back to the Lantern.
+  it("leaves the cast's entries ahead as casting ends, so Back from the page returned to never goes into its film", async () => {
+    const place = fakePlace("/titles/3");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "play", fileId: 4 });
+    const services = {
+      ...servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token"),
+      navigation,
+    };
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <Leaving />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "receive", receive: handed });
+    await pressUse(mounted.container);
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    // The receiver's own entry, which a Fire TV's Back steps off to take control back.
+    act(() => {
+      navigation.go(navigation.route());
+    });
+    await click(buttonWithText(mounted.container, "leave"));
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 4 });
+    act(() => {
+      place.history.back();
+    });
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 3 });
   });
 
   it("stays on the film, forgetting the page before, as its control is taken back here (D338 §6)", async () => {
