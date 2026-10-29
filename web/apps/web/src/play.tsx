@@ -3,7 +3,7 @@
 import "./play.css";
 
 import { seekTo } from "@orpheum/player";
-import { reportFailure, type CannotKeepUp } from "@orpheum/sdk";
+import type { CannotKeepUp } from "@orpheum/sdk";
 import {
   createContext,
   use,
@@ -29,12 +29,7 @@ import {
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
-import {
-  askUntilAnswered,
-  askWhileUnanswered,
-  reopenAtMostEveryMs,
-  type ReopenAt,
-} from "./reopen.ts";
+import { reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
@@ -53,6 +48,7 @@ import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { PlayOrSendOn } from "./cast-to.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
+import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { overTheFilm, UpNextContext, useUpNextOffered } from "./up-next.tsx";
 import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
@@ -547,20 +543,6 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
     : { levelling: { isMeasured: true, gainDb: carriedGainDb }, carriedGainDb };
 }
 
-/** A decision for the Play page, and whether its film waits to be played, as one opened again. */
-interface Opened {
-  readonly decision: PlaybackDecision;
-  readonly isStartPaused?: boolean;
-}
-
-/** The decision opened from at, where its video stood, in place of its resume position. */
-function openedAt(decision: PlaybackDecision, at: ReopenAt): Opened {
-  return {
-    decision: { ...decision, resumePositionMs: Math.round(at.positionMs) },
-    isStartPaused: at.isPaused,
-  };
-}
-
 /**
  * The player's screen for one file, playing at once: nothing is asked of how the device makes sound
  * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
@@ -655,19 +637,6 @@ function shownOf(opened: Resource<Opened>, held: Opened | undefined): Opened | u
 }
 
 /**
- * A playback opened again from where it was: the server lost it, or its player gave the film's own
- * picture up and is offered the twin in its place (D323 §2).
- */
-interface Reopening {
-  readonly whereNow: () => ReopenAt;
-  readonly cause: ReopenCause;
-}
-
-/** Why a playback is opened again: the server lost it, its player gave the film's own picture up, or
- * its film could not be read and can again. */
-type ReopenCause = "playbackGone" | "ownPictureGivenUp" | "mediaBack";
-
-/**
  * How the Play page opens its playback again: a lost one at most every reopenAtMostEveryMs, saying
  * whether it does, and one whose player gave the film's own picture up from where the video stood,
  * asked for again at the twin (D323 §2). What played before is held on screen meanwhile.
@@ -756,26 +725,17 @@ function useOpenedPlayback(
     nextAtRef.current = undefined;
     const reopen = reopenRef.current;
     reopenRef.current = undefined;
-    const watching = watchingOf(api);
     if (reopen === undefined) {
       setHeld(undefined);
-      // Asked again on a new connection when the core answered nothing over WebRTC (the owner's
-      // Chrome back from another site, staging, 2026-10-29: "Loading…" for good).
-      const decision = await askWhileUnanswered(
-        async () =>
-          await watching.decide(fileId, playableFormats(), {
-            cause,
-            startsAtMs: askedAt?.positionMs,
-          }),
-        reportFailure,
-      );
-      return askedAt === undefined ? { decision } : openedAt(decision, askedAt);
     }
-    // The server may still be starting: asked again for about a minute.
-    const decision = await askUntilAnswered(() =>
-      watching.decide(fileId, playableFormats(), { cause: reopen.cause }),
-    );
-    return openedAt(decision, reopen.whereNow());
+    return await openPlayback({
+      watching: watchingOf(api),
+      fileId,
+      playableFormats: playableFormats(),
+      cause,
+      askedAt,
+      reopen,
+    });
   });
   const decideAgain = useCallback(
     (cause: DecideAgainCause, at?: ReopenAt) => {

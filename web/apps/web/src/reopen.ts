@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { SilentRequestError } from "@orpheum/sdk";
+import { failureText, SilentRequestError } from "@orpheum/sdk";
 
 import { ApiProblem } from "./problem.ts";
 
@@ -76,16 +76,48 @@ function waitFor(ms: number): Promise<void> {
 }
 
 /**
+ * One attempt an ask makes to reach the server: how long it took, on the caller's clock, and what
+ * happened, "ok" or a failure's words (failureText). For a playback's start timing (play.tsx,
+ * play-start-timing.ts), which a slow one tells the core's log, each attempt and all (VQ137).
+ */
+export interface AskAttempt {
+  readonly ms: number;
+  readonly outcome: string;
+}
+
+/** What timedAsk tells of each attempt, and the clock it times them on; both optional. */
+export interface AskTiming {
+  readonly onAttempt?: (attempt: AskAttempt) => void;
+  readonly nowMs?: () => number;
+}
+
+/** Runs ask once, timed on timing's clock, telling its onAttempt how long it took and what happened. */
+async function timedAsk<T>(ask: () => Promise<T>, timing: AskTiming | undefined): Promise<T> {
+  const nowMs = timing?.nowMs ?? (() => performance.now());
+  const startedMs = nowMs();
+  try {
+    const result = await ask();
+    timing?.onAttempt?.({ ms: Math.round(nowMs() - startedMs), outcome: "ok" });
+    return result;
+  } catch (cause) {
+    timing?.onAttempt?.({ ms: Math.round(nowMs() - startedMs), outcome: failureText(cause) });
+    throw cause;
+  }
+}
+
+/**
  * What ask answers, asked again after each of reopenWaitsMs while it fails with what may pass; the
- * last failure, or the first that cannot pass, is thrown.
+ * last failure, or the first that cannot pass, is thrown. Told timing's onAttempt, where given, how
+ * long each try took and what it did, for a playback's start timing (play-start-timing.ts).
  */
 export async function askUntilAnswered<T>(
   ask: () => Promise<T>,
   wait: (ms: number) => Promise<void> = waitFor,
+  timing?: AskTiming,
 ): Promise<T> {
   for (const waitMs of reopenWaitsMs) {
     try {
-      return await ask();
+      return await timedAsk(ask, timing);
     } catch (cause) {
       if (!mayPass(cause)) {
         throw cause;
@@ -93,7 +125,7 @@ export async function askUntilAnswered<T>(
     }
     await wait(waitMs);
   }
-  return await ask();
+  return await timedAsk(ask, timing);
 }
 
 /**
@@ -115,10 +147,11 @@ export const unansweredAsksAtMost = 3;
 export async function askWhileUnanswered<T>(
   ask: () => Promise<T>,
   report: (cause: unknown) => void,
+  timing?: AskTiming,
 ): Promise<T> {
   for (let asked = 1; asked < unansweredAsksAtMost; asked += 1) {
     try {
-      return await ask();
+      return await timedAsk(ask, timing);
     } catch (cause) {
       if (!isUnanswered(cause)) {
         throw cause;
@@ -126,5 +159,5 @@ export async function askWhileUnanswered<T>(
       report(cause);
     }
   }
-  return await ask();
+  return await timedAsk(ask, timing);
 }

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { clientScriptHeader, createUpdateWatch } from "./app-update.ts";
 import type { StringStorage } from "./browser-storage.ts";
+import { sendFailuresToCore } from "./failure-reports.ts";
 import {
   assetNamedBy,
   newerClientOver,
@@ -18,7 +19,7 @@ import {
   type NewerClient,
 } from "./newer-client.ts";
 import { LaterScreen, lazyScreen } from "./screen-load.tsx";
-import { mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import { bodyField, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -105,6 +106,32 @@ describe("a screen's code no longer served, as a newer client is", () => {
     expect(sent[0]).toContain("the code of the title screen did not load");
     expect(sent[0]).toContain("/assets/title-D5G0YPLU.js");
     expect(sent[0]).toContain("the server serves another client");
+  });
+
+  it("reaches the core on the page after the reload, through client-main.tsx's own wiring order: the failure sink before the reload's note is read (VQ137)", async () => {
+    const storage = memoryStorage();
+    // The page before the reload stores why, and reloads (newer-client.ts's own doing).
+    const before = clientOf(storage, { isServed: true });
+    expect(
+      await reloadsForNewerClient({ screen: "title", reason: goneChunk.message }, page, before),
+    ).toBe(true);
+    // The page after the reload: already signed in, as a browser kept signed in across one is.
+    // client-main.tsx wires sendFailuresToCore before it calls reportReloadForNewerClient; this
+    // is that same order, over the real sink and a stand-in of the core.
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /client-problems": [204, undefined] }, heard, "a-token");
+    sendFailuresToCore(services.api, services.session, () => "/titles/5285");
+    reportReloadForNewerClient(storage);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(heard).toHaveLength(1);
+    const [first] = heard;
+    expect(first?.methodAndPath).toBe("POST /client-problems");
+    expect(first === undefined ? undefined : bodyField(first, "page")).toBe("/titles/5285");
+    expect(first === undefined ? undefined : bodyField(first, "message")).toEqual(
+      expect.stringContaining("the page reloaded for a newer client, once"),
+    );
   });
 
   it("shows the failure, reloading no more, where a reload from the same build did not help", async () => {

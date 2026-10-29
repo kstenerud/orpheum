@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { sendFailuresTo, SilentRequestError } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Play } from "./play.tsx";
 import {
@@ -24,6 +24,7 @@ afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
   sendFailuresTo(() => undefined);
+  vi.useRealTimers();
 });
 
 // The owner's Chrome, hosting Watch Together, back on its Play page from another site: the core
@@ -63,5 +64,66 @@ describe("a Play page whose playback the core answered nothing for", () => {
     await settleUntil(() => shown.container.querySelector("video") !== null);
     expect(playbackCauses(heard)).toEqual(["playPage"]);
     expect(sent.some((text) => text.includes("nothing came for /api/v1/playback"))).toBe(true);
+  });
+});
+
+// The owner's Chrome, staging, clicked a Continue-watching tile and saw "Loading…" for near a
+// minute with nothing told the core's log at all, until the playback started (VQ137, 2026-10-29).
+describe("the Play page's playback, timed from the first ask", () => {
+  it("tells the core's log each step's time and outcome, once it is slow to start, though it opens", async () => {
+    vi.useFakeTimers({ toFake: ["performance", "setTimeout", "clearTimeout"] });
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    services.api.use({
+      onRequest: async ({ request }) => {
+        if (request.method === "POST" && request.url.endsWith("/playback")) {
+          await new Promise((resolve) => {
+            setTimeout(resolve, 3500);
+          });
+        }
+      },
+    });
+    const mountPromise = mount(withServices(<Play fileId={2} />, services));
+    // Advanced in steps, not one jump: a single big advance let settleAnswers call the page quiet
+    // before the delayed request ever reached the stand-in server (sinon's fake clock fires each
+    // due timer in turn either way, but a step at a time keeps this test's intent legible).
+    for (let stepped = 0; stepped < 5000; stepped += 250) {
+      await vi.advanceTimersByTimeAsync(250);
+    }
+    mounted = await mountPromise;
+    const report = sent.find((text) => text.includes("the Play page's playback for file 2"));
+    expect(report).toBeDefined();
+    expect(report).toContain("ms to start");
+    expect(report).toContain("attempt 1: 3500 ms (ok)");
+  });
+
+  it("tells the core's log nothing for an ordinary, fast playback start", async () => {
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "DELETE /playback/t": [204, null],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(<Play fileId={2} />, services));
+    await settleUntil(() => mounted?.container.querySelector("video") !== null);
+    expect(sent).toEqual([]);
   });
 });

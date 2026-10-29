@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { SilentRequestError } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
-import { askUntilAnswered, isPlaybackGone, mayPass, reopenWaitsMs } from "./reopen.ts";
+import {
+  askUntilAnswered,
+  askWhileUnanswered,
+  isPlaybackGone,
+  mayPass,
+  reopenWaitsMs,
+  type AskAttempt,
+} from "./reopen.ts";
 
 /** A refusal with code, as the SDK reads one. */
 function refused(code: string): ApiProblem {
@@ -47,6 +55,66 @@ describe("opening a lost playback again", () => {
     const totalMs = reopenWaitsMs.reduce((sum, ms) => sum + ms, 0);
     expect(totalMs).toBeGreaterThanOrEqual(50_000);
     expect(totalMs).toBeLessThanOrEqual(90_000);
+  });
+
+  it("tells onAttempt how long each try of askUntilAnswered took and what happened", async () => {
+    const attempts: AskAttempt[] = [];
+    let nowMs = 0;
+    const failures: Error[] = [new TypeError("Failed to fetch")];
+    const answered = await askUntilAnswered(
+      () => {
+        const failure = failures.shift();
+        return failure === undefined ? Promise.resolve("opened") : Promise.reject(failure);
+      },
+      (ms) => {
+        nowMs += ms;
+        return Promise.resolve();
+      },
+      {
+        onAttempt: (attempt) => {
+          attempts.push(attempt);
+        },
+        nowMs: () => nowMs,
+      },
+    );
+    expect(answered).toBe("opened");
+    expect(attempts).toEqual([
+      { ms: 0, outcome: "TypeError: Failed to fetch" },
+      { ms: 0, outcome: "ok" },
+    ]);
+  });
+
+  it("tells onAttempt how long each try of askWhileUnanswered took and what happened", async () => {
+    const attempts: AskAttempt[] = [];
+    const silent = new SilentRequestError("/api/v1/playback");
+    let isAnswered = false;
+    const reported: unknown[] = [];
+    let nowMs = 0;
+    const answered = await askWhileUnanswered(
+      () => {
+        nowMs += 1200;
+        if (isAnswered) {
+          return Promise.resolve("opened");
+        }
+        isAnswered = true;
+        return Promise.reject(silent);
+      },
+      (cause) => {
+        reported.push(cause);
+      },
+      {
+        onAttempt: (attempt) => {
+          attempts.push(attempt);
+        },
+        nowMs: () => nowMs,
+      },
+    );
+    expect(answered).toBe("opened");
+    expect(reported).toEqual([silent]);
+    expect(attempts).toEqual([
+      { ms: 1200, outcome: `SilentRequestError: ${silent.message}` },
+      { ms: 1200, outcome: "ok" },
+    ]);
   });
 
   it("knows a lost playback, and the failures that pass, by the server's code", () => {
