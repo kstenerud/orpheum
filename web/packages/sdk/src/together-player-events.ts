@@ -52,10 +52,16 @@ export class GroupJumpsTold {
   /** The last told, as "<from>-<to>" ms; undefined before one. */
   #told: string | undefined = undefined;
 
-  /** Tells media of the group's jump, when its last change is one not told yet. */
+  /**
+   * Tells media of the group's jump, when its last change is one not told yet; a leading player's
+   * (isLeading) is only marked told: it plays as a device plays alone (D371 §1), and a cast's
+   * receiver, leading, dropped from the film's own 9 Mb/s to 1.9 Mb/s on its link of 18 Mb/s at each
+   * jump of its own (the owner's Fire TV, staging, 2026-10-29).
+   */
   tell(
     media: Pick<EventTarget, "dispatchEvent">,
     group: Pick<GroupView, "event" | "seekedFromMs" | "positionMs">,
+    isLeading = false,
   ): void {
     const jump =
       group.event === "seeked"
@@ -63,7 +69,9 @@ export class GroupJumpsTold {
         : undefined;
     if (jump !== undefined && jump !== this.#told) {
       this.#told = jump;
-      media.dispatchEvent(new Event(groupJumpedEvent));
+      if (!isLeading) {
+        media.dispatchEvent(new Event(groupJumpedEvent));
+      }
     }
   }
 }

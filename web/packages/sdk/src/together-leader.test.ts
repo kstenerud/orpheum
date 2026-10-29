@@ -12,7 +12,11 @@ import {
 import type { TogetherConnection } from "./together-connection.ts";
 import { isFollowingAGroup } from "./following-a-group.ts";
 import { checkDriftEveryMs } from "./together-follow.ts";
-import { playerSwitchedQualityEvent, type QualitySwitched } from "./together-player-events.ts";
+import {
+  groupJumpedEvent,
+  playerSwitchedQualityEvent,
+  type QualitySwitched,
+} from "./together-player-events.ts";
 import {
   FakeMedia,
   fakeConnection,
@@ -104,6 +108,19 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(isFollowingAGroup(), "a follower keeps it").toBe(true);
     follower();
     expect(isFollowingAGroup()).toBe(false);
+  });
+
+  it("is never told its group jumped, so never drops to the common quality at a jump of its own", () => {
+    // A cast's receiver on the Fire TV, leading, fell from the film's own 9 Mb/s to 1.9 Mb/s on a
+    // link of 18 Mb/s at a seek of its own: "the common quality after its group jumped" (D286 §3,
+    // a follower's rule), 2026-10-29.
+    const { media, setGroup } = leading(paused, { mediaAtS: 60, isPlaying: true });
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
+      0,
+    );
+    vi.advanceTimersByTime(3000);
+    expect(media.dispatched).not.toContain(groupJumpedEvent);
   });
 
   it("is never nudged, skipped or sought to where the group reckons it should be: the group follows it", () => {

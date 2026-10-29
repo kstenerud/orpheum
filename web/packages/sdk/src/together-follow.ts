@@ -294,7 +294,7 @@ export class GroupFollower {
       this.#hasCaughtUp = true; // its person's moves are the group's from the first
       this.#loading.stop();
       this.#leader.lead(where, this.#connection.snapshot().groupSeq);
-      this.#jumps.tell(this.#media, where.group);
+      this.#jumps.tell(this.#media, where.group, true);
       return;
     }
     if (where.group.state === "Playing") {

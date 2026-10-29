@@ -1688,3 +1688,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   the film stays where it was (no step back a second at each Down) and focus stays on the scrub bar or
   moves below it. Before this change Down at the bottom of the controls fell to the browser, which steps
   a focused slider's value (the owner, staging, 2026-10-29). (`web/apps/web/src/input-commands.ts`)
+- [ ] **VQ141** — a leading player never drops to the group's common quality at its own jump, on
+  staging. Cast Nosferatu (file 5671) from the Mac to the Fire TV and let it reach the film's own picture
+  (the core's log: `qualitySwitched qualityKbps=9018`); seek with the remote a few times. Passes when
+  no `qualitySwitched … why="its group's: the common quality after its group jumped"` line comes from
+  the receiver (on 2026-10-29 one took it from 9018 to 1896 kb/s on a link of 18451 kb/s).
+  (`web/packages/sdk/src/together-player-events.ts`, `together-follow.ts`)
