@@ -292,7 +292,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   presses nothing under it; it closes on a place pressed, Escape, Back of either kind, Left or
   Right, wherever focus is in it, focus back on its button. It opens at its button
   (`drop-down-place.ts`): on a big screen its current choice over the button, as a select's list;
-  on a phone's width a pop-up over the button; inside the screen either way; focused on its current
+  on a phone's width a pop-up over the button; inside the screen either way, a big screen's list cut
+  at the screen's edge and scrolling within itself, its choice still over the button, while it keeps
+  half its height, else moved (the owner, 2026-10-29); focused on its current
   place, never its Close; and its opening and closing never move the page. The Films and Series
   pages' sort and a library's files' Show are choosers too (`ActionChooser`). **Every modal dialog closes on the browser's own Back** (D367
   §10), a Fire TV's remote Back in Silk being a step of the history: an entry held over the page's

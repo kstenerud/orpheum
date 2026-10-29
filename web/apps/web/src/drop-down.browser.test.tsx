@@ -118,3 +118,122 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     expect(window.scrollY).toBe(scrolled);
   });
 });
+
+/** Five choices, as a five-season series' picker, the one at current the current one. */
+function fiveChoices(current: number): readonly {
+  key: string;
+  label: string;
+  isCurrent: boolean;
+  onChoose: () => undefined;
+}[] {
+  return Array.from({ length: 5 }, (_, at) => ({
+    key: String(at),
+    label: `Choice ${String(at + 1)}`,
+    isCurrent: at === current,
+    onChoose: () => undefined,
+  }));
+}
+
+/** The middle of a box, from the screen's top. */
+function middleOf(box: DOMRect): number {
+  return box.top + box.height / 2;
+}
+
+/**
+ * Where the screen's edge would cut a short list at its button (the owner, 2026-10-29): cut there,
+ * scrolling within itself as a select's, its choice over the button, while it keeps half its height
+ * at least; past that moved to stay on screen, whole.
+ */
+describe("a short list near a short window's bottom (1920×600)", () => {
+  const [width, height] = [1920, 600];
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  /** Mounts a chooser of five choices, at current, standing at the screen's middle. */
+  async function mountChooser(current: number): Promise<HTMLElement> {
+    await page.viewport(width, height);
+    mounted = await mount(
+      withServices(
+        <div className="test-spot" style={{ position: "fixed", left: "40%", top: "45%" }}>
+          <ActionChooser
+            fieldLabel="Season"
+            isFieldLabelShown={false}
+            current={`Choice ${String(current + 1)}`}
+            options={fiveChoices(current)}
+          />
+        </div>,
+      ),
+    );
+    const opener = mounted.container.querySelector<HTMLElement>(".route-chooser__button");
+    if (opener === null) {
+      throw new Error("the chooser's button is not drawn");
+    }
+    return opener;
+  }
+
+  /**
+   * The list's own height and how far below its top its choice's middle is, opened where it fits,
+   * its choice over the button; closed again.
+   */
+  async function measured(opener: HTMLElement): Promise<{ list: number; choice: number }> {
+    await userEvent.click(opener);
+    const listBox = boxOf(document.querySelector("dialog"));
+    const choice = middleOf(boxOf(document.activeElement)) - listBox.top;
+    expect(Math.abs(choice + listBox.top - middleOf(boxOf(opener)))).toBeLessThan(2);
+    await userEvent.keyboard("{Escape}");
+    return { list: listBox.height, choice };
+  }
+
+  /** Moves the chooser so its list, its choice over the button, would cross the bottom by over. */
+  function standCrossingBottomBy(
+    opener: HTMLElement,
+    over: number,
+    at: { list: number; choice: number },
+  ): void {
+    const openerBox = boxOf(opener);
+    const middle = height - screenEdgeRoomPx + over - at.list + at.choice;
+    const spot = opener.closest<HTMLElement>(".test-spot");
+    spot?.style.setProperty("top", `${String(middle - openerBox.height / 2)}px`);
+    expect(boxOf(opener).bottom).toBeLessThanOrEqual(height);
+  }
+
+  it("is cut at the edge and scrolls, its choice over the button, keeping over half", async () => {
+    const opener = await mountChooser(2);
+    const at = await measured(opener);
+    standCrossingBottomBy(opener, at.list / 3, at);
+    await userEvent.click(opener);
+    const list = document.querySelector("dialog");
+    const places = list?.querySelector<HTMLElement>(".drop-down__places");
+    const listBox = boxOf(list);
+    expect(document.activeElement?.textContent).toBe("Choice 3");
+    expect(
+      Math.abs(middleOf(boxOf(document.activeElement)) - middleOf(boxOf(opener))),
+    ).toBeLessThan(2);
+    expect(listBox.bottom).toBeLessThanOrEqual(height - screenEdgeRoomPx + roundingPx);
+    expect(listBox.height).toBeLessThan(at.list - roundingPx);
+    expect(listBox.height).toBeGreaterThanOrEqual(at.list / 2 - roundingPx);
+    expect(places?.scrollHeight ?? 0).toBeGreaterThan((places?.clientHeight ?? 0) + roundingPx);
+    await userEvent.keyboard("{Escape}");
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  it("moves up whole where the cut would keep less than half", async () => {
+    const opener = await mountChooser(0);
+    const at = await measured(opener);
+    standCrossingBottomBy(opener, (at.list * 2) / 3, at);
+    await userEvent.click(opener);
+    const list = document.querySelector("dialog");
+    const places = list?.querySelector<HTMLElement>(".drop-down__places");
+    const listBox = boxOf(list);
+    expect(document.activeElement?.textContent).toBe("Choice 1");
+    expect(Math.abs(listBox.height - at.list)).toBeLessThanOrEqual(roundingPx);
+    expect(places?.scrollHeight ?? 0).toBeLessThanOrEqual((places?.clientHeight ?? 0) + roundingPx);
+    expect(Math.abs(listBox.bottom - (height - screenEdgeRoomPx))).toBeLessThanOrEqual(roundingPx);
+    expect(isMeeting(listBox, boxOf(opener))).toBe(true);
+    await userEvent.keyboard("{Escape}");
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+});
