@@ -351,6 +351,12 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
+- **Next batch (the owner agreed 2026-10-29): a page says when developer tools bypass its worker.**
+  With DevTools' "Bypass for network" ticked, a client script's failure already says so
+  (`loader-client-failed.tsx`), but posters and films 404 silently (idiosyncrasies.md, the Bypass
+  entry; A51). At start, the page asks the worker for a probe address only the worker answers; a reply
+  from the network means it is bypassed, and the page shows one line: "Developer tools are bypassing
+  the service worker; media won't load." Reported once to the core's log.
 - **Next batch (found 2026-10-29, VQ126's fix; the owner agreed):** the `live:` socket (`web/apps/web/src/live-connection.ts`)
   has its own ping and reconnect, separate from the session connection's, and so still waits out its
   silence limit after a phone is unlocked (the S23: live socket reconnected 20 s after the unlock).
