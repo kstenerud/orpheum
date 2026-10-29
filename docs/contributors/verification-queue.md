@@ -1470,7 +1470,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   link alone, not signed in, still sees the page that says the session is over.
   (`web/apps/web/src/together-viewer.tsx`, `notice-note.tsx`)
   **Passed 2026-10-29 (the owner, staging):** the session ended by the host: the S23 and Firefox went Home with the note.
-- [ ] **VQ125** — In Chrome on the Mac, over WebRTC through staging's discovery (the core's log says
+- [x] **VQ125** — In Chrome on the Mac, over WebRTC through staging's discovery (the core's log says
   `over=webrtc`), play a film; it covers both ways a throttled load stopped playback for good. First,
   the stuck chunk: in DevTools' Network panel set a slow preset until the film stalls, wait half a
   minute, and set throttling back to none. Passes when playback resumes by itself within a few
@@ -1486,6 +1486,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   error after the words. Then Offline held for two minutes: it resumes within about forty seconds, a
   silent connection replaced. (`web/packages/player/src/abr.ts`, `chunked.ts`,
   `web/packages/sdk/src/rtc-transport.ts`, `rtc-request.ts`)
+  **Passed 2026-10-29 (the owner, staging):** a film alone, Wi-Fi off until it stalled, on: it resumed by itself.
 - [x] **VQ126** — a follower unlocked catches up at once, on staging. With the S23 (Chrome) following
   a Watch Together session that another device leads and plays, lock the S23 for about 30 s and
   unlock it, pressing nothing. Passes when, within about 3 s of the unlock, the S23's film plays at
