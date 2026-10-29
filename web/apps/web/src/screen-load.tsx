@@ -21,6 +21,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { clientAssetsPrefix } from "./client-files.ts";
 import { copyToClipboard } from "./clipboard.ts";
 import { loaderOf } from "./loader-interface.ts";
 import { reloadsForNewerClient } from "./newer-client.ts";
@@ -65,26 +66,150 @@ export function pageWorkerOf(page: Window): PageWorker {
 }
 
 /**
+ * How long a screen's code may take to load before it tells the core's log where the time went:
+ * far past any ordinary load, which answers from the browser's cache or one quick fetch, and far
+ * short of a person wondering why "Loading…" stays up — let alone the owner's Chrome, staging,
+ * which showed it for near a minute with nothing told the core's log at all (VQ137, 2026-10-29). A
+ * justified constant, not a setting.
+ */
+export const screenLoadSlowAfterMs = 3000;
+
+/** One try to load a screen's code: how long it took, and what happened, "ok" or why it failed. */
+interface LoadAttempt {
+  readonly ms: number;
+  readonly outcome: string;
+}
+
+/** Runs load() once, timed on nowMs, keeping its time and outcome in attempts either way. */
+async function timedLoad<T>(
+  load: () => Promise<T>,
+  nowMs: () => number,
+  attempts: LoadAttempt[],
+): Promise<T> {
+  const startedMs = nowMs();
+  try {
+    const result = await load();
+    attempts.push({ ms: Math.round(nowMs() - startedMs), outcome: "ok" });
+    return result;
+  } catch (cause) {
+    attempts.push({
+      ms: Math.round(nowMs() - startedMs),
+      outcome: cause instanceof Error ? cause.message : String(cause),
+    });
+    throw cause;
+  }
+}
+
+/**
+ * Whether entry has the numeric field named: PerformanceResourceTiming's workerStart and
+ * transferSize, which a plain PerformanceEntry does not carry.
+ */
+function numberFieldOf(entry: PerformanceEntry, field: string): number | undefined {
+  const value: unknown = Reflect.get(entry, field);
+  return typeof value === "number" ? value : undefined;
+}
+
+/** entry's URL's path, where it has one it can be read as; undefined where it cannot be parsed. */
+function pathnameOf(entry: PerformanceEntry): string | undefined {
+  try {
+    return new URL(entry.name).pathname;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether a worker intercepted entry's load at all (PerformanceResourceTiming's workerStart). */
+function wasIntercepted(entry: PerformanceEntry): boolean {
+  return (numberFieldOf(entry, "workerStart") ?? 0) > 0;
+}
+
+/** Whether entry is screen's chunk, loaded at sinceMs or after, that a worker intercepted. */
+function isScreensChunk(entry: PerformanceEntry, screen: string, sinceMs: number): boolean {
+  const prefix = `${clientAssetsPrefix}${screen}-`;
+  return (
+    entry.startTime >= sinceMs &&
+    (pathnameOf(entry)?.includes(prefix) ?? false) &&
+    wasIntercepted(entry)
+  );
+}
+
+/**
+ * How a loader's service worker answered screen's chunk, read from the browser's own record of its
+ * load (PerformanceResourceTiming), the entry of it loaded at sinceMs or after: answered from what
+ * the worker kept, with no bytes sent for it over the network, else how many it sent for; undefined
+ * where the browser says nothing of it, or no worker intercepted its load at all. A best effort,
+ * never the worker's own word (the simplest reliable one; a worker's note would need a new message
+ * for it, kept to sw.ts's own job).
+ */
+export function workerAnswerOf(
+  screen: string,
+  sinceMs: number,
+  entries: readonly PerformanceEntry[] = globalThis.performance.getEntriesByType("resource"),
+): string | undefined {
+  const latest = entries.filter((entry) => isScreensChunk(entry, screen, sinceMs)).at(-1);
+  if (latest === undefined) {
+    return undefined;
+  }
+  const transferSize = numberFieldOf(latest, "transferSize") ?? 0;
+  return transferSize === 0
+    ? "the service worker answered from what it kept"
+    : `the service worker answered, ${String(transferSize)} bytes over the network`;
+}
+
+/** Each attempt's line for a report: its number from 1, how long it took, and what happened. */
+function attemptLines(attempts: readonly LoadAttempt[]): string {
+  return attempts
+    .map(
+      (attempt, index) =>
+        `attempt ${String(index + 1)}: ${String(attempt.ms)} ms (${attempt.outcome})`,
+    )
+    .join("; ");
+}
+
+/**
  * Loads a screen's code, asking again once after retryAfterMs when it fails; failing again for a
  * newer client served, the page reloads into it, once (newer-client.ts); else it tells the core's log
  * which screen, why and whether a worker controlled the page, and throws ScreenCodeNotLoaded for
- * LaterScreen to show.
+ * LaterScreen to show. Either way, once the total reaches screenLoadSlowAfterMs, it tells the core's
+ * log the route, the total, each attempt's time and outcome, and, under a loader, what the browser's
+ * own record says of how the worker answered the chunk (VQ137).
  */
 export async function loadScreenCode<T>(
   screen: string,
   load: () => Promise<T>,
   retryAfterMs: number = screenRetryMs,
 ): Promise<T> {
+  const nowMs = (): number => performance.now();
+  const startedMs = nowMs();
+  const attempts: LoadAttempt[] = [];
+  const reportIfSlow = (): void => {
+    const totalMs = Math.round(nowMs() - startedMs);
+    if (totalMs < screenLoadSlowAfterMs) {
+      return;
+    }
+    const servedBy = pageWorkerOf(window).isUnderLoader
+      ? workerAnswerOf(screen, startedMs)
+      : undefined;
+    reportFailure(
+      `the ${screen} screen's code took ${String(totalMs)} ms to load: ${attemptLines(attempts)}` +
+        (servedBy === undefined ? "" : `; ${servedBy}`),
+    );
+  };
   try {
-    return await load();
+    const result = await timedLoad(load, nowMs, attempts);
+    reportIfSlow();
+    return result;
   } catch {
     await new Promise((resolve) => {
       setTimeout(resolve, retryAfterMs);
     });
   }
   try {
-    return await load();
+    const result = await timedLoad(load, nowMs, attempts);
+    reportIfSlow();
+    return result;
   } catch (cause: unknown) {
+    reportIfSlow();
     const failed = new ScreenCodeNotLoaded(screen, cause);
     const worker = pageWorkerOf(window);
     if (await reloadsForNewerClient(failed, worker)) {

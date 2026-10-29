@@ -10,9 +10,11 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   LaterScreen,
   lazyScreen,
+  loadScreenCode,
   ScreenCodeNotLoaded,
   ScreenNotLoadedPage,
   screenNotLoadedText,
+  workerAnswerOf,
 } from "./screen-load.tsx";
 import { buttonWithText, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
@@ -106,6 +108,76 @@ it("says no worker answers the page under a loader, as DevTools' bypass makes it
     />,
   );
   expect(mounted.container.textContent).not.toContain("bypass the service worker");
+});
+
+it("tells the core's log where the time went when a screen's code is slow, though it loads (VQ137)", async () => {
+  vi.useFakeTimers({ toFake: ["performance", "setTimeout", "clearTimeout"] });
+  const sent: string[] = [];
+  sendFailuresTo((text) => sent.push(text));
+  const load = (): Promise<{ default: typeof AScreen }> =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ default: AScreen });
+      }, 3500);
+    });
+  const resultPromise = loadScreenCode("play", load, 0);
+  await vi.advanceTimersByTimeAsync(3500);
+  const result = await resultPromise;
+  expect(result.default).toBe(AScreen);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toContain("the play screen's code took 3500 ms to load");
+  expect(sent[0]).toContain("attempt 1: 3500 ms (ok)");
+});
+
+it("tells the core's log nothing for an ordinary, fast load", async () => {
+  const sent: string[] = [];
+  sendFailuresTo((text) => sent.push(text));
+  const result = await loadScreenCode(
+    "play",
+    async () => await Promise.resolve({ default: AScreen }),
+  );
+  expect(result.default).toBe(AScreen);
+  expect(sent).toEqual([]);
+});
+
+it("says how a loader's worker answered a screen's chunk, from the browser's own record of its load", () => {
+  const kept = {
+    name: "https://c.example/assets/title-ABC123.js",
+    startTime: 100,
+    workerStart: 50,
+    transferSize: 0,
+  } as unknown as PerformanceEntry;
+  expect(workerAnswerOf("title", 0, [kept])).toBe("the service worker answered from what it kept");
+
+  const fetched = {
+    name: "https://c.example/assets/title-ABC123.js",
+    startTime: 100,
+    workerStart: 50,
+    transferSize: 4096,
+  } as unknown as PerformanceEntry;
+  expect(workerAnswerOf("title", 0, [fetched])).toBe(
+    "the service worker answered, 4096 bytes over the network",
+  );
+
+  const notIntercepted = {
+    name: "https://c.example/assets/title-ABC123.js",
+    startTime: 100,
+    workerStart: 0,
+    transferSize: 0,
+  } as unknown as PerformanceEntry;
+  expect(workerAnswerOf("title", 0, [notIntercepted])).toBeUndefined();
+
+  // Loaded before the screen asked for it: not this load's.
+  expect(workerAnswerOf("title", 200, [kept])).toBeUndefined();
+
+  // Another screen's chunk, which this one's name does not match.
+  const another = {
+    name: "https://c.example/assets/series-XYZ789.js",
+    startTime: 100,
+    workerStart: 50,
+    transferSize: 0,
+  } as unknown as PerformanceEntry;
+  expect(workerAnswerOf("title", 0, [another])).toBeUndefined();
 });
 
 it("says what happened: the screen, the page, the reason, the loader, the worker and the browser", () => {

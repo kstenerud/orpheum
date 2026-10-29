@@ -57,7 +57,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the cause is a newer client served (its answers name another, or under a loader the worker's
   client files no longer name the file), the page reloads into it at the same address instead, once
   per build in a tab, a reload that did not help showing that page, and the page after tells the
-  core's log why (`src/newer-client.ts`; the owner's Mac, staging, 2026-10-29).
+  core's log why (`src/newer-client.ts`; the owner's Mac, staging, 2026-10-29). Timed from the
+  first ask, once a screen's code takes `screenLoadSlowAfterMs` (3 s) or more to load, loaded or
+  not, the core's log is told the route, the total, each attempt's time and outcome, and, under a
+  loader, what the browser's own record of the load says of how the worker answered the chunk
+  (`workerAnswerOf`, a best effort): a tab open across a deploy clicked a Continue-watching tile and
+  showed "Loading…" for near a minute with nothing told the core's log at all (VQ137, 2026-10-29).
   `src/screen-load.test.tsx`, `src/newer-client.test.tsx`; on a device, VQ123 and VQ137.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
@@ -87,7 +92,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   each silence told to the core's log: the page draws its player, and with it a host's Watch
   Together player and its session connection, only once its playback is answered, and one answer lost
   over WebRTC left the host's page on "Loading…" for good, its player never attached (the owner's
-  Chrome back from another site, staging, 2026-10-29). `src/play-unanswered.test.tsx`; VQ138.
+  Chrome back from another site, staging, 2026-10-29). `src/play-unanswered.test.tsx`; VQ138. Every
+  attempt of the decision (`watching.ts`'s `decide`, `reopen.ts`'s `askUntilAnswered` and
+  `askWhileUnanswered`) is timed from the first ask (`play-start-timing.ts`'s `openPlayback`), and
+  once the total reaches `playbackStartSlowAfterMs` (3 s), opened or not, the core's log is told
+  each attempt's time and outcome and what carries the request now (`mediaCarrierOf`): a
+  Continue-watching tile's click showed "Loading…" for near a minute with nothing told the core's
+  log at all, until the playback started (VQ137, 2026-10-29). `src/play-start-timing.test.ts`,
+  `src/play-unanswered.test.tsx`; VQ137.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves
