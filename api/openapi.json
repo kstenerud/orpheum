@@ -3531,6 +3531,16 @@
             "minimum": 1,
             "type": "integer"
           },
+          "rememberedLinkSamples": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "rememberedLinkSpread": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
           "soundCarriedGainDb": {
             "format": "double",
             "type": "number"
@@ -5693,6 +5703,12 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "linkSpread": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": "number"
           },
           "pathMoves": {
             "items": {

@@ -1007,6 +1007,22 @@ CREATE TABLE title_watched (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   CHECK (watched_at IS NOT NULL OR marked_at IS NOT NULL),
   PRIMARY KEY (user_id, title_id)) WITHOUT ROWID, STRICT;
 
+-- What each player last said of its link on each network (D257 §1, D352 Q2, step 0063): its speed
+-- with its samples' spread, and its steadiness level, kept across restarts so the next playback
+-- starts its estimate on them (bandwidth-sampling-2026-10-29.md P2). A cache: losing a row costs one
+-- start a measured link, and rows said nothing of within link_speed_fresh_hours are deleted.
+CREATE TABLE link_memory (                                  -- class C (D257 §1)
+  player TEXT NOT NULL, network TEXT NOT NULL,  -- "device 3" or "session <key>"; clientnet.Of
+  speed_kbps INTEGER CHECK (speed_kbps > 0), speed_log_spread REAL CHECK (speed_log_spread >= 0),
+  speed_at INTEGER,                             -- all three NULL while only the steadiness is said
+  steadiness INTEGER CHECK (steadiness BETWEEN 0 AND 3), steadiness_at INTEGER,
+  said_at INTEGER NOT NULL,                     -- the later of the two: a stale row is found by it
+  CHECK ((speed_kbps IS NULL) = (speed_at IS NULL)),
+  CHECK ((steadiness IS NULL) = (steadiness_at IS NULL)),
+  CHECK (speed_at IS NOT NULL OR steadiness_at IS NOT NULL),
+  PRIMARY KEY (player, network)) WITHOUT ROWID, STRICT;
+CREATE INDEX link_memory_said ON link_memory(said_at);
+
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL CHECK (scope IN ('user','library','work','device','file')),  -- 0028: 'work' for 'series'
@@ -1366,6 +1382,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `item_text` | persistent.db | `internal/core/identify` | |
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
+| `link_memory` | persistent.db | `internal/core/playback` | what each player last said of its link on each network, kept across restarts (D257 §1, D352 Q2; `speeds.go`) |
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
 | `ordering` | persistent.db | `internal/core/identify` | |
@@ -1426,6 +1443,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
+| Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `link_speed_fresh_hours` (24) is deleted at the next player's word (D257 §1) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 

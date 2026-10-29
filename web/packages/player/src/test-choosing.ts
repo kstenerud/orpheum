@@ -17,6 +17,7 @@ import {
   type ChoosingHls,
   type FollowedChunk,
 } from "./abr.ts";
+import type { RememberedLink } from "./link-estimate.ts";
 
 /** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
 export const levels = [
@@ -96,6 +97,8 @@ export interface Scene {
   samplesNoted: string[];
   /** The steadiness level, each time the choosing told it. */
   steadinessNoted: number[];
+  /** The link's spread, each time the choosing told it. */
+  spreadsNoted: number[];
 }
 
 export const scene: Scene = {
@@ -106,6 +109,7 @@ export const scene: Scene = {
   steps: [],
   samplesNoted: [],
   steadinessNoted: [],
+  spreadsNoted: [],
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -127,6 +131,7 @@ export function useScene(vitest: {
     scene.steps = [];
     scene.samplesNoted = [];
     scene.steadinessNoted = [];
+    scene.spreadsNoted = [];
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -148,14 +153,18 @@ export interface Chosen {
 
 /**
  * A playback's choosing, offered startAtBps and, where the test names them, the share of the link a
- * quality may take and the steadiness level it starts at; the link estimated by the chunks it
- * measures.
+ * quality may take and the steadiness level it starts at, or that and the link its device remembers;
+ * the link estimated by the chunks it measures.
  */
 export function choosingFrom(
   startAtBps: number,
   shareForQuality?: number,
-  startSteadiness?: number,
+  started?: number | { readonly steadiness?: number; readonly rememberedLink?: RememberedLink },
 ): Chosen {
+  const { steadiness: startSteadiness, rememberedLink } =
+    typeof started === "number"
+      ? { steadiness: started, rememberedLink: undefined }
+      : (started ?? {});
   const hls = new FakeHls();
   const fedToHls: [number, number][] = [];
   const givenUp: FollowedChunk[] = [];
@@ -168,6 +177,7 @@ export function choosingFrom(
       startAtBps,
       shareForQuality,
       startSteadiness,
+      rememberedLink,
       monotonicMs: () => scene.nowMs,
       isVoiceLive: () => scene.isVoiceLive,
       isInAGroup: () => scene.isInAGroup,
@@ -176,6 +186,7 @@ export function choosingFrom(
       noteStep: (step) => scene.steps.push(step),
       noteSamples: (samples) => scene.samplesNoted.push(samples),
       noteSteadiness: (level) => scene.steadinessNoted.push(level),
+      noteLinkSpread: (spread) => scene.spreadsNoted.push(spread),
     },
     {
       giveUp: (chunk) => givenUp.push(chunk),

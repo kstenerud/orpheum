@@ -79,6 +79,39 @@ func TestPlayback_AStartTellsItsPlayerTheLinkItsDeviceLastMeasuredOnTheNetwork(t
 	}
 }
 
+// A start's remembered link carries the spread of the samples its player measured it from, and how
+// many of the playback's own samples it counts as in its player's estimate: two while it is under
+// an hour old, fewer as it ages (bandwidth-sampling-2026-10-29.md P2, the owner, 2026-10-29).
+func TestPlayback_AStartsRememberedLinkCarriesItsSpreadAndCountsLessAsItAges(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	first := harness.play(t, user, chrome(1))
+	measured := reportBody(1, 4_000, 0)
+	measured["linkKbps"] = 17_000
+	measured["linkSpread"] = 0.31
+	if answer := harness.report(t, user, first, measured); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	harness.clock.Advance(10 * time.Minute)
+	fresh := harness.play(t, user, chrome(1)).OnLadder
+	if fresh == nil || fresh.RememberedLinkSpread == nil || *fresh.RememberedLinkSpread != 0.31 ||
+		fresh.RememberedLinkSamples == nil || *fresh.RememberedLinkSamples != 2 {
+		t.Fatalf("10 minutes after measuring, the next playback starts on %+v; want spread 0.31, two samples", fresh)
+	}
+	if !strings.Contains(harness.logs.String(), `"rememberedLinkAgeMs":600000`) {
+		t.Error("the playback's start does not say how old the link it remembered is")
+	}
+	harness.clock.Advance(12 * time.Hour)
+	older := harness.play(t, user, chrome(1)).OnLadder
+	if older == nil || older.RememberedLinkSamples == nil || *older.RememberedLinkSamples >= 2 ||
+		*older.RememberedLinkSamples <= 0 {
+		t.Errorf("12 hours on, the next playback starts on %+v; want it to count as fewer than two samples", older)
+	}
+}
+
 // A Watch Together viewer, who has no device row, is remembered by their session on their network,
 // and their next playback of the session's film starts lower too (D257).
 func TestPlayback_AViewerRememberedSlowStartsOnALowerQuality(t *testing.T) {

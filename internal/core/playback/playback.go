@@ -130,7 +130,7 @@ func NewService(parts Parts) *Service {
 		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, absences: parts.Absences,
-		speeds:             newLinkSpeeds(),
+		speeds:             newLinkSpeeds(parts.Database),
 		unplayablePictures: newUnplayablePictures(),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
@@ -193,12 +193,23 @@ type Started struct {
 	// Steadiness is the steadiness level its player starts on the ladder at: the one its last
 	// playback on the request's network ended at, relaxed by the time since (D352 Q2); 0 for none.
 	Steadiness int
-	// RememberedLinkKbps is the link its player last measured on the request's network, within
+	// RememberedLink is the link its player last measured on the request's network, within
 	// link_speed_fresh_hours (D257 §1), which the server chose its starting quality by and its player
-	// sets against its first chunk's speed until its own estimate is confident; 0 for none.
-	RememberedLinkKbps int64
+	// takes into its estimate as a prior (bandwidth-sampling-2026-10-29.md P2); zero for none.
+	RememberedLink RememberedLink
 	// Tracks are what the playback may play and what the file holds, which its player names.
 	Tracks Tracks
+}
+
+// RememberedLink is the link a player last measured on a network, as its next playback there starts
+// by it: its speed, the spread of the natural logs of the samples it rested on (0 where its player
+// said none), how old it is, and how many of the playback's own samples it counts as
+// (measuredSpeed.countsAsSamples). The zero value is none.
+type RememberedLink struct {
+	Kbps            int64
+	LogSpread       float64
+	AgeMs           int64
+	CountsAsSamples float64
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -271,14 +282,35 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	link := speedKey{
 		player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress),
 	}
-	started.Steadiness = service.speeds.steadiness(link, service.clock.Now(), timing.speedFreshFor,
-		timing.steadinessRelaxesEvery)
-	started.RememberedLinkKbps, _ = service.speeds.fresh(link, service.clock.Now(), timing.speedFreshFor)
+	if started.Steadiness, started.RememberedLink, err = service.rememberedAtStart(ctx, link, timing); err != nil {
+		return Started{}, err
+	}
 	// A film its device cannot play as it is plays from its ladder, the one way to convert it (D344 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		return Started{}, fmt.Errorf("file %d, %s: %w", file.ID, started.NotOnLadderBecause, ErrCannotConvert)
 	}
 	return service.issued(ctx, playback, probe, started, idle)
+}
+
+// rememberedAtStart is what a player's start on a network is told of its link there: the steadiness
+// level its last playback there ended at, relaxed by the time since (D352 Q2), and the link it last
+// measured there, the zero value for none (D257 §1, bandwidth-sampling-2026-10-29.md P2).
+func (service *Service) rememberedAtStart(
+	ctx context.Context, link speedKey, timing playbackTiming,
+) (int, RememberedLink, error) {
+	now := service.clock.Now()
+	steadiness, err := service.speeds.steadiness(ctx, link, now, timing.speedFreshFor, timing.steadinessRelaxesEvery)
+	if err != nil {
+		return 0, RememberedLink{}, err
+	}
+	speed, isRemembered, err := service.speeds.fresh(ctx, link, now, timing.speedFreshFor)
+	if err != nil || !isRemembered {
+		return steadiness, RememberedLink{}, err
+	}
+	return steadiness, RememberedLink{
+		Kbps: speed.kbps, LogSpread: speed.logSpread, AgeMs: now.Sub(speed.at).Milliseconds(),
+		CountsAsSamples: speed.countsAsSamples(now, timing.speedFreshFor),
+	}, nil
 }
 
 // ownSoundTracksOf are the file's audio tracks, by their place among them, a device of formats plays
@@ -377,7 +409,11 @@ func (service *Service) startOnLadder(
 		return nil, "originalChosen", nil
 	}
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
-	kbps, _ := service.speeds.fresh(key, service.clock.Now(), service.timingNow().speedFreshFor)
+	speed, _, err := service.speeds.fresh(ctx, key, service.clock.Now(), service.timingNow().speedFreshFor)
+	if err != nil {
+		return nil, "", err
+	}
+	kbps := speed.kbps
 	playback.positionMs = positionMs
 	waitMs, err := service.settings.Int(ctx, settings.PlayLadderWaitMs)
 	if err != nil {

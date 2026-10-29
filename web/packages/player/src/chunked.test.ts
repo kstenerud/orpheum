@@ -28,6 +28,7 @@ import {
   unplayableOf,
 } from "./chunked.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
+import { linkSpreadOf } from "./link-estimate.ts";
 import { steadinessOf } from "./steadiness.ts";
 import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
@@ -337,5 +338,25 @@ describe("the steadiness a chunked playback starts at (D352 Q2)", () => {
     expect(steadinessOf(video)).toBeUndefined();
     options.noteSteadiness?.(1);
     expect(steadinessOf(video)).toBe(1);
+  });
+});
+
+describe("the link a chunked playback's estimate starts from (bandwidth-sampling-2026-10-29.md P2)", () => {
+  it("is the one its offer says its device remembers, and the controller's spread is kept for the video's reports", () => {
+    const video = new EventTarget() as HTMLVideoElement;
+    const options = choosingOptionsOf(video, {
+      startAtBps: 1_992_000,
+      monotonicMs: () => 0,
+      rememberedLinkKbps: 17_000,
+      rememberedLinkSpread: 0.31,
+      rememberedLinkSamples: 2,
+    });
+    expect(options.rememberedLink).toEqual({ kbps: 17_000, logSpread: 0.31, countsAsSamples: 2 });
+    expect(
+      choosingOptionsOf(video, { startAtBps: 1_992_000, monotonicMs: () => 0 }).rememberedLink,
+    ).toBeUndefined();
+    expect(linkSpreadOf(video)).toBeUndefined();
+    options.noteLinkSpread?.(0.4);
+    expect(linkSpreadOf(video)).toBe(0.4);
   });
 });

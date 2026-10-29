@@ -1305,3 +1305,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   Mac, Firefox refused 5667's own (HEVC) picture (`bufferAppendNoProgress`) and the player fell back
   to 800p with the server's stereo, as designed; why the Mac's Firefox refused it is filed for the
   next batch.
+- [ ] **VQ120** — the chunked player's link estimate of 2026-10-29 (D352's revision, P1–P6 of
+  research/bandwidth-sampling-2026-10-29.md) holds a Fire TV's quality through a stuck chunk, and a
+  start after a deploy rests on the link remembered before it, on staging once deployed. Do: (1) on
+  the Fire TV (Silk) over WebRTC, play a converted film (Nosferatu, file 5671, or another whose top is
+  its own picture) for ten minutes, Watch Together off; (2) let the core restart (the deploy itself
+  will do), then start a film on the Fire TV within the hour. Passes when (1) no `ceiling … to …`
+  step lowers the quality on a chunk given up without progress (its note says `stuck`) while its
+  estimate stays near what its other chunks measured, the given-up chunk's note naming its transport
+  and connection, and no switch to the lowest quality follows one; and (2) the start's `a playback
+  started` line has a non-zero `rememberedLinkKbps` with `rememberedLinkSamples` 2 (or less, if over
+  an hour old) after the restart, and its seek/start note says `nextChunkLoadFrom` `remembered` or
+  `confident`, not `none`. (`web/packages/player/src/link-estimate.ts`, `abr.ts`, `next-chunk.ts`;
+  `internal/core/playback/speeds.go`, step 0063)

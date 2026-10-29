@@ -229,6 +229,24 @@ describe("reporting play state", () => {
     expect(sent.slice(1).map((report) => report.steadiness)).toEqual([2, 0]);
   });
 
+  it("sends the spread of the link's samples with the link's speed, never without it (bandwidth-sampling P2)", async () => {
+    const { reporter, sent, setNow } = fakeReporter();
+    const player: { kbps: number | undefined; spread: number | undefined } = {
+      kbps: undefined,
+      spread: 0.31234,
+    };
+    reporter.measureLinkWith(() => player.kbps);
+    reporter.reportLinkSpreadWith(() => player.spread);
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    expect(sent[0]).not.toHaveProperty("linkSpread"); // no speed to go beside
+    player.kbps = 17_000;
+    reporter.flush(10_000);
+    await settled();
+    expect(sent[1]).toMatchObject({ linkKbps: 17_000, linkSpread: 0.312 });
+  });
+
   it("tells a stall the link's last samples apart from its steps (D352 §5)", async () => {
     const { reporter, sent } = fakeReporter();
     const hls = { on: () => undefined } as unknown as DiagnosedHls;

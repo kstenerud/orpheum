@@ -34,6 +34,7 @@ import {
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
+import { linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
 
 /**
@@ -406,11 +407,32 @@ export function shareForQualityOf(linkSharePercent: number | undefined): number 
     : undefined;
 }
 
+/** The link a playback's offer says its device last measured on its network, as the offer says it. */
+interface RememberedOffer {
+  /**
+   * Its speed, kbit/s (D257 §1), the spread of the natural logs of the samples it rested on, and how
+   * many of the playback's own samples it counts as (bandwidth-sampling-2026-10-29.md P2); each
+   * absent for none.
+   */
+  readonly rememberedLinkKbps?: number | undefined;
+  readonly rememberedLinkSpread?: number | undefined;
+  readonly rememberedLinkSamples?: number | undefined;
+}
+
+/** The prior an offer's remembered link gives the controller's estimate; undefined for none. */
+export function rememberedLinkOf(offer: RememberedOffer): RememberedLink | undefined {
+  const { rememberedLinkKbps: kbps, rememberedLinkSamples: countsAsSamples } = offer;
+  return kbps === undefined || countsAsSamples === undefined
+    ? undefined
+    : { kbps, logSpread: offer.rememberedLinkSpread, countsAsSamples };
+}
+
 /**
  * What the bitrate controller of video's chunked playback chooses by (D265): starting within
  * startAtBps at the steadiness level its offer says (D352 Q2), giving way to live voice and to its
  * group, telling the page of a quality unplayable here (D266), and keeping each of its choices, with
- * why, among the video's steps, and its steadiness level for its play reports.
+ * why, among the video's steps, and its steadiness level and its link's spread for its play reports;
+ * its estimate of the link starting from what its offer says its device remembers (P2).
  */
 export function choosingOptionsOf(
   video: HTMLVideoElement,
@@ -419,12 +441,13 @@ export function choosingOptionsOf(
     readonly monotonicMs: () => number;
     readonly linkSharePercent?: number | undefined;
     readonly startSteadiness?: number | undefined;
-  },
+  } & RememberedOffer,
 ): ChoosingOptions {
   return {
     startAtBps: options.startAtBps,
     shareForQuality: shareForQualityOf(options.linkSharePercent),
     startSteadiness: options.startSteadiness,
+    rememberedLink: rememberedLinkOf(options),
     monotonicMs: options.monotonicMs,
     isVoiceLive,
     isInAGroup: isFollowingAGroup,
@@ -433,6 +456,7 @@ export function choosingOptionsOf(
     noteStep: stepNoter(video),
     noteSamples: samplesNoter(video),
     noteSteadiness: steadinessNoter(video),
+    noteLinkSpread: linkSpreadNoter(video),
   };
 }
 
@@ -457,12 +481,6 @@ export function playChunked(
      * ended at on its network (D352 Q2); 0 when absent.
      */
     readonly startSteadiness?: number | undefined;
-    /**
-     * The link its device last measured on its network, in kbit/s, as the playback's offer says
-     * (D257 §1), which its start rule sets against its first chunk's speed until its own estimate
-     * is confident (next-chunk.ts); absent for none.
-     */
-    readonly rememberedLinkKbps?: number | undefined;
     /** Where in the film it starts: where the player was when it stalled. */
     readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;
@@ -474,7 +492,7 @@ export function playChunked(
     readonly loadsAheadAtMostS?: number;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
     readonly authorization?: string | undefined;
-  },
+  } & RememberedOffer,
 ): ChunkedPlayback {
   const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
   if (withoutHlsJs !== undefined) {

@@ -59,6 +59,17 @@ export const spreadFromSamples = 3;
  */
 const madToSpread = 1.4826;
 
+/**
+ * How many spreads from the remembered link two of the playback's own samples must lie, on the same
+ * side, to drop it, and within how many spreads of each other: they agree with each other and not
+ * with it, so the link has changed since (prior-data conflict; bandwidth-sampling §2.5, §6.2). One
+ * sample far from it is far likelier a fresh connection or a stuck request than a link changed in the
+ * minutes since. Textbook starting values, a CUSUM's "two in a row beyond 2σ", not measured on our
+ * links.
+ */
+export const dropsPriorBeyondSpreads = 2;
+export const dropsPriorWithinSpreads = 4;
+
 /** How many times the centre is clipped and averaged again at most: each brings it nearer, and a few settle it. */
 const centreRounds = 20;
 
@@ -70,6 +81,18 @@ export interface LinkSample {
   readonly arrivedMs: number;
   /** From its ask to its first byte, in ms. */
   readonly firstByteMs: number;
+}
+
+/**
+ * The link its device last measured on its network, as the playback's offer says it (D257 §1): its
+ * speed, the spread of the natural logs of the samples it rested on where its player said one, and
+ * how many of the playback's own samples it counts as, two while under an hour old, fewer as it ages
+ * (bandwidth-sampling-2026-10-29.md P2).
+ */
+export interface RememberedLink {
+  readonly kbps: number;
+  readonly logSpread?: number | undefined;
+  readonly countsAsSamples: number;
 }
 
 /** A sample as the estimate keeps it: its speed, and the estimate that stood before it came. */
@@ -148,10 +171,27 @@ function huberCentreOf(points: readonly Weighed[], spread: number): number {
  * estimate divided by one plus the error of its own predictions over those samples
  * (predictionError), how far each fell from the estimate that stood before it, as a share of the
  * sample (RobustMPC's discount).
+ *
+ * Its **prior** is the link its device last measured on its network, remembered (RememberedLink): it
+ * enters the centre as a point counting as its countsAsSamples, and lends its spread while too few
+ * samples are kept to measure one, until two of the playback's own samples lie dropsPriorBeyondSpreads
+ * from it on the same side and within dropsPriorWithinSpreads of each other, which drops it, or the
+ * playback's own samples begin to leave the window, more than linkSamplesKept of them, which retires
+ * it: the window is then the playback's own (bandwidth-sampling P2). The estimate itself is the
+ * playback's own samples' alone, before any; only a bound (P4) reads the prior alone.
  */
 export class LinkEstimate {
   #samples: Kept[] = [];
   #count = 0;
+  readonly #prior: RememberedLink | undefined;
+  /** When the prior was dropped, by how many samples the playback had then; undefined while not. */
+  #priorDroppedAt: number | undefined;
+
+  /** An estimate with nothing measured yet, starting from what its device remembers of the link, if anything. */
+  constructor(prior?: RememberedLink) {
+    this.#prior =
+      prior !== undefined && prior.kbps > 0 && prior.countsAsSamples > 0 ? prior : undefined;
+  }
 
   /** Takes a chunk that measured the link. */
   add(sample: LinkSample): void {
@@ -164,6 +204,31 @@ export class LinkEstimate {
     });
     this.#samples = this.#samples.slice(-linkSamplesKept);
     this.#count += 1;
+    if (this.#isPriorKept() && this.#disagreesWithPrior()) {
+      this.#priorDroppedAt = this.#count;
+    }
+  }
+
+  /**
+   * The prior the estimate began from, and whether it still counts: dropped when the playback's own
+   * samples disagreed with it (at which sample), retired once its own samples fill the window.
+   */
+  prior():
+    (RememberedLink & { readonly isKept: boolean; readonly droppedAtSample?: number }) | undefined {
+    const prior = this.#prior;
+    if (prior === undefined) {
+      return undefined;
+    }
+    return {
+      ...prior,
+      isKept: this.#isPriorKept(),
+      ...(this.#priorDroppedAt === undefined ? {} : { droppedAtSample: this.#priorDroppedAt }),
+    };
+  }
+
+  /** How many samples the estimate counts in all: those kept, and the prior's while it is kept. */
+  countsAsSamples(): number {
+    return this.#samples.length + (this.#isPriorKept() ? (this.#prior?.countsAsSamples ?? 0) : 0);
   }
 
   /** How many chunks have measured the link in all, the ones no longer kept with them. */
@@ -184,22 +249,30 @@ export class LinkEstimate {
     const logs = this.#logs();
     const median = medianOf(logs);
     if (logs.length < spreadFromSamples || median === undefined) {
-      return assumedLogSpread;
+      const remembered = this.#isPriorKept() ? this.#prior?.logSpread : undefined;
+      return remembered === undefined ? assumedLogSpread : Math.max(logSpreadAtLeast, remembered);
     }
     const deviation = medianOf(logs.map((log) => Math.abs(log - median))) ?? 0;
     return Math.max(logSpreadAtLeast, madToSpread * deviation);
   }
 
-  /** The samples' centre, in natural log of bits a second; undefined before any. */
+  /**
+   * The centre of the samples and of the prior while it is kept, in natural log of bits a second;
+   * undefined with neither.
+   */
   centre(): number | undefined {
-    const points = this.#logs().map((log) => ({ log, weight: 1 }));
+    const points: Weighed[] = this.#logs().map((log) => ({ log, weight: 1 }));
+    const prior = this.#prior;
+    if (prior !== undefined && this.#isPriorKept()) {
+      points.push({ log: Math.log(prior.kbps * 1000), weight: prior.countsAsSamples });
+    }
     return points.length === 0 ? undefined : huberCentreOf(points, this.spread());
   }
 
-  /** The estimate, e to the samples' centre, in bits a second; undefined before any. */
+  /** The estimate, e to the centre, in bits a second; undefined before the playback's own first sample. */
   estimateBps(): number | undefined {
     const centre = this.centre();
-    return centre === undefined ? undefined : Math.exp(centre);
+    return centre === undefined || this.#samples.length === 0 ? undefined : Math.exp(centre);
   }
 
   /**
@@ -243,6 +316,59 @@ export class LinkEstimate {
   #logs(): number[] {
     return this.#samples.map((sample) => Math.log(sample.bps));
   }
+
+  /** Whether the prior counts: there is one, not dropped, and the window not yet the playback's own. */
+  #isPriorKept(): boolean {
+    return (
+      this.#prior !== undefined &&
+      this.#priorDroppedAt === undefined &&
+      this.#count <= linkSamplesKept
+    );
+  }
+
+  /**
+   * Whether two of the samples kept lie dropsPriorBeyondSpreads from the prior on the same side and
+   * within dropsPriorWithinSpreads of each other.
+   */
+  #disagreesWithPrior(): boolean {
+    const prior = this.#prior;
+    if (prior === undefined) {
+      return false;
+    }
+    const spread = this.spread();
+    const priorLog = Math.log(prior.kbps * 1000);
+    const far = this.#logs().filter(
+      (log) => Math.abs(log - priorLog) > dropsPriorBeyondSpreads * spread,
+    );
+    return far.some((first, index) =>
+      far
+        .slice(index + 1)
+        .some(
+          (second) =>
+            Math.sign(first - priorLog) === Math.sign(second - priorLog) &&
+            Math.abs(first - second) <= dropsPriorWithinSpreads * spread,
+        ),
+    );
+  }
+}
+
+/** Each video's chunked playback's spread of its link, as its controller last told it. */
+const spreads = new WeakMap<object, number>();
+
+/**
+ * What keeps the spread of the link of video's chunked playback, the latest replacing the one before,
+ * for its play reports, which the server keeps beside the link's speed for its next start's prior
+ * (bandwidth-sampling-2026-10-29.md P2).
+ */
+export function linkSpreadNoter(video: object): (logSpread: number) => void {
+  return (logSpread) => {
+    spreads.set(video, logSpread);
+  };
+}
+
+/** The spread of the link video's chunked playback last reported with its speed; undefined for none. */
+export function linkSpreadOf(video: object): number | undefined {
+  return spreads.get(video);
 }
 
 /**

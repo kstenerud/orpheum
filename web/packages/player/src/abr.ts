@@ -110,7 +110,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * weighted by each chunk's seconds, held one slow first sample of 1008 kb/s for minutes on a
    * 12 Mb/s path (the owner, on staging, 2026-10-26).
    */
-  readonly #estimate = new LinkEstimate();
+  readonly #estimate: LinkEstimate;
   /** How steady the link has been, which sets the step-up's hold and headroom (D352 §3–§4). */
   readonly #steadiness: Steadiness;
   /**
@@ -137,6 +137,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#options = options;
     this.#link = link;
     this.#changedAtMs = options.monotonicMs();
+    this.#estimate = new LinkEstimate(options.rememberedLink);
     this.#steadiness = new Steadiness(options.monotonicMs(), options.startSteadiness);
     options.noteSteadiness?.(this.#steadiness.level());
     this.#timers = [
@@ -562,10 +563,16 @@ export class Choosing<Chunk extends FollowedChunk> {
     }
   }
 
-  /** Takes a chunk's measure of the link into the estimate, and tells the page its samples. */
+  /**
+   * Takes a chunk's measure of the link into the estimate, and tells the page its samples, and, once
+   * the link is reported, its spread.
+   */
   #sample(sample: LinkSample): void {
     this.#estimate.add(sample);
     this.#options.noteSamples?.(samplesText(this.#estimate.samples()));
+    if (this.linkKbps() !== undefined) {
+      this.#options.noteLinkSpread?.(this.#estimate.spread());
+    }
   }
 
   /**

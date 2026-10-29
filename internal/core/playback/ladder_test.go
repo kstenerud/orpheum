@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // cutAfterChunks is a chunks service whose film has no grid on its keyframes for its first noGridFor
@@ -95,8 +96,9 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime(
 		clock := clocktest.NewFake(time.Date(2026, 10, 7, 20, 0, 0, 0, time.UTC))
 		cut := &cutAfterChunks{noGridFor: wait.noGridFor}
 		service := &Service{
-			clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{waitMs: wait.waitMs},
-			tokens: newTokens(),
+			clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
+			settings: waitSettings{waitMs: wait.waitMs},
+			tokens:   newTokens(),
 		}
 		started := clock.Now()
 		playback := tokenPlayback{fileID: 1, decision: decide.Decision{Delivery: wait.delivery}}
@@ -127,7 +129,8 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 	fake := &stoppingChunks{}
 	before := &tokenPlayback{deviceID: 4, fileID: 2, interest: playerInterest{disposition: Paused}}
 	service := &Service{
-		clock: clock, chunks: fake, speeds: newLinkSpeeds(), settings: waitSettings{}, tokens: newTokens(),
+		clock: clock, chunks: fake, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
+		settings: waitSettings{}, tokens: newTokens(),
 	}
 	service.tokens.playbackByToken["before"] = before
 	_, _, err := service.startOnLadder(t.Context(), Holder{}, Request{DeviceID: 4}, tokenPlayback{fileID: 1}, 0)
@@ -147,7 +150,8 @@ func TestStartOnLadder_APersonWhoChoseTheOriginalPlaysIt(t *testing.T) {
 	clock := clocktest.NewFake(time.Date(2026, 10, 24, 20, 0, 0, 0, time.UTC))
 	cut := &cutAfterChunks{}
 	service := &Service{
-		clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{}, tokens: newTokens(),
+		clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
+		settings: waitSettings{}, tokens: newTokens(),
 	}
 	offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{PreferredDelivery: decide.Direct},
 		tokenPlayback{fileID: 1}, 0)

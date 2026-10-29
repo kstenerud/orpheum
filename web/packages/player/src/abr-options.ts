@@ -3,6 +3,7 @@
 import type { HlsProgressivePerformanceTiming, LoaderStats } from "hls.js";
 
 import type { ChoiceLevel } from "./abr-choice.ts";
+import type { RememberedLink } from "./link-estimate.ts";
 
 /**
  * What the chunked player's bitrate controller (abr.ts) is given: the chunks it follows, what it reads
@@ -45,6 +46,11 @@ export interface ChoosingOptions {
    * network (D352 Q2); 0 when absent.
    */
   readonly startSteadiness?: number | undefined;
+  /**
+   * The link its device last measured on its network, as the offer says, which its estimate starts
+   * from as a prior (bandwidth-sampling-2026-10-29.md P2); absent for none.
+   */
+  readonly rememberedLink?: RememberedLink | undefined;
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
@@ -65,6 +71,11 @@ export interface ChoosingOptions {
   readonly noteSamples?: (samples: string) => void;
   /** Told the steadiness level as it starts and at each change, for every play report (D352 Q2). */
   readonly noteSteadiness?: (level: number) => void;
+  /**
+   * Told the spread of the link, in natural log, with each sample once the link is reported
+   * (linkKbps), for every play report, which the core keeps beside the speed (P2).
+   */
+  readonly noteLinkSpread?: (logSpread: number) => void;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
