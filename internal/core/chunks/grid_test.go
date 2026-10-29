@@ -61,6 +61,12 @@ func TestGridOf_StartsAChunkAtTheFirstKeyframeAtOrAfterEachMultipleOfTheLength(t
 			9000, 2000,
 			[]int64{0, 2500, 4400},
 		},
+		{
+			"a keyframe 33 ms before a multiple, the first past the one before, starts a chunk of 33 ms (D259 §1)",
+			[]int64{0, 3967, 4000, 4033, 4067},
+			8000, 2000,
+			[]int64{0, 3967, 4000},
+		},
 		{"a single keyframe is one chunk to the end", []int64{0}, 90_000, 2000, []int64{0}},
 		{"a film shorter than the length is one chunk", []int64{0, 500}, 1500, 2000, []int64{0}},
 		{
