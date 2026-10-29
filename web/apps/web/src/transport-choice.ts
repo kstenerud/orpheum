@@ -60,7 +60,9 @@ export function moveToWebrtcWhenSignedIn(
       return;
     }
     isStarted = true;
-    connectRtc(async (offer) => dataOrThrow(await api.POST("/rtc/offer", { body: offer })))
+    connectRtc(async (offer, signal) =>
+      dataOrThrow(await api.POST("/rtc/offer", { body: offer, signal: signal ?? null })),
+    )
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));

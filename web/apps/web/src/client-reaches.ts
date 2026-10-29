@@ -24,6 +24,16 @@ export interface Reaches {
   readonly codeAddress?: string | undefined;
   readonly onLocalNetworkAsking?:
     ((listener: (isAsking: boolean) => void) => () => void) | undefined;
+  /** Tells listener each time the way to the core may work again (Services.onPathBack). */
+  readonly onPathBack: (listener: () => void) => () => void;
+}
+
+/** Tells listener each time the browser comes back online; returns its removal. */
+export function onBrowserOnline(listener: () => void): () => void {
+  window.addEventListener("online", listener);
+  return () => {
+    window.removeEventListener("online", listener);
+  };
 }
 
 /**
@@ -50,7 +60,8 @@ export function takeMediaCarriers(loader: Pick<OrpheumLoader, "mediaCarrierOf">)
 
 /**
  * How the app reaches its core under loader, in page: its requests, socket and path moves the
- * loader's, and whether the browser asks for the local network, which the loader tells (W2c item 8).
+ * loader's, whether the browser asks for the local network, which the loader tells (W2c item 8), and
+ * when the way to the core may work again.
  */
 export function reachesUnderLoader(loader: OrpheumLoader, page: Document): Reaches {
   return {
@@ -62,5 +73,7 @@ export function reachesUnderLoader(loader: OrpheumLoader, page: Document): Reach
     switchHousehold: loader.switchHousehold,
     codeAddress: codeAddressOf(page),
     onLocalNetworkAsking: loader.onLocalNetworkAsking,
+    // An older loader tells nothing of its path: the browser back online is all the client hears.
+    onPathBack: loader.onPathBack ?? onBrowserOnline,
   };
 }

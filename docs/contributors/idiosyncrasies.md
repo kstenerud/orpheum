@@ -56,6 +56,7 @@ User-Agent (D263; the User-Agent is logged only).
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
 | As the quality stepped down, a Fire TV kept 2.5 s of sound against 38.6 s of picture and stalled on the new sound's chunks. | [On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec](#on-a-level-in-another-audio-group-hlsjs-throws-all-the-sound-loaded-away-when-the-new-sound-differs-in-channels-or-codec) |
+| After a minute with Wi-Fi off, Firefox's page never made another WebRTC connection to the core; Chrome's did. | [Firefox's peer connection after a network loss: "disconnected" for half a minute, its states not moved together, and an old connection never comes back](#firefoxs-peer-connection-after-a-network-loss-disconnected-for-half-a-minute-its-states-not-moved-together-and-an-old-connection-never-comes-back) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
@@ -401,6 +402,48 @@ User-Agent (D263; the User-Agent is logged only).
   1839885](https://bugzilla.mozilla.org/show_bug.cgi?id=1839885), "Add APIs for controlling platform/hw echo
   cancellation and other processing on Android", NEW. No report of the film being turned down found (searched
   bugzilla.mozilla.org, 2026-10-08).
+
+### Firefox's peer connection after a network loss: "disconnected" for half a minute, its states not moved together, and an old connection never comes back
+
+- **Technology:** Firefox WebRTC (`RTCPeerConnection`), seen with Firefox 157 on macOS.
+- **Symptom:** with Wi-Fi off for a minute and on again, a page's WebRTC connections to the core never came
+  back: the core closed them at its consent timeout, and nothing more came from Firefox, no offer and no
+  report, for many minutes, its Play page spinning, where Chrome on the same Mac connected again within 50 s.
+- **Cause:** partly unverified. What is known: Firefox marks ICE `disconnected` when a consent check goes
+  unanswered for 5 s and `failed` only some 25 s later (six unanswered checks, 30 s), so a connection lost
+  with the network sits `disconnected` for half a minute; it watches `iceConnectionState` and
+  `connectionState` apart and does not move them together; it gathers no new candidates for a connection
+  that lives through a network change, so an old connection never recovers by itself (only a new one, made
+  on the new network, does); and older releases closed every peer connection themselves on going offline,
+  with only a `signalingstatechange` to say so. Which of these left the owner's page with no new connection
+  is not known: the page, then, replaced a connection only on a `connectionstatechange` it may never have
+  had, and a try to make a new one had no bound on its signaller's post, so one that hung held the
+  transport's only opening for good.
+- **What we do:** never rely on one state or its event. `watchGone` (`web/packages/sdk/src/rtc-peer.ts`)
+  judges `connectionState`, `iceConnectionState` and `signalingState` together, at each of their events and
+  every `peerLookEveryMs` (1 s) besides; either state `disconnected` for `disconnectedGraceMs` (5 s), or
+  `failed`/`closed`, or signalling `closed`, takes the connection as gone. A try to make its replacement is
+  given up after `openTryMostMs`, its signaller's post aborted; failures are tried again after a wait that
+  doubles to `replaceMostMs` (10 s), and at once on the window's `online` event, a try under way then given
+  up (it began on the network that went). The connection back reports to the core's log how long the page
+  had none, why it took the last as gone, and how its tries went. `rtc-network-loss.test.ts`; VQ130.
+- **Evidence:** **[owner]** 2026-10-29, staging, VQ128's session: Mac Firefox 157 (`over=webrtc
+  localNetwork=denied`) never connected again; Chrome did. **[web]** Mozilla's WebRTC blog, ["ICE
+  connected or not"](https://blog.mozilla.org/webrtc/ice-disconnected-not/): consent checks every 5 s,
+  `disconnected` after 5 s without a reply, `failed` about 25 s later. [Mozilla bug
+  1552402](https://bugzilla.mozilla.org/show_bug.cgi?id=1552402), "WebRTC peer connection does not
+  recover from network change using iceRestart" (duplicate of 1548318): Firefox does not regather
+  candidates for a live connection after a network change. [Mozilla bug
+  1276559](https://bugzilla.mozilla.org/show_bug.cgi?id=1276559), "Changing wifi networks triggers
+  offline mode which closes peer connections prematurely": signalling went `closed` with no other state
+  event (fixed by bug 1318180, 2017, so not seen since, but the reason the signalling state is watched too).
+  [Mozilla bug 852665](https://bugzilla.mozilla.org/show_bug.cgi?id=852665), on transport termination
+  being reported late. RTMA's ["Disconnected vs Failed ICE Connection
+  States"](https://www.real-time-media-architecture.com/webrtc-protocol-stack-signaling-servers/connection-recovery-ice-restart/disconnected-vs-failed-ice-connection-states/)
+  says Firefox flags `disconnected` within about a second of its packets stopping, sits near the 30 s
+  ceiling before `failed`, and keeps the ICE and connection states less tightly coupled than Chrome.
+  No report found of a data channel's `close` coming for a connection lost with its network: the spec
+  closes such a channel without its closing procedure (searched 2026-10-29).
 
 ---
 

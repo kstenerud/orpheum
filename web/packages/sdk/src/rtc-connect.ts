@@ -8,7 +8,8 @@
 
 import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
-import { clientConnections, peerOf, RtcTransport, type PeerLike } from "./rtc-transport.ts";
+import { peerOf } from "./rtc-peer.ts";
+import { clientConnections, RtcTransport, type PeerLike } from "./rtc-transport.ts";
 
 /** How long a connection may take to gather its candidates and connect. */
 export const connectTimeoutMs = 10_000;
@@ -148,26 +149,53 @@ export interface Description {
   readonly sdp: string;
 }
 
-/** Takes a client's offer to the core and returns its answer: the offer endpoint, or a discovery. */
-export type Signaller = (offer: Description) => Promise<Description>;
+/**
+ * Takes a client's offer to the core and returns its answer: the offer endpoint, or a discovery. Its
+ * post is given up once signal aborts, as the transport gives up a try that hangs (openTryMostMs).
+ */
+export type Signaller = (offer: Description, signal?: AbortSignal) => Promise<Description>;
+
+/** Tells listener each time the browser comes back online, where there is a window; returns the end. */
+function onBrowserOnline(listener: () => void): () => void {
+  if (typeof globalThis.addEventListener !== "function") {
+    return () => undefined;
+  }
+  globalThis.addEventListener("online", listener);
+  return () => {
+    globalThis.removeEventListener("online", listener);
+  };
+}
 
 /**
  * Connects to the core through signaller: resolves once one peer connection is up, each with every
  * candidate gathered before its offer is sent, and opens the rest up to `count` behind it, replacing
- * any that is gone (plans/webrtc-transport.md W2d).
+ * any that is gone, and trying at once when the browser comes back online (plans/webrtc-transport.md
+ * W2d).
  */
 export async function connectRtc(
   signaller: Signaller,
   rtcConfig: RTCConfiguration = {},
   count: number = clientConnections,
 ): Promise<RtcTransport> {
-  const open = (): Promise<PeerLike> => connectOne(signaller, rtcConfig);
-  return new RtcTransport([await open()], { open, size: count });
+  const open = (signal: AbortSignal): Promise<PeerLike> => connectOne(signaller, rtcConfig, signal);
+  return new RtcTransport([await open(new AbortController().signal)], {
+    open,
+    size: count,
+    onOnline: onBrowserOnline,
+  });
 }
 
-/** One peer connection, connected through signaller. */
-async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Promise<PeerLike> {
+/** One peer connection, connected through signaller; given up, its peer closed, once signal aborts. */
+async function connectOne(
+  signaller: Signaller,
+  rtcConfig: RTCConfiguration,
+  signal: AbortSignal,
+): Promise<PeerLike> {
   const peer = new RTCPeerConnection(rtcConfig);
+  const giveUp = (): void => {
+    peer.close();
+  };
+  signal.addEventListener("abort", giveUp, { once: true });
   try {
     // An offer needs something to negotiate: a channel the client sends nothing on, which the core
     // knows by its label, never serves, and tells its verdict on (internal/core/rtcapi.NegotiationLabel).
@@ -181,7 +209,7 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
     if (local === null) {
       throw new Error("the connection made no offer");
     }
-    const answer = await signaller({ type: "offer", sdp: local.sdp });
+    const answer = await signaller({ type: "offer", sdp: local.sdp }, signal);
     const answeredAt = performance.now();
     await peer.setRemoteDescription(answer);
     await connected(peer);
@@ -198,6 +226,8 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
   } catch (error: unknown) {
     peer.close();
     throw error;
+  } finally {
+    signal.removeEventListener("abort", giveUp);
   }
 }
 

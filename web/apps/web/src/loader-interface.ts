@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 3;
+export const loaderMinor = 4;
 
 /** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
 export type LoaderPathKind = "direct" | "webrtc";
@@ -63,6 +63,13 @@ export interface OrpheumLoader {
    * "http" of every load.
    */
   readonly mediaCarrierOf?: (url: string) => string;
+  /**
+   * Tells listener each time the way to the core may work again: the browser back online, or the
+   * WebRTC transport in use connected again after a time with none; returns its removal. The client's
+   * session connection then connects again at once, rather than after its own wait. Since minor 4: an
+   * older loader has none, and its client hears the browser back online alone.
+   */
+  readonly onPathBack?: (listener: () => void) => () => void;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.

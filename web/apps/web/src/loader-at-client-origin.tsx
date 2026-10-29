@@ -207,6 +207,7 @@ export function loaderOver(
     onPathMove: kept.onPathMove,
     pathInUse: kept.pathInUse,
     mediaCarrierOf: kept.mediaCarrierOf,
+    onPathBack: kept.onPathBack,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
     session,
     setMediaCredentials: kept.setMediaCredentials,

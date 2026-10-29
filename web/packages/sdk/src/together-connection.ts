@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { ShownCheck } from "./shown-check.ts";
-import { whenVisibilityChanges, type ShownPage } from "./shown-page.ts";
+import { whenShownOrBack, type ShownPage } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
 import type { PlayerNote, PlayerState } from "./together-notes.ts";
 import {
@@ -175,6 +175,12 @@ export interface TogetherConnectionOptions {
    * back on a socket that died meanwhile. Absent, nothing is checked but by the pings.
    */
   readonly page?: ShownPage | undefined;
+  /**
+   * Tells its listener each time the way to the core may work again (RtcTransport.onBack, or the
+   * browser online); returns its removal. Told, it does as when its page is shown again: the owner's
+   * Chrome otherwise played on out of step for 28 s after its media came back (VQ130).
+   */
+  readonly pathBack?: ((listener: () => void) => () => void) | undefined;
 }
 
 const startingSnapshot: TogetherSnapshot = {
@@ -450,7 +456,7 @@ class SessionConnection
       this.#dropDeadSocket({ atMs, why: "shown" });
     },
   });
-  /** Ends hearing the page hidden and shown; undefined while closed or with no page. */
+  /** Ends hearing the page hidden and shown, and the path back; undefined while closed. */
   #stopHearingPage: (() => void) | undefined;
 
   constructor(options: TogetherConnectionOptions) {
@@ -544,10 +550,8 @@ class SessionConnection
     this.#attempt = 0;
     this.#lost = undefined; // a fresh connection, not one connecting again
     this.#stopHearingPage?.();
-    this.#stopHearingPage = whenVisibilityChanges(this.#options.page, (isHidden) => {
-      if (!isHidden) {
-        this.#shownAgain();
-      }
+    this.#stopHearingPage = whenShownOrBack(this.#options.page, this.#options.pathBack, () => {
+      this.#shownAgain();
     });
     this.#connect();
   };
@@ -647,7 +651,7 @@ class SessionConnection
 
   /**
    * The page was shown again, where a lock, a sleep or the background may have killed its socket
-   * unseen: one waiting to connect again connects now, and a connected one is pinged, and dropped
+   * unseen, or the way to the core may work again (pathBack), where a lost network may have: one waiting to connect again connects now, and a connected one is pinged, and dropped
    * as dead unless it answers within shownAnswerWithinMs, the one way a socket is dropped as dead
    * (#dropDeadSocket), sooner than its pings would.
    */

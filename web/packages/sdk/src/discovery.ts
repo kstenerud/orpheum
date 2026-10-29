@@ -346,12 +346,13 @@ export const protocolVersion = "1.0";
  */
 export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
   const post = signalling.fetch ?? fetch;
-  return async (offer: Description): Promise<Description> => {
+  return async (offer: Description, signal?: AbortSignal): Promise<Description> => {
     const { held, key } = (await signalling.latest?.()) ?? signalling;
     const fingerprint = fingerprintOf(offer.sdp);
     const proof = await offerProof(key, fingerprint);
     const response = await post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
       method: "POST",
+      signal: signal ?? null,
       headers: {
         "Content-Type": "application/json",
         "Orpheum-Discovery-Protocol": protocolVersion,

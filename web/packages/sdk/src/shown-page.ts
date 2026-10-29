@@ -22,3 +22,25 @@ export function whenVisibilityChanges(
     page?.removeEventListener("visibilitychange", onVisibility);
   };
 }
+
+/**
+ * Calls shown each time page is shown again, if there is a page, and each time pathBack tells that
+ * the way to the core may work again, if there is one: either may find a socket dead that died
+ * unseen. Returns the stopping.
+ */
+export function whenShownOrBack(
+  page: ShownPage | undefined,
+  pathBack: ((listener: () => void) => () => void) | undefined,
+  shown: () => void,
+): () => void {
+  const stopHearingPage = whenVisibilityChanges(page, (isHidden) => {
+    if (!isHidden) {
+      shown();
+    }
+  });
+  const stopHearingPath = pathBack?.(shown);
+  return () => {
+    stopHearingPage();
+    stopHearingPath?.();
+  };
+}

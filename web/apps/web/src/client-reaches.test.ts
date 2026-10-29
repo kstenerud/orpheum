@@ -66,6 +66,35 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
     );
   });
 
+  it("hears the way to the core back by the loader's word, and the browser back online from an older loader (VQ130)", () => {
+    let told = 0;
+    const hear = (): void => {
+      told += 1;
+    };
+    const backListeners: (() => void)[] = [];
+    const reaches = reachesUnderLoader(
+      {
+        ...loaderWith(),
+        onPathBack: (listener) => {
+          backListeners.push(listener);
+          return () => undefined;
+        },
+      },
+      document,
+    );
+    reaches.onPathBack(hear);
+    for (const listener of backListeners) {
+      listener();
+    }
+    expect(told).toBe(1);
+    const stop = reachesUnderLoader(loaderWith(), document).onPathBack(hear);
+    window.dispatchEvent(new Event("online"));
+    expect(told).toBe(2);
+    stop();
+    window.dispatchEvent(new Event("online"));
+    expect(told).toBe(2);
+  });
+
   it("sends the app's requests the loader's way, and names the realm it reached", async () => {
     const loader = loaderWith();
     const reaches = reachesUnderLoader(loader, document);

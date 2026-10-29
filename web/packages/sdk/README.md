@@ -145,6 +145,19 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   can stop while it stays connected, and every request after them waited in the same silence (the
   owner's Chrome, throttled and unthrottled, staging, 2026-10-29; VQ125).
   `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
+- **A WebRTC transport connects again within a bound once the network is back, in every browser**:
+  a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
+  signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of
+  their events and every `peerLookEveryMs` besides (`watchGone`), since Firefox does not move them
+  together; a try to replace it is given up after `openTryMostMs`, its signaller's post aborted;
+  failures are tried again after a wait that doubles up to `replaceMostMs` (10 s), and at once on
+  the browser's `online` event, which gives up a try under way. The one replacement path is the
+  transport's own (`gone`). A connection up after a time with none reports how long the page had
+  none, why it took the last as gone and how its tries went, and the transport tells `onBack` then
+  and on `online`; the session connection, given it as `pathBack`, connects again at once, as when
+  its page is shown again. The owner's Firefox never connected again after a minute without Wi-Fi,
+  and Chrome's session waited 28 s more, out of step (staging, 2026-10-29; VQ130).
+  `src/rtc-network-loss.test.ts`, `src/together-connection-shown.test.ts`.
 - **A load says what carries it, for a stuck chunk's log**: a transport names the connection
   carrying each request under way (`carrierOf`), its number among the page's connections, how long
   it has been up, what it carries and how long since bytes of any request came over it, and, for one

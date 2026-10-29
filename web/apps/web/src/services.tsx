@@ -56,6 +56,13 @@ export interface Services {
    */
   readonly onLocalNetworkAsking?:
     ((listener: (isAsking: boolean) => void) => () => void) | undefined;
+  /**
+   * Tells listener each time the way to the core may work again, so a session connection waiting to
+   * connect again does at once (the SDK's TogetherConnectionOptions.pathBack): the page's WebRTC
+   * transport's word under a loader that tells it, else the browser back online; returns its
+   * removal. Undefined where nothing tells.
+   */
+  readonly onPathBack?: ((listener: () => void) => () => void) | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

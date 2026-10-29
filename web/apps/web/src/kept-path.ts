@@ -41,6 +41,12 @@ export interface KeptPath {
   readonly pathInUse: () => Reached["kind"];
   /** What carries the load of a media url now, for a stuck chunk's log (the SDK's mediaCarrierOf). */
   readonly mediaCarrierOf: (url: string) => string;
+  /**
+   * Tells listener each time the way to the core may work again: on WebRTC, its transport's word
+   * (RtcTransport.onBack: the browser back online, or a connection up after none); on a core's name,
+   * the browser back online. Returns its removal.
+   */
+  readonly onPathBack: (listener: () => void) => () => void;
   /** Names what media loads are signed in with. */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
   /**
@@ -109,7 +115,7 @@ export function keepPath(
   let openSocket = socketOn(reaching.first);
   let credentials = (): MediaCredentials => ({ token: session.token(), viewer: undefined });
   const moveListeners = new Set<(to: string) => void>();
-  const used = transportsUsed();
+  const used = transportsUsed(() => inUse);
   const keeper = new PathKeeper<Reached>(reaching.first, {
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
@@ -154,17 +160,77 @@ export function keepPath(
     openTogetherSocket: (listeners) => openSocket(listeners),
     onPathMove: (listener) => {
       moveListeners.add(listener);
-      return () => {
-        moveListeners.delete(listener);
-      };
+      return () => moveListeners.delete(listener);
     },
     pathInUse: () => inUse.kind,
     mediaCarrierOf,
+    onPathBack: used.onPathBack,
     setMediaCredentials: (named) => {
       credentials = named;
     },
     carried,
     close: used.close,
+  };
+}
+
+/** The word that the way to the core may work again, from the path in use. */
+interface PathBack {
+  /** Hears path's transport, when it is one, from now on, telling only while it is in use. */
+  readonly hear: (path: Reached) => void;
+  readonly listen: (listener: () => void) => () => void;
+  readonly stop: () => void;
+}
+
+/**
+ * Tells its listeners when the way to the core may work again, as the path inUse says: a WebRTC
+ * transport's onBack, which hears the browser back online itself, so it is told once; on a core's
+ * name, the browser's online event.
+ */
+function pathBack(inUse: () => Reached): PathBack {
+  const listeners = new Set<() => void>();
+  const tell = (): void => {
+    for (const listener of listeners) {
+      listener();
+    }
+  };
+  const heard = new Set<unknown>();
+  const stops: (() => void)[] = [];
+  const online = (): void => {
+    if (inUse().kind === "direct") {
+      tell();
+    }
+  };
+  window.addEventListener("online", online);
+  stops.push(() => {
+    window.removeEventListener("online", online);
+  });
+  return {
+    hear: (path) => {
+      if (path.kind !== "webrtc" || heard.has(path.transport)) {
+        return;
+      }
+      const { transport } = path;
+      heard.add(transport);
+      stops.push(
+        transport.onBack(() => {
+          const now = inUse();
+          if (now.kind === "webrtc" && now.transport === transport) {
+            tell();
+          }
+        }),
+      );
+    },
+    listen: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    stop: () => {
+      for (const stop of stops.splice(0)) {
+        stop();
+      }
+    },
   };
 }
 
@@ -176,20 +242,25 @@ interface TransportsUsed {
   readonly onClose: (also: () => void) => void;
   /** Closes every transport kept, and does what onClose named. */
   readonly close: () => void;
+  /** Tells listener each time the way to the core may work again (pathBack); returns its removal. */
+  readonly onPathBack: (listener: () => void) => () => void;
 }
 
 /**
  * Each WebRTC transport a page used, closed with its path or when the page leaves for good: one it
  * moved away from kept its connections, a share of its network's at the core, for as long as the tab
  * stayed open. A page leaving closes them itself, so the core frees them at once rather than when
- * their checks time out; a page kept for the back button keeps them.
+ * their checks time out; a page kept for the back button keeps them. Each one's word that the way to
+ * the core is back is told while it is the path inUse.
  */
-function transportsUsed(): TransportsUsed {
+function transportsUsed(inUse: () => Reached): TransportsUsed {
   const transports = new Set<{ readonly close: () => void }>();
+  const back = pathBack(inUse);
   let also = (): void => undefined;
   const close = (): void => {
     window.removeEventListener("pagehide", onPageHide);
     also();
+    back.stop();
     for (const transport of transports) {
       transport.close();
     }
@@ -206,11 +277,13 @@ function transportsUsed(): TransportsUsed {
       if (path.kind === "webrtc") {
         transports.add(path.transport);
       }
+      back.hear(path);
     },
     onClose: (named) => {
       also = named;
     },
     close,
+    onPathBack: back.listen,
   };
 }
 
