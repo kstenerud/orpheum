@@ -44,6 +44,27 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
     expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("joined-locator");
   });
 
+  it("has back a session the person hosts as its host's alone, though another device of theirs joined it as a guest (the owner's Chrome, 2026-10-29)", async () => {
+    const { api } = servedBy(
+      {
+        "GET /together/mine": [
+          200,
+          {
+            sessions: [
+              { sessionId: 45, memberId: 46, isHost: true, membershipCredential: "hosting" },
+              { sessionId: 45, memberId: 50, isHost: false, membershipCredential: "the-phone's" },
+            ],
+          },
+        ],
+      },
+      [],
+      "token",
+    );
+    await haveBackMySessions(api);
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("hosting");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+  });
+
   it("leaves a membership this device keeps for the same session as it is", async () => {
     const kept = JSON.stringify({ sessionId: 3, credential: "this-device" });
     window.sessionStorage.setItem("orpheum.together.host", kept);
