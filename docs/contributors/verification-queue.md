@@ -1486,3 +1486,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/packages/sdk/src/together-connection.ts`, `together-follow.ts`, `together-sound.ts`)
   **Passed 2026-10-29 (the owner, staging):** the S23 follower, locked and unlocked, played on in step
   without a press.
+- [ ] **VQ127** — a tab left open across a deploy keeps its posters, on staging. In Chrome on the
+  Mac, open a household through staging's discovery and leave the tab on the home page; deploy
+  staging so that the discovery is rebuilt (a new `sw.js`); then reload the tab once, ordinarily.
+  Passes when every poster shows after the reload, none 404 in the Network panel (their remote
+  address is never Cloudflare's), and the core's log for that page has no `the service worker sent a
+  media load to the network` or `could not load a media file` line. If the log has a
+  `no service worker controls the page … reloading the page once` line, the page reloaded itself
+  and must show its posters after it. (`web/apps/web/src/sw.ts`, `web/packages/sdk/src/rtc-media.ts`,
+  `web/apps/web/src/loader-at-client-origin.tsx`)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   answerLoad,
@@ -413,8 +413,156 @@ describe("media over the WebRTC path", () => {
     };
     expect(await askPathOf(carrying)).toBe("webrtc");
     const silent = { postMessage: () => undefined };
-    expect(await askPathOf(silent, 20)).toBe("http");
+    // A silence is no answer, which a worker does not keep (the owner's Mac, 2026-10-29).
+    expect(await askPathOf(silent, 20)).toBeUndefined();
   });
+});
+
+/** A page's service worker container, as far as the page's side of the path uses it. */
+interface FakeWorkers {
+  readonly container: EventTarget & {
+    controller: { state: string; postMessage: (message: unknown) => void } | null;
+    readonly ready: Promise<{ readonly active: { postMessage: (message: unknown) => void } }>;
+    register: () => Promise<void>;
+    startMessages: () => void;
+  };
+  /** What each worker the page posted to was told, by the worker's name. */
+  readonly told: Map<string, unknown[]>;
+  /** A worker of that name, which keeps what the page tells it. */
+  readonly worker: (name: string) => { state: string; postMessage: (message: unknown) => void };
+}
+
+function fakeWorkers(): FakeWorkers {
+  const told = new Map<string, unknown[]>();
+  const worker = (name: string): { state: string; postMessage: (message: unknown) => void } => ({
+    state: "activated",
+    postMessage: (message) => {
+      told.set(name, [...(told.get(name) ?? []), message]);
+    },
+  });
+  const container = Object.assign(new EventTarget(), {
+    controller: null as { state: string; postMessage: (message: unknown) => void } | null,
+    ready: Promise.resolve({ active: worker("active") }),
+    register: () => Promise.resolve(),
+    startMessages: () => undefined,
+  });
+  return { container, told, worker };
+}
+
+/** The worker's question on a page's path, sent to container, and the page's answer, if any. */
+async function pathAnswerFrom(container: EventTarget): Promise<unknown> {
+  const { port1, port2 } = new MessageChannel();
+  const heard = heardOn(port1);
+  container.dispatchEvent(
+    new MessageEvent("message", { data: { kind: "orpheum-path-query" }, ports: [port2] }),
+  );
+  await settle();
+  port1.close();
+  return heard.all()[0];
+}
+
+describe("the page's side of its path, to its service worker", () => {
+  // Each test its own copy of the module, whose page state (the path it carries media over) the
+  // rest of the file's must not see.
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("says its media goes over HTTP until it carries it, so a worker keeps the answer, not a silence", async () => {
+    const media = await import("./rtc-media.ts");
+    const { container, worker } = fakeWorkers();
+    container.controller = worker("active");
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    media.sayMediaGoesOverHttp(container);
+    expect(await pathAnswerFrom(container)).toEqual({ kind: "orpheum-path", path: "http" });
+
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    // Carrying, only carryMediaOver's answer comes, once.
+    const { port1, port2 } = new MessageChannel();
+    const heard = heardOn(port1);
+    container.dispatchEvent(
+      new MessageEvent("message", { data: { kind: "orpheum-path-query" }, ports: [port2] }),
+    );
+    await settle();
+    expect(heard.all()).toEqual([{ kind: "orpheum-path", path: "webrtc" }]);
+    port1.close();
+  });
+
+  it("reports each different note the worker gives on its path once", async () => {
+    const media = await import("./rtc-media.ts");
+    const { container } = fakeWorkers();
+    const reported: string[] = [];
+    media.reportPathNotes(container, (note) => {
+      reported.push(note);
+    });
+    for (const note of ["silent", "silent", "no page"]) {
+      container.dispatchEvent(
+        new MessageEvent("message", { data: { kind: "orpheum-path-note", note } }),
+      );
+    }
+    container.dispatchEvent(new MessageEvent("message", { data: { kind: "orpheum-path" } }));
+    expect(reported).toEqual(["silent", "no page"]);
+  });
+
+  it("says its path again to each worker that takes it over", async () => {
+    const media = await import("./rtc-media.ts");
+    const { container, told, worker } = fakeWorkers();
+    container.controller = worker("before");
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    await media.carryMediaOver(() => Promise.reject(new Error("unused")), noCredentials, "WebRTC");
+    container.controller = worker("after");
+    container.dispatchEvent(new Event("controllerchange"));
+    const said = { kind: "orpheum-path", path: "webrtc" };
+    expect(told.get("before")).toEqual([said]);
+    expect(told.get("after")).toEqual([said]);
+  });
+
+  it("fails, not waits for ever, when no live worker controls the page once asked to (Chrome's reload as a worker activates)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const media = await import("./rtc-media.ts");
+    const control = await import("./worker-control.ts");
+    const { container, told, worker } = fakeWorkers();
+    // The page committed under the worker before, which the browser then stopped.
+    container.controller = { ...worker("stopped"), state: "redundant" };
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    const carried = media.carryMediaOver(
+      () => Promise.reject(new Error("unused")),
+      noCredentials,
+      "WebRTC",
+    );
+    const failed = expect(carried).rejects.toBeInstanceOf(control.PageNotControlled);
+    await vi.advanceTimersByTimeAsync(control.controlWaitMs);
+    await failed;
+    expect(told.get("active")).toEqual([{ kind: "orpheum-claim" }]);
+  });
+
+  it("carries its media once the worker it asked claims it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const media = await import("./rtc-media.ts");
+    const control = await import("./worker-control.ts");
+    const { container, told, worker } = fakeWorkers();
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    const carried = media.carryMediaOver(
+      () => Promise.reject(new Error("unused")),
+      noCredentials,
+      "WebRTC",
+    );
+    await vi.advanceTimersByTimeAsync(control.controlWaitMs / 2);
+    container.controller = worker("active");
+    container.dispatchEvent(new Event("controllerchange"));
+    await carried;
+    expect(told.get("active")).toContainEqual({ kind: "orpheum-path", path: "webrtc" });
+  });
+});
+
+const noCredentials = (): { token: undefined; viewer: undefined } => ({
+  token: undefined,
+  viewer: undefined,
 });
 
 describe("what carries a load, for a stuck chunk's log (the owner, 2026-10-29)", () => {

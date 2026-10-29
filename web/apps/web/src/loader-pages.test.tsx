@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { PageNotControlled } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -10,7 +11,9 @@ import { handOffFragment } from "./discovery-start.ts";
 import {
   forgetRefusedKey,
   leaveWhenSignedOut,
+  markControlled,
   redeem,
+  reloadOnceWhenUncontrolled,
   startAtClient,
   type AtClientOrigin,
 } from "./loader-at-client-origin.tsx";
@@ -296,6 +299,35 @@ describe("the loader at a core's client origin (D308)", () => {
     expect(startAtClient(clientAt(`#m3dz9.a-secret.${fingerprint}`, memoryStorage(), []))).toEqual({
       kind: "none",
     });
+  });
+
+  it("reloads once in a tab no worker controlled once it found its core, telling the core's log each time", async () => {
+    const tab = memoryStorage();
+    const told: string[] = [];
+    let reloads = 0;
+    const parts = {
+      tab,
+      tell: (text: string) => {
+        told.push(text);
+        return Promise.resolve();
+      },
+      reload: () => {
+        reloads += 1;
+      },
+    };
+    expect(await reloadOnceWhenUncontrolled(new PageNotControlled(), parts)).toBe(true);
+    // Uncontrolled again after the reload: no loop, the failure shows.
+    expect(await reloadOnceWhenUncontrolled(new PageNotControlled(), parts)).toBe(false);
+    expect(reloads).toBe(1);
+    expect(told).toEqual([
+      `${new PageNotControlled().message}; reloading the page once`,
+      `${new PageNotControlled().message}; reloaded for it before in this tab, so not again`,
+    ]);
+    // Carried once, a later time reloads again; any other failure never does.
+    markControlled(tab);
+    expect(await reloadOnceWhenUncontrolled(new Error("the channel closed"), parts)).toBe(false);
+    expect(await reloadOnceWhenUncontrolled(new PageNotControlled(), parts)).toBe(true);
+    expect(reloads).toBe(2);
   });
 });
 
