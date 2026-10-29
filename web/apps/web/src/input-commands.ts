@@ -150,6 +150,21 @@ function padsCommand(press: PadButtonPress | StickPress): Command | undefined {
 }
 
 /**
+ * Whether command is Up or Down on a focused range: never the range's own, so where no focus moves
+ * that way the browser must not take it either, which steps the range's value: Down at the bottom of
+ * the Fire TV's player controls, from its scrub bar, put the film back a second at each press (the
+ * owner, staging, 2026-10-29).
+ */
+function isRangesVertical(command: Command): boolean {
+  const focused = document.activeElement;
+  return (
+    (command === "up" || command === "down") &&
+    focused instanceof HTMLInputElement &&
+    focused.type === "range"
+  );
+}
+
+/**
  * Starts the input layer: keys, controllers and each focus noted in its container's memory. A key the
  * layer acted on has the browser's own handling prevented, so on a TV's browser our navigation alone
  * moves focus (Silk's spatial mode stops its own move then, idiosyncrasies.md); one it did nothing
@@ -177,7 +192,7 @@ export function startInput(ways: InputWays): Input {
     const detail: CommandDetail = event.repeat
       ? { command, source: "key", isRepeat: true }
       : { command, source: "key" };
-    if (offer(detail)) {
+    if (offer(detail) || isRangesVertical(command)) {
       event.preventDefault();
     }
   };

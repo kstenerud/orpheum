@@ -79,6 +79,16 @@ describe("the input layer", () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
+  it("never leaves Down to a range with nothing below it, which would step its value back (the Fire TV's scrub bar, 2026-10-29)", () => {
+    const scrub = document.createElement("input");
+    scrub.type = "range";
+    document.body.append(scrub);
+    scrub.focus();
+    const event = press("ArrowDown");
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(scrub);
+  });
+
   it("leaves an arrow to a text field while it composes, even at the value's end", () => {
     const { main } = pageOfButtons();
     const field = document.createElement("input");
