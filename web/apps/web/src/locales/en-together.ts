@@ -109,6 +109,8 @@ export const enTogether = {
       movedAway: "You joined the Watch Together session on another device, so it ended here.",
       left: "You left the Watch Together session.",
       gone: "The Watch Together session is over.",
+      // A signed-in guest's session gone without a word to their page: a restart of the server.
+      notThere: "The Watch Together session is no longer there.",
       takenBack: "Control was taken back, so the Watch Together session ended here.",
       replaced: "Another device took over the Watch Together session.",
       stopped: "Casting stopped, so the Watch Together session ended here.",

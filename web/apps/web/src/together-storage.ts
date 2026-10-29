@@ -114,3 +114,25 @@ export function forgetMembership(storage: StringStorage, role: MembershipRole): 
 export function membershipHeaders(credential: string): { readonly authorization: string } {
   return { authorization: `Bearer ${credential}` };
 }
+
+/**
+ * The tab's key for a guest by link alone whose session ended here: their membership is forgotten as
+ * it ends, and their page, loaded again (an update reloads it at once where no film shows), said
+ * "This address has no invitation in it" in place of the session being over (staging, 2026-10-29).
+ */
+const endedHereKey = "orpheum.together.endedHere";
+
+/** Notes, in the tab's storage, that the session this page's guest was in ended. */
+export function noteEndedHere(storage: StringStorage): void {
+  storage.setItem(endedHereKey, "1");
+}
+
+/** Whether the session this page's guest was in ended, as noted. */
+export function isEndedHere(storage: StringStorage): boolean {
+  return storage.getItem(endedHereKey) !== null;
+}
+
+/** Forgets that a session ended here: the guest joins again, or joins another. */
+export function forgetEndedHere(storage: StringStorage): void {
+  storage.removeItem(endedHereKey);
+}

@@ -34,6 +34,11 @@ import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
+import {
+  newerClientOver,
+  reportReloadForNewerClient,
+  watchForNewerClient,
+} from "./newer-client.ts";
 import { i18n } from "./i18n.ts";
 import { createPathMoves, ServicesContext } from "./services.tsx";
 import { createSession, type Session } from "./session.ts";
@@ -60,6 +65,9 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
   checkSessionWhileShown(async () => await api.GET("/me"), session, document);
   api.use(pageUpdateWatch.middleware(reaches.ownScript));
   sendFailuresToCore(api, session, () => window.location.pathname);
+  // A screen's code gone with an update reloads the page into the newer client, once, said here.
+  watchForNewerClient(newerClientOver(api, reaches.ownScript));
+  reportReloadForNewerClient();
   if ("serviceWorker" in navigator) {
     // Where the worker sent the page's media, and why, goes to the core's log with its failures.
     reportPathNotes(navigator.serviceWorker, (note) => {
