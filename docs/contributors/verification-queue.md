@@ -1227,6 +1227,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   `leaderSeniority` the moment it was unlocked; (3) a stall of the leader's (its link throttled)
   holds the group (`waitingFor`) and does not move the lead. (`internal/core/together/leader.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-connection.ts`)
+  **Run 2026-10-29 (the owner, staging, sessions 45 and 61):** (1) passed: the S23 leading, locked,
+  the lead went to Firefox at once (`goneBecause=hidden`), its film playing on; (2) the lead came back
+  to the S23 when Firefox's page closed, and the host's Chrome returning caught up, then led
+  (`hostInStep`); but the unlocked S23 sat paused ~20 s, deaf on its old connection until its silence
+  limit reconnected it (fix being built); (3) the host's Chrome throttled stalled and held the group
+  (`waitingFor`), the lead staying, but after a chunk given up as stuck it never fetched again (fix
+  being built). Firefox's DevTools throttling does not slow its WebRTC path; Chrome's does.
 - [x] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
   guest by link alone on the iPhone, in the Mac's session, opens a link to a second session (another
   person hosting it on a computer's browser) in a new tab and is asked "Leave ‹host›'s session to
