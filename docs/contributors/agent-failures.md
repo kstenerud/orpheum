@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A52 — A missing top bar blamed on full screen before asking what the screen showed (2026-10-29)
+
+- **What happened:** the owner, a guest in Watch Together on the S23, said the view showed none of
+  the top bar, so the Cast tray could not be opened. The lead named a suspect at once: the player
+  taking an Android browser for one already full screen (`isBrowserFullscreen`, its window being
+  the screen's size) and filling the window. The owner had not entered full screen; the page was all
+  there, the banner holding the full logo and nothing else.
+- **Caught by:** the owner's description of the screen.
+- **Gate:** none. Before naming a cause for a missing element, ask what is on screen in its place;
+  "none of the top bar" and "the top bar without its items" lead to different code.
+
 ### A51 — A device step ticked a DevTools setting and never said to untick it (2026-10-29)
 
 - **What happened:** VQ123's steps told the owner to tick Chrome DevTools' "Bypass for network" to
