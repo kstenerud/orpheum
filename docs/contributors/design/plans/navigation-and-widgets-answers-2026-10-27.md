@@ -349,6 +349,11 @@ had leaned on.
   server for a new decision, which restarts playback; a switch in place needs the API to give each
   sound its own carried gain and levelling (D226, D368), the owner's call. The boost now goes through
   the player's common switch.
+- **Next batch (found 2026-10-29, VQ126's fix):** the `live:` socket (`web/apps/web/src/live-connection.ts`)
+  has its own ping and reconnect, separate from the session connection's, and so still waits out its
+  silence limit after a phone is unlocked (the S23: live socket reconnected 20 s after the unlock).
+  Route it through the session connection's shown-again check (`web/packages/sdk/src/shown-check.ts`),
+  one mechanism for both (the owner: one kind of decision, one path).
 - **Not scheduled — the major UX rewrite** (the owner, 2026-10-29): deferred until enough features are in,
   so it is done once, coherently; until then only small UI changes, and fixes where things get too ugly.
   The Watch Together page's way back to watching (VQ104: the host missed it) is one of its inputs.
