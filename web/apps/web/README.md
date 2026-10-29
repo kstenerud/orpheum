@@ -94,7 +94,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
   history step too, and full screen left by the browser, not the page, told to the log), or OK or a
-  click or tap twice within 500 ms, takes control back, ending the session: a film plays on here, the
+  click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, ending the session: a film plays on here, the
   ready page goes home. Stopped by the sender it goes back to the page it was on before the session; either way back through the history where that page is behind, the pages the session added left ahead, so Back never steps into a film the cast played (`leaveTheCastsEntries`).
   The remote holds no player: with a film playing, its controls (`src/session-remote.tsx`), Up next,
   *Play on this device instead* (`/play/‹id›?at=‹ms›&here=1`, the receiver waiting ready) and Stop

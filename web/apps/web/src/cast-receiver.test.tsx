@@ -110,6 +110,33 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     expect(second.defaultPrevented).toBe(true);
   });
 
+  it("stays at OK held, its key's repeats no second press, though two presses as quick leave", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const { onLeave } = await controlled();
+    const held = (isRepeat: boolean): void => {
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+        repeat: isRepeat,
+      });
+      act(() => {
+        document.body.dispatchEvent(event);
+      });
+    };
+    held(false);
+    vi.advanceTimersByTime(450); // Android's first repeat, inside the window
+    held(true);
+    vi.advanceTimersByTime(50);
+    held(true);
+    expect(onLeave).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    press("Enter");
+    vi.advanceTimersByTime(doublePressWithinMs - 1);
+    press("Enter");
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
   it("leaves every other key to the player", async () => {
     const { onLeave } = await controlled();
     for (const [key, keyCode] of [

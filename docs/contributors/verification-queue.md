@@ -1397,3 +1397,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   events it names before it say what froze the page, and the picture plays at its own speed after.
   (`web/packages/player/src/forward-buffer.ts`, `main-thread.ts`, `chunked.ts`, `hls.ts`,
   `step-up.ts`)
+- [ ] **VQ122** — On the Fire TV, cast a film to it from a phone so its receiver is in controlled
+  mode, then hold OK on its remote for two seconds. Passes when the receiver stays controlled (the
+  *Controlled from* line does not end the session, the phone still controls it), and OK pressed
+  twice quickly afterwards still takes control back. Before this change every repeat of the held
+  key counted as another press, and Android's first repeat comes 400–500 ms after the press, inside
+  the 500 ms window (`design/research/starts-chunks-remote-2026-10-29.md` §3.3).
+  (`web/apps/web/src/cast-receiver.tsx`, `input-commands.ts`)
