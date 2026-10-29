@@ -13,6 +13,8 @@ import {
   createApi,
   keepPageAudio,
   reportFailure,
+  reportPathNotes,
+  sayMediaGoesOverHttp,
   SwitchableFetch,
   type Api,
 } from "@orpheum/sdk";
@@ -53,6 +55,12 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
   checkSessionWhileShown(async () => await api.GET("/me"), session, document);
   api.use(pageUpdateWatch.middleware(reaches.ownScript));
   sendFailuresToCore(api, session, () => window.location.pathname);
+  if ("serviceWorker" in navigator) {
+    // Where the worker sent the page's media, and why, goes to the core's log with its failures.
+    reportPathNotes(navigator.serviceWorker, (note) => {
+      reportFailure(`the service worker: ${note}`);
+    });
+  }
   const services = {
     api,
     session,
@@ -80,6 +88,9 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
 
 /** Runs the app on the core's own origin: its own session, and the browser's own fetch. */
 function mountOnOwnOrigin(): void {
+  if ("serviceWorker" in navigator) {
+    sayMediaGoesOverHttp(navigator.serviceWorker);
+  }
   const routed = new SwitchableFetch();
   let openTogetherSocket = browserTogetherSocket(window.location.origin);
   const session = createSession(storageIfAllowed(() => window.localStorage));

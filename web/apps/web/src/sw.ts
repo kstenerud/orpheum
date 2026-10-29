@@ -22,6 +22,7 @@ import {
   mediaPathPrefix,
   networkFetch,
   responseFromPort,
+  type PathNoteMessage,
 } from "@orpheum/sdk";
 
 import { clientAssetsPrefix, isClientFilesMessage, sha256Of } from "./client-files.ts";
@@ -133,10 +134,12 @@ if (isWorkerScope(scope)) {
     if (url.origin === scope.location.origin && answeredUnderALoader(scope, event)) {
       return;
     }
+    // A page that said it is on HTTP goes past the worker only where no loader ever named a client's
+    // files (the core's own origin): under a loader nothing of a page's media goes to the network.
     if (
       url.origin !== scope.location.origin ||
       !url.pathname.startsWith(mediaPathPrefix) ||
-      onHttp.has(event.clientId)
+      (onHttp.has(event.clientId) && clientFiles?.size === 0)
     ) {
       return;
     }
@@ -159,24 +162,68 @@ function notePath(clientId: string, path: "webrtc" | "http"): void {
 
 /**
  * A load from a page the worker has no word from: the page is asked its path, then the load goes.
- * Under a loader every page carries its own media, its client origin serving none, so the load goes
- * through it unasked: asked, a page that did not answer within a second was taken for HTTP, kept so,
- * and every load after went to the client origin, which answered 404 until hls.js gave up (the
- * owner's Chrome, its worker started again under DevTools' throttling, staging, 2026-10-18).
+ * Under a loader every page carries its own media, its client origin serving none, so the load never
+ * goes to the network: it goes through a page that carries its path, waited for as patiently as a
+ * client's file is, or is answered as unfetched. A page that did not answer within a second was taken
+ * for HTTP, kept so, and every load after went to the client origin, which answered 404 until hls.js
+ * gave up (the owner's Chrome, its worker started again under DevTools' throttling, staging,
+ * 2026-10-18), or every poster of a tab reloaded across a deploy (the owner's Mac, 2026-10-29).
  */
 async function askedFirst(worker: WorkerScope, event: FetchEventLike): Promise<Response> {
-  if ((await clientFilesOf(worker)).size > 0) {
-    notePath(event.clientId, "webrtc");
-    return await throughThePage(worker, event);
+  if (await isUnderALoader(worker)) {
+    return await carriedUnderALoader(worker, event);
   }
+  if (onHttp.has(event.clientId)) {
+    return await networkFetch(event.request);
+  }
+  const page = await worker.clients.get(event.clientId);
   return await loadAfterAsking({
-    page: await worker.clients.get(event.clientId),
+    page,
     request: event.request,
     throughThePage: () => throughThePage(worker, event),
     noted: (path) => {
       notePath(event.clientId, path);
     },
+    told: (note) => {
+      tellPage(page, note);
+    },
   });
+}
+
+/**
+ * Whether a loader ever named the client's files at this origin (D308): as this worker read them, or,
+ * when it read none, as kept now, since a worker that first read the list before the loader kept it,
+ * or started as a deploy replaced the one before, would otherwise hold that empty read for its life.
+ */
+async function isUnderALoader(worker: WorkerScope): Promise<boolean> {
+  return (
+    (await clientFilesOf(worker)).size > 0 ||
+    (await clientFilesOf(worker, { isReadAgain: true })).size > 0
+  );
+}
+
+/**
+ * A media load under a loader: through the page carrying its path, asked as patiently as for a
+ * client's file, else answered as unfetched, never with the discovery's 404, and the page that made
+ * it told why.
+ */
+async function carriedUnderALoader(worker: WorkerScope, event: FetchEventLike): Promise<Response> {
+  const page = await carryingPageFor(worker, event.clientId, patientPathQueryMs);
+  if (page !== undefined) {
+    return await fetchedBy(page, event.request);
+  }
+  const why = `no page here carried a path to the server within ${String(patientPathQueryMs)} ms`;
+  tellPage(
+    await worker.clients.get(event.clientId),
+    `the service worker could not load a media file: ${why}`,
+  );
+  const { pathname } = new URL(event.request.url);
+  return new Response(`${pathname} is the server's, and ${why} to fetch it over`, { status: 502 });
+}
+
+/** Tells page, when there is one, a note on its media's path, for its log (PathNoteMessage). */
+function tellPage(page: ClientLike | undefined, note: string): void {
+  page?.postMessage({ kind: "orpheum-path-note", note } satisfies PathNoteMessage, []);
 }
 
 /** Asks the page that made a load to fetch it through its transport, and answers with what it sends. */

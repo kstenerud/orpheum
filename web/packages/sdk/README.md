@@ -159,6 +159,14 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   worker in Chromium and Firefox, `web/apps/web/src/sw.browser.test.ts`; in Chromium and Firefox,
   `web/e2e/webrtc.spec.ts` plays a film with no API request reaching the network; the Fire TV's
   speed, VQ115.
+- **A worker keeps only a page's answer on its path, never its silence** (`askPathOf`,
+  `loadAfterAsking`): a page on its core's own origin answers "http" (`sayMediaGoesOverHttp`), one
+  under a loader says nothing until it carries its media, and one carrying it says so again to each
+  worker that takes it over. Kept as HTTP, a silence sent every later poster of a tab still finding
+  its core to its client origin's 404 (the owner's Mac, staging, 2026-10-29). Where the worker sent
+  a page's media, and why, it tells the page (`PathNoteMessage`), which reports each note once
+  (`reportPathNotes`); a page no live worker controls within `controlWaitMs` of asking is refused
+  (`PageNotControlled`). `src/rtc-media.test.ts`, `web/apps/web/src/sw.test.ts`.
 - **A page and its service worker of different releases still carry every load, both ways**:
   `skipWaiting` and `clients.claim` hand a page still open to a newer worker, and a reloaded page is
   controlled by the worker before until the newer one claims it. The page's head says

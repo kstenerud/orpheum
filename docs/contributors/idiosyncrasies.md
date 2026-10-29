@@ -95,6 +95,7 @@ User-Agent (D263; the User-Agent is logged only).
 | #5826 reads a throttled 1 Mb/s link as 404 MB/s. | [There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)](#there-is-no-cache-hit-filter-a-chunk-from-the-browsers-cache-reads-as-link-speed-hlsjs5826-open) |
 | Chrome or Silk on WebRTC never measured its link: no finished chunk in `linkSamples`, `linkKbps=0`. | [Chromium times a service worker's own response as a cache hit](#chromium-times-a-service-workers-own-response-as-a-cache-hit) |
 | At a client origin, the client's script 404 (`…/assets/index-….js?client`) after "media now goes over WebRTC", and a black page at every reload while DevTools was open. | [Chrome DevTools' "Bypass for network" sends a client origin's client files to the discovery](#chrome-devtools-bypass-for-network-sends-a-client-origins-client-files-to-the-discovery) |
+| After a deploy, one tab at a client origin had every poster 404 from the discovery, though its WebRTC path was chosen; a reload did not mend it, a fresh tab did. | [Chrome can leave a page reloaded as an updated worker activates uncontrolled](#chrome-can-leave-a-page-reloaded-as-an-updated-worker-activates-uncontrolled) |
 | A screen whose module failed to load once stays failed: asking again sends no request. | [A dynamic import that failed fails again without a request](#a-dynamic-import-that-failed-fails-again-without-a-request) |
 | After a deploy, pages on WebRTC connected and loaded nothing through their service worker: a black page. | [A page and its service worker run different releases across a deploy](#a-page-and-its-service-worker-run-different-releases-across-a-deploy) |
 | In a browser-mode test under Firefox, a page whose `controller` is a worker fetched past it, or its iframe never loaded. | [Playwright's Firefox lets loads of a page its worker did not answer pass the worker](#playwrights-firefox-lets-loads-of-a-page-its-worker-did-not-answer-pass-the-worker) |
@@ -938,6 +939,34 @@ User-Agent (D263; the User-Agent is logged only).
   releases across a deploy, below); a worker that read the list before the loader named the files to
   the other kept what it read. The worker now reads the list again before taking a file for the
   loader's (`sw.ts`), and a screen that does not load says so (`screen-load.tsx`).
+
+### Chrome can leave a page reloaded as an updated worker activates uncontrolled
+
+- **Technology:** Chrome's service workers (unverified which versions).
+- **Symptom:** after a deploy that rebuilt the discovery (a new `sw.js`), one tab at a client origin
+  had every poster's `GET /api/v1/bytes/art/…` go to the network, answered by the discovery's
+  19-byte "404 page not found" through Cloudflare, though its WebRTC path to the core was chosen;
+  an ordinary reload did not mend it and a fresh tab did (the owner's Chrome on a Mac, staging,
+  2026-10-29). Not reproduced headless; the tab was gone.
+- **Cause:** unverified for our case. Reported elsewhere: reloading a tab while an updated worker is
+  waiting or activating can commit the new page under the worker before, which Chrome then stops,
+  so the page comes out uncontrolled mid-load and its loads go past every worker to the network.
+  Separately, Chrome stops an idle worker after about 30 s and starts a new one with empty globals,
+  so nothing a worker keeps in memory alone may decide where a page's loads go for long.
+- **What we do:** a page under a loader whose worker does not control it within `controlWaitMs` of
+  being asked to claim it rejects its media's carrying (`PageNotControlled`,
+  `web/packages/sdk/src/rtc-media.ts`), says its path again to every worker that takes it over, and
+  reloads once in the tab, telling the core's log, then shows the failure
+  (`web/apps/web/src/loader-at-client-origin.tsx`). The worker keeps no silence as a page's path,
+  reads the client's files again when it holds none, and under a loader never sends a media load to
+  the network: it waits for a page carrying the path or answers 502 saying so, and tells the page,
+  which tells the core's log (`web/apps/web/src/sw.ts`). VQ127.
+- **Evidence:** **[owner]** the report above, 2026-10-29. **[web]** found by research the same day,
+  not re-read here: [slicc-bios issue 765](https://github.com/ai-ecoverse/slicc-bios/issues/765) (a
+  reload during a worker update commits under the old worker, which is then stopped; their fix
+  checks the page is controlled and goes back through registration when not), and
+  [mswjs/msw issue 2115](https://github.com/mswjs/msw/issues/2115) (an idle worker stopped and
+  started again with its globals empty).
 
 ### Brave on Android refused the microphone
 

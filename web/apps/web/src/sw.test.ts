@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { answerLoad, isFetchMessage, isPathQueryMessage, type PortLike } from "@orpheum/sdk";
+import {
+  answerLoad,
+  isFetchMessage,
+  isPathNoteMessage,
+  isPathQueryMessage,
+  type PortLike,
+} from "@orpheum/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sha256Of } from "./client-files.ts";
@@ -43,6 +49,8 @@ interface FakePage {
   readonly id: string;
   readonly type: "window";
   readonly asked: string[];
+  /** What the worker told the page of its media's path (PathNoteMessage). */
+  readonly notes: string[];
   postMessage(message: unknown, transfer: Transferable[]): void;
 }
 
@@ -52,11 +60,16 @@ function pageOf(
   send: (request: Request) => Promise<Response>,
 ): FakePage {
   const asked: string[] = [];
+  const notes: string[] = [];
   return {
     id,
     type: "window",
     asked,
+    notes,
     postMessage(message, transfer) {
+      if (isPathNoteMessage(message)) {
+        notes.push(message.note);
+      }
       const [port] = transfer;
       if (!(port instanceof MessagePort)) {
         return;
@@ -187,6 +200,55 @@ function answer(bytes: Uint8Array<ArrayBuffer> | string, status = 200): Response
   return new Response(bytes, { status, headers: { "Content-Type": "text/javascript" } });
 }
 
+/** How long the worker waits for a page's answer on its path: a load's question, and a patient one. */
+const askWaitMs = 1000;
+const patientWaitMs = 5000;
+
+/** page, answering the worker's question on its path with "webrtc" only after afterMs. */
+function answeringLate(page: FakePage, afterMs: number): FakePage {
+  return {
+    ...page,
+    postMessage(message, transfer) {
+      const [port] = transfer;
+      if (isPathQueryMessage(message) && port instanceof MessagePort) {
+        setTimeout(() => {
+          port.postMessage({ kind: "orpheum-path", path: "webrtc" });
+        }, afterMs);
+        return;
+      }
+      page.postMessage(message, transfer);
+    },
+  };
+}
+
+/**
+ * What work settles to as the fake clock runs on for at most ms, undefined if it has not by then; a
+ * port's message comes on the real event loop, so each step of the clock yields to it first.
+ */
+async function settledOver<T>(work: Promise<T> | undefined, ms: number): Promise<T | undefined> {
+  let settled: { readonly value: T } | undefined;
+  let failure: { readonly cause: unknown } | undefined;
+  void work?.then(
+    (value) => {
+      settled = { value };
+    },
+    (cause: unknown) => {
+      failure = { cause };
+    },
+  );
+  const step = 100;
+  for (let ran = 0; settled === undefined && failure === undefined && ran <= ms; ran += step) {
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    await vi.advanceTimersByTimeAsync(step);
+  }
+  if (failure !== undefined) {
+    throw failure.cause;
+  }
+  return settled?.value;
+}
+
 describe("the service worker under a loader (D308 §6)", () => {
   let stores: Map<string, FakeCache>;
   let sha256: string;
@@ -197,6 +259,7 @@ describe("the service worker under a loader (D308 §6)", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -373,19 +436,21 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(network).toHaveBeenCalledTimes(2);
   });
 
-  it("sends a page's media through it when started again, unasked: its client origin serves none", async () => {
+  it("sends a page's media through it when started again, though it answers late: its client origin serves none", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const send = vi.fn(() => Promise.resolve(new Response("a chunk", { status: 200 })));
     const first = await startWorker(stores, [], vi.fn<(request: Request) => Promise<Response>>());
     expect(await nameFiles(first, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
     // Started again, by the browser or DevTools, it knows no page's path, and this page is too busy
-    // to answer the question in time.
-    const page = pageOf("p", "unanswered", send);
+    // to answer the question within the second a load's ordinary question waits.
+    const page = answeringLate(pageOf("p", "unanswered", send), askWaitMs + 500);
     const network = vi.fn<(request: Request) => Promise<Response>>();
     const again = await startWorker(stores, [page], network);
     for (const chunk of ["00170", "00171"]) {
-      const answered = await load(again, `/api/v1/bytes/media/chunks/t/q400k360p/${chunk}.m4s`, {
-        by: "p",
-      });
+      const answered = await settledOver(
+        load(again, `/api/v1/bytes/media/chunks/t/q400k360p/${chunk}.m4s`, { by: "p" }),
+        patientWaitMs,
+      );
       expect(await answered?.text()).toBe("a chunk");
     }
     expect(page.asked).toEqual([
@@ -423,6 +488,53 @@ describe("the service worker under a loader (D308 §6)", () => {
     });
   });
 
+  it("answers a media load no page carries a path for as such, never sending it to the client origin's 404", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    // A page still finding its core: it answers neither a question nor a load.
+    const page = pageOf("p", "unanswered", () => Promise.reject(new Error("no path yet")));
+    const finding: FakePage = {
+      ...page,
+      postMessage(message, transfer) {
+        if (isPathNoteMessage(message)) {
+          page.postMessage(message, transfer);
+        }
+      },
+    };
+    const network = vi.fn(() => Promise.resolve(answer("404 page not found", 404)));
+    const worker = await startWorker(stores, [finding], network);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    const answered = await settledOver(
+      load(worker, "/api/v1/bytes/art/a1/portrait-m.webp", { by: "p" }),
+      patientWaitMs,
+    );
+    expect(answered?.status).toBe(502);
+    expect(await answered?.text()).toContain("no page here carried a path to the server");
+    expect(network).not.toHaveBeenCalled();
+    expect(page.notes).toEqual([
+      `the service worker could not load a media file: no page here carried a path to the server within ${String(patientWaitMs)} ms`,
+    ]);
+  });
+
+  it("takes a media load for a loader's, though it read no client's files before the loader named them to another worker (the owner's Mac, 2026-10-29)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const page = pageOf("p", "unanswered", () => Promise.reject(new Error("no path yet")));
+    const network = vi.fn(() => Promise.resolve(answer("404 page not found", 404)));
+    // This worker read the list, then empty, before the loader named the files to another.
+    const reading = await startWorker(stores, [page], network);
+    expect((await load(reading, "/assets/loader-main.js", { by: "p" }))?.status).toBe(404);
+    const told = await startWorker(stores, [page], network);
+    expect(await nameFiles(told, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    network.mockClear();
+
+    const answered = await settledOver(
+      load(reading, "/api/v1/bytes/art/a1/portrait-m.webp?again=6", { by: "p" }),
+      patientWaitMs,
+    );
+    expect(answered?.status).toBe(502);
+    expect(network).not.toHaveBeenCalled();
+  });
+
   it("sends a page's media through it though it was finding the core when a file was asked", async () => {
     let path: "http" | "webrtc" = "http";
     const send = vi.fn(() => Promise.resolve(new Response("a chunk", { status: 200 })));
@@ -457,5 +569,45 @@ describe("the service worker under a loader (D308 §6)", () => {
       waitUntil: () => undefined,
     });
     expect(wasAnswered).toBe(false);
+  });
+});
+
+describe("the service worker at a core's own origin", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps no silence for a path: a page that said nothing is asked again, and its media goes through it once it answers", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let path: "unanswered" | "webrtc" = "unanswered";
+    const send = vi.fn(() => Promise.resolve(new Response("a chunk", { status: 200 })));
+    const notes: string[] = [];
+    const page: FakePage = {
+      ...pageOf("p", "unanswered", send),
+      notes,
+      postMessage(message, transfer) {
+        if (isPathNoteMessage(message)) {
+          notes.push(message.note);
+        }
+        pageOf("p", path, send).postMessage(message, transfer);
+      },
+    };
+    const network = vi.fn(() => Promise.resolve(new Response("from the network")));
+    const worker = await startWorker(new Map(), [page], network);
+    const chunk = "/api/v1/bytes/media/chunks/t/q400k360p/00001.m4s";
+
+    // Still finding its core, the page says nothing: this load goes to the network, and the page is
+    // told why.
+    const first = await settledOver(load(worker, chunk, { by: "p" }), askWaitMs);
+    expect(await first?.text()).toBe("from the network");
+    expect(notes).toEqual([
+      `the service worker sent a media load to the network: asked its path, the page said nothing within ${String(askWaitMs)} ms`,
+    ]);
+
+    path = "webrtc";
+    const next = await settledOver(load(worker, chunk, { by: "p" }), askWaitMs);
+    expect(await next?.text()).toBe("a chunk");
+    expect(network).toHaveBeenCalledTimes(1);
   });
 });

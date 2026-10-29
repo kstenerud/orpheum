@@ -134,18 +134,23 @@ export {
   isClaimMessage,
   isFetchMessage,
   isPathMessage,
+  isPathNoteMessage,
   isPathQueryMessage,
   loadAfterAsking,
   mediaPathPrefix,
   networkFetch,
   relayedAheadBytes,
+  reportPathNotes,
   responseFromPort,
+  sayMediaGoesOverHttp,
 } from "./rtc-media.ts";
+export { controlWaitMs, PageNotControlled } from "./worker-control.ts";
 export type {
   ClaimMessage,
   FetchMessage,
   MediaCredentials,
   PathMessage,
+  PathNoteMessage,
   PathQueryMessage,
   PortLike,
 } from "./rtc-media.ts";

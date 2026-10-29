@@ -148,9 +148,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   signed; and the loader clears every cookie it can see. A client's file comes only over the page's
   path, never as the discovery's 404, and a client's script that does not load shows what happened to
   copy, never a black page; a worker reads the list of the client's files again before it takes
-  a file for the loader's own. `loader-config.test.ts`, `loader-households.test.ts`,
+  a file for the loader's own. Under a loader a media load never goes to the network: it goes
+  through a page carrying its path, waited for patiently, or is answered 502 saying none does; a
+  worker keeps a page's answer on its path, never its silence, and tells the page, which tells the
+  core's log, where it sent its media and why; a page no worker controls once it found its core
+  reloads once in its tab. `loader-config.test.ts`, `loader-households.test.ts`,
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
-  `loader-sweep.test.ts`, `sw.test.ts`, and the SDK's `discovery.test.ts`.
+  `loader-sweep.test.ts`, `sw.test.ts`, and the SDK's `discovery.test.ts` and `rtc-media.test.ts`.
 - **A TV's code is activated by its QR code with one tap, or typed with a committed check code**
   (D321): the TV shows a QR code of the loader's `/activate` carrying its key's hash; `/activate`
   goes to the one realm's Activate a device, asks which of several, or offers the link to copy or a

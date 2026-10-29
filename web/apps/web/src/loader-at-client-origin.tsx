@@ -8,6 +8,7 @@
 
 import {
   createApi,
+  PageNotControlled,
   readLinkFragment,
   refusedClientVersions,
   reportFailure,
@@ -40,7 +41,7 @@ import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { forgetMembership, readMembership } from "./together-storage.ts";
-import { browserStorage } from "./browser-storage.ts";
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 
 /** Where this origin keeps the core it is bound to: its fingerprint and realm, once reached. */
 const keptCoreKey = "orpheum.loader.core";
@@ -245,6 +246,71 @@ export async function redeem(send: FetchRequest, session: Session, code: string)
   });
 }
 
+/** The tab's key for the reload it made because no service worker controlled its page. */
+const reloadedUncontrolledKey = "orpheum.loader.reloadedUncontrolled";
+
+/** What reloadOnceWhenUncontrolled needs of the page. */
+export interface UncontrolledParts {
+  /** This tab's storage, which says whether it reloaded for this before. */
+  readonly tab: StringStorage;
+  /** Tells the core's log what happened; a failure to tell it is the reload's to drop. */
+  readonly tell: (text: string) => Promise<void>;
+  readonly reload: () => void;
+}
+
+/**
+ * Reloads the page, once in a tab, when no service worker controlled it after it found its core
+ * (PageNotControlled), having told the core's log: its media would go past the worker to the client
+ * origin, which serves none, and every poster 404 there. Chrome can commit a page reloaded as an
+ * updated worker activates under the worker before and then stop that one (idiosyncrasies.md); a
+ * fresh load is controlled. A second time in the tab it does not, and the failure shows. Whether it
+ * reloads; a page whose media is carried clears the tab's mark (markControlled), so a later time
+ * reloads again.
+ */
+export async function reloadOnceWhenUncontrolled(
+  cause: unknown,
+  parts: UncontrolledParts,
+): Promise<boolean> {
+  if (!(cause instanceof PageNotControlled)) {
+    return false;
+  }
+  const isReloadedBefore = parts.tab.getItem(reloadedUncontrolledKey) !== null;
+  await parts
+    .tell(
+      `${cause.message}; ${isReloadedBefore ? "reloaded for it before in this tab, so not again" : "reloading the page once"}`,
+    )
+    .catch(() => undefined);
+  if (isReloadedBefore) {
+    return false;
+  }
+  parts.tab.setItem(reloadedUncontrolledKey, "1");
+  parts.reload();
+  return true;
+}
+
+/** Clears the tab's mark of a reload for an uncontrolled page, once a worker carries its media. */
+export function markControlled(tab: StringStorage): void {
+  tab.removeItem(reloadedUncontrolledKey);
+}
+
+/** The longest message and page path the core's log takes from a page (client_problems.go). */
+const problemMost = 500;
+const pageMost = 200;
+
+/** Tells the core's log text as a failure of the page, over send, while session is signed in. */
+async function tellCoreLog(send: FetchRequest, session: Session, text: string): Promise<void> {
+  if (session.token() === undefined) {
+    return;
+  }
+  const api = createApi({ getToken: session.token, fetch: send });
+  await api.POST("/client-problems", {
+    body: {
+      message: text.slice(0, problemMost),
+      page: window.location.pathname.slice(0, pageMost),
+    },
+  });
+}
+
 /** Says the core's client did not load, by the address of its script that did not. */
 function showClientFailed(at: AtClientOrigin, coreId: string, address: string): void {
   reportFailure(new Error(`the server's client did not load: ${address}`));
@@ -288,6 +354,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           JSON.stringify({ fingerprint: core.fingerprint, realm: core.realm ?? "" }),
         );
         await kept.carried;
+        markControlled(tabStorage());
         const run = await checkedClient({
           send: kept.fetch,
           fingerprint: core.fingerprint,
@@ -308,11 +375,29 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
         leaveWhenSignedOut(session, { core, loaderOrigin: at.loaderOrigin, go: goBy });
         run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {
-        kept.close();
-        reportFailure(cause);
-        throw cause;
+        await failedToRun(cause, kept, session);
       }
     },
   };
   return <DiscoveryGate start={start} parts={parts} />;
+}
+
+/**
+ * Ends the page's run of the core's client over kept, which failed for cause: reloads once in the
+ * tab for a page no worker controlled (reloadOnceWhenUncontrolled), else throws cause for the gate
+ * to show.
+ */
+async function failedToRun(cause: unknown, kept: KeptPath, session: Session): Promise<void> {
+  const isReloading = await reloadOnceWhenUncontrolled(cause, {
+    tab: tabStorage(),
+    tell: (text) => tellCoreLog(kept.fetch, session, text),
+    reload: () => {
+      window.location.reload();
+    },
+  });
+  kept.close();
+  reportFailure(cause);
+  if (!isReloading) {
+    throw cause;
+  }
 }
