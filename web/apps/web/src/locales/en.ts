@@ -184,6 +184,12 @@ export const en = {
     badLink:
       "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
   },
+  screenNotLoaded: {
+    said: "This page could not load.",
+    noWorker:
+      "No service worker answers this page, and only it brings the server's pages here. Chrome's developer tools may be set to bypass the service worker: untick “Bypass for network” under Application → Service workers, then reload.",
+    reload: "Reload",
+  },
   whatHappened: {
     copy: "Copy what happened",
     copied: "Copied. Send it to whoever runs your server.",

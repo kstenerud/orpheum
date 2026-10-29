@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { lazy } from "react";
-
 import type { CastReady as CastReadyComponent } from "./cast-ready.tsx";
 import type { Casting as CastingComponent } from "./cast-remote.tsx";
 import type { LabExtendPlayer as LabExtendPlayerComponent } from "./lab-extend-player.tsx";
@@ -13,6 +11,8 @@ import type { Title as TitleComponent } from "./title.tsx";
 import type { TogetherViewer as TogetherViewerComponent } from "./together-viewer.tsx";
 import type { UiGallery as UiGalleryComponent } from "./ui-gallery.tsx";
 import type { WatchTogether as WatchTogetherComponent } from "./watch-together.tsx";
+
+import { lazyScreen } from "./screen-load.tsx";
 
 /** Each screen's own loader, named so resetLazyScreensForTests can give it a fresh lazy() too. */
 const loadTitle = async (): Promise<{ default: typeof TitleComponent }> => ({
@@ -54,25 +54,26 @@ const loadUiGallery = async (): Promise<{ default: typeof UiGalleryComponent }> 
  * title's and a series' pages, which make a film ready to play, the player and hls.js with it,
  * Watch Together, casting and a cast's ready page, the server's settings, the device lab and its player, and the UI gallery. They were
  * all in the one script every page loaded before it drew, most of it hls.js, which a TV parses
- * slowly (the audit of 2026-10-25, W1); app.tsx shows Loading… meanwhile (ScreenLoading). A screen
+ * slowly (the audit of 2026-10-25, W1); app.tsx shows each in a LaterScreen: Loading… meanwhile,
+ * and a page that says so, with Reload, when its code does not load (screen-load.tsx). A screen
  * here is one the app reaches as a route, never one a home page draws; the status tray loads Watch
  * Together's controls as it opens them (status-tray.tsx).
  *
  * Each is `let`, not `const`: resetLazyScreensForTests (below) reassigns it to a fresh, unresolved
- * React.lazy wrapper. Runtime code never calls that; production makes each only once, here, at
+ * React.lazy wrapper (lazyScreen). Runtime code never calls that; production makes each only once, here, at
  * module load, same as a const would.
  */
-export let Title = lazy(loadTitle);
-export let Series = lazy(loadSeries);
-export let Play = lazy(loadPlay);
-export let WatchTogether = lazy(loadWatchTogether);
-export let TogetherViewer = lazy(loadTogetherViewer);
-export let Casting = lazy(loadCasting);
-export let CastReady = lazy(loadCastReady);
-export let Lab = lazy(loadLab);
-export let LabExtendPlayer = lazy(loadLabExtendPlayer);
-export let Settings = lazy(loadSettings);
-export let UiGallery = lazy(loadUiGallery);
+export let Title = lazyScreen("title", loadTitle);
+export let Series = lazyScreen("series", loadSeries);
+export let Play = lazyScreen("play", loadPlay);
+export let WatchTogether = lazyScreen("watch-together", loadWatchTogether);
+export let TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
+export let Casting = lazyScreen("casting", loadCasting);
+export let CastReady = lazyScreen("cast-ready", loadCastReady);
+export let Lab = lazyScreen("lab", loadLab);
+export let LabExtendPlayer = lazyScreen("lab-extend-player", loadLabExtendPlayer);
+export let Settings = lazyScreen("settings", loadSettings);
+export let UiGallery = lazyScreen("ui-gallery", loadUiGallery);
 
 /**
  * Test-only: gives every screen here a fresh, unresolved React.lazy wrapper, so a mount through
@@ -83,15 +84,15 @@ export let UiGallery = lazy(loadUiGallery);
  * for every screen in this file, none of which has hit it yet). Never called by runtime code.
  */
 export function resetLazyScreensForTests(): void {
-  Title = lazy(loadTitle);
-  Series = lazy(loadSeries);
-  Play = lazy(loadPlay);
-  WatchTogether = lazy(loadWatchTogether);
-  TogetherViewer = lazy(loadTogetherViewer);
-  Casting = lazy(loadCasting);
-  CastReady = lazy(loadCastReady);
-  Lab = lazy(loadLab);
-  LabExtendPlayer = lazy(loadLabExtendPlayer);
-  Settings = lazy(loadSettings);
-  UiGallery = lazy(loadUiGallery);
+  Title = lazyScreen("title", loadTitle);
+  Series = lazyScreen("series", loadSeries);
+  Play = lazyScreen("play", loadPlay);
+  WatchTogether = lazyScreen("watch-together", loadWatchTogether);
+  TogetherViewer = lazyScreen("together-viewer", loadTogetherViewer);
+  Casting = lazyScreen("casting", loadCasting);
+  CastReady = lazyScreen("cast-ready", loadCastReady);
+  Lab = lazyScreen("lab", loadLab);
+  LabExtendPlayer = lazyScreen("lab-extend-player", loadLabExtendPlayer);
+  Settings = lazyScreen("settings", loadSettings);
+  UiGallery = lazyScreen("ui-gallery", loadUiGallery);
 }

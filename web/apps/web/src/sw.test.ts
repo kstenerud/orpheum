@@ -304,6 +304,21 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(again.network).not.toHaveBeenCalled();
   });
 
+  it("finds a client's file the loader named to another worker of the origin, never answering it with the discovery's 404 (the owner's Chrome, 2026-10-29)", async () => {
+    const page = pageOf("p", "webrtc", () => Promise.resolve(answer(script)));
+    const network = vi.fn(() => Promise.resolve(answer("404 page not found", 404)));
+    // This worker read the list, then empty, before the loader named the files to another.
+    const reading = await startWorker(stores, [page], network);
+    expect((await load(reading, "/assets/loader-main.js", { by: "p" }))?.status).toBe(404);
+    const told = await startWorker(stores, [page], network);
+    expect(await nameFiles(told, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    const answered = await load(reading, "/assets/client-main.js", { by: "p" });
+    expect(answered?.status).toBe(200);
+    expect(new Uint8Array(await (answered ?? Response.error()).arrayBuffer())).toEqual(script);
+    expect(page.asked).toEqual(["/assets/client-main.js"]);
+  });
+
   it("opens the loader's page as its origin answers now, and as kept when the origin fails", async () => {
     const pages: (string | Error | number)[] = [
       "the loader",

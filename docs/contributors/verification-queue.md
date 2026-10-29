@@ -1415,3 +1415,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   key counted as another press, and Android's first repeat comes 400–500 ms after the press, inside
   the 500 ms window (`design/research/starts-chunks-remote-2026-10-29.md` §3.3).
   (`web/apps/web/src/cast-receiver.tsx`, `input-commands.ts`)
+- [ ] **VQ123** — In Chrome on the Mac, through staging's discovery, open the home page, then in
+  DevTools tick "Bypass for network" (Application → Service workers) and open a film you have not
+  opened since the page loaded. Passes when, after about a second, the page says "This page could not
+  load." with Reload, Copy what happened, and the line that developer tools may be bypassing the
+  service worker, never a black page; Reload with the box unticked opens the film's page; and the
+  core's log has a "page reported a failure" line naming the screen and the file. Then, with the box
+  unticked, open the home page in a tab after staging's connectd was rebuilt since that Chrome's last
+  visit, and open a film: its page opens. (`web/apps/web/src/screen-load.tsx`, `sw.ts`)

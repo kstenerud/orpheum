@@ -40,6 +40,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   refused full screen), but the receiver's lines over the film and a dialog: the rest is hidden, not
   removed, and shows as it was when the stage closes (the efficiency audit's finding 3).
   `src/player-widgets.browser.test.tsx`.
+- **A screen whose code loads as it is first shown never leaves a black page** (`later-screens.tsx`,
+  through `screen-load.tsx`'s `lazyScreen` and `LaterScreen`, the one way): its code is asked for
+  once more after a second, and then the page says it could not load, with Reload and what happened
+  to copy, under a loader whose page no worker controls that developer tools may bypass the worker,
+  and the core's log is told the screen and why (the owner's Chrome, staging, 2026-10-29).
+  `src/screen-load.test.tsx`; on a device, VQ123.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.
@@ -136,7 +142,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   or this origin named, its version is not one the discovery refuses and its page is the one it
   signed; and the loader clears every cookie it can see. A client's file comes only over the page's
   path, never as the discovery's 404, and a client's script that does not load shows what happened to
-  copy, never a black page. `loader-config.test.ts`, `loader-households.test.ts`,
+  copy, never a black page; a worker reads the list of the client's files again before it takes
+  a file for the loader's own. `loader-config.test.ts`, `loader-households.test.ts`,
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
   `loader-sweep.test.ts`, `sw.test.ts`, and the SDK's `discovery.test.ts`.
 - **A TV's code is activated by its QR code with one tap, or typed with a committed check code**

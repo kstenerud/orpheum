@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { setReadyAheadPercent, type Api, type components } from "@orpheum/sdk";
-import { Suspense, useEffect, useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -59,6 +59,7 @@ import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
+import { LaterScreen } from "./screen-load.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /**
@@ -88,19 +89,19 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
   if (props.route.screen === "together") {
     // Its live connection, signed in, says whether this device casts the film to another (D371 §4).
     return (
-      <Suspense fallback={<ScreenLoading />}>
+      <LaterScreen resetKey={props.route.screen}>
         <LiveProvider>
           <TogetherViewer />
         </LiveProvider>
-      </Suspense>
+      </LaterScreen>
     );
   }
   if (props.route.screen === "lab-extend-player") {
     // The lab's test pattern on the TV's screen: no shell, and no server, so no sign-in.
     return (
-      <Suspense fallback={<ScreenLoading />}>
+      <LaterScreen resetKey={props.route.screen}>
         <LabExtendPlayer />
-      </Suspense>
+      </LaterScreen>
     );
   }
   if (token !== undefined) {
@@ -248,18 +249,12 @@ function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | un
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <Suspense fallback={<ScreenLoading />}>
+    <LaterScreen resetKey={JSON.stringify(props.route)}>
       {viewerScreen(props.route) ?? nonLibraryScreen(props.route) ?? adminScreen(props.route) ?? (
         <p>{t("shell.notFound")}</p>
       )}
-    </Suspense>
+    </LaterScreen>
   );
-}
-
-/** What shows while a screen's code loads (later-screens.tsx). */
-function ScreenLoading(): JSX.Element {
-  const { t } = useTranslation();
-  return <p>{t("common.loading")}</p>;
 }
 
 /** The screens anyone signed in may see to watch: lists, a title, a series, playing, Libraries. */
