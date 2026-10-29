@@ -24178,3 +24178,24 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 6: TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-lead-passes.test.ts ("says nothing of a hidden page where hiding pauses nothing")
 - 7: TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle, TestHub_AGroupPlayingToNoPlayerIsIdle; VQ104
 - 8: TestHub_StartingASessionEndsTheOneThePersonHostsAndLeavesTheOneTheyJoined, TestHub_JoiningAnotherSessionIsRefusedUntilThePersonSaysToLeaveTheirs, TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn, TestTogether_OnlyAHostOpensMakesLinksAndEnds, web/apps/web/src/together-join.test.tsx ("asks first whether to leave the other, and joins, leaving it, only when told to"); VQ106
+
+## D373 — No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead
+
+**Decided** (2026-10-29), by the project owner, amending D372 §5 and D371's resolution that the group
+stands for its leader's stall. After VQ125 (the host's Chrome, throttled, stalled and held everyone):
+"I'm beginning to think that leadership should pass on without the host when the host stalls." Asked
+whether the group should ever wait for anyone's stall: "I think that we can't maintain good UX if we
+decide algorithmically to hold everyone up. If it's important enough, someone can ask to rewind."
+
+1. **The group never waits for a stall.** Neither a leader's nor a follower's stall holds the others;
+   a device that stalls catches up to the group once it loads again (D371's catching up), missing what
+   played meanwhile. Whoever wants it seen again asks the host to rewind.
+2. **A leader stalled past a short grace is gone, for the lead** (D372 §5 amended): the lead passes down
+   the line (D372 §1) and the others play on. The grace keeps a seek's or a quality switch's brief stall
+   from handing the lead back and forth; its value is set when built, with its reason recorded.
+3. **The host is still preferred** (D372 §3): a host's device that stalled catches up as a follower and
+   takes the lead back once it plays in step.
+4. **Starting still waits:** a film put on, or a seek by the host, waits for the players to be ready as
+   before (the start rule); only a stall during playing is no one's to wait for.
+
+**Status:** Decided 2026-10-29; not built.

@@ -349,13 +349,8 @@ had leaned on.
   server for a new decision, which restarts playback; a switch in place needs the API to give each
   sound its own carried gain and levelling (D226, D368), the owner's call. The boost now goes through
   the player's common switch.
-- **Proposed, owner to decide (2026-10-29): a stalled leader passes the lead** (amends D372 §5). The owner,
-  after VQ125's host stall held everyone: "I'm beginning to think that leadership should pass on without
-  the host when the host stalls." Lead's proposal: any leader stalled past a short grace (3–5 s, so a seek
-  or quality switch does not hand it back and forth) counts as gone; the lead passes down the line, the
-  others play on, the stalled device catches up as a follower; the host takes it back once in step (§3).
-  Open: should the group ever wait for anyone's stall (followers' included)? Next batch unless the owner
-  says this one.
+- **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
+  short grace passes the lead; the group waits only to start). Batch: owner to say.
 - **Next batch (found 2026-10-29, VQ126's fix):** the `live:` socket (`web/apps/web/src/live-connection.ts`)
   has its own ping and reconnect, separate from the session connection's, and so still waits out its
   silence limit after a phone is unlocked (the S23: live socket reconnected 20 s after the unlock).
