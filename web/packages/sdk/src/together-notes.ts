@@ -118,6 +118,9 @@ export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>>
  *   (the owner's Marrowgate Family, staging, 2026-10-28);
  * - playedWithSound: a cast's receiver's film started with its sound on at positionMs, page the
  *   page's activation then (D358 §2);
+ * - takenBack: a cast's receiver took its control back, by "back", "select" (OK twice), "tap" (twice)
+ *   or "historyBack": a held OK on the Fire TV took it, and the log said only that the cast ended
+ *   (VQ122, 2026-10-29);
  * - fullScreen: the player's stage was put full screen ("entered") or the browser refused
  *   ("refused"), by the press that asked, absent as the player opened; or the browser left it
  *   unasked ("left"), a Fire TV's Back or Escape, which takes a cast's control back (D338 §6);
@@ -246,6 +249,13 @@ export type PlayerNote =
       readonly positionMs: number;
       /** The page's activation then (pageActivation), where the browser says it. */
       readonly page?: string;
+    }
+  | {
+      readonly kind: "takenBack";
+      /** The press that took a cast's control back on its receiver (D338 §6). */
+      readonly by: "back" | "select" | "tap" | "historyBack";
+      /** For "select": the gap between the two presses and how many keys went up between them. */
+      readonly how?: string;
     }
   | {
       readonly kind: "fullScreen";

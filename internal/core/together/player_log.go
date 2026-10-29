@@ -32,6 +32,7 @@ const (
 	eventUnmutedTap        = "unmutedTap"
 	eventContinueAsked     = "continueAsked"
 	eventFullScreen        = "fullScreen"
+	eventTakenBack         = "takenBack"
 	eventPlayedWithSound   = "playedWithSound"
 	eventGroupChanged      = "groupChanged"
 	eventGroupFollowed     = "groupFollowed"
@@ -236,7 +237,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logSoundMoved(ctx, who, from, note)
 		return true
 	case NotePlayedMuted, NoteUnmuted, NotePlayedWithSound, NoteFullScreen, NoteContinueAsked,
-		NotePlayedWhileHeld, NotePlayRefused, NoteShownAgain:
+		NotePlayedWhileHeld, NotePlayRefused, NoteShownAgain, NoteTakenBack:
 		current.logSound(ctx, who, from, note)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected,
@@ -314,6 +315,9 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 	case NoteFullScreen:
 		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered, refused or left",
 			append(attributes, logEvent, eventFullScreen, "answer", note.Why, "by", note.By)...)
+	case NoteTakenBack:
+		current.logger.InfoContext(ctx, "watch together: a cast's receiver took its control back",
+			append(attributes, logEvent, eventTakenBack, "by", note.By, "how", note.How)...)
 	case NoteContinueAsked:
 		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
 			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)

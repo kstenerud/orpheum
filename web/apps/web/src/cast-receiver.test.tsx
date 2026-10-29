@@ -137,6 +137,30 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
+  it("tells its session which press took control back, and what the keys did between (VQ122)", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const note = vi.fn();
+    const onLeave = vi.fn();
+    mounted = await mount(
+      withServices(
+        <ControlledMode fromName="Pixel" onTakeBack={onLeave} connection={{ note }} />,
+        testServices("token", "/play/3"),
+      ),
+    );
+    press("Enter");
+    act(() => {
+      document.body.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
+    });
+    vi.advanceTimersByTime(200);
+    press("Enter");
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(note).toHaveBeenCalledWith({
+      kind: "takenBack",
+      by: "select",
+      how: "gapMs=200 upsBetween=1",
+    });
+  });
+
   it("leaves every other key to the player", async () => {
     const { onLeave } = await controlled();
     for (const [key, keyCode] of [

@@ -465,6 +465,8 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 		{Kind: NoteFullScreen, Why: "entered", By: "elbow"},
 		{Kind: NoteFullScreen, Why: "maybe"},
 		{Kind: NotePlayedMuted, PositionMs: 7, By: "tap"},
+		{Kind: NoteTakenBack, By: "select", How: "gapMs=450 upsBetween=0"},
+		{Kind: NoteTakenBack, By: "nudge"},
 	} {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
@@ -484,7 +486,12 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 			t.Errorf("the log does not say full screen %s:\n%s", want, logged)
 		}
 	}
-	for _, unknown := range []string{"elbow", "maybe", "positionMs=7 "} {
+	// Which press took a cast's control back: a held OK on the Fire TV took it, and nothing said how
+	// (VQ122, 2026-10-29).
+	if taken := lineWith(t, logged, "takenBack"); !strings.Contains(taken, `by=select how="gapMs=450 upsBetween=0"`) {
+		t.Errorf("the log does not say which press took the cast's control back:\n%s", logged)
+	}
+	for _, unknown := range []string{"elbow", "maybe", "positionMs=7 ", "nudge"} {
 		if strings.Contains(logged, unknown) {
 			t.Errorf("the log took a note it does not know (%s):\n%s", unknown, logged)
 		}
