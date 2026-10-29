@@ -1334,7 +1334,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   192.168.1.150 → 192.168.1.199:8443`) still loaded chunks of a megabyte or more at ~15.6 Mb/s on
   average, as before the change: the relay's credit window did not lift it. This fits VQ117's finding
   that Chromium's own WebRTC path is the limit (the Chrome fixes and the LAN-origin tab, next batch).
-- [ ] **VQ116** — a Fire TV holds its quality while plenty is loaded, and a change of sound with a
+- [x] **VQ116** — a Fire TV holds its quality while plenty is loaded, and a change of sound with a
   change of quality throws no loaded sound away (staging, 2026-10-28: device 60, file 5671 Nosferatu, one
   slow sample of five, 376471 B in 1200 ms, lowered the ceiling from the film's own picture to
   q700k432p with 37.3 s loaded, `chose started, ceiling 3 to 1`, and the sound's change from the
@@ -1354,6 +1354,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   harmonic mean cannot outvote for five chunks. A quality switch's note now says why the controller
   chose it and its samples (`why`, `linkSamples`), so the next one says; how a given-up chunk counts
   is the owner's to decide (D352).
+  **Passed 2026-10-29 (the owner, staging):** Nosferatu on the Fire TV held its quality through seeks, and dialogue boost on and off played on with no
+  hang (on the receiver's own controls, reached after taking control back: the cast's remote has none yet, filed).
 - [x] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
   devices (webrtc-throughput-2026-10-28.md: in Chrome and Firefox here, one connection carried
   25–30 Mb/s at a 50 ms round trip against 240 and more over HTTP, its window cut by the browser's
@@ -1683,14 +1685,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`why=hostInStep`), no one's film jumping. (`internal/core/together/leader.go`,
   `web/packages/sdk/src/together-follow.ts`, `together-roster.ts`)
   **Passed 2026-10-29 (the owner, staging):** handover moved no one; the host took the lead back in step; with no one left, the first back resumed from its own place, and a pause stayed. Firefox took ~45 s to recover after the outage (Chrome quicker): filed for the next batch.
-- [ ] **VQ140** — On the Fire TV (Silk), playing a film on its own Play page with its controls shown
+- [x] **VQ140** — On the Fire TV (Silk), playing a film on its own Play page with its controls shown
   (out of full screen), move down with the remote onto the scrub bar and press Down again. Passes when
   the film stays where it was (no step back a second at each Down) and focus stays on the scrub bar or
   moves below it. Before this change Down at the bottom of the controls fell to the browser, which steps
   a focused slider's value (the owner, staging, 2026-10-29). (`web/apps/web/src/input-commands.ts`)
-- [ ] **VQ141** — a leading player never drops to the group's common quality at its own jump, on
+  **Passed 2026-10-29 (the owner, staging):** Down from the Fire TV's scrub bar left the film where it was.
+- [x] **VQ141** — a leading player never drops to the group's common quality at its own jump, on
   staging. Cast Nosferatu (file 5671) from the Mac to the Fire TV and let it reach the film's own picture
   (the core's log: `qualitySwitched qualityKbps=9018`); seek with the remote a few times. Passes when
   no `qualitySwitched … why="its group's: the common quality after its group jumped"` line comes from
   the receiver (on 2026-10-29 one took it from 9018 to 1896 kb/s on a link of 18451 kb/s).
   (`web/packages/sdk/src/together-player-events.ts`, `together-follow.ts`)
+  **Passed 2026-10-29 (the owner, staging):** Nosferatu cast to the Fire TV held 9018 kb/s through six seeks of the remote; no common-quality step.

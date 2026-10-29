@@ -115,7 +115,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 - **Next batch (the owner, 2026-10-29, VQ116's run):** a cast's remote on the sender has no sound
   controls: dialogue boost, levelling and the sound track can be changed only on the receiver itself,
   which a Fire TV's remote reaches with difficulty. The sender's remote gets them, sent to the receiver
-  as commands. (Related: the item below on what the controller side should show.)
+  as commands. (Related: the item below on what the controller side should show.) While the receiver
+  is controlled its own controls are hidden too, so today the sound changes only after taking control
+  back (the owner, VQ116's run).
 - **Next batch:** "when playing back via remote control: The controller side should get information
   about playback, such as the transcoding and bandwidth choices" (the receiver's decision, quality and
   link, shown on the controlling device).
