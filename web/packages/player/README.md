@@ -15,8 +15,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   `no-restricted-globals` bans `fetch` and `WebSocket` outside `packages/sdk`. (hls.js's
   own requests for media segments are the library's, not ours.)
 - **Says no words.** A failure is a code (`PlaybackFailure`, `src/failure.ts`), never English or
-  the browser's or hls.js's text; the app puts each in the viewer's words.
-  `failure.test.ts`, and the app's `play.test.tsx` for the words.
+  the browser's or hls.js's text; the app puts each in the viewer's words. Beside it goes what
+  failed, for the core's log alone, never the viewer (`PlaybackFailed`): hls.js's error type,
+  details, whether fatal, its message, the answer's status and what carried the load
+  (`failureText`, `src/diagnosis.ts`), where the page's words alone said "the browser gave no reason"
+  (staging, 2026-10-29). `failure.test.ts`, `load-again.test.ts`, and the app's `play.test.tsx` for
+  the words and `play-failure.test.tsx` for the report.
 - **A player playing a file as it is measures its link from how fast its buffer grows**, times
   the file's average bit rate, counting only time the element spends loading, never the pauses
   between loads, and starting afresh at a seek elsewhere; the estimate is the lower of two moving
@@ -85,6 +89,16 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   One not yet answered is hls.js's to time out, since the core may hold it while it makes it.
   Waited for, a chunk stuck after 19 bytes over WebRTC held the owner's Chrome, throttled and
   unthrottled, for good (staging, 2026-10-29; VQ125). `abr-stuck.test.ts`.
+- **A chunked playback never ends at a load that failed**: a fatal hls.js error that only stopped its
+  loading, any but the media's own (MEDIA_ERROR, MUX_ERROR) and the core's 429 and 503, which have
+  their own answers (`isLoadStopped`, `src/failure.ts`), is marked recovered, so it is no failure,
+  and hls.js is asked to load on from where the video stands after the same waits as a chunk stuck
+  on its way, in one count of times in a row (`ChunkOnItsWay.askingAgain`), and at once when the
+  browser is back online (`loadOnAfterFailures`, `src/load-again.ts`); what is
+  loaded plays on meanwhile, the page showing only its wait. Each is noted with what failed and what
+  carried it, the time in a row and the wait, and each ask with why then. Taken as the end, a load
+  that failed while the owner's Chrome was offline stopped its playback for good, though the link
+  came back (staging, 2026-10-29; VQ125). `load-again.test.ts`.
 - **A chunked playback keeps its sound's place as its quality moves between audio groups**: the
   top of a film's ladder plays its own sound in a group of its own, every group in one order
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
@@ -189,7 +203,7 @@ for how far ahead it loads;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.

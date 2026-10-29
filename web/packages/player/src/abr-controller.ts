@@ -28,9 +28,17 @@ import { tooEarlyStatus } from "./failure.ts";
 /** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
 const recovered = new WeakSet<object>();
 
-/** Whether a fatal error is one the player recovers from by itself, giving a quality up (D266). */
+/**
+ * Whether a fatal error is one the player recovers from by itself: giving a quality up at a hole
+ * (D266), or asking hls.js to load on after a load that failed (loadOnAfterFailures, load-again.ts).
+ */
 export function isRecovered(data: object): boolean {
   return recovered.has(data);
+}
+
+/** Marks a fatal error as one the player recovers from by itself (isRecovered). */
+export function recoverFrom(data: object): void {
+  recovered.add(data);
 }
 
 /** Whether hls.js's error is the core's 425 for a chunk, being made, which hls.js asks for again. */
@@ -174,7 +182,7 @@ class OrpheumAbrController extends AbrController {
     ) {
       return;
     }
-    recovered.add(data);
+    recoverFrom(data);
     const positionS = media.currentTime;
     setTimeout(() => {
       choosing.giveUpAtAHole(positionS);

@@ -37,7 +37,7 @@ import {
   samplesText,
   type LinkSample,
 } from "./link-estimate.ts";
-import { ChunkOnItsWay, type JudgedChunk } from "./abr-on-its-way.ts";
+import { ChunkOnItsWay, type AskingAgain, type JudgedChunk } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
 import { Steadiness } from "./steadiness.ts";
@@ -88,6 +88,8 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** The chunk of picture on its way, followed to judge whether to give it up. */
   readonly #onItsWay = new ChunkOnItsWay<Chunk>();
   readonly isAwaitingTheCore = (): boolean => this.#onItsWay.isAwaitingTheCore();
+  /** Asks again after a load hls.js stopped, counted with the chunks stuck (loadOnAfterFailures). */
+  readonly askingAgain = (): AskingAgain => this.#onItsWay.askingAgain();
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
