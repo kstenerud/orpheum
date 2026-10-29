@@ -340,4 +340,8 @@ had leaned on.
 - **"Play the original file" as a debug tool** (the owner, 2026-10-29: "I'm not even sure I want to
   expose that option to the users tbh. It's useful as a debug tool though."): to decide whether it moves
   behind an admin or Diagnostics switch (diagnostics-design) rather than sitting under every player. It
-  keeps reloading the source when used; the player's common switching path leaves it out.
+  keeps reloading the source when used; the player's common switching path leaves it out. **Decided
+  (the owner, 2026-10-29), next batch:** a "Show debug tools" option that shows every control on any
+  screen marked as a debug tool, hidden otherwise; "Play the original file" is the first so marked.
+  Candidates to mark with it: the lab's device tests, the picture-timing and sound-offset lines, the
+  tracks note's technical detail.
