@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
+| On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
@@ -743,6 +744,17 @@ User-Agent (D263; the User-Agent is logged only).
   starting guess.
 - **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, runs `ONCULPN4` (D-input) and `QJRWQSNT`
   (X-input); plans/tv-device-tests.md §5.
+
+### Silk on Fire TV takes a held Up for its own address bar and menu
+
+- **Symptom:** on a Fire TV Stick (AFTSSS, Silk 138, spatial navigation on), holding the remote's Up
+  moves control out of the page to Silk's own address bar and menu; a held Left, Right or Down
+  stays with the page as repeated keys.
+- **Cause:** Silk's own gesture for reaching its chrome; the page cannot prevent it.
+- **What we do:** nothing on the page may depend on holding Up: a held Up must never be the only way
+  to an action, and a repeat of Up is never a scrub or a speed-up (the timeline's held arrows use
+  Left and Right only, seek-ahead.ts). Up pressed once reaches the page as an ordinary key.
+- **Evidence:** [owner] 2026-10-29, staging, the Fire TV during VQ85's testing.
 
 ### Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on
 
