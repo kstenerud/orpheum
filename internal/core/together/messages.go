@@ -202,6 +202,10 @@ const (
 	// (the owner, 2026-10-27). A receiver whose full screen the browser left unasked, by a Fire TV's
 	// Back or Escape, which takes control back as Back does (D338 §6), notes it "left", with no press.
 	NoteFullScreen NoteKind = "fullScreen"
+	// NoteTakenBack is a cast's receiver taking its control back (D338 §6), By the press: "back",
+	// "select" (OK twice), "tap" (twice) or "historyBack". A held OK on the Fire TV took it, and the log
+	// said only that the cast ended (VQ122, 2026-10-29).
+	NoteTakenBack NoteKind = "takenBack"
 	// NoteSoundMoved is a player moving its sound from EarlierFromMs earlier than its picture to
 	// EarlierMs, Why what moved it ("remembered", the latency its device kept; "measured", Web Audio's
 	// latency measured, LatencyMs; "offset", its person's offset; "direct", its sound found playing
@@ -306,6 +310,9 @@ type PlayerNote struct {
 	Page string `json:"page,omitempty"`
 	// By is how the person pressed for an unmuted or fullScreen note: "tap", "click" or "key".
 	By string `json:"by,omitempty"`
+	// How is a takenBack note's detail for "select": the gap between the two presses of OK and how many
+	// keys went up between them, as "gapMs=… upsBetween=…" (VQ122, 2026-10-29).
+	How string `json:"how,omitempty"`
 	// Seq is a groupFollowed note's change of the group, by its number; HeldMs, how long after the
 	// change reached the player it moved.
 	Seq    int64 `json:"seq,omitempty"`

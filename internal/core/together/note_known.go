@@ -42,7 +42,7 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownSound()
 	case NoteShownAgain, NotePlayRefused:
 		return note.isKnownShownAgain()
-	case NoteFullScreen, NotePlayedWhileHeld:
+	case NoteFullScreen, NotePlayedWhileHeld, NoteTakenBack:
 		return note.isKnownStart()
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
@@ -55,6 +55,10 @@ func (note PlayerNote) isKnown() bool {
 func (note PlayerNote) isKnownStart() bool {
 	if note.Track != "" {
 		return false
+	}
+	if note.Kind == NoteTakenBack {
+		return note.Why == "" && len(note.How) <= diagnosisTextMost &&
+			slices.Contains([]string{"back", "select", "tap", "historyBack"}, note.By)
 	}
 	if note.Kind == NotePlayedWhileHeld {
 		return note.PositionMs >= 0 && (note.Why == "autoplay" || note.Why == "page") && note.By == ""
@@ -95,7 +99,7 @@ func (note PlayerNote) isKnownSound() bool {
 			note.By == ""
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
-		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen,
+		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld, NoteFullScreen, NoteTakenBack,
 		NoteGroupFollowed, NoteBuffering, NoteSoundMoved, NotePlayedWhileHeld,
 		NoteShownAgain, NotePlayRefused: // isKnown reads them
 	}
@@ -150,7 +154,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.Seq > 0 && note.HeldMs >= 0 && isGroupHeldBy(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
-		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NotePlayedWithSound,
+		NoteLeaderCommand, NoteContinueAsked, NoteFullScreen, NoteTakenBack, NotePlayedWithSound,
 		NoteBuffering, NoteSoundMoved, NotePlayedWhileHeld, NoteShownAgain,
 		NotePlayRefused: // isKnown reads them
 	}
@@ -171,7 +175,7 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
-		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen,
+		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked, NoteFullScreen, NoteTakenBack,
 		NotePlayedWithSound, NoteGroupFollowed, NoteBuffering,
 		NoteSoundMoved, NotePlayedWhileHeld, NoteShownAgain, NotePlayRefused: // not voice's: isKnown reads them
 	}

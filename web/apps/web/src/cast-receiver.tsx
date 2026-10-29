@@ -501,10 +501,82 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
   ) : null;
 }
 
+/** A ref that always holds value as of the last render, for listeners set up once. */
+function useLatest<T>(value: T): RefObject<T> {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
+/** The press that took a cast's control back, as its note says it. */
+type TakenBackBy = "back" | "select" | "tap" | "historyBack";
+
+/**
+ * What the keys did between two presses of OK, for the log: the gap between them and how many keys
+ * went up between them, which says whether a browser repeats a held OK as fresh presses (VQ122).
+ */
+function selectGaps(target: Window): {
+  readonly heard: (now: number) => void;
+  readonly how: (now: number) => string;
+  readonly stop: () => void;
+} {
+  let previousAt = Number.NEGATIVE_INFINITY;
+  let upsSince = 0;
+  const keyUp = (): void => {
+    upsSince += 1;
+  };
+  target.addEventListener("keyup", keyUp, true);
+  return {
+    heard: (now) => {
+      previousAt = now;
+      upsSince = 0;
+    },
+    how: (now) => `gapMs=${String(Math.round(now - previousAt))} upsBetween=${String(upsSince)}`,
+    stop: () => {
+      target.removeEventListener("keyup", keyUp, true);
+    },
+  };
+}
+
+/**
+ * Hears taps on the page: a first pauses or plays the video (pauseOrPlayAtAClick), a second within
+ * doublePressWithinMs undoes it and leaves. A click a key made (detail 0), or one following OK as the
+ * same press, is not a tap. Returns the stopping.
+ */
+function listenForTaps(
+  presses: { readonly lastSelectAt: number },
+  isSecondPress: (now: number) => boolean,
+  leave: () => void,
+): () => void {
+  let pausedOrPlayedByFirst: HTMLVideoElement | undefined;
+  const onClick = (event: MouseEvent): void => {
+    const now = performance.now();
+    if (event.detail === 0 || now - presses.lastSelectAt <= samePressWithinMs) {
+      return;
+    }
+    if (!isSecondPress(now)) {
+      pausedOrPlayedByFirst = pauseOrPlayAtAClick(event);
+      return;
+    }
+    undoPauseOrPlay(pausedOrPlayedByFirst);
+    event.preventDefault();
+    event.stopPropagation();
+    leave();
+  };
+  window.addEventListener("click", onClick, true);
+  return () => {
+    window.removeEventListener("click", onClick, true);
+  };
+}
+
 /**
  * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
  * hears it, or as a step back from the receiver's own history entry, kept as it starts; OK or a tap
- * twice within doublePressWithinMs, the second press taken from the page; and full screen left
+ * twice within doublePressWithinMs, the second press taken from the page (a held OK's repeats no
+ * second press: Android's first comes 400-500 ms after the press, inside the window,
+ * starts-chunks-remote-2026-10-29.md §3.3); and full screen left
  * unasked (useFullScreenLeftLeaves). Control is taken back once, however many of them come. A
  * mouse's click on the video pauses or plays it (pauseOrPlayAtAClick), which a second click making
  * it a double undoes, the film going on as it was.
@@ -516,61 +588,58 @@ function useLeavingPresses(
 ): void {
   const takeBackRef = useOnce(onTakeBack);
   useFullScreenLeftLeaves(takeBackRef, connection);
+  const connectionRef = useLatest(connection);
   useEffect(() => {
-    let lastPressAt = Number.NEGATIVE_INFINITY;
-    let lastSelectAt = Number.NEGATIVE_INFINITY;
+    // Which press took control back goes to the log: a held OK on the Fire TV took it, and the log
+    // said only that the cast ended (VQ122, 2026-10-29).
+    const leave = (by: TakenBackBy, how = ""): void => {
+      connectionRef.current?.note({ kind: "takenBack", by, ...(how === "" ? {} : { how }) });
+      takeBackRef.current();
+    };
+    const gaps = selectGaps(window);
+    const presses = {
+      lastPressAt: Number.NEGATIVE_INFINITY,
+      lastSelectAt: Number.NEGATIVE_INFINITY,
+    };
     const isSecondPress = (now: number): boolean => {
-      const isSecond = now - lastPressAt <= doublePressWithinMs;
-      lastPressAt = isSecond ? Number.NEGATIVE_INFINITY : now;
+      const isSecond = now - presses.lastPressAt <= doublePressWithinMs;
+      presses.lastPressAt = isSecond ? Number.NEGATIVE_INFINITY : now;
       return isSecond;
     };
     const stopCommands = onCommand(
       window,
       (detail, event) => {
         const now = performance.now();
-        if (detail.command === "select") {
-          lastSelectAt = now;
-        }
-        // A held OK's repeats are no second press: Android's first comes 400-500 ms after the
-        // press, inside the window (starts-chunks-remote-2026-10-29.md §3.3).
-        const isLeaving =
+        const isSelect = detail.command === "select";
+        if (
           detail.command === "back" ||
-          (detail.command === "select" && detail.isRepeat !== true && isSecondPress(now));
-        if (isLeaving) {
+          (isSelect && detail.isRepeat !== true && isSecondPress(now))
+        ) {
           event.preventDefault();
-          takeBackRef.current();
+          leave(isSelect ? "select" : "back", isSelect ? gaps.how(now) : "");
+        }
+        if (isSelect) {
+          presses.lastSelectAt = now;
+          gaps.heard(now);
         }
       },
       { isCapture: true },
     );
-    let pausedOrPlayedByFirst: HTMLVideoElement | undefined;
-    const onClick = (event: MouseEvent): void => {
-      const now = performance.now();
-      // A click a key made (detail 0), or one following OK as the same press, is not a tap.
-      if (event.detail === 0 || now - lastSelectAt <= samePressWithinMs) {
-        return;
-      }
-      if (!isSecondPress(now)) {
-        pausedOrPlayedByFirst = pauseOrPlayAtAClick(event);
-        return;
-      }
-      undoPauseOrPlay(pausedOrPlayedByFirst);
-      event.preventDefault();
-      event.stopPropagation();
-      takeBackRef.current();
-    };
-    window.addEventListener("click", onClick, true);
+    const stopTaps = listenForTaps(presses, isSecondPress, () => {
+      leave("tap");
+    });
     navigation.go(navigation.route());
     const onBack = (): void => {
-      takeBackRef.current();
+      leave("historyBack");
     };
     window.addEventListener("popstate", onBack);
     return () => {
       stopCommands();
-      window.removeEventListener("click", onClick, true);
+      stopTaps();
+      gaps.stop();
       window.removeEventListener("popstate", onBack);
     };
-  }, [navigation, takeBackRef]);
+  }, [navigation, takeBackRef, connectionRef]);
 }
 
 /**
@@ -626,10 +695,7 @@ function useFullScreenLeftLeaves(
   takeBackRef: RefObject<() => void>,
   connection: Pick<TogetherConnection, "note"> | undefined,
 ): void {
-  const connectionRef = useRef(connection);
-  useEffect(() => {
-    connectionRef.current = connection;
-  });
+  const connectionRef = useLatest(connection);
   useEffect(() => {
     let shown = document.fullscreenElement;
     const changed = (): void => {
@@ -648,5 +714,5 @@ function useFullScreenLeftLeaves(
     return () => {
       document.removeEventListener("fullscreenchange", changed);
     };
-  }, [takeBackRef]);
+  }, [takeBackRef, connectionRef]);
 }
