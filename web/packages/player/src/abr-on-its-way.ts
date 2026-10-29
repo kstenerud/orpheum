@@ -33,6 +33,7 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
         readonly answeredBytes: number;
         readonly isBeingMade: boolean;
         readonly arrived: { loadedBytes: number; atMs: number };
+        isStuckNoted: boolean;
       }
     | undefined;
 
@@ -44,6 +45,7 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
       answeredBytes: 0,
       isBeingMade: false,
       arrived: { loadedBytes: 0, atMs: nowMs },
+      isStuckNoted: false,
     };
   }
 
@@ -60,6 +62,7 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
         answeredBytes: loaded,
         isBeingMade: true,
         arrived: { loadedBytes: loaded, atMs: nowMs },
+        isStuckNoted: false,
       };
     }
   }
@@ -69,6 +72,16 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
     if (this.#following?.chunk === chunk) {
       this.#following = undefined;
     }
+  }
+
+  /** Whether chunk is to be noted stuck now: true once for each chunk followed. */
+  isStuckToNote(chunk: Chunk): boolean {
+    const following = this.#following;
+    if (following?.chunk !== chunk || following.isStuckNoted) {
+      return false;
+    }
+    following.isStuckNoted = true;
+    return true;
   }
 
   /** Follows nothing more: the quality loading was given up. */

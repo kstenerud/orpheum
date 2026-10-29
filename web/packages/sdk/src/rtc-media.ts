@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { operations } from "./gen/api.ts";
+import type { CarrierSeen } from "./rtc-transport.ts";
 
 /**
  * Media over the WebRTC path (plans/webrtc-transport.md W2b). What the browser loads by itself, an
@@ -572,6 +573,53 @@ export function networkFetch(request: Request): Promise<Response> {
   return fetch(request);
 }
 
+/**
+ * The path this page's media goes over, named; undefined while the page carries none, its loads the
+ * browser's own over HTTP.
+ */
+let mediaPathName: string | undefined;
+
+/** The WebRTC connection carrying a load of the page's media, where its transport says (tellMediaCarriers). */
+let mediaCarriers: (url: string) => CarrierSeen | undefined = () => undefined;
+
+/**
+ * Has the page's media name the WebRTC connection carrying each load by carrierOf, the transport's
+ * (RtcTransport.carrierOf) on the path in use, for mediaCarrierOf.
+ */
+export function tellMediaCarriers(carrierOf: (url: string) => CarrierSeen | undefined): void {
+  mediaCarriers = carrierOf;
+}
+
+/**
+ * Which transport, and which WebRTC connection of it, carries the load of url now, for a log: "http"
+ * where the page carries no media itself; "over the core's name, …" where its path is another
+ * origin; "WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago" where a WebRTC
+ * connection carries it. A chunk stuck on its way said nothing of which connection it waited on
+ * (the owner, 2026-10-29: the logs are to show whether stalls are per-connection).
+ */
+export function mediaCarrierOf(url: string): string {
+  if (mediaPathName === undefined) {
+    return "http";
+  }
+  const carrier = mediaCarriers(url);
+  return carrier === undefined ? `over ${mediaPathName}` : carrierText(carrier);
+}
+
+/**
+ * A WebRTC connection carrying a load, for a log: "WebRTC connection 2, up 41 s, 3 under way, last
+ * bytes 5512 ms ago", or "no bytes yet" before any came over it.
+ */
+export function carrierText(carrier: CarrierSeen): string {
+  const delivered =
+    carrier.sinceDeliveredMs === undefined
+      ? "no bytes yet"
+      : `last bytes ${String(Math.round(carrier.sinceDeliveredMs))} ms ago`;
+  return (
+    `WebRTC connection ${String(carrier.connection)}, up ${String(Math.round(carrier.upMs / 1000))} s,` +
+    ` ${String(carrier.underWay)} under way, ${delivered}`
+  );
+}
+
 /** Where the service worker is served, beside the app, so its scope is the whole app. */
 export const serviceWorkerUrl = "/sw.js";
 
@@ -586,6 +634,7 @@ export async function carryMediaOver(
   credentials: () => MediaCredentials,
   name: string,
 ): Promise<void> {
+  mediaPathName = name;
   if (!("serviceWorker" in navigator)) {
     throw new Error("this browser runs no service worker, so media stays on HTTP");
   }

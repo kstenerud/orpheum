@@ -5704,6 +5704,16 @@
             "minimum": 0,
             "type": "integer"
           },
+          "linkNotes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "linkSpread": {
             "format": "double",
             "maximum": 10,

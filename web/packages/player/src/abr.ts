@@ -5,6 +5,7 @@ import {
   giveUpFor,
   givenUpSample,
   givenUpText,
+  isStuck,
   highestWithin,
   linkShare,
   isUnplayable,
@@ -25,7 +26,14 @@ import type {
   ChoosingOptions,
   FollowedChunk,
 } from "./abr-options.ts";
-import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
+import {
+  estimateText,
+  LinkEstimate,
+  lastSampleNote,
+  priorNoteText,
+  samplesText,
+  type LinkSample,
+} from "./link-estimate.ts";
 import { ChunkOnItsWay, type JudgedChunk } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
@@ -135,6 +143,10 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#link = link;
     this.#changedAtMs = options.monotonicMs();
     this.#estimate = new LinkEstimate(options.rememberedLink);
+    const prior = this.#estimate.prior();
+    if (prior !== undefined) {
+      options.noteLink?.(priorNoteText(prior));
+    }
     this.#steadiness = new Steadiness(options.monotonicMs(), options.startSteadiness);
     options.noteSteadiness?.(this.#steadiness.level());
     this.#timers = [
@@ -417,7 +429,18 @@ export class Choosing<Chunk extends FollowedChunk> {
     });
     if (chosen !== undefined) {
       this.#giveUp(judged, chosen);
+    } else if (isStuck(judged) && this.#onItsWay.isStuckToNote(chunk)) {
+      // A chunk stuck that is not given up, as one of the lowest quality: which transport carried it.
+      this.#options.noteLink?.(
+        `chunk of ${String(chunk.level)} ${givenUpText({ ...judged, isSample: false })};` +
+          ` ${this.#carrierText(chunk)}`,
+      );
     }
+  }
+
+  /** What carries chunk's load, for a note of it given up or stuck (the owner, 2026-10-29). */
+  #carrierText(chunk: Chunk): string {
+    return `carried ${this.#options.carrierOf?.(chunk.url) ?? "unknown"}`;
   }
 
   /**
@@ -429,6 +452,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    */
   #giveUp(judged: JudgedChunk<Chunk>, chosen: number): void {
     const { chunk } = judged;
+    const carried = this.#carrierText(chunk); // before it is aborted
     this.#onItsWay.ended(chunk);
     const nowMs = this.#options.monotonicMs();
     const sample = givenUpSample({ ...judged, level: chunk.level });
@@ -444,6 +468,9 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (!this.#lower(isStuckStarting ? Math.max(chosen, this.#carriedNow()) : chosen, () => why)) {
       this.#options.noteStep?.(why); // a give-up is always told, the ceiling lowered or not
     }
+    this.#options.noteLink?.(
+      `gave up a chunk of ${String(chunk.level)}, ${givenUpText({ ...judged, isSample: sample !== undefined })}; ${carried}`,
+    );
     this.#noteSteadiness(this.#steadiness.dropped(nowMs));
     this.#choose(chosen, () => why);
     this.#link.giveUp(chunk);
@@ -564,8 +591,12 @@ export class Choosing<Chunk extends FollowedChunk> {
    * the link is reported, its spread.
    */
   #sample(sample: LinkSample): void {
-    this.#estimate.add(sample);
+    this.#estimate.add(sample, this.#bufferAheadS());
     this.#options.noteSamples?.(samplesText(this.#estimate.samples()));
+    const taken = lastSampleNote(this.#estimate);
+    if (taken !== undefined) {
+      this.#options.noteLink?.(taken);
+    }
     if (this.linkKbps() !== undefined) {
       this.#options.noteLinkSpread?.(this.#estimate.spread());
     }
@@ -573,8 +604,9 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /**
    * Ends starting once the video played startingPlayedMs and its samples settle the ceiling or
-   * startingSamples measured the link: the ceiling becomes the highest quality the confident estimate carries, by D265 §4's share, no
-   * higher than it was (D352 §1), and the end is noted with its samples.
+   * startingSamples measured the link: the ceiling becomes the highest quality the confident
+   * estimate carries, by D265 §4's share, no higher than it was (D352 §1), and the end is noted with
+   * its samples.
    */
   #endStartingWhenDone(): void {
     if (!this.#isStarting || !this.#hasStarted()) {

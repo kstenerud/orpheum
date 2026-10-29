@@ -62,7 +62,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (D352 §1), with its spread, and its steadiness level, with every play report (D352 Q2, P2); and notes each choice with what it rests
   on, and its last five samples in every stall's and seek's report, in their own `linkSamples`
   beside the steps (D352 §5), and tells each switch of quality why it was chosen, with the samples
-  then, for a Watch Together player's note (`whyChose`). A quality whose video, asked to play, stands still while its chunks arrive is
+  then, for a Watch Together player's note (`whyChose`); and with every play report its notes on its
+  link since the last, which the core logs (`linkNotes`): its prior, each sample with the time the
+  estimate before it expected and its next-chunk bound's, "below" when slower than the bound, so the
+  bound's calibration can be read from the log, and each chunk given up or stuck with the transport
+  and WebRTC connection that carried it and how long since that connection last delivered bytes
+  (P6; the owner, 2026-10-29). A quality whose video, asked to play, stands still while its chunks arrive is
   given up as one the device cannot play, with every quality above it, and reported (D266).
   `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,

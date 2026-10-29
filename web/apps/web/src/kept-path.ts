@@ -12,11 +12,13 @@ import {
   apiPrefix,
   browserTogetherSocket,
   carryMediaOver,
+  tellMediaCarriers,
   directFetch,
   namingFailures,
   reportFailure,
   rtcTogetherSocket,
   PathKeeper,
+  type CarrierSeen,
   type FetchRequest,
   type MediaCredentials,
   type OpenTogetherSocket,
@@ -58,6 +60,11 @@ function sendingOn(path: Reached): { readonly send: FetchRequest; readonly name:
 }
 
 /** The Watch Together socket's opener on path. */
+/** The WebRTC connection carrying url's load on path, for a stuck chunk's log; none on a direct path. */
+function carrierOn(path: Reached, url: string): CarrierSeen | undefined {
+  return path.kind === "direct" ? undefined : path.transport.carrierOf(url);
+}
+
 function socketOn(path: Reached): OpenTogetherSocket {
   return path.kind === "direct"
     ? browserTogetherSocket(path.origin)
@@ -126,6 +133,7 @@ export function keepPath(
   });
   // Media is carried over once, on whichever path the keeper holds when each load is asked for: one
   // carried over per path would answer each load once for every path the page ever used.
+  tellMediaCarriers((url) => carrierOn(inUse, url));
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
   if (reaching.choice !== undefined) {
     // A failure to tell it is dropped: it is for the log alone.

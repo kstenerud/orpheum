@@ -4330,6 +4330,7 @@ export interface components {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
             linkKbps?: number;
+            linkNotes?: string[] | null;
             /** Format: double */
             linkSpread?: number;
             pathMoves?: components["schemas"]["PathMoveBody"][] | null;

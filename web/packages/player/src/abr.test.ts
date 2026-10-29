@@ -206,6 +206,43 @@ describe("choosing a chunked playback's quality (D265)", () => {
     );
   });
 
+  it("notes its link for the server's log: its prior, each sample with its expected time and its bound's, each chunk given up or stuck and what carried it (P6)", () => {
+    const remembered = { kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 };
+    const { choosing, givenUp } = choosingFrom(40_000_000, undefined, {
+      rememberedLink: remembered,
+    });
+    expect(scene.linkNotes).toEqual(["prior 17000 kb/s, spread 0.30, as 2 samples"]);
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 }); // slower than the prior's bound said
+    loadAt(choosing, 3, { mbps: 1, seconds: 2 }); // and agreeing: the prior dropped
+    expect(scene.linkNotes.slice(1)).toEqual([
+      expect.stringMatching(/^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ below$/u),
+      expect.stringMatching(/^sample 3 250000B 2000ms fb50ms exp\d+ lo\d+ below, prior dropped$/u),
+    ]);
+    // A chunk of the lowest quality, which is never given up, stuck: noted once, with its carrier.
+    const lowest = chunkAt(0);
+    choosing.loading(lowest);
+    lowest.stats.loaded = 5000;
+    lowest.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
+    waitMs(lookAtChunkEveryMs);
+    waitMs(6000);
+    waitMs(lookAtChunkEveryMs);
+    expect(givenUp).toEqual([]);
+    expect(scene.linkNotes.slice(3)).toEqual([
+      "chunk of 0 stuck: 5000 B in 6500 ms, none for 6000 ms; carried WebRTC connection 2 for /c/0.m4s",
+    ]);
+    // One given up: noted with what carried it, read before it was aborted.
+    const stuck = chunkAt(3);
+    choosing.loading(stuck);
+    stuck.stats.loaded = 5000;
+    stuck.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
+    waitMs(lookAtChunkEveryMs);
+    waitMs(6000);
+    expect(givenUp).toEqual([stuck]);
+    expect(scene.linkNotes.at(-1)).toBe(
+      "gave up a chunk of 3, stuck: 5000 B in 6500 ms, none for 6000 ms; carried WebRTC connection 2 for /c/3.m4s",
+    );
+  });
+
   it("waits for a chunk that loaded before it was looked at", () => {
     const { choosing, givenUp } = choosingFrom(40_000_000);
     const chunk = chunkAt(3);

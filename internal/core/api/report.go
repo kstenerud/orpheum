@@ -58,6 +58,13 @@ type ReportInput struct {
 		// showed in no log (the owner, 2026-10-28).
 		TotalFrames   *int64 `json:"totalFrames,omitempty"   minimum:"0" required:"false"`
 		DroppedFrames *int64 `json:"droppedFrames,omitempty" minimum:"0" required:"false"`
+		// LinkNotes are the chunked player's notes on its link since its last report, oldest first,
+		// which the core logs: its prior, each sample with the time the estimate before it expected
+		// and its bound's, so the estimate's calibration can be read from the log, and each chunk given
+		// up or stuck, with the transport and the WebRTC connection that carried it and how long since
+		// that connection last delivered bytes (bandwidth-sampling-2026-10-29.md P6; the owner,
+		// 2026-10-29: the logs are to show whether stalls are per-connection).
+		LinkNotes []string `json:"linkNotes,omitempty" maxItems:"20" required:"false"`
 	}
 	ClientFacts
 }
@@ -366,6 +373,9 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	server.logSeeks(ctx, reporter, input.Body.Seeks, input.Body.LinkKbps)
 	server.logStandstills(ctx, reporter, input.Body.Standstills, input.Body.LinkKbps)
 	server.logDroppedFrames(ctx, reporter, input.Body.TotalFrames, input.Body.DroppedFrames, input.Body.PositionMs)
+	if !answer.IsRepeat {
+		server.logLinkNotes(ctx, reporter, input.Body.LinkNotes, input.Body.PositionMs)
+	}
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -521,6 +531,28 @@ func (server *Server) logDroppedFrames(
 	}
 	server.logger.InfoContext(ctx, "a player dropped frames", append(reporter.logAttributes(),
 		"positionMs", positionMs, "droppedFrames", *droppedFrames, "totalFrames", *totalFrames)...)
+}
+
+// linkNoteMostRunes is how much of each of a report's notes on its link the log keeps: the player's
+// own bound (linkNoteMost in link-estimate.ts), so a report written past it logs no more.
+const linkNoteMostRunes = 200
+
+// logLinkNotes says a chunked player's notes on its link since its last report, where it sent any:
+// its samples, each with the time expected and its bound's, and its chunks given up or stuck with
+// what carried them (bandwidth-sampling-2026-10-29.md P6).
+func (server *Server) logLinkNotes(ctx context.Context, reporter reporter, notes []string, positionMs int64) {
+	if len(notes) == 0 {
+		return
+	}
+	kept := make([]string, 0, len(notes))
+	for _, note := range notes {
+		if runes := []rune(note); len(runes) > linkNoteMostRunes {
+			note = string(runes[:linkNoteMostRunes])
+		}
+		kept = append(kept, note)
+	}
+	server.logger.InfoContext(ctx, "a player's notes on its link", append(reporter.logAttributes(),
+		"positionMs", positionMs, "linkNotes", kept)...)
 }
 
 // stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether

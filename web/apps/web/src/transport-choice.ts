@@ -2,6 +2,7 @@
 
 import {
   carryMediaOver,
+  tellMediaCarriers,
   connectRtc,
   dataOrThrow,
   rtcTogetherSocket,
@@ -63,6 +64,7 @@ export function moveToWebrtcWhenSignedIn(
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
+        tellMediaCarriers((url) => transport.carrierOf(url));
         await carryMediaOver(transport.fetch, mediaCredentialsOf(session), pathName);
       })
       .catch((problem: unknown) => {
