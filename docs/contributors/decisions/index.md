@@ -379,6 +379,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D371](working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part) A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part — *revisited by D372*
 - [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most — *revisited by D373*
 - [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead
+- [D374](working-notes.md#d374--only-a-device-playing-the-film-can-lead-a-casts-sender-never-does) Only a device playing the film can lead; a cast's sender never does
 
 ## Archived
 
