@@ -3,7 +3,10 @@
 package together
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -31,6 +34,32 @@ const (
 	// CastUnanswered is the receiver's question left unanswered for a minute (D358 §4).
 	CastUnanswered = "unanswered"
 )
+
+// endedCastKept is how long a cast's end is kept for a device of it that says hello after it: a
+// remote opened as the cast ends reads the cast, then says hello a moment later, and is told why it
+// ended rather than only that it is gone (the browser tier, 2026-10-29). A justified constant: a
+// slow phone's read and hello, many times over.
+const endedCastKept = time.Minute
+
+// endedCast is one credential of a cast that ended, why, and when.
+type endedCast struct {
+	hash    [sha256.Size]byte
+	reason  string
+	endedAt time.Time
+}
+
+// CastEndedError is a hello whose credential was a cast's that ended within endedCastKept: why it
+// ended, a cast's reason. It is ErrNoSession too, to every caller that asks only that.
+type CastEndedError struct {
+	Reason string
+}
+
+func (ended *CastEndedError) Error() string {
+	return "the cast ended (" + ended.Reason + "): " + ErrNoSession.Error()
+}
+
+// Unwrap is ErrNoSession: the session is gone.
+func (ended *CastEndedError) Unwrap() error { return ErrNoSession }
 
 // CastOpened is a new cast: its session, and a credential each for the device that cast and the
 // one that receives.
@@ -92,7 +121,8 @@ func (hub *Hub) CastCredential(sessionID, userID int64) (string, error) {
 }
 
 // EndCast ends the cast sessionID that userID cast: each of its devices is told why, and its
-// credentials admit nothing more.
+// credentials admit nothing more; a device saying hello with one within endedCastKept is told why
+// too (Attach's *CastEndedError).
 func (hub *Hub) EndCast(sessionID, userID int64, reason string) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -102,7 +132,36 @@ func (hub *Hub) EndCast(sessionID, userID int64, reason string) error {
 	}
 	cast.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
 	delete(hub.sessions, sessionID)
+	now := hub.clock.Now()
+	hub.endedCasts = hub.endedCastsKeptAt(now)
+	for _, each := range cast.members {
+		for _, held := range each.credentials {
+			hub.endedCasts = append(hub.endedCasts, endedCast{hash: held.hash, reason: reason, endedAt: now})
+		}
+	}
 	return nil
+}
+
+// endedCastsKeptAt is the ended casts' credentials still kept at now (endedCastKept), the oldest
+// first. The caller holds the mutex.
+func (hub *Hub) endedCastsKeptAt(now time.Time) []endedCast {
+	kept := hub.endedCasts
+	for len(kept) > 0 && now.Sub(kept[0].endedAt) >= endedCastKept {
+		kept = kept[1:]
+	}
+	return kept
+}
+
+// noSessionFor is why credential, which names no member, admits nothing: a *CastEndedError when it
+// was a cast's that ended within endedCastKept, else ErrNoSession. The caller holds the mutex.
+func (hub *Hub) noSessionFor(credential string) error {
+	hash := sha256.Sum256([]byte(credential))
+	for _, each := range hub.endedCastsKeptAt(hub.clock.Now()) {
+		if subtle.ConstantTimeCompare(each.hash[:], hash[:]) == 1 {
+			return &CastEndedError{Reason: each.reason}
+		}
+	}
+	return ErrNoSession
 }
 
 // CastPosition is where the cast sessionID that userID cast stands now, in milliseconds, and

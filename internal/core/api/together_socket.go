@@ -116,7 +116,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 }
 
 // attachDevice attaches the device that said hello, welcomed with how to follow its group as the
-// settings say now; when it cannot, it closes the socket saying why and reports false.
+// settings say now; when it cannot, it closes the socket saying why and reports false, a cast that
+// just ended sending first the end its devices were sent.
 func (server *Server) attachDevice(
 	ctx context.Context, connection togetherSocket, dependencies *Dependencies, hello together.Inbound,
 	person *together.Person, send together.Sender,
@@ -132,6 +133,14 @@ func (server *Server) attachDevice(
 	if err != nil {
 		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
 			"role", string(hello.Role), "err", err)
+		if castEnded, isCastEnded := errors.AsType[*together.CastEndedError](err); isCastEnded {
+			// Told why, as its devices attached were: a remote opened as the cast ended says the
+			// receiver took control back, not only that it is over (the browser tier, 2026-10-29).
+			ended := together.Outbound{
+				V: together.ProtocolVersion, Type: together.MessageEnded, Reason: castEnded.Reason,
+			}
+			_ = connection.writeJSON(ctx, ended) //nolint:errcheck // closing after it either way
+		}
 		_ = connection.closeWith(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
 		return together.Attachment{}, false
 	}

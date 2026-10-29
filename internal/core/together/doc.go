@@ -98,7 +98,9 @@
 //     each command standing for the receiver to carry out (D371 §4, §5); it has no links and is never among the
 //     person's sessions nor their party, which is opened and kept beside it; ending it tells each
 //     of its devices why. Enforced by TestCast_IsASessionOfOneNoOneElseFindsAndAPartyStaysBesideIt
-//     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy. Ready between videos it plays
+//     and TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy; a device saying hello with
+//     one of its credentials within a minute of its end is told why too (CastEndedError), enforced
+//     by TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute. Ready between videos it plays
 //     nothing, so the next is put on afresh (D364 §5), enforced by
 //     TestCast_ReadyPlaysNothingSoTheNextIsPutOnAfresh; a receiver takes its person's part in the
 //     Watch Together session they are in, a host's credential leading it (D364 §11), a signed-in

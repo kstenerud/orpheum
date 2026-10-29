@@ -670,6 +670,22 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     vi.advanceTimersByTime(longestReconnectWaitMs);
     expect(refusedConnection.snapshot()).toMatchObject({ status: "ended", endReason: "gone" });
     expect(refused.opened).toHaveLength(1);
+
+    // A hello reaching a cast just after it ended is told why before the refusal (the server's
+    // CastEndedError): a remote opened as its receiver took control back says so.
+    const late = fakeSockets();
+    const lateConnection = createTogetherConnection({
+      credential: "a cast's",
+      openSocket: late.open,
+      monotonicMs,
+    });
+    lateConnection.open();
+    late.opened[0]!.onOpen();
+    late.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "ended", reason: "takenBack" }));
+    late.opened[0]!.onClose(1008);
+    vi.advanceTimersByTime(longestReconnectWaitMs);
+    expect(lateConnection.snapshot()).toMatchObject({ status: "ended", endReason: "takenBack" });
+    expect(late.opened).toHaveLength(1);
   });
 });
 

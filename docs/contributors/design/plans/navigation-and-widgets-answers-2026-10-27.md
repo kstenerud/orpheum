@@ -286,10 +286,18 @@ had leaned on.
   1231.3 s for 50 s** (headless Chromium with DevTools throttling; a second run played on).
 - **A drop-down in a short window** (1920×600) moves up 22 px to stay on screen, its choice no longer over
   its button's centre.
-- **A WARN "a request that only reads wrote to the database"** from `forgetAttempt` when the boost stopped
-  an own-sound run (20:57:08), where every other such line is DEBUG with a reason.
-- **Pages keep asking every 5 s for a Watch Together session that no longer exists.**
-- **A remote opened just as its cast ends says only "The cast is over."** Its hello reaches a session
+- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a WARN "a request
+  that only reads wrote to the database" from `forgetAttempt` when the boost stopped an own-sound run
+  (20:57:08), where every other such line is DEBUG with a reason. The store's list allows it, with why:
+  it is the cancel's hook, as the cancel is.
+- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** pages kept asking
+  every 5 s for a Watch Together session that no longer exists (`GET /together/73`, 404, staging
+  2026-10-28): the host's screen said the session was over but kept the tab's membership, so its
+  background check asked again. It now forgets the membership once the server says the session is over.
+- **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a remote opened
+  just as its cast ends said only "The cast is over." Its hello reached a session
   already gone ("no such Watch Together session"), so it never hears that the receiver took control
   back, though the core logged `reason=takenBack` the same millisecond (browser tier, 2026-10-29). The
-  refusal could carry a recently ended session's reason.
+  refusal could carry a recently ended session's reason. It does now: for a minute after a cast ends,
+  a hello with one of its credentials is sent the same `ended` message, with its reason, before the
+  socket closes as for no session.

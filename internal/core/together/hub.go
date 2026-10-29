@@ -77,7 +77,10 @@ type Hub struct {
 	// by mutex.
 	lifetimes Lifetimes
 	sessions  map[int64]*session // guarded by mutex
-	lastID    int64              // the last id given a session, link, member or device; guarded by mutex
+	// endedCasts are the credentials of the casts that ended within endedCastKept, the oldest
+	// first, each with why (cast.go); guarded by mutex.
+	endedCasts []endedCast
+	lastID     int64 // the last id given a session, link, member or device; guarded by mutex
 }
 
 // NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on, and
@@ -408,7 +411,8 @@ type Attachment struct {
 
 // Attach attaches a device to the member its credential names, with a role, its messages going to
 // send, and welcomes it: the session, its member, the group, the roster and how to follow the group,
-// tuning. A device of a person signed in makes the membership theirs (D243 §2).
+// tuning. A device of a person signed in makes the membership theirs (D243 §2). A credential that
+// names no member is ErrNoSession, a *CastEndedError saying why where a cast's just ended.
 func (hub *Hub) Attach(
 	credential string, role DeviceRole, canSetRate bool, signedIn *Person, tuning Tuning, send Sender,
 ) (Attachment, error) {
@@ -419,7 +423,7 @@ func (hub *Hub) Attach(
 	defer hub.mutex.Unlock()
 	attached, attachedMember := hub.memberByCredential(credential)
 	if attachedMember == nil {
-		return Attachment{}, ErrNoSession
+		return Attachment{}, hub.noSessionFor(credential)
 	}
 	if signedIn != nil && attachedMember.person == nil {
 		person := *signedIn
