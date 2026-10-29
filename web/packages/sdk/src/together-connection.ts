@@ -255,6 +255,16 @@ export function isFollowerOf(snapshot: TogetherSnapshot): boolean {
 }
 
 /**
+ * Whether this device follows a group that plays, or waits for its players to: its player, held
+ * paused while it loads, is asked to play, and its slow load is a stall (D247 §2); one a paused
+ * group holds is not.
+ */
+export function isAskedByItsGroup(snapshot: TogetherSnapshot): boolean {
+  const state = snapshot.group?.state;
+  return isFollowerOf(snapshot) && (state === "Playing" || state === "Waiting");
+}
+
+/**
  * Whether this device is the host's, following while a guest's device leads: the host's screen come
  * back, which takes the lead back once it plays in step, as the server judges by its states (D372
  * §3).

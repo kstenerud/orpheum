@@ -95,6 +95,23 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(givenUp).toEqual([chunk]);
   });
 
+  it("says its chunk waits on the core while the core makes it, until any of it arrives", () => {
+    const { choosing } = choosingFrom(40_000_000);
+    choosing.firstLevel();
+    const chunk = chunkAt(3);
+    choosing.loading(chunk);
+    expect(choosing.isAwaitingTheCore()).toBe(false); // asked, not yet answered
+    chunk.stats.loaded = 81; // the 425's own body, counted loaded by hls.js
+    chunk.stats.loading = { start: 0, first: 20, end: 0 };
+    choosing.beingMade(chunk);
+    expect(choosing.isAwaitingTheCore()).toBe(true);
+    chunk.stats.loaded = 50_081;
+    chunk.stats.loading = { start: 2000, first: 2100, end: 0 };
+    expect(choosing.isAwaitingTheCore()).toBe(false); // its bytes arrive: the link's wait
+    choosing.loaded(chunk);
+    expect(choosing.isAwaitingTheCore()).toBe(false);
+  });
+
   it("knows the core's 425 for a chunk from hls.js's other load errors", () => {
     expect(
       isBeingMade({

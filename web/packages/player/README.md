@@ -23,7 +23,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   averages, so it falls fast and rises slowly (D247 §1; slow-links.md §2). `link.test.ts`.
 - **A stall is a wait for data, while playing, of at least `stallAfterMs`, after the player has
   played since its last seek**: a seek's loading, a first load and a brief wait are not
-  (D247 §2). `stalls.test.ts`.
+  (D247 §2); and a load that has left it unable to play for each `slowLoadAfterMs`, counted only
+  while the wait is the link's: never while it is paused and nothing asks it to play
+  (`isAskedToPlay`, @orpheum/sdk: a film page's hidden player is not asked), nor while its chunk
+  on its way waits on the core, which answered 425 (`isAwaitingTheCore`). `stalls.test.ts`,
+  `chunked.test.ts`.
 - **A chunked playback's every choice of quality is a bitrate controller of our own inside
   hls.js** (`src/abr.ts`, set inside hls.js by `src/abr-controller.ts`, its rules in
   `src/abr-choice.ts`; D265), choosing by its own estimate of the link, the centre in log space of

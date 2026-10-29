@@ -64,7 +64,10 @@ describe("counting a player's stalls (D247 §2)", () => {
     const media = new FakeMedia();
     media.readyState = 1;
     const stalls: Stall[] = [];
-    watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall));
+    // Its group, which waits for it, asks it to play while it holds it paused.
+    watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall), {
+      isAskedToPlay: () => true,
+    });
     vi.advanceTimersByTime(slowLoadAfterMs - 1);
     media.readyState = 4;
     media.fire("canplay"); // the first load, just in time
@@ -94,6 +97,44 @@ describe("counting a player's stalls (D247 §2)", () => {
       vi.advanceTimersByTime(slowLoadAfterMs / 3);
     }
     expect(stalls).toEqual([{ count: 1, positionMs: 116_000 }]);
+  });
+
+  it("counts no slow load of a paused player nothing asks to play, nor lowers a ceiling (staging, 2026-10-29)", () => {
+    // A film page's hidden player, paused at 0 with nothing loaded: a stall every 15 s, 83 of
+    // staging's 103 (starts-chunks-remote-2026-10-29.md §1.1).
+    const media = new FakeMedia();
+    media.paused = true;
+    media.readyState = 0;
+    const stalls: Stall[] = [];
+    watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall));
+    media.fire("seeking"); // to where it resumes
+    vi.advanceTimersByTime(60_000);
+    expect(stalls).toEqual([]);
+    let isAsked = false;
+    const asked: Stall[] = [];
+    watchStalls(media as unknown as WatchedMedia, (stall) => asked.push(stall), {
+      isAskedToPlay: () => isAsked,
+    });
+    vi.advanceTimersByTime(slowLoadAfterMs);
+    expect(asked).toEqual([]);
+    isAsked = true; // Play pressed: its start gate's play waits for it to load
+    vi.advanceTimersByTime(slowLoadAfterMs);
+    expect(asked).toEqual([{ count: 1, positionMs: 0 }]);
+  });
+
+  it("counts no slow load while its chunk waits on the core, which makes it, and counts it once its bytes come", () => {
+    const media = new FakeMedia();
+    media.readyState = 1;
+    let isAwaitingTheCore = true;
+    const stalls: Stall[] = [];
+    watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall), {
+      isAwaitingTheCore: () => isAwaitingTheCore,
+    });
+    vi.advanceTimersByTime(slowLoadAfterMs * 3);
+    expect(stalls).toEqual([]);
+    isAwaitingTheCore = false;
+    vi.advanceTimersByTime(slowLoadAfterMs);
+    expect(stalls).toEqual([{ count: 1, positionMs: 0 }]);
   });
 
   it("counts each time a Watch Together player falls behind its group", () => {

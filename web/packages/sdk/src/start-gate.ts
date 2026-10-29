@@ -164,6 +164,8 @@ export class StartGate {
   #checker: ReturnType<typeof setInterval> | undefined = undefined;
   /** While any of these says so, the element follows a group, whose follower moves it. */
   readonly #followings = new Set<() => boolean>();
+  /** While any of these says so, the element is asked to play by its group, though it is paused. */
+  readonly #askings = new Set<() => boolean>();
 
   constructor(media: GatedMedia) {
     this.#media = media;
@@ -228,6 +230,25 @@ export class StartGate {
     return () => {
       this.#followings.delete(isFollowing);
     };
+  }
+
+  /**
+   * Counts the element asked to play while isAsking says so, as a group that plays or waits for its
+   * players asks a follower it holds paused while it loads. Returns the end of it.
+   */
+  asksToPlayWhile(isAsking: () => boolean): () => void {
+    this.#askings.add(isAsking);
+    return () => {
+      this.#askings.delete(isAsking);
+    };
+  }
+
+  /**
+   * Whether the element is asked to play though it may be paused: a play waits for enough to be
+   * loaded ahead, or its group asks it (asksToPlayWhile).
+   */
+  isAskedToPlay(): boolean {
+    return this.isWaiting() || [...this.#askings].some((isAsking) => isAsking());
   }
 
   #isFollowing(): boolean {
@@ -334,7 +355,16 @@ export class StartGate {
 }
 
 /** Each element's start gate, made as it is first asked for. */
-const gates = new WeakMap<GatedMedia, StartGate>();
+const gates = new WeakMap<object, StartGate>();
+
+/**
+ * Whether media, paused, is still asked to play: its start gate's play waits, or its group asks it
+ * (StartGate.isAskedToPlay). An element with no start gate is asked by nothing but its own playing:
+ * a film page's hidden player, loading its first seconds before Play, is not.
+ */
+export function isAskedToPlay(media: object): boolean {
+  return gates.get(media)?.isAskedToPlay() ?? false;
+}
 
 /** The element's start gate: one for each element, shared by its page and its session's leader. */
 export function startGateOf(media: GatedMedia): StartGate {

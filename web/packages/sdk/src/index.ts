@@ -237,7 +237,7 @@ export { isFollowingAGroup } from "./following-a-group.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
 export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
-export { loadedAheadMsOf, startGateOf } from "./start-gate.ts";
+export { isAskedToPlay, loadedAheadMsOf, startGateOf } from "./start-gate.ts";
 export { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "./ready-ahead.ts";
 export type { NextChunkLoad, NextChunkLoadFrom, ReadyAhead } from "./ready-ahead.ts";
 export type { GatedMedia, StartGate, StartWait } from "./start-gate.ts";

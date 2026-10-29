@@ -84,6 +84,20 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
     return true;
   }
 
+  /**
+   * Whether the chunk on its way is one the core answered 425, being made, with nothing of it
+   * arrived since: its wait is the core's, not the link's.
+   */
+  isAwaitingTheCore(): boolean {
+    const following = this.#following;
+    return (
+      following !== undefined &&
+      !following.chunk.stats.aborted &&
+      following.isBeingMade &&
+      !hasArrived(following.chunk, following.answeredBytes)
+    );
+  }
+
   /** Follows nothing more: the quality loading was given up. */
   forget(): void {
     this.#following = undefined;
@@ -106,18 +120,23 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
       arrived.loadedBytes = loaded;
       arrived.atMs = nowMs;
     }
-    // Only bytes past the core's 425 answers are the chunk arriving.
-    const hasArrived = loaded > answeredBytes && loading.first > 0;
-    if (following.isBeingMade && !hasArrived) {
+    const isArriving = hasArrived(chunk, answeredBytes);
+    if (following.isBeingMade && !isArriving) {
       return undefined;
     }
     return {
       chunk,
       loadingMs: nowMs - following.sinceMs,
-      firstByteMs: hasArrived ? loading.first - loading.start : undefined,
-      arrivedBytes: hasArrived ? loaded - answeredBytes : 0,
+      firstByteMs: isArriving ? loading.first - loading.start : undefined,
+      arrivedBytes: isArriving ? loaded - answeredBytes : 0,
       loadedBytes: loaded,
       sinceArrivedMs: nowMs - arrived.atMs,
     };
   }
+}
+
+/** Whether any of chunk has arrived: only bytes past the core's 425 answers, answeredBytes, are it. */
+function hasArrived(chunk: FollowedChunk, answeredBytes: number): boolean {
+  const { loading, loaded } = chunk.stats;
+  return loaded > answeredBytes && loading.first > 0;
 }

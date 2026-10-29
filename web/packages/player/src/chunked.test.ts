@@ -285,6 +285,7 @@ describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
     let stalls = 0;
     const stop = tellStalls(video as unknown as WatchedMedia, () => ({
       stalled: () => (stalls += 1),
+      isAwaitingTheCore: () => false,
     }));
     listeners.get("playing")?.();
     listeners.get("waiting")?.();
@@ -292,6 +293,36 @@ describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
     expect(stalls).toBe(1);
     stop();
     expect(listeners.size).toBe(0);
+    vi.useRealTimers();
+  });
+});
+
+describe("a slow load the controller is not told of as a stall (starts-chunks-remote-2026-10-29.md §1.1)", () => {
+  /** A video unable to play, at 0 with nothing loaded, and the stalls its controller was told of. */
+  function unableToPlay(isPaused: boolean, isAwaitingTheCore: boolean): () => number {
+    const video = {
+      currentTime: 0,
+      paused: isPaused,
+      seeking: false,
+      readyState: 0,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    };
+    let stalls = 0;
+    const stop = tellStalls(video, () => ({
+      stalled: () => (stalls += 1),
+      isAwaitingTheCore: () => isAwaitingTheCore,
+    }));
+    vi.advanceTimersByTime(60_000);
+    stop();
+    return () => stalls;
+  }
+
+  it("is none of a paused player nothing asks to play, nor of one whose chunk the core makes, over a minute", () => {
+    vi.useFakeTimers();
+    expect(unableToPlay(true, false)()).toBe(0);
+    expect(unableToPlay(false, true)()).toBe(0);
+    expect(unableToPlay(false, false)()).toBe(4); // asked to play, waiting on the link
     vi.useRealTimers();
   });
 });
