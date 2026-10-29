@@ -53,6 +53,8 @@ work they bear on, and one that bears on two kinds of work is listed under both.
 - [§12](12-defer-the-work-never-the-seam.md) — Defer the work, never the seam
 - [§15](15-safe-visible-defaults.md) — A default must be safe to be wrong and visible where it acts;
   otherwise, ask
+- [§27](27-decisions-are-revisable.md) — A decision is the best answer on what was known; a better
+  way found later is raised at once
 
 ## The product and its documents
 
