@@ -356,6 +356,10 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
+- **Next batch (the owner, 2026-10-29, cosmetic): a title page's misidentification actions, one entry.**
+  "Identified incorrectly", "Rescan this" and "Report filed wrongly" all stem from a wrongly identified
+  file: keep only "Identified incorrectly", which opens a modal (the shared ModalDialog) offering
+  Rescan, Enter manually, and Report this. And Play is the page's first button, not its last.
 - **Next batch (the owner agreed 2026-10-29): a page says when developer tools bypass its worker.**
   With DevTools' "Bypass for network" ticked, a client script's failure already says so
   (`loader-client-failed.tsx`), but posters and films 404 silently (idiosyncrasies.md, the Bypass
