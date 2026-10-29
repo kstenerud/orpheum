@@ -93,3 +93,31 @@ func TestKeepUsed_LeavesAChoiceMadeInTheFile(t *testing.T) {
 			prefs.Subtitle)
 	}
 }
+
+// A person's Show debug tools is kept as their own switch, off until they turn it on, and read back
+// as they left it (the owner, 2026-10-29).
+func TestSwitches_ShowDebugToolsIsKeptAsThePersonLeftIt(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	service := NewService(database, clocktest.NewFake(time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)))
+	userID := storetest.InsertUser(t, database, "alice", "admin")
+	shows := func() bool {
+		t.Helper()
+		switches, err := service.Switches(t.Context(), userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return switches.ShowsDebugTools
+	}
+	if shows() {
+		t.Error("before any choice: debug tools shown; want hidden")
+	}
+	for _, isShown := range []bool{true, false} {
+		if err := service.SetDebugTools(t.Context(), userID, isShown); err != nil {
+			t.Fatal(err)
+		}
+		if got := shows(); got != isShown {
+			t.Errorf("set to %v: read back %v", isShown, got)
+		}
+	}
+}

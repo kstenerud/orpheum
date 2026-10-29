@@ -99,6 +99,21 @@ describe("a session's leader, as its roster says (D371 §1)", () => {
     expect(leaderOf(welcomed([]).connection.snapshot())).toBeUndefined();
   });
 
+  it("reads why the leader leads, as the server says it, of the leader alone (a debug view's)", () => {
+    const snapshot = welcomed([
+      {
+        id: 7,
+        name: "Karl",
+        devices: [
+          { id: 9, role: "video", leadsBecause: "" },
+          { id: 12, role: "video", isLeader: true, leadsBecause: "leaderGone:hidden" },
+        ],
+      },
+    ]).connection.snapshot();
+    expect(leaderOf(snapshot)?.leadsBecause).toBe("leaderGone:hidden");
+    expect(snapshot.roster[0]?.devices[0]).not.toHaveProperty("leadsBecause");
+  });
+
   it("tells the session in its state how its player plays the film, in whole numbers", () => {
     const { connection, socket } = welcomed([]);
     connection.setPlayer(() => ({

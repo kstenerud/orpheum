@@ -3,7 +3,8 @@
 // Package preferences keeps a person's choices, the one place they live (the architecture map's F2
 // and F6): the subtitle and audio language last chosen in each work, what was last used in each
 // started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
-// boost, levelling and autoplay (plans/up-next.md); and the ordering a person watches each series
+// boost, levelling and autoplay (plans/up-next.md), and whether the person's pages show the tools
+// marked as debug tools; and the ordering a person watches each series
 // in (D159 §1), which internal/core/library resolves (ViewingOrdering). A choice is worked out
 // against a file's tracks when it plays, never copied between files (D230). Playback lists a
 // file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
@@ -44,6 +45,9 @@
 //     TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile,
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff and
 //     TestPreferences_AutoplayIsOnUntilThePersonTurnsItOff (internal/core/api).
+//   - Show debug tools is the person's, off until they turn it on, on every device they sign in on
+//     (the owner, 2026-10-29). Enforced by TestSwitches_ShowDebugToolsIsKeptAsThePersonLeftIt and
+//     TestPreferences_ShowDebugToolsIsOffUntilThePersonTurnsItOnAndFollowsThem (internal/core/api).
 //   - The libraries a person leaves out of Films and Series and those they leave out of Home are
 //     two choices, each none until made, and one leaves nothing out of the other's place (D349 §8,
 //     D366 §5). Enforced by TestBrowse_ALibraryLeftOutOfFilmsAndSeries and

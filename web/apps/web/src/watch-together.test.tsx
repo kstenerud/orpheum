@@ -9,6 +9,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { timeText } from "./date-time-text.ts";
+import { DebugToolsContext } from "./debug-tools.tsx";
 import { PlayView } from "./play.tsx";
 import {
   buttonWithText,
@@ -437,6 +438,7 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
   async function sessionPage(
     heard: Heard[],
     sessionId: number,
+    showsDebugTools = false,
   ): Promise<{
     readonly mounted: Awaited<ReturnType<typeof mount>>;
     readonly services: ReturnType<typeof servedBy>;
@@ -468,9 +470,11 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
     const sockets = liveAndSession();
     const mounted = await mount(
       withServices(
-        <LiveProvider>
-          <WatchTogether />
-        </LiveProvider>,
+        <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
+          <LiveProvider>
+            <WatchTogether />
+          </LiveProvider>
+        </DebugToolsContext>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
     );
@@ -480,6 +484,7 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
       type: "welcome",
       seq: 1,
       memberId: 1,
+      deviceId: 7,
       isHost: true,
       group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
       roster: [],
@@ -503,6 +508,34 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
     expect(mounted.container.querySelector('a[href="/play/4"]')?.className).toBe("title__play");
     await click(buttonWithText(mounted.container, "Stop the film for everyone"));
     expect(remote.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
+    mounted.unmount();
+  });
+
+  it("marks the device leading and this one under the people, for a host who shows debug tools", async () => {
+    const leading = {
+      type: "roster",
+      roster: [
+        {
+          ...karl,
+          devices: [
+            { id: 7, role: "panel" },
+            { id: 9, role: "video", isLeader: true, leadsBecause: "putOn" },
+          ],
+        },
+      ],
+    };
+    const hidden = await sessionPage([], 33);
+    await hidden.sockets.session.say(leading);
+    expect(hidden.mounted.container.textContent).not.toContain("▶ leading");
+    hidden.mounted.unmount();
+    const { mounted, sockets } = await sessionPage([], 34, true);
+    await sockets.session.say(leading);
+    const lines = [...mounted.container.querySelectorAll(".together-debug li, .together-debug p")];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "Karl: device 7 (panel) · this device",
+      "Karl: device 9 (video) · ▶ leading",
+      "Paused · leader device 9 (Karl) · why putOn · this device 7",
+    ]);
     mounted.unmount();
   });
 

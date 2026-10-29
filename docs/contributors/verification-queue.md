@@ -1563,3 +1563,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   does not hold" for the page and the core's none of `an offer's proof does not hold` from the join
   on. (`web/packages/sdk/src/discovery.ts`, `rtc-transport.ts`;
   `web/apps/web/src/discovery-gate.tsx`, `loader-at-client-origin.tsx`, `kept-path.ts`)
+- [ ] **VQ132** — Show debug tools, and Watch Together's leader debug view, on staging. On the Mac's
+  Chrome (signed in as the host) and the S23 (a signed-in guest), turn on Your account → Testing →
+  Show debug tools; reload neither. (1) A film on its ladder shows "Play the original file" under the
+  player on both; turned off, it is gone, and a person who never turned it on never sees it. (2) The
+  host starts a Watch Together session from Chrome, the S23 joins and both play the film. Passes when
+  the host's session page, under the people, and the S23's page, under who is here, list each device
+  with the one leading marked "▶ leading" and the one the page is on "this device", and a line under
+  them says the group's state, the leader by device id and name, why it leads (`putOn`, `attached`…)
+  and this device's id, matching the core's `leaderChanged` lines. (3) Join from the Mac's Firefox
+  too, as a second guest playing the film, and leave the host's Play page for the session's page, so
+  a guest's device leads (the S23's, joined first, `leaderGone:…`). Lock the S23: the mark moves to
+  Firefox's device on the host's page and Firefox's, the why saying `leaderGone:hidden`; unlocked,
+  the S23 follows. (4) Turn Show debug tools off on one device: the view is gone there,
+  and from the other device of the same person after its next read of who they are (a reload).
+  (`internal/core/preferences`, `internal/core/api/session.go`, `internal/core/together/leader.go`;
+  `web/apps/web/src/debug-tools.tsx`, `together-debug.tsx`, `app.tsx`)

@@ -51,6 +51,10 @@ type UserBody struct {
 	HasNoLibrary bool `json:"hasNoLibrary"`
 	// Device is the device this session is on, so a person can see who is signed in where.
 	Device *CurrentDeviceBody `json:"device,omitempty"`
+	// ShowsDebugTools is the person's own switch for the tools a page marks as debug tools, off
+	// until they turn it on (PUT /me/preferences): said here, which every page reads as it starts,
+	// so the tools show with no read of their own.
+	ShowsDebugTools bool `json:"showsDebugTools"`
 }
 
 // CurrentDeviceBody is the device a session is on; a client keeps its id to resume it (D221).
@@ -352,6 +356,11 @@ func (server *Server) userBody(
 		CanManageAccount: principal.CanManageAccount(), HasNoLibrary: principal.Reach.ReachesNone(),
 		AdminAway: adminAwayOf(principal),
 	}
+	switches, err := dependencies.Preferences.Switches(ctx, principal.UserID)
+	if err != nil {
+		return UserBody{}, server.logInternalError(ctx, "read the person's own switches", err)
+	}
+	body.ShowsDebugTools = switches.ShowsDebugTools
 	if dependencies.Discovery != nil {
 		if status := dependencies.Discovery.Status(); status.IsHomeAddressReady {
 			body.HomeAddresses = status.HomeAddresses

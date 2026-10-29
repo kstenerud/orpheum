@@ -5,6 +5,9 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { JSX } from "react";
+
+import { DebugToolsContext } from "./debug-tools.tsx";
 import { PlayView } from "./play.tsx";
 import { fire, mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
@@ -30,31 +33,46 @@ const onLadder = {
   steadiness: 0,
 };
 
+/** The Play page of a film on its ladder, its person's debug tools shown or not. */
+async function onItsLadder(showsDebugTools: boolean, asked: string[] = []): Promise<Mounted> {
+  const page: JSX.Element = (
+    <PlayView
+      fileId={2}
+      decision={directDecision({ onLadder })}
+      onDecideAgain={(cause) => asked.push(cause)}
+    />
+  );
+  return await mount(
+    withServices(
+      <DebugToolsContext value={{ isShown: showsDebugTools, onChanged: () => undefined }}>
+        {page}
+      </DebugToolsContext>,
+      servedBy({
+        "GET /files/2/waits": [200, {}],
+        "GET /files/2/availability": [200, {}],
+        "GET /files/2/up-next": [200, {}],
+        "POST /playback/t/report": [200, {}],
+        "DELETE /playback/t": [204, null],
+      }),
+    ),
+  );
+}
+
 describe("the original file, chosen over the ladder (web-client.md: playback is never a black box)", () => {
   it("is offered under a film on its ladder, and asks how the film plays again when pressed", async () => {
     const asked: string[] = [];
-    mounted = await mount(
-      withServices(
-        <PlayView
-          fileId={2}
-          decision={directDecision({ onLadder })}
-          onDecideAgain={(cause) => asked.push(cause)}
-        />,
-        servedBy({
-          "GET /files/2/waits": [200, {}],
-          "GET /files/2/availability": [200, {}],
-          "GET /files/2/up-next": [200, {}],
-          "POST /playback/t/report": [200, {}],
-          "DELETE /playback/t": [204, null],
-        }),
-      ),
-    );
+    mounted = await onItsLadder(true, asked);
     const button = [...mounted.container.querySelectorAll("button")].find(
       (each) => each.textContent === "Play the original file",
     );
     expect(button).toBeDefined();
     await fire(button ?? null, new MouseEvent("click", { bubbles: true }));
     expect(asked).toEqual(["originalChosen"]);
+  });
+
+  it("is a debug tool, offered only to a person who shows them (the owner, 2026-10-29)", async () => {
+    mounted = await onItsLadder(false);
+    expect(mounted.container.textContent).not.toContain("Play the original file");
   });
 
   it("is not offered for a film already playing its own file, which may play in the bare player", async () => {

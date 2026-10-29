@@ -6,33 +6,27 @@ import { useTranslation } from "react-i18next";
 import { endCast } from "./cast.ts";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
-import { useServices, useToken } from "./services.tsx";
+import { useServices } from "./services.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import type { SessionDetails } from "./together-people.tsx";
-import type { Membership } from "./together-storage.ts";
-import { useTogether } from "./use-together.ts";
+import type { useTogether } from "./use-together.ts";
 
 /**
  * What plays for the group, on the host's session page, with its controls (D364 §15): the remote of
  * the group's film (SessionRemote, the cast's own), the way back to the film, and Stop, which ends it
  * for everyone, as the host playing another film does; leaving the film does not (D246 §5's stop on
  * leaving withdrawn). While this device casts too, the page holds the cast's controls as well, and
- * Stop casting (D364 §11, §13). The host's device here plays nothing: it is a panel of the session.
+ * Stop casting (D364 §11, §13). The host's device here plays nothing: it is a panel of the session,
+ * whose connection the page holds (session).
  */
 export function TogetherPlays(props: {
-  readonly membership: Membership;
+  readonly session: ReturnType<typeof useTogether>;
   readonly details: SessionDetails;
   /** Reads the session's details again: what plays changed from what they say. */
   readonly onChanged: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const token = useToken();
-  const { details, onChanged } = props;
-  const session = useTogether({
-    credential: props.membership.credential,
-    sessionToken: token,
-    role: "panel",
-  });
+  const { details, onChanged, session } = props;
   const fileId = session.snapshot?.group?.fileId ?? details.fileId ?? 0;
   const isNamedElse = fileId !== 0 && fileId !== (details.fileId ?? 0);
   useEffect(() => {

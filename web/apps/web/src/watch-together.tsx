@@ -12,7 +12,7 @@ import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
-import { useServices } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useMembership } from "./together-membership.ts";
 import {
@@ -26,8 +26,10 @@ import {
 import { forgetMembership, keepMembership, type Membership } from "./together-storage.ts";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
+import { useTogether } from "./use-together.ts";
 import { useResource } from "./use-resource.ts";
 import { detailsOf, knownDetailsOf } from "./hosted-details.ts";
+import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherPlays } from "./together-plays.tsx";
 
 /**
@@ -290,6 +292,12 @@ function SessionDialogs(props: {
   );
 }
 
+/** The session page's own connection to its session, a panel: it plays nothing (TogetherPlays). */
+function usePanelConnection(membership: Membership): ReturnType<typeof useTogether> {
+  const token = useToken();
+  return useTogether({ credential: membership.credential, sessionToken: token, role: "panel" });
+}
+
 /**
  * A session as its host runs it, on its own screen (D281 §5, D364 §15): what plays and its controls,
  * voice and each person's volume, the film's volume, the people with a dialog each, Invite, which
@@ -303,6 +311,7 @@ function SessionView(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const voice = useHostVoice();
+  const session = usePanelConnection(props.membership);
   const [dialog, setDialog] = useState<SessionDialog>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, hostingWords(t)),
@@ -315,7 +324,7 @@ function SessionView(props: {
   return (
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
-      <TogetherPlays {...props} />
+      <TogetherPlays session={session} details={props.details} onChanged={props.onChanged} />
       {voice === undefined ? null : <VoiceControls {...voice} />}
       <FilmVolumeSlider />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
@@ -337,6 +346,7 @@ function SessionView(props: {
           onChanged={props.onChanged}
           onIssued={showIssued}
         />
+        <TogetherDebug snapshot={session.snapshot} />
         <SessionDialogs
           dialog={dialog}
           details={props.details}

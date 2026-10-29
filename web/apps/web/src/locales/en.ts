@@ -221,6 +221,11 @@ export const en = {
     notOnThisDevice:
       "This device was activated by a code, so it can watch and host but not change your password, remove devices or activate others. Do that on a device you signed in to with your password.",
   },
+  debugTools: {
+    heading: "Testing",
+    show: "Show debug tools",
+    hint: "Shows extra controls and readouts for testing.",
+  },
   activate: {
     heading: "Activate a device",
     explain:

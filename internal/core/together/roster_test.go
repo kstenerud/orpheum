@@ -4,6 +4,7 @@ package together
 
 import (
 	"bytes"
+	"maps"
 	"testing"
 )
 
@@ -48,4 +49,34 @@ func TestBroadcast_IsEncodedOnceForEveryDevice(t *testing.T) {
 		t.Errorf("the roster sent to one device encodes as %s (%v); want %s, the broadcast's", aloneBytes, err,
 			hostBytes)
 	}
+}
+
+// The roster says why its leader leads, as the leaderChanged line says it, a leader gone's reason
+// after a colon, and of no other device: a person's debug view shows it (plans: Show debug tools).
+func TestHub_TheRosterSaysWhyItsLeaderLeads(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 2)
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	want := map[int64]string{stage.host.DeviceID: leadPutOn}
+	if why := rosterLeadsBecause(watchBox); !maps.Equal(why, want) {
+		t.Errorf("the roster's reasons: %v; want %v, the host's player's alone", why, want)
+	}
+	stage.hide(t, stage.host, true)
+	want = map[int64]string{stage.guests[0].DeviceID: "leaderGone:hidden"}
+	if why := rosterLeadsBecause(watchBox); !maps.Equal(why, want) {
+		t.Errorf("the roster's reasons, the host's page hidden: %v; want %v", why, want)
+	}
+}
+
+// rosterLeadsBecause is why each device of the last roster box was told leads, of those it says.
+func rosterLeadsBecause(box *inbox) map[int64]string {
+	reasons := map[int64]string{}
+	for _, each := range box.last(MessageRoster).Roster {
+		for _, attached := range each.Devices {
+			if attached.LeadsBecause != "" {
+				reasons[attached.ID] = attached.LeadsBecause
+			}
+		}
+	}
+	return reasons
 }

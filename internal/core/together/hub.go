@@ -103,6 +103,9 @@ type session struct {
 	// host's device that plays, the newest attached or the one that put the film on, else the player
 	// present longest (D372 §1; leader.go); 0 while none.
 	leaderID int64
+	// leadsBecause is why leaderID leads, as its leaderChanged line says it: the why, and a leader
+	// gone's goneBecause after a colon ("leaderGone:hidden"); the roster carries it for a debug view.
+	leadsBecause string
 	// driftLeftAlone is how far off the group a follower is left alone (together_drift_left_alone_ms,
 	// D250 §1), as the last device to attach brought it: within it, a host's device that came back
 	// plays in step and takes the lead back (D372 §3).
@@ -598,11 +601,15 @@ func (current *session) roster() []MemberView {
 		view := MemberView{ID: each.id, Name: each.name, IsHost: each.isHost, Devices: []DeviceView{}}
 		for _, attached := range each.devices {
 			isLeader := attached.id == current.leaderID
+			leadsBecause := ""
+			if isLeader {
+				leadsBecause = current.leadsBecause
+			}
 			view.Devices = append(view.Devices, DeviceView{
 				ID: attached.id, Role: attached.role, IsBuffering: attached.buffering,
 				Suspended: attached.suspended, RTTMs: attached.rttMs, CannotKeepUp: attached.cannotKeepUp,
 				Status: attached.status(current.group.fileID != 0, isLeader), IsLeader: isLeader,
-				Playback: attached.playback,
+				Playback: attached.playback, LeadsBecause: leadsBecause,
 			})
 		}
 		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })

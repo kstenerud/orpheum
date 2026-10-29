@@ -48,6 +48,7 @@ import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
+import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
 import {
@@ -278,6 +279,7 @@ function ViewerSession(props: {
         volume={volume}
       />
       <TogetherNews snapshot={snapshot} />
+      <TogetherDebug snapshot={snapshot} />
       {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
       <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
       <VolumeSlider volume={volume} onChange={setVolume} />

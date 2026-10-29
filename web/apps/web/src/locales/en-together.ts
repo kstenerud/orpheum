@@ -48,6 +48,15 @@ export const enTogether = {
       watching: "{{name}}: watching",
     },
     someone: "Someone",
+    debug: {
+      heading: "Devices in the session",
+      device: "{{name}}: device {{id}} ({{role}})",
+      leading: "▶ leading",
+      thisDevice: "this device",
+      line: "{{state}} · leader {{leader}} · why {{why}} · this device {{device}}",
+      leader: "device {{id}} ({{name}})",
+      none: "none",
+    },
     hostPlaying: "Watch Together is on: this plays for everyone in your session.",
     voice: {
       label: "Voice",

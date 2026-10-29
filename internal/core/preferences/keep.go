@@ -114,6 +114,12 @@ func (service *Service) SetAutoplay(ctx context.Context, userID int64, isOn bool
 	return service.setPersonalSwitch(ctx, userID, axisAutoplay, isOn)
 }
 
+// SetDebugTools keeps whether the person's pages show the tools marked as debug tools, on every
+// device they sign in on (the owner, 2026-10-29).
+func (service *Service) SetDebugTools(ctx context.Context, userID int64, isShown bool) error {
+	return service.setPersonalSwitch(ctx, userID, axisDebugTools, isShown)
+}
+
 // setPersonalSwitch keeps one of the person's own choices that is on or off, for every file.
 func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axis string, isOn bool) error {
 	value := valueFalse

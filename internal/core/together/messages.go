@@ -602,6 +602,10 @@ type DeviceView struct {
 	// IsLeader is whether the device leads the session: the screen that is the film, whose position
 	// is the group's (D371 §1).
 	IsLeader bool `json:"isLeader,omitempty"`
+	// LeadsBecause is why the leader leads, the why of its leaderChanged log line with a gone
+	// leader's goneBecause after a colon ("leaderGone:hidden"); empty for every other device. A
+	// person's debug view shows it (plans: Show debug tools).
+	LeadsBecause string `json:"leadsBecause,omitempty"`
 	// Playback is how the device's player says it plays the film, which a cast's remote shows
 	// (D371 §4); nil until it says.
 	Playback *Playback `json:"playback,omitempty"`

@@ -116,6 +116,11 @@ export interface RosterDevice {
    * nothing steers (D371 §1); absent from a roster that does not say.
    */
   readonly isLeader?: boolean;
+  /**
+   * Why it leads, as the server's leaderChanged line says it ("putOn", "leaderGone:hidden"), for a
+   * debug view; absent from every other device.
+   */
+  readonly leadsBecause?: string;
   /** How it plays the film, as it said (D371 §4); undefined until it says. */
   readonly playback?: PlaybackReport | undefined;
 }
@@ -333,12 +338,21 @@ function parseRoster(value: unknown): RosterMember[] {
                   status: deviceStatusIn(fields["status"]),
                   isLeader: fields["isLeader"] === true,
                   playback: playbackIn(fields["playback"]),
+                  ...leadsBecauseIn(fields),
                 },
               ];
         }),
       },
     ];
   });
+}
+
+/** Why a roster device leads, as a field to spread into it; none when it says nothing. */
+function leadsBecauseIn(fields: Readonly<Record<string, unknown>>): {
+  readonly leadsBecause?: string;
+} {
+  const why = stringIn(fields, "leadsBecause");
+  return why === undefined || why === "" ? {} : { leadsBecause: why };
 }
 
 /** A roster device's playback, or undefined when it has none or names no delivery this client knows. */
