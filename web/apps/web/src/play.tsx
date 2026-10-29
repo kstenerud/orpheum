@@ -3,7 +3,7 @@
 import "./play.css";
 
 import { seekTo } from "@orpheum/player";
-import type { CannotKeepUp } from "@orpheum/sdk";
+import { reportFailure, type CannotKeepUp } from "@orpheum/sdk";
 import {
   createContext,
   use,
@@ -29,7 +29,12 @@ import {
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
-import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
+import {
+  askUntilAnswered,
+  askWhileUnanswered,
+  reopenAtMostEveryMs,
+  type ReopenAt,
+} from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
@@ -754,10 +759,16 @@ function useOpenedPlayback(
     const watching = watchingOf(api);
     if (reopen === undefined) {
       setHeld(undefined);
-      const decision = await watching.decide(fileId, playableFormats(), {
-        cause,
-        startsAtMs: askedAt?.positionMs,
-      });
+      // Asked again on a new connection when the core answered nothing over WebRTC (the owner's
+      // Chrome back from another site, staging, 2026-10-29: "Loading…" for good).
+      const decision = await askWhileUnanswered(
+        async () =>
+          await watching.decide(fileId, playableFormats(), {
+            cause,
+            startsAtMs: askedAt?.positionMs,
+          }),
+        reportFailure,
+      );
       return askedAt === undefined ? { decision } : openedAt(decision, askedAt);
     }
     // The server may still be starting: asked again for about a minute.

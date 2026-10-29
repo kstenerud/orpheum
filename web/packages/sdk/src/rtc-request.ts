@@ -24,6 +24,11 @@ export interface ChannelLike {
   send(data: string | ArrayBuffer): void;
   close(): void;
   listen(listener: ChannelListener): void;
+  /**
+   * Calls sent once everything given to send so far has left the browser for the core: its buffered
+   * amount drained. Absent, everything sent is taken as gone at once.
+   */
+  readonly whenSent?: ((sent: () => void) => void) | undefined;
 }
 
 /** A request's head, as the core reads it: rtcapi.RequestHead. */
@@ -58,6 +63,14 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
     },
     close: () => {
       channel.close();
+    },
+    whenSent: (sent) => {
+      if (channel.bufferedAmount === 0) {
+        sent();
+        return;
+      }
+      // Its threshold is left at the browser's 0, so this comes as the last byte leaves.
+      channel.addEventListener("bufferedamountlow", sent, { once: true });
     },
     listen: (listener) => {
       channel.addEventListener("open", listener.open);
@@ -117,8 +130,11 @@ export function abortReason(signal: AbortSignal): Error {
  * than the core holds a chunk being made at most (chunk_hold_ms, 30 s). Unbounded, a chunk whose
  * body stopped after 19 bytes, and every request after it on the same connection, waited for good:
  * the owner's Chrome, throttled until its film stalled and unthrottled, never loaded again
- * (staging, 2026-10-29). A request with a body waits for its head unbounded, since the core answers
- * only once it has read it all, however slowly it travels.
+ * (staging, 2026-10-29). A request with a body waits for its head unbounded while its body is on its
+ * way, since the core answers only once it has read it all, however slowly it travels, and bounded
+ * once all of it has left the browser: unbounded until then, the Play page's playback, a POST, heard
+ * nothing over a channel that had stopped, and the page said "Loading…" for good, its host's player
+ * never drawn (the owner's Chrome back from another site, staging, 2026-10-29).
  */
 export const silentAtMostMs = 40_000;
 
@@ -146,18 +162,34 @@ export async function sendOnChannel(
 ): Promise<Response> {
   const messages = await requestMessages(request);
   const { signal } = request;
+  const headWait = new HeadWait();
+  const isHeadBounded = request.body === null;
   const answered = receiveResponse(channel, {
     path: new URL(request.url).pathname,
     signal,
-    isHeadBounded: request.body === null,
+    headWait,
     silent,
   });
+  if (isHeadBounded) {
+    headWait.bound();
+  }
   const sendAll = (): void => {
     if (signal.aborted) {
       return;
     }
     for (const message of messages) {
       channel.send(message);
+    }
+    if (!isHeadBounded) {
+      // Its body all sent, the core has it to answer: its head is waited for as any other's.
+      const bound = (): void => {
+        headWait.bound();
+      };
+      if (channel.whenSent === undefined) {
+        bound();
+      } else {
+        channel.whenSent(bound);
+      }
     }
   };
   if (channel.readyState === "open") {
@@ -170,6 +202,29 @@ export async function sendOnChannel(
 
 /** What to send once each channel not yet open opens. */
 const onceOpen = new WeakMap<ChannelLike, () => void>();
+
+/**
+ * The wait for a response's head: bounded at once for a request with no body, and for one with a body
+ * once all of it has left the browser, bound then starting the watch on the core's silence its
+ * response named (watchWith).
+ */
+class HeadWait {
+  private start: (() => void) | undefined;
+  private isBound = false;
+
+  /** Names what starts the watch; the wait bounded already, it starts now. */
+  watchWith(start: () => void): void {
+    this.start = start;
+    if (this.isBound) {
+      start();
+    }
+  }
+
+  bound(): void {
+    this.isBound = true;
+    this.start?.();
+  }
+}
 
 /**
  * How many body messages a reader takes before the core is granted as many more: the core sends
@@ -271,24 +326,30 @@ class BodyQueue {
 
 /**
  * The response a channel carries: resolved at its head, its body streamed until the empty end; failed
- * once it hears nothing for silentAtMostMs while it waits on the core: for its head, when
- * isHeadBounded, for the end of a response with no body, and while its reader waits for its body.
+ * once it hears nothing for silentAtMostMs while it waits on the core: for its head once headWait is
+ * bound, for the end of a response with no body, and while its reader waits for its body.
  */
 function receiveResponse(
   channel: ChannelLike,
   request: {
     readonly path: string;
     readonly signal: AbortSignal;
-    readonly isHeadBounded: boolean;
+    readonly headWait: HeadWait;
     readonly silent: (() => void) | undefined;
   },
 ): Promise<Response> {
   const { path, signal } = request;
   return new Promise<Response>((resolve, reject) => {
     let isEnded = false;
+    let isHeadHeard = false;
     const silence = new SilenceWatch(() => {
       request.silent?.();
       end(new SilentRequestError(path));
+    });
+    request.headWait.watchWith(() => {
+      if (!isEnded && !isHeadHeard) {
+        silence.start();
+      }
     });
     const body = new BodyQueue((messages) => {
       if (!isEnded) {
@@ -312,6 +373,7 @@ function receiveResponse(
       end(abortReason(signal));
     };
     const head = (text: string): void => {
+      isHeadHeard = true;
       const response = responseOf(text, body, end);
       if (response !== undefined) {
         // A response with no body is waited on for its end; one with a body only as it is read.
@@ -324,9 +386,6 @@ function receiveResponse(
       aborted();
     } else {
       signal.addEventListener("abort", aborted);
-      if (request.isHeadBounded) {
-        silence.start();
-      }
     }
   });
 }

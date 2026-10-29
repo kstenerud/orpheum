@@ -90,6 +90,7 @@ function countedChannel(
     send: (data) => {
       channel.send(data);
     },
+    whenSent: channel.whenSent,
     close: () => {
       channel.close();
       setTimeout(releaseOnce, closingHoldsMs);

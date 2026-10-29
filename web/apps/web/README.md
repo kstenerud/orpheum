@@ -83,6 +83,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   answered, and which the request carries for the server's log (`startsAtMs`). A film whose track
   was changed 2:46 in started again at 0:00, the log saying only resumePositionMs=0 (staging,
   2026-10-26). `src/sound.test.tsx`.
+- **A Play page's playback the core answered nothing for is asked for again** (`askWhileUnanswered`),
+  each silence told to the core's log: the page draws its player, and with it a host's Watch
+  Together player and its session connection, only once its playback is answered, and one answer lost
+  over WebRTC left the host's page on "Loading…" for good, its player never attached (the owner's
+  Chrome back from another site, staging, 2026-10-29). `src/play-unanswered.test.tsx`; VQ138.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves
