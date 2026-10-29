@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A50 — A reproduction signed in as the owner's account stopped the owner's live session (2026-10-29)
+
+- **What happened:** while the owner tested Watch Together on staging, the lead ran a headless
+  Chrome through staging's discovery with a profile signed in as admin, the owner's own account, to
+  reproduce a poster fault. Opening the app had the owner's hosted session back into that tab
+  (D267 §2), and the script's click on the first "Stop" button, meant to end its own test session,
+  pressed "Stop the film for everyone" in the owner's session.
+- **Caught by:** the lead, in the core's log (`event=stopped byMemberId=2`).
+- **Gate:** none. Reproductions against staging while the owner tests use an account of their own,
+  never the owner's or one the owner's devices use, and never press session controls.
+
 ### A49 — Wrote device steps from a VQ's summary line, with a guest choosing the film (2026-10-29)
 
 - **What happened:** walking the owner through VQ105, the lead wrote "have the S23 join as a guest
