@@ -171,7 +171,12 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   it ended itself for its silence, why (`ended`), until that URL is asked for again; the page's
   media says it of a load by URL (`mediaCarrierOf`): that connection, the other origin it is
   carried over, or "http" (the owner, 2026-10-29: the logs are to show whether stalls are
-  per-connection). `src/rtc-transport.test.ts`, `src/rtc-media.test.ts`.
+  per-connection); under a discovery's loader, by the loader's word (`readMediaCarrierFrom`),
+  except where that word comes back to this copy, as it does when the loader and the client are one
+  build sharing it, which is answered from this copy's own state: asking itself, it ran the stack
+  out inside hls.js's handling of each chunk that failed, a fatal "Maximum call stack size
+  exceeded" (the owner's Chrome offline, staging, 2026-10-29; VQ133). `src/rtc-transport.test.ts`,
+  `src/rtc-media.test.ts`.
 - **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
   service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC
   page's loads under `/api/v1/` by asking the page over a message port, and the page answers

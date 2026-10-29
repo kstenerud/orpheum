@@ -124,13 +124,11 @@ export type {
   ManifestToCheck,
 } from "./discovery.ts";
 export { rtcTogetherSocket } from "./rtc-together.ts";
+export { mediaCarrierOf, readMediaCarrierFrom, tellMediaCarriers } from "./media-carrier.ts";
 export {
   answerLoad,
   askPathOf,
   carryMediaOver,
-  mediaCarrierOf,
-  readMediaCarrierFrom,
-  tellMediaCarriers,
   isClaimMessage,
   isFetchMessage,
   isPathMessage,

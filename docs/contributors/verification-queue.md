@@ -1582,3 +1582,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   and from the other device of the same person after its next read of who they are (a reload).
   (`internal/core/preferences`, `internal/core/api/session.go`, `internal/core/together/leader.go`;
   `web/apps/web/src/debug-tools.tsx`, `together-debug.tsx`, `app.tsx`)
+- [ ] **VQ133** — a Watch Together follower's page offline for a minute neither overflows its stack
+  nor comes back a minute ahead, on staging. With the Mac's Chrome following in a Watch Together
+  session over WebRTC through its client origin (the loader and the client of one build, the core's
+  log saying `over=webrtc`) and the S23 leading, play a film; turn the Mac's Wi-Fi off until Chrome's
+  film has stalled, about a minute, then on. Passes when (1) the core's log has no "Maximum call stack
+  size exceeded" for Chrome, its link notes naming what carried each chunk that failed ("carried
+  WebRTC connection …" or "over …", never an `internalException`), and (2) Chrome comes back within a
+  few seconds of the S23's place, never more than a few seconds ahead of it: its
+  `followerCaughtUp … why=catchUp` line says `groupAtMs`, `aheadForLoadMs`, `aimedBy` (`fill` or
+  `lastLoad`, not `mostAhead` on a fast link), `lastLoadMs` and `loadsFaster`, and the
+  `playerChanged` after it a `behindGroupMs` no more negative than `aheadForLoadMs`, which on staging's
+  link is a few seconds, never a minute. (`web/packages/sdk/src/rtc-media.ts`,
+  `together-load-speed.ts`, `together-follow.ts`; `internal/core/together/player_log.go`)
