@@ -23710,10 +23710,13 @@ opened scrolled to its last episodes, the window keeping the list's scroll, and 
 outlived the way back, so a series opened afresh showed an episode played earlier from Continue
 Watching. A page a step forward opens now starts at its top (`input-layer.tsx`), and each step
 forward lets every episode reached go (`episode-reached.ts`), the page reached noting its own again,
-so §9 holds for Back and Up alone (VQ91).
+so §9 holds for Back and Up alone (VQ91). Back to a list from a title past its first page found the
+list at its top, nothing focused: a list returned to drew its first page alone, and the focus noted
+on its entry never found its link; Films, Series and a library's list now load their pages until
+it is drawn (`input-layer.tsx`'s `useListLoadsToFocusNoted`), and it takes focus in view (§1, VQ91).
 
 **Proven by:**
-- 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
+- 1: web/apps/web/src/navigation.test.ts ("goes back to the entry before when it is this app's, and up in place when none is"), input-walk.browser.test.tsx ("goes back by the browser's own Back to a series on the list's second page …"), library-browse.test.tsx ("returned to by Back, loads its pages …"), input-player.browser.test.tsx ("goes back to the film's page by Back, to its Play"); VQ91
 - 2: web/apps/web/src/upward.test.ts (§3.3, §3.15, §3.17), up-trail.test.tsx, play.test.tsx ("the page above a Play page"), TestPlayback_SaysWhatItPlaysAndWhereItLives, TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm, TestBrowse_ListsDetailsSeriesAndSearch
 - 3: web/apps/web/src/upward.test.ts (§3.18), up-trail.test.tsx ("goes back up to the library the person came through, as they left it", "goes up from a film opened from outside to the first library listing it, by name"), TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm
 - 4: replaced by 7, Up adding no step: web/apps/web/src/navigation.test.ts ("navigation's Up"), upward.test.ts

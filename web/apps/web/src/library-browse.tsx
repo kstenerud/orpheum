@@ -18,13 +18,14 @@ import { PosterGrid, type Entry } from "./browse.tsx";
 import { EndOfList } from "./end-of-list.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
+import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import type { Navigation } from "./navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { UpTrail } from "./up-trail.tsx";
 import type { Upward } from "./upward.ts";
 import { dataOrThrow } from "./problem.ts";
-import type { LibrarySort, Route, SortOrder } from "./router.ts";
+import { itemRoute, routeHref, type LibrarySort, type Route, type SortOrder } from "./router.ts";
 import { LibraryConfigure } from "./library-configure.tsx";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
 import { QueryResults } from "./search.tsx";
@@ -477,6 +478,9 @@ function LibraryLetters(props: {
 /** An entry's id, by which a list shows an entry read twice once. */
 const entryId = (entry: Entry): number => entry.id;
 
+/** The address an entry's poster leads to, by the entry's own kind, as PosterGrid draws it. */
+const entryHref = (entry: Entry): string => routeHref(itemRoute(entry.kind, entry.id));
+
 /**
  * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
  * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; All
@@ -510,6 +514,7 @@ function LibraryGrid(props: {
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
+  useListLoadsToFocusNoted(pages, entryHref);
   useLetterJump({
     kind,
     sort: sort === "file_name" ? "file_name" : "name",
