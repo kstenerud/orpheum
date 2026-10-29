@@ -1153,7 +1153,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   and the discovery counts no dead end for it. Before the fix the Fire TV showed the network dead end
   after its device was removed (the owner, 2026-10-28, 09:25). (`web/apps/web/src/discovery-gate.tsx`,
   `loader-at-client-origin.tsx`, `loader-at-loader-origin.tsx`; `web/packages/sdk/src/discovery.ts`)
-- [ ] **VQ101** — a cast alone to the Fire TV plays as the Fire TV plays a film alone (D371 §1, §4,
+- [x] **VQ101** — a cast alone to the Fire TV plays as the Fire TV plays a film alone (D371 §1, §4,
   §5), on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off, five
   films one after another, converted ones (a ladder) among them, each played from the Mac: (1) each
   starts with one play, never a play, a pause and a play, and plays on with no stall it would not
@@ -1172,6 +1172,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   remote's seeks and pause move the TV once. Found: two of the TV's own 10 s skips were each followed
   ~200 ms later by a seek back to where it had gone, its group's change for its own skip taken as
   another device's; fixed, to be seen again.
+  **Passed 2026-10-29 (the owner, staging):** five films cast to the Fire TV each started with one play
+  and played on; one quirk filed for the next batch (seeking Thimbleford: a jump back, then 2-3 s fast with no sound).
 - [ ] **VQ102** — in Watch Together the host's screen leads and a guest catches up to it (D371 §2,
   §6), on staging. Passes when the Mac hosts a session, casting to the Fire TV (Silk), and the
   iPhone joins as a guest on mobile data: (1) as the host plays a film, the TV starts at once and

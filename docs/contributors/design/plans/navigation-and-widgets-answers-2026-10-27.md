@@ -357,6 +357,12 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
+- **Next batch (the owner, 2026-10-29, VQ101's run):** seeking Thimbleford (file 5680) cast to the Fire TV,
+  twice the film jumped back and then played 2-3 s at 2-4x speed with no sound before going on normally.
+  Log, staging 22:35:23-27 UTC, the receiver (device 21 / app device 68): a seek to 863.8 s, one to
+  875.2 s, then 22:35:27.097 `seeked` back to 866.2 s (`fromPositionMs=876522 toPositionMs=866181`), a
+  seek the remote did not send; find who sought back (a stale seek-ahead target? the leader's own
+  undo, `GroupLeader.undo`?) and why the picture then raced its sound.
 - **Next batch (the owner, 2026-10-29):** the core and its discovery must find each other again whatever
   order they restart in ("It should be able to figure itself out either way"). Staging, 22:19:56: the
   core restarted, then connectd; the core's signalling said it connected (22:19:58), yet every offer then
