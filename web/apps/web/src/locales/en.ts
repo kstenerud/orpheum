@@ -762,6 +762,9 @@ export const en = {
   shell: {
     notFound: "There is nothing at this address.",
   },
+  notice: {
+    close: "Close",
+  },
   common: {
     loading: "Loading…",
     back: "Back",
