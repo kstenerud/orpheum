@@ -157,6 +157,31 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     mounted.unmount();
   });
 
+  it("closes Invite on a press outside it (the owner, 2026-10-29)", async () => {
+    hostSession();
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [], members: [karl] },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    await click(buttonWithText(mounted.container, "Invite someone"));
+    const dialog = mounted.container.querySelector("dialog.watch-together__dialog");
+    expect(dialog).not.toBeNull();
+    // On the backdrop: the press reaches the dialog itself, at a point outside its box.
+    await act(async () => {
+      dialog?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: -10, clientY: -10 }));
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
+    mounted.unmount();
+  });
+
   it("lists who joined with the host's note, and removes them", async () => {
     hostSession();
     const heard: Heard[] = [];

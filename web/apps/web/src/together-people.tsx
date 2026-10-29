@@ -60,7 +60,7 @@ function rightsText(t: (key: string) => string, rights: Rights): string {
 
 /**
  * A dialog over the session's controls, its own heading and Close (D281 §5): what is done to one
- * person, or a link made, opened from the list and gone once done.
+ * person, or a link made, opened from the list and gone once done, or on a press outside it.
  */
 export function ActionDialog(props: {
   readonly heading: string;
@@ -75,6 +75,9 @@ export function ActionDialog(props: {
       className="watch-together__dialog"
       label={props.heading}
       onClose={props.onClose}
+      // A press outside closes it: what it holds is a few words and two ticks, nothing worth a guard
+      // against a stray press (the owner, 2026-10-29: "losing it isn't a big deal").
+      shouldCloseOnOutsidePress={true}
       shouldFocusFirstField={props.shouldFocusFirstField === true}
     >
       <div className="watch-together__dialog-head">
