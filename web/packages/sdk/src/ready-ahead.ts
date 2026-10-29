@@ -15,10 +15,11 @@ import type { components } from "./gen/api.ts";
 import { refillAheadMs } from "./together-media.ts";
 
 /**
- * What a next chunk's expected load rests on, as the play report says it: its player's confident
- * estimate of the link, the link its device last measured on its network, or its first chunk's
- * speed where that was lower; "none" where it waits refillAheadMs, never resting on a lone first
- * chunk (D352 §1).
+ * What a next chunk's expected load rests on, as the play report says it: its player's estimate of
+ * the link from its own samples, the remembered link blended in ("confident"), the link its device
+ * last measured on its network alone, before any sample ("remembered"); "none" where it waits
+ * refillAheadMs, with neither (bandwidth-sampling-2026-10-29.md P5). "firstSample" is a player's of
+ * before 2026-10-29, which no player sends now.
  */
 export type NextChunkLoadFrom = NonNullable<components["schemas"]["SeekBody"]["nextChunkLoadFrom"]>;
 

@@ -34,8 +34,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   samples, fewer as it ages, until two of its own agree against it or its own fill the five (P2),
   and the spread it reports with its speed kept by the core beside it for the next start: it starts at the quality the server chose, never
   probing the lowest first, whose chunks are made only for a player that needs them (D247 §10);
-  while starting, until four chunks measured the link and the video played 20 s, a choice below the
-  ceiling is the next chunk's alone, and only a chunk given up or a stall lowers the ceiling, which
+  while starting, until the video played 20 s and its samples settle the ceiling (it is the same
+  with any one left out, P5) or four measured the link, a choice below the ceiling is the next
+  chunk's alone, and only a chunk given up or a stall lowers the ceiling, which
   at the end becomes the highest quality the confident estimate carries, no higher than the start
   (D352 §1), the confident estimate being the estimate's lower bound for a choice held over many
   chunks, e^(centre − z × spread / √n), z 1.28 with nothing loaded ahead, 0.84 at 10 s and 0 from
@@ -78,12 +79,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,
   2026-10-28): a chunked playback tells the SDK how long its next chunk is expected to take, the
   chunk after what is loaded on the quality hls.js loads, its byte range's size, else its length at
-  that quality's average rate, over its link's confident estimate, or before one the lower of the
-  link its offer says its device last measured on its network (D257 §1) and the rate its first
-  chunk of picture loaded at, never that first chunk alone (D352 §1: a Fire TV's first chunk at
-  28 Mb/s on a 9.6 Mb/s link started it with 1 s loaded, staging, 2026-10-28), each start's and
-  seek's wait saying which it rested on (`nextChunkLoadFrom`) (`src/next-chunk.ts`); one that can
-  say nothing waits for `refillAheadMs`. The
+  that quality's average rate, over its controller's next-chunk bound, e^(centre − z × spread ×
+  √(1 + 1/n)) at what is loaded ahead, plus the median wait of its samples' first bytes: from the
+  link its offer says its device last measured on its network (D257 §1) alone before any chunk,
+  and blending in each chunk after, never the first chunk alone (D352 §1: a Fire TV's first chunk
+  at 28 Mb/s on a 9.6 Mb/s link started it with 1 s loaded, and two samples outvoting a link
+  remembered at 17 Mb/s started one on 753 kb/s, staging, 2026-10-28; P5), each start's and seek's
+  wait saying which it rested on (`nextChunkLoadFrom`) (`src/next-chunk.ts`); one with nothing
+  remembered and nothing measured waits for `refillAheadMs`. The
   wait comes before the `play()`, never as a play, a pause and a play: the page's video has no
   autoplay attribute, and its start gate plays it (the SDK's `start-gate.ts`), pausing a playing
   video as it seeks to where too little is loaded, before it can play there. A Fire TV played at

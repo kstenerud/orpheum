@@ -5,20 +5,17 @@
  * outlast before it starts or plays on after a seek (the SDK's ready-ahead.ts; the owner,
  * 2026-10-28): the chunk after what the video loaded where it is, on the quality hls.js loads, its
  * size from its byte range where the playlist gives one, else its film's length at its quality's
- * average rate, over the link as the player measures it once its estimate is confident, or, before
- * it is, over the lower of the link its device last measured on its network and the speed its
- * first chunk of picture loaded at; never over that first chunk alone (D352 §1). A Fire TV's first
- * chunk loaded at 28 Mb/s, its next took 2.6 s at 9.6, and it started with 1 s loaded and ran dry
- * (staging, 2026-10-28).
+ * average rate, over the next chunk's bound of its controller's estimate of the link, plus the wait
+ * its first byte is expected to take (bandwidth-sampling-2026-10-29.md P5). The bound is a lower
+ * quantile set by what is loaded ahead, from the link its device remembers before any chunk and
+ * blending in each chunk after, so the source moves from remembered to measured gradually, not at
+ * a count: two samples on a fresh connection outvoted a link measured minutes before and started a
+ * Fire TV on 753 kb/s, where a lone first chunk at 28 Mb/s on a 9.6 Mb/s link had started one with
+ * 1 s loaded (staging, 2026-10-28). With nothing remembered and nothing measured it says nothing,
+ * and the player waits refillAheadMs.
  */
 
-import {
-  chunkLoadedOf,
-  loadedAheadMsOf,
-  playerLoadedChunkEvent,
-  tellNextChunkLoadMs,
-  type NextChunkLoad,
-} from "@orpheum/sdk";
+import { loadedAheadMsOf, tellNextChunkLoadMs, type NextChunkLoad } from "@orpheum/sdk";
 
 /** One chunk in a quality's playlist, as hls.js lists it: where it starts, how long, and its bytes. */
 interface ListedChunk {
@@ -60,74 +57,33 @@ export function nextChunkBits(
     : next.duration * level.averageBitrate;
 }
 
-/** The link a next chunk's load is reckoned over, in kbit/s, and what it rests on. */
+/**
+ * The link a next chunk's load is reckoned over, in kbit/s, the wait its first byte is expected to
+ * take, in ms, and what it rests on: the playback's own samples, the prior among them while it
+ * counts ("confident"), or the remembered link alone ("remembered").
+ */
 export interface NextChunkLink {
   readonly kbps: number;
-  readonly from: NextChunkLoad["from"];
-}
-
-/**
- * The link to reckon the next chunk's load over: the player's confident estimate where it has one;
- * else the lower of the link its device last measured on its network and its first chunk of
- * picture's speed, or the remembered link before that chunk; undefined with nothing remembered, so
- * the player waits refillAheadMs rather than trust a lone first chunk (D352 §1).
- */
-export function nextChunkLinkOf(known: {
-  readonly confidentKbps: number | undefined;
-  readonly rememberedKbps: number | undefined;
-  readonly firstChunkKbps: number | undefined;
-}): NextChunkLink | undefined {
-  const { confidentKbps, rememberedKbps, firstChunkKbps } = known;
-  if (confidentKbps !== undefined && confidentKbps > 0) {
-    return { kbps: confidentKbps, from: "confident" };
-  }
-  if (rememberedKbps === undefined || rememberedKbps <= 0) {
-    return undefined;
-  }
-  return firstChunkKbps !== undefined && firstChunkKbps > 0 && firstChunkKbps < rememberedKbps
-    ? { kbps: firstChunkKbps, from: "firstSample" }
-    : { kbps: rememberedKbps, from: "remembered" };
+  readonly firstByteMs: number;
+  readonly from: Extract<NextChunkLoad["from"], "confident" | "remembered">;
 }
 
 /**
  * Tells the SDK, for video, how long its next chunk is expected to take to load and what that rests
- * on (tellNextChunkLoadMs): its bits over the link nextChunkLinkOf names, from the link as known, its
- * player's confident estimate and the link the playback's offer says its device last measured on
- * its network, and the first chunk of picture's speed. Returns the end of it.
+ * on (tellNextChunkLoadMs): the wait for its first byte plus its bits over the link nextChunkLink
+ * names, its controller's next-chunk bound (Choosing.nextChunkLink). Returns the end of it.
  */
 export function tellNextChunkLoad(
   listing: ChunkListing,
-  video: Pick<
-    HTMLMediaElement,
-    "buffered" | "currentTime" | "addEventListener" | "removeEventListener"
-  >,
-  link: {
-    readonly confidentKbps: () => number | undefined;
-    readonly rememberedLinkKbps?: number | undefined;
-  },
+  video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
+  nextChunkLink: () => NextChunkLink | undefined,
 ): () => void {
-  let firstChunkKbps: number | undefined;
-  const heardChunk = (event: Event): void => {
-    const loaded = chunkLoadedOf(event);
-    if (loaded?.track === "video" && loaded.loadedKbps > 0) {
-      firstChunkKbps ??= loaded.loadedKbps;
-    }
-  };
-  video.addEventListener(playerLoadedChunkEvent, heardChunk);
-  const stopTelling = tellNextChunkLoadMs(video, () => {
-    const over = nextChunkLinkOf({
-      confidentKbps: link.confidentKbps(),
-      rememberedKbps: link.rememberedLinkKbps,
-      firstChunkKbps,
-    });
+  return tellNextChunkLoadMs(video, () => {
+    const over = nextChunkLink();
     const bits = nextChunkBits(listing, video);
     // A kilobit a second is a bit a millisecond.
-    return over === undefined || bits === undefined
+    return over === undefined || bits === undefined || over.kbps <= 0
       ? undefined
-      : { loadMs: bits / over.kbps, from: over.from };
+      : { loadMs: over.firstByteMs + bits / over.kbps, from: over.from };
   });
-  return () => {
-    video.removeEventListener(playerLoadedChunkEvent, heardChunk);
-    stopTelling();
-  };
 }

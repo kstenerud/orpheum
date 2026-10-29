@@ -94,10 +94,13 @@ type StartGateBody struct {
 	LoadedAheadMs    *int64 `json:"loadedAheadMs,omitempty"    minimum:"0" required:"false"`
 	WaitedForAheadMs *int64 `json:"waitedForAheadMs,omitempty" minimum:"0" required:"false"`
 	NextChunkLoadMs  *int64 `json:"nextChunkLoadMs,omitempty"  minimum:"0" required:"false"`
-	// NextChunkLoadFrom is what the next chunk's expected load rested on: the player's confident
-	// estimate of its link, the link its device last measured on its network, its first chunk's speed
-	// where that was lower, or none, so it waited refillAheadMs. A lone fast first chunk let a Fire TV
-	// start with 1 s loaded (staging, 2026-10-28).
+	// NextChunkLoadFrom is what the next chunk's expected load rested on: its player's estimate of
+	// its link from its own samples, the link its device last measured on its network blended in
+	// (confident), that remembered link alone before any sample (remembered), or none, so it waited
+	// refillAheadMs (bandwidth-sampling-2026-10-29.md P5). firstSample, its first chunk's speed where
+	// that was lower than the remembered link, is a player's of before 2026-10-29, still taken from a
+	// page of a release before. A lone fast first chunk let a Fire TV start with 1 s loaded (staging,
+	// 2026-10-28).
 	//nolint:lll // one struct tag
 	NextChunkLoadFrom string `enum:"confident,remembered,firstSample,none" json:"nextChunkLoadFrom,omitempty" required:"false"`
 }
@@ -280,10 +283,10 @@ type LadderBody struct {
 	// this network ended at, relaxed by the time since; 0 for none remembered (D352 Q2).
 	Steadiness int `json:"steadiness" maximum:"3" minimum:"0"`
 	// RememberedLinkKbps is, at a playback's start, the link its device last measured on this
-	// network (D257 §1), which its player's start rule sets against its first chunk's speed until its
-	// own estimate is confident: one fast first chunk let a Fire TV start with 1 s loaded, its next
-	// chunk taking four times what that chunk promised (staging, 2026-10-28). Absent for none, and
-	// on a lower quality offered after a stall.
+	// network (D257 §1), which its player's estimate starts from as a prior, and its start gate reads
+	// before any chunk (bandwidth-sampling-2026-10-29.md P2, P5): one fast first chunk let a Fire TV
+	// start with 1 s loaded, its next chunk taking four times what that chunk promised (staging,
+	// 2026-10-28). Absent for none, and on a lower quality offered after a stall.
 	RememberedLinkKbps *int64 `json:"rememberedLinkKbps,omitempty" minimum:"1" required:"false"`
 	// RememberedLinkSpread is the spread of the natural logs of the samples RememberedLinkKbps rested
 	// on, absent where its player said none, and RememberedLinkSamples how many of the playback's own

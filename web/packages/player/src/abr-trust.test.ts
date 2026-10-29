@@ -7,7 +7,6 @@ import {
   lookAtChunkEveryMs,
   lookForStepUpEveryMs,
   startingPlayedMs,
-  startingSamples,
 } from "./abr.ts";
 import { assumedLogSpread, linkSamplesKept } from "./link-estimate.ts";
 import { holdBeforeStepUpMsAt, relaxEveryMs, swingWithinHolds } from "./steadiness.ts";
@@ -138,20 +137,17 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(choosing.nextLevel()).toBe(0);
   });
 
-  it("ends after four samples and 20 s played, the ceiling no higher than the start", () => {
+  it("ends once its samples settle the ceiling and 20 s played, the ceiling no higher than the start (P5)", () => {
     const { hls, choosing } = choosingFrom(4_600_000); // offered 720p
     expect(choosing.firstLevel()).toBe(2);
-    for (let index = 0; index < startingSamples; index += 1) {
-      loadAt(choosing, 2, { mbps: 20 });
-    }
-    expect(choosing.isStarting()).toBe(true); // samples alone do not end it
+    loadAt(choosing, 2, { mbps: 20 });
     hls.media = videoAt(0, { isPaused: false, readyState: 4 });
     waitMs(lookAtChunkEveryMs);
     hls.media = videoAt(600, { isPaused: false, readyState: 4 }); // a seek forward is not played
     waitMs(lookAtChunkEveryMs);
-    playFor(hls, startingPlayedMs - lookAtChunkEveryMs);
-    expect(choosing.isStarting()).toBe(true);
-    playFor(hls, lookAtChunkEveryMs);
+    playFor(hls, startingPlayedMs + lookAtChunkEveryMs);
+    expect(choosing.isStarting()).toBe(true); // a lone sample settles nothing, played or not
+    loadAt(choosing, 2, { mbps: 20 }); // a second that agrees: the ceiling is the same without either
     expect(choosing.isStarting()).toBe(false);
     expect(scene.steps[0]).toMatch(
       /^started, ceiling 2 kept; confident \d+ kb\/s \(estimate 20000, /u,
@@ -166,6 +162,52 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     loadAt(choosing, 3, { mbps: 8 });
     // 8.9 Mb/s, the centre of 10 and 8: a bound, remembered, would start each playback lower.
     expect(choosing.linkKbps()).toBeCloseTo(Math.sqrt(10 * 8) * 1000, 0);
+  });
+});
+
+describe("the link the start gate reckons a next chunk's load over (bandwidth-sampling P5)", () => {
+  const fresh17 = { kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 };
+
+  it("is the remembered link's bound before any chunk, and none with nothing remembered and nothing measured", () => {
+    expect(choosingFrom(40_000_000).choosing.nextChunkLink()).toBeUndefined();
+    const { choosing } = choosingFrom(40_000_000, undefined, { rememberedLink: fresh17 });
+    const link = choosing.nextChunkLink();
+    expect(link?.from).toBe("remembered");
+    // 17 Mb/s, 1.28 spreads of 0.3 below, the next chunk's luck with it: about 10.6 Mb/s.
+    expect(link?.kbps).toBeCloseTo(17_000 * Math.exp(-1.28 * 0.3 * Math.sqrt(1.5)), 0);
+    expect(link?.firstByteMs).toBe(0);
+  });
+
+  it("keeps a fresh remembered 17 Mb/s through one slow sample of two: the 753 kb/s start (failure 2)", () => {
+    // Ten minutes after the film before measured 17 Mb/s, a start waited 10 s on a "confident"
+    // 753 kb/s from its first two samples (staging, 2026-10-28; bandwidth-sampling §1.2).
+    const { choosing } = choosingFrom(40_000_000, undefined, { rememberedLink: fresh17 });
+    loadAt(choosing, 3, { mbps: 17 });
+    loadAt(choosing, 3, { mbps: 0.3, seconds: 4 });
+    const link = choosing.nextChunkLink();
+    expect(link?.from).toBe("confident");
+    expect(link?.kbps).toBeGreaterThan(8000);
+    expect(link?.firstByteMs).toBe(50);
+  });
+
+  it("still waits on a link that really is slow: two samples at 753 kb/s outvote the remembered link", () => {
+    const { choosing } = choosingFrom(40_000_000, undefined, { rememberedLink: fresh17 });
+    loadAt(choosing, 3, { mbps: 0.753, seconds: 2 });
+    loadAt(choosing, 3, { mbps: 0.753, seconds: 2 });
+    const link = choosing.nextChunkLink();
+    expect(link?.kbps).toBeGreaterThan(350);
+    expect(link?.kbps).toBeLessThan(760);
+  });
+
+  it("reads a Fire TV's fast first chunk against its remembered link, never alone: 28.4 Mb/s on a 9.6 Mb/s link", () => {
+    // Staging, 2026-10-28, device 60: its first chunk of picture at 28384 kb/s started it with 1 s
+    // loaded, and its next took 2.6 s at 9.6 Mb/s.
+    const { hls, choosing } = choosingFrom(40_000_000, undefined, {
+      rememberedLink: { kbps: 9636, countsAsSamples: 2 },
+    });
+    hls.mainForwardBufferInfo = { len: 1.07 };
+    load(choosing, 3, { bytes: (28_384_000 * 0.74) / 8, loadMs: 790 });
+    expect(choosing.nextChunkLink()?.kbps).toBeLessThan(9636);
   });
 });
 
