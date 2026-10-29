@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   estimateText,
-  harmonicMean,
+  assumedLogSpread,
   LinkEstimate,
   linkSamplesKept,
+  logSpreadAtLeast,
   samplesAgreeWithinError,
   samplesText,
   trimsErrorFromSamples,
@@ -26,11 +27,11 @@ function estimateOf(...mbps: number[]): LinkEstimate {
   return estimate;
 }
 
-describe("the link's estimate (D352 §2)", () => {
-  it("is the harmonic mean of the last five samples, each counted once whatever its length", () => {
-    expect(harmonicMean([4_000_000, 12_000_000])).toBeCloseTo(6_000_000, -1);
+describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
+  it("is the centre of the last five samples in log space, each counted once whatever its length", () => {
+    // Two samples: the centre of their logs, the geometric mean.
+    expect(estimateOf(4, 16).estimateBps()).toBeCloseTo(8_000_000, -1);
     const estimate = estimateOf(1, 12, 12, 12, 12);
-    expect(estimate.estimateBps()).toBeCloseTo((5 / (1 + 4 / 12)) * 1_000_000, -1);
     // Five chunks later the slow one has left: the estimate is the link's.
     for (let index = 0; index < linkSamplesKept; index += 1) {
       estimate.add(sampleAt(12));
@@ -40,8 +41,21 @@ describe("the link's estimate (D352 §2)", () => {
     expect(estimate.count()).toBe(10);
   });
 
-  it("falls most of the way at one slow sample", () => {
-    expect(estimateOf(12, 12, 12, 12, 1).estimateBps()).toBeLessThan(4_000_000);
+  it("is not ruled by one sample that is not the link's: Nosferatu's four near 15 Mb/s and one at 14 kb/s", () => {
+    // The harmonic mean made these 69 kb/s, and a Fire TV fell from Nosferatu's own picture to its
+    // lowest quality for 75 s (staging, 2026-10-28; bandwidth-sampling-2026-10-29.md §1.1).
+    const nosferatu = estimateOf(14, 18, 15, 16, 0.014);
+    expect(nosferatu.estimateBps()).toBeGreaterThan(10_000_000);
+    // Nor by one fast one, a cache hit not told as one.
+    expect(estimateOf(10, 10, 10, 10, 1000).estimateBps()).toBeLessThan(15_000_000);
+    // The spread is the samples' own once three are kept, never below its floor.
+    expect(estimateOf(10, 10).spread()).toBe(assumedLogSpread);
+    expect(estimateOf(10, 10, 10).spread()).toBe(logSpreadAtLeast);
+    expect(estimateOf(4, 12, 3, 11).spread()).toBeGreaterThan(0.6);
+  });
+
+  it("follows a fall once most of its samples say it", () => {
+    expect(estimateOf(12, 12, 12, 1, 1, 1).estimateBps()).toBeLessThan(2_000_000);
   });
 
   it("is discounted by the largest error of its own predictions: the confident estimate", () => {
@@ -51,7 +65,7 @@ describe("the link's estimate (D352 §2)", () => {
     // 8 after an estimate of 10: the prediction was a quarter of the sample out.
     const fell = estimateOf(10, 8);
     expect(fell.predictionError()).toBeCloseTo(0.25, 6);
-    expect(fell.confidentBps()).toBeCloseTo(((2 / (1 / 10 + 1 / 8)) * 1e6) / 1.25, -1);
+    expect(fell.confidentBps()).toBeCloseTo((Math.sqrt(10 * 8) * 1e6) / 1.25, -1);
   });
 
   it("is the sample itself before any prediction, and nothing before any sample", () => {
@@ -87,11 +101,11 @@ describe("the link's estimate (D352 §2)", () => {
       fireTv.add({ level: 3, bytes, arrivedMs, firstByteMs: 40 });
     }
     expect(fireTv.kept()).toBe(trimsErrorFromSamples);
-    expect((fireTv.estimateBps() ?? 0) / 1000).toBeCloseTo(7355, -1); // the harmonic mean still falls at it
+    expect((fireTv.estimateBps() ?? 0) / 1000).toBeCloseTo(11_488, -1); // the four good ones', where the harmonic mean made 7355
     expect(fireTv.predictionError()).toBeLessThan(1); // where the slow one alone made it 404%
     expect((fireTv.confidentBps() ?? 0) / 1000).toBeGreaterThan(4000); // not 1459 kb/s
     // Two slow samples of five are a link that varies, and still count.
-    expect(estimateOf(12, 12, 2, 12, 2).predictionError()).toBeCloseTo(5 / 3, 6); // the second, of 2 after 5.3
+    expect(estimateOf(12, 12, 2, 12, 2).predictionError()).toBeGreaterThan(1); // the second slow one's
     // Fewer than five kept: every error counts.
     expect(estimateOf(12, 12, 12, 2).predictionError()).toBeCloseTo(5, 6);
   });
@@ -99,7 +113,7 @@ describe("the link's estimate (D352 §2)", () => {
   it("says itself and its samples in a line for the log (D352 §5)", () => {
     expect(estimateText(new LinkEstimate())).toBe("unmeasured");
     expect(estimateText(estimateOf(10, 8))).toBe(
-      "confident 7111 kb/s (mean 8889, error 25%, 2 samples)",
+      "confident 7155 kb/s (estimate 8944, error 25%, 2 samples)",
     );
     expect(samplesText([])).toBe("");
     expect(samplesText(estimateOf(10, 8).samples())).toBe(

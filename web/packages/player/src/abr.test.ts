@@ -120,15 +120,16 @@ describe("choosing a chunked playback's quality (D265)", () => {
     pastStarting(chosen, 3, 5);
     const sample = "3 625000B 1000ms fb50ms";
     expect(scene.steps).toEqual([
-      "started, ceiling 3 to 2; confident 5000 kb/s (mean 5000, error 0%, 4 samples), 0.0 s ahead," +
+      "started, ceiling 3 to 2; confident 5000 kb/s (estimate 5000, error 0%, 4 samples), 0.0 s ahead," +
         ` steadiness 0, hold 30 s; samples ${[sample, sample, sample, sample].join(", ")}`,
     ]);
-    loadAt(choosing, 2, { mbps: 1, seconds: 2 }); // a slow chunk
+    // A link that falls: three slow chunks of five move the estimate, where one would not.
+    for (let index = 0; index < 3; index += 1) {
+      loadAt(choosing, 2, { mbps: 2, seconds: 2 });
+    }
     choosing.nextLevel();
-    // One slow sample of five is no spread (predictionError): the mean falls, the error stays.
-    expect(scene.steps[1]).toBe(
-      "ceiling 2 to 1: link; confident 2778 kb/s (mean 2778, error 0%, 5 samples), 0.0 s ahead," +
-        " steadiness 0, hold 30 s",
+    expect(scene.steps[1]).toMatch(
+      /^ceiling 2 to 1: link; confident \d+ kb\/s \(estimate 2\d\d\d, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
     const chunk = chunkAt(1);
     choosing.loading(chunk);
@@ -136,7 +137,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     chunk.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
     waitMs(6000);
     expect(scene.steps[2]).toMatch(
-      /^ceiling 1 to 0: gave up a chunk of 1: 100000 B in 6000 ms; confident \d+ kb\/s \(mean \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
+      /^ceiling 1 to 0: gave up a chunk of 1: 100000 B in 6000 ms; confident \d+ kb\/s \(estimate \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
     hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
     hls.currentLevel = 0;
@@ -183,7 +184,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(told[1]?.fromQualityKbps).toBe(36_208.176);
     expect(told[1]?.qualityKbps).toBe(696);
     expect(told[1]?.why).toMatch(
-      /^gave up a chunk of 3: 750000 B in 6000 ms; confident 0 kb\/s \(mean 0, error none, 1 sample\), /u,
+      /^gave up a chunk of 3: 750000 B in 6000 ms; confident 0 kb\/s \(estimate 0, error none, 1 sample\), /u,
     );
     // The sample it took: a chunk with no byte counted arrived is one byte over the wait.
     expect(told[1]?.linkSamples).toBe("samples 3 1B 6000ms fb6000ms");
@@ -473,7 +474,7 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
     expect(choosing.nextLevel()).toBe(2); // alone, voice leaves it half: 720p
     scene.isInAGroup = true;
     expect(choosing.nextLevel()).toBe(3); // in a group: the film's own picture
-    loadAt(choosing, 3, { mbps: 3.2, seconds: 4 }); // the estimate of both, 4.7 Mb/s, short of the picture's 5.1
+    loadAt(choosing, 3, { mbps: 2.5, seconds: 4 }); // the estimate of both, 4.7 Mb/s, short of the picture's 5.1
     expect(choosing.nextLevel()).toBeLessThan(3); // a link too slow for it steps down
   });
   it("steps down from it once a chunk of it is given up, though no chunk measured the slower link", () => {

@@ -68,7 +68,7 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     loadAt(choosing, 3, { mbps: 1, seconds: 2 });
     choosing.stalled();
     expect(scene.steps).toEqual([
-      "ceiling 3 to 0: a stall; confident 1000 kb/s (mean 1000, error none, 1 sample), 0.0 s ahead," +
+      "ceiling 3 to 0: a stall; confident 1000 kb/s (estimate 1000, error none, 1 sample), 0.0 s ahead," +
         " steadiness 0, hold 30 s",
     ]);
     for (let index = 0; index < linkSamplesKept; index += 1) {
@@ -100,7 +100,7 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     const { choosing } = choosingFrom(40_000_000);
     loadAt(choosing, 3, { mbps: 10 });
     loadAt(choosing, 3, { mbps: 8 });
-    expect(choosing.linkKbps()).toBeCloseTo(7111, 0); // 8.9 Mb/s, discounted by its 25% error
+    expect(choosing.linkKbps()).toBeCloseTo(7155, 0); // 8.9 Mb/s, discounted by its 25% error
   });
 });
 
@@ -180,8 +180,10 @@ describe("a playback with plenty loaded ahead, which holds its quality (the owne
     pastStarting(chosen, 3, 20);
     expect(choosing.nextLevel()).toBe(3);
     hls.mainForwardBufferInfo = { len: holdsQualityAheadS };
-    loadAt(choosing, 3, { mbps: 1, seconds: 2 });
-    loadAt(choosing, 3, { mbps: 1, seconds: 2 });
+    // A link genuinely slow: three samples of five say so.
+    for (let index = 0; index < 3; index += 1) {
+      loadAt(choosing, 3, { mbps: 1.5, seconds: 2 });
+    }
     expect(choosing.nextLevel()).toBe(3);
     expect(choosing.nextLevel()).toBe(3);
     expect(scene.steps.slice(1)).toEqual([
@@ -209,7 +211,9 @@ describe("a playback that swings (D352 §3)", () => {
     choosing.switched();
     waitMs(lookAtChunkEveryMs);
     hls.mainForwardBufferInfo = { len: holdsQualityAheadS - 1 }; // the climb spent its buffer
-    loadAt(choosing, 3, { mbps: 2 }); // the link falls back
+    for (let index = 0; index < 3; index += 1) {
+      loadAt(choosing, 3, { mbps: 4 }); // the link falls back, as three samples of five say
+    }
     expect(choosing.nextLevel()).toBe(2);
     expect(choosing.steadiness()).toBe(1);
     expect(scene.steps.at(-1)).toMatch(/^steadiness 0 to 1: a swing, \d+ s after a step up$/u);
@@ -235,7 +239,9 @@ describe("a playback that swings (D352 §3)", () => {
     hls.currentLevel = 3;
     choosing.switched();
     waitMs(swingWithinHolds * (holdBeforeStepUpMsAt[0] ?? 0) + lookForStepUpEveryMs);
-    loadAt(choosing, 3, { mbps: 2 });
+    for (let index = 0; index < 3; index += 1) {
+      loadAt(choosing, 3, { mbps: 4 });
+    }
     expect(choosing.nextLevel()).toBe(2);
     expect(choosing.steadiness()).toBe(0);
   });
