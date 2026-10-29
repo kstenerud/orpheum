@@ -1219,8 +1219,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   guests):** "it worked". Found: the host away from the film saw no way back to watching on the session's
   page (the link drawn as the primary action as a stopgap; the page's revamp is next batch).
 - [ ] **VQ105** — a locked phone's lead passes at once (D372 §2, §5), on staging. Passes when the
-  iPhone, a guest, leads a session (the host playing on no device) beside a computer's browser, a
-  second guest: (1) locking the iPhone hands the lead to the browser at once, the browser's film
+  iPhone, a guest, leads a session (the host put the film on, then browsed away from the session's
+  page, D372 §6; a guest cannot choose the film) beside a computer's browser, a second guest that
+  joined after it: (1) locking the iPhone hands the lead to the browser at once, the browser's film
   playing on without a stop, and the log says `goneBecause=hidden`; (2) unlocking the iPhone catches
   it up as a follower, and closing the browser's page then gives the lead back to the iPhone, its
   `leaderSeniority` the moment it was unlocked; (3) a stall of the leader's (its link throttled)

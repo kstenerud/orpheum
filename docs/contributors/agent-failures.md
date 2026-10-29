@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A49 — Wrote device steps from a VQ's summary line, with a guest choosing the film (2026-10-29)
+
+- **What happened:** walking the owner through VQ105, the lead wrote "have the S23 join as a guest
+  and play the film first, so the S23 leads", from the item's phrase "the host playing on no device".
+  A guest cannot choose what plays; only the host can (D372 §4). The setup D372 §6 means is the host
+  putting the film on and then browsing away from the session's page, so the lead passes to the
+  longest-present guest.
+- **Caught by:** the owner ("A guest can't choose what plays; only a host.").
+- **Gate:** none. Before writing a VQ's steps for the owner, read the decision it cites and check
+  each step against who may do it.
+
 ### A48 — Told the owner his own DevTools setting caused a fault, on a subagent's word (2026-10-29)
 
 - **What happened:** a debugging subagent reported that the owner's black page on staging (the core's
