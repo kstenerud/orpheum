@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   estimateText,
   assumedLogSpread,
+  boundDeviationsAt,
   LinkEstimate,
   linkSamplesKept,
   logSpreadAtLeast,
@@ -58,21 +59,56 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
     expect(estimateOf(12, 12, 12, 1, 1, 1).estimateBps()).toBeLessThan(2_000_000);
   });
 
-  it("is discounted by the largest error of its own predictions: the confident estimate", () => {
+  it("is read at a bound set by what is loaded ahead: the confident estimate and the next chunk's (P4)", () => {
     const steady = estimateOf(10, 10, 10, 10, 10);
     expect(steady.predictionError()).toBeCloseTo(0, 6);
-    expect(steady.confidentBps()).toBeCloseTo(10_000_000, -1);
-    // 8 after an estimate of 10: the prediction was a quarter of the sample out.
-    const fell = estimateOf(10, 8);
-    expect(fell.predictionError()).toBeCloseTo(0.25, 6);
-    expect(fell.confidentBps()).toBeCloseTo((Math.sqrt(10 * 8) * 1e6) / 1.25, -1);
+    // With nothing loaded, 1.28 spreads (the floor, 0.3) over the root of five samples below.
+    expect(steady.confidentBps(0)).toBeCloseTo(
+      10_000_000 * Math.exp((-1.28 * 0.3) / Math.sqrt(5)),
+      -1,
+    );
+    // The next chunk alone: its own luck is not averaged away.
+    expect(steady.nextChunkBps(0)).toBeCloseTo(
+      10_000_000 * Math.exp(-1.28 * 0.3 * Math.sqrt(1.2)),
+      -1,
+    );
+    // From 20 s loaded, the median: the estimate itself.
+    expect(steady.confidentBps(20)).toBeCloseTo(10_000_000, -1);
+    expect(steady.confidentBps(30)).toBeCloseTo(10_000_000, -1);
+    // Straight between the points: 1.06 at 5 s, 0.42 at 15 s.
+    expect(boundDeviationsAt(5)).toBeCloseTo(1.06, 6);
+    expect(boundDeviationsAt(15)).toBeCloseTo(0.42, 6);
+    // 8 after an estimate of 10: the prediction was a quarter of the sample out, which says only
+    // whether its samples agree.
+    expect(estimateOf(10, 8).predictionError()).toBeCloseTo(0.25, 6);
   });
 
-  it("is the sample itself before any prediction, and nothing before any sample", () => {
+  it("has no bound before any sample, and none but the next chunk's from a prior alone", () => {
     expect(new LinkEstimate().estimateBps()).toBeUndefined();
-    expect(new LinkEstimate().confidentBps()).toBeUndefined();
-    expect(estimateOf(5).confidentBps()).toBeCloseTo(5_000_000, -1);
+    expect(new LinkEstimate().confidentBps(0)).toBeUndefined();
+    expect(new LinkEstimate().nextChunkBps(0)).toBeUndefined();
+    expect(estimateOf(5).confidentBps(20)).toBeCloseTo(5_000_000, -1);
     expect(estimateOf(5).predictionError()).toBeUndefined();
+    const remembered = new LinkEstimate({ kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 });
+    expect(remembered.confidentBps(0)).toBeUndefined();
+    expect(remembered.nextChunkBps(20)).toBeCloseTo(17_000_000, -1);
+  });
+
+  it("keeps a top quality through one slow sample of five where the old divisor cut it (failure 3)", () => {
+    // The Fire TV's five samples (staging, Nosferatu, 2026-10-28): 9.65, 18.2, 12.7, 2.51, 22.6 Mb/s.
+    const fireTv = new LinkEstimate();
+    for (const [bytes, arrivedMs] of [
+      [191_842, 159],
+      [895_044, 393],
+      [555_018, 349],
+      [376_471, 1200],
+      [801_491, 284],
+    ] as const) {
+      fireTv.add({ level: 3, bytes, arrivedMs, firstByteMs: 40 });
+    }
+    // The 80% bound for the mean, at 10 s loaded: 9.3 Mb/s in bandwidth-sampling §1.3, where
+    // RobustMPC's divisor read 1.3 Mb/s, and 7.3 over this estimate.
+    expect((fireTv.confidentBps(10) ?? 0) / 1e6).toBeGreaterThan(9);
   });
 
   it("agrees when its predictions erred at most a fifth, and not before it has predicted", () => {
@@ -81,11 +117,15 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
     expect(estimateOf(10, 7, 10).agrees()).toBe(false);
   });
 
-  it("a varying link is targeted near its slowest samples", () => {
+  it("a varying link is targeted near its slowest samples, the more so the less is loaded", () => {
     const varying = estimateOf(4, 12, 3, 11);
     const mean = (4 + 12 + 3 + 11) / 4;
-    expect((varying.confidentBps() ?? 0) / 1e6).toBeLessThan(3);
-    expect((varying.confidentBps() ?? 0) / 1e6).toBeLessThan(mean / 2);
+    // Its spread is wide: one chunk's bound is near its slowest, under half its mean.
+    expect((varying.nextChunkBps(0) ?? 0) / 1e6).toBeLessThan(3);
+    expect((varying.nextChunkBps(0) ?? 0) / 1e6).toBeLessThan(mean / 2);
+    expect(varying.confidentBps(0) ?? 0).toBeLessThan(varying.confidentBps(10) ?? 0);
+    // A steady link's bound is far nearer its centre.
+    expect((estimateOf(7, 8, 7.5, 7.2).nextChunkBps(0) ?? 0) / 1e6).toBeGreaterThan(4.5);
   });
 
   it("is not ruled by one slow sample of five: the most extreme error is set aside", () => {
@@ -103,7 +143,7 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
     expect(fireTv.kept()).toBe(trimsErrorFromSamples);
     expect((fireTv.estimateBps() ?? 0) / 1000).toBeCloseTo(11_488, -1); // the four good ones', where the harmonic mean made 7355
     expect(fireTv.predictionError()).toBeLessThan(1); // where the slow one alone made it 404%
-    expect((fireTv.confidentBps() ?? 0) / 1000).toBeGreaterThan(4000); // not 1459 kb/s
+
     // Two slow samples of five are a link that varies, and still count.
     expect(estimateOf(12, 12, 2, 12, 2).predictionError()).toBeGreaterThan(1); // the second slow one's
     // Fewer than five kept: every error counts.
@@ -111,14 +151,63 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
   });
 
   it("says itself and its samples in a line for the log (D352 §5)", () => {
-    expect(estimateText(new LinkEstimate())).toBe("unmeasured");
-    expect(estimateText(estimateOf(10, 8))).toBe(
-      "confident 7155 kb/s (estimate 8944, error 25%, 2 samples)",
+    expect(estimateText(new LinkEstimate(), 0)).toBe("unmeasured");
+    expect(estimateText(estimateOf(10, 8), 10)).toBe(
+      "confident 7137 kb/s (estimate 8944, spread 0.38, z 0.84, error 25%, 2 samples)",
     );
+    const remembered = new LinkEstimate({ kbps: 17_000, logSpread: 0.3, countsAsSamples: 2 });
+    remembered.add(sampleAt(16));
+    expect(estimateText(remembered, 20)).toMatch(/, 1 sample, prior 17000 kb\/s as 2\)$/u);
+    remembered.add(sampleAt(1));
+    remembered.add(sampleAt(1));
+    expect(estimateText(remembered, 20)).toMatch(/, prior dropped at 3\)$/u);
     expect(samplesText([])).toBe("");
     expect(samplesText(estimateOf(10, 8).samples())).toBe(
       "samples 3 1000000B 800ms fb40ms, 3 1000000B 1000ms fb40ms",
     );
+  });
+});
+
+describe("the bound's calibration (bandwidth-sampling-2026-10-29.md P6, §6.8 test 5)", () => {
+  /** A seeded generator of uniform numbers in [0, 1) (mulberry32), so the test is the same each run. */
+  function seeded(seed: number): () => number {
+    let state = seed;
+    return () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+      mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+      return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+    };
+  }
+
+  /** A standard normal number from two uniform ones (Box and Muller). */
+  function normalOf(random: () => number): number {
+    return Math.sqrt(-2 * Math.log(Math.max(random(), 1e-12))) * Math.cos(2 * Math.PI * random());
+  }
+
+  it("is slower than its 90% bound for a tenth of the link's chunks, give or take 3%, with 5% of samples near nothing", () => {
+    const random = seeded(29);
+    let estimate = new LinkEstimate();
+    let linksChunks = 0;
+    let slower = 0;
+    for (let chunk = 0; chunk < 20_000; chunk += 1) {
+      if (chunk % 50 === 0) {
+        estimate = new LinkEstimate(); // a playback of fifty chunks
+      }
+      // Log-normal with the Fire TV's spread, 0.38, about 10 Mb/s; one in twenty a stuck
+      // transport's thousandth of it, taken as a sample all the same, the worst case for the
+      // estimate: such a chunk is slower than any bound, and says nothing of the link's speed.
+      const isStuck = random() < 0.05;
+      const bps = isStuck ? 10_000 : 10_000_000 * Math.exp(0.38 * normalOf(random));
+      const bound = estimate.nextChunkBps(0);
+      if (bound !== undefined && !isStuck) {
+        linksChunks += 1;
+        slower += bps < bound ? 1 : 0;
+      }
+      estimate.add({ level: 0, bytes: 1_000_000, arrivedMs: 8e9 / bps, firstByteMs: 10 });
+    }
+    expect(slower / linksChunks).toBeGreaterThan(0.07);
+    expect(slower / linksChunks).toBeLessThan(0.13);
   });
 });
 

@@ -377,14 +377,16 @@ export class Choosing<Chunk extends FollowedChunk> {
   }
 
   /**
-   * The link as reported, and remembered for the device's next start (D257 §1): its confident
+   * The link as reported, and remembered for the device's next start (D257 §1): its estimate, the
+   * centre the next start's prior is (bandwidth-sampling P2), never a bound of it, which would
+   * remember each playback lower than the last; once reportsLinkFromSamples chunks measured it.
    * estimate, in kbit/s (D352 §1); undefined before reportsLinkFromSamples chunks measured it.
    */
   linkKbps(): number | undefined {
-    const confidentBps = this.#estimate.confidentBps();
-    return confidentBps === undefined || this.#estimate.count() < reportsLinkFromSamples
+    const estimateBps = this.#estimate.estimateBps();
+    return estimateBps === undefined || this.#estimate.count() < reportsLinkFromSamples
       ? undefined
-      : confidentBps / 1000;
+      : estimateBps / 1000;
   }
 
   /** The playback's steadiness level (D352 §3). */
@@ -570,7 +572,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     const nowMs = this.#options.monotonicMs();
     this.#noteSteadiness(this.#steadiness.relax(nowMs));
     const ceiling = this.#ceiling;
-    const confidentBps = this.#estimate.confidentBps();
+    const confidentBps = this.#estimate.confidentBps(this.#bufferAheadS());
     if (ceiling === undefined || this.#isStarting || confidentBps === undefined) {
       return;
     }
@@ -628,7 +630,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       this.#hls.levels,
       ceiling,
       linkShare(this.#bufferAheadS(), this.#options.shareForQuality) *
-        (this.#estimate.confidentBps() ?? 0),
+        (this.#estimate.confidentBps(this.#bufferAheadS()) ?? 0),
     );
     const held = this.#heldAbove(carried, ceiling);
     const lowered = held ?? carried;
@@ -695,7 +697,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    */
   #stateText(): string {
     return (
-      `${estimateText(this.#estimate)}, ${this.#bufferAheadS().toFixed(1)} s ahead,` +
+      `${estimateText(this.#estimate, this.#bufferAheadS())}, ${this.#bufferAheadS().toFixed(1)} s ahead,` +
       ` steadiness ${String(this.#steadiness.level())},` +
       ` hold ${String(this.#steadiness.holdMs() / 1000)} s`
     );

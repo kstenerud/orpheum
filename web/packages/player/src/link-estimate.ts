@@ -70,6 +70,21 @@ const madToSpread = 1.4826;
 export const dropsPriorBeyondSpreads = 2;
 export const dropsPriorWithinSpreads = 4;
 
+/**
+ * How many standard deviations below the centre a choice reads the link, by how much is loaded
+ * ahead, in seconds: the 10th percentile with nothing loaded, the 20th at 10 s, the median from 20 s,
+ * straight between. A too-high choice costs a stall with nothing loaded and only a later swap with
+ * 20 s loaded, and under an asymmetric cost the best reading is the quantile it sets (the
+ * newsvendor's rule; bandwidth-sampling-2026-10-29.md §2.7, P4); the share a quality may take
+ * (D265 §4) stays the headroom over its rate. Textbook starting values, not measured on our links:
+ * the calibration log (P6) is to tune them.
+ */
+export const boundDeviationsByAheadS: readonly (readonly [aheadS: number, deviations: number])[] = [
+  [0, 1.28],
+  [10, 0.84],
+  [20, 0],
+];
+
 /** How many times the centre is clipped and averaged again at most: each brings it nearer, and a few settle it. */
 const centreRounds = 20;
 
@@ -105,6 +120,19 @@ interface Kept extends LinkSample {
 interface Weighed {
   readonly log: number;
   readonly weight: number;
+}
+
+/**
+ * How many standard deviations below the centre a choice reads the link with bufferAheadS loaded
+ * ahead (boundDeviationsByAheadS), straight between its points, the last's beyond it.
+ */
+export function boundDeviationsAt(bufferAheadS: number): number {
+  const points = boundDeviationsByAheadS;
+  const next = points.findIndex(([atS]) => bufferAheadS <= atS);
+  const [toS, to] = points[next] ?? points.at(-1) ?? [0, 0];
+  // Before the first point, and past the last, its own value.
+  const [fromS, from] = (next > 0 ? points[next - 1] : undefined) ?? [toS, to];
+  return toS === fromS ? to : from + ((to - from) * (bufferAheadS - fromS)) / (toS - fromS);
 }
 
 /** The median of values; undefined for none. */
@@ -167,18 +195,26 @@ function huberCentreOf(points: readonly Weighed[], spread: number): number {
  * clipAtSpreads spreads from it counts as if it were that far, so no one sample rules it. The
  * harmonic mean it replaces is at most five times its slowest sample: one chunk at 14 kb/s among four
  * at 14–18 Mb/s made it 69 kb/s, and a Fire TV dropped from Nosferatu's own picture to its lowest
- * quality for 75 s (staging, 2026-10-28; bandwidth-sampling §1.1). Its **confident estimate** is the
- * estimate divided by one plus the error of its own predictions over those samples
- * (predictionError), how far each fell from the estimate that stood before it, as a share of the
- * sample (RobustMPC's discount).
+ * quality for 75 s (staging, 2026-10-28; bandwidth-sampling §1.1).
+ *
+ * A choice reads it at a **bound**, a quantile set by what is loaded ahead (boundDeviationsByAheadS):
+ * the **confident estimate**, for a choice held over many chunks (the ceiling, the step-up), is
+ * e^(centre − z × spread × √(1/n)), and the **next chunk's** bound, for one chunk (the start gate's
+ * load), e^(centre − z × spread × √(1 + 1/n)), n the samples it counts, the prior's among them (P4).
+ * They replace RobustMPC's discount, the estimate over one plus the largest error of its own recent
+ * predictions, whose largest of a few errors was ruled by the slowest sample: one slow chunk of five
+ * cut a Fire TV's ceiling from its top quality to its second lowest (staging, 2026-10-28; §1.3).
+ * That error (predictionError) still says whether its samples agree, for a climb of several
+ * qualities (D352 §2).
  *
  * Its **prior** is the link its device last measured on its network, remembered (RememberedLink): it
  * enters the centre as a point counting as its countsAsSamples, and lends its spread while too few
  * samples are kept to measure one, until two of the playback's own samples lie dropsPriorBeyondSpreads
  * from it on the same side and within dropsPriorWithinSpreads of each other, which drops it, or the
  * playback's own samples begin to leave the window, more than linkSamplesKept of them, which retires
- * it: the window is then the playback's own (bandwidth-sampling P2). The estimate itself is the
- * playback's own samples' alone, before any; only a bound (P4) reads the prior alone.
+ * it: the window is then the playback's own (bandwidth-sampling P2). There is no estimate before the
+ * playback's own first sample, the start's quality being the server's, chosen by the same link; only
+ * the next chunk's bound reads the prior alone, for the start gate.
  */
 export class LinkEstimate {
   #samples: Kept[] = [];
@@ -295,10 +331,32 @@ export class LinkEstimate {
     return counted.at(-1);
   }
 
-  /** The estimate divided by one plus its prediction error; the estimate itself while there is no error to read. */
-  confidentBps(): number | undefined {
-    const estimate = this.estimateBps();
-    return estimate === undefined ? undefined : estimate / (1 + (this.predictionError() ?? 0));
+  /**
+   * The confident estimate, for a choice held over many chunks with bufferAheadS loaded ahead:
+   * e^(centre − z × spread × √(1/n)); undefined before the playback's own first sample.
+   */
+  confidentBps(bufferAheadS: number): number | undefined {
+    return this.estimateBps() === undefined ? undefined : this.#boundBps(bufferAheadS, 0);
+  }
+
+  /**
+   * The next chunk's bound, for one chunk's load with bufferAheadS loaded ahead:
+   * e^(centre − z × spread × √(1 + 1/n)), from the prior alone before any sample; undefined with
+   * neither.
+   */
+  nextChunkBps(bufferAheadS: number): number | undefined {
+    return this.#boundBps(bufferAheadS, 1);
+  }
+
+  /** e^(centre − z × spread × √(chunks + 1/n)) at bufferAheadS loaded ahead; undefined with no centre. */
+  #boundBps(bufferAheadS: number, chunks: number): number | undefined {
+    const centre = this.centre();
+    const counted = this.countsAsSamples();
+    if (centre === undefined || counted <= 0) {
+      return undefined;
+    }
+    const deviations = boundDeviationsAt(bufferAheadS);
+    return Math.exp(centre - deviations * this.spread() * Math.sqrt(chunks + 1 / counted));
   }
 
   /** Whether the samples kept agree: their prediction error at most samplesAgreeWithinError. */
@@ -372,12 +430,14 @@ export function linkSpreadOf(video: object): number | undefined {
 }
 
 /**
- * The confident estimate and its parts in a line, for a note of the controller's choice (D352 §5):
- * "confident 4200 kb/s (estimate 5000, error 19%, 5 samples)"; "unmeasured" before any sample.
+ * The confident estimate at bufferAheadS and its parts in a line, for a note of the controller's
+ * choice (D352 §5): "confident 4200 kb/s (estimate 5000, spread 0.31, z 0.84, error 19%, 5 samples,
+ * prior 17000 kb/s as 2)"; the prior "dropped at 2" once dropped, nothing once retired; "unmeasured"
+ * before any sample.
  */
-export function estimateText(estimate: LinkEstimate): string {
+export function estimateText(estimate: LinkEstimate, bufferAheadS: number): string {
   const estimated = estimate.estimateBps();
-  const confident = estimate.confidentBps();
+  const confident = estimate.confidentBps(bufferAheadS);
   if (estimated === undefined || confident === undefined) {
     return "unmeasured";
   }
@@ -386,9 +446,24 @@ export function estimateText(estimate: LinkEstimate): string {
   const kept = estimate.kept();
   return (
     `confident ${String(Math.round(confident / 1000))} kb/s` +
-    ` (estimate ${String(Math.round(estimated / 1000))}, error ${errorText},` +
-    ` ${String(kept)} sample${kept === 1 ? "" : "s"})`
+    ` (estimate ${String(Math.round(estimated / 1000))}, spread ${estimate.spread().toFixed(2)},` +
+    ` z ${boundDeviationsAt(bufferAheadS).toFixed(2)}, error ${errorText},` +
+    ` ${String(kept)} sample${kept === 1 ? "" : "s"}${priorText(estimate)})`
   );
+}
+
+/** The prior in a note: ", prior 17000 kb/s as 2", ", prior dropped at 2", or "" with none or retired. */
+function priorText(estimate: LinkEstimate): string {
+  const prior = estimate.prior();
+  if (prior === undefined) {
+    return "";
+  }
+  if (prior.droppedAtSample !== undefined) {
+    return `, prior dropped at ${String(prior.droppedAtSample)}`;
+  }
+  return prior.isKept
+    ? `, prior ${String(Math.round(prior.kbps))} kb/s as ${String(Math.round(prior.countsAsSamples * 10) / 10)}`
+    : "";
 }
 
 /**

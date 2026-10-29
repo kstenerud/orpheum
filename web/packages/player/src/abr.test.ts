@@ -40,9 +40,10 @@ describe("choosing a chunked playback's quality (D265)", () => {
   it("steps down to what the measured link carries, and stays down until the step-up", () => {
     const chosen = choosingFrom(40_000_000);
     const { choosing } = chosen;
-    pastStarting(chosen, 3, 5);
-    expect(choosing.linkKbps()).toBeCloseTo(5000);
-    expect(choosing.nextLevel()).toBe(2); // 70% of 5 Mb/s carries 720p, not the picture
+    pastStarting(chosen, 3, 6);
+    expect(choosing.linkKbps()).toBeCloseTo(6000);
+    // 70% of 6 Mb/s's bound with nothing loaded, 4.95, carries 720p, not the picture.
+    expect(choosing.nextLevel()).toBe(2);
     loadAt(choosing, 2, { mbps: 50 });
     expect(choosing.nextLevel()).toBe(2); // the step-up's to raise, not the next look's
   });
@@ -118,11 +119,12 @@ describe("choosing a chunked playback's quality (D265)", () => {
   it("notes each change of its ceiling with why and what it rests on: starting's end, the link, a chunk given up, a step up (D352 §5)", () => {
     const chosen = choosingFrom(40_000_000);
     const { hls, choosing } = chosen;
-    pastStarting(chosen, 3, 5);
-    const sample = "3 625000B 1000ms fb50ms";
+    pastStarting(chosen, 3, 6);
+    const sample = "3 750000B 1000ms fb50ms";
     expect(scene.steps).toEqual([
-      "started, ceiling 3 to 2; confident 5000 kb/s (estimate 5000, error 0%, 4 samples), 0.0 s ahead," +
-        ` steadiness 0, hold 30 s; samples ${[sample, sample, sample, sample].join(", ")}`,
+      "started, ceiling 3 to 2; confident 4952 kb/s (estimate 6000, spread 0.30, z 1.28, error 0%," +
+        " 4 samples), 0.0 s ahead, steadiness 0, hold 30 s;" +
+        ` samples ${[sample, sample, sample, sample].join(", ")}`,
     ]);
     // A link that falls: three slow chunks of five move the estimate, where one would not.
     for (let index = 0; index < 3; index += 1) {
@@ -130,7 +132,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     }
     choosing.nextLevel();
     expect(scene.steps[1]).toMatch(
-      /^ceiling 2 to 1: link; confident \d+ kb\/s \(estimate 2\d\d\d, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
+      /^ceiling 2 to 1: link; confident \d+ kb\/s \(estimate \d+, spread \d\.\d\d, z 1\.28, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
     const chunk = chunkAt(1);
     choosing.loading(chunk);
@@ -138,7 +140,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     chunk.stats.loading = { start: scene.nowMs, first: scene.nowMs + 50, end: 0 };
     waitMs(6000);
     expect(scene.steps[2]).toMatch(
-      /^ceiling 1 to 0: gave up a chunk of 1, 100000 B in 6000 ms, too few to measure; confident \d+ kb\/s \(estimate \d+, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
+      /^ceiling 1 to 0: gave up a chunk of 1, 100000 B in 6000 ms, too few to measure; confident \d+ kb\/s \(estimate \d+, spread \d\.\d\d, z 1\.28, error \d+%, 5 samples\), 0\.0 s ahead, steadiness 0, hold 30 s$/u,
     );
     hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
     hls.currentLevel = 0;
@@ -186,7 +188,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(told[1]?.fromQualityKbps).toBe(36_208.176);
     expect(told[1]?.qualityKbps).toBe(696);
     expect(told[1]?.why).toMatch(
-      /^gave up a chunk of 3, 750000 B in 6000 ms; confident 1008 kb\/s \(estimate 1008, error none, 1 sample\), /u,
+      /^gave up a chunk of 3, 750000 B in 6000 ms; confident \d+ kb\/s \(estimate 1008, spread 0\.38, z 1\.28, error none, 1 sample\), /u,
     );
     // The sample it took: its bytes over its first byte to the give-up.
     expect(told[1]?.linkSamples).toBe("samples 3 750000B 5950ms fb50ms");
