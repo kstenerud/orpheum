@@ -15,6 +15,7 @@ import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
 import { LiveProvider } from "./live.tsx";
+import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
@@ -68,6 +69,7 @@ import { useResource, type Resource } from "./use-resource.ts";
  */
 export function App(): JSX.Element {
   const route = useRoute();
+  useEpisodesReachedLetGoOnGoing();
   return (
     <InputLayer>
       <RoutedApp route={route} />
