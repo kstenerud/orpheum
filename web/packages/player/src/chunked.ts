@@ -13,6 +13,7 @@ import {
 } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
+import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import {
   noRoomToMakeStatus,
   tooEarlyStatus,
@@ -527,8 +528,8 @@ export function choosingOptionsOf(
 
 /**
  * Tells onFailed when the playback cannot go on (failOnFatal), what failed with it, and asks a load
- * that failed again instead (loadOnAfterFailures), heard first, so failOnFatal passes it by. Returns
- * the stopping.
+ * that failed again instead (loadOnAfterFailures) or recovers once from a fatal decoding error
+ * (recoverFromDecodingErrors), each heard first, so failOnFatal passes it by. Returns the stopping.
  */
 function failOrLoadOn(
   hls: Hls,
@@ -536,14 +537,21 @@ function failOrLoadOn(
   by: { readonly abr: OrpheumAbr; readonly onFailed: PlaybackFailed },
 ): () => void {
   const { abr, onFailed } = by;
-  const stop = loadOnAfterFailures(hls, {
+  const stopLoadingOn = loadOnAfterFailures(hls, {
     askingAgain: () => abr.choosing()?.askingAgain(),
     note: linkNoter(video),
     carrierOf: mediaCarrierOf,
     page: typeof window === "undefined" ? undefined : window,
   });
+  const stopRecoveringDecoding = recoverFromDecodingErrors(hls, {
+    note: linkNoter(video),
+    carrierOf: mediaCarrierOf,
+  });
   failOnFatal(hls, onFailed, mediaCarrierOf);
-  return stop;
+  return () => {
+    stopLoadingOn();
+    stopRecoveringDecoding();
+  };
 }
 
 /**
