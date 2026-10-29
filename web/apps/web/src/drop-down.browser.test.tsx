@@ -132,8 +132,10 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
         />,
       ),
     );
-    mounted.container.querySelector<HTMLElement>(".route-chooser__button")?.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(
+      mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
+    );
+    await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
     const first = document.querySelector<HTMLElement>("dialog ul button");
     await expect.poll(() => document.activeElement).toBe(first);
     const close = boxOf(document.querySelector("dialog .drop-down__close"));
@@ -155,8 +157,10 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
         />,
       ),
     );
-    mounted.container.querySelector<HTMLElement>(".route-chooser__button")?.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(
+      mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
+    );
+    await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
     const places = document.querySelector<HTMLElement>("dialog .drop-down__places");
     const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
     expect((places?.scrollHeight ?? 0) > (places?.clientHeight ?? 0)).toBe(true);
