@@ -357,6 +357,11 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
+- **Next batch (the owner, 2026-10-29):** the core and its discovery must find each other again whatever
+  order they restart in ("It should be able to figure itself out either way"). Staging, 22:19:56: the
+  core restarted, then connectd; the core's signalling said it connected (22:19:58), yet every offer then
+  timed out at connectd ("wait for the core's answer: context deadline exceeded") until the core was
+  restarted again (22:21:38). A signalling link that answers nothing must be noticed and redialled.
 - **Next batch (the owner, 2026-10-29, VQ139's run):** Firefox took ~45 s to come back after the Mac's
   Wi-Fi returned; Chrome far less. Find why (Firefox's ICE state machine, D-numbers in idiosyncrasies.md's
   Firefox entry; the re-offer's backoff) and bring it in line.
