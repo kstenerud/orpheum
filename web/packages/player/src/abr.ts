@@ -5,13 +5,11 @@ import {
   giveUpFor,
   highestWithin,
   linkShare,
-  isLoadedWhereItStands,
   isUnplayable,
   keptOwnPicture,
   ownPictureLevel,
   commonStartForMs,
   commonStartLevel,
-  isWaitingToPlay,
   measuresTheLink,
   startingLevel,
   steadyLevel,
@@ -26,11 +24,9 @@ import type {
   FollowedChunk,
 } from "./abr-options.ts";
 import { estimateText, LinkEstimate, samplesText, type LinkSample } from "./link-estimate.ts";
+import { PlayedTime, StandingStill } from "./abr-video.ts";
 import { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs } from "./step-up.ts";
-
-/** How far, in seconds, a video's position must move to be playing, not standing still. */
-const movedAtLeastS = 0.1;
 
 /** How often the controller looks at a chunk on its way (D265 §3). */
 export const lookAtChunkEveryMs = 500;
@@ -66,29 +62,12 @@ export const holdsQualityAheadS = stepUpBufferMs / 1000;
 export const reportsLinkFromSamples = 2;
 
 /**
- * How much faster than the clock a video's position may move between two looks and still count as
- * played: more is a seek forward, not playing.
- */
-const playsAtMostTimesTheClock = 2;
-
-/**
  * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
  * live: enough that a busy chunk still arrives well before it plays (D262 §2).
  */
 export const paceAboveQuality = 1.25;
 
 export type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
-
-/**
- * Where a video, asked to play, has stood still: since when with what it plays there loaded
- * (undefined while not), and how many chunks came meanwhile.
- */
-interface StillAt {
-  readonly positionS: number;
-  loadedSinceMs: number | undefined;
-  chunksLoaded: number;
-  chunksNotHeld: number;
-}
 
 /**
  * Every choice of a chunked playback's quality (D265), by abr-choice.ts's rules: where it starts,
@@ -141,11 +120,10 @@ export class Choosing<Chunk extends FollowedChunk> {
   #isStarting = true;
   /** Whether the hold of the quality loading (holdsQualityAheadS) was noted since it began. */
   #isHoldNoted = false;
-  /** How long the video has played, in ms, and where it was at the last look. */
-  #playedMs = 0;
-  #lastPosition: { readonly positionS: number; readonly atMs: number } | undefined;
+  /** How long the video has played. */
+  readonly #played = new PlayedTime();
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
-  #still: StillAt | undefined;
+  readonly #still = new StandingStill();
   /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
   #commonUntilMs = 0;
   /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
@@ -165,7 +143,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       setInterval(() => {
         this.#lookAtChunk();
         this.#lookAtPlaying();
-        this.#countPlayed();
+        this.#played.look(this.#hls.media, this.#options.monotonicMs());
         this.#endStartingWhenDone();
       }, lookAtChunkEveryMs),
       setInterval(() => {
@@ -321,9 +299,7 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture loaded. */
   loaded(chunk: Chunk): void {
-    if (this.#still !== undefined) {
-      this.#still.chunksLoaded += 1;
-    }
+    this.#still.chunkLoaded();
     if (this.#onItsWay?.chunk === chunk) {
       this.#onItsWay = undefined;
     }
@@ -337,8 +313,8 @@ export class Choosing<Chunk extends FollowedChunk> {
    * bufferAppendNoProgress): counted while the video stands still at that quality (D266).
    */
   notHeld(level: number): void {
-    if (this.#still !== undefined && level === this.#hls.loadLevel) {
-      this.#still.chunksNotHeld += 1;
+    if (level === this.#hls.loadLevel) {
+      this.#still.chunkNotHeld();
     }
   }
 
@@ -498,7 +474,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    */
   #lookAtPlaying(): void {
     const nowMs = this.#options.monotonicMs();
-    const still = this.#standingStill(nowMs);
+    const still = this.#still.look(this.#hls.media, nowMs);
     const level = this.#hls.loadLevel;
     if (
       still !== undefined &&
@@ -512,31 +488,6 @@ export class Choosing<Chunk extends FollowedChunk> {
     ) {
       this.#giveUpUnplayable(level, still.positionS);
     }
-  }
-
-  /**
-   * Where the video, waiting to play, has stood still since the last look, kept up to date; undefined
-   * when it is not waiting, or has just moved and starts standing still afresh.
-   */
-  #standingStill(nowMs: number): StillAt | undefined {
-    const media = this.#hls.media;
-    if (media === null || !isWaitingToPlay(media)) {
-      this.#still = undefined;
-      return undefined;
-    }
-    const isLoaded = isLoadedWhereItStands(media);
-    const still = this.#still;
-    if (still === undefined || Math.abs(media.currentTime - still.positionS) > movedAtLeastS) {
-      this.#still = {
-        positionS: media.currentTime,
-        loadedSinceMs: isLoaded ? nowMs : undefined,
-        chunksLoaded: 0,
-        chunksNotHeld: 0,
-      };
-      return undefined;
-    }
-    still.loadedSinceMs = isLoaded ? (still.loadedSinceMs ?? nowMs) : undefined;
-    return still;
   }
 
   /**
@@ -563,7 +514,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (this.#forced !== undefined && this.#forced >= this.#unplayableFrom) {
       this.#forced = undefined; // obeyed, it would load the quality given up
     }
-    this.#still = undefined;
+    this.#still.forget();
     this.#onItsWay = undefined;
     this.#lower(level - 1, () => "unplayable here");
     this.#lastChosen = -1;
@@ -618,27 +569,6 @@ export class Choosing<Chunk extends FollowedChunk> {
   }
 
   /**
-   * Counts how long the video has played since the last look: its position moving forward, while
-   * not paused, no faster than playsAtMostTimesTheClock (a seek forward is not played).
-   */
-  #countPlayed(): void {
-    const media = this.#hls.media;
-    const nowMs = this.#options.monotonicMs();
-    if (media === null) {
-      this.#lastPosition = undefined;
-      return;
-    }
-    const last = this.#lastPosition;
-    if (last !== undefined && !media.paused) {
-      const advanceMs = (media.currentTime - last.positionS) * 1000;
-      if (advanceMs > 0 && advanceMs <= (nowMs - last.atMs) * playsAtMostTimesTheClock) {
-        this.#playedMs += advanceMs;
-      }
-    }
-    this.#lastPosition = { positionS: media.currentTime, atMs: nowMs };
-  }
-
-  /**
    * Ends starting once startingSamples chunks measured the link and the video played
    * startingPlayedMs: the ceiling becomes the highest quality the confident estimate carries, by
    * D265 §4's share, no higher than it was (D352 §1), and the end is noted with its samples.
@@ -647,7 +577,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (
       !this.#isStarting ||
       this.#estimate.count() < startingSamples ||
-      this.#playedMs < startingPlayedMs
+      this.#played.playedMs() < startingPlayedMs
     ) {
       return;
     }
