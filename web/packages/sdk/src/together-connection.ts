@@ -417,7 +417,7 @@ export interface TellsStanding {
  */
 interface Lost {
   readonly atMs: number;
-  readonly why: "closed" | "silent" | "shown";
+  readonly why: "closed" | "silent" | "shown" | "back";
 }
 
 class SessionConnection
@@ -452,8 +452,8 @@ class SessionConnection
     alive: (roundTripMs) => {
       this.note({ kind: "shownAgain", why: "alive", roundTripMs });
     },
-    dead: (atMs) => {
-      this.#dropDeadSocket({ atMs, why: "shown" });
+    dead: (atMs, why) => {
+      this.#dropDeadSocket({ atMs, why });
     },
   });
   /** Ends hearing the page hidden and shown, and the path back; undefined while closed. */
@@ -550,8 +550,8 @@ class SessionConnection
     this.#attempt = 0;
     this.#lost = undefined; // a fresh connection, not one connecting again
     this.#stopHearingPage?.();
-    this.#stopHearingPage = whenShownOrBack(this.#options.page, this.#options.pathBack, () => {
-      this.#shownAgain();
+    this.#stopHearingPage = whenShownOrBack(this.#options.page, this.#options.pathBack, (why) => {
+      this.#shownAgain(why);
     });
     this.#connect();
   };
@@ -655,14 +655,14 @@ class SessionConnection
    * as dead unless it answers within shownAnswerWithinMs, the one way a socket is dropped as dead
    * (#dropDeadSocket), sooner than its pings would.
    */
-  #shownAgain(): void {
+  #shownAgain(why: "shown" | "back"): void {
     if (this.#snapshot.status === "reconnecting" && this.#reconnectTimer !== undefined) {
       this.#cancelReconnect();
       this.#connect();
       return;
     }
     if (this.#snapshot.status === "connected") {
-      this.#shownCheck.start();
+      this.#shownCheck.start(why);
     }
   }
 
