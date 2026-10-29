@@ -349,7 +349,6 @@ had leaned on.
   server for a new decision, which restarts playback; a switch in place needs the API to give each
   sound its own carried gain and levelling (D226, D368), the owner's call. The boost now goes through
   the player's common switch.
-- **The Watch Together page's UX revamp** (the owner, 2026-10-29: "The whole watch together page is going
-  to need a major UX revamp"): found in VQ104 — the host, away from the film, did not see the way back
-  to watching ("Back to the film", now drawn as the primary action as a stopgap). The revamp's design is
-  the owner's; research and sketch first.
+- **Not scheduled — the major UX rewrite** (the owner, 2026-10-29): deferred until enough features are in,
+  so it is done once, coherently; until then only small UI changes, and fixes where things get too ugly.
+  The Watch Together page's way back to watching (VQ104: the host missed it) is one of its inputs.
