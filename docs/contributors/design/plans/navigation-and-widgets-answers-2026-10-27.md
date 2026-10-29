@@ -351,7 +351,7 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
-- **Next batch (found 2026-10-29, VQ126's fix):** the `live:` socket (`web/apps/web/src/live-connection.ts`)
+- **Next batch (found 2026-10-29, VQ126's fix; the owner agreed):** the `live:` socket (`web/apps/web/src/live-connection.ts`)
   has its own ping and reconnect, separate from the session connection's, and so still waits out its
   silence limit after a phone is unlocked (the S23: live socket reconnected 20 s after the unlock).
   Route it through the session connection's shown-again check (`web/packages/sdk/src/shown-check.ts`),
