@@ -1595,7 +1595,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `playerChanged` after it a `behindGroupMs` no more negative than `aheadForLoadMs`, which on staging's
   link is a few seconds, never a minute. (`web/packages/sdk/src/rtc-media.ts`,
   `together-load-speed.ts`, `together-follow.ts`; `internal/core/together/player_log.go`)
-- [ ] **VQ134** — a Watch Together session left with no player keeps its playing state (D375), on
+- [x] **VQ134** — a Watch Together session left with no player keeps its playing state (D375), on
   staging. On the Mac, Chrome hosting a session and Firefox a guest, both playing the film; the S23
   in it too, then locked. (1) Turn the Mac's Wi-Fi off for about a minute, then on. Passes when the
   core's log has `groupChanged state=Paused event=everyoneLeft … heldPlaying=true` as the last of
@@ -1605,6 +1605,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   when the log says `heldPlaying=false`, and both come back to the film paused where it was, until
   someone presses Play. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together.ts`, `web/apps/web/src/together-events.ts`)
+  **Passed 2026-10-29 (the owner, staging):** held and played on with no press; the owner then asked that
+  a returning leader's own position win (D376, built separately).
 - [ ] **VQ135** — a film's playback through a minute's outage neither restarts from the start nor
   condemns its top quality, on staging. With the Mac's Chrome playing a film alone at its top quality
   (the core's log saying the top level for it), turn the Mac's Wi-Fi off for about a minute, past
