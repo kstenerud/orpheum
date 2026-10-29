@@ -43,7 +43,9 @@
 /* The places scroll within the list, the Close above them staying put (drop-down.tsx). They start
    below the Close by the focus ring's room too, and a place scrolled to stops there, never under the
    Close: the Close covered the first place's ring (the owner's Fire TV, 2026-10-29: "You can see it
-   partially covering the outline around the first item"). */
+   partially covering the outline around the first item"). A place scrolled to at the bottom keeps
+   the ring's room below it too, which the places' edge clipped (the owner's Fire TV, 2026-10-29: "the
+   highlight around the current item is slightly cut off at the bottom of the menu canvas"). */
 .drop-down__places {
   --drop-down-places-top: calc(var(--size-control) + var(--focus-ring-room));
 
@@ -51,7 +53,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--drop-down-places-top) var(--space-2) var(--space-2);
-  scroll-padding-block-start: var(--drop-down-places-top);
+  scroll-padding-block: var(--drop-down-places-top) var(--focus-ring-room);
 }
 
 /* The Close: a cross at the list's top-right, over the places that scroll under it. */
