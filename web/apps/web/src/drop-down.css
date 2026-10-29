@@ -40,12 +40,18 @@
   max-width: calc(100vw - 16px);
 }
 
-/* The places scroll within the list, the Close above them staying put (drop-down.tsx). */
+/* The places scroll within the list, the Close above them staying put (drop-down.tsx). They start
+   below the Close by the focus ring's room too, and a place scrolled to stops there, never under the
+   Close: the Close covered the first place's ring (the owner's Fire TV, 2026-10-29: "You can see it
+   partially covering the outline around the first item"). */
 .drop-down__places {
+  --drop-down-places-top: calc(var(--size-control) + var(--focus-ring-room));
+
   max-height: calc(85vh - 4px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--size-control) var(--space-2) var(--space-2);
+  padding: var(--drop-down-places-top) var(--space-2) var(--space-2);
+  scroll-padding-block-start: var(--drop-down-places-top);
 }
 
 /* The Close: a cross at the list's top-right, over the places that scroll under it. */

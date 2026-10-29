@@ -117,7 +117,49 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     expect(document.querySelector("dialog")).toBeNull();
     expect(window.scrollY).toBe(scrolled);
   });
+
+  // The owner's Fire TV, 2026-10-29: "The X button on the list partially obscures the first item ...
+  // You can see it partially covering the outline around the first item in the list."
+  it("keeps its first place, focus ring and all, clear of its Close", async () => {
+    await page.viewport(width, height);
+    mounted = await mount(
+      withServices(
+        <ActionChooser
+          fieldLabel="Order"
+          isFieldLabelShown={false}
+          current="Choice 1"
+          options={sorts.map((sort, at) => ({ ...sort, isCurrent: at === 0 }))}
+        />,
+      ),
+    );
+    mounted.container.querySelector<HTMLElement>(".route-chooser__button")?.focus();
+    await userEvent.keyboard("{Enter}");
+    const first = document.querySelector<HTMLElement>("dialog ul button");
+    await expect.poll(() => document.activeElement).toBe(first);
+    const close = boxOf(document.querySelector("dialog .drop-down__close"));
+    expect(isOverlapping(close, ringedBoxOf(first))).toBe(false);
+  });
 });
+
+/** Whether two boxes overlap, more than layout's rounding. */
+function isOverlapping(one: DOMRect, other: DOMRect): boolean {
+  return (
+    one.left < other.right - roundingPx &&
+    other.left < one.right - roundingPx &&
+    one.top < other.bottom - roundingPx &&
+    other.top < one.bottom - roundingPx
+  );
+}
+
+/** An element's box with the focus ring drawn around it (tokens.css's --focus-ring-room). */
+function ringedBoxOf(element: Element | null): DOMRect {
+  const box = boxOf(element);
+  const room = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--focus-ring-room"),
+  );
+  const ring = Number.isNaN(room) ? 6 : room;
+  return new DOMRect(box.left - ring, box.top - ring, box.width + 2 * ring, box.height + 2 * ring);
+}
 
 /** Five choices, as a five-season series' picker, the one at current the current one. */
 function fiveChoices(current: number): readonly {

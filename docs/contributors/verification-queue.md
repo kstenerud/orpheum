@@ -1066,7 +1066,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   menu opens up partially scrolled down (I see from Needs a match to Device tests) rather than
   showing from the top of the list": the banner's menu opens showing its top, its top at its icon,
   its first place focused, on any page, one of its own places too; the choosers still open on
-  their current choice.
+  their current choice. (13) "The X button on the list partially obscures the first item, which
+  looks ugly. You can see it partially covering the outline around the first item in the list": in
+  the menu and every chooser, on the Fire TV and a computer, the Close covers no part of the first
+  place or its focus ring, a first choice opened at a chooser near the screen's top too, and a place
+  moved back up to stops below the Close.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays

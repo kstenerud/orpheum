@@ -122,6 +122,25 @@ function layAtOpener(
   const laidMiddle = at.isFromItsTop ? undefined : focusedMiddleIn(dialog);
   if (!isPhone && laidMiddle !== undefined) {
     places.scrollBy({ top: laidMiddle - (openerBox.top + openerBox.height / 2) });
+    keepFocusedClearOfClose(places);
+  }
+}
+
+/**
+ * Scrolls places back where their focused place lies under the Close, its ring and all (the places'
+ * top padding, drop-down.css): a first choice laid over a button at the screen's top went under it
+ * (the owner's Fire TV, 2026-10-29).
+ */
+function keepFocusedClearOfClose(places: HTMLElement): void {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement) || !places.contains(focused)) {
+    return;
+  }
+  const clearTop =
+    places.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(places).paddingTop);
+  const under = clearTop - focused.getBoundingClientRect().top;
+  if (under > 0) {
+    places.scrollBy({ top: -under });
   }
 }
 
