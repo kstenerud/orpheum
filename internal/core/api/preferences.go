@@ -90,7 +90,7 @@ func (server *Server) registerPreferences() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
-			"autoplay",
+			"autoplay; and whether their pages show debug tools",
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setMyPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
@@ -147,6 +147,9 @@ type SetMyPreferencesInput struct {
 		IsLevellingOn *bool `json:"isLevellingOn,omitempty" required:"false"`
 		// IsAutoplayOn, when given, is whether the next episode plays by itself (plans/up-next.md).
 		IsAutoplayOn *bool `json:"isAutoplayOn,omitempty" required:"false"`
+		// ShowsDebugTools, when given, is whether the person's pages show the tools marked as debug
+		// tools, which GET /me says (UserBody).
+		ShowsDebugTools *bool `json:"showsDebugTools,omitempty" required:"false"`
 		// LeftOutLibraryIDs, when given, are the libraries the person leaves out of Films and Series
 		// (D349 §8), all of them: an empty list leaves none out.
 		LeftOutLibraryIDs []int64 `json:"leftOutLibraryIds,omitempty" maxItems:"1000" required:"false"`
@@ -174,6 +177,11 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 	if isOn := input.Body.IsAutoplayOn; isOn != nil {
 		if err := dependencies.Preferences.SetAutoplay(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep whether a person's next episode plays by itself", err)
+		}
+	}
+	if isShown := input.Body.ShowsDebugTools; isShown != nil {
+		if err := dependencies.Preferences.SetDebugTools(ctx, principal.UserID, *isShown); err != nil {
+			return nil, server.playbackError(ctx, "keep whether a person's pages show debug tools", err)
 		}
 	}
 	if leftOut := input.Body.LeftOutLibraryIDs; leftOut != nil {

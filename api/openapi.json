@@ -6590,6 +6590,9 @@
               "array",
               "null"
             ]
+          },
+          "showsDebugTools": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -8224,6 +8227,9 @@
           },
           "role": {
             "type": "string"
+          },
+          "showsDebugTools": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8233,7 +8239,8 @@
           "isAdmin",
           "canHostWatchTogether",
           "canManageAccount",
-          "hasNoLibrary"
+          "hasNoLibrary",
+          "showsDebugTools"
         ],
         "type": "object"
       },
@@ -13737,7 +13744,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay",
+        "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay; and whether their pages show debug tools",
         "tags": [
           "Playback"
         ]

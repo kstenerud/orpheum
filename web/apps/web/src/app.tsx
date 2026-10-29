@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { setReadyAheadPercent, type Api, type components } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -34,6 +34,7 @@ import {
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { CreateLibraryPage } from "./create-library.tsx";
+import { DebugToolsContext, type DebugToolsChoice } from "./debug-tools.tsx";
 import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
 import { LibraryBrowse } from "./library-browse.tsx";
@@ -91,7 +92,9 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
     return (
       <LaterScreen resetKey={props.route.screen}>
         <LiveProvider>
-          <TogetherViewer />
+          <GuestDebugTools>
+            <TogetherViewer />
+          </GuestDebugTools>
         </LiveProvider>
       </LaterScreen>
     );
@@ -108,6 +111,22 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
     return <SignedIn />;
   }
   return isLeavingForTheDiscovery ? <LeavingForSignIn /> : <SignIn />;
+}
+
+/**
+ * A Watch Together page's debug tools, by its person's own choice when they are signed in, read with
+ * who they are (GET /me); hidden for a guest by link alone, who has no choice to read.
+ */
+function GuestDebugTools(props: { readonly children: ReactNode }): JSX.Element {
+  const { api } = useServices();
+  const token = useToken();
+  const [me, reload] = useResource(
+    `debug-tools:${token === undefined ? "guest" : "signed-in"}`,
+    async () => (token === undefined ? undefined : dataOrThrow(await api.GET("/me"))),
+  );
+  const isShown = me.state === "loaded" && me.value?.showsDebugTools === true;
+  const choice = useMemo(() => ({ isShown, onChanged: reload }), [isShown, reload]);
+  return <DebugToolsContext value={choice}>{props.children}</DebugToolsContext>;
 }
 
 /**
@@ -142,7 +161,7 @@ function SignedIn(): JSX.Element {
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
   // reloaded (the owner's Chrome, 2026-10-15).
-  const [meNow] = useResource(`me:${String(usePathMoveCount())}`, async () =>
+  const [meNow, readMeAgain] = useResource(`me:${String(usePathMoveCount())}`, async () =>
     dataOrThrow(await api.GET("/me")),
   );
   // While it is read again, what it said last stays: the warning sign and the admin's places went
@@ -155,6 +174,7 @@ function SignedIn(): JSX.Element {
     signOutHere(api, session);
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
+  const debugTools = useDebugToolsOf(me, readMeAgain);
   const clientSettings = useClientSettings();
   const poller = useServersPoller(clientSettings);
   useReadyAheadOfTheServer(clientSettings);
@@ -167,36 +187,50 @@ function SignedIn(): JSX.Element {
   }, [api]);
   return (
     <IsAdminContext value={isAdmin}>
-      <LiveProvider>
-        <HostVoiceProvider membership={hostMembership}>
-          <BackgroundChangesContext value={poller}>
-            <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
-              <AppShell
-                isAdmin={isAdmin}
-                canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-                signedInAs={
-                  me.state === "loaded"
-                    ? { name: me.value.name, deviceName: me.value.device?.name }
-                    : undefined
-                }
-                currentScreen={route.screen}
-                administersFromHomeAt={administersFromHomeAt(me)}
-                realm={realm}
-                showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
-                showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
-                onSwitchHousehold={switchHousehold}
-                onSignOut={signOut}
-              >
-                <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                  <Screen route={route} />
-                </DeviceTestsOfferedContext>
-              </AppShell>
-            </InterestSaidEveryContext>
-          </BackgroundChangesContext>
-        </HostVoiceProvider>
-      </LiveProvider>
+      <DebugToolsContext value={debugTools}>
+        <LiveProvider>
+          <HostVoiceProvider membership={hostMembership}>
+            <BackgroundChangesContext value={poller}>
+              <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
+                <AppShell
+                  isAdmin={isAdmin}
+                  canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+                  signedInAs={
+                    me.state === "loaded"
+                      ? { name: me.value.name, deviceName: me.value.device?.name }
+                      : undefined
+                  }
+                  currentScreen={route.screen}
+                  administersFromHomeAt={administersFromHomeAt(me)}
+                  realm={realm}
+                  showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+                  showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
+                  onSwitchHousehold={switchHousehold}
+                  onSignOut={signOut}
+                >
+                  <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
+                    <Screen route={route} />
+                  </DeviceTestsOfferedContext>
+                </AppShell>
+              </InterestSaidEveryContext>
+            </BackgroundChangesContext>
+          </HostVoiceProvider>
+        </LiveProvider>
+      </DebugToolsContext>
     </IsAdminContext>
   );
+}
+
+/**
+ * The person's own Show debug tools, read with who they are (me), and read again once they change
+ * it (readMeAgain).
+ */
+function useDebugToolsOf(
+  me: Resource<components["schemas"]["UserBody"]>,
+  readMeAgain: () => void,
+): DebugToolsChoice {
+  const isShown = me.state === "loaded" && me.value.showsDebugTools;
+  return useMemo(() => ({ isShown, onChanged: readMeAgain }), [isShown, readMeAgain]);
 }
 
 /**

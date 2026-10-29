@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { App } from "./app.tsx";
 import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
 import { buttonWithText, click, mount, servedBy } from "./test-dom.tsx";
@@ -81,5 +82,48 @@ describe("a signed-in guest's page while their device casts (D371 §4)", () => {
     expect(states.at(-1)).toMatchObject({ fileId: 0, playing: false });
     expect(states.some((each) => each["fileId"] === 5)).toBe(true);
     mounted.unmount();
+  });
+});
+
+describe("a signed-in guest's leader debug view (the owner, 2026-10-29)", () => {
+  it("marks the device leading and this one on the guest's page, by their own Show debug tools", async () => {
+    for (const showsDebugTools of [false, true]) {
+      window.localStorage.setItem(
+        "orpheum.together.viewer",
+        JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+      );
+      const services = {
+        ...servedBy(
+          {
+            "GET /me": [200, { id: 4, name: "Gran", isAdmin: false, showsDebugTools }],
+            "GET /together/mine": [200, { sessions: [] }],
+          },
+          [],
+          "token",
+        ),
+        navigation: createNavigation(fakePlace("/together")),
+      };
+      const sockets = liveAndSession(2);
+      const mounted = await mount(
+        withServices(<App />, { ...services, openTogetherSocket: sockets.openSocket }),
+      );
+      await click(buttonWithText(mounted.container, "Tap to continue"));
+      await sockets.live.accept();
+      await sockets.session.acceptEach();
+      await sockets.session.say(welcome);
+      const lines = [
+        ...mounted.container.querySelectorAll(".together-debug li, .together-debug p"),
+      ];
+      expect(lines.map((line) => line.textContent)).toEqual(
+        showsDebugTools
+          ? [
+              "Karl: device 3 (video) · ▶ leading",
+              "Gran: device 8 (video) · this device",
+              "Idle · leader device 3 (Karl) · why none · this device 8",
+            ]
+          : [],
+      );
+      mounted.unmount();
+    }
   });
 });

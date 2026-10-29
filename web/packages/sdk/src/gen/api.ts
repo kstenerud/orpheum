@@ -1389,7 +1389,7 @@ export interface paths {
         };
         /** A person's own choices, which hold in every file they play, as their settings show them */
         get: operations["getMyPreferences"];
-        /** Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay */
+        /** Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay; and whether their pages show debug tools */
         put: operations["setMyPreferences"];
         post?: never;
         delete?: never;
@@ -4580,6 +4580,7 @@ export interface components {
             isLevellingOn?: boolean;
             leftOutLibraryIds?: number[] | null;
             leftOutOfHomeLibraryIds?: number[] | null;
+            showsDebugTools?: boolean;
         };
         SetSeriesPreferencesInputBody: {
             episodeOrdering?: string;
@@ -5091,6 +5092,7 @@ export interface components {
             isAdmin: boolean;
             name: string;
             role: string;
+            showsDebugTools: boolean;
         };
         VersionBody: {
             /**

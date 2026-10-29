@@ -37,6 +37,7 @@ import { fillTheScreen } from "./film-fullscreen.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
+import { PlayOriginal } from "./play-original.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
@@ -525,23 +526,8 @@ function LadderUnder(
           }}
         />
       ) : null}
-      {/* A debug tool, which loads the file's own source in place of the ladder (the owner, 2026-10-29). */}
       <PlayOriginal onChosen={decideAgainFor({ ...props, decision }, "originalChosen")} />
     </>
-  );
-}
-
-/**
- * The button that plays the film's own file in place of its ladder, as it is, from where it stands:
- * playback is never a black box (web-client.md), and a browser that plays the ladder badly can be
- * tried on the file itself.
- */
-function PlayOriginal(props: { readonly onChosen: () => void }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <button type="button" className="play__original" onClick={props.onChosen}>
-      {t("play.playOriginal")}
-    </button>
   );
 }
 

@@ -36,6 +36,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   taking the film of the Play page it is pressed on, or the cast's remote, or Watch Together's page
   while both are on. `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
+- **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
+  2026-10-29): a control or readout for testing is wrapped in `DebugTool` (`src/debug-tools.tsx`),
+  which renders it only while the signed-in person's own Show debug tools is on, off until they turn
+  it on in Your account, kept on the server (`PUT /me/preferences`) and read with who they are
+  (`GET /me`'s `showsDebugTools`), so it follows them to every device; a guest by link alone never
+  sees one. Marked so: Play the original file, and Watch Together's leader view
+  (`src/together-debug.tsx`) on the host's session page and a signed-in guest's. `src/debug-tools.test.tsx`,
+  `src/play-original.test.tsx`, `src/together-debug.test.tsx`, `src/watch-together.test.tsx`,
+  `src/together-viewer-cast.test.tsx`.
 - **Nothing of the page is drawn under a player's stage that fills the window** (a cast's receiver, a
   refused full screen), but the receiver's lines over the film and a dialog: the rest is hidden, not
   removed, and shows as it was when the stage closes (the efficiency audit's finding 3).

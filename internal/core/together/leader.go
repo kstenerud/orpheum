@@ -179,6 +179,7 @@ func (current *session) lead(now time.Time, who *member, leading *device, why st
 	}
 	previous := current.leaderID
 	current.leaderID = leading.id
+	current.leadsBecause = leadsBecause(why, extra)
 	leading.catchingUpSince = time.Time{}
 	attributes := append([]any{
 		logEvent, eventLeaderChanged, sessionIDAttribute, current.id,
@@ -188,6 +189,19 @@ func (current *session) lead(now time.Time, who *member, leading *device, why st
 		"leaderPresentMs", now.Sub(leading.arrivedAt).Milliseconds(),
 	}, extra...)
 	current.logger.Info("watch together: the session's leader changed", attributes...)
+}
+
+// leadsBecause is why a leader leads, as the roster says it: why, and the goneBecause extra names
+// after a colon, when it names one.
+func leadsBecause(why string, extra []any) string {
+	for index := 0; index+1 < len(extra); index += 2 {
+		if extra[index] == "goneBecause" {
+			if because, isText := extra[index+1].(string); isText {
+				return why + ":" + because
+			}
+		}
+	}
+	return why
 }
 
 // arrived takes a device as it comes to contend for the lead, isAttaching its first time since it
@@ -269,6 +283,7 @@ func (current *session) handOn(now time.Time, wasHost bool, because GoneBecause)
 		return true
 	}
 	current.leaderID = 0
+	current.leadsBecause = ""
 	current.logger.Info("watch together: the session's leader changed", append([]any{
 		logEvent, eventLeaderChanged, sessionIDAttribute, current.id, leaderDeviceIDAttribute, 0, "why", leadLeaderGone,
 		"previousLeaderDeviceId", previous,

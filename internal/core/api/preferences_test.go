@@ -53,3 +53,54 @@ func TestFilePreferences_ASubtitleOffsetIsKeptPerPersonAndFileAndTheNextPlayback
 		t.Errorf("an offset over ten minutes: %d, want refused", status)
 	}
 }
+
+// A person's Show debug tools is off until they turn it on, kept on the server, said by GET /me on
+// every device they sign in on, and theirs alone (the owner, 2026-10-29: "the per-user debug
+// setting").
+func TestPreferences_ShowDebugToolsIsOffUntilThePersonTurnsItOnAndFollowsThem(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	owner := harness.createAdminAndSignIn(t)
+	_, err := harness.authService.CreateUser(t.Context(), auth.NewUser{
+		Name: "guest", Password: "guest-password", Role: auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest := harness.signIn(t, "guest", "guest-password")
+	showsDebugTools := func(token string) bool {
+		t.Helper()
+		var person struct {
+			ShowsDebugTools *bool `json:"showsDebugTools"`
+		}
+		harness.readJSON(t, "/me", token, &person)
+		if person.ShowsDebugTools == nil {
+			t.Fatal("GET /me says nothing of showsDebugTools")
+		}
+		return *person.ShowsDebugTools
+	}
+	if showsDebugTools(owner) {
+		t.Error("before any choice: debug tools shown; want hidden")
+	}
+	set := func(isShown bool) {
+		t.Helper()
+		answer := harness.do(t, http.MethodPut, "/me/preferences", owner, map[string]bool{"showsDebugTools": isShown})
+		if answer.status != http.StatusNoContent {
+			t.Fatalf("PUT showsDebugTools %v: %d %s", isShown, answer.status, answer.body)
+		}
+	}
+	set(true)
+	if !showsDebugTools(owner) {
+		t.Error("turned on: debug tools hidden; want shown")
+	}
+	if anotherDevice := harness.signIn(t, "owner", "owner-password"); !showsDebugTools(anotherDevice) {
+		t.Error("turned on, another device's session: debug tools hidden; want them to follow the person")
+	}
+	if showsDebugTools(guest) {
+		t.Error("another person: debug tools shown; want their own choice, none")
+	}
+	set(false)
+	if showsDebugTools(owner) {
+		t.Error("turned off again: debug tools shown; want hidden")
+	}
+}

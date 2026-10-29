@@ -117,6 +117,7 @@ const (
 	axisDialogueBoost = "dialogue_boost"
 	axisLevelling     = "levelling"
 	axisAutoplay      = "autoplay"
+	axisDebugTools    = "debug_tools"
 	// A switch's value is JSON, as value_json keeps it.
 	valueTrue  = "true"
 	valueFalse = "false"
@@ -192,6 +193,9 @@ type Switches struct {
 	// IsAutoplayOn is whether the next episode plays by itself after a countdown as one ends, on until
 	// they turn it off (plans/up-next.md).
 	IsAutoplayOn bool
+	// ShowsDebugTools is whether the person's pages show the controls and readouts marked as debug
+	// tools, off until they turn it on (the owner, 2026-10-29: "the per-user debug setting").
+	ShowsDebugTools bool
 }
 
 // Switches are userID's own switches, as they left them.
@@ -217,6 +221,8 @@ func personalSwitches(ctx context.Context, queries *sqlcgen.Queries, userID int6
 			switches.IsLevellingOn = preference.ValueJSON != valueFalse
 		case axisAutoplay:
 			switches.IsAutoplayOn = preference.ValueJSON != valueFalse
+		case axisDebugTools:
+			switches.ShowsDebugTools = preference.ValueJSON == valueTrue
 		}
 	}
 	return switches, nil
