@@ -42,6 +42,58 @@ export const shareRisesToS = 25;
  */
 export const arrivingWithinMs = 1000;
 
+/**
+ * How long nothing of a chunk on its way, answered, may arrive before it is asked for again, the
+ * first time, a justified constant: far longer than a live link leaves between its 64 KiB messages
+ * at the lowest quality's rate, which a chunk asked again would lose; each time again in a row waits
+ * twice as long, up to asksAgainAfterAtMostMs, so a link that comes back plays on within that. Waited for, a chunk
+ * stuck after 19 bytes over WebRTC held its player for good, hls.js's own limit two minutes away and
+ * no quality given up for it (the owner's Chrome, throttled and unthrottled, staging, 2026-10-29).
+ */
+export const asksAgainAfterMs = 8000;
+export const asksAgainAfterAtMostMs = 16_000;
+
+/**
+ * Whether a chunk on its way is to be asked for again, the asksAgain-th time in a row since a chunk
+ * last loaded (from 0): answered, its head come, with nothing of it arriving for asksAgainAfterMs,
+ * doubled for each time before, up to asksAgainAfterAtMostMs. One not yet answered is hls.js's to
+ * time out, since the core may hold it while it is made (chunk_hold_ms).
+ */
+export function isToAskAgain(
+  chunk: { readonly isAnswered: boolean; readonly sinceArrivedMs: number },
+  asksAgain: number,
+): boolean {
+  return chunk.isAnswered && chunk.sinceArrivedMs >= asksAgainWaitMs(asksAgain);
+}
+
+/** How long nothing of a chunk may arrive before it is asked for again the asksAgain-th time in a row. */
+export function asksAgainWaitMs(asksAgain: number): number {
+  return Math.min(asksAgainAfterMs * 2 ** asksAgain, asksAgainAfterAtMostMs);
+}
+
+/**
+ * How long the playback must have played before it stops starting, and how many chunks that
+ * measured the link end it at the latest (D352 §1): by 20 s played the player has filled its first
+ * buffer, a dozen chunks or more, so a bad first sample has left the estimate's five. Evidence ends
+ * it sooner: samples that settle the ceiling, the same with any one left out (#startingSettles,
+ * bandwidth-sampling-2026-10-29.md P5), which a lone sample never does. Four end it however they
+ * disagree: a playback still starting never steps up.
+ */
+export const startingSamples = 4;
+export const startingPlayedMs = 20_000;
+
+/**
+ * How many chunks must have measured the link before it is reported, and so remembered for the
+ * device's next start (D257 §1): never a lone first sample (D352 §1).
+ */
+export const reportsLinkFromSamples = 2;
+
+/**
+ * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
+ * live: enough that a busy chunk still arrives well before it plays (D262 §2).
+ */
+export const paceAboveQuality = 1.25;
+
 /** The share of the link the film may take while voice is live (D262 §2). */
 export const voiceLinkShare = 0.5;
 

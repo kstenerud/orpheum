@@ -10,7 +10,13 @@
  */
 
 import { candidatePairsOf, type CandidatePairSeen } from "./rtc-pairs.ts";
-import { abortReason, channelOf, sendOnChannel, type ChannelLike } from "./rtc-request.ts";
+import {
+  abortReason,
+  channelOf,
+  sendOnChannel,
+  silentAtMostMs,
+  type ChannelLike,
+} from "./rtc-request.ts";
 
 /**
  * How many peer connections a client opens at most, while its requests crowd them: one is bound by
@@ -269,7 +275,16 @@ export interface CarrierSeen {
   readonly upMs: number;
   readonly underWay: number;
   readonly sinceDeliveredMs: number | undefined;
+  /**
+   * Why the transport ended the request itself, once it no longer carries it: it heard nothing for
+   * silentAtMostMs, and whether its connection, silent as long, was taken as gone. Undefined while
+   * it is under way.
+   */
+  readonly ended?: string;
 }
+
+/** How many requests the transport ended itself it remembers, by URL, for carrierOf. */
+const endedKept = 32;
 
 /** The link of links with the fewest requests under way, or none. */
 function fewestUnderWay(links: readonly Link[]): Link | undefined {
@@ -304,6 +319,8 @@ export class RtcTransport {
   private readonly waiting: (() => void)[] = [];
   /** The connection carrying each request under way, by its URL, the latest asked for of each. */
   private readonly carrying = new Map<string, Link>();
+  /** The requests it ended itself, as carrierOf says them, by URL, the latest endedKept. */
+  private readonly ended = new Map<string, CarrierSeen>();
   private readonly nowMs: () => number;
 
   /** A transport over peers, growing as growth says, its connections' times read from nowMs. */
@@ -341,9 +358,20 @@ export class RtcTransport {
     const link = this.claimNow() ?? (await this.claim(signal));
     this.grow();
     const { url } = request;
+    let opened: ChannelLike;
+    try {
+      opened = link.peer.createDataChannel("request");
+    } catch (problem: unknown) {
+      // A connection that opens no channel carries nothing more: it is replaced, and its room given back.
+      link.underWay -= 1;
+      this.gone(link);
+      this.wakeWaiting();
+      throw problem;
+    }
+    this.ended.delete(url);
     this.carrying.set(url, link);
     const channel = countedChannel(
-      link.peer.createDataChannel("request"),
+      opened,
       () => {
         link.underWay -= 1;
         if (this.carrying.get(url) === link) {
@@ -357,7 +385,9 @@ export class RtcTransport {
       },
     );
     try {
-      return await sendOnChannel(channel, request);
+      return await sendOnChannel(channel, request, () => {
+        this.silent(link, url);
+      });
     } catch (problem: unknown) {
       channel.close();
       throw problem;
@@ -397,8 +427,9 @@ export class RtcTransport {
    */
   carrierOf(url: string): CarrierSeen | undefined {
     const link = this.carrying.get(url);
-    if (link === undefined) {
-      return undefined;
+    const ended = this.ended.get(url);
+    if (link === undefined || ended !== undefined) {
+      return ended;
     }
     const nowMs = this.nowMs();
     return {
@@ -407,6 +438,37 @@ export class RtcTransport {
       underWay: link.underWay,
       sinceDeliveredMs: link.deliveredAtMs === undefined ? undefined : nowMs - link.deliveredAtMs,
     };
+  }
+
+  /**
+   * The request for url heard nothing for silentAtMostMs on link: remembered for carrierOf, and link,
+   * when nothing of any request came over it for as long, taken as gone and replaced, its other
+   * requests failing with it. A connection whose data channels stopped while it stayed connected
+   * otherwise carried every request after them into the same silence (the owner's Chrome, throttled
+   * and unthrottled, staging, 2026-10-29).
+   */
+  private silent(link: Link, url: string): void {
+    const nowMs = this.nowMs();
+    const sinceDeliveredMs =
+      link.deliveredAtMs === undefined ? undefined : nowMs - link.deliveredAtMs;
+    const isLinkSilent = sinceDeliveredMs === undefined || sinceDeliveredMs >= silentAtMostMs;
+    this.ended.delete(url);
+    this.ended.set(url, {
+      connection: link.number,
+      upMs: nowMs - link.upSinceMs,
+      underWay: link.underWay,
+      sinceDeliveredMs,
+      ended: `nothing came for ${String(silentAtMostMs)} ms${isLinkSilent ? ", nor over its connection, which was replaced" : ""}`,
+    });
+    for (const oldest of this.ended.keys()) {
+      if (this.ended.size <= endedKept) {
+        break;
+      }
+      this.ended.delete(oldest);
+    }
+    if (isLinkSilent) {
+      this.gone(link);
+    }
   }
 
   /** Closes every connection, and opens no more. */
@@ -438,15 +500,27 @@ export class RtcTransport {
     this.closeWhenIdle(link);
     this.wakeWaiting();
     peer.onGone?.(() => {
-      link.stopIdle();
-      this.drop(link);
-      peer.close();
-      if (link.isNew) {
-        this.retryLater();
-      } else {
-        this.grow();
-      }
+      this.gone(link);
     });
+  }
+
+  /**
+   * Takes link out of use for good and closes it, once: its peer said it is gone, or it carries
+   * nothing any more. Another opens in its place when one is wanted: at once for one that had lived
+   * settledAfterMs, after the growing wait for one that had not.
+   */
+  private gone(link: Link): void {
+    if (!this.links.includes(link)) {
+      return;
+    }
+    link.stopIdle();
+    this.drop(link);
+    link.peer.close();
+    if (link.isNew) {
+      this.retryLater();
+    } else {
+      this.grow();
+    }
   }
 
   /** Takes link out of use. */

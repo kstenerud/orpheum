@@ -195,7 +195,7 @@ async function fetchedBy(page: ClientLike, request: Request): Promise<Response> 
   request.headers.forEach((value, name) => {
     headers.push([name, value]);
   });
-  const answered = responseFromPort(port1);
+  const answered = responseFromPort(port1, request.signal);
   page.postMessage({ kind: "orpheum-fetch", url: request.url, method: request.method, headers }, [
     port2,
   ]);

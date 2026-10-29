@@ -5,7 +5,6 @@ import {
   giveUpFor,
   givenUpSample,
   givenUpText,
-  isStuck,
   highestWithin,
   linkShare,
   isUnplayable,
@@ -14,7 +13,11 @@ import {
   commonStartForMs,
   commonStartLevel,
   measuresTheLink,
+  paceAboveQuality,
+  reportsLinkFromSamples,
   startingLevel,
+  startingPlayedMs,
+  startingSamples,
   steadyLevel,
   underCeiling,
   voiceCeiling,
@@ -46,16 +49,12 @@ export const lookAtChunkEveryMs = 500;
 /** How often it looks at whether it may step up a quality (D247 §9). */
 export const lookForStepUpEveryMs = 10_000;
 
-/**
- * How long the playback must have played before it stops starting, and how many chunks that
- * measured the link end it at the latest (D352 §1): by 20 s played the player has filled its first
- * buffer, a dozen chunks or more, so a bad first sample has left the estimate's five. Evidence ends
- * it sooner: samples that settle the ceiling, the same with any one left out (#startingSettles,
- * bandwidth-sampling-2026-10-29.md P5), which a lone sample never does. Four end it however they
- * disagree: a playback still starting never steps up.
- */
-export const startingSamples = 4;
-export const startingPlayedMs = 20_000;
+export {
+  paceAboveQuality,
+  reportsLinkFromSamples,
+  startingPlayedMs,
+  startingSamples,
+} from "./abr-choice.ts";
 
 /**
  * How much loaded ahead holds the quality loading, in seconds: while at least this much is loaded,
@@ -68,18 +67,6 @@ export const startingPlayedMs = 20_000;
  * does not hold is followed down once the buffer it spent falls under it.
  */
 export const holdsQualityAheadS = stepUpBufferMs / 1000;
-
-/**
- * How many chunks must have measured the link before it is reported, and so remembered for the
- * device's next start (D257 §1): never a lone first sample (D352 §1).
- */
-export const reportsLinkFromSamples = 2;
-
-/**
- * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
- * live: enough that a busy chunk still arrives well before it plays (D262 §2).
- */
-export const paceAboveQuality = 1.25;
 
 export type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
 
@@ -298,10 +285,15 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#onItsWay.beingMade(chunk, this.#options.monotonicMs());
   }
 
+  /** A chunk of picture's load failed or timed out, the core's 425 aside (ChunkOnItsWay.failed). */
+  failed(chunk: Chunk, details: string): void {
+    this.#options.noteLink?.(this.#onItsWay.failed(chunk, details, this.#carrierText(chunk)));
+  }
+
   /** A chunk of picture loaded. */
   loaded(chunk: Chunk): void {
     this.#still.chunkLoaded();
-    this.#onItsWay.ended(chunk);
+    this.#onItsWay.loaded(chunk);
     if (this.#forced === chunk.level) {
       this.#forced = undefined;
     }
@@ -438,12 +430,16 @@ export class Choosing<Chunk extends FollowedChunk> {
     });
     if (chosen !== undefined) {
       this.#giveUp(judged, chosen);
-    } else if (isStuck(judged) && this.#onItsWay.isStuckToNote(chunk)) {
-      // A chunk stuck that is not given up, as one of the lowest quality: which transport carried it.
-      this.#options.noteLink?.(
-        `chunk of ${String(chunk.level)} ${givenUpText({ ...judged, isSample: false })};` +
-          ` ${this.#carrierText(chunk)}`,
-      );
+      return;
+    }
+    // Not given up, as one of the lowest quality: stuck, noted with what carried it, and asked for
+    // again, aborted for hls.js to load it again, no sample and lowering nothing (P3).
+    const stuck = this.#onItsWay.stuck(judged, () => this.#carrierText(chunk));
+    if (stuck !== undefined) {
+      this.#options.noteLink?.(stuck.note);
+    }
+    if (stuck?.isAskedAgain === true) {
+      this.#link.giveUp(chunk);
     }
   }
 

@@ -76,6 +76,15 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
+- **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,
+  nothing of it arriving for `asksAgainAfterMs` (8 s), is aborted and asked for again at whatever
+  quality is chosen next, the lowest too, each time in a row waiting twice as long, up to
+  `asksAgainAfterAtMostMs` (16 s), until a chunk loads; it is no sample and lowers nothing, a stuck
+  transport being no slow link; each is noted with which time in a row it is, how long it waited
+  and what carried it, and each chunk whose load failed or timed out is noted with what carried it.
+  One not yet answered is hls.js's to time out, since the core may hold it while it makes it.
+  Waited for, a chunk stuck after 19 bytes over WebRTC held the owner's Chrome, throttled and
+  unthrottled, for good (staging, 2026-10-29; VQ125). `abr-stuck.test.ts`.
 - **A chunked playback keeps its sound's place as its quality moves between audio groups**: the
   top of a film's ladder plays its own sound in a group of its own, every group in one order
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js

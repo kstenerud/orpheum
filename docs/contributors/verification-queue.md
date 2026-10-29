@@ -1465,3 +1465,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes home with the note, and the remote's arrows reach its × and OK closes it. A guest joined by
   link alone, not signed in, still sees the page that says the session is over.
   (`web/apps/web/src/together-viewer.tsx`, `notice-note.tsx`)
+- [ ] **VQ125** — In Chrome on the Mac, over WebRTC through staging's discovery (the core's log says
+  `over=webrtc`), play a film, then in DevTools' Network panel set a slow preset or Offline until the
+  film stalls, wait half a minute, and set throttling back to none. Passes when playback resumes by
+  itself within a few seconds of unthrottling, with no reload, and the core's log shows the player's
+  link notes "asked again for a chunk of …, time n in a row" (or "failed to load" with the carrying
+  connection) during the stall. Then the same with Offline held for two minutes: it resumes within
+  about forty seconds, a silent connection replaced. (`web/packages/player/src/abr.ts`,
+  `web/packages/sdk/src/rtc-transport.ts`, `rtc-request.ts`)

@@ -257,6 +257,29 @@ describe("media over the WebRTC path", () => {
     port1.close();
   });
 
+  // hls.js giving a chunk up before its head came left the page's request holding its connection's
+  // room until an answer a stuck connection never sent (the owner's Chrome, staging, 2026-10-29).
+  it("aborts the page's load when the worker's load is given up before its head came", async () => {
+    const { port1, port2 } = new MessageChannel();
+    const sent: Request[] = [];
+    void answerLoad(aLoad, port2, {
+      send: (request) => {
+        sent.push(request);
+        return new Promise<Response>(() => undefined); // its head never comes
+      },
+      token: undefined,
+      viewer: undefined,
+    });
+    const givenUp = new AbortController();
+    void responseFromPort(port1, givenUp.signal).catch(() => undefined);
+    await settle();
+    expect(sent[0]?.signal.aborted).toBe(false);
+    givenUp.abort();
+    await settle();
+    expect(sent[0]?.signal.aborted).toBe(true);
+    port1.close();
+  });
+
   it("fails the body when the page's load fails partway", async () => {
     const { port1, port2 } = new MessageChannel();
     let sent = 0;
@@ -405,5 +428,17 @@ describe("what carries a load, for a stuck chunk's log (the owner, 2026-10-29)",
     expect(
       carrierText({ connection: 1, upMs: 900, underWay: 1, sinceDeliveredMs: undefined }),
     ).toBe("WebRTC connection 1, up 1 s, 1 under way, no bytes yet");
+    // One the transport ended itself says why, for a loader waiting on a dead connection.
+    expect(
+      carrierText({
+        connection: 3,
+        upMs: 60_000,
+        underWay: 2,
+        sinceDeliveredMs: 40_000,
+        ended: "nothing came for 40000 ms, nor over its connection, which was replaced",
+      }),
+    ).toBe(
+      "WebRTC connection 3, up 60 s, 2 under way, last bytes 40000 ms ago; ended: nothing came for 40000 ms, nor over its connection, which was replaced",
+    );
   });
 });

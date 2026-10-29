@@ -109,10 +109,14 @@ async function startWorker(
 function load(
   worker: Worker,
   path: string,
-  made: { readonly by: string; readonly mode?: RequestMode | "navigate" },
+  made: {
+    readonly by: string;
+    readonly mode?: RequestMode | "navigate";
+    readonly signal?: AbortSignal;
+  },
 ): Promise<Response> | undefined {
-  const { by: clientId, mode = "no-cors" } = made;
-  const request = new Request(`${origin}${path}`);
+  const { by: clientId, mode = "no-cors", signal } = made;
+  const request = new Request(`${origin}${path}`, { signal: signal ?? null });
   Object.defineProperty(request, "mode", { value: mode });
   let answer: Promise<Response> | undefined;
   worker.listeners.get("fetch")?.({
@@ -389,6 +393,34 @@ describe("the service worker under a loader (D308 §6)", () => {
       "/api/v1/bytes/media/chunks/t/q400k360p/00171.m4s",
     ]);
     expect(network).not.toHaveBeenCalled();
+  });
+
+  // hls.js giving a chunk up before its head came left the page's request over WebRTC holding its
+  // connection's room (the owner's Chrome, staging, 2026-10-29).
+  it("cancels the page's load of a chunk the page gave up before its head came", async () => {
+    const sent: Request[] = [];
+    const send = (request: Request): Promise<Response> => {
+      sent.push(request);
+      return new Promise<Response>(() => undefined); // its head never comes
+    };
+    const worker = await startWorker(
+      stores,
+      [pageOf("p", "webrtc", send)],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    const givenUp = new AbortController();
+    void load(worker, "/api/v1/bytes/media/chunks/t/q400k360p/00002.m4s", {
+      by: "p",
+      signal: givenUp.signal,
+    })?.catch(() => undefined);
+    await vi.waitFor(() => {
+      expect(sent).toHaveLength(1);
+    });
+    expect(sent[0]?.signal.aborted).toBe(false);
+    givenUp.abort();
+    await vi.waitFor(() => {
+      expect(sent[0]?.signal.aborted).toBe(true);
+    });
   });
 
   it("sends a page's media through it though it was finding the core when a file was asked", async () => {
