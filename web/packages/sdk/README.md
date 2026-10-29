@@ -46,7 +46,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   nudged, and the server places the group by its state. Each change of its group another device made,
   a remote's or a guest's pause, play or seek, it carries out once, as its own press, sending no
   command; it takes the place of a group under way far from it once, as it begins to lead, and joins
-  a film it put on where it is; it says it buffers only while it cannot play on; and it tells its
+  a film it put on where it is; it says it buffers only while it cannot play on, and tells its state
+  each second while it does, so the server hands its lead on once its stall outlasts the grace, the
+  group playing on, for no one's stall holds a Watch Together group (D373 §1, §2); and it tells its
   session how it plays the film, its delivery, the quality it began and the link it chose it on, for
   a cast's remote to show (D371 §4). Its person's own moves are commands, as any player's. A follower
   whose session another device leads follows the group as above. `src/together-leader.test.ts`.
@@ -207,6 +209,8 @@ for Watch Together:
   moment, and a follower's own moves are marked.
 - [D371](../../../docs/contributors/decisions/working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part):
   a session's leader plays as a device plays alone, and everyone else catches up to it.
+- [D373](../../../docs/contributors/decisions/working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead):
+  no one's stall holds a Watch Together group; a leader stalled past a short grace passes the lead.
 
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §5;
 [watch-together.md](../../../docs/contributors/design/plans/watch-together.md), Sync;

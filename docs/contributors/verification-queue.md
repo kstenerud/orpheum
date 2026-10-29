@@ -1234,6 +1234,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   limit reconnected it (fix being built); (3) the host's Chrome throttled stalled and held the group
   (`waitingFor`), the lead staying, but after a chunk given up as stuck it never fetched again (fix
   being built). Firefox's DevTools throttling does not slow its WebRTC path; Chrome's does.
+  **Criterion (3) replaced by D373 (the owner, 2026-10-29):** no one's stall holds a Watch Together
+  group, and a leader stalled past its 3 s grace passes the lead (`goneBecause=stalled`); VQ127
+  checks the new rule, and (3) is no longer to pass as written.
 - [x] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
   guest by link alone on the iPhone, in the Mac's session, opens a link to a second session (another
   person hosting it on a computer's browser) in a new tab and is asked "Leave ‹host›'s session to
@@ -1504,3 +1507,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   `no service worker controls the page … reloading the page once` line, the page reloaded itself
   and must show its posters after it. (`web/apps/web/src/sw.ts`, `web/packages/sdk/src/rtc-media.ts`,
   `web/apps/web/src/loader-at-client-origin.tsx`)
+- [ ] **VQ128** — no one's stall holds a Watch Together group (D373), on staging. With the Mac's
+  Chrome as the host, leading a session that plays, and the S23 (Chrome) and Firefox following,
+  throttle the Mac's Chrome in DevTools' Network panel (a slow preset, or Offline) until its film
+  stalls. Passes when: (1) within about 3 s of its stall the lead passes (the core's log says
+  `leaderChanged … why=leaderGone goneBecause=stalled … stalledMs=…`), and the S23 and Firefox keep
+  playing with no pause and no "Waiting for" (no `waitingFor` in the log); (2) unthrottled, the
+  Mac's Chrome catches up to the group as a follower and takes the lead back once in step
+  (`why=hostInStep`), and a `stallNotWaitedFor` line says its stall and how long it lasted; (3) a
+  follower stalling (the S23 on a slow link, or throttled) pauses no one, its own
+  `stallNotWaitedFor` line saying `isLeader=false`. (`internal/core/together/leader.go`,
+  `group.go`; `web/packages/sdk/src/together-follow.ts`)

@@ -557,8 +557,9 @@ const (
 	// EventLeaderPlays is the group playing from where its leader plays, the leader playing after
 	// the group stood for it: put on, played, sought or stalled (D371 §1).
 	EventLeaderPlays EventKind = "leaderPlays"
-	// EventWaitingFor is the group standing where its leader is, the leader stalled or paused by its
-	// browser: the group's position is the leader's (D371 §1).
+	// EventWaitingFor is the group standing where its leader is, the leader paused by its browser, or
+	// a cast's receiver stalled: the group's position is the leader's (D371 §1). A Watch Together
+	// group waits for no one's stall (D373 §1).
 	EventWaitingFor EventKind = "waitingFor"
 	// EventEveryoneLeft is the group paused where it stands, its leader gone with no one left who
 	// can lead: every player gone, its page elsewhere or hidden (D372 §7).

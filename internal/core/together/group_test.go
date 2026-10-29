@@ -74,9 +74,9 @@ func TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays(t *testin
 }
 
 // The group's position is its leader's: each state the leader reports while the group plays places
-// the group where it is, with or without followers, and nothing corrects the leader; a leader that
-// stalls holds the group where it stands until it plays again, from there (D371 §1). A follower's
-// stall changes nothing: it catches up (D371 §2).
+// the group where it is, with or without followers, and nothing corrects the leader (D371 §1); a
+// leader's stall holds no one: the group plays on, and the leader playing again within its grace
+// places it where it is (D373 §1, §2). A follower's stall changes nothing: it catches up (D371 §2).
 func TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
@@ -94,16 +94,18 @@ func TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing(t *testi
 		t.Errorf("a follower's stall changed the group: %+v", hostBox.last(MessageGroup).Group)
 	}
 	stage.report(t, host, 10_300, true, true)
-	held := hostBox.last(MessageGroup).Group
-	if held.State != GroupWaiting || held.Event != EventWaitingFor || held.ByMemberID != host.MemberID ||
-		held.PositionMs != 10_300 {
-		t.Fatalf("the leader stalled at 10.3 s: %+v; want Waiting at 10.3 s, where it stalled", held)
+	if hostBox.last(MessageGroup).Seq != seq {
+		t.Fatalf("the leader's stall at 10.3 s changed the group: %+v; want it playing on, untold (D373)",
+			hostBox.last(MessageGroup).Group)
 	}
-	stage.clock.Advance(5 * time.Second)
+	stage.clock.Advance(2 * time.Second)
+	if group := stage.pongGroup(t, host, hostBox); group.State != GroupPlaying || group.PositionMs != 12_220 {
+		t.Errorf("2 s into its leader's stall, the group: %+v; want Playing on at 12.22 s", group)
+	}
 	stage.report(t, host, 10_300, true, false)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventLeaderPlays ||
-		group.PositionMs != 10_320 {
-		t.Errorf("the leader plays again: %+v; want Playing from where it stalled", group)
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 10_320 || hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the leader plays again at 10.3 s: the group at %d ms, %+v; want it there, 10.32 s, untold",
+			at, hostBox.last(MessageGroup).Group)
 	}
 	if line := lineWith(t, stage.logs.String(), eventFollowedLeader); !strings.Contains(line, "steppedMs=-780") {
 		t.Errorf("the group's first step to its leader logged as %q; want steppedMs=-780", line)

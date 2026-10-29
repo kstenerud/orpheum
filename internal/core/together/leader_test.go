@@ -174,20 +174,20 @@ func (stage sessionStage) guestCredential(t *testing.T, attachment Attachment) s
 }
 
 // A leader whose page its browser hides, or whose connection goes silent, is gone, and the lead
-// passes at once; a leader's stall is not: the group stands for it (D372 §5). A device whose page is
-// hidden, or that plays nothing, cannot lead (§6).
+// passes at once; a leader's stall, within its grace, is not (D372 §5, D373 §2). A device whose page
+// is hidden, or that plays nothing, cannot lead (§6).
 func TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot(t *testing.T) {
 	t.Parallel()
 	stage := withGuests(t, 3)
 	stage.hub.Detach(stage.host, GoneClosed)
-	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	watchAttachment, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
 	first, second, third := stage.guests[0], stage.guests[1], stage.guests[2]
 	stage.report(t, first, stage.groupPositionMs(stage.opened.SessionID), true, true)
 	if leader := rosterLeader(watchBox); leader != first.DeviceID {
 		t.Errorf("device %d leads as the leader stalls; want the stalled leader still, %d", leader, first.DeviceID)
 	}
-	if group := watchBox.last(MessageGroup).Group; group.State != GroupWaiting {
-		t.Errorf("the group as its leader stalls: %+v; want Waiting for it", group)
+	if group := stage.pongGroup(t, watchAttachment, watchBox); group.State != GroupPlaying {
+		t.Errorf("the group as its leader stalls: %+v; want Playing on, waiting for no one's stall (D373)", group)
 	}
 	stage.hide(t, second, true)
 	stage.hide(t, first, true)
@@ -205,6 +205,165 @@ func TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot(t *testing.T) {
 	}
 	if line := logLineWith(stage.logs.String(), "goneBecause=silent"); line == "" {
 		t.Error("no log line says the leader went silent")
+	}
+}
+
+// stall says attachment's player stalls where the group is now, playing but unable to play on, as a
+// stalled player tells its state each second.
+func (stage sessionStage) stall(t *testing.T, attachment Attachment) {
+	t.Helper()
+	stage.report(t, attachment, stage.groupPositionMs(attachment.SessionID), true, true)
+}
+
+// No one's stall holds a Watch Together group (D373 §1): a leader stalled past stalledLeaderGrace is
+// gone for the lead, which passes down the line, the host's player to the longest-present guest's
+// still playing, a stalled one passed over, and the group plays on throughout, telling no one; the
+// log says the lead passed for a stall and how long it lasted, and that the group played on through
+// it (§2). A follower's stall moves nothing.
+func TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 2)
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stalledGuest, playingGuest := stage.guests[0], stage.guests[1]
+	seq := stage.hostBox.last(MessageGroup).Seq
+	stage.clock.Advance(10 * time.Second)
+	stage.stall(t, stalledGuest)
+	stage.stall(t, stage.host)
+	for elapsed := time.Second; elapsed < stalledLeaderGrace; elapsed += time.Second {
+		stage.clock.Advance(time.Second)
+		stage.stall(t, stage.host)
+		if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
+			t.Fatalf("device %d leads, the host's player stalled %s, within its grace; want the host's still",
+				leader, elapsed)
+		}
+	}
+	stage.clock.Advance(time.Second)
+	stage.stall(t, stage.host)
+	if leader := rosterLeader(watchBox); leader != playingGuest.DeviceID {
+		t.Errorf("device %d leads, the host's player stalled past its grace; want %d, the guest's that plays, "+
+			"the more senior guest's stalled too", leader, playingGuest.DeviceID)
+	}
+	group := stage.pongGroup(t, stage.host, stage.hostBox)
+	if group.State != GroupPlaying || group.PositionMs != 15_000 || stage.hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the group, 3 s into its leader's stall: %+v (seq %d, was %d); want Playing on at 15 s, untold",
+			group, stage.hostBox.last(MessageGroup).Seq, seq)
+	}
+	if line := logLineWith(stage.logs.String(), "goneBecause=stalled"); !strings.Contains(line,
+		"why=leaderGone") || !strings.Contains(line, "goneLeaderWasHost=true stalledMs=3000") {
+		t.Errorf("the stalled leader's passing logged as %q; want why, whose and how long", line)
+	}
+	stage.report(t, stalledGuest, 15_000, true, false)
+	if line := lineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
+		fmt.Sprintf("deviceId=%d logEvent=stallNotWaitedFor isLeader=false stalledMs=3000", stalledGuest.DeviceID)) {
+		t.Errorf("the guest's stall logged as %q; want who stalled, and for how long, the group playing on", line)
+	}
+}
+
+// A leader's stall shorter than stalledLeaderGrace, as a quality switch's, keeps the lead, so the
+// lead is not handed back and forth; the group plays on through it, and once the leader plays again
+// it places the group where it is (D373 §2).
+func TestHub_ALeadersStallWithinItsGraceKeepsTheLead(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 1)
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stage.clock.Advance(10 * time.Second)
+	stage.stall(t, stage.host)
+	stage.clock.Advance(stalledLeaderGrace - time.Millisecond)
+	stage.stall(t, stage.guests[0]) // a follower's state, as the grace nearly ends
+	stage.report(t, stage.host, 10_000, true, false)
+	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
+		t.Errorf("device %d leads, the host's player stalled just under its grace; want the host's still", leader)
+	}
+	if group := stage.hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
+		t.Errorf("the group through its leader's short stall: %+v; want Playing", group)
+	}
+	if at := stage.groupPositionMs(stage.opened.SessionID); at != 10_020 {
+		t.Errorf("the group is at %d ms as its leader plays again at 10 s; want 10.02 s, the leader's", at)
+	}
+	stage.clock.Advance(time.Hour)
+	stage.ready(t, stage.guests[0], false)
+	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
+		t.Errorf("device %d leads, the host's player's stall over; want the host's still", leader)
+	}
+}
+
+// Starting still waits (D373 §4): a host's seek stands the group for its leader, however long the
+// leader loads the new place, and hands on no lead; the group plays as the leader plays.
+func TestHub_AHostsSeekStillWaitsForItsLeaderAndPassesNoLead(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 2)
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stage.clock.Advance(10 * time.Second)
+	loading := stage.guests[0]
+	stage.stall(t, loading) // stalled as the host seeks, and loading the new place after
+	stage.hub.Handle(t.Context(), stage.host, Inbound{
+		Type: MessageCommand, Command: CommandSeek, PositionMs: 600_000,
+		BasedOnSeq: stage.hostBox.last(MessageGroup).Seq,
+	})
+	stage.ready(t, stage.guests[1], false)
+	for range 10 {
+		stage.clock.Advance(time.Second)
+		stage.report(t, stage.host, 600_000, true, true)
+	}
+	if group := stage.hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventSeeked {
+		t.Errorf("the group 10 s after the host's seek, its leader loading: %+v; want Waiting for it", group)
+	}
+	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
+		t.Errorf("device %d leads as the host's player loads its seek; want the host's", leader)
+	}
+	stage.report(t, stage.host, 600_000, true, false)
+	if group := stage.hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventLeaderPlays {
+		t.Errorf("the group as its leader plays: %+v; want Playing, the leader playing", group)
+	}
+	stage.hub.Detach(stage.host, GoneClosed)
+	stage.clock.Advance(time.Second)
+	stage.report(t, loading, 600_000, true, true)
+	if leader := rosterLeader(watchBox); leader != loading.DeviceID {
+		t.Errorf("device %d leads, the senior guest's player loading 1 s into the group's playing; want it, %d: "+
+			"its loading before the group played is the seek's, not a stall", leader, loading.DeviceID)
+	}
+}
+
+// The host's player stalled past its grace hands the lead to a guest's, catches up as a follower,
+// and takes the lead back once it plays in step (D373 §3); a guest's stalled former leader just
+// follows.
+func TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows(t *testing.T) {
+	t.Parallel()
+	stage := withGuests(t, 2)
+	_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	stage.clock.Advance(10 * time.Second)
+	stage.stall(t, stage.host)
+	stage.clock.Advance(stalledLeaderGrace)
+	stage.stall(t, stage.host)
+	if leader := rosterLeader(watchBox); leader != stage.guests[0].DeviceID {
+		t.Fatalf("device %d leads, the host's player stalled past its grace; want the senior guest's, %d",
+			leader, stage.guests[0].DeviceID)
+	}
+	stage.report(t, stage.host, 10_000, true, false) // plays again, 3 s behind
+	if leader := rosterLeader(watchBox); leader != stage.guests[0].DeviceID {
+		t.Errorf("device %d leads, the host's player playing 3 s behind; want it to follow until in step", leader)
+	}
+	at := stage.groupPositionMs(stage.opened.SessionID)
+	stage.report(t, stage.host, at, true, false)
+	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {
+		t.Errorf("device %d leads, the host's player caught up in step; want it back, %d", leader, stage.host.DeviceID)
+	}
+	if !strings.Contains(stage.logs.String(), "why=hostInStep") {
+		t.Error("no log line says the host's player took the lead back in step")
+	}
+
+	stage.hub.Detach(stage.host, GoneClosed)
+	guest := stage.guests[0]
+	stage.stall(t, guest)
+	stage.clock.Advance(stalledLeaderGrace)
+	stage.stall(t, guest)
+	if leader := rosterLeader(watchBox); leader != stage.guests[1].DeviceID {
+		t.Fatalf("device %d leads, the guest's leader stalled past its grace; want the other guest's, %d",
+			leader, stage.guests[1].DeviceID)
+	}
+	stage.report(t, guest, stage.groupPositionMs(stage.opened.SessionID), true, false)
+	if leader := rosterLeader(watchBox); leader != stage.guests[1].DeviceID {
+		t.Errorf("device %d leads, the stalled guest's player in step again; want it to follow", leader)
 	}
 }
 
@@ -262,5 +421,33 @@ func TestHub_LogsALeadingGuestsUndoneMove(t *testing.T) {
 	}
 	if line := logLineWith(stage.logs.String(), "why=undone"); line == "" {
 		t.Errorf("no log line says the move was undone:\n%s", stage.logs)
+	}
+}
+
+// A cast is a session of one, which holds no one up: its group stands where its receiver stalls,
+// however long, and plays from where the receiver plays again. No one's stall holds a Watch
+// Together group (D373 §1); a cast's receiver is its only player.
+func TestCast_AReceiversStallStandsItsGroupForIt(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	stage.command(t, receiver, CommandChangeItem, 12)
+	stage.report(t, receiver, 0, true, false)
+	stage.clock.Advance(10 * time.Second)
+	stage.report(t, receiver, 9_000, true, true)
+	stage.clock.Advance(2 * stalledLeaderGrace)
+	stage.report(t, receiver, 9_000, true, true)
+	if group := remoteBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventWaitingFor ||
+		group.PositionMs != 9_000 {
+		t.Errorf("the cast's receiver stalled at 9 s: %+v; want its group Waiting there for it", group)
+	}
+	stage.report(t, receiver, 9_000, true, false)
+	if group := remoteBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventLeaderPlays {
+		t.Errorf("the cast's receiver plays again: %+v; want its group Playing from there", group)
 	}
 }

@@ -38,23 +38,37 @@
 //     TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack and
 //     TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads.
 //   - A leader whose connection closes or goes silent, whose page its browser hides, or whose member
-//     is removed is gone, and the lead passes at once; a leader's stall is not (D372 §5). Leading
-//     carries the clock only: every right stays the host's or the link's (§4). Enforced by
-//     TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot and
+//     is removed is gone, and the lead passes at once (D372 §5); a Watch Together leader stalled
+//     while its group plays is gone once its stall outlasts stalledLeaderGrace, and the lead passes
+//     to a player that plays on, the log saying goneBecause=stalled and how long (D373 §2); a
+//     shorter stall keeps the lead. The host's player stalled follows, and takes the lead back once
+//     in step; a guest's just follows (D373 §3). Leading carries the clock only: every right stays
+//     the host's or the link's (D372 §4). Enforced by
+//     TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot,
+//     TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn,
+//     TestHub_ALeadersStallWithinItsGraceKeepsTheLead,
+//     TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows and
 //     TestHub_AGuestsLeadingPlayerCarriesTheClockOnly.
 //   - With no one left who can lead, a Watch Together group that plays pauses where it stands, and
 //     ends by its idle end; a cast is left to its receiver's return (D372 §7). Enforced by
 //     TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle.
 //   - The group's position is its leader's, which nothing steers (D371 §1): each state the leader
-//     reports while the group plays places the group where it is, a stall of the leader's holds the
-//     group where it stands, and a group to play (a film put on, a play, a seek) stands where it is
-//     until its leader plays, then plays from there at once. Enforced by
-//     TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays and
+//     reports while the group plays places the group where it is, and a group to play (a film put
+//     on, a play, a seek) stands where it is until its leader plays, then plays from there at once:
+//     starting still waits (D373 §4), and loading before the group plays is no stall. Enforced by
+//     TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays,
+//     TestHub_AHostsSeekStillWaitsForItsLeaderAndPassesNoLead and
 //     TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing.
-//   - The group waits for no one but its leader (D371 §2): a follower loading, stalling or dropping
-//     changes nothing, its trouble its own to catch up on; without a leader a play or a seek plays at
-//     once. Enforced by TestHub_AJoiningViewerHoldsNoOneUp, TestHub_ADroppedPlayerStopsNoOne and
-//     TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut.
+//   - No one's stall holds a Watch Together group that plays (D373 §1): neither its leader's nor a
+//     follower's moves it to Waiting, and each stall is logged as it ends, who and how long
+//     (stallNotWaitedFor); a cast's group, a session of one, stands for its receiver's stall.
+//     Enforced by TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing,
+//     TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn and
+//     TestCast_AReceiversStallStandsItsGroupForIt.
+//   - The group waits for no one but its leader as it starts (D371 §2): a follower loading,
+//     stalling or dropping changes nothing, its trouble its own to catch up on; without a leader a
+//     play or a seek plays at once. Enforced by TestHub_AJoiningViewerHoldsNoOneUp,
+//     TestHub_ADroppedPlayerStopsNoOne and TestHub_ACommandOfAnotherDeviceStandsForTheLeaderToCarryItOut.
 //   - A group that starts playing moves on from where it stands at once, with no lead to start on
 //     and no run-up, with a leader or without, everyone else catching up (D371 §2, §6). Enforced by
 //     TestHub_AGroupWithNoLeaderPlaysAtOnceFromWhereItStands and
@@ -150,6 +164,8 @@
 //     D247 §4 (no group waits for a stalled viewer).
 //   - D372: the lead passes to the longest-present player while the host's screen is gone, and a
 //     person is in one session at most.
+//   - D373: no one's stall holds a Watch Together group; a leader stalled past a short grace passes
+//     the lead. It amends D372 §5 and D371's resolution that the group stands for its leader's stall.
 //   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.

@@ -156,13 +156,17 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 }
 
 // followLeader places the group where its leader says it is, as the leader's state reaches the server:
-// the group's position is the leader's, which nothing steers (D371 §1). A group to play stands where
-// its leader is while the leader loads, stalls or is paused by its browser (Waiting), and plays from
+// the group's position is the leader's, which nothing steers (D371 §1). A group to play (a film put
+// on, a play, a seek) stands where its leader is while the leader loads (Waiting), and plays from
 // where the leader plays once it does, at once, with no lead to start on; a playing leader is placed
 // half its round trip on from where it said, and nothing is announced: the followers read where the
-// group is from their next pong. A paused group is the commands', and moves by none of the leader's
-// states. It takes the place of a group that followed its only player and corrected it (D88), whose
-// waits sought a Fire TV back at each one (the owner's casts, staging, 2026-10-28).
+// group is from their next pong. A Watch Together group that plays never waits for its leader's
+// stall: it plays on, and a leader stalled past stalledLeaderGrace hands on the lead (passStalledLead,
+// D373 §1, §2); a cast's group, a session of one that holds no one up, stands for its receiver's
+// stall, and any group for a leader its browser paused. A paused group is the commands', and moves
+// by none of the leader's states. It takes the place of a group that followed its only player and
+// corrected it (D88), whose waits sought a Fire TV back at each one (the owner's casts, staging,
+// 2026-10-28).
 func (current *session) followLeader(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	state := current.group.state
 	if current.group.fileID == 0 || (state != GroupPlaying && state != GroupWaiting) {
@@ -177,12 +181,34 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 		current.logger.DebugContext(ctx, "watch together: the group follows its leader",
 			append(current.deviceAttributes(who, from), logEvent, eventFollowedLeader,
 				positionMsAttribute, position.Milliseconds(), "steppedMs", stepped.Milliseconds())...)
+	case state == GroupPlaying && message.Buffering && !current.isCast: // no one's stall is waited for
 	case state == GroupPlaying:
 		current.group.position, current.group.at = position, now
 		current.change(now, GroupWaiting, EventWaitingFor, who.id)
 	case isPlaying: // a group waiting for its leader, which plays
 		current.group.position, current.group.at = position, now
 		current.change(now, GroupPlaying, EventLeaderPlays, who.id)
+	}
+}
+
+// takeStall notes a player's stall while its Watch Together group plays, which the group does not
+// wait for (D373 §1): when its state first says it buffers, which passStalledLead reads for a leader;
+// and, as it plays on again, a line saying who stalled and for how long, so the log shows the group
+// played on through it. A group that stops playing ends every stall (announce): what loads then is
+// the start's to wait for (D373 §4).
+func (current *session) takeStall(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
+	if current.isCast {
+		return
+	}
+	switch {
+	case message.Buffering && current.group.state == GroupPlaying && from.stalledSince.IsZero():
+		from.stalledSince = now
+	case !message.Buffering && !from.stalledSince.IsZero():
+		current.logger.InfoContext(ctx, "watch together: the group played on through a player's stall",
+			append(current.deviceAttributes(who, from), logEvent, eventStallNotWaitedFor,
+				"isLeader", from.id == current.leaderID, "stalledMs", now.Sub(from.stalledSince).Milliseconds(),
+				positionMsAttribute, message.PositionMs)...)
+		from.stalledSince = time.Time{}
 	}
 }
 
@@ -214,6 +240,9 @@ func (current *session) announce(
 	if state != GroupPlaying || current.group.state != GroupPlaying {
 		current.group.position, current.group.at = current.positionAt(now), now
 	}
+	if state != GroupPlaying {
+		current.endStalls()
+	}
 	current.group.state = state
 	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
 	current.group.seq++
@@ -224,6 +253,16 @@ func (current *session) announce(
 	})
 	// Each player's status moves with the group: a new film loads, a seek loads the new place.
 	current.sendRoster()
+}
+
+// endStalls forgets every player's stall as the group stops playing: what it loads then is the
+// start's, which waits for its leader (D373 §4), not a stall during playing.
+func (current *session) endStalls() {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			attached.stalledSince = time.Time{}
+		}
+	}
 }
 
 // logChange logs the group's state as announce just set it: what plays, where, what changed it and

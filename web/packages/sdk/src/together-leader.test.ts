@@ -234,6 +234,27 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(reports.at(-1)?.isBuffering).toBe(true);
   });
 
+  it("tells its state each second while it stalls and its group plays on, by which the server hands its lead on (D373 §2)", () => {
+    const { media, reports, connection } = leading(
+      { ...paused, state: "Playing", positionMs: 60_000 },
+      { mediaAtS: 60, isPlaying: true },
+    );
+    const playing = reports.length;
+    vi.advanceTimersByTime(3 * checkDriftEveryMs);
+    expect(reports.length, "playing on, it tells no state each second").toBe(playing);
+    media.readyState = 2; // stalled
+    connection.reportState();
+    const stalled = reports.length;
+    vi.advanceTimersByTime(3 * checkDriftEveryMs);
+    expect(reports.length - stalled).toBe(3);
+    expect(reports.slice(stalled).every((report) => report.isBuffering)).toBe(true);
+    media.readyState = 4; // plays on
+    connection.reportState();
+    const again = reports.length;
+    vi.advanceTimersByTime(3 * checkDriftEveryMs);
+    expect(reports.length).toBe(again);
+  });
+
   it("tells its session how it plays the film: its delivery, the quality it began and the link it chose it on (D371 §4)", () => {
     const { media, reports } = leading(
       { ...paused, state: "Playing" },

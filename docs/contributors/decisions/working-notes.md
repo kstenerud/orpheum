@@ -24198,4 +24198,42 @@ decide algorithmically to hold everyone up. If it's important enough, someone ca
 4. **Starting still waits:** a film put on, or a seek by the host, waits for the players to be ready as
    before (the start rule); only a stall during playing is no one's to wait for.
 
-**Status:** Decided 2026-10-29; not built.
+**Status:** Decided 2026-10-29; built 2026-10-29. A Watch Together group that plays no longer moves
+to `Waiting` for its leader's stall (`internal/core/together/group.go`: `followLeader`); each
+player's stall while the group plays is kept from its first state that says it buffers (`takeStall`,
+the device's `stalledSince`), forgotten as the group stops playing, its loading then the start's
+(`endStalls`), and logged as it ends, who and for how long (`logEvent=stallNotWaitedFor`,
+`isLeader`, `stalledMs`). A leader stalled past `stalledLeaderGrace`, 3 s, hands the lead to the
+host's newest other player, else the most senior, passing over any that stalls too, with no group
+change announced (`internal/core/together/leader.go`: `passStalledLead`, `nextLeader` now taking
+which devices may lead, run as any device's state or ping reaches the core); the log says
+`why=leaderGone goneBecause=stalled goneLeaderWasHost=… stalledMs=…`. With no one else to lead,
+the stalled leader keeps the lead and the group plays on. The host's player stalled follows and takes
+the lead back in step (`takeLeadInStep`, `hostInStep`, as D372 §3 built it). The web client's
+leader tells its state each second while it says it buffers (`tick`,
+`web/packages/sdk/src/together-follow.ts`), so the core sees the grace pass. Revisits D372 §5
+and D371's resolved point "a group standing for its leader" (its stall).
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **The grace** is a named constant, as D372's silence limit is, not a setting: 3 s, fixed by
+  other values. A quality switch's or a short refill's stall waits on one chunk, 2 s of film
+  (`hls_segment_length_seconds`' starting value), which a link that carries the film loads in less
+  than 2 s; a stalled leader tells its state each second, so the core sees a stall up to 1 s late;
+  3 s outlasts both. It is no longer than a follower's drift before it seeks rather than nudges
+  (`together_seek_drift_beyond_ms`' starting value, 3 s): a leader that plays again within the
+  grace steps the group back to where it is, by at most that, which its followers nudge across.
+- **A leader's stall within the grace** leaves the group playing on, and the leader playing again
+  places the group where it is, as each of its states does: the group steps back by the stall, its
+  followers catching up to it.
+- **A cast** keeps standing for its receiver's stall (`Waiting`, `waitingFor`): a session of one
+  holds no one up, and its remote shows where the receiver is.
+- **A leader paused by its browser** without buffering (not a stall) still stands the group as
+  before; a hidden page is gone (D372 §5).
+- **Starting**: what a player loads while the group stands (a film put on, a play, a seek) is the
+  start's, not a stall, and its stall's clock starts only once the group plays.
+
+**Proven by:**
+- 1: TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn, TestCast_AReceiversStallStandsItsGroupForIt; VQ128
+- 2: TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn, TestHub_ALeadersStallWithinItsGraceKeepsTheLead, TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-leader.test.ts ("tells its state each second while it stalls and its group plays on, by which the server hands its lead on (D373 §2)"); VQ128
+- 3: TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows; VQ128
+- 4: TestHub_AHostsSeekStillWaitsForItsLeaderAndPassesNoLead, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays

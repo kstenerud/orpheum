@@ -108,9 +108,12 @@ channel.
 cast's receiver in a cast. It plays exactly as a device plays a film alone: it starts when it is
 ready and buffers as it needs, and is never held, sought to the group's place, run up or nudged.
 **The group's position is the leader's**: each state the leader reports places the group where it
-is, a stall of the leader's holds the group where it stands (`Waiting`, event `waitingFor`), and a
-group to play (a film put on, a play, a seek) stands where it is until its leader plays, then plays
-from there at once (event `leaderPlays`). Another device's play, pause or seek, a cast's remote's or
+is, and a group to play (a film put on, a play, a seek) stands where it is until its leader plays,
+then plays from there at once (event `leaderPlays`). **No one's stall holds the group**
+([D373](../../decisions/working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead)):
+a playing group plays on through a follower's stall and its leader's alike, and a leader stalled
+past a grace of 3 s is gone for the lead, which passes as below (`goneBecause=stalled`); a cast's
+group, a session of one, still stands for its receiver's stall (`Waiting`, event `waitingFor`). Another device's play, pause or seek, a cast's remote's or
 a guest's, the leader carries out as its own press. **The lead passes down the line**
 ([D372](../../decisions/working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most)
 §1–§7): while none of the host's devices can lead, the player present longest without a break
