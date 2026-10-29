@@ -2,7 +2,6 @@
 
 import "./player-controls.css";
 
-import { seekTo } from "@orpheum/player";
 import {
   useCallback,
   useEffect,
@@ -18,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { FullScreenButton } from "./full-screen-button.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import { IconButton } from "./icon-button.tsx";
-import { answerPlayerCommand, seekStepMs } from "./player-commands.ts";
+import { answerPlayerCommand } from "./player-commands.ts";
 import {
   MutedIcon,
   PauseIcon,
@@ -27,6 +26,7 @@ import {
   SeekForwardIcon,
   SoundIcon,
 } from "./player-icons.tsx";
+import { seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
 import { Timeline } from "./timeline.tsx";
 import { VolumeRange } from "./volume-range.tsx";
 
@@ -35,7 +35,10 @@ import { VolumeRange } from "./volume-range.tsx";
  * (useVideoSource), or a film another device plays, as a cast's remote commands its receiver.
  */
 export interface PlayerSource {
-  /** Where the film stands, in ms. */
+  /**
+   * Where the film stands, in ms, or where the person sent it while that seek is chosen or on its way
+   * (seek-ahead.ts): a timeline's marker moves at once and stays (the owner, 2026-10-27).
+   */
   readonly atMs: number;
   /** The film's length, in ms; 0 while not known. */
   readonly durationMs: number;
@@ -43,6 +46,7 @@ export interface PlayerSource {
   /** Whether it takes commands now: a remote's waits until it knows where the film is. */
   readonly isReady: boolean;
   readonly playOrPause: () => void;
+  /** Seeks to atMs: at once, or, a remote's, once its moves rest (seek-ahead.ts). */
   readonly seekTo: (atMs: number) => void;
   /** The film's sound here, for a video on this page; none for a film another device plays. */
   readonly sound?: PlayerSound | undefined;
@@ -82,8 +86,6 @@ export function PlayerControls(props: {
   readonly playRef?: RefObject<HTMLButtonElement | null> | undefined;
   /** The timeline's slider, which a television's overlay asks whether it has focus. */
   readonly timelineRef?: RefObject<HTMLInputElement | null> | undefined;
-  /** How long a drag along the timeline rests before it seeks (Timeline's settleMs). */
-  readonly settleMs?: number | undefined;
   /** Whether the timeline's Left and Right are the player's commands (a television's). */
   readonly hasArrowsAsCommands?: boolean | undefined;
   /** What the page adds at the buttons' end: a television's "Ends at". */
@@ -119,7 +121,6 @@ export function PlayerControls(props: {
           atMs={source.atMs}
           durationMs={source.durationMs}
           isDisabled={!source.isReady}
-          settleMs={props.settleMs}
           hasArrowsAsCommands={props.hasArrowsAsCommands}
           onSeek={source.seekTo}
         />
@@ -128,7 +129,10 @@ export function PlayerControls(props: {
   );
 }
 
-/** A step back and a step forward, seekStepMs each, never before the start nor past the end. */
+/**
+ * A step back and a step forward, seekStepMs each from where the film shows, never before the start
+ * nor past the end: presses in a row add up, as the source shows each one's place at once.
+ */
 function Steps(props: {
   readonly source: PlayerSource;
   readonly isOverVideo: boolean | undefined;
@@ -211,8 +215,8 @@ interface Standing {
 
 /**
  * The video in videoRef as a bar's source: where it stands, read at its own events, and at each
- * timeupdate only while the bar shows (isHidden false), play or pause and seeks made on it, and its
- * sound.
+ * timeupdate only while the bar shows (isHidden false), or where a seek chosen on it sends it
+ * (seekAheadOf); play or pause and seeks made on it at once; and its sound.
  */
 export function useVideoSource(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -233,7 +237,7 @@ export function useVideoSource(
     seekTo: (atMs) => {
       const video = videoRef.current;
       if (video !== null) {
-        seekTo(video, atMs);
+        seekAheadOf(video).aim(atMs, 0);
       }
     },
   };
@@ -241,13 +245,22 @@ export function useVideoSource(
 
 /**
  * The video's events at which a bar reads where the film stands, hidden or shown: the first as soon
- * as it knows its length.
+ * as it knows its length, and a seek chosen on it as it moves (seekAimedEvent).
  */
-const standingEvents = ["loadedmetadata", "durationchange", "play", "pause", "seeked"];
+const standingEvents = [
+  "loadedmetadata",
+  "durationchange",
+  "play",
+  "pause",
+  "seeked",
+  seekAimedEvent,
+];
 
 /**
  * Where the film stands, its length, and whether it is paused, as the video says them: read at its
- * own events, and at each timeupdate, four a second, only while the bar shows (not isHidden). A bar
+ * own events, and at each timeupdate, four a second, only while the bar shows (not isHidden); where
+ * the film stands is a seek's place while it is chosen and on its way, until a seeked says it landed
+ * (seekAheadOf). A bar
  * hidden over a playing film rendered again at every timeupdate for the film's length, 1 ms each on a
  * Fire TV (the efficiency audit's finding 7); shown again, it reads where the film stands at once.
  */
@@ -259,9 +272,10 @@ function useStanding(videoRef: RefObject<HTMLVideoElement | null>, isHidden: boo
       if (video === null) {
         return () => undefined;
       }
+      const ahead = seekAheadOf(video);
       const heard = (): void => {
         standRef.current = {
-          atMs: video.currentTime * 1000,
+          atMs: ahead.shownMs(video.currentTime * 1000),
           durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
           isPaused: video.paused,
         };

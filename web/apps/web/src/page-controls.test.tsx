@@ -9,7 +9,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { commandEventName } from "./input-commands.ts";
 import { PageControls } from "./page-controls.tsx";
-import { answerPlayerCommand, playerControlsAttribute, seekStepMs } from "./player-commands.ts";
+import { answerPlayerCommand, playerControlsAttribute } from "./player-commands.ts";
+import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -80,6 +81,61 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
     const timeline = overlay?.querySelector('input[aria-label="Where the film stands"]');
     expect(timeline?.hasAttribute(arrowsAreCommandsAttribute)).toBe(true);
     expect(video.tabIndex).toBe(0);
+  });
+
+  // A held Right seeked at each repeat, and the marker moved only as a seek landed, after a click
+  // too (the owner, 2026-10-27 and 2026-10-29).
+  it("moves its marker and time at once, for a held key without seeking until it is released, and keeps them there until the seek lands", async () => {
+    const { video, videoRef } = stagedVideo(() => false);
+    let positionS = 30;
+    const seeks: number[] = [];
+    Object.defineProperty(video, "duration", { configurable: true, value: 600 });
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => positionS,
+      set: (toS: number) => {
+        seeks.push(toS); // a seek on its way: the film stays where it was until it lands
+      },
+    });
+    const stage = await drawnOver(video, videoRef);
+    const timeline = stage.querySelector<HTMLInputElement>(".timeline__range");
+    const shown = (): string | undefined => stage.querySelector(".timeline__times")?.textContent;
+    expect(shown()).toBe("0:30 / 10:00");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    act(() => {
+      for (let repeat = 0; repeat < 3; repeat += 1) {
+        answerPlayerCommand(video, "right", "key");
+      }
+    });
+    expect(shown()).toBe("1:00 / 10:00");
+    expect(timeline?.value).toBe("60000");
+    expect(seeks).toEqual([]);
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight" }));
+      vi.advanceTimersByTime(seekRestMs);
+    });
+    expect(seeks).toEqual([60]); // once, to the place shown
+    act(() => {
+      video.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(shown()).toBe("1:00 / 10:00");
+    act(() => {
+      positionS = 60;
+      video.dispatchEvent(new Event("seeked"));
+    });
+    expect(shown()).toBe("1:00 / 10:00");
+    act(() => {
+      if (timeline !== null) {
+        Reflect.set(HTMLInputElement.prototype, "value", "300000", timeline);
+        timeline.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+    expect(seeks).toEqual([60, 300]); // a click seeks at once
+    expect(shown()).toBe("5:00 / 10:00");
+    act(() => {
+      video.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(shown()).toBe("5:00 / 10:00"); // not back to 1:00 while the seek loads
   });
 
   it("plays or pauses at a mouse's click on the film, and puts it full screen at a double click", async () => {
@@ -200,6 +256,7 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
 describe("Left and Right on the bar's timeline (D369 §2)", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.useRealTimers();
   });
 
   it("seek the film a step, as on the film itself, and nowhere else does a range's arrow", () => {
@@ -218,10 +275,13 @@ describe("Left and Right on the bar's timeline (D369 §2)", () => {
     stage.append(video, controls);
     document.body.append(stage);
     timeline.focus();
+    vi.useFakeTimers();
     expect(answerPlayerCommand(video, "right")).toBe(true);
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
     volume.focus();
     expect(answerPlayerCommand(video, "left")).toBe(false);
+    vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
   });
 });

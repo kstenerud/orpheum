@@ -16,6 +16,7 @@ import {
   mount,
   playbackCauses,
   servedBy,
+  settleUntil,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
@@ -112,6 +113,8 @@ describe("the casting page (D364 §8, §13)", () => {
     await click(buttonNamed(page, "Play"));
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
     await click(buttonNamed(page, "Forward 10 s"));
+    expect(page.textContent).toContain("1:11 / 10:00"); // shown at once, sent once it rests
+    await settleUntil(() => server.heard.at(-1)?.["command"] === "seek");
     expect(server.heard.at(-1)).toMatchObject({
       type: "command",
       command: "seek",

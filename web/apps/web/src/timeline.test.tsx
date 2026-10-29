@@ -4,8 +4,30 @@
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { useSeekAhead } from "./seek-ahead.ts";
 import { enter, fire, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 import { clockText, Timeline } from "./timeline.tsx";
+
+/**
+ * A timeline whose seeks wait for its moves to rest restMs, as a remote's (session-remote.tsx), its
+ * film standing at the start.
+ */
+function RestingTimeline(props: {
+  readonly restMs: number;
+  readonly onSeek: (atMs: number) => void;
+}): React.JSX.Element {
+  const ahead = useSeekAhead(props.onSeek);
+  return (
+    <Timeline
+      label="Where"
+      atMs={ahead.shownMs(0)}
+      durationMs={600_000}
+      onSeek={(atMs) => {
+        ahead.aim(atMs, props.restMs);
+      }}
+    />
+  );
+}
 
 /** A touch event at clientX, as Safari on an iPhone sends: the test DOM has no Touch to make one with. */
 function touchAt(type: "touchstart" | "touchmove", clientX: number): Event {
@@ -21,7 +43,7 @@ async function dragTo(range: HTMLInputElement, value: number): Promise<void> {
 
 /**
  * Drags the slider to value at once, waiting for nothing: two such drags fall well inside a settle,
- * where dragTo's wait for the page to go quiet took longer than settleMs on a loaded machine and the
+ * where dragTo's wait for the page to go quiet took longer than the rest on a loaded machine and the
  * seek came between them (a flaky make check, 2026-10-27).
  */
 function dragNow(range: HTMLInputElement, value: number): void {
@@ -75,23 +97,17 @@ describe("a film's timeline (D369 §1)", () => {
     expect(seeks).toEqual([120_000, 180_000]);
   });
 
-  it("seeks once a drag has rested for settleMs, showing where it is meanwhile", async () => {
+  it("seeks once a drag has rested, as a remote's does, showing where it is meanwhile and until the film is there", async () => {
     const seeks: number[] = [];
-    const range = await drawn(
-      <Timeline
-        label="Where"
-        atMs={0}
-        durationMs={600_000}
-        settleMs={50}
-        onSeek={(ms) => seeks.push(ms)}
-      />,
-    );
+    const range = await drawn(<RestingTimeline restMs={50} onSeek={(ms) => seeks.push(ms)} />);
     dragNow(range, 120_000);
     dragNow(range, 180_000);
     expect(seeks).toEqual([]);
     expect(mounted?.container.textContent).toBe("3:00 / 10:00");
     await settleUntil(() => seeks.length > 0);
     expect(seeks).toEqual([180_000]);
+    // The film still stands at the start: the marker stays where it was sent (the owner, 2026-10-27).
+    expect(mounted?.container.textContent).toBe("3:00 / 10:00");
   });
 
   it("moves to a touch anywhere on it, not only on its thumb, and follows the finger", async () => {
