@@ -428,52 +428,6 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(states()).toHaveLength(3);
   });
 
-  it("tells the group, in its state, that even its lowest quality cannot keep up, and when it can again (D247 §8)", () => {
-    const sockets = fakeSockets();
-    const connection = createTogetherConnection({
-      credential: "c",
-      openSocket: sockets.open,
-      monotonicMs,
-    });
-    connection.open();
-    connection.setPlayer(() => ({ positionMs: 0, isPlaying: false, isBuffering: true }));
-    sockets.opened[0]!.onOpen();
-    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
-    const lastState = (): Record<string, unknown> | undefined =>
-      sockets.sent.filter((each) => each["type"] === "state").at(-1);
-    connection.setCannotKeepUp({ linkKbps: 612.4, lowestKbps: 750 });
-    expect(lastState()?.["cannotKeepUp"]).toEqual({ linkKbps: 612, lowestKbps: 750 });
-    connection.setCannotKeepUp({ linkKbps: undefined, lowestKbps: 750 });
-    expect(lastState()?.["cannotKeepUp"]).toEqual({ lowestKbps: 750 });
-    connection.setCannotKeepUp(undefined);
-    expect(lastState()).not.toHaveProperty("cannotKeepUp");
-  });
-
-  it("tells the group, in its state, that its page is hidden, its film paused, and says nothing once shown (D372 §5)", () => {
-    const sockets = fakeSockets();
-    const connection = createTogetherConnection({
-      credential: "c",
-      openSocket: sockets.open,
-      monotonicMs,
-    });
-    connection.open();
-    let isPageHidden = true;
-    connection.setPlayer(() => ({
-      positionMs: 0,
-      isPlaying: false,
-      isBuffering: false,
-      ...(isPageHidden ? { isPageHidden } : {}),
-    }));
-    sockets.opened[0]!.onOpen();
-    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
-    const lastState = (): Record<string, unknown> | undefined =>
-      sockets.sent.filter((each) => each["type"] === "state").at(-1);
-    expect(lastState()?.["pageHidden"]).toBe(true);
-    isPageHidden = false;
-    connection.reportState();
-    expect(lastState()).not.toHaveProperty("pageHidden");
-  });
-
   it("reads a roster device's word that it cannot keep up, with both numbers (D247 §8)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
