@@ -45,6 +45,30 @@ export function isFollowerOf(snapshot: TogetherSnapshot): boolean {
 }
 
 /**
+ * A player's wait, on each new connection, to hear of its group's leader (D377 §3): one that was
+ * playing keeps where it was until its roster names a leader, then takes the leader's position as any
+ * follower does, or, named the leader itself, leads from where it is; chosen to lead a group no one
+ * leads, it presents its own position, which the server takes (§4). Moved to the group's position
+ * first, a device back from a dropped connection told the server the held place and lost its own.
+ */
+export class LeaderAwaited {
+  #deviceId: number | undefined;
+  #isAwaiting = false;
+
+  /** Whether the player, which was playing when wasPlaying, keeps where it is now. */
+  holds(snapshot: TogetherSnapshot, wasPlaying: boolean): boolean {
+    if (snapshot.deviceId !== this.#deviceId) {
+      this.#deviceId = snapshot.deviceId; // a new connection: the server knows nothing of it yet
+      this.#isAwaiting = wasPlaying;
+    }
+    if (leaderOf(snapshot) !== undefined) {
+      this.#isAwaiting = false;
+    }
+    return this.#isAwaiting;
+  }
+}
+
+/**
  * Whether this device follows a group that plays, or waits for its players to: its player, held
  * paused while it loads, is asked to play, and its slow load is a stall (D247 §2); one a paused
  * group holds is not.

@@ -3,7 +3,7 @@
 import { ShownCheck } from "./shown-check.ts";
 import { whenShownOrBack, type ShownPage } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
-import type { PlayerNote, PlayerState } from "./together-notes.ts";
+import { stateFlagsOf, type PlayerNote, type PlayerState } from "./together-notes.ts";
 import {
   noRight,
   parseTogetherMessage,
@@ -500,7 +500,7 @@ class SessionConnection
         ...(state.readyOnMs === undefined ? {} : { readyOnMs: state.readyOnMs }),
         ...(state.loadsFaster === undefined ? {} : { loadsFaster: state.loadsFaster }),
         ...(state.playback === undefined ? {} : { playback: wholePlayback(state.playback) }),
-        ...(state.isPageHidden === true ? { pageHidden: true } : {}),
+        ...stateFlagsOf(state),
         ...(this.#cannotKeepUp === undefined
           ? {}
           : {

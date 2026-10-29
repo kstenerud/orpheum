@@ -59,6 +59,13 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   holds it `Paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock
   still. `apps/web/src/together-events.test.ts`.
+- **A player that has played its film with its group has a position of its own** (D377 §3, §4), said
+  in each state it tells (`remembersPlace`), on that connection and every one after on its page; a
+  page loaded afresh has none until it plays along. On each new connection it keeps where it was
+  until its roster names a leader, then takes the leader's position as any follower does, so its
+  first state tells its own position, which the server takes as the group's should it be chosen to
+  lead a group no one leads. `src/together-own-position.test.ts`,
+  `src/together-connection-state.test.ts`.
 - **Every state a player tells says the film it has** (`fileId`), by which the server counts it a
   contender for its session's lead; a page whose film went to a cast's receiver, its connection
   kept, says it has none (`tellsNoFilmHere`), so it never leads in its receiver's place (D374 §1).

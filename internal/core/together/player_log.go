@@ -45,6 +45,8 @@ const (
 	eventPlayedWhileHeld   = "playedWhileHeld"
 	eventShownAgain        = "shownAgain"
 	eventPlayRefused       = "playRefused"
+	eventRunStarted        = "runStarted"
+	eventRunEnded          = "runEnded"
 )
 
 // deviceAttributes name a device in a log line: its session, its member and itself.

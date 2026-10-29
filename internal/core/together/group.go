@@ -195,8 +195,9 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 		current.logger.DebugContext(ctx, "watch together: the group follows its leader",
 			append(current.deviceAttributes(who, from), logEvent, eventFollowedLeader,
 				positionMsAttribute, position.Milliseconds(), "steppedMs", stepped.Milliseconds())...)
-	case state == GroupPlaying && message.Buffering && !current.isOnlyContender(from):
-		// no one's stall is waited for while another plays the film (D373 §1, D374 §3)
+	case state == GroupPlaying && !current.isOnlyContender(from):
+		// no one's stall is waited for while another plays the film (D373 §1, D374 §3), nor the
+		// leader's own pause, its browser's, not a person's: play or pause is the session's (D377 §5)
 	case state == GroupPlaying:
 		current.group.position, current.group.at = position, now
 		current.change(now, GroupWaiting, EventWaitingFor, who.id)

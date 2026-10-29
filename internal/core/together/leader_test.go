@@ -35,9 +35,9 @@ func withGuests(t *testing.T, count int) guestsStage {
 	return guestsStage{sessionStage: stage, host: host, hostBox: hostBox, guests: guests}
 }
 
-// While none of the host's devices can lead, the player present longest leads, a guest's, by the
-// moment the core saw it arrive, at microsecond resolution; arrived the same microsecond, the lower
-// id. The log says why and the new leader's seniority (D372 §1).
+// While none of the host's devices can lead, the player whose run started earliest leads, a guest's,
+// by the moment the core first heard it ready, at microsecond resolution; ready the same microsecond,
+// the lower id. The log says why and when the new leader's run started (D372 §1, D377 §2).
 func TestHub_TheLeadPassesToThePlayerPresentLongest(t *testing.T) {
 	t.Parallel()
 	stage := withGuests(t, 2)
@@ -54,9 +54,9 @@ func TestHub_TheLeadPassesToThePlayerPresentLongest(t *testing.T) {
 			leader, stage.guests[0].DeviceID)
 	}
 	if line := logLineWith(stage.logs.String(), "why=leaderGone"); !strings.Contains(line,
-		"leaderSeniority=2026-10-05T20:00:01.000000Z leaderPresentMs=91000") ||
+		"leaderRunSince=2026-10-05T20:00:01.000000Z leaderRunMs=91000") ||
 		!strings.Contains(line, "goneBecause=closed goneLeaderWasHost=true") {
-		t.Errorf("the lead's passing logged as %q; want the new leader's seniority and why", line)
+		t.Errorf("the lead's passing logged as %q; want the start of the new leader's run and why", line)
 	}
 	stage.hub.Detach(stage.guests[0], GoneClosed)
 	stage.hub.Detach(stage.guests[1], GoneClosed)
