@@ -1070,7 +1070,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   looks ugly. You can see it partially covering the outline around the first item in the list": in
   the menu and every chooser, on the Fire TV and a computer, the Close covers no part of the first
   place or its focus ring, a first choice opened at a chooser near the screen's top too, and a place
-  moved back up to stops below the Close.
+  moved back up to stops below the Close. (14) "As I scroll down the menu, I notice the highlight
+  around the current item is slightly cut off at the bottom of the menu canvas": moving down the
+  menu and a long chooser to the last place, each place's whole ring shows at the list's bottom.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays

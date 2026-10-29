@@ -139,6 +139,48 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     const close = boxOf(document.querySelector("dialog .drop-down__close"));
     expect(isOverlapping(close, ringedBoxOf(first))).toBe(false);
   });
+
+  // The owner's Fire TV, 2026-10-29: "As I scroll down the menu, I notice the highlight around the
+  // current item is slightly cut off at the bottom of the menu canvas."
+  it("shows each place moved to, down to its last and up again, with its whole focus ring", async () => {
+    // Low enough that the list scrolls within itself.
+    await page.viewport(width, Math.min(height, 360));
+    mounted = await mount(
+      withServices(
+        <ActionChooser
+          fieldLabel="Order"
+          isFieldLabelShown={false}
+          current="Choice 1"
+          options={sorts.map((sort, at) => ({ ...sort, isCurrent: at === 0 }))}
+        />,
+      ),
+    );
+    mounted.container.querySelector<HTMLElement>(".route-chooser__button")?.focus();
+    await userEvent.keyboard("{Enter}");
+    const places = document.querySelector<HTMLElement>("dialog .drop-down__places");
+    const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
+    expect((places?.scrollHeight ?? 0) > (places?.clientHeight ?? 0)).toBe(true);
+    const close = boxOf(document.querySelector("dialog .drop-down__close"));
+    const isShownWhole = (): boolean => {
+      const ringed = ringedBoxOf(document.activeElement);
+      const shown = boxOf(places);
+      return (
+        ringed.top >= shown.top - roundingPx &&
+        ringed.bottom <= shown.bottom + roundingPx &&
+        !isOverlapping(close, ringed)
+      );
+    };
+    for (const button of buttons.slice(1)) {
+      await userEvent.keyboard("{ArrowDown}");
+      await expect.poll(() => document.activeElement).toBe(button);
+      expect(isShownWhole(), button.textContent).toBe(true);
+    }
+    for (const button of buttons.slice(0, -1).reverse()) {
+      await userEvent.keyboard("{ArrowUp}");
+      await expect.poll(() => document.activeElement).toBe(button);
+      expect(isShownWhole(), button.textContent).toBe(true);
+    }
+  });
 });
 
 /** Whether two boxes overlap, more than layout's rounding. */
