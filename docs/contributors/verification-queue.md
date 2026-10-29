@@ -1218,7 +1218,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-10-29 (the owner: the Mac's Chrome hosting, the Samsung S23 and the Mac's Firefox as
   guests):** "it worked". Found: the host away from the film saw no way back to watching on the session's
   page (the link drawn as the primary action as a stopgap; the page's revamp is next batch).
-- [ ] **VQ105** — a locked phone's lead passes at once (D372 §2, §5), on staging. Passes when the
+- [x] **VQ105** — a locked phone's lead passes at once (D372 §2, §5), on staging. Passes when the
   iPhone, a guest, leads a session (the host put the film on, then browsed away from the session's
   page, D372 §6; a guest cannot choose the film) beside a computer's browser, a second guest that
   joined after it: (1) locking the iPhone hands the lead to the browser at once, the browser's film
@@ -1237,6 +1237,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Criterion (3) replaced by D373 (the owner, 2026-10-29):** no one's stall holds a Watch Together
   group, and a leader stalled past its 3 s grace passes the lead (`goneBecause=stalled`); VQ128
   checks the new rule, and (3) is no longer to pass as written.
+  **Passed 2026-10-29 (the owner, staging):** (1) the S23 leading, locked, passed the lead at once (`goneBecause=hidden`); (2) unlocked, it came
+  back in step (VQ126's fix); (3) replaced by D373 (VQ128 passed).
 - [x] **VQ106** — a person is in one session at most (D372 §8), on staging. Passes when: (1) a
   guest by link alone on the iPhone, in the Mac's session, opens a link to a second session (another
   person hosting it on a computer's browser) in a new tab and is asked "Leave ‹host›'s session to
@@ -1500,7 +1502,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/packages/sdk/src/together-connection.ts`, `together-follow.ts`, `together-sound.ts`)
   **Passed 2026-10-29 (the owner, staging):** the S23 follower, locked and unlocked, played on in step
   without a press.
-- [ ] **VQ127** — a tab left open across a deploy keeps its posters, on staging. In Chrome on the
+- [x] **VQ127** — a tab left open across a deploy keeps its posters, on staging. In Chrome on the
   Mac, open a household through staging's discovery and leave the tab on the home page; deploy
   staging so that the discovery is rebuilt (a new `sw.js`); then reload the tab once, ordinarily.
   Passes when every poster shows after the reload, none 404 in the Network panel (their remote
@@ -1509,6 +1511,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `no service worker controls the page … reloading the page once` line, the page reloaded itself
   and must show its posters after it. (`web/apps/web/src/sw.ts`, `web/packages/sdk/src/rtc-media.ts`,
   `web/apps/web/src/loader-at-client-origin.tsx`)
+  **Passed 2026-10-29 (the owner, staging):** shown by VQ137's run: a tab left open across a deploy loaded its film at once, no 404s.
 - [x] **VQ128** — no one's stall holds a Watch Together group (D373), on staging. With the Mac's
   Chrome as the host, leading a session that plays, and the S23 (Chrome) and Firefox following,
   throttle the Mac's Chrome in DevTools' Network panel (a slow preset, or Offline) until its film
@@ -1541,7 +1544,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   skipped. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`;
   `web/apps/web/src/together-viewer.tsx`)
-- [ ] **VQ130** — a page's WebRTC connection comes back after the network does, in every browser, on
+- [x] **VQ130** — a page's WebRTC connection comes back after the network does, in every browser, on
   staging. With the Mac's Chrome and Firefox both in one Watch Together session over WebRTC through
   staging's discovery (the core's log says `over=webrtc` for each), and the S23 a third member, play a
   film. (1) Turn the Mac's Wi-Fi off for a minute, then on. Passes when both Mac browsers make a new
@@ -1555,6 +1558,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/packages/sdk/src/rtc-transport.ts`, `rtc-peer.ts`, `rtc-reopen.ts`, `rtc-connect.ts`,
   `together-connection.ts`;
   `web/apps/web/src/kept-path.ts`)
+  **Passed 2026-10-29 (the owner, staging):** Mac Wi-Fi off ~1 min with Chrome and Firefox in the session: both reconnected within a second
+  of each other at 19:09:50 once it returned (with VQ131's run).
 - [x] **VQ131** — a Watch Together guest who was signed in before joining by the host's link reaches
   the server again after a lost connection, on staging. On the Mac, Firefox signed in as dan at the
   household through staging's discovery (the core's log says `over=webrtc` for it), and Chrome as the
@@ -1569,7 +1574,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-10-29 (the owner, staging):** Wi-Fi off ~1 min with both Mac browsers in the session; Firefox
   (`back after 69261 ms`) and Chrome (`58049 ms`) reconnected within a second of each other once it
   returned; the session had paused as everyone had gone (D372 §7, the S23 locked).
-- [ ] **VQ132** — Show debug tools, and Watch Together's leader debug view, on staging. On the Mac's
+- [x] **VQ132** — Show debug tools, and Watch Together's leader debug view, on staging. On the Mac's
   Chrome (signed in as the host) and the S23 (a signed-in guest), turn on Your account → Testing →
   Show debug tools; reload neither. (1) A film on its ladder shows "Play the original file" under the
   player on both; turned off, it is gone, and a person who never turned it on never sees it. (2) The
@@ -1585,6 +1590,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   and from the other device of the same person after its next read of who they are (a reload).
   (`internal/core/preferences`, `internal/core/api/session.go`, `internal/core/together/leader.go`;
   `web/apps/web/src/debug-tools.tsx`, `together-debug.tsx`, `app.tsx`)
+  **Passed 2026-10-29 (the owner, staging):** Show debug tools turned on for admin and dan; the leader view marked the leader and this device,
+  the marks moved as the lead passed, and turning it off hid the view (the owner).
 - [x] **VQ133** — a Watch Together follower's page offline for a minute neither overflows its stack
   nor comes back a minute ahead, on staging. With the Mac's Chrome following in a Watch Together
   session over WebRTC through its client origin (the loader and the client of one build, the core's
