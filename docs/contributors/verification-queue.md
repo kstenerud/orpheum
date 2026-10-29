@@ -898,6 +898,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the boost played the boosted mix and kept it across a step up, but turning it on froze 2.2 s while
   the server made the boosted mix (fixed in the batch: the loaded sound plays on until the boosted
   mix is ready). Levelling is the player's own gain and switches at once. Left: the boost fix seen.
+  **The owner's run 2026-10-29 (Chrome on the Mac, Thimbleford, 5712):** turning the boost on switched
+  to `sound0-boost-96k-ownlevel` before the server had made it, and the video froze 2.2 s; the boost
+  then played and was kept across a step up. Fixed: also passes when turning the boost on (and off)
+  plays on with no freeze, the other mix heard a moment later, and the core's log says `sound <n>
+  chosen (boostOn)` then `sound <n> heard (boostOn)` in the playback's link notes.
 - [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in

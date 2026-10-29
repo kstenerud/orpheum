@@ -80,9 +80,13 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   top of a film's ladder plays its own sound in a group of its own, every group in one order
   (D368 §3), and the rendition playing, or chosen, is set again in each new group before hls.js
   matches one by name and channels, in the form of the sound loaded, so hls.js keeps the sound
-  loaded and loads the new one on from its end; only a sound the person chooses throws the loaded
-  sound away (`keepAudioRendition`, `src/hls.ts`; D368's revision of 2026-10-28; idiosyncrasies.md).
-  `hls.test.ts`.
+  loaded and loads the new one on from its end; and a sound the person chooses, the dialogue boost
+  turned on or off, is the one way a sound changes as the film plays, a prepared rendition's too: the
+  sound loaded plays on while the new one's chunk at the playhead is asked for, starting the server
+  making it, and the new one is heard from that chunk once it has loaded, each choice noted with its
+  cause and again as it is heard; a boost turned on at the top of Thimbleford's ladder, the sound loaded
+  thrown away, froze it 2.2 s (staging, 2026-10-29) (`keepAudioRendition`, `src/hls.ts`; D368's
+  revision of 2026-10-28; idiosyncrasies.md). `hls.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
   plays on after a seek, only once what it loaded ahead, picture and sound both, outlasts its next
   chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,

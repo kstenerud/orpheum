@@ -30,8 +30,7 @@ import {
   obeyGroupLoading,
   soughtHeader,
   playNative,
-  keepAudioRendition,
-  startWithAudio,
+  startAndKeepAudio,
   tellLoading,
   tellOwnMoves,
   type HlsPlayback,
@@ -580,10 +579,7 @@ export function playChunked(
   });
   failOnFatal(hls, options.onFailed);
   diagnose(hls, video);
-  startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
-  // 0 is the playlist's default, which hls.js starts with: kept once it plays.
-  const startAudio = options.startAudioRenditionIndex;
-  const chooseAudio = keepAudioRendition(hls, startAudio === 0 ? undefined : startAudio);
+  const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex, linkNoter(video));
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };

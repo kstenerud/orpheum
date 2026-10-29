@@ -9,7 +9,7 @@ import {
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
 } from "@orpheum/sdk";
-import Hls from "hls.js";
+import Hls, { type AudioTrackSwitchingData } from "hls.js";
 
 import {
   hlsMethod,
@@ -249,6 +249,13 @@ describe("keeping the sound playing as the quality moves between audio groups (D
         listeners.set(event, listener);
       },
       audioTrack: -1,
+      // The switch hls.js makes as the chunk at the playhead loads, here at once.
+      set nextAudioTrack(id: number) {
+        hls.audioTrack = id;
+      },
+      get nextAudioTrack() {
+        return hls.audioTrack;
+      },
       // hls.js lists a group's tracks with no track chosen yet, then chooses its own if none is.
       updated: (count: number) => {
         hls.audioTrack = -1;
@@ -279,7 +286,7 @@ describe("keeping the sound playing as the quality moves between audio groups (D
     const hls = fakeHls();
     const choose = keepAudioRendition(hls, undefined);
     hls.updated(3);
-    choose(1);
+    choose(1, "boostOn");
     expect(hls.audioTrack).toBe(1);
     hls.updated(3);
     expect(hls.audioTrack).toBe(1);
@@ -317,36 +324,60 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
     );
   }
 
+  /** A stretch of sound loaded, of the rendition at a place. */
+  interface Loaded {
+    readonly fromS: number;
+    readonly toS: number;
+    readonly id: number;
+  }
+
   /**
    * A fake hls.js, its sound loaded as loaded says, which switches sound as hls.js
-   * 1.7.3 does (AudioTrackController.setAudioTrack, AudioStreamController.flushAudioIfNeeded): it
-   * tells the switch with a copy of the track, and throws every loaded second away when the copy
-   * differs from the sound loaded in name, language, channels or codec; else it loads the new sound
-   * on from the end of what is loaded.
+   * 1.7.3 does (AudioTrackController.setAudioTrack, AudioStreamController.flushAudioIfNeeded): set
+   * by audioTrack, it tells the switch with a copy of the track, and throws every loaded second away
+   * when the copy differs from the sound loaded in name, language, channels or codec; else it loads
+   * the new sound on from the end of what is loaded. Set by nextAudioTrack, it keeps the sound loaded
+   * and asks for the new one's chunk at the playhead, and once that arrives throws the sound loaded
+   * away from 0.25 s past the playhead (nextAudioTrackBufferFlushForwardOffset) or the chunk's start,
+   * the later, puts the chunk in, and tells the switch done (doTick, onFragParsing).
    */
   function fakeHls(loaded: { readonly fromS: number; readonly toS: number }): AudioKeeping & {
+    playheadS: number;
     readonly listGroup: (sounds: Sound[]) => void;
     readonly soundLoaded: () => { readonly fromS: number; readonly toS: number } | undefined;
+    /** The rendition loaded where the video stands at s; undefined where nothing is: a stall. */
+    readonly soundAt: (s: number) => number | undefined;
+    /** Where the chunk of a sound switched to by nextAudioTrack was asked for; undefined for none. */
+    readonly askedAtS: () => number | undefined;
+    readonly chunkArrives: (chunk: { readonly fromS: number; readonly toS: number }) => void;
   } {
     const listeners = new Map<string, (event: unknown, data: never) => void>();
     let group: Sound[] = [];
     let trackId = -1;
     let loadedSound: Sound | undefined;
-    let soundLoaded: { readonly fromS: number; readonly toS: number } | undefined = loaded;
+    let stretches: Loaded[] = [{ ...loaded, id: 0 }];
+    let pending: { readonly id: number; readonly sound: Sound; readonly atS: number } | undefined;
+    const tell = (
+      data: Sound & Pick<AudioTrackSwitchingData, "flushImmediate"> & { readonly id: number },
+    ): void => {
+      listeners.get(Hls.Events.AUDIO_TRACK_SWITCHING)?.(undefined, data as never);
+    };
     const switchTo = (id: number): void => {
       const track = group[id];
       if (track === undefined) {
         return;
       }
       trackId = id;
+      pending = undefined;
       const switching = { ...track, id };
       if (loadedSound !== undefined && !isSameSound(loadedSound, switching)) {
-        soundLoaded = undefined;
+        stretches = [];
       }
       loadedSound = switching;
-      listeners.get(Hls.Events.AUDIO_TRACK_SWITCHING)?.(undefined, switching as never);
+      tell({ ...switching, flushImmediate: true });
     };
-    return {
+    const hls = {
+      playheadS: 0,
       on: (event: string, listener: (event: unknown, data: never) => void) => {
         listeners.set(event, listener);
       },
@@ -356,8 +387,20 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
       set audioTrack(id: number) {
         switchTo(id);
       },
+      get nextAudioTrack() {
+        return trackId;
+      },
+      set nextAudioTrack(id: number) {
+        const track = group[id];
+        if (track === undefined) {
+          return;
+        }
+        trackId = id;
+        pending = { id, sound: { ...track }, atS: pending?.atS ?? hls.playheadS };
+        tell({ ...track, id, flushImmediate: false });
+      },
       // hls.js lists a group's tracks with no track chosen yet, then chooses the first if none is.
-      listGroup: (sounds) => {
+      listGroup: (sounds: Sound[]) => {
         group = sounds;
         trackId = -1;
         listeners.get(Hls.Events.AUDIO_TRACKS_UPDATED)?.(undefined, {
@@ -367,8 +410,32 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
           switchTo(0);
         }
       },
-      soundLoaded: () => soundLoaded,
+      soundLoaded: () => {
+        const first = stretches[0];
+        const last = stretches.at(-1);
+        return first === undefined || last === undefined
+          ? undefined
+          : { fromS: first.fromS, toS: last.toS };
+      },
+      soundAt: (at: number) =>
+        stretches.findLast((stretch) => stretch.fromS <= at && at < stretch.toS)?.id,
+      askedAtS: () => pending?.atS,
+      chunkArrives: (chunk: { readonly fromS: number; readonly toS: number }) => {
+        if (pending === undefined) {
+          return;
+        }
+        const cutS = Math.max(hls.playheadS + 0.25, chunk.fromS);
+        stretches = stretches
+          .filter((stretch) => stretch.fromS < cutS)
+          .map((stretch) => ({ ...stretch, toS: Math.min(stretch.toS, cutS) }));
+        stretches.push({ ...chunk, id: pending.id });
+        loadedSound = pending.sound;
+        const { id } = pending;
+        pending = undefined;
+        listeners.get(Hls.Events.AUDIO_TRACK_SWITCHED)?.(undefined, { id } as never);
+      },
     };
+    return hls;
   }
 
   /** Nosferatu's sound at the top, its own 5.1 copied, and at the lower qualities the light stereo track. */
@@ -393,12 +460,42 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
     expect(hls.soundLoaded()).toEqual({ fromS: 3049.13, toS: 3088.04 });
   });
 
-  it("plays a sound the person chooses at once, the loaded one thrown away", () => {
+  it("plays the sound loaded on as the person turns the boost on, the boosted mix heard from its chunk at the playhead once it arrives", () => {
+    // Thimbleford at the top of its ladder, its own 5.1 sound loaded 37 s ahead, the boost turned on
+    // while the server had not made the boosted mix (staging, 2026-10-29): it froze 2.2 s.
+    const hls = fakeHls({ fromS: 10, toS: 47 });
+    const notes: string[] = [];
+    const choose = keepAudioRendition(hls, undefined, (note) => notes.push(note));
+    hls.listGroup([...own(), { name: "English, dialogue raised", lang: "en", channels: "2" }]);
+    hls.playheadS = 12;
+    choose(1, "boostOn");
+    // Its chunk is being made: the sound loaded plays on, and the boosted one's chunk at the
+    // playhead is asked for, which starts the server making it.
+    expect(hls.soundAt(12)).toBe(0);
+    expect(hls.soundAt(30)).toBe(0);
+    expect(hls.askedAtS()).toBe(12);
+    hls.playheadS = 13.5;
+    hls.chunkArrives({ fromS: 12, toS: 16 });
+    expect(hls.soundAt(14)).toBe(1);
+    expect(hls.soundAt(15.9)).toBe(1);
+    expect(notes).toEqual([
+      "sound 1 chosen (boostOn), loading at the playhead as sound 0 plays",
+      "sound 1 heard (boostOn)",
+    ]);
+  });
+
+  it("keeps a boost on its way as the quality moves to another group, never throwing the sound loaded away", () => {
     const hls = fakeHls({ fromS: 10, toS: 47 });
     const choose = keepAudioRendition(hls, undefined);
-    hls.listGroup([...own(), { name: "English, dialogue raised", lang: "en", channels: "2" }]);
-    choose(1);
-    expect(hls.soundLoaded()).toBeUndefined();
+    const boosted = { name: "English, dialogue raised", lang: "en", channels: "2" };
+    hls.listGroup([...own(), boosted]);
+    hls.playheadS = 12;
+    choose(1, "boostOn");
+    hls.listGroup([...light(), boosted]); // a lower quality loading while the boost is on its way
+    expect(hls.audioTrack).toBe(1);
+    expect(hls.soundAt(12)).toBe(0);
+    hls.chunkArrives({ fromS: 12, toS: 16 });
+    expect(hls.soundAt(14)).toBe(1);
   });
 });
 
