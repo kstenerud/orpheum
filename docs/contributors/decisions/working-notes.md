@@ -22487,6 +22487,62 @@ stalled the TV 1172 ms. Two changes:
 while the hold is loaded, and says so once"), web/packages/player/src/link-estimate.test.ts ("is not
 ruled by one slow sample of five: the most extreme error is set aside"); VQ116.
 
+**Revised 2026-10-29** by the owner, accepting P1–P6 of
+[bandwidth-sampling-2026-10-29.md](../design/research/bandwidth-sampling-2026-10-29.md) ("1: yes",
+and "put it in this batch because it will affect some of the VQs we're trying to confirm"), except
+P3's fourth point: a chunk stuck on one WebRTC connection is **not** asked again on another; its
+log says which connection carried it instead (6 below). The research explains the three staging
+failures of 2026-10-28 (Nosferatu's 69 kb/s from a given-up chunk, a start that waited on 753 kb/s ten
+minutes after a 17 Mb/s film, one slow sample of five cutting the ceiling) and proposes the estimator
+below. It replaces §2's harmonic mean and RobustMPC's divisor, and the divisor's trimming of this
+decision's revision of 2026-10-28 (its 2) with it; §2's agreement of samples, the hold, the
+steadiness levels and every other number stand. Six changes:
+
+1. **The estimate is a robust centre in log space (P1).** Of the last five samples' natural logs,
+   Huber's centre, a sample further than 2 spreads from it counted as if that far; the spread their
+   median absolute deviation as a standard deviation, at least 0.3, and 0.38 assumed until three
+   are kept. A fall is followed once most of the five say it; a chunk given up and a stall still act
+   at once.
+2. **The remembered link is a prior (P2).** It counts as 2 samples while under an hour old, fewer in
+   step with its age, none at `link_speed_fresh_hours`; it lends its spread until three samples are
+   kept; two of the playback's own samples more than 2 spreads from it on the same side and within 4
+   of each other drop it, and the playback's own samples retire it once they leave the window. The
+   speed reported, and remembered, is the estimate (the prior's centre), with its spread; the core
+   keeps both, with the steadiness level, in the store (`link_memory`, step 0063), so a restart
+   keeps them, and hands a start the speed, its spread and how many samples it counts as.
+3. **A chunk given up is censored (P3, 1–3).** Arriving (bytes within the last second, and 128 KB
+   of them), it is a sample over its first byte to the give-up; stuck, it is no sample, still a
+   drop, and while starting lowers the ceiling only as far as the estimate carries.
+4. **Choices read a quantile (P4).** The confident estimate is e^(centre − z × spread / √n), and a
+   single chunk's bound e^(centre − z × spread × √(1 + 1/n)), n the samples counted with the
+   prior's; z is 1.28 with nothing loaded ahead, 0.84 at 10 s, 0 from 20 s, straight between.
+   D265's share stays the headroom over a quality's rate.
+5. **The start gate reads the one-chunk bound, and starting can end on evidence (P5).** A next
+   chunk's load is the median first-byte wait plus its bits over the bound, from the prior alone
+   before any chunk, so it waits `refillAheadMs` only with nothing remembered and nothing measured.
+   Starting ends once 20 s have played and the samples settle the ceiling, the same with any one left
+   out; *as built*, four samples also end it however they disagree, where P5 would have
+   disagreeing samples take more, since a playback still starting never steps up — for the owner to
+   confirm.
+6. **The log says how well the estimate predicts (P6).** Every play report carries the player's
+   notes on its link, which the core logs: its prior; each sample with the time the estimate before
+   it expected and its bound's, "below" when slower than the bound; and each chunk given up, or
+   stuck where it cannot be, with the transport and WebRTC connection that carried it, how long that
+   connection has been up, what it carries and how long since it last delivered bytes.
+
+*Values:* constants, as the decision's own are (its Values): the clip 2, the spread floor 0.3 and assumed
+0.38, three samples to measure a spread, the prior's 2 samples and its hour, the drop's 2 and 4
+spreads, the second of arriving, and z's 1.28/0.84/0 at 0/10/20 s. They are textbook starting values,
+measured on no link of ours; the notes of 6 are to tune them.
+
+*Proven by:*
+- 1: web/packages/player/src/link-estimate.test.ts ("is not ruled by one sample that is not the link's: Nosferatu's four near 15 Mb/s and one at 14 kb/s"; "follows a fall once most of its samples say it")
+- 2: web/packages/player/src/link-estimate.test.ts ("outlives one bad early sample: a first chunk at 1 Mb/s reads near 12.6 Mb/s, not 1"; "is dropped when two of the playback's own samples agree against it: a real fall still lowers the estimate"), web/packages/player/src/abr-trust.test.ts ("starts its estimate from the link its device remembers: one bad first sample does not choose the lowest (P2)"), internal/core/playback/speeds_test.go (TestLinkSpeeds_OutliveTheCoreThatHeardThem, TestRememberedLink_CountsAsTwoSamplesFadingWithItsAge), internal/core/api/start_lower_test.go (TestPlayback_AStartsRememberedLinkCarriesItsSpreadAndCountsLessAsItAges); VQ120
+- 3: web/packages/player/src/abr-trust.test.ts ("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Nosferatu, P3)"), web/packages/player/src/abr-choice.test.ts ("is a sample over its first byte to the give-up while its bytes were arriving"); VQ120
+- 4: web/packages/player/src/abr-trust.test.ts ("keeps the top at starting's end with 10 s loaded through one slow sample of five (failure 3, P4)"), web/packages/player/src/link-estimate.test.ts ("is read at a bound set by what is loaded ahead: the confident estimate and the next chunk's (P4)"; "is slower than its 90% bound for a tenth of the link's chunks, give or take 3%, with 5% of samples near nothing")
+- 5: web/packages/player/src/abr-trust.test.ts ("keeps a fresh remembered 17 Mb/s through one slow sample of two: the 753 kb/s start (failure 2)"; "still waits on a link that really is slow: two samples at 753 kb/s outvote the remembered link"; "ends once its samples settle the ceiling and 20 s played, the ceiling no higher than the start (P5)"), web/packages/player/src/next-chunk.test.ts; VQ120
+- 6: web/packages/player/src/abr.test.ts ("notes its link for the server's log: its prior, each sample with its expected time and its bound's, each chunk given up or stuck and what carried it (P6)"), web/packages/sdk/src/rtc-transport.test.ts, internal/core/api/stall_report_test.go (TestReport_TheLinksNotesAreLoggedWithWhatCarriedEachStuckChunk)
+
 ## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one
 
 **Decided** (2026-10-27), by the project owner, replacing the fixed minute the fix for the owner's
