@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A48 — Told the owner his own DevTools setting caused a fault, on a subagent's word (2026-10-29)
+
+- **What happened:** a debugging subagent reported that the owner's black page on staging (the core's
+  client scripts answered 404 by the client origin) was caused by Chrome DevTools' "Bypass for
+  network" being ticked, and that our own VQ86 text had told him to tick it. The lead repeated this to
+  the owner as the cause, and as the lead's fault, without evidence that the setting was on: the
+  subagent had only reproduced the same symptom with the bypass on in Playwright. The owner had never
+  touched the setting; the fault recurred for the lazily loaded scripts after the next deploy.
+- **Caught by:** the owner ("I never changed it from whatever it was").
+- **Gate:** none. A reproduction of the same symptom is a hypothesis, not a cause; the lead must ask
+  the owner to confirm a device-side condition before stating it as the cause.
+
 ### A47 — Read a player's first quality note as a switch up, and told the owner so (2026-10-28)
 
 - **What happened:** the Fire TV stuttered as a cast started. The lead read one log line,
