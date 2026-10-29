@@ -377,11 +377,12 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D369](working-notes.md#d369--every-device-plays-with-the-apps-own-player-controls-built-from-one-standard-set-of-player-widgets) Every device plays with the app's own player controls, built from one standard set of player widgets
 - [D370](working-notes.md#d370--a-video-a-person-has-watched-shows-a-white-check-in-its-posters-tray-and-a-person-can-mark-it-watched-or-unwatched-on-its-page) A video a person has watched shows a white check in its poster's tray, and a person can mark it watched or unwatched on its page
 - [D371](working-notes.md#d371--a-session-has-a-leader-that-plays-as-a-device-plays-alone-everyone-else-catches-up-to-it-and-a-cast-takes-its-senders-part) A session has a leader that plays as a device plays alone; everyone else catches up to it, and a cast takes its sender's part — *revisited by D372*
-- [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most — *revisited by D373, D374, D375*
+- [D372](working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most) A session's lead passes to its longest-present player while the host's screen is gone, and a person is in one session at most — *revisited by D373, D374, D375, D377*
 - [D373](working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead) No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead — *revisited by D374*
 - [D374](working-notes.md#d374--only-a-device-playing-the-film-can-lead-a-casts-sender-never-does) Only a device playing the film can lead; a cast's sender never does
 - [D375](working-notes.md#d375--a-session-left-with-no-player-keeps-its-playing-state-and-goes-on-as-it-was-when-a-leader-returns) A session left with no player keeps its playing state, and goes on as it was when a leader returns — *revisited by D376*
-- [D376](working-notes.md#d376--a-new-leader-that-remembers-its-place-sets-the-groups-position-else-the-cores-stands) A new leader that remembers its place sets the group's position; else the core's stands
+- [D376](working-notes.md#d376--a-new-leader-that-remembers-its-place-sets-the-groups-position-else-the-cores-stands) A new leader that remembers its place sets the group's position; else the core's stands — *revisited by D377*
+- [D377](working-notes.md#d377--who-leads-a-watch-together-session-and-from-where-one-procedure) Who leads a Watch Together session, and from where: one procedure
 
 ## Archived
 
