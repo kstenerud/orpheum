@@ -24237,3 +24237,22 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 2: TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn, TestHub_ALeadersStallWithinItsGraceKeepsTheLead, TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-leader.test.ts ("tells its state each second while it stalls and its group plays on, by which the server hands its lead on (D373 §2)"); VQ128
 - 3: TestHub_TheHostsStalledPlayerTakesTheLeadBackInStepAndAGuestsFollows; VQ128
 - 4: TestHub_AHostsSeekStillWaitsForItsLeaderAndPassesNoLead, TestHub_AFilmPutOnStandsForItsLeaderAloneAndPlaysAsTheLeaderPlays
+
+## D374 — Only a device playing the film can lead; a cast's sender never does
+
+**Decided** (2026-10-29), by the project owner, generalising D372 §6 for casting: "When we cast to a
+device, that device becomes one of the contenders for "leader". There's no point in a device that
+initiated the cast becoming leader because it has no video player to lead with. So: Only devices that
+are actually playing video can be contenders for leadership."
+
+1. **A contender for the lead is a device whose player is playing the session's film now**: attached
+   in a playing role is not enough. A device whose film was handed to a cast receiver, whose player is
+   gone, not yet loaded or showing another film, is passed over by every choice of leader (D372 §1, §3,
+   D373 §2), the host's included; the receiver it cast to contends in its place (D371).
+2. **The host's preference holds among contenders only** (D372 §3): a host whose film plays on a device
+   they cast to leads through that receiver, never through the sender.
+
+Also agreed the same day, on D373's build: a leader that recovers within D373's grace catches up to the
+group rather than placing the group back at itself, so no one sees a stretch twice.
+
+**Status:** Decided 2026-10-29; not built.
