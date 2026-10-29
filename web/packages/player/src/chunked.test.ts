@@ -18,6 +18,7 @@ import {
   chunkedHlsConfig,
   choosingOptionsOf,
   keptBehindS,
+  loadsAheadAtMostS,
   paceHeader,
   playerFoundUnplayableEvent,
   sendUnplayable,
@@ -96,6 +97,13 @@ describe("where a playback's stepping has settled (D260 §3)", () => {
 });
 
 describe("how far a chunked playback loads ahead (D260 §3)", () => {
+  it("is at most a minute at any quality, so a step up shows within one, not after ten minutes of 360p", () => {
+    expect(chunkedHlsConfig({ startPositionS: 40 })).toMatchObject({
+      maxMaxBufferLength: loadsAheadAtMostS,
+    });
+    expect(loadsAheadAtMostS).toBe(60);
+  });
+
   it("is hls.js's own unless told, and at most what it is told", () => {
     expect(chunkedHlsConfig({ startPositionS: 40 })).not.toHaveProperty("maxBufferLength");
     expect(chunkedHlsConfig({ startPositionS: 40, loadsAheadAtMostS: 10 })).toMatchObject({

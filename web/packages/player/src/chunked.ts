@@ -296,13 +296,24 @@ export function chunkedHlsConfig(options: {
     backBufferLength: keptBehindS,
     fragLoadPolicy: chunkLoadPolicy,
     ...(options.loadsAheadAtMostS === undefined
-      ? {}
+      ? { maxMaxBufferLength: loadsAheadAtMostS }
       : {
           maxBufferLength: options.loadsAheadAtMostS,
           maxMaxBufferLength: options.loadsAheadAtMostS,
         }),
   };
 }
+
+/**
+ * The furthest ahead of where it plays a chunked playback loads, in seconds, at any quality.
+ * hls.js loads ahead by bytes, its maxBufferSize of 60 MB, up to its maxMaxBufferLength of 600 s:
+ * about 53 s of the top quality at 9 Mb/s, but ten minutes of 360p, so a playback held low after a
+ * drop filled 450 s ahead with 360p and stepped up only once that had played (headless Chromium on
+ * staging, 2026-10-29). A justified constant, confirmed by the owner or not yet: about what the top
+ * quality loads anyway, three times the 20 s a quality is held on (holdsQualityAheadS), and a step up
+ * seen within a minute.
+ */
+export const loadsAheadAtMostS = 60;
 
 /**
  * Does as the follower of its group says: loads as it says (obeyGroupLoading), and starts a jump of
