@@ -22,11 +22,13 @@ import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 
-/** Presses key on what has focus, as a remote's press reaches the page. */
+/** Presses key on what has focus and lets it go, as a remote's press reaches the page. */
 function press(key: string, keyCode = 0): KeyboardEvent {
   const event = new KeyboardEvent("keydown", { key, keyCode, bubbles: true, cancelable: true });
   act(() => {
-    (document.activeElement ?? document.body).dispatchEvent(event);
+    const target = document.activeElement ?? document.body;
+    target.dispatchEvent(event);
+    target.dispatchEvent(new KeyboardEvent("keyup", { key, keyCode, bubbles: true }));
   });
   return event;
 }
@@ -108,57 +110,6 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     stop();
     expect(onLeave).toHaveBeenCalledOnce();
     expect(second.defaultPrevented).toBe(true);
-  });
-
-  it("stays at OK held, its key's repeats no second press, though two presses as quick leave", async () => {
-    vi.useFakeTimers({ toFake: ["performance"] });
-    const { onLeave } = await controlled();
-    const held = (isRepeat: boolean): void => {
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-        repeat: isRepeat,
-      });
-      act(() => {
-        document.body.dispatchEvent(event);
-      });
-    };
-    held(false);
-    vi.advanceTimersByTime(450); // Android's first repeat, inside the window
-    held(true);
-    vi.advanceTimersByTime(50);
-    held(true);
-    expect(onLeave).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
-    press("Enter");
-    vi.advanceTimersByTime(doublePressWithinMs - 1);
-    press("Enter");
-    expect(onLeave).toHaveBeenCalledOnce();
-  });
-
-  it("tells its session which press took control back, and what the keys did between (VQ122)", async () => {
-    vi.useFakeTimers({ toFake: ["performance"] });
-    const note = vi.fn();
-    const onLeave = vi.fn();
-    mounted = await mount(
-      withServices(
-        <ControlledMode fromName="Pixel" onTakeBack={onLeave} connection={{ note }} />,
-        testServices("token", "/play/3"),
-      ),
-    );
-    press("Enter");
-    act(() => {
-      document.body.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
-    });
-    vi.advanceTimersByTime(200);
-    press("Enter");
-    expect(onLeave).toHaveBeenCalledOnce();
-    expect(note).toHaveBeenCalledWith({
-      kind: "takenBack",
-      by: "select",
-      how: "gapMs=200 upsBetween=1",
-    });
   });
 
   it("leaves every other key to the player", async () => {

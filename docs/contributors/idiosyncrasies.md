@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
+| On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
@@ -790,6 +791,20 @@ User-Agent (D263; the User-Agent is logged only).
   starting guess.
 - **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, runs `ONCULPN4` (D-input) and `QJRWQSNT`
   (X-input); plans/tv-device-tests.md §5.
+
+### Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up
+
+- **Symptom:** on a cast's receiver, holding OK on the remote took the cast's control back, as two
+  presses of OK do (D338 §6), though an earlier commit had made a held key's repeats no second press.
+- **Cause:** Silk sends a held OK (Enter) as `keydown`s with `repeat` false, the first 433 ms after
+  the press and then about every 35 ms, with no `keyup` between them; Chromium marks a held key's
+  repeats `repeat: true`. Seen in the receiver's `takenBack` note: `by=select how="gapMs=433
+  upsBetween=0"`, then `gapMs=42`, `38`, `30`, `31` (the owner's Fire TV, staging, 2026-10-29).
+- **What we do:** a second OK takes control back only with a key up heard since the first
+  (`selectGaps` in `web/apps/web/src/cast-receiver.tsx`); a real double press always has one.
+  The rest of the input layer still trusts `repeat`, where a lost key up would otherwise make every
+  later press a repeat.
+- **Evidence:** the core's log of VQ122's run, 2026-10-29.
 
 ### Silk on Fire TV takes a held Up for its own address bar and menu
 
