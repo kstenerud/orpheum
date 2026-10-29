@@ -129,6 +129,7 @@ export {
   askPathOf,
   carryMediaOver,
   mediaCarrierOf,
+  readMediaCarrierFrom,
   tellMediaCarriers,
   isClaimMessage,
   isFetchMessage,

@@ -583,6 +583,22 @@ let mediaPathName: string | undefined;
 let mediaCarriers: (url: string) => CarrierSeen | undefined = () => undefined;
 
 /**
+ * What answers mediaCarrierOf in place of this SDK's own state, where another copy of it carries the
+ * page's media: a discovery's loader runs its own bundle, so the state carryMediaOver and
+ * tellMediaCarriers set is in its copy, never the client's.
+ */
+let carrierLookup: ((url: string) => string) | undefined;
+
+/**
+ * Has mediaCarrierOf answer by lookup, the copy of this SDK that carries the page's media (a
+ * discovery's loader's, D308). Left as it was, the client under a loader said "http" of every chunk
+ * it gave up, though WebRTC carried it (the Fire TV through the discovery on staging, 2026-10-29).
+ */
+export function readMediaCarrierFrom(lookup: (url: string) => string): void {
+  carrierLookup = lookup;
+}
+
+/**
  * Has the page's media name the WebRTC connection carrying each load by carrierOf, the transport's
  * (RtcTransport.carrierOf) on the path in use, for mediaCarrierOf.
  */
@@ -598,6 +614,9 @@ export function tellMediaCarriers(carrierOf: (url: string) => CarrierSeen | unde
  * (the owner, 2026-10-29: the logs are to show whether stalls are per-connection).
  */
 export function mediaCarrierOf(url: string): string {
+  if (carrierLookup !== undefined) {
+    return carrierLookup(url);
+  }
   if (mediaPathName === undefined) {
     return "http";
   }

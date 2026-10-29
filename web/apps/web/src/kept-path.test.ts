@@ -9,6 +9,7 @@ import { betterPathFirstMs, betterPathMostMs, keepPath } from "./kept-path.ts";
 import { loaderOver, type AtClientOrigin } from "./loader-at-client-origin.tsx";
 import { pairsSettleMs, type PathChoice } from "./path-choice.ts";
 import { createSession } from "./session.ts";
+import { pathName } from "./transport-choice.ts";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -293,6 +294,11 @@ describe("the kept path", () => {
       reaching,
     });
     expect(loader.pathInUse?.()).toBe("webrtc");
+    // Its media is carried in the loader's copy of the SDK, so the client asks the loader what
+    // carries a load (the Fire TV on staging, 2026-10-29: the client's own copy said "http").
+    expect(loader.mediaCarrierOf?.("https://app.example/api/v1/bytes/media/chunks/t/1.m4s")).toBe(
+      `over ${pathName}`,
+    );
     await vi.advanceTimersByTimeAsync(betterPathFirstMs);
     expect(loader.pathInUse?.()).toBe("direct");
     kept.close();

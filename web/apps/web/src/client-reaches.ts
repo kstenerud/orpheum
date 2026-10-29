@@ -5,7 +5,7 @@
  * (D308), the loader's, whose every part the app takes from it here.
  */
 
-import type { OpenTogetherSocket } from "@orpheum/sdk";
+import { readMediaCarrierFrom, type OpenTogetherSocket } from "@orpheum/sdk";
 
 import { builtScriptOf } from "./app-update.ts";
 import { loaderConfigOf } from "./loader-config.ts";
@@ -34,6 +34,18 @@ export interface Reaches {
 function codeAddressOf(page: Document): string | undefined {
   const origin = loaderConfigOf(page)?.loaderOrigin;
   return origin === undefined ? undefined : new URL(origin).host;
+}
+
+/**
+ * Has the player name what carries each media load by loader's word, which carries the media in its
+ * own copy of the SDK: the client's copy carries none, so said "http" of every chunk given up over
+ * WebRTC (the Fire TV through the discovery on staging, 2026-10-29). An older loader, which tells
+ * nothing, leaves the client's own.
+ */
+export function takeMediaCarriers(loader: Pick<OrpheumLoader, "mediaCarrierOf">): void {
+  if (loader.mediaCarrierOf !== undefined) {
+    readMediaCarrierFrom(loader.mediaCarrierOf);
+  }
 }
 
 /**

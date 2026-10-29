@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 2;
+export const loaderMinor = 3;
 
 /** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
 export type LoaderPathKind = "direct" | "webrtc";
@@ -56,6 +56,13 @@ export interface OrpheumLoader {
    * none, and its client takes its path for HTTP.
    */
   readonly pathInUse?: () => LoaderPathKind;
+  /**
+   * What carries the load of a media url now, for a stuck chunk's log: "http", the path's name, or
+   * the WebRTC connection and its state (the SDK's mediaCarrierOf in the loader's own copy, which
+   * carries the media). Since minor 3: an older loader has none, and its client's player says
+   * "http" of every load.
+   */
+  readonly mediaCarrierOf?: (url: string) => string;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.
