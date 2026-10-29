@@ -345,6 +345,8 @@ had leaned on.
   screen marked as a debug tool, hidden otherwise; "Play the original file" is the first so marked.
   Candidates to mark with it: the lab's device tests, the picture-timing and sound-offset lines, the
   tracks note's technical detail.
+  **Pulled into this batch (the owner, 2026-10-29)** as a per-person option, with Watch Together's
+  leader view (who leads, this device) as its first readout.
 - **Choosing another audio track (language) in place** (the boost agent, 2026-10-29): it still asks the
   server for a new decision, which restarts playback; a switch in place needs the API to give each
   sound its own carried gain and levelling (D226, D368), the owner's call. The boost now goes through
