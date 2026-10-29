@@ -1203,7 +1203,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   and the iPhone's page plays the film again; Stop casting on the iPhone returns the second device to
   the page it was on. (`internal/core/together/cast.go`; `internal/core/live/registry.go`;
   `web/apps/web/src/cast-ready.tsx`, `together-viewer.tsx`)
-- [ ] **VQ104** — the lead passes to a guest while the host's screen is gone and comes back to it in
+- [x] **VQ104** — the lead passes to a guest while the host's screen is gone and comes back to it in
   step (D372 §1–§4, §7), on staging. Passes when the Mac hosts a session playing a film on its own
   player and two guests join, the iPhone first and a computer's browser a minute later: (1) the Mac
   leaving the Play page (to the library) leaves the film playing for both guests with no pause, the
@@ -1215,6 +1215,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   every device's Play page closed, the group is Paused where it stood, "Everyone's screen left;
   paused at …" on the host's session page. (`internal/core/together/leader.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`)
+  **Passed 2026-10-29 (the owner: the Mac's Chrome hosting, the Samsung S23 and the Mac's Firefox as
+  guests):** "it worked". Found: the host away from the film saw no way back to watching on the session's
+  page (the link drawn as the primary action as a stopgap; the page's revamp is next batch).
 - [ ] **VQ105** — a locked phone's lead passes at once (D372 §2, §5), on staging. Passes when the
   iPhone, a guest, leads a session (the host playing on no device) beside a computer's browser, a
   second guest: (1) locking the iPhone hands the lead to the browser at once, the browser's film
