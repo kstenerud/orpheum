@@ -1534,7 +1534,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `stallNotWaitedFor` line saying `isLeader=false`. (`internal/core/together/leader.go`,
   `group.go`; `web/packages/sdk/src/together-follow.ts`)
   **Passed 2026-10-29 (the owner, staging):** Chrome leading stalled (Wi-Fi off): the lead passed to the S23 after the grace, the others played on.
-- [ ] **VQ129** — only a device playing the film leads, a lone player's stall is waited for, and a
+- [x] **VQ129** — only a device playing the film leads, a lone player's stall is waited for, and a
   leader recovered within its grace catches up forward (D374), on staging. (1) With the Mac's
   Chrome hosting a Watch Together session that plays, and the S23 (Chrome) following, cast from the
   Mac to the Fire TV. Passes when, from the cast on, no `leaderChanged` line names the Mac's Chrome
@@ -1554,6 +1554,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   skipped. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`;
   `web/apps/web/src/together-viewer.tsx`)
+  **Passed 2026-10-29 (the owner, staging, (1)):** cast from Chrome (host) during Watch Together: at 22:56:30
+  Chrome's player closed and the S23 led; 22:57:06 the TV took the lead as the host's (`hostInStep`); stopping the
+  cast, the S23 led (22:57:40), then Chrome (22:57:47); Chrome never led while the TV played.
 - [x] **VQ130** — a page's WebRTC connection comes back after the network does, in every browser, on
   staging. With the Mac's Chrome and Firefox both in one Watch Together session over WebRTC through
   staging's discovery (the core's log says `over=webrtc` for each), and the S23 a third member, play a
