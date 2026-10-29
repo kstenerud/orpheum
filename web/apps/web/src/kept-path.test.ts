@@ -305,6 +305,60 @@ describe("the kept path", () => {
     globalThis.fetch = realFetch;
   });
 
+  // The owner's Chrome, Wi-Fi off and on: its session's socket waited out its own wait, 28 s, after
+  // its media came back (staging, 2026-10-29; VQ130).
+  it("tells the client the way to the core is back: its WebRTC transport's word, and the browser's online event on a name", async () => {
+    vi.useFakeTimers();
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    const onlineListeners = new Set<() => void>();
+    const transport = new RtcTransport([closingPeer()], {
+      size: 4,
+      open: () => Promise.reject(new Error("no other connection in this test")),
+      onOnline: (listener) => {
+        onlineListeners.add(listener);
+        return () => onlineListeners.delete(listener);
+      },
+    });
+    const webrtc: Reached = { kind: "webrtc", transport };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => Promise.resolve(new Response("{}"));
+    const kept = keepPath(
+      {
+        first: webrtc,
+        another: () => Promise.resolve(webrtc),
+        better: (current) => Promise.resolve(current === webrtc ? home : undefined),
+        onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
+      },
+      { token: () => undefined },
+    );
+    kept.carried.catch(() => undefined);
+    let toldBack = 0;
+    kept.onPathBack(() => {
+      toldBack += 1;
+    });
+    for (const listener of onlineListeners) {
+      listener(); // the transport hears the browser back online
+    }
+    expect(toldBack).toBe(1);
+    window.dispatchEvent(new Event("online")); // which the transport said already
+    expect(toldBack).toBe(1);
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs); // on the core's name now
+    window.dispatchEvent(new Event("online"));
+    expect(toldBack).toBe(2);
+    for (const listener of onlineListeners) {
+      listener(); // a transport no longer in use says nothing to the client
+    }
+    expect(toldBack).toBe(2);
+    kept.close();
+    globalThis.fetch = realFetch;
+    window.dispatchEvent(new Event("online"));
+    expect(toldBack).toBe(2);
+  });
+
   it("closes its WebRTC transport when the page leaves for good, and keeps it for the back button", () => {
     const kept = (peer: ReturnType<typeof closingPeer>): ReturnType<typeof keepPath> => {
       const webrtc: Reached = { kind: "webrtc", transport: new RtcTransport([peer]) };

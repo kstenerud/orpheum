@@ -45,7 +45,7 @@ export function useTogether(device: TogetherDevice): {
   readonly connection: (TogetherConnection & TellsCannotKeepUp & TellsStanding) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
 } {
-  const { openTogetherSocket } = useServices();
+  const { openTogetherSocket, onPathBack } = useServices();
   const { credential, sessionToken, role } = device;
   const connection = useMemo(
     () =>
@@ -60,8 +60,10 @@ export function useTogether(device: TogetherDevice): {
             monotonicMs,
             // Shown again, its socket is checked at once: an unlocked phone's may have died unseen.
             page: document,
+            // The way to the core back, it connects again at once: its media plays on meanwhile.
+            pathBack: onPathBack,
           }),
-    [credential, sessionToken, role, openTogetherSocket],
+    [credential, sessionToken, role, openTogetherSocket, onPathBack],
   );
   useEffect(() => {
     connection?.open();

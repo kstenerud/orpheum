@@ -1538,3 +1538,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   skipped. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together-follow.ts`, `together-leader.ts`;
   `web/apps/web/src/together-viewer.tsx`)
+- [ ] **VQ130** — a page's WebRTC connection comes back after the network does, in every browser, on
+  staging. With the Mac's Chrome and Firefox both in one Watch Together session over WebRTC through
+  staging's discovery (the core's log says `over=webrtc` for each), and the S23 a third member, play a
+  film. (1) Turn the Mac's Wi-Fi off for a minute, then on. Passes when both Mac browsers make a new
+  WebRTC connection within about 15 s of Wi-Fi returning (the core's log shows an `rtcapi` offer from
+  each, and each reports "a WebRTC connection to the core is back after … ms with none; the last was
+  taken as gone because …"), their session sockets reconnect (`playerNoted kind=reconnected`), and both
+  catch up with the group, Firefox's Play page with no spinner left. (2) In Chrome alone, Wi-Fi off
+  until its film stalls completely, then on: its film plays again from where it stalled, and within
+  about 5 s of playing again it is back in step with the S23 (its `kind=reconnected` line comes within
+  a few seconds of its "is back after" line, never tens of seconds later).
+  (`web/packages/sdk/src/rtc-transport.ts`, `rtc-peer.ts`, `rtc-reopen.ts`, `rtc-connect.ts`,
+  `together-connection.ts`;
+  `web/apps/web/src/kept-path.ts`)

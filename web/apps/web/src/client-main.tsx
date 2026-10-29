@@ -23,7 +23,12 @@ import { createRoot, type Root } from "react-dom/client";
 
 import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
-import { reachesUnderLoader, takeMediaCarriers, type Reaches } from "./client-reaches.ts";
+import {
+  onBrowserOnline,
+  reachesUnderLoader,
+  takeMediaCarriers,
+  type Reaches,
+} from "./client-reaches.ts";
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
@@ -75,6 +80,7 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
     switchHousehold: reaches.switchHousehold,
     codeAddress: reaches.codeAddress,
     onLocalNetworkAsking: reaches.onLocalNetworkAsking,
+    onPathBack: reaches.onPathBack,
   };
   mountedOn.render(
     <StrictMode>
@@ -101,6 +107,7 @@ function mountOnOwnOrigin(): void {
       openTogetherSocket: (listeners) => openTogetherSocket(listeners),
       pathMoves: createPathMoves(),
       ownScript: ownScriptOf(document),
+      onPathBack: onBrowserOnline,
     },
     root,
   );

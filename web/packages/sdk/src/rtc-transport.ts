@@ -9,14 +9,10 @@
  * sends each request on the one with the fewest under way; making them is rtc-connect.ts.
  */
 
-import { candidatePairsOf, type CandidatePairSeen } from "./rtc-pairs.ts";
-import {
-  abortReason,
-  channelOf,
-  sendOnChannel,
-  silentAtMostMs,
-  type ChannelLike,
-} from "./rtc-request.ts";
+import { reportFailure } from "./problem.ts";
+import type { CandidatePairSeen } from "./rtc-pairs.ts";
+import { backAfter, BackOnline, withinOpenTry, type Without } from "./rtc-reopen.ts";
+import { abortReason, sendOnChannel, silentAtMostMs, type ChannelLike } from "./rtc-request.ts";
 
 /**
  * How many peer connections a client opens at most, while its requests crowd them: one is bound by
@@ -30,64 +26,22 @@ export interface PeerLike {
   createDataChannel(label: string): ChannelLike;
   close(): void;
   /**
-   * Tells listener, once, that the connection is gone for good: failed, closed, or disconnected
-   * longer than disconnectedGraceMs. A test's peer may never tell.
+   * Tells listener, once, that the connection is gone for good, and why: failed, closed, or
+   * disconnected longer than disconnectedGraceMs (rtc-peer.ts). A test's peer may never tell.
    */
-  onGone?(listener: () => void): void;
+  onGone?(listener: (why: string) => void): void;
   /** Its candidate pairs as the browser sees them (rtc-pairs.ts); a test's peer may have none. */
   candidatePairs?(): Promise<CandidatePairSeen[]>;
 }
 
 /**
- * How long a connection may stay disconnected before it counts as gone and is replaced: a phone's
- * moment out of signal comes back by itself, but one moving from Wi-Fi to mobile data never does
- * until an ICE restart, which the core cannot take yet (plans/webrtc-transport.md W2d).
+ * The first and the longest wait before a gone connection's replacement is tried again: once the
+ * network is back, a page connects again within the longest, or at once when the browser says it is
+ * online. At 30 s, a page whose tries had grown through a minute's network loss sat up to half a
+ * minute more with none (the owner's Mac, staging, 2026-10-29; VQ130).
  */
-export const disconnectedGraceMs = 5000;
-
-/** The first and the longest wait before a gone connection's replacement is tried again. */
 export const replaceFirstMs = 1000;
-export const replaceMostMs = 30_000;
-
-/**
- * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, and it
- * says once when it is gone: failed, closed, or disconnected past disconnectedGraceMs.
- */
-export function peerOf(peer: RTCPeerConnection): PeerLike {
-  return {
-    createDataChannel: (label) => {
-      const channel = peer.createDataChannel(label);
-      channel.binaryType = "arraybuffer";
-      return channelOf(channel);
-    },
-    close: () => {
-      peer.close();
-    },
-    candidatePairs: async () => candidatePairsOf((await peer.getStats()).values()),
-    onGone: (listener) => {
-      let isGone = false;
-      let grace: ReturnType<typeof setTimeout> | undefined;
-      const gone = (): void => {
-        clearTimeout(grace);
-        if (!isGone) {
-          isGone = true;
-          listener();
-        }
-      };
-      peer.addEventListener("connectionstatechange", () => {
-        const state = peer.connectionState;
-        if (state === "failed" || state === "closed") {
-          gone();
-        } else if (state === "disconnected") {
-          grace ??= setTimeout(gone, disconnectedGraceMs);
-        } else {
-          clearTimeout(grace);
-          grace = undefined;
-        }
-      });
-    },
-  };
-}
+export const replaceMostMs = 10_000;
 
 /**
  * The most requests a connection carries at once: the core serves rtcapi's channelLimit, 16, on each
@@ -294,10 +248,15 @@ function fewestUnderWay(links: readonly Link[]): Link | undefined {
   );
 }
 
-/** How a transport keeps its connections: opening another, and how many it keeps at most. */
+/**
+ * How a transport keeps its connections: opening another, which gives up its try once signal aborts,
+ * how many it keeps at most, and hearing the browser come back online (the window's online event),
+ * which tries at once; returns the end of hearing.
+ */
 export interface Growth {
-  readonly open: () => Promise<PeerLike>;
+  readonly open: (signal: AbortSignal) => Promise<PeerLike>;
   readonly size: number;
+  readonly onOnline?: ((listener: () => void) => () => void) | undefined;
 }
 
 /**
@@ -306,15 +265,24 @@ export interface Growth {
  * only while every one up carries growWhenEachCarries requests or a request waits for room, one at a
  * time, up to its size, and closing one beyond the last once it has carried nothing for
  * idleClosesAfterMs. It takes one that is gone out of use at once and opens another in its place when
- * it is still wanted, retrying each failure, a refusal included, after a wait that doubles
- * (plans/webrtc-transport.md W2d). `fetch` is what the API client sends requests with; while no
- * connection is up, a request waits for one.
+ * it is still wanted, retrying each failure, a refusal included, and each try that takes longer than
+ * openTryMostMs, after a wait that doubles up to replaceMostMs, and at once when the browser comes
+ * back online, a try under way then given up (plans/webrtc-transport.md W2d). `fetch` is what the
+ * API client sends requests with; while no connection is up, a request waits for one.
  */
 export class RtcTransport {
   private readonly links: Link[] = [];
   private readonly growth: Growth | undefined;
   private opening = 0;
   private retryMs = replaceFirstMs;
+  /** The wait before the next try, while one is waited out. */
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The try to open a connection under way, to give up when the browser comes back online. */
+  private trying: AbortController | undefined;
+  /** Since when, and why, it has had no connection; undefined while it has one. */
+  private without: Without | undefined;
+  private readonly backListeners = new Set<() => void>();
+  private readonly stopHearingOnline: () => void;
   private isClosed = false;
   private readonly waiting: (() => void)[] = [];
   /** The connection carrying each request under way, by its URL, the latest asked for of each. */
@@ -337,6 +305,23 @@ export class RtcTransport {
     for (const peer of peers) {
       this.add(peer);
     }
+    this.stopHearingOnline =
+      growth?.onOnline?.(() => {
+        this.backOnline();
+      }) ?? ((): void => undefined);
+  }
+
+  /**
+   * Tells listener each time the way to the core may work again: the browser came back online, or a
+   * connection is up after a time with none. The session connection connects again at once on it,
+   * rather than waiting out its own growing wait (the owner's Chrome, staging, 2026-10-29: its media
+   * played on for 28 s, out of step, before its session's socket tried again). Returns its removal.
+   */
+  onBack(listener: () => void): () => void {
+    this.backListeners.add(listener);
+    return () => {
+      this.backListeners.delete(listener);
+    };
   }
 
   /** How many connections are up. */
@@ -364,7 +349,7 @@ export class RtcTransport {
     } catch (problem: unknown) {
       // A connection that opens no channel carries nothing more: it is replaced, and its room given back.
       link.underWay -= 1;
-      this.gone(link);
+      this.gone(link, "it opened no channel");
       this.wakeWaiting();
       throw problem;
     }
@@ -467,13 +452,16 @@ export class RtcTransport {
       this.ended.delete(oldest);
     }
     if (isLinkSilent) {
-      this.gone(link);
+      this.gone(link, `nothing came over it for ${String(silentAtMostMs)} ms`);
     }
   }
 
   /** Closes every connection, and opens no more. */
   close(): void {
     this.isClosed = true;
+    this.stopHearingOnline();
+    clearTimeout(this.retryTimer);
+    this.trying?.abort();
     for (const link of this.links.splice(0)) {
       link.stopIdle();
       link.peer.close();
@@ -499,23 +487,34 @@ export class RtcTransport {
     }, settledAfterMs);
     this.closeWhenIdle(link);
     this.wakeWaiting();
-    peer.onGone?.(() => {
-      this.gone(link);
+    peer.onGone?.((why) => {
+      this.gone(link, why);
     });
+    const without = this.without;
+    if (without !== undefined) {
+      this.without = undefined;
+      // Said once the connection is up, so the report goes over it to the core's log.
+      reportFailure(new Error(backAfter(without, this.nowMs())));
+      this.tellBack();
+    }
   }
 
   /**
    * Takes link out of use for good and closes it, once: its peer said it is gone, or it carries
-   * nothing any more. Another opens in its place when one is wanted: at once for one that had lived
-   * settledAfterMs, after the growing wait for one that had not.
+   * nothing any more, why says which. Another opens in its place when one is wanted: at once for one
+   * that had lived settledAfterMs, after the growing wait for one that had not. The last one gone
+   * starts a time without one, which the next one up reports.
    */
-  private gone(link: Link): void {
+  private gone(link: Link, why: string): void {
     if (!this.links.includes(link)) {
       return;
     }
     link.stopIdle();
     this.drop(link);
     link.peer.close();
+    if (this.links.length === 0 && !this.isClosed) {
+      this.without ??= { sinceMs: this.nowMs(), why, tries: 0, lastFailure: undefined };
+    }
     if (link.isNew) {
       this.retryLater();
     } else {
@@ -570,8 +569,10 @@ export class RtcTransport {
   }
 
   private async openOne(growth: Growth): Promise<void> {
+    const trying = new AbortController();
+    this.trying = trying;
     try {
-      const peer = await growth.open();
+      const peer = await withinOpenTry(growth.open(trying.signal), trying);
       this.opening -= 1;
       if (this.isClosed) {
         peer.close();
@@ -579,22 +580,67 @@ export class RtcTransport {
       }
       this.add(peer);
       this.grow();
-    } catch {
-      // A connection that could not be made, or the core turned away, is tried after a wait.
+    } catch (problem: unknown) {
       this.opening -= 1;
-      this.retryLater();
+      if (this.without !== undefined) {
+        this.without.tries += 1;
+        this.without.lastFailure = problem instanceof Error ? problem.message : String(problem);
+      }
+      if (trying.signal.reason instanceof BackOnline) {
+        // The browser came back online: tried anew at once, the wait already started over.
+        this.grow();
+      } else {
+        // A connection that could not be made, or the core turned away, is tried after a wait.
+        this.retryLater();
+      }
+    } finally {
+      if (this.trying === trying) {
+        this.trying = undefined;
+      }
     }
   }
 
-  /** Looks again whether another connection is wanted after a wait, longer each time. */
+  /** Looks again whether another connection is wanted after a wait, longer each time up to the most. */
   private retryLater(): void {
+    if (this.isClosed || this.retryTimer !== undefined) {
+      return;
+    }
     const wait = this.retryMs;
     this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
     this.opening += 1;
-    setTimeout(() => {
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
       this.opening -= 1;
       this.grow();
     }, wait);
+  }
+
+  /**
+   * The browser came back online: a try under way, begun on the network that went, is given up and
+   * one made anew, a wait under way cut short, and the wait starts over from replaceFirstMs; the
+   * session connection is told (onBack).
+   */
+  private backOnline(): void {
+    if (this.isClosed) {
+      return;
+    }
+    this.retryMs = replaceFirstMs;
+    if (this.retryTimer !== undefined) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      this.opening -= 1;
+    }
+    // Its failure makes the next try at once (openOne).
+    this.trying?.abort(new BackOnline());
+    this.grow();
+    this.tellBack();
+  }
+
+  /** Tells each onBack listener that the way to the core may work again. */
+  private tellBack(): void {
+    for (const listener of this.backListeners) {
+      listener();
+    }
   }
 
   /** Wakes every request waiting for a connection with room, to look again. */

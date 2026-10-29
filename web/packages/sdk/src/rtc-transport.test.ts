@@ -397,7 +397,7 @@ describe("the switchable fetch", () => {
 class FakePeer implements PeerLike {
   readonly channels: FakeChannel[] = [];
   isClosed = false;
-  private goneListener: (() => void) | undefined;
+  private goneListener: ((why: string) => void) | undefined;
 
   createDataChannel(): ChannelLike {
     const channel = new FakeChannel();
@@ -410,13 +410,13 @@ class FakePeer implements PeerLike {
     this.isClosed = true;
   }
 
-  onGone(listener: () => void): void {
+  onGone(listener: (why: string) => void): void {
     this.goneListener = listener;
   }
 
   /** The connection failed, or stayed disconnected past the grace. */
-  goes(): void {
-    this.goneListener?.();
+  goes(why = "its connection failed"): void {
+    this.goneListener?.(why);
   }
 
   /** The index-th channel opened on it, which must have been. */
