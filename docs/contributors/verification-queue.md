@@ -1323,3 +1323,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   `internal/core/playback/speeds.go`, step 0063). Through the discovery's page (its loader
   repackaged with loader minor 3), a stuck chunk's note names `WebRTC connection N`, not `http`,
   on the Fire TV (`web/apps/web/src/client-main.tsx`, `client-reaches.ts`, `kept-path.ts`).
+- [ ] **VQ121** — how far ahead the chunked player loads (research/forward-buffer-2026-10-29.md P1,
+  P2 and P6, accepted by the owner 2026-10-29): the Fire TV's real limit for a page's picture, and a
+  step up shown within about 40 s, on staging once deployed. Do: (1) the report's T4: on the Fire
+  TV (Silk, the AFTSSS), play a film whose top is its own picture at 9 Mb/s or more (Nosferatu, file
+  5671) for three minutes from its start, Watch Together off; then the same on the Chromecast
+  receiver (`apps/cast-receiver`); (2) on the Mac in Chrome, play a converted film held below its
+  top (DevTools' throttling at about 0.6 Mb/s for a minute), then lift the throttling and play on
+  for three minutes. Passes when (1) the play reports' `linkNotes` in the core's log carry the
+  device's `device memory … video buffer … assumed` line and a `loads ahead … by …` line at the
+  top, and either no `buffer full on video` line, or, where one comes, its seconds behind and ahead
+  at its rate give the device's limit (about 31 MB: Chromium's low-end limit, which a
+  `deviceMemory` of 1 assumed rightly; about 157 MB: the ordinary one, so the 30 MiB assumed is too
+  low and the player loads less than it could), no stall follows it, and the `loads ahead … by cut`
+  after it stays in force; and (2) the Mac's notes have a `loads ahead 30.0 s … by below top` line
+  while held low, and a `stepped up to N shown after M ms` line with M at most about 40 000 (the
+  30 s loaded below the top and a chunk), against the minutes seen before.
+  (`web/packages/player/src/forward-buffer.ts`, `chunked.ts`, `hls.ts`, `step-up.ts`)

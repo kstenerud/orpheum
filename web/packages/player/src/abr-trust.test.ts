@@ -228,6 +228,26 @@ describe("the step-up (D352 §2)", () => {
     expect(choosing.nextLevel()).toBe(3); // 10 Mb/s carries the picture's 5.1 by 1.5
   });
 
+  it("notes how long a step up took to show, from its decision to the better quality playing (forward-buffer-2026-10-29.md P6)", () => {
+    const { hls, choosing } = onTheLowest(10, 14, 10, 14);
+    waitMs(lookForStepUpEveryMs);
+    expect(choosing.nextLevel()).toBe(1);
+    waitMs(30_000); // what was loaded at the lowest plays out first
+    hls.currentLevel = 1;
+    choosing.switched();
+    hls.currentLevel = 0;
+    choosing.switched(); // a later switch, with no step up of its own, says nothing
+    expect(scene.linkNotes.filter((note) => note.startsWith("stepped up"))).toEqual([
+      "stepped up to 1 shown after 30000 ms, from 0, 20.0 s loaded ahead at the step",
+    ]);
+  });
+
+  it("takes the ladder's top for the top it may load, never a ceiling of the moment (forward-buffer-2026-10-29.md P1)", () => {
+    const { choosing } = choosingFrom(1_000_000);
+    expect(choosing.firstLevel()).toBe(0); // its ceiling, from the start offered
+    expect(choosing.topLevel()).toBe(3);
+  });
+
   it("climbs one quality when its samples disagree, and holds again after", () => {
     const { hls, choosing } = onTheLowest(10, 14, 10, 14);
     waitMs(lookForStepUpEveryMs);

@@ -70,3 +70,43 @@ export function nextCap(state: StepUpState): number {
   }
   return highest;
 }
+
+/**
+ * Notes how long a step up takes to show: from its decision to the first time a quality above the
+ * one playing then plays (forward-buffer-2026-10-29.md P6). Everything loaded below it plays first,
+ * minutes of it at hls.js's own buffer (staging, 2026-10-29). The first step up waiting is the one
+ * timed; a switch to no higher, or a ceiling lowered to no higher, forgets it.
+ */
+export class StepUpShown {
+  readonly #note: (note: string) => void;
+  #waiting:
+    { readonly atMs: number; readonly fromLevel: number; readonly aheadS: number } | undefined;
+
+  constructor(note: (note: string) => void) {
+    this.#note = note;
+  }
+
+  /** The ceiling stepped up at atMs, fromLevel playing, aheadS loaded ahead. */
+  steppedUp(atMs: number, fromLevel: number, aheadS: number): void {
+    this.#waiting ??= { atMs, fromLevel, aheadS };
+  }
+
+  /** The ceiling was lowered to level. */
+  lowered(level: number): void {
+    if (this.#waiting !== undefined && level <= this.#waiting.fromLevel) {
+      this.#waiting = undefined;
+    }
+  }
+
+  /** The quality playing changed to playing at nowMs. */
+  switched(nowMs: number, playing: number): void {
+    const waiting = this.#waiting;
+    this.#waiting = undefined;
+    if (waiting !== undefined && playing > waiting.fromLevel) {
+      this.#note(
+        `stepped up to ${String(playing)} shown after ${String(Math.round(nowMs - waiting.atMs))} ms,` +
+          ` from ${String(waiting.fromLevel)}, ${waiting.aheadS.toFixed(1)} s loaded ahead at the step`,
+      );
+    }
+  }
+}

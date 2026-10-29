@@ -106,6 +106,21 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A chunked playback keeps `keptBehindS` (30 s) of what it played in the browser's buffer**, not
   hls.js's everything, so a weak device's memory holds no film's played minutes (the efficiency
   audit's finding 5). `chunked.test.ts`.
+- **A chunked playback loads ahead `loadsAheadBelowTopS` (30 s) below the top quality it may load
+  and `loadsAheadAtTopS` (60 s) at it**, the top being the ladder's below any quality found
+  unplayable, never a ceiling of the moment; **no further than a third of the browser's memory for
+  its picture** at the quality's average rate (`videoLimitBytes`: Chromium's 150 MiB, 30 MiB on a
+  Chromecast or where `navigator.deviceMemory` says 1 GB or less, about 100 MiB in Firefox, 100 MB in
+  WebKit), but never below 20 s for that; and no further than its Watch Together group's runway
+  (D285 §2), hls.js's own cut after the browser refused a chunk for its memory, which nothing undoes,
+  a runway lifted included, or what its page says (the film page's preload). hls.js's 60 MB never
+  stretches it, as it did to ten minutes of 360p. With each play report its notes on its link say
+  the target at each change, with its bytes and what bounds it, each buffer run full with what was
+  loaded, the device's memory and the limit assumed, and how long each step up took to show
+  (`src/forward-buffer.ts`; forward-buffer-2026-10-29.md P1, P2 and P6, accepted by the owner
+  2026-10-29, "Agreed with your recommendations"; its P3, replacing loaded low quality on a step up,
+  is not to be built). `forward-buffer.test.ts`, `chunked.test.ts`, `hls.test.ts`,
+  `abr-trust.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
   with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
   `chunked.test.ts`.
@@ -135,6 +150,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 [D193](../../../docs/contributors/decisions/working-notes.md) §6;
 [D265](../../../docs/contributors/decisions/working-notes.md) and
 [D352](../../../docs/contributors/decisions/working-notes.md) for choosing a quality;
+[forward-buffer-2026-10-29.md](../../../docs/contributors/design/research/forward-buffer-2026-10-29.md)
+for how far ahead it loads;
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §1, §3;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 
@@ -144,7 +161,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.

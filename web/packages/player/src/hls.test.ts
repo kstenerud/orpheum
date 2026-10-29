@@ -28,6 +28,7 @@ import {
   type NativeTarget,
 } from "./hls.ts";
 import { skippedByOf } from "./event-context.ts";
+import { ForwardBuffer, loadsAheadAtTopS } from "./forward-buffer.ts";
 
 describe("playing a prepared rendition", () => {
   it("uses hls.js wherever there is MSE, the element's own HLS where there is only that", () => {
@@ -443,19 +444,55 @@ describe("holding its loading while its group waits (the owner's jumps, 2026-10-
 });
 
 describe("keeping a short runway while its group has one behind (D285 §2)", () => {
-  it("loads no more than the runway asked, and as far as it would once told to", () => {
-    const hls = { config: { maxBufferLength: 30, maxMaxBufferLength: 30 } };
+  /** A playback loading its top quality, 3 Mb/s, which the bytes do not bound, and a runway to tell it. */
+  function atTheTop(): {
+    readonly hls: { readonly config: { maxBufferLength: number; maxMaxBufferLength: number } };
+    readonly video: EventTarget;
+    readonly ahead: ForwardBuffer;
+    readonly runway: (aheadS: number | undefined) => void;
+  } {
+    const hls = {
+      config: { maxBufferLength: 30, maxMaxBufferLength: 30 },
+      levels: [
+        { bitrate: 1_000_000, averageBitrate: 700_000 },
+        { bitrate: 4_500_000, averageBitrate: 3_000_000 },
+      ],
+      media: null,
+    };
+    const ahead = new ForwardBuffer(hls, {
+      device: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) Chrome/141.0", deviceMemoryGb: 8 },
+      isTop: (level) => level >= 1,
+      note: () => undefined,
+    });
+    ahead.loads(1);
     const video = new EventTarget();
     const runway = (aheadS: number | undefined): void => {
       video.dispatchEvent(new CustomEvent(loadingRunwayEvent, { detail: { aheadS } }));
     };
-    const stop = keepRunwayWhenTold(hls, video, { maxBufferLength: 30, maxMaxBufferLength: 30 });
+    return { hls, video, ahead, runway };
+  }
+
+  it("loads no more than the runway asked, and as far as it would once told to", () => {
+    const { hls, video, ahead, runway } = atTheTop();
+    const stop = keepRunwayWhenTold(video, ahead);
     runway(10);
     expect(hls.config).toEqual({ maxBufferLength: 10, maxMaxBufferLength: 10 });
     runway(undefined);
-    expect(hls.config).toEqual({ maxBufferLength: 30, maxMaxBufferLength: 30 });
+    expect(hls.config).toEqual({
+      maxBufferLength: loadsAheadAtTopS,
+      maxMaxBufferLength: loadsAheadAtTopS,
+    });
     stop();
     runway(10);
-    expect(hls.config.maxBufferLength).toBe(30);
+    expect(hls.config.maxBufferLength).toBe(loadsAheadAtTopS);
+  });
+
+  it("goes back to the target in force, hls.js's own cut after a buffer run full kept, not to what it was set to at the start (forward-buffer-2026-10-29.md §1.3)", () => {
+    const { hls, video, ahead, runway } = atTheTop();
+    keepRunwayWhenTold(video, ahead);
+    hls.config.maxMaxBufferLength = 35; // hls.js's reduceMaxBufferLength, the browser's memory full
+    runway(10);
+    runway(undefined);
+    expect(hls.config).toEqual({ maxBufferLength: 35, maxMaxBufferLength: 35 });
   });
 });
