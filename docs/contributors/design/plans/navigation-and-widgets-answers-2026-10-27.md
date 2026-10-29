@@ -337,3 +337,7 @@ had leaned on.
   `medium` after the speed check on nas.example).
 - **Climbing back after a recovered link** (VQ86's run, 2026-10-29): one quality a minute after drops;
   with clean samples after a throttle is lifted, climb as far as they agree (D352 §3 allows it).
+- **"Play the original file" as a debug tool** (the owner, 2026-10-29: "I'm not even sure I want to
+  expose that option to the users tbh. It's useful as a debug tool though."): to decide whether it moves
+  behind an admin or Diagnostics switch (diagnostics-design) rather than sitting under every player. It
+  keeps reloading the source when used; the player's common switching path leaves it out.
