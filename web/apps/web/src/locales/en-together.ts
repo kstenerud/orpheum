@@ -124,6 +124,9 @@ export const enTogether = {
       waitingFor: "Waiting for {{name}}'s player at {{at}}",
       leaderPlays: "{{name}}'s screen plays from {{at}}",
       everyoneLeft: "Everyone's screen left; paused at {{at}}",
+      everyoneLeftWhilePlaying:
+        "Everyone's screen left; held at {{at}}, and plays on when a screen is back",
+      resumedOnReturn: "{{name}}'s screen is back; playing on from {{at}}",
       changedRate: "{{name}} changed the speed",
     },
   },

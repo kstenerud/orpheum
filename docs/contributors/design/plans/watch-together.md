@@ -121,7 +121,9 @@ leads, a guest's as readily, by the moment the core saw it arrive (again as it c
 leader whose connection closes or goes silent, or whose page its browser hides, is gone, and the
 lead passes at once; the host's player coming back follows until it plays in step, then leads
 again; leading carries the clock, never a host's right. With no one left who can lead, the group
-pauses where it stands (event `everyoneLeft`). A player is
+is held where it stands (`Paused`, event `everyoneLeft`), keeping whether it was playing
+(`isHeldPlaying`); the first player back leads it on as it was, playing (`Waiting`, event
+`resumedOnReturn`, then `leaderPlays`) or paused (D375). A player is
 ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than

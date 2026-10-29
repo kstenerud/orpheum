@@ -78,6 +78,7 @@ func (current *session) transport(
 	case CommandPlay:
 		current.change(now, current.playingState(), EventPlayed, sender.id)
 	case CommandPause:
+		current.group.isHeldPlaying = false // a person's pause, which a player's return keeps (D375 §2)
 		current.change(now, GroupPaused, EventPaused, sender.id)
 	case CommandSeek:
 		if message.BasedOnSeq < current.group.lastSeek {
@@ -275,7 +276,8 @@ func (current *session) change(now time.Time, state GroupState, event EventKind,
 
 // announce is change, with where a seek jumped from. A group that starts playing moves on from where
 // it stands at once, with no lead and no run-up: its leader plays already, or, with none, the
-// players catch up as they can (D371 §1, §2, §6). One that plays on moves on as it was.
+// players catch up as they can (D371 §1, §2, §6). One that plays on moves on as it was. A group held
+// for want of a player stays held, to play on as one returns, only while it stays Paused (D375).
 func (current *session) announce(
 	now time.Time, state GroupState, event EventKind, byMember int64, seekedFrom time.Duration,
 ) {
@@ -284,6 +286,9 @@ func (current *session) announce(
 	}
 	if state != GroupPlaying {
 		current.endStalls()
+	}
+	if state != GroupPaused {
+		current.group.isHeldPlaying = false
 	}
 	current.group.state = state
 	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
@@ -318,6 +323,9 @@ func (current *session) logChange(now time.Time) {
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
 		positionMsAttribute, current.positionAt(now).Milliseconds(), leaderDeviceIDAttribute, current.leaderID,
 	}
+	if current.group.event == EventEveryoneLeft {
+		attributes = append(attributes, "heldPlaying", current.group.isHeldPlaying) // D375 §1
+	}
 	current.logger.Info("watch together: the group changed", attributes...)
 }
 
@@ -335,7 +343,7 @@ func (current *session) groupView(now time.Time) *GroupView {
 	return &GroupView{
 		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
 		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
-		SeekedFromMs: current.group.seekedFrom.Milliseconds(),
+		SeekedFromMs: current.group.seekedFrom.Milliseconds(), IsHeldPlaying: current.group.isHeldPlaying,
 	}
 }
 

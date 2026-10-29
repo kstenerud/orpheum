@@ -21,7 +21,8 @@ export type GroupEvent =
   | "stopped"
   | "leaderPlays"
   | "waitingFor"
-  | "everyoneLeft";
+  | "everyoneLeft"
+  | "resumedOnReturn";
 
 const groupEvents: readonly GroupEvent[] = [
   "played",
@@ -33,6 +34,7 @@ const groupEvents: readonly GroupEvent[] = [
   "leaderPlays",
   "waitingFor",
   "everyoneLeft",
+  "resumedOnReturn",
 ];
 
 /** The group as the server tells it: what plays, where, how fast, and the named event that made it so. */
@@ -48,6 +50,12 @@ export interface GroupView {
   readonly seekedFromMs: number;
   /** The member whose command or state caused the event; undefined when no one did. */
   readonly byMemberId: number | undefined;
+  /**
+   * Whether a Paused group is held for want of a player, everyone's screen gone while it played, to
+   * play on from where it stands as one comes back (D375); false for a person's pause. A held group
+   * is paused: nothing plays and its clock stands still.
+   */
+  readonly isHeldPlaying: boolean;
 }
 
 /**
@@ -305,6 +313,7 @@ function parseGroup(value: unknown): GroupView | undefined {
     event: groupEvents.find((each) => each === record["event"]),
     seekedFromMs: numberIn(record, "seekedFromMs"),
     byMemberId: byMemberId === 0 ? undefined : byMemberId,
+    isHeldPlaying: record["isHeldPlaying"] === true,
   };
 }
 

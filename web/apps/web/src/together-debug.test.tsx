@@ -39,6 +39,7 @@ function sessionLedBy(leaderId: number, why: string): TogetherSnapshot {
       event: undefined,
       seekedFromMs: 0,
       byMemberId: undefined,
+      isHeldPlaying: false,
     },
     groupReceivedAtMs: 0,
     groupPlacedByRttMs: undefined,

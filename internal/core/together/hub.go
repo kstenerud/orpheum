@@ -143,6 +143,11 @@ type group struct {
 	// changedAt is when the change numbered seq was announced: a player's note that it followed that
 	// change says how long after it the player moved (NoteGroupFollowed).
 	changedAt time.Time
+	// isHeldPlaying is whether a Watch Together group held for want of a player, Paused where its
+	// last contender went, was playing then, and so plays on as one comes back (D375 §1, §2): the
+	// hold is no person's pause. Only a Paused group has it; a person's pause, play, film put on or
+	// stop ends it.
+	isHeldPlaying bool
 }
 
 // member is a person in the session, with their devices (D120).

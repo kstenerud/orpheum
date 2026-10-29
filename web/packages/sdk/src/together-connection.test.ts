@@ -684,6 +684,7 @@ describe("reading the server's messages", () => {
           event: undefined,
           seekedFromMs: 0,
           byMemberId: undefined,
+          isHeldPlaying: false,
         },
       },
     );
