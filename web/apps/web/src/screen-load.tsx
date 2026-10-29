@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 
 import { copyToClipboard } from "./clipboard.ts";
 import { loaderOf } from "./loader-interface.ts";
+import { reloadsForNewerClient } from "./newer-client.ts";
 import { CopyWhatHappened } from "./what-happened.tsx";
 
 /**
@@ -64,9 +65,10 @@ export function pageWorkerOf(page: Window): PageWorker {
 }
 
 /**
- * Loads a screen's code, asking again once after retryAfterMs when it fails; failing again, it tells
- * the core's log which screen, why and whether a worker controlled the page, and throws
- * ScreenCodeNotLoaded for LaterScreen to show.
+ * Loads a screen's code, asking again once after retryAfterMs when it fails; failing again for a
+ * newer client served, the page reloads into it, once (newer-client.ts); else it tells the core's log
+ * which screen, why and whether a worker controlled the page, and throws ScreenCodeNotLoaded for
+ * LaterScreen to show.
  */
 export async function loadScreenCode<T>(
   screen: string,
@@ -85,6 +87,10 @@ export async function loadScreenCode<T>(
   } catch (cause: unknown) {
     const failed = new ScreenCodeNotLoaded(screen, cause);
     const worker = pageWorkerOf(window);
+    if (await reloadsForNewerClient(failed, worker)) {
+      // Loading… until the page goes: the newer client it reloads into shows the screen.
+      return await new Promise<never>(() => undefined);
+    }
     reportFailure(
       new Error(
         `${failed.message} (under a loader: ${yesNo(worker.isUnderLoader)}, a service worker controls the page: ${yesNo(worker.isControlled)})`,

@@ -25,7 +25,14 @@ import {
   type PathNoteMessage,
 } from "@orpheum/sdk";
 
-import { clientAssetsPrefix, isClientFilesMessage, sha256Of } from "./client-files.ts";
+import {
+  clientAssetsPrefix,
+  clientFilesCache,
+  clientFilesListKey,
+  isClientFilesMessage,
+  keptClientFiles,
+  sha256Of,
+} from "./client-files.ts";
 
 /** A load the worker is asked to answer. */
 interface FetchEventLike {
@@ -85,10 +92,6 @@ function isWorkerScope(scope: unknown): scope is WorkerScope {
 // went to the page's own origin and was not found (staging, 2026-10-14).
 const onWebrtc = new Set<string>();
 const onHttp = new Set<string>();
-
-/** The cache the core's client's files are kept in by their SHA-256, and their list by path. */
-const clientFilesCache = "orpheum-client-files";
-const clientFilesListKey = "/__orpheum/client-files";
 
 /** The cache the loader's own page and files are kept in. */
 const loaderCache = "orpheum-loader";
@@ -306,16 +309,7 @@ async function clientFilesOf(
   if (clientFiles !== undefined && !read.isReadAgain) {
     return clientFiles;
   }
-  const kept = await (await worker.caches.open(clientFilesCache)).match(clientFilesListKey);
-  const pairs: unknown = kept === undefined ? [] : await kept.json();
-  clientFiles = new Map(
-    Array.isArray(pairs)
-      ? pairs.filter(
-          (pair): pair is [string, string] =>
-            Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string",
-        )
-      : [],
-  );
+  clientFiles = await keptClientFiles(worker.caches);
   return clientFiles;
 }
 

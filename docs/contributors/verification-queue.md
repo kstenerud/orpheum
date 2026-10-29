@@ -1616,3 +1616,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   judged unplayable, its loads not arriving` or `too little loaded ahead`; and (3) within a few
   minutes it climbs back to its top quality. (`web/packages/player/src/abr-video.ts`, `abr.ts`,
   `resume-position.ts`, `load-again.ts`)
+- [ ] **VQ136** — a signed-in guest whose session the server lost goes home, on staging. On the Mac,
+  signed in, join a Watch Together session as a guest from the S23 hosting it, and leave the guest's
+  page on the session; restart staging's core. Passes when the Mac's page goes to the home page with
+  the note "The Watch Together session is over." or "The Watch Together session is no longer
+  there." at its top, never "This address has no invitation in it.", and the tray shows no Watch
+  Together session; the S23's Watch Together page says "That session is over." with Start a session,
+  no error. A guest joined by link alone, not signed in, whose page is reloaded after the restart, is
+  told the session is over, not that the address has no invitation.
+  (`web/apps/web/src/together-viewer.tsx`, `together-storage.ts`)
+- [ ] **VQ137** — a page open across a deploy loads a screen it had not opened, on staging. On the
+  Mac, in Chrome through staging's discovery, open the home page, and open no film's page; deploy
+  staging with a client change, so its screens' files are renamed; then open a film's page. Passes
+  when the page reloads once by itself and shows the film's page, at the film's address, never "This
+  page could not load."; and the core's log has a "page reported a failure" line saying "the page
+  reloaded for a newer client, once", naming the title screen and its file.
+  (`web/apps/web/src/newer-client.ts`, `screen-load.tsx`)

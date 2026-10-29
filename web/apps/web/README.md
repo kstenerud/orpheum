@@ -53,8 +53,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   through `screen-load.tsx`'s `lazyScreen` and `LaterScreen`, the one way): its code is asked for
   once more after a second, and then the page says it could not load, with Reload and what happened
   to copy, under a loader whose page no worker controls that developer tools may bypass the worker,
-  and the core's log is told the screen and why (the owner's Chrome, staging, 2026-10-29).
-  `src/screen-load.test.tsx`; on a device, VQ123.
+  and the core's log is told the screen and why (the owner's Chrome, staging, 2026-10-29). Where
+  the cause is a newer client served (its answers name another, or under a loader the worker's
+  client files no longer name the file), the page reloads into it at the same address instead, once
+  per build in a tab, a reload that did not help showing that page, and the page after tells the
+  core's log why (`src/newer-client.ts`; the owner's Mac, staging, 2026-10-29).
+  `src/screen-load.test.tsx`, `src/newer-client.test.tsx`; on a device, VQ123 and VQ137.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.
@@ -85,7 +89,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the address once used. Their session ended, a guest by link alone is told so on that page; a
   signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`,
   closed by its × or gone at the next screen), but for one sent away for the host's connection, who
-  keeps Join again (the owner, 2026-10-29). `src/together-viewer.test.tsx`,
+  keeps Join again (the owner, 2026-10-29). A session the server no longer has, as after its
+  restart, ends so too: a signed-in guest with none once the server was asked goes home told it is no
+  longer there, and a guest by link alone whose page loads again after theirs ended is told it is
+  over, never that the address has no invitation (staging, 2026-10-29; VQ136).
+  `src/together-viewer.test.tsx`,
   `src/together-viewer-over.test.tsx`,
   `src/notice-note.test.tsx`.
 - **Casting is a session with a device: whatever the person plays goes there while it lasts, and

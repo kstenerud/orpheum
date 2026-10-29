@@ -19,11 +19,16 @@ const clientKeys = new Set([
   // Watch Together (together-storage.ts): a tab's hosting and a viewer's membership.
   "orpheum.together.host",
   "orpheum.together.viewer",
+  // That the session a guest by link alone was in ended in this tab, for its page loaded again.
+  "orpheum.together.endedHere",
   // A device being activated by a code (pairing.ts).
   "orpheum.pairing",
   // The tab's path choice (transport-choice.ts) and the script it last reloaded for (app-update.ts).
   "orpheum.transport",
   "orpheum.reloadedForClient",
+  // The build the tab reloaded from for a screen's code no longer served, and why (newer-client.ts).
+  "orpheum.screenCode.reloadedFrom",
+  "orpheum.screenCode.reloadNote",
   // A debugging aid that starts each film on its own picture, with no preload (watching.ts).
   "orpheum.debug.startOnFilmsPicture",
   // The realm a person asked the page to remember (discovery-start.ts).

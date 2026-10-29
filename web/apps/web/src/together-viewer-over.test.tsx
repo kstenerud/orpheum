@@ -8,7 +8,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
 import { currentNotice, dismissNotice } from "./notice.ts";
-import { buttonWithText, click, mount, servedBy, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  settleUntil,
+  type Mounted,
+} from "./test-dom.tsx";
 import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
@@ -75,6 +83,50 @@ describe("a Watch Together guest's page as their session ends", () => {
     mounted.unmount();
   });
 
+  it("takes a signed-in guest home whose session the server no longer has, as after its restart, not to a page saying the address has no invitation (the owner's Mac, staging, 2026-10-29)", async () => {
+    const server = fakeTogetherServer();
+    const services = {
+      ...servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], "signed-in-token"),
+      navigation: createNavigation(fakePlace("/together")),
+      openTogetherSocket: server.openSocket,
+    };
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(currentNotice()?.text).toBe("The Watch Together session is no longer there.");
+    expect(mounted.container.textContent).not.toContain("no invitation");
+    mounted.unmount();
+  });
+
+  it("takes a signed-in guest home whose Leave the server answers with no such session", async () => {
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const server = fakeTogetherServer();
+    const services = {
+      ...servedBy(
+        {
+          "GET /together/mine": [200, { sessions: [] }],
+          "POST /together/leave": refusal(404, "not_found"),
+        },
+        [],
+        "signed-in-token",
+      ),
+      navigation: createNavigation(fakePlace("/together")),
+      openTogetherSocket: server.openSocket,
+    };
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await server.accept();
+    await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Leave"));
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(currentNotice()?.text).toBe("The Watch Together session is over.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    mounted.unmount();
+  });
+
   it("keeps a signed-in guest sent away for the host's connection on the page, with Join again (D286 §5)", async () => {
     const { mounted, services } = await endedFor("uploadFull", "signed-in-token");
     expect(services.navigation.route()).toEqual({ screen: "together" });
@@ -82,6 +134,36 @@ describe("a Watch Together guest's page as their session ends", () => {
     expect(buttonWithText(mounted.container, "Join again")).toBeDefined();
     expect(window.localStorage.getItem("orpheum.together.viewer")).not.toBeNull();
     mounted.unmount();
+  });
+
+  it("tells a guest by link alone their session is over on their page loaded again, not that it has no invitation (staging, 2026-10-29)", async () => {
+    const { mounted } = await endedFor("gone", undefined);
+    mounted.unmount();
+    // The page loaded again, as an update reloads it: the membership is forgotten, the link spent.
+    const again = await mount(
+      withServices(<TogetherViewer />, {
+        ...servedBy({}, [], undefined),
+        navigation: createNavigation(fakePlace("/together")),
+        openTogetherSocket: fakeTogetherServer().openSocket,
+      }),
+    );
+    expect(again.container.textContent).toContain("This session is over. You can close this page.");
+    expect(again.container.textContent).not.toContain("no invitation");
+    again.unmount();
+  });
+
+  it("asks a guest by link alone on their page again for a link opened after their session ended", async () => {
+    const { mounted } = await endedFor("gone", undefined);
+    mounted.unmount();
+    const again = await mount(
+      withServices(<TogetherViewer />, {
+        ...servedBy({ "GET /health": [200, { status: "ready", reasons: [] }] }, [], undefined),
+        navigation: createNavigation(fakePlace("/together#another-secret")),
+        openTogetherSocket: fakeTogetherServer().openSocket,
+      }),
+    );
+    expect(buttonWithText(again.container, "Join")).toBeDefined();
+    again.unmount();
   });
 
   it("tells a guest by link alone on the page itself, having nowhere else to go", async () => {

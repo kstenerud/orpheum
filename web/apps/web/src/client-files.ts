@@ -27,6 +27,28 @@ export interface ClientFilesMessage {
   readonly files: readonly ClientFile[];
 }
 
+/** The cache the core's client's files are kept in by their SHA-256, and their list by path. */
+export const clientFilesCache = "orpheum-client-files";
+export const clientFilesListKey = "/__orpheum/client-files";
+
+/**
+ * The client's files' hashes by path, as the worker last kept their list from the loader's word
+ * (sw.ts); none where no loader ever named them. The page reads it too: a screen's code the list no
+ * longer names is an older client's (screen-load.tsx).
+ */
+export async function keptClientFiles(caches: CacheStorage): Promise<Map<string, string>> {
+  const kept = await (await caches.open(clientFilesCache)).match(clientFilesListKey);
+  const pairs: unknown = kept === undefined ? [] : await kept.json();
+  return new Map(
+    Array.isArray(pairs)
+      ? pairs.filter(
+          (pair): pair is [string, string] =>
+            Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string",
+        )
+      : [],
+  );
+}
+
 /** Where the client's files are loaded from: Vite's assets, apart from the loader's own. */
 export const clientAssetsPrefix = "/assets/";
 

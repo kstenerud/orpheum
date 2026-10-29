@@ -29,7 +29,7 @@ import { useTranslation } from "react-i18next";
 
 import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
-import { browserStorage } from "./browser-storage.ts";
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { idempotent } from "./idempotent.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
@@ -37,13 +37,12 @@ import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-p
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
-import { problemText, throwIfRefused } from "./problem.ts";
+import { ApiProblem, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
-import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
-import { showNotice } from "./notice.ts";
+import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
@@ -59,6 +58,7 @@ import {
 } from "./together-viewer-tap.tsx";
 import { useVoice, VoiceControls } from "./together-voice.tsx";
 import {
+  forgetEndedHere,
   forgetMembership,
   keepMembership,
   membershipHeaders,
@@ -78,25 +78,21 @@ import { useIsVolumeSettable, VolumeButtonsNote } from "./film-volume-slider.tsx
  * volume and Leave. The link's secret is after #, and leaves the address once used.
  */
 export function TogetherViewer(): JSX.Element {
-  const { api, navigation } = useServices();
+  const { navigation } = useServices();
   const token = useToken();
   const [secret, setSecret] = useState(() => secretFromHash(navigation.fragment()));
   const kept = useMembership(browserStorage, "viewer");
   // The membership this browser keeps, unless a link other than the one it joined by was opened:
   // the same link opened again comes back as the same member (D267 §1).
   const membership = secret === undefined || kept?.link === secret ? kept : undefined;
-  const { endReason, over } = useSessionEnd(token !== undefined);
+  const isSignedIn = token !== undefined;
+  const { endReason, over } = useSessionEnd(isSignedIn, secret);
   // Made before the Join, so its tap, and any tap after, lets the film and the voices play with
   // sound: one tap gives a guest both, whichever starts first (the owner, 2026-10-13).
   const keptVideo = useKeptVideo();
   const [hasJoinedHere, setHasJoinedHere] = useState(false);
   const devices = useViewerVoiceDevices();
-  useEffect(() => {
-    // Signed in, a session joined on another device follows them here (D267 §2).
-    if (token !== undefined && secret === undefined) {
-      void haveBackMySessions(api).catch(() => undefined);
-    }
-  }, [api, token, secret]);
+  useGoneFromUnder({ isSignedIn, secret, hasMembership: membership !== undefined, over });
   useEffect(() => {
     if (membership !== undefined && secret !== undefined) {
       // Come back by the link already joined by: it leaves the address, as at the join.
@@ -109,7 +105,7 @@ export function TogetherViewer(): JSX.Element {
   }
   if (membership === undefined) {
     if (secret === undefined) {
-      return <NoLink />;
+      return <NoSessionHere isSignedIn={isSignedIn} />;
     }
     return (
       <JoinForm
@@ -125,6 +121,7 @@ export function TogetherViewer(): JSX.Element {
         onJoined={(joined) => {
           // Kept with its link in this browser: closing the page does not lose it (D267 §1).
           keepMembership(browserStorage(), "viewer", { ...joined, link: secret });
+          forgetEndedHere(tabStorage());
           // The secret is spent: it stays in neither the address nor the history (D243 §3).
           navigation.replace({ screen: "together" });
           setSecret(undefined);
@@ -141,6 +138,15 @@ export function TogetherViewer(): JSX.Element {
       onOver={over.end}
     />
   );
+}
+
+/**
+ * No link in the address and no session here: signed in, the server is asked for their session
+ * first, and without one they are taken home (useGoneFromUnder); else there is nothing to join.
+ */
+function NoSessionHere(props: { readonly isSignedIn: boolean }): JSX.Element {
+  const { t } = useTranslation();
+  return props.isSignedIn ? <p>{t("common.loading")}</p> : <NoLink />;
 }
 
 /**
@@ -163,45 +169,6 @@ function usePastedLinks(setSecret: (secret: string) => void, again: () => void):
       }),
     [navigation, setSecret, again],
   );
-}
-
-/**
- * Why the session is over for this viewer, if it is, and how it ends and starts again: ended, the
- * membership is forgotten, but for a viewer sent away for the host's upload, who is still a member
- * and may come back (D286 §5). A signed-in guest has the app to go back to: ended, they are taken
- * home, told why there, as a page that said only "You can close this page" stopped their app in
- * its tracks (the owner, 2026-10-29); a guest by link alone has nowhere else, and is told here.
- */
-function useSessionEnd(isSignedIn: boolean): {
-  readonly endReason: TogetherEndReason | undefined;
-  readonly over: { readonly end: (reason: TogetherEndReason) => void; readonly again: () => void };
-} {
-  const { t } = useTranslation();
-  const { navigation } = useServices();
-  const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
-  const over = useMemo(
-    () => ({
-      end: (reason: TogetherEndReason) => {
-        if (reason === "uploadFull") {
-          setEndReason(reason);
-          return;
-        }
-        forgetMembership(browserStorage(), "viewer");
-        if (isSignedIn) {
-          // Home first, so the notice is first seen there, the screen it stays on (notice-note.tsx).
-          navigation.replace({ screen: "home" });
-          showNotice(t(`together.overNotice.${reason}`));
-          return;
-        }
-        setEndReason(reason);
-      },
-      again: () => {
-        setEndReason(undefined);
-      },
-    }),
-    [isSignedIn, navigation, t],
-  );
-  return { endReason, over };
 }
 
 /**
@@ -332,14 +299,22 @@ function LeaveButton(props: {
         disabled={isBusy}
         onClick={() => {
           runRequest(async (idempotencyKey) => {
-            throwIfRefused(
-              await api.POST("/together/leave", {
-                headers: {
-                  ...idempotent(idempotencyKey).headers,
-                  ...membershipHeaders(props.membership.credential),
-                },
-              }),
-            );
+            const answer = await api.POST("/together/leave", {
+              headers: {
+                ...idempotent(idempotencyKey).headers,
+                ...membershipHeaders(props.membership.credential),
+              },
+            });
+            try {
+              throwIfRefused(answer);
+            } catch (cause: unknown) {
+              // A session the server no longer has, as after its restart, is over, not a failure.
+              if (cause instanceof ApiProblem && cause.code === "not_found") {
+                props.onLeft("gone");
+                return;
+              }
+              throw cause;
+            }
             props.onLeft("left");
           });
         }}
