@@ -310,6 +310,35 @@ func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
 	}
 }
 
+// A remote whose hello reaches its cast just after the receiver took control back is told why, as
+// one attached then was, before its socket closes as for no session: it says the receiver took it
+// back, not only that the cast is over (the browser tier, 2026-10-29).
+func TestCast_ARemoteSayingHelloJustAfterItsCastEndedIsToldWhy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	harness.dialLive(t, tvToken).awaitDevices(tv)
+	cast := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
+	if ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", cast.CastID), tvToken,
+		map[string]string{"reason": "takenBack"}); ended.status != http.StatusOK {
+		t.Fatalf("the TV's take-back = %d %s", ended.status, ended.body)
+	}
+	late := harness.dialCast(t, cast.MembershipCredential, together.RolePanel)
+	if reason := late.awaitEnded(); reason != together.CastTakenBack {
+		t.Errorf("the late remote was told %q, want %q", reason, together.CastTakenBack)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	var message together.Outbound
+	err := wsjson.Read(ctx, late.connection, &message)
+	if websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
+		t.Errorf("after the end, the late remote read %+v, %v; want closed for policy", message, err)
+	}
+}
+
 // A receiver asks before it plays (D358): it is handed the film's name to ask with, and its Not now,
 // or a minute with no answer, ends the cast, its sender told which, so the sender, still playing, can
 // say so (§1, §3, §4).

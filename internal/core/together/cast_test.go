@@ -85,6 +85,48 @@ func TestCast_TheRemoteCommandsTheReceiverAndEndingTellsBothWhy(t *testing.T) {
 	}
 }
 
+// A device saying hello with a credential of a cast that just ended is told why it ended, as its
+// devices attached then were, for endedCastKept; after it, and for a credential no cast had, only
+// that there is no session (the browser tier, 2026-10-29: a remote opened as the receiver took
+// control back said only that the cast was over).
+func TestCast_AHelloJustAfterTheEndIsToldWhyForAMinute(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := stage.hub.CastCredential(cast.SessionID, stage.owner.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = stage.hub.EndCast(cast.SessionID, stage.owner.UserID, CastTakenBack); err != nil {
+		t.Fatal(err)
+	}
+	attach := func(credential string) error {
+		_, err := stage.hub.Attach(credential, RolePanel, false, nil, testTuning, (&inbox{}).send)
+		return err
+	}
+	isOnlyNoSession := func(err error) bool {
+		ended, isCastEnded := errors.AsType[*CastEndedError](err)
+		return !isCastEnded && ended == nil && errors.Is(err, ErrNoSession)
+	}
+	for _, credential := range []string{cast.SenderCredential, again} {
+		err := attach(credential)
+		if ended, isCastEnded := errors.AsType[*CastEndedError](err); !isCastEnded || ended.Reason != CastTakenBack ||
+			!errors.Is(err, ErrNoSession) {
+			t.Errorf("a hello just after the end = %v, want the cast ended for %q, no session", err, CastTakenBack)
+		}
+	}
+	if err := attach("never a cast's"); !isOnlyNoSession(err) {
+		t.Errorf("a hello with no cast's credential = %v, want only no session", err)
+	}
+	stage.clock.Advance(endedCastKept)
+	if err := attach(again); !isOnlyNoSession(err) {
+		t.Errorf("a hello a minute after the end = %v, want only no session", err)
+	}
+}
+
 // A device of the person coming back to their cast has a credential of its own, which cuts off none.
 func TestCast_ADeviceComingBackHasACredentialOfItsOwn(t *testing.T) {
 	t.Parallel()
