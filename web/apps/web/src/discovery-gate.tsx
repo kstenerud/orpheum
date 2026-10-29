@@ -11,6 +11,7 @@ import {
   type DiscoveryClient,
   type Held,
   type LinkFragment,
+  type Proving,
 } from "@orpheum/sdk";
 import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -48,6 +49,13 @@ export interface GateParts {
    * Together membership. Asked again at each later offer, so what a link's person gains is used.
    */
   readonly sessionOf: (core: KeptCore) => HeldSession | undefined;
+  /**
+   * Everything this device holds with core, as text that changes whenever any of it does: its
+   * session and its Watch Together membership both, where sessionOf names one. A person signed in
+   * before they joined by a link holds the same session after, and only their membership tells that
+   * the link was spent (the owner's Firefox, staging, 2026-10-29). Undefined where nothing tells.
+   */
+  readonly holdingOf?: ((core: KeptCore) => string | undefined) | undefined;
   /**
    * Told the core reached and how, and, after a realm sign-in, the name and password its person
    * typed, which sign them in at once; the app takes over from there once it settles. One that
@@ -279,20 +287,29 @@ function isSameHeld(one: HeldSession | undefined, other: HeldSession | undefined
 /**
  * The target, asking at each later offer for what the device holds by then when it is not what it
  * held as the target was found: the session or membership its person gained by the link (the
- * owner's guest, 2026-10-15, whose offers after joining were all refused under the spent link's key).
- * What it held already is the target's own, so a session from an earlier visit never takes the place
- * of the link that is being spent.
+ * owner's guest, 2026-10-15, whose offers after joining were all refused under the spent link's key),
+ * or the session it held before, once anything it holds changed, as a signed-in person's join by the
+ * link changes their membership alone (holdingOf; the owner's Firefox, staging, 2026-10-29). While
+ * nothing changed, what it held already is the target's own, so a session from an earlier visit never
+ * takes the place of the link that is being spent. An offer the core refuses all the same is sent once
+ * more under what the device holds then (fallback), or under the target's own.
  */
 export function withLatest(parts: GateParts, core: KeptCore, target: Target): Target {
   const heldAtFirst = parts.sessionOf(core);
+  const holdingAtFirst = parts.holdingOf?.(core);
+  const provingNow = async (): Promise<Proving | undefined> => {
+    const held = parts.sessionOf(core);
+    return held === undefined ? undefined : await provingOf(held);
+  };
   return {
     ...target,
     latest: async () => {
       const held = parts.sessionOf(core);
-      return held === undefined || isSameHeld(held, heldAtFirst)
-        ? undefined
-        : await provingOf(held);
+      const isUnchanged =
+        isSameHeld(held, heldAtFirst) && parts.holdingOf?.(core) === holdingAtFirst;
+      return held === undefined || isUnchanged ? undefined : await provingOf(held);
     },
+    fallback: provingNow,
   };
 }
 

@@ -71,6 +71,11 @@ describe("polling (D237)", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const sent: string[] = [];
+    // The fast project shares a worker between files (vitest.config.ts), and the SDK holds every
+    // failure reported before a sink is named: a WebRTC transport's test before this one in the same
+    // worker left six "is back after" lines, which this sink was handed first. Dropped here, so this
+    // test hears only its own.
+    sendFailuresTo(() => undefined);
     sendFailuresTo((text) => sent.push(text));
     const signals: (AbortSignal | undefined)[] = [];
     const lateAnswers: ((outcome: "unchanged") => void)[] = [];

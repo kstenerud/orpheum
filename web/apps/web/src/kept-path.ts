@@ -47,6 +47,12 @@ export interface KeptPath {
    * the browser back online. Returns its removal.
    */
   readonly onPathBack: (listener: () => void) => () => void;
+  /**
+   * Tells listener once the WebRTC transport in use is refused for good: the core refused what the
+   * page proves its connections by, and what else it holds (RtcTransport.onRefused). Returns its
+   * removal.
+   */
+  readonly onPathRefused: (listener: () => void) => () => void;
   /** Names what media loads are signed in with. */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
   /**
@@ -165,6 +171,7 @@ export function keepPath(
     pathInUse: () => inUse.kind,
     mediaCarrierOf,
     onPathBack: used.onPathBack,
+    onPathRefused: used.onPathRefused,
     setMediaCredentials: (named) => {
       credentials = named;
     },
@@ -244,6 +251,53 @@ interface TransportsUsed {
   readonly close: () => void;
   /** Tells listener each time the way to the core may work again (pathBack); returns its removal. */
   readonly onPathBack: (listener: () => void) => () => void;
+  /** Tells listener once a transport is refused for good while in use (pathRefused); returns its removal. */
+  readonly onPathRefused: (listener: () => void) => () => void;
+}
+
+/** The word that the transport in use is refused for good. */
+interface PathRefused {
+  /** Hears path's transport, when it is one, telling only while it is in use. */
+  readonly hear: (path: Reached) => void;
+  readonly listen: (listener: () => void) => () => void;
+  readonly stop: () => void;
+}
+
+/** Tells its listeners, once, when the WebRTC transport inUse is refused for good. */
+function pathRefused(inUse: () => Reached): PathRefused {
+  const listeners = new Set<() => void>();
+  const stops: (() => void)[] = [];
+  let isTold = false;
+  return {
+    hear: (path) => {
+      if (path.kind !== "webrtc") {
+        return;
+      }
+      const { transport } = path;
+      stops.push(
+        transport.onRefused(() => {
+          const now = inUse();
+          if (!isTold && now.kind === "webrtc" && now.transport === transport) {
+            isTold = true;
+            for (const listener of listeners) {
+              listener();
+            }
+          }
+        }),
+      );
+    },
+    listen: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    stop: () => {
+      for (const stop of stops.splice(0)) {
+        stop();
+      }
+    },
+  };
 }
 
 /**
@@ -256,11 +310,13 @@ interface TransportsUsed {
 function transportsUsed(inUse: () => Reached): TransportsUsed {
   const transports = new Set<{ readonly close: () => void }>();
   const back = pathBack(inUse);
+  const refused = pathRefused(inUse);
   let also = (): void => undefined;
   const close = (): void => {
     window.removeEventListener("pagehide", onPageHide);
     also();
     back.stop();
+    refused.stop();
     for (const transport of transports) {
       transport.close();
     }
@@ -274,8 +330,9 @@ function transportsUsed(inUse: () => Reached): TransportsUsed {
   window.addEventListener("pagehide", onPageHide);
   return {
     add: (path) => {
-      if (path.kind === "webrtc") {
+      if (path.kind === "webrtc" && !transports.has(path.transport)) {
         transports.add(path.transport);
+        refused.hear(path);
       }
       back.hear(path);
     },
@@ -284,6 +341,7 @@ function transportsUsed(inUse: () => Reached): TransportsUsed {
     },
     close,
     onPathBack: back.listen,
+    onPathRefused: refused.listen,
   };
 }
 

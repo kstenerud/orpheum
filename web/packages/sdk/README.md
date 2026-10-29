@@ -158,6 +158,13 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   its page is shown again. The owner's Firefox never connected again after a minute without Wi-Fi,
   and Chrome's session waited 28 s more, out of step (staging, 2026-10-29; VQ130).
   `src/rtc-network-loss.test.ts`, `src/together-connection-shown.test.ts`.
+- **An offer the core refuses as unproven is sent once more under what the device holds now, and
+  then no more**: the discovery's signaller sends it again under its `fallback` (else its own key,
+  when what was refused was `latest`'s), and what is answered proves the offers after; a second
+  refusal is `KeyRefused`, a `RefusedForGood`, after which the transport tries no more, fails the
+  requests waiting, reports it and tells `onRefused`. A signed-in Watch Together guest's offers were
+  proven by the host's spent link for good, refused every 10 s (the owner's Firefox, staging,
+  2026-10-29; VQ131). `src/discovery.test.ts`, `src/rtc-network-loss.test.ts`.
 - **A load says what carries it, for a stuck chunk's log**: a transport names the connection
   carrying each request under way (`carrierOf`), its number among the page's connections, how long
   it has been up, what it carries and how long since bytes of any request came over it, and, for one

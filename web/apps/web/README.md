@@ -143,7 +143,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   may work again from the path in use alone, the WebRTC transport's `onBack` or, on a core's name, the
   browser's `online` event (`onPathBack`, the loader's since minor 4, the browser's `online` under an
   older loader), and its Watch Together connection connects again at once on it (VQ130).
-  `kept-path.test.ts`, `client-reaches.test.ts`.
+  `kept-path.test.ts`, `client-reaches.test.ts`. A connection's later offers are proven by what the
+  device holds once anything it holds changed since the target was found, its membership too
+  (`holdingOf`), so a person signed in before joining by a link leaves the spent link's key behind;
+  one refused all the same is sent once more under what it holds now, and a transport refused for
+  good shows its person, over the client, a reload and a way to sign in again (VQ131).
+  `discovery-later-offers.test.ts`, `loader-path-refused.test.tsx`.
 - **At a discovery the page is its loader, which runs the core's own client** (D308): `app.` keeps
   no core's session, hands a link on to its core's client origin, and hands a realm sign-in on by a
   single-use code; a client origin is bound to the core its name names and opens nothing for

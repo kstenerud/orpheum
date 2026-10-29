@@ -124,6 +124,11 @@ export const enDiscovery = {
       failed: "No code could be had just now. Go back and try again in a minute.",
       back: "Sign in with a realm, name and password instead",
     },
+    pathRefused: {
+      text: "This page lost its connection to your server, and the server no longer accepts the sign-in it reconnects with. Reload the page; if this comes back, sign in again.",
+      reload: "Reload",
+      signIn: "Sign in again",
+    },
     clientFailed:
       "Your server was reached, but its page did not load. Reload to try again; if it goes on, copy what happened and send it to whoever runs your server.",
     refused:

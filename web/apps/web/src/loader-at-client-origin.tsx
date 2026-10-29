@@ -29,6 +29,7 @@ import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts
 import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import { ClientFailedPage, clientFailedText } from "./loader-client-failed.tsx";
+import { PathRefusedNote } from "./loader-path-refused.tsx";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
 import {
@@ -40,7 +41,7 @@ import {
 import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { forgetMembership, readMembership } from "./together-storage.ts";
+import { forgetMembership, membershipText, readMembership } from "./together-storage.ts";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 
 /** Where this origin keeps the core it is bound to: its fingerprint and realm, once reached. */
@@ -178,13 +179,54 @@ export function forgetRefusedKey(
 }
 
 /** What this client origin may hold its core's offers by, for forgetRefusedKey to forget. */
-function heldAt(at: AtClientOrigin): Parameters<typeof forgetRefusedKey>[0] {
+function heldAt(
+  at: Pick<AtClientOrigin, "storage" | "coreId">,
+): Parameters<typeof forgetRefusedKey>[0] {
   return {
     session: createSession(at.storage, corePrefix(at.coreId)),
     forgetMembership: () => {
       forgetMembership(browserStorage(), "viewer");
     },
   };
+}
+
+/**
+ * Everything this client origin holds with its core, as text that changes whenever any of it does:
+ * the session's token and locator, and the Watch Together viewer's membership (GateParts.holdingOf).
+ */
+export function holdingAt(session: Session, membership: () => string | null): string {
+  return JSON.stringify([session.token() ?? "", session.locator() ?? "", membership() ?? ""]);
+}
+
+/**
+ * Once kept's server refused the page's way back for good, shows the person over the client
+ * (PathRefusedNote): a reload, or signing in again, which forgets what was refused as a refusal at
+ * the gate does (forgetRefusedKey) and, for a core reached by a link alone, reloads.
+ */
+export function showWhenPathRefused(
+  kept: Pick<KeptPath, "onPathRefused">,
+  shown: {
+    readonly at: Pick<AtClientOrigin, "storage" | "coreId" | "loaderOrigin" | "showFailure">;
+    readonly core: KeptCore;
+  },
+  reload: () => void = () => {
+    window.location.reload();
+  },
+): void {
+  const { at, core } = shown;
+  kept.onPathRefused(() => {
+    at.showFailure(
+      <PathRefusedNote
+        onReload={reload}
+        onSignInAgain={() => {
+          forgetRefusedKey(heldAt(at), { core, loaderOrigin: at.loaderOrigin, go: goBy });
+          if (core.realm === undefined) {
+            reload();
+          }
+        }}
+      />,
+    );
+  });
 }
 
 /** The loader's interface over a kept path, for the client to take. */
@@ -322,6 +364,18 @@ function showClientFailed(at: AtClientOrigin, coreId: string, address: string): 
   at.showFailure(<ClientFailedPage text={text} />);
 }
 
+/**
+ * What the gate reads of what this client origin holds with its core, its session read afresh by
+ * sessionOfCore each time: the session or membership offers are proven by, and all of it as text.
+ */
+function holdingsOf(sessionOfCore: () => Session): Pick<GateParts, "sessionOf" | "holdingOf"> {
+  return {
+    sessionOf: (core) =>
+      heldWith(core, sessionOfCore(), readMembership(browserStorage(), "viewer")),
+    holdingOf: () => holdingAt(sessionOfCore(), () => membershipText(browserStorage(), "viewer")),
+  };
+}
+
 /** The page a client origin opens on until the core's client runs. */
 export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.Element {
   const { at } = props;
@@ -331,8 +385,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
     client: { clientApi: at.config.clientApi },
     hasRealms: false,
     realmStorage: undefined,
-    sessionOf: (core) =>
-      heldWith(core, sessionOfCore(), readMembership(browserStorage(), "viewer")),
+    ...holdingsOf(sessionOfCore),
     forgetCore: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
     },
@@ -374,6 +427,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
         });
         at.unmount();
         leaveWhenSignedOut(session, { core, loaderOrigin: at.loaderOrigin, go: goBy });
+        showWhenPathRefused(kept, { at, core });
         run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {
         await failedToRun(cause, kept, session);

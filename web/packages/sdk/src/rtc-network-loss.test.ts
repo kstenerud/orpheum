@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { disconnectedGraceMs, peerLookEveryMs, watchGone, type StatesPeer } from "./rtc-peer.ts";
-import { openTryMostMs } from "./rtc-reopen.ts";
+import { openTryMostMs, RefusedForGood } from "./rtc-reopen.ts";
 import type { ChannelLike } from "./rtc-request.ts";
 import {
   replaceFirstMs,
@@ -162,6 +162,45 @@ describe("a transport whose network went", () => {
     ]);
     expect(Math.max(...waits)).toBe(replaceMostMs);
     expect(replaceMostMs).toBeLessThanOrEqual(10_000);
+  });
+
+  it("tries no more once a try is refused for good, failing the requests waiting and saying so", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const first = new LostPeer();
+    const online = onlineEvent();
+    let tries = 0;
+    const transport = transportOn(
+      first,
+      () => {
+        tries += 1;
+        // A spent link's key, and then what the device holds now, both refused (discovery.ts).
+        return Promise.reject(
+          new AggregateError([new Error("a name", { cause: new RefusedForGood("refused") })]),
+        );
+      },
+      online,
+    );
+    const told: string[] = [];
+    transport.onRefused((refusal) => told.push(refusal.message));
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("it stayed disconnected for 5000 ms");
+    const failed = transport
+      .fetch(new Request("https://core.example/api/v1/me"))
+      .catch((caught: unknown) => caught);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    online.fire();
+    await vi.advanceTimersByTimeAsync(replaceMostMs * 3);
+    expect(tries).toBe(1);
+    expect(told).toHaveLength(1);
+    expect(await failed).toBeInstanceOf(AggregateError);
+    const late: string[] = [];
+    transport.onRefused((refusal) => late.push(refusal.message)); // told at once, refused already
+    expect(late).toEqual(told);
+    const reported = error.mock.calls.map(([, cause]) =>
+      cause instanceof Error ? cause.message : "",
+    );
+    expect(reported.some((each) => each.includes("none is tried again"))).toBe(true);
+    transport.close();
   });
 
   it("gives up a try that hangs after openTryMostMs, aborting it, and tries again", async () => {
