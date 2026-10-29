@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A51 — A device step ticked a DevTools setting and never said to untick it (2026-10-29)
+
+- **What happened:** VQ123's steps told the owner to tick Chrome DevTools' "Bypass for network" to
+  check the page's error, and said only that Reload "with the box unticked" opens the page, never to
+  untick it. Chrome keeps the box ticked across DevTools sessions; hours later a tab's posters all
+  404'd, and the lead and an agent spent the afternoon on the service worker before the
+  owner found the box still ticked. (A48 had earlier blamed the same box without evidence; this
+  time it was the cause, and VQ123 the likely way it was set.)
+- **Caught by:** the owner, checking the box when asked.
+- **Gate:** none. A device step that changes a setting ends with the step that restores it, and
+  when a device misbehaves after such a step, ask about that setting first.
+
 ### A50 — A reproduction signed in as the owner's account stopped the owner's live session (2026-10-29)
 
 - **What happened:** while the owner tested Watch Together on staging, the lead ran a headless

@@ -1448,7 +1448,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   the 500 ms window (`design/research/starts-chunks-remote-2026-10-29.md` §3.3).
   (`web/apps/web/src/cast-receiver.tsx`, `input-commands.ts`)
 - [x] **VQ123** — In Chrome on the Mac, through staging's discovery, open the home page, then in
-  DevTools tick "Bypass for network" (Application → Service workers) and open a film you have not
+  DevTools tick "Bypass for network" (Application → Service workers; untick it again at the end:
+  Chrome keeps it ticked for every later session) and open a film you have not
   opened since the page loaded. Passes when, after about a second, the page says "This page could not
   load." with Reload, Copy what happened, and the line that developer tools may be bypassing the
   service worker, never a black page; Reload with the box unticked opens the film's page; and the
