@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { asFocusNote, noteOf, restoreWhenDrawn } from "./focus-memory.ts";
-import { focusAndShow } from "./focus-navigation.ts";
+import { focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
 import {
   hearMediaSeeks,
@@ -45,6 +45,38 @@ interface InputTold {
 
 /** The input layer's ways, where one runs; a screen rendered alone in a test has none. */
 const InputContext = createContext<InputTold | undefined>(undefined);
+
+/**
+ * How many frames a focus found again is kept in view while the rows around it settle: a few
+ * scrolls' worth of rows taking their own height, at most half a second. A justified constant.
+ */
+const settlingFrames = 30;
+
+/**
+ * Scrolls element into view again at each frame it has moved since the last, while it keeps focus,
+ * for settlingFrames frames: a list's rows off the screen are laid out at an estimate
+ * until they near it (`content-visibility: auto`, browse.css), so a far tile scrolled to on a list Back
+ * returned to moved as the rows around it took their own height, and again after each scroll, in
+ * Firefox some 90 pixels below the screen's edge (the browser test, 2026-10-29); Chromium's scroll
+ * anchoring hides most of it.
+ */
+function showAgainOnceLaidOut(element: HTMLElement): void {
+  let last = element.getBoundingClientRect().top;
+  let frames = 0;
+  const check = (): void => {
+    frames += 1;
+    if (document.activeElement !== element || frames > settlingFrames) {
+      return;
+    }
+    const top = element.getBoundingClientRect().top;
+    if (top !== last) {
+      scrollIntoViewGently(element);
+      last = element.getBoundingClientRect().top;
+    }
+    requestAnimationFrame(check);
+  };
+  requestAnimationFrame(check);
+}
 
 /**
  * Notes on the history entry what has focus as go leaves it, and gives focus back to the element so
@@ -80,6 +112,7 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
     if (note !== undefined) {
       stopRestoring = restoreWhenDrawn(note, document.body, (element) => {
         focusAndShow(element, input.lastSource() === "pad");
+        showAgainOnceLaidOut(element);
       });
     }
   });

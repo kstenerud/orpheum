@@ -142,6 +142,10 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     await expect.poll(() => document.querySelector("h1")?.textContent).toBe("Series 65");
     place.history.back();
     await expect.poll(focusedTile).toBe("Series 65");
+    // In view once the rows around it, laid out at an estimate until near (browse.css), took their
+    // own height: in Firefox the tile first scrolled to then moved some 90 pixels below the screen.
+    await expect.poll(isFocusInView).toBe(true);
+    await new Promise((settled) => requestAnimationFrame(settled));
     expect(isFocusInView()).toBe(true);
   });
 });
