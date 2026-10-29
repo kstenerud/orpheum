@@ -59,6 +59,8 @@ export class FakeHls implements ChoosingHls {
   readonly minAutoLevel = 0;
   readonly maxAutoLevel = 3;
   mainForwardBufferInfo = { len: 0 };
+  hasEnoughToStart = true;
+  startPosition = -1;
   media: ChosenVideo | null = null;
 
   /** Its video playing at positionS, everything loaded. */
@@ -89,6 +91,8 @@ export interface Scene {
   nowMs: number;
   isVoiceLive: boolean;
   isInAGroup: boolean;
+  /** Whether the browser says it is offline. */
+  isOffline: boolean;
   /** The chunks the browser says it took from its cache, by URL; any other it says nothing of. */
   cachedUrls: Set<string>;
   /** The steps the choosing noted. */
@@ -107,6 +111,7 @@ export const scene: Scene = {
   nowMs: 0,
   isVoiceLive: false,
   isInAGroup: false,
+  isOffline: false,
   cachedUrls: new Set<string>(),
   steps: [],
   samplesNoted: [],
@@ -130,6 +135,7 @@ export function useScene(vitest: {
     scene.nowMs = 0;
     scene.isVoiceLive = false;
     scene.isInAGroup = false;
+    scene.isOffline = false;
     scene.cachedUrls = new Set<string>();
     scene.steps = [];
     scene.samplesNoted = [];
@@ -185,6 +191,7 @@ export function choosingFrom(
       monotonicMs: () => scene.nowMs,
       isVoiceLive: () => scene.isVoiceLive,
       isInAGroup: () => scene.isInAGroup,
+      isOffline: () => scene.isOffline,
       fromCache: (url) => (scene.cachedUrls.has(url) ? true : undefined),
       onUnplayable: (found) => unplayable.push(found),
       noteStep: (step) => scene.steps.push(step),

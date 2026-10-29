@@ -425,3 +425,22 @@ describe("the link a chunked playback's estimate starts from (bandwidth-sampling
     expect(linkSpreadOf(video)).toBe(0.4);
   });
 });
+
+describe("a chunked playback's word that the browser is offline (D266)", () => {
+  it("is the browser's navigator.onLine, and never offline where the browser says nothing", () => {
+    const options = choosingOptionsOf(new EventTarget() as HTMLVideoElement, {
+      startAtBps: 1_992_000,
+      monotonicMs: () => 0,
+    });
+    try {
+      vi.stubGlobal("navigator", { onLine: false });
+      expect(options.isOffline?.()).toBe(true);
+      vi.stubGlobal("navigator", { onLine: true });
+      expect(options.isOffline?.()).toBe(false);
+      vi.stubGlobal("navigator", {});
+      expect(options.isOffline?.()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

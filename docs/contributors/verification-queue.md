@@ -1605,3 +1605,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   when the log says `heldPlaying=false`, and both come back to the film paused where it was, until
   someone presses Play. (`internal/core/together/leader.go`, `group.go`;
   `web/packages/sdk/src/together.ts`, `web/apps/web/src/together-events.ts`)
+- [ ] **VQ135** — a film's playback through a minute's outage neither restarts from the start nor
+  condemns its top quality, on staging. With the Mac's Chrome playing a film alone at its top quality
+  (the core's log saying the top level for it), turn the Mac's Wi-Fi off for about a minute, past
+  where the film stalls, then on. Passes when (1) the film plays on from where it stood, never from
+  0:00, the link notes' `asked again to load from` line, if any, giving that place; (2) the core's
+  log has no unplayable quality for the playback, its link notes saying instead `quality <n> not
+  judged unplayable, its loads not arriving` or `too little loaded ahead`; and (3) within a few
+  minutes it climbs back to its top quality. (`web/packages/player/src/abr-video.ts`, `abr.ts`,
+  `resume-position.ts`, `load-again.ts`)

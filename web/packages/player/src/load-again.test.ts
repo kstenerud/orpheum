@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } from "hls.js";
 
 import { asksAgainAfterAtMostMs, asksAgainAfterMs } from "./abr-choice.ts";
-import { orpheumAbr } from "./abr-controller.ts";
+import { loadAgainFrom, orpheumAbr } from "./abr-controller.ts";
 import type { PlaybackFailure } from "./failure.ts";
 import { failOnFatal } from "./hls.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
@@ -26,11 +26,14 @@ afterEach(() => {
 const carrierOf = (url: string): string => `WebRTC connection 3 for ${url}`;
 
 /**
- * A chunked playback's hls.js with its own bitrate controller, its video playing at 42 s, Bram's
+ * A chunked playback's hls.js with its own bitrate controller, its video playing at 42 s or as given, Bram's
  * four qualities as hls.js holds them, loading again after a load that failed (loadOnAfterFailures),
  * and failing as failOnFatal tells; page is the window whose online event it hears.
  */
-function playbackLoadingOn(page: EventTarget): {
+function playbackLoadingOn(
+  page: EventTarget,
+  video = videoAt(42, { isPaused: false, readyState: 4 }),
+): {
   readonly hls: Hls;
   readonly loadsOnFromS: number[];
   readonly failures: [PlaybackFailure, string | undefined][];
@@ -44,7 +47,7 @@ function playbackLoadingOn(page: EventTarget): {
     carrierOf,
   });
   const hls = new Hls({ abrController: abr.controller });
-  Object.defineProperty(hls, "media", { value: videoAt(42, { isPaused: false, readyState: 4 }) });
+  Object.defineProperty(hls, "media", { value: video });
   // hls.js's own qualities, each with the counts its error handling keeps.
   const held = levels.map((level) => ({
     ...level,
@@ -191,6 +194,40 @@ describe("a load that failed for good", () => {
     expect(failures).toEqual([]);
     waitMs(asksAgainAfterMs);
     expect(loadsOnFromS).toEqual([42]);
+    hls.destroy();
+  });
+});
+
+// A minute's outage, reproduced in headless Chrome with real hls.js (2026-10-29): the top quality
+// was given up at 67.9 s and its decoding rebuilt, whose new media source put the video at 0, and
+// when the link came back hls.js was asked to load from 0.0 s: the film started again from the start.
+describe("loading on after its decoding was rebuilt", () => {
+  it("asks hls.js to load on from where the video stood, never from the 0 a new media source puts it at", () => {
+    const page = new EventTarget();
+    const video = videoAt(67.9, { isPaused: false, readyState: 4 });
+    const { hls, loadsOnFromS } = playbackLoadingOn(page, video);
+    const attached: (() => void)[] = [];
+    Object.defineProperty(hls, "once", {
+      value: (_event: Events, then: () => void) => attached.push(then),
+    });
+    Object.defineProperty(hls, "recoverMediaError", {
+      value: () => {
+        video.currentTime = 0; // a new media source
+      },
+    });
+    loadAgainFrom(hls, 67.9); // the quality given up as unplayable, its decoding built anew
+    failEveryChunkUntilFatal(hls);
+    page.dispatchEvent(new Event("online"));
+    expect(loadsOnFromS).toEqual([67.9]);
+    expect(scene.linkNotes.at(-1)).toBe("asked again to load from 67.9 s, the browser back online");
+    // Attached, it loads from there; hls.js holds that start until it has loaded enough to start.
+    for (const then of attached) {
+      then();
+    }
+    Object.defineProperty(hls, "startPosition", { value: 67.9 });
+    failEveryChunkUntilFatal(hls);
+    waitMs(asksAgainAfterAtMostMs);
+    expect(loadsOnFromS).toEqual([67.9, 67.9, 67.9]);
     hls.destroy();
   });
 });

@@ -439,22 +439,31 @@ export function isUnplayable(still: StandingStill): boolean {
 }
 
 /**
- * Whether what the video plays where it stands, its picture and its sound, is loaded there: only then
- * does its standing still say it cannot play what it has (D266). After a seek the sound's chunk can
- * come seconds after the picture's, made on request, and a video that waited six seconds for its
- * sound, its picture's chunks arriving meanwhile, gave the film's own picture up as unplayable and
- * moved to a quality made for it (the owner's solo jumps, 2026-10-12).
+ * How far ahead of where it stands a video must hold what it plays, its picture and its sound both,
+ * for its standing still to say it cannot play what it has, in seconds (D266): with less, it waits for
+ * loads, the link's to bring. A minute's outage left Chrome standing 0.07 s short of the end of what
+ * it held, and its quality was given up as unplayable (a local reproduction, 2026-10-29).
  */
-export function isLoadedWhereItStands(
-  media: Pick<HTMLMediaElement, "buffered" | "currentTime">,
-): boolean {
+export const standsWithAheadAtLeastS = 1;
+
+/**
+ * How far ahead of where it stands the video holds what it plays there, its picture and its sound
+ * both, in seconds (the element's own buffered ranges, which hold only what both have); 0 when
+ * nothing is loaded where it stands. After a seek the sound's chunk can come seconds after the
+ * picture's, made on request, and a video that waited six seconds for its sound, its picture's chunks
+ * arriving meanwhile, gave the film's own picture up as unplayable and moved to a quality made for it
+ * (the owner's solo jumps, 2026-10-12). Not hls.js's mainForwardBufferInfo, its picture's alone: with
+ * its loading stopped by an outage it said 33.9 s while the video held 0.07 s, and the quality was
+ * given up as one the decoder could not keep up with (a local reproduction, 2026-10-29).
+ */
+export function loadedAheadOf(media: Pick<HTMLMediaElement, "buffered" | "currentTime">): number {
   const { buffered, currentTime } = media;
   for (let index = 0; index < buffered.length; index += 1) {
     if (buffered.start(index) <= currentTime && currentTime < buffered.end(index)) {
-      return true;
+      return buffered.end(index) - currentTime;
     }
   }
-  return false;
+  return 0;
 }
 
 /**

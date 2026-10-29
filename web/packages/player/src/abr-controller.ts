@@ -24,6 +24,7 @@ import { Choosing } from "./abr.ts";
 import { arrivalMs } from "./abr-choice.ts";
 import type { ChoosingOptions } from "./abr-options.ts";
 import { tooEarlyStatus } from "./failure.ts";
+import { rebuilt, rebuildingFrom, resumePositionOf } from "./resume-position.ts";
 
 /** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
 const recovered = new WeakSet<object>();
@@ -61,13 +62,16 @@ export function isLoadFailure(data: Pick<ErrorData, "details" | "response">): bo
  * chunk the detach aborted marks the picture's loader idle while detached (resetFragmentLoading, with
  * no chunk current): at 0:00 its loader then never loaded again, from where it had loaded to, the
  * video holding nothing (a Mac's Firefox giving up A Woman of Paris's own picture, the owner's test
- * on staging, 2026-10-18).
+ * on staging, 2026-10-18). Until it is attached, the position to resume from is positionS
+ * (resumePositionOf); after, hls.js seeks the video there once it has loaded there.
  */
 export function loadAgainFrom(
   hls: Pick<Hls, "once" | "recoverMediaError" | "startLoad">,
   positionS: number,
 ): void {
+  rebuildingFrom(hls, positionS);
   hls.once(Events.MEDIA_ATTACHED, () => {
+    rebuilt(hls);
     hls.startLoad(positionS);
   });
   hls.recoverMediaError();
@@ -183,7 +187,7 @@ class OrpheumAbrController extends AbrController {
       return;
     }
     recoverFrom(data);
-    const positionS = media.currentTime;
+    const positionS = resumePositionOf(this.hls);
     setTimeout(() => {
       choosing.giveUpAtAHole(positionS);
       this.hls.startLoad(positionS);

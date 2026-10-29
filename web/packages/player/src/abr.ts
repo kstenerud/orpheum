@@ -7,7 +7,6 @@ import {
   givenUpText,
   highestWithin,
   linkShare,
-  isUnplayable,
   keptOwnPicture,
   ownPictureLevel,
   commonStartForMs,
@@ -40,6 +39,7 @@ import {
 import { ChunkOnItsWay, type AskingAgain, type JudgedChunk } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
+import { resumePositionOf } from "./resume-position.ts";
 import { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs, StepUpShown } from "./step-up.ts";
 
@@ -89,7 +89,10 @@ export class Choosing<Chunk extends FollowedChunk> {
   readonly #onItsWay = new ChunkOnItsWay<Chunk>();
   readonly isAwaitingTheCore = (): boolean => this.#onItsWay.isAwaitingTheCore();
   /** Asks again after a load hls.js stopped, counted with the chunks stuck (loadOnAfterFailures). */
-  readonly askingAgain = (): AskingAgain => this.#onItsWay.askingAgain();
+  readonly askingAgain = (): AskingAgain => {
+    this.#still.linkFailed("its loading stopped");
+    return this.#onItsWay.askingAgain();
+  };
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
@@ -289,6 +292,7 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture's load failed or timed out, the core's 425 aside (ChunkOnItsWay.failed). */
   failed(chunk: Chunk, details: string): void {
+    this.#still.linkFailed(`a chunk failed (${details})`);
     this.#options.noteLink?.(this.#onItsWay.failed(chunk, details, this.#carrierText(chunk)));
   }
 
@@ -438,6 +442,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     // again, aborted for hls.js to load it again, no sample and lowering nothing (P3).
     const stuck = this.#onItsWay.stuck(judged, () => this.#carrierText(chunk));
     if (stuck !== undefined) {
+      this.#still.linkFailed("a chunk stuck on its way");
       this.#options.noteLink?.(stuck.note);
     }
     if (stuck?.isAskedAgain === true) {
@@ -461,6 +466,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     const { chunk } = judged;
     const carried = this.#carrierText(chunk); // before it is aborted
     this.#onItsWay.ended(chunk);
+    this.#still.linkFailed("a chunk given up");
     const nowMs = this.#options.monotonicMs();
     const sample = givenUpSample({ ...judged, level: chunk.level });
     if (sample !== undefined) {
@@ -496,28 +502,25 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /**
    * Gives up the quality loading as unplayable here when the video, waiting to play, stands still
-   * while its chunks arrive (D266): every quality from it up is dropped, what is loaded with it, and
-   * the video loads again from where it is at the quality chosen next. Standing still counts its
-   * time only while what it plays is loaded where it stands, a seek's sound coming late being no
-   * sign; the browser holding nothing of the chunks it took counts whatever is loaded, since a
-   * picture it cannot decode is never loaded anywhere (Flow's on Firefox on macOS, the owner's
-   * group test, 2026-10-12).
+   * while its chunks arrive (D266; StandingStill.judge, which counts no standing still the link's):
+   * every quality from it up is dropped, what is loaded with it, and the video loads again from where
+   * it resumes at the quality chosen next. Notes why it judged a quality unplayable, or why not.
    */
   #lookAtPlaying(): void {
     const nowMs = this.#options.monotonicMs();
-    const still = this.#still.look(this.#hls.media, nowMs);
+    if (this.#options.isOffline?.() === true) {
+      this.#still.linkFailed("the browser offline");
+    }
     const level = this.#hls.loadLevel;
-    if (
-      still !== undefined &&
-      level > this.#hls.minAutoLevel &&
-      isUnplayable({
-        forMs: still.loadedSinceMs === undefined ? 0 : nowMs - still.loadedSinceMs,
-        chunksLoaded: still.chunksLoaded,
-        chunksNotHeld: still.chunksNotHeld,
-        loadedAheadS: this.#bufferAheadS(),
-      })
-    ) {
-      this.#giveUpUnplayable(level, still.positionS);
+    if (this.#still.look(this.#hls.media, nowMs) === undefined || level <= this.#hls.minAutoLevel) {
+      return;
+    }
+    const judged = this.#still.judge(nowMs, this.#bufferAheadS());
+    if (judged.note !== undefined) {
+      this.#options.noteLink?.(`quality ${String(level)} ${judged.note}`);
+    }
+    if (judged.isUnplayable) {
+      this.#giveUpUnplayable(level, resumePositionOf(this.#hls));
     }
   }
 
@@ -533,9 +536,8 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** Gives the quality loading up as unplayable here, at a hole it could not pass at positionS. */
   giveUpAtAHole(positionS: number): void {
-    const level = this.#hls.loadLevel;
-    if (level > this.#hls.minAutoLevel) {
-      this.#giveUpUnplayable(level, positionS);
+    if (this.canGiveUpAtAHole()) {
+      this.#giveUpUnplayable(this.#hls.loadLevel, positionS);
     }
   }
 

@@ -11,19 +11,17 @@ import { recoverFrom } from "./abr-controller.ts";
 import type { AskingAgain } from "./abr-on-its-way.ts";
 import { failureText } from "./diagnosis.ts";
 import { isLoadStopped } from "./failure.ts";
+import { resumePositionOf, type ResumingHls } from "./resume-position.ts";
 
 /** What asking hls.js to load on needs of it: its errors, its loading, its playlist and its video. */
-export type LoadingOnHls = Pick<
-  Hls,
-  "on" | "off" | "startLoad" | "loadSource" | "levels" | "url"
-> & {
-  readonly media: Pick<HTMLMediaElement, "currentTime"> | null;
-};
+export type LoadingOnHls = Pick<Hls, "on" | "off" | "startLoad" | "loadSource" | "levels" | "url"> &
+  ResumingHls;
 
 /**
  * Never lets a load that failed end the playback: at each fatal hls.js error that only stopped its
  * loading (isLoadStopped), the error is marked recovered, so failOnFatal, told after, passes it by,
- * and hls.js is asked to load on from where the video stands after the wait askingAgain says, the
+ * and hls.js is asked to load on from where the playback resumes (resumePositionOf), never from a
+ * video a rebuild put at 0, after the wait askingAgain says, the
  * bitrate controller's for asking again, counted in a row with its chunks stuck on their way, each
  * twice as long (Choosing.askingAgain); and at once when page, the window, says the browser is back
  * online. What is loaded plays on meanwhile, the page showing only its wait. Each is noted: what
@@ -80,8 +78,9 @@ export function loadOnAfterFailures(
 }
 
 /**
- * Asks hls.js to load on from where its video stands, noting why now; its master playlist asked for
- * again where none loaded, there being nothing to load on from.
+ * Asks hls.js to load on from where the playback resumes (resumePositionOf), noting why now: where its
+ * video stands, or, after a rebuild of its decoding put the video at 0, where it stood before; its
+ * master playlist asked for again where none loaded, there being nothing to load on from.
  */
 function loadOnFromTheVideo(hls: LoadingOnHls, note: (note: string) => void, why: string): void {
   if (hls.levels.length === 0 && hls.url !== null) {
@@ -89,7 +88,7 @@ function loadOnFromTheVideo(hls: LoadingOnHls, note: (note: string) => void, why
     hls.loadSource(hls.url);
     return;
   }
-  const positionS = hls.media?.currentTime ?? -1;
+  const positionS = resumePositionOf(hls);
   note(`asked again to load from ${positionS.toFixed(1)} s, ${why}`);
   hls.startLoad(positionS);
 }

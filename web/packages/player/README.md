@@ -76,8 +76,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   bound's calibration can be read from the log, and each chunk given up or stuck with the transport
   and WebRTC connection that carried it and how long since that connection last delivered bytes
   (P6; the owner, 2026-10-29). A quality whose video, asked to play, stands still while its chunks arrive is
-  given up as one the device cannot play, with every quality above it, and reported (D266).
-  `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
+  given up as one the device cannot play, with every quality above it, and reported (D266); its
+  standing still counts only while the video holds `standsWithAheadAtLeastS` (1 s) of what it plays
+  ahead, picture and sound, by its own buffered ranges, never hls.js's picture alone, and while its
+  loads arrive, afresh at each chunk that fails, sticks or is given up, at each ask to load on after
+  hls.js stopped its loading, and while the browser is offline; each quality judged unplayable, and
+  each long standing still not judged, is noted with why. A minute's outage stood a video 0.07 s short
+  of the end of what it held, hls.js saying 33.9 s loaded ahead, and the top quality was given up for
+  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,
@@ -92,16 +98,20 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A chunked playback never ends at a load that failed**: a fatal hls.js error that only stopped its
   loading, any but the media's own (MEDIA_ERROR, MUX_ERROR) and the core's 429 and 503, which have
   their own answers (`isLoadStopped`, `src/failure.ts`), is marked recovered, so it is no failure,
-  and hls.js is asked to load on from where the video stands after the same waits as a chunk stuck
+  and hls.js is asked to load on from where the playback resumes (`resumePositionOf`,
+  `src/resume-position.ts`): where the video stands, or, while a rebuild of its decoding has put the
+  video at 0 and hls.js has not yet loaded enough to start, where the rebuild resumes from, which hls.js
+  seeks the video to once loaded there; asked from 0, a film given up at 68 s started again from its
+  beginning when the link came back (a local reproduction, 2026-10-29; VQ135); after the same waits as a chunk stuck
   on its way, in one count of times in a row (`ChunkOnItsWay.askingAgain`), and at once when the
   browser is back online (`loadOnAfterFailures`, `src/load-again.ts`); what is
   loaded plays on meanwhile, the page showing only its wait. Each is noted with what failed and what
   carried it, the time in a row and the wait, and each ask with why then. Taken as the end, a load
   that failed while the owner's Chrome was offline stopped its playback for good, though the link
-  came back (staging, 2026-10-29; VQ125). `load-again.test.ts`.
+  came back (staging, 2026-10-29; VQ125). `load-again.test.ts`, `resume-position.test.ts`.
 - **A fatal decoding error (hls.js's MEDIA_ERROR) is recovered once before it fails the playback**,
-  as hls.js's own guide asks: hls.js's decoding is built anew from where the video stands
-  (`recoverMediaError`, `loadAgainFrom`, which also recovers a hole it cannot step over, D266) and
+  as hls.js's own guide asks: hls.js's decoding is built anew from where the playback resumes
+  (`resumePositionOf`; `recoverMediaError`, `loadAgainFrom`, which also recovers a hole it cannot step over, D266) and
   the error marked recovered, so failOnFatal passes it by (`recoverFromDecodingErrors`,
   `src/decode-recovery.ts`); a second one within `decodingRecoveryWindowMs` (30 s) of the last
   recovery is not recovered again, and fails as today, since the rebuild did not mend it, and
@@ -213,7 +223,7 @@ for how far ahead it loads;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`; loading on after a load that failed: `src/load-again.ts`; where a playback resumes after its decoding is rebuilt: `src/resume-position.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.

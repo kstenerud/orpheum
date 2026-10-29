@@ -28,6 +28,10 @@ export interface ChoosingHls {
   readonly minAutoLevel: number;
   readonly maxAutoLevel: number;
   readonly mainForwardBufferInfo: { readonly len: number } | null;
+  /** Whether it has loaded enough to start since its video was attached (resumePositionOf). */
+  readonly hasEnoughToStart: boolean;
+  /** The position it was asked to start from, or -1 (resumePositionOf). */
+  readonly startPosition: number;
   /** The video it plays into, whose position shows whether it plays. */
   readonly media: Pick<
     HTMLMediaElement,
@@ -54,6 +58,11 @@ export interface ChoosingOptions {
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
+  /**
+   * Whether the browser says it is offline, which makes a standing still the link's, never a quality
+   * the device cannot play (D266); absent where nothing says.
+   */
+  readonly isOffline?: () => boolean;
   /** Whether it plays in a Watch Together group, which keeps the film's own picture (D286 §2). */
   readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */

@@ -38,6 +38,10 @@ function fatalError(
 function playbackRecoveringFromDecoding(
   positionS: number,
   nowMs: () => number,
+  start: { readonly hasEnoughToStart: boolean; readonly startPosition: number } = {
+    hasEnoughToStart: true,
+    startPosition: -1,
+  },
 ): {
   readonly trigger: (data: Pick<ErrorData, "type" | "details" | "fatal" | "error">) => void;
   readonly calls: string[];
@@ -75,6 +79,7 @@ function playbackRecoveringFromDecoding(
     startLoad: (at?: number) => calls.push(`startLoad ${String(at)}`),
     stopLoad: () => calls.push("stopLoad"),
     media: { currentTime: positionS },
+    ...start,
   } as unknown as Parameters<typeof recoverFromDecodingErrors>[0] &
     Parameters<typeof failOnFatal>[0];
   const notes: string[] = [];
@@ -132,6 +137,21 @@ describe("a fatal decoding error (hls.js's MEDIA_ERROR)", () => {
     trigger(fatalError(ErrorTypes.MEDIA_ERROR, "decode failed again"));
     expect(calls).toEqual(["recoverMediaError", "startLoad 12.5"]);
     expect(failures).toEqual([]);
+  });
+});
+
+// A rebuild's new media source puts the video at 0 until hls.js has loaded where it resumes: a
+// minute's outage, reproduced in headless Chrome (2026-10-29), so restarted a film from its start.
+describe("a fatal decoding error soon after a rebuild, before hls.js has loaded enough to start", () => {
+  it("is recovered from where the playback resumes, never from the 0 the video stands at", () => {
+    const clock = fakeClock();
+    const { trigger, calls, notes } = playbackRecoveringFromDecoding(0, clock.nowMs, {
+      hasEnoughToStart: false,
+      startPosition: 67.9,
+    });
+    trigger(fatalError(ErrorTypes.MEDIA_ERROR, "decode failed"));
+    expect(calls).toEqual(["recoverMediaError", "startLoad 67.9"]);
+    expect(notes.at(-1)).toMatch(/^a decoding error is recovered, loading again from 67\.9 s: /u);
   });
 });
 
