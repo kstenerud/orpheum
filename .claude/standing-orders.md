@@ -33,7 +33,8 @@
      The efficiency audit's six cheap fixes and dimmer placeholders: on staging (VQ118). LAN-origin tab at
      home + Chrome WebRTC fixes next batch (plan file, last sections).
      Folded (owner, VQ97/VQ91 checks): drop-down fixes + anchored lists, sort chooser; a film started from 0
-     never played; A Woman of Paris's copied sound; a leader's echo seek (all on staging).
+     never played; A Woman of Paris's copied sound; a leader's echo seek (all on staging); the link estimate's
+     P1–P6 (research/bandwidth-sampling-2026-10-29.md, owner 2026-10-29; no re-ask on another connection; agent).
      VQs owed: 85–118 (84, 89, 106, 111, 112, 114, 117, 119 passed; lead's notes on the rest).
    - Answers to build from and **next batch**: design/plans/navigation-and-widgets-answers-2026-10-27.md
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
