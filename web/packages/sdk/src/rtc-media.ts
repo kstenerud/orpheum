@@ -242,9 +242,24 @@ export async function answerLoad(
   if (load.viewer !== undefined && !headers.has(viewerHeaderName)) {
     headers.set(viewerHeaderName, load.viewer);
   }
+  // A cancel before the head aborts the load: hls.js giving a chunk up before its head came left the
+  // page's request holding its connection's room until its answer, which a stuck connection never sent.
+  const asked = new AbortController();
+  const relayed: { body?: BodyRelay } = {};
+  port.addEventListener("message", (event) => {
+    if (event.data === "cancel") {
+      asked.abort();
+      relayed.body?.cancel();
+    } else if (relayed.body !== undefined) {
+      relayAsked(relayed.body, event.data); // asked for only once the head is sent
+    }
+  });
+  port.start();
   let response: Response;
   try {
-    response = await load.send(new Request(message.url, { method: message.method, headers }));
+    response = await load.send(
+      new Request(message.url, { method: message.method, headers, signal: asked.signal }),
+    );
   } catch (error: unknown) {
     port.postMessage({ kind: "error", message: String(error) } satisfies ReplyMessage);
     return;
@@ -255,23 +270,25 @@ export async function answerLoad(
   });
   // A response with no body answers as an empty one: a worker of a release before pulls a body of
   // any status but its few bodyless ones, and is answered "end".
-  const relay = new BodyRelay((response.body ?? emptyBody()).getReader(), port);
-  port.addEventListener("message", (event) => {
-    if (event.data === "cancel") {
-      relay.cancel();
-    } else if (event.data === "pull") {
-      relay.pullOne();
-    } else if (isCredit(event.data)) {
-      relay.grant(event.data.bytes);
-    }
-  });
-  port.start();
+  relayed.body = new BodyRelay((response.body ?? emptyBody()).getReader(), port);
+  if (asked.signal.aborted) {
+    relayed.body.cancel();
+  }
   port.postMessage({
     kind: "head",
     status: response.status,
     headers: replied,
     relay: "credit",
   } satisfies ReplyMessage);
+}
+
+/** Does as the service worker asked of relay: a piece for a "pull", more room for a grant. */
+function relayAsked(relay: BodyRelay, data: unknown): void {
+  if (data === "pull") {
+    relay.pullOne();
+  } else if (isCredit(data)) {
+    relay.grant(data.bytes);
+  }
 }
 
 /** A body of nothing. */
@@ -367,9 +384,18 @@ function movableBufferOf(piece: Uint8Array): ArrayBuffer {
 /**
  * The service worker's side: the response a load's port carries, resolved at its head, its body a
  * stream that grants the page room for `relayedAheadBytes` ahead of its reader when its head says it
- * sends that way, else pulls umi no tobira at a time from it, as from a page of a release before.
+ * sends that way, else pulls one piece at a time from it, as from a page of a release before. The
+ * load's signal aborting, as hls.js's abort of its request does where the browser tells its worker,
+ * cancels the page's load, its head come or not.
  */
-export function responseFromPort(port: PortLike): Promise<Response> {
+export function responseFromPort(port: PortLike, signal?: AbortSignal): Promise<Response> {
+  signal?.addEventListener(
+    "abort",
+    () => {
+      port.postMessage("cancel" satisfies BodyRequestMessage);
+    },
+    { once: true },
+  );
   return new Promise<Response>((resolve, reject) => {
     let deliver: ((reply: ReplyMessage) => void) | undefined;
     port.addEventListener("message", (event) => {
@@ -626,7 +652,8 @@ export function mediaCarrierOf(url: string): string {
 
 /**
  * A WebRTC connection carrying a load, for a log: "WebRTC connection 2, up 41 s, 3 under way, last
- * bytes 5512 ms ago", or "no bytes yet" before any came over it.
+ * bytes 5512 ms ago", or "no bytes yet" before any came over it, and why the transport ended the
+ * load itself where it did ("; ended: nothing came for 40000 ms, …").
  */
 export function carrierText(carrier: CarrierSeen): string {
   const delivered =
@@ -635,7 +662,8 @@ export function carrierText(carrier: CarrierSeen): string {
       : `last bytes ${String(Math.round(carrier.sinceDeliveredMs))} ms ago`;
   return (
     `WebRTC connection ${String(carrier.connection)}, up ${String(Math.round(carrier.upMs / 1000))} s,` +
-    ` ${String(carrier.underWay)} under way, ${delivered}`
+    ` ${String(carrier.underWay)} under way, ${delivered}` +
+    (carrier.ended === undefined ? "" : `; ended: ${carrier.ended}`)
   );
 }
 

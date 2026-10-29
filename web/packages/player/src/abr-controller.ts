@@ -38,6 +38,15 @@ export function isBeingMade(data: Pick<ErrorData, "details" | "response">): bool
   return data.details === ErrorDetails.FRAG_LOAD_ERROR && data.response?.code === tooEarlyStatus;
 }
 
+/** Whether hls.js's error is a chunk's load failing or timing out, the core's 425 aside. */
+export function isLoadFailure(data: Pick<ErrorData, "details" | "response">): boolean {
+  return (
+    (data.details === ErrorDetails.FRAG_LOAD_ERROR ||
+      data.details === ErrorDetails.FRAG_LOAD_TIMEOUT) &&
+    !isBeingMade(data)
+  );
+}
+
 /**
  * Builds hls's video's decoding anew (recoverMediaError), and starts its loading again from positionS
  * once the new media source is attached. hls.js restarts only a loader still stopped then, and a
@@ -135,6 +144,8 @@ class OrpheumAbrController extends AbrController {
         const { frag } = data;
         if (frag !== undefined && isPicture(frag) && isBeingMade(data)) {
           this.choosing.beingMade(frag);
+        } else if (frag !== undefined && isPicture(frag) && isLoadFailure(data)) {
+          this.choosing.failed(frag, data.details);
         }
         if (
           data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&

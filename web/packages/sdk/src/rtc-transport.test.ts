@@ -6,6 +6,7 @@ import {
   grantEvery,
   maxMessageBytes,
   sendOnChannel,
+  silentAtMostMs,
   type ChannelLike,
   type ChannelListener,
 } from "./rtc-request.ts";
@@ -417,6 +418,23 @@ class FakePeer implements PeerLike {
   goes(): void {
     this.goneListener?.();
   }
+
+  /** The index-th channel opened on it, which must have been. */
+  channel(index: number): FakeChannel {
+    const channel = this.channels[index];
+    if (channel === undefined) {
+      throw new Error(`no channel ${String(index)} was opened`);
+    }
+    return channel;
+  }
+}
+
+/** The reader of a response's body, which must have one. */
+function readerOf(response: Response): ReadableStreamDefaultReader<Uint8Array> {
+  if (response.body === null) {
+    throw new Error("the response has no body");
+  }
+  return response.body.getReader();
 }
 
 describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", () => {
@@ -638,5 +656,125 @@ describe("the connection a request is carried on, for a stuck chunk's log (the o
     channel?.answer(new ArrayBuffer(0));
     channel?.closeFromTheCore();
     expect(transport.carrierOf(url)).toBeUndefined(); // no longer under way
+  });
+});
+
+// The owner's Chrome, throttled until its film stalled and unthrottled: a chunk's body stopped after
+// 19 bytes, and the player never loaded again (staging, 2026-10-29). Nothing over WebRTC waits for
+// good: a request that hears nothing while it waits on the core fails, and a connection that carried
+// nothing for as long is replaced, the requests after it going on the new one.
+describe("a request that hears nothing for silentAtMostMs", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A transport on first, growing from opened, its clock the fake timers'. */
+  function growing(first: FakePeer): { transport: RtcTransport; opened: FakePeer[] } {
+    const opened: FakePeer[] = [];
+    const transport = new RtcTransport(
+      [first],
+      {
+        size: 4,
+        open: () => {
+          const peer = new FakePeer();
+          opened.push(peer);
+          return Promise.resolve(peer);
+        },
+      },
+      () => Date.now(),
+    );
+    return { transport, opened };
+  }
+
+  it("fails waiting for its head, its channel closed, and its silent connection is replaced", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    const url = "https://app.example/api/v1/chunk/7";
+    const outcome = transport.fetch(new Request(url)).then(
+      () => "answered",
+      (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
+    );
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
+    expect(first.isClosed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await outcome).toBe("SilentRequestError");
+    expect(first.channels[0]?.isClosed).toBe(true);
+    expect(first.isClosed).toBe(true);
+    expect(opened).toHaveLength(1);
+    expect(transport.carrierOf(url)?.ended).toBe(
+      `nothing came for ${String(silentAtMostMs)} ms, nor over its connection, which was replaced`,
+    );
+    // Asked again, it goes on the new connection, which answers.
+    const again = transport.fetch(new Request(url));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.carrierOf(url)?.ended).toBeUndefined();
+    opened[0]?.channels[0]?.answer(JSON.stringify({ status: 204 }));
+    opened[0]?.channels[0]?.answer(new ArrayBuffer(0));
+    expect((await again).status).toBe(204);
+  });
+
+  it("fails its body when its reader waits that long after some of it came, a stuck chunk", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport } = growing(first);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    const answered = transport.fetch(new Request("https://app.example/api/v1/chunk/8"));
+    await vi.advanceTimersByTimeAsync(0);
+    const channel = first.channel(0);
+    channel.answer(JSON.stringify({ status: 200 }));
+    const reader = readerOf(await answered);
+    channel.answer(new Uint8Array(19).buffer);
+    expect((await reader.read()).value).toHaveLength(19);
+    const next = reader.read().then(
+      () => "read",
+      (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
+    );
+    // Another request's bytes come over the same connection meanwhile: the connection lives.
+    const other = transport.fetch(new Request("https://app.example/api/v1/poster"));
+    await vi.advanceTimersByTimeAsync(silentAtMostMs / 2);
+    first.channel(1).answer(JSON.stringify({ status: 200 }));
+    await other;
+    first.channel(1).answer(new Uint8Array([1]).buffer);
+    await vi.advanceTimersByTimeAsync(silentAtMostMs / 2);
+    expect(await next).toBe("SilentRequestError");
+    expect(channel.isClosed).toBe(true);
+    expect(first.isClosed).toBe(false);
+    expect(transport.carrierOf("https://app.example/api/v1/chunk/8")?.ended).toBe(
+      `nothing came for ${String(silentAtMostMs)} ms`,
+    );
+  });
+
+  it("waits unbounded while its reader does not read, the core having no room to send", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport } = growing(first);
+    const answered = transport.fetch(new Request("https://app.example/api/v1/film"));
+    await vi.advanceTimersByTimeAsync(0);
+    first.channels[0]?.answer(JSON.stringify({ status: 206 }));
+    const response = await answered;
+    await vi.advanceTimersByTimeAsync(silentAtMostMs * 3);
+    expect(first.channels[0]?.isClosed).toBe(false);
+    first.channels[0]?.answer(new Uint8Array([5]).buffer);
+    first.channels[0]?.answer(new ArrayBuffer(0));
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([5]));
+  });
+
+  it("replaces a connection that opens no channel, and gives its room back", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.createDataChannel = () => {
+      throw new Error("the SCTP transport is closed");
+    };
+    await expect(transport.fetch(new Request("https://app.example/a"))).rejects.toThrow(
+      "the SCTP transport is closed",
+    );
+    expect(first.isClosed).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(opened).toHaveLength(1);
+    expect(transport.size).toBe(1);
   });
 });

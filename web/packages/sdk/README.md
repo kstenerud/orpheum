@@ -105,7 +105,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   reason, as fetch does: at once, opening nothing, if it aborted before it was sent; out of the
   queue if it waits for room; otherwise with its channel closed, which ends its work in the core
   (rtcapi's `TestChannel_AChannelTheClientClosesEndsItsRequest`), its room given back when the
-  close comes. Requests go
+  close comes. Nothing waits on the core for good: a request that hears nothing for
+  `silentAtMostMs` (40 s, past the core's longest hold of a chunk) while it waits for its head
+  (one with no body of its own), for the end of a response with no body, or while its reader waits
+  for its body fails with a `SilentRequestError`, its channel closed; a reader that does not read
+  waits unbounded, the core having no room to send. Requests go
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.
@@ -116,10 +120,15 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   only after a wait that doubles. The core holds 16 per network, and four per tab filled them with
   four tabs (staging, 2026-10-25). A connection counts as up only once the core's verdict holds it
   (rtcapi's `Verdict`); one the core turns away fails with `TurnedAway`, which `isTurnedAway` reads.
+  A connection is replaced as one gone when a request on it heard nothing for `silentAtMostMs` and
+  nothing of any request came over it for as long, or when it opens no channel: its data channels
+  can stop while it stays connected, and every request after them waited in the same silence (the
+  owner's Chrome, throttled and unthrottled, staging, 2026-10-29; VQ125).
   `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
 - **A load says what carries it, for a stuck chunk's log**: a transport names the connection
   carrying each request under way (`carrierOf`), its number among the page's connections, how long
-  it has been up, what it carries and how long since bytes of any request came over it; the page's
+  it has been up, what it carries and how long since bytes of any request came over it, and, for one
+  it ended itself for its silence, why (`ended`), until that URL is asked for again; the page's
   media says it of a load by URL (`mediaCarrierOf`): that connection, the other origin it is
   carried over, or "http" (the owner, 2026-10-29: the logs are to show whether stalls are
   per-connection). `src/rtc-transport.test.ts`, `src/rtc-media.test.ts`.
@@ -134,7 +143,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   hls.js loading its chunks through the transport in the page, because the worker is the one way
   every load the browser makes by itself (images, a video's bytes, subtitle tracks, the client's
   files under a discovery's loader) reaches the core over the page's path. A reader that gives the
-  body up, as a seek does, cancels the page's load. `src/rtc-media.test.ts`; through the real
+  body up, as a seek does, cancels the page's load, and so does a load the browser aborts before its
+  head came, as hls.js's of a chunk it gave up, where the browser tells the worker (its request's
+  signal). `src/rtc-media.test.ts`, `web/apps/web/src/sw.test.ts`; through the real
   worker in Chromium and Firefox, `web/apps/web/src/sw.browser.test.ts`; in Chromium and Firefox,
   `web/e2e/webrtc.spec.ts` plays a film with no API request reaching the network; the Fire TV's
   speed, VQ115.

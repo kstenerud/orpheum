@@ -7,6 +7,7 @@
  * which says whether it was arriving or stuck (bandwidth-sampling-2026-10-29.md P3).
  */
 
+import { asksAgainWaitMs, givenUpText, isStuck, isToAskAgain } from "./abr-choice.ts";
 import type { FollowedChunk } from "./abr-options.ts";
 
 /** A chunk on its way as a look judges it. */
@@ -22,6 +23,8 @@ export interface JudgedChunk<Chunk extends FollowedChunk> {
   readonly loadedBytes: number;
   /** How long since its bytes last grew, in ms. */
   readonly sinceArrivedMs: number;
+  /** Whether the core answered it, its head come, rather than its ask still waiting. */
+  readonly isAnswered: boolean;
 }
 
 /** The chunk of picture on its way, followed from its ask to its load, or until given up. */
@@ -36,6 +39,9 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
         isStuckNoted: boolean;
       }
     | undefined;
+
+  /** How many times in a row a chunk stuck on its way was asked for again, since one last loaded. */
+  #asksAgain = 0;
 
   /** chunk began loading at nowMs. */
   loading(chunk: Chunk, nowMs: number): void {
@@ -65,6 +71,50 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
         isStuckNoted: false,
       };
     }
+  }
+
+  /** chunk loaded: followed no more, and the next one stuck is asked for again after the first wait. */
+  loaded(chunk: Chunk): void {
+    this.#asksAgain = 0;
+    this.ended(chunk);
+  }
+
+  /**
+   * chunk's load failed or timed out, hls.js's details say which: followed no more until hls.js asks
+   * for it again, and its note, with carried, what carried it, which says where the transport ended
+   * it itself, so a loader waiting on a dead connection shows in the core's log.
+   */
+  failed(chunk: Chunk, details: string, carried: string): string {
+    this.ended(chunk);
+    return `a chunk of ${String(chunk.level)} failed to load (${details}); ${carried}`;
+  }
+
+  /**
+   * A chunk judged on its way and not given up, as one of the lowest quality is not, when it is stuck:
+   * its note, with carried(), read before it is aborted, and whether it is to be asked for again
+   * (isToAskAgain), with which time in a row it is and how long it waited, followed no more; else,
+   * once for each chunk, that it is stuck (isStuck). Undefined when it is neither. Waited for, a chunk
+   * stuck after 19 bytes over WebRTC held the owner's Chrome for good (staging, 2026-10-29).
+   */
+  stuck(
+    judged: JudgedChunk<Chunk>,
+    carried: () => string,
+  ): { readonly note: string; readonly isAskedAgain: boolean } | undefined {
+    const { chunk } = judged;
+    const came = givenUpText({ ...judged, isSample: false });
+    if (isToAskAgain(judged, this.#asksAgain)) {
+      const waitedMs = asksAgainWaitMs(this.#asksAgain);
+      this.#asksAgain += 1;
+      this.ended(chunk);
+      const note =
+        `asked again for a chunk of ${String(chunk.level)}, time ${String(this.#asksAgain)} in a` +
+        ` row, after ${String(waitedMs)} ms with nothing: ${came}; ${carried()}`;
+      return { note, isAskedAgain: true };
+    }
+    if (isStuck(judged) && this.isStuckToNote(chunk)) {
+      return { note: `chunk of ${String(chunk.level)} ${came}; ${carried()}`, isAskedAgain: false };
+    }
+    return undefined;
   }
 
   /** chunk loaded, or was given up: it is followed no more. */
@@ -131,6 +181,7 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
       arrivedBytes: isArriving ? loaded - answeredBytes : 0,
       loadedBytes: loaded,
       sinceArrivedMs: nowMs - arrived.atMs,
+      isAnswered: loading.first > 0,
     };
   }
 }
