@@ -769,3 +769,25 @@ func TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader(t *testing.T) {
 		t.Errorf("the leader's own seek was logged as a follower's catch-up:\n%s", stage.logs)
 	}
 }
+
+// A catch-up's line says the parts of its aim: where its player expected the group, how far ahead it
+// aimed for its load, by what, and what that rested on. A catch-up a minute ahead of its group said
+// nothing of why (the owner's Chrome, staging, 2026-10-29). An aim by no known word is refused.
+func TestHub_LogsACatchUpsAim(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	stage.clock.Advance(60 * time.Second)
+	stage.hub.Handle(t.Context(), stage.guestDevice, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 50_000, ToMs: 72_000, Why: "catchUp", GroupAtMs: 60_000,
+		AheadForLoadMs: 12_000, AimedBy: "fill", LastLoadMs: 2400, LoadsFaster: 2.5,
+	}})
+	caughtUp := lineWith(t, stage.logs.String(), "followerCaughtUp")
+	want := "toMs=72000 behindMs=10000 groupAtMs=60000 aheadForLoadMs=12000 aimedBy=fill " +
+		"lastLoadMs=2400 loadsFaster=2.5"
+	if !strings.Contains(caughtUp, want) {
+		t.Errorf("the catch-up is logged as %q; want %s", caughtUp, want)
+	}
+	if (PlayerNote{Kind: NoteSought, Why: "catchUp", AimedBy: "a\nforged line"}).isKnown() {
+		t.Error("a catch-up aimed by an unknown word is known")
+	}
+}

@@ -327,6 +327,18 @@ type PlayerNote struct {
 	// 2026-10-28 left only the moves back to its latency, from where no line said.
 	FromWhy      string `json:"fromWhy,omitempty"`
 	RememberedMs int64  `json:"rememberedMs,omitempty"`
+	// GroupAtMs, AheadForLoadMs and AimedBy are a catch-up seek's aim: where its player expected the
+	// group then, how far ahead of the group it aimed for its load, and by what ("loaded", the film held
+	// there; "lastLoad", its last seek's load; "fill", that and its link's time to fill its buffer,
+	// D250 §4; "mostAhead", as far as a person waits); LastLoadMs and LoadsFaster, what that rested
+	// on: how long its last seek took to load, and the film loaded per second of its link, 0 with no
+	// measure. A catch-up a minute ahead of its group said nothing of why (the owner's Chrome,
+	// staging, 2026-10-29).
+	GroupAtMs      int64   `json:"groupAtMs,omitempty"`
+	AheadForLoadMs int64   `json:"aheadForLoadMs,omitempty"`
+	AimedBy        string  `json:"aimedBy,omitempty"`
+	LastLoadMs     int64   `json:"lastLoadMs,omitempty"`
+	LoadsFaster    float64 `json:"loadsFaster,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.

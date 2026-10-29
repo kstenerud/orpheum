@@ -127,10 +127,11 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 // logCatchUp logs, at info, a follower's move to catch up to its leader (D371 §2), and reports whether
 // it did: a seek, why ("catchUp", ahead of where the leader is; "skip", a small one; "hold", to where a
 // group standing for its leader stands), from where to where, or a nudge, at which rate, each with
-// how far behind the leader it was, behind when positive, so a report can be read from the log; a
-// leader catching up to its group after a stall the group played on through, as a follower does, is
-// logged as one too, isLeaderCatchingUp (D374). A leader's own seeks, carried out for another device
-// or as it joined, are logNote's.
+// how far behind the leader it was, behind when positive, and a catch-up with its aim's parts (where
+// it expected the group, how far ahead it aimed for its load, by what, and what that rested on), so a
+// report can be read from the log; a leader catching up to its group after a stall the group played
+// on through, as a follower does, is logged as one too, isLeaderCatchingUp (D374). A leader's own
+// seeks, carried out for another device or as it joined, are logNote's.
 func (current *session) logCatchUp(
 	ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote,
 ) bool {
@@ -149,6 +150,10 @@ func (current *session) logCatchUp(
 	} else {
 		attributes = append(attributes, "by", "seek", "why", note.Why, "toMs", note.ToMs,
 			"behindMs", current.positionAt(now).Milliseconds()-note.PositionMs)
+		if note.AimedBy != "" {
+			attributes = append(attributes, "groupAtMs", note.GroupAtMs, "aheadForLoadMs", note.AheadForLoadMs,
+				"aimedBy", note.AimedBy, "lastLoadMs", note.LastLoadMs, "loadsFaster", note.LoadsFaster)
+		}
 	}
 	current.logger.InfoContext(ctx, "watch together: a follower caught up to its leader", attributes...)
 	return true

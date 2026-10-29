@@ -80,8 +80,14 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   loading; a catch-up seek aims ahead by how long its last seek took to load, up to
   `aimAheadAtMostMs`, and once its link's speed is measured, further, by how long the link takes to
   load `refillAheadMs`, up to `waitAheadAtMostMs`, where a viewer waits paused for the group to
-  arrive (D250 §4); and while the group waits it reports its state at every check, so the server
-  can end the wait on time (D250 §3). `src/together-follow.test.ts`.
+  arrive (D250 §4); the link's speed is measured by its last `chunksMeasuredAtMost` chunks of
+  picture loaded, where its player tells them, from each one's ask to its last byte, so a link that
+  was down measures nothing, and by how fast its buffer grew only where its player tells none, and
+  the last seek's load counts no more than `aimAheadAtMostMs` there too: a minute without Wi-Fi read
+  as a link that loads nothing, and the owner's Chrome, back 15 s behind its group, jumped a minute
+  ahead of it (staging, 2026-10-29; VQ133). Its note says the aim's parts (`CatchUpAimNote`). While
+  the group waits it reports its state at every check, so the server can end the wait on time (D250
+  §3). `src/together-follow.test.ts`, `src/together-load-speed.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
   plays on after a seek, only once what it loaded ahead outlasts its next chunk's load by the same
   rule** (`readyAheadOf`), waiting before its `play()`, never playing, pausing and playing again: one
