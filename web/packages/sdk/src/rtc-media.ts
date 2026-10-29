@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { operations } from "./gen/api.ts";
-import type { CarrierSeen } from "./rtc-transport.ts";
+import { carriesMediaOver, mediaPathNow } from "./media-carrier.ts";
 import {
   controlledWithin,
   controlWaitMs,
@@ -287,7 +287,7 @@ export function sayMediaGoesOverHttp(
 ): void {
   workers.addEventListener("message", (event: MessageEvent<unknown>) => {
     const [port] = event.ports;
-    if (port !== undefined && isPathQueryMessage(event.data) && mediaPathName === undefined) {
+    if (port !== undefined && isPathQueryMessage(event.data) && mediaPathNow() === undefined) {
       port.postMessage({ kind: "orpheum-path", path: "http" } satisfies PathMessage);
     }
   });
@@ -681,74 +681,6 @@ export function networkFetch(request: Request): Promise<Response> {
   return fetch(request);
 }
 
-/**
- * The path this page's media goes over, named; undefined while the page carries none, its loads the
- * browser's own over HTTP.
- */
-let mediaPathName: string | undefined;
-
-/** The WebRTC connection carrying a load of the page's media, where its transport says (tellMediaCarriers). */
-let mediaCarriers: (url: string) => CarrierSeen | undefined = () => undefined;
-
-/**
- * What answers mediaCarrierOf in place of this SDK's own state, where another copy of it carries the
- * page's media: a discovery's loader runs its own bundle, so the state carryMediaOver and
- * tellMediaCarriers set is in its copy, never the client's.
- */
-let carrierLookup: ((url: string) => string) | undefined;
-
-/**
- * Has mediaCarrierOf answer by lookup, the copy of this SDK that carries the page's media (a
- * discovery's loader's, D308). Left as it was, the client under a loader said "http" of every chunk
- * it gave up, though WebRTC carried it (the Fire TV through the discovery on staging, 2026-10-29).
- */
-export function readMediaCarrierFrom(lookup: (url: string) => string): void {
-  carrierLookup = lookup;
-}
-
-/**
- * Has the page's media name the WebRTC connection carrying each load by carrierOf, the transport's
- * (RtcTransport.carrierOf) on the path in use, for mediaCarrierOf.
- */
-export function tellMediaCarriers(carrierOf: (url: string) => CarrierSeen | undefined): void {
-  mediaCarriers = carrierOf;
-}
-
-/**
- * Which transport, and which WebRTC connection of it, carries the load of url now, for a log: "http"
- * where the page carries no media itself; "over the core's name, …" where its path is another
- * origin; "WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago" where a WebRTC
- * connection carries it. A chunk stuck on its way said nothing of which connection it waited on
- * (the owner, 2026-10-29: the logs are to show whether stalls are per-connection).
- */
-export function mediaCarrierOf(url: string): string {
-  if (carrierLookup !== undefined) {
-    return carrierLookup(url);
-  }
-  if (mediaPathName === undefined) {
-    return "http";
-  }
-  const carrier = mediaCarriers(url);
-  return carrier === undefined ? `over ${mediaPathName}` : carrierText(carrier);
-}
-
-/**
- * A WebRTC connection carrying a load, for a log: "WebRTC connection 2, up 41 s, 3 under way, last
- * bytes 5512 ms ago", or "no bytes yet" before any came over it, and why the transport ended the
- * load itself where it did ("; ended: nothing came for 40000 ms, …").
- */
-export function carrierText(carrier: CarrierSeen): string {
-  const delivered =
-    carrier.sinceDeliveredMs === undefined
-      ? "no bytes yet"
-      : `last bytes ${String(Math.round(carrier.sinceDeliveredMs))} ms ago`;
-  return (
-    `WebRTC connection ${String(carrier.connection)}, up ${String(Math.round(carrier.upMs / 1000))} s,` +
-    ` ${String(carrier.underWay)} under way, ${delivered}` +
-    (carrier.ended === undefined ? "" : `; ended: ${carrier.ended}`)
-  );
-}
-
 /** Where the service worker is served, beside the app, so its scope is the whole app. */
 export const serviceWorkerUrl = "/sw.js";
 
@@ -765,7 +697,7 @@ export async function carryMediaOver(
   credentials: () => MediaCredentials,
   name: string,
 ): Promise<void> {
-  mediaPathName = name;
+  carriesMediaOver(name);
   if (!("serviceWorker" in navigator)) {
     throw new Error("this browser runs no service worker, so media stays on HTTP");
   }

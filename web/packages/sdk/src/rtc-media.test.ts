@@ -5,15 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   answerLoad,
   askPathOf,
-  carrierText,
   isPathMessage,
   isPathQueryMessage,
-  mediaCarrierOf,
   responseFromPort,
   relayedAheadBytes,
   type FetchMessage,
   type PortLike,
 } from "./rtc-media.ts";
+import { carrierText, mediaCarrierOf } from "./media-carrier.ts";
 
 /** A data channel's message: the size of a body's piece over the WebRTC path. */
 const piece = 64 * 1024;
@@ -588,5 +587,20 @@ describe("what carries a load, for a stuck chunk's log (the owner, 2026-10-29)",
     ).toBe(
       "WebRTC connection 3, up 60 s, 2 under way, last bytes 40000 ms ago; ended: nothing came for 40000 ms, nor over its connection, which was replaced",
     );
+  });
+
+  it("answers from its own state where the loader's lookup comes back to this copy, as when the loader and the client are one build (the owner's Chrome offline, staging, 2026-10-29; VQ133)", async () => {
+    vi.resetModules();
+    const media = await import("./media-carrier.ts");
+    const chunk = "https://client.example/api/v1/bytes/media/chunks/t/00001.m4s";
+    // One build's loader hands the client the copy they share: its lookup is mediaCarrierOf itself,
+    // which asked itself until the stack ran out at each chunk that failed to load.
+    media.readMediaCarrierFrom(media.mediaCarrierOf);
+    for (let failed = 0; failed < 100; failed += 1) {
+      expect(media.mediaCarrierOf(chunk)).toBe("http");
+    }
+    // A lookup by way of another function that comes back here is answered from here too.
+    media.readMediaCarrierFrom((url) => `the loader's word: ${media.mediaCarrierOf(url)}`);
+    expect(media.mediaCarrierOf(chunk)).toBe("the loader's word: http");
   });
 });
