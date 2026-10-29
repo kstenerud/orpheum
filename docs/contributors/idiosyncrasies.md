@@ -928,6 +928,11 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** the owner's report and staging's core log, 2026-10-29; the Playwright reproduction
   the same day (Chromium 153, a profile kept across runs: the page loads, then with the bypass on
   every reload is black with the same 404, not answered by the worker).
+- **Posters too:** the same afternoon, every poster of one tab 404'd (`/api/v1/bytes/art/…`, answered
+  by Cloudflare with the discovery's 19-byte "404 page not found", never by the worker), through
+  reloads, while a fresh tab without DevTools showed them. The box was found ticked (the owner,
+  2026-10-29), most likely left so by VQ123's step that ticks it. A media load the worker never sees
+  says nothing in the page, unlike a client script (`loader-client-failed.tsx`).
 - **Not the only cause:** the second black page that day (13:13 UTC: the home page loaded, a film's
   page did not, its screens' chunks `title-…`, `play-…`, `film-player-…` 404 at the client origin)
   came with the box unticked, the owner says. The same signature comes from the worker itself when
