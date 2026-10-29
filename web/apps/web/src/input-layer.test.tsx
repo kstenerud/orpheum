@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { act, type JSX } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackButton } from "./back-button.tsx";
 import { Link } from "./link.tsx";
@@ -43,6 +43,7 @@ function press(key: string, keyCode = 0): KeyboardEvent {
 describe("the input layer in the app", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
+    vi.restoreAllMocks();
     mounted?.unmount();
     mounted = undefined;
   });
@@ -61,6 +62,30 @@ describe("the input layer in the app", () => {
     expect(press("Escape", 27).defaultPrevented).toBe(true);
     await settleUntil(() => document.activeElement?.textContent === "Nosferatu");
     expect(services.navigation.route()).toEqual({ screen: "films" });
+  });
+
+  // The owner's Fire TV, 2026-10-29: a series chosen far down the Series list opened scrolled to
+  // its last episodes, the window keeping the list's scroll.
+  it("opens a page a link leads to at its top, leaving the scroll to Back and to a view's replace", async () => {
+    const scrolledTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const services = testServices("token", "/films");
+    mounted = await mount(withServices(<TwoScreens />, services));
+    const ronin = [...mounted.container.querySelectorAll("a")].find(
+      (link) => link.textContent === "Nosferatu",
+    );
+    act(() => {
+      ronin?.focus();
+      ronin?.click();
+    });
+    expect(mounted.container.textContent).toContain("film 2");
+    expect(scrolledTo).toHaveBeenCalledTimes(1);
+    expect(scrolledTo).toHaveBeenCalledWith({ top: 0, left: 0 });
+    act(() => {
+      services.navigation.replace({ screen: "title", itemId: 3 });
+    });
+    press("Escape", 27);
+    await settleUntil(() => document.activeElement?.textContent === "Nosferatu");
+    expect(scrolledTo).toHaveBeenCalledTimes(1);
   });
 
   it("goes up where the page's own Back does, from a page opened from outside the app", async () => {

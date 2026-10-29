@@ -969,6 +969,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   (staging's Copper Kettle has seasons 2–4: S2E12 into S3E1), (3) (one Back still leaves the page, though
   the first choice adds a history entry), (5) by click, and (6) on the desktop and the phone size all
   hold. Left for the owner: (4), the remote's OK and Back, the iPhone's swipe, real phones.
+  **The owner's findings on the Fire TV (Silk, remote only), 2026-10-29,** fixed and to check again
+  there: (7) "I went to Copper Kettle… navigated back into Copper Kettle. The page started scrolled down
+  (showing the episode list from ep 9 to 12), so I can't see what button is highlighted": a series
+  chosen far down the Series list, and any page a link or OK opens, shows from its top (title,
+  backdrop, Next Up's Play, the season picker), the first arrow starting on its first control, even
+  after an episode of that series was played from Continue Watching; only Back or Up from one of its
+  episodes shows that episode's season with it focused.
 - [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
   Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
   receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's

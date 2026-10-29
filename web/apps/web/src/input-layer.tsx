@@ -48,10 +48,14 @@ const InputContext = createContext<InputTold | undefined>(undefined);
 /**
  * Notes on the history entry what has focus as go leaves it, and gives focus back to the element so
  * noted when Back returns to the entry, once its page draws it (focus-memory.ts), shown as a key's
- * is where a controller pressed Back.
+ * is where a controller pressed Back. A page go opens starts at its top: the window kept the scroll
+ * of the page left, so a series chosen far down the Series list opened at its last episodes, past
+ * what had focus (the owner's Fire TV, 2026-10-29).
  */
 function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
+  let isOpeningNew = false;
   const stopNoting = navigation.beforeLeaving(() => {
+    isOpeningNew = true;
     const focused = document.activeElement;
     if (focused instanceof HTMLElement && focused !== document.body) {
       navigation.noteOnEntry(noteOf(focused, document.body));
@@ -61,11 +65,16 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
   let stopRestoring = (): void => undefined;
   const stopListening = navigation.subscribe(() => {
     const now = routeHref(navigation.route());
+    const isNew = isOpeningNew;
+    isOpeningNew = false;
     if (now === shown) {
       return;
     }
     shown = now;
     stopRestoring();
+    if (isNew) {
+      window.scrollTo({ top: 0, left: 0 });
+    }
     const note = asFocusNote(navigation.entryNote());
     if (note !== undefined) {
       stopRestoring = restoreWhenDrawn(note, document.body, (element) => {

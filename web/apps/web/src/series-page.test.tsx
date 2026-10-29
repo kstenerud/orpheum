@@ -9,13 +9,18 @@
 
 import "./i18n.ts";
 
-import { act } from "react";
+import { act, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { episodeReachedOf, noteEpisodeReached } from "./episode-reached.ts";
+import {
+  episodeReachedOf,
+  noteEpisodeReached,
+  useEpisodesReachedLetGoOnGoing,
+} from "./episode-reached.ts";
 import { createNavigation } from "./navigation.ts";
 import { PlayTrail } from "./play-up.tsx";
 import { Series, type SeriesDetail } from "./series.tsx";
+import { useRoute } from "./services.tsx";
 import { click, mount, servedBy, settleUntil, type Answers, type Mounted } from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 
@@ -48,6 +53,13 @@ const answers: Answers = {
 };
 
 let shown: Mounted | undefined;
+
+/** The Series list, standing in, and a series' page, letting episodes reached go as the app does. */
+function ListAndSeries(): JSX.Element {
+  useEpisodesReachedLetGoOnGoing();
+  const route = useRoute();
+  return route.screen === "series-page" ? <Series id={route.collectionId} /> : <p>{"list"}</p>;
+}
 
 afterEach(() => {
   shown?.unmount();
@@ -89,6 +101,23 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
     await settleUntil(() => document.activeElement?.getAttribute("href") === "/titles/42");
     expect(place.addresses).toEqual(["/series/6?season=2"]);
     expect(shown.container.querySelector("h2")?.textContent).toBe("Season 2");
+  });
+
+  // The owner's Fire TV, 2026-10-29: a series opened from the Series list showed an episode played
+  // earlier, scrolled down to it, not the page's top.
+  it("opened afresh by a step forward shows its own season, though one of its episodes was reached before", async () => {
+    const place = fakePlace("/series");
+    const navigation = createNavigation(place, false);
+    shown = await mount(withServices(<ListAndSeries />, { ...servedBy(answers), navigation }));
+    noteEpisodeReached(6, { season: 2, episodeId: 42 });
+    act(() => {
+      navigation.go({ screen: "series-page", collectionId: 6 });
+    });
+    await settleUntil(() => shown?.container.querySelector('a[href^="/titles/"]') !== null);
+    expect(shown.container.querySelector("h2")?.textContent).toBe("Season 1");
+    expect(document.activeElement?.getAttribute("href")).not.toBe("/titles/42");
+    expect(episodeReachedOf(6)).toBeUndefined();
+    expect(place.addresses).toEqual(["/series", "/series/6"]);
   });
 
   it("is told of an episode played, as of one whose page was shown, to show its season", async () => {
