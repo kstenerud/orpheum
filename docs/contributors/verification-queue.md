@@ -1621,7 +1621,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   minutes it climbs back to its top quality. (`web/packages/player/src/abr-video.ts`, `abr.ts`,
   `resume-position.ts`, `load-again.ts`)
   **Passed 2026-10-29 (the owner, staging):** the outage neither restarted the film nor dropped its top quality.
-- [ ] **VQ136** — a signed-in guest whose session the server lost goes home, on staging. On the Mac,
+- [x] **VQ136** — a signed-in guest whose session the server lost goes home, on staging. On the Mac,
   signed in, join a Watch Together session as a guest from the S23 hosting it, and leave the guest's
   page on the session; restart staging's core. Passes when the Mac's page goes to the home page with
   the note "The Watch Together session is over." or "The Watch Together session is no longer
@@ -1630,6 +1630,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   no error. A guest joined by link alone, not signed in, whose page is reloaded after the restart, is
   told the session is over, not that the address has no invitation.
   (`web/apps/web/src/together-viewer.tsx`, `together-storage.ts`)
+  **Passed 2026-10-29 (the owner, staging, core restarted 21:04:25):** Firefox (dan) went Home with "The
+  Watch Together session is over."; Chrome (admin, host) played on alone, its Watch Together sign white.
 - [ ] **VQ137** — a page open across a deploy loads a screen it had not opened, on staging. On the
   Mac, in Chrome through staging's discovery, open the home page, and open no film's page; deploy
   staging with a client change, so its screens' files are renamed; then open a film's page. Passes
