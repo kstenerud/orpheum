@@ -38,7 +38,7 @@ import { ChunkOnItsWay, type JudgedChunk } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
 import { Steadiness } from "./steadiness.ts";
-import { nextCap, stepUpBufferMs } from "./step-up.ts";
+import { nextCap, stepUpBufferMs, StepUpShown } from "./step-up.ts";
 
 /** How often the controller looks at a chunk on its way (D265 §3). */
 export const lookAtChunkEveryMs = 500;
@@ -135,6 +135,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   #unplayableFrom: number | undefined;
   /** The highest rate the server lets it load, in kbit/s, with each chunk's answer (D286 §5); undefined for none. */
   #serverCeilingKbps: number | undefined;
+  readonly #stepUpShown: StepUpShown;
   readonly #timers: ReturnType<typeof setInterval>[];
 
   constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
@@ -148,6 +149,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       options.noteLink?.(priorNoteText(prior));
     }
     this.#steadiness = new Steadiness(options.monotonicMs(), options.startSteadiness);
+    this.#stepUpShown = new StepUpShown((note) => options.noteLink?.(note));
     options.noteSteadiness?.(this.#steadiness.level());
     this.#timers = [
       setInterval(() => {
@@ -346,9 +348,10 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#noteSteadiness(this.#steadiness.dropped(this.#options.monotonicMs()));
   }
 
-  /** The quality playing changed: the step-up holds from now. */
+  /** The quality playing changed: the step-up holds from now, and a step up shown is noted (StepUpShown). */
   switched(): void {
     this.#changedAtMs = this.#options.monotonicMs();
+    this.#stepUpShown.switched(this.#changedAtMs, this.#hls.currentLevel);
   }
 
   /**
@@ -400,6 +403,11 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** Whether the playback is still starting (D352 §1). */
   isStarting(): boolean {
     return this.#isStarting;
+  }
+
+  /** The highest quality it may ever load: the top, below any unplayable here (D266); no ceiling of the moment. */
+  topLevel(): number {
+    return Math.min(this.#hls.maxAutoLevel, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
   }
 
   stop(): void {
@@ -583,6 +591,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       this.#ceiling = allowed;
       this.#changedAtMs = nowMs;
       this.#steadiness.steppedUp(nowMs);
+      this.#stepUpShown.steppedUp(nowMs, this.#hls.currentLevel, this.#bufferAheadS());
     }
   }
 
@@ -741,6 +750,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     );
     this.#ceiling = level;
     this.#changedAtMs = this.#options.monotonicMs();
+    this.#stepUpShown.lowered(level);
     return true;
   }
 

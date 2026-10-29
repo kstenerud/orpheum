@@ -17,6 +17,7 @@ import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 import { isRecovered } from "./abr-controller.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
+import type { ForwardBuffer } from "./forward-buffer.ts";
 
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
@@ -207,25 +208,20 @@ export interface OwnMoves {
 
 /**
  * Loads no more than the runway the follower of its group asks for, while one in the group is still
- * loading, and as far as fullS otherwise (loadingRunwayEvent, D285 §2). Returns the stopping.
+ * loading, and as far as its target in force otherwise (loadingRunwayEvent, D285 §2): ahead keeps
+ * both, so lifting a runway goes back to the target as it is then, hls.js's own cut after a buffer
+ * run full kept, never to the values hls.js was set to at the start, which undid that cut
+ * (forward-buffer-2026-10-29.md §1.3). Returns the stopping.
  */
 export function keepRunwayWhenTold(
-  hls: { readonly config: Pick<Hls["config"], "maxBufferLength" | "maxMaxBufferLength"> },
   video: Pick<EventTarget, "addEventListener" | "removeEventListener">,
-  fullS: { readonly maxBufferLength: number; readonly maxMaxBufferLength: number },
+  ahead: Pick<ForwardBuffer, "keepRunway">,
 ): () => void {
   const listener = (event: Event): void => {
     const runway = loadingRunwayOf(event);
-    if (runway === undefined) {
-      return;
+    if (runway !== undefined) {
+      ahead.keepRunway(runway.aheadS);
     }
-    const { aheadS } = runway;
-    // eslint-disable-next-line no-param-reassign -- hls.js reads its config as it loads
-    hls.config.maxBufferLength =
-      aheadS === undefined ? fullS.maxBufferLength : Math.min(aheadS, fullS.maxBufferLength);
-    // eslint-disable-next-line no-param-reassign -- as above
-    hls.config.maxMaxBufferLength =
-      aheadS === undefined ? fullS.maxMaxBufferLength : Math.min(aheadS, fullS.maxMaxBufferLength);
   };
   video.addEventListener(loadingRunwayEvent, listener);
   return () => {
@@ -235,20 +231,15 @@ export function keepRunwayWhenTold(
 
 /**
  * Loads as the follower of its group says: held while its group waits (holdLoadingWhenTold), and no
- * more than a runway while one in the group is behind (keepRunwayWhenTold), as far as hls.js was
- * set to otherwise. Returns the stopping.
+ * more than a runway while one in the group is behind (keepRunwayWhenTold), as far as its target in
+ * force otherwise. Returns the stopping.
  */
 export function obeyGroupLoading(
-  hls: Pick<Hls, "stopLoad" | "startLoad" | "config">,
+  hls: Pick<Hls, "stopLoad" | "startLoad">,
   video: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+  ahead: Pick<ForwardBuffer, "keepRunway">,
 ): () => void {
-  const stops = [
-    holdLoadingWhenTold(hls, video),
-    keepRunwayWhenTold(hls, video, {
-      maxBufferLength: hls.config.maxBufferLength,
-      maxMaxBufferLength: hls.config.maxMaxBufferLength,
-    }),
-  ];
+  const stops = [holdLoadingWhenTold(hls, video), keepRunwayWhenTold(video, ahead)];
   return () => {
     for (const stop of stops) {
       stop();

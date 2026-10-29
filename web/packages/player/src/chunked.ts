@@ -37,6 +37,12 @@ import {
   type HlsPlayback,
   type LoadingHls,
 } from "./hls.ts";
+import {
+  deviceFactsOf,
+  keepForwardBuffer,
+  loadsAheadBelowTopS,
+  type ForwardBuffer,
+} from "./forward-buffer.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
@@ -61,10 +67,14 @@ export const chunkAskAgainCount = 90;
  * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
  * in seconds: three of the player's 10 s steps back (seekStepMs) and a Watch Together follower's
  * jump back of a second or less, its chunk on the ten-second grid kept with it, so a step back plays
- * at once. hls.js keeps everything played by default (Infinity), so a 1 GB Fire TV Stick would hold
- * a film's played minutes up to Chromium's limit for a source's buffer, about 150 MB of video, which
- * a film's own picture at 20 Mb/s reaches in a minute, and then evict at every append (the efficiency
- * audit's finding 5, web-client-efficiency-audit-2026-10-28.md). A justified constant.
+ * at once. hls.js keeps everything played by default (Infinity), so a device would hold a film's
+ * played minutes up to the browser's memory for a page's picture, and then evict at every append
+ * (the efficiency audit's finding 5, web-client-efficiency-audit-2026-10-28.md). That memory is
+ * Chromium's 150 MiB on a desktop, which a film's own picture at 20 Mb/s reaches in a minute; on an
+ * Android device of 1 GB, as a Fire TV Stick is, Chromium's own source gives 30 MiB, which 30 s
+ * behind at 9 Mb/s alone fills, though whether Silk takes that limit is not shown: a staging log had
+ * the stick holding more (forward-buffer-2026-10-29.md §3.3; VQ121, its test T4). Lowering it where
+ * the limit is 30 MiB is the owner's call (the report's P2). A justified constant.
  */
 export const keptBehindS = 30;
 
@@ -253,9 +263,11 @@ export interface ChunkedPlayback extends HlsPlayback {
 }
 
 /**
- * hls.js's settings for a chunked playback from startPositionS, loading at most loadsAheadAtMostS
- * ahead where given. No probe of the lowest quality first: its chunks are made on request, and only
- * for a player that needs them.
+ * hls.js's settings for a chunked playback from startPositionS, loading ahead no further than
+ * loadsAheadBelowTopS, or loadsAheadAtMostS where given, until its ForwardBuffer sets the target for
+ * the quality it loads (forward-buffer-2026-10-29.md P1); hls.js's bytes never stretch it, as its
+ * maxBufferSize of 60 MB did to ten minutes of 360p (staging, 2026-10-29). No probe of the lowest
+ * quality first: its chunks are made on request, and only for a player that needs them.
  */
 export function chunkedHlsConfig(options: {
   readonly startPositionS: number;
@@ -272,6 +284,10 @@ export function chunkedHlsConfig(options: {
    */
   readonly authorization?: string | undefined;
 }): Partial<HlsConfig> {
+  const aheadAtStartS = Math.min(
+    loadsAheadBelowTopS,
+    options.loadsAheadAtMostS ?? Number.POSITIVE_INFINITY,
+  );
   return {
     xhrSetup: (xhr) => {
       xhr.addEventListener("load", () => {
@@ -295,25 +311,11 @@ export function chunkedHlsConfig(options: {
     startPosition: options.startPositionS,
     backBufferLength: keptBehindS,
     fragLoadPolicy: chunkLoadPolicy,
-    ...(options.loadsAheadAtMostS === undefined
-      ? { maxMaxBufferLength: loadsAheadAtMostS }
-      : {
-          maxBufferLength: options.loadsAheadAtMostS,
-          maxMaxBufferLength: options.loadsAheadAtMostS,
-        }),
+    maxBufferSize: 0,
+    maxBufferLength: aheadAtStartS,
+    maxMaxBufferLength: aheadAtStartS,
   };
 }
-
-/**
- * The furthest ahead of where it plays a chunked playback loads, in seconds, at any quality.
- * hls.js loads ahead by bytes, its maxBufferSize of 60 MB, up to its maxMaxBufferLength of 600 s:
- * about 53 s of the top quality at 9 Mb/s, but ten minutes of 360p, so a playback held low after a
- * drop filled 450 s ahead with 360p and stepped up only once that had played (headless Chromium on
- * staging, 2026-10-29). A justified constant, confirmed by the owner or not yet: about what the top
- * quality loads anyway, three times the 20 s a quality is held on (holdsQualityAheadS), and a step up
- * seen within a minute.
- */
-export const loadsAheadAtMostS = 60;
 
 /**
  * Does as the follower of its group says: loads as it says (obeyGroupLoading), and starts a jump of
@@ -322,9 +324,13 @@ export const loadsAheadAtMostS = 60;
 function obeyGroup(
   hls: Hls,
   video: HTMLVideoElement,
-  abr: { readonly choosing: () => { readonly groupJumped: () => void } | undefined },
+  by: {
+    readonly abr: { readonly choosing: () => { readonly groupJumped: () => void } | undefined };
+    readonly ahead: ForwardBuffer;
+  },
 ): () => void {
-  const stopObeying = obeyGroupLoading(hls, video);
+  const { abr } = by;
+  const stopObeying = obeyGroupLoading(hls, video, by.ahead);
   const onGroupJumped = (): void => {
     abr.choosing()?.groupJumped();
   };
@@ -350,16 +356,29 @@ export function tellStalls(
 }
 
 /**
- * What a chunked playback follows of its video once hls.js plays it: its group (obeyGroup), its
- * sound's shift, and its stalls (tellStalls). Returns each stopping.
+ * What a chunked playback follows of its video once hls.js plays it: how far ahead it loads
+ * (keepForwardBuffer, at most atMostS where given, its top its controller's, its notes for the play
+ * report), its group (obeyGroup), its sound's shift, and its stalls (tellStalls). Returns each
+ * stopping.
  */
-function followGroupSoundAndStalls(
+function followAheadGroupSoundAndStalls(
   hls: Hls,
   video: HTMLVideoElement,
-  by: { readonly abr: OrpheumAbr; readonly soundShift: SoundShift },
+  by: {
+    readonly abr: OrpheumAbr;
+    readonly soundShift: SoundShift;
+    readonly atMostS: number | undefined;
+  },
 ): readonly (() => void)[] {
+  const ahead = keepForwardBuffer(hls, {
+    device: deviceFactsOf(globalThis.navigator),
+    isTop: (level) => level >= (by.abr.choosing()?.topLevel() ?? Number.POSITIVE_INFINITY),
+    note: linkNoter(video),
+    atMostS: by.atMostS,
+  });
   return [
-    obeyGroup(hls, video, by.abr),
+    ahead.stop,
+    obeyGroup(hls, video, { abr: by.abr, ahead: ahead.buffer }),
     by.soundShift.attach(hls, video),
     tellStalls(video, by.abr.choosing),
   ];
@@ -505,8 +524,8 @@ export function playChunked(
     readonly startAudioRenditionIndex?: number;
     readonly monotonicMs: () => number;
     /**
-     * How many seconds ahead it loads at most; hls.js's own when absent. A film page's hidden player
-     * fills only its first buffer, so it does not hold a phone's link while its person browses.
+     * How many seconds ahead it loads at most; its ForwardBuffer's alone when absent. A film page's
+     * hidden player fills only its first buffer, so it does not hold a phone's link as one browses.
      */
     readonly loadsAheadAtMostS?: number;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
@@ -540,7 +559,8 @@ export function playChunked(
   const chooseAudio = keepAudioRendition(hls, startAudio === 0 ? undefined : startAudio);
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
-  const stops = [...followGroupSoundAndStalls(hls, video, { abr, soundShift }), seeks.stop];
+  const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
+  const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
   hls.loadSource(url);
   hls.attachMedia(video);

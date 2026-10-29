@@ -18,7 +18,6 @@ import {
   chunkedHlsConfig,
   choosingOptionsOf,
   keptBehindS,
-  loadsAheadAtMostS,
   paceHeader,
   playerFoundUnplayableEvent,
   sendUnplayable,
@@ -28,6 +27,7 @@ import {
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
+import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { linkSpreadOf } from "./link-estimate.ts";
 import { steadinessOf } from "./steadiness.ts";
@@ -96,16 +96,18 @@ describe("where a playback's stepping has settled (D260 §3)", () => {
   });
 });
 
-describe("how far a chunked playback loads ahead (D260 §3)", () => {
-  it("is at most a minute at any quality, so a step up shows within one, not after ten minutes of 360p", () => {
+describe("how far a chunked playback loads ahead (forward-buffer-2026-10-29.md P1)", () => {
+  it("starts at the target below the top, its bytes never stretching it, so a step up shows within one, not after ten minutes of 360p", () => {
     expect(chunkedHlsConfig({ startPositionS: 40 })).toMatchObject({
-      maxMaxBufferLength: loadsAheadAtMostS,
+      maxBufferSize: 0,
+      maxBufferLength: loadsAheadBelowTopS,
+      maxMaxBufferLength: loadsAheadBelowTopS,
     });
-    expect(loadsAheadAtMostS).toBe(60);
+    expect(loadsAheadBelowTopS).toBe(30);
   });
 
-  it("is hls.js's own unless told, and at most what it is told", () => {
-    expect(chunkedHlsConfig({ startPositionS: 40 })).not.toHaveProperty("maxBufferLength");
+  it("is at most what it is told (D260 §3's film page)", () => {
+    expect(chunkedHlsConfig({ startPositionS: 40 })).toHaveProperty("maxBufferLength", 30);
     expect(chunkedHlsConfig({ startPositionS: 40, loadsAheadAtMostS: 10 })).toMatchObject({
       startPosition: 40,
       maxBufferLength: 10,

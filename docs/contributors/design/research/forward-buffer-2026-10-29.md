@@ -9,6 +9,10 @@
   360p filled 450 s ahead with 360p, so a later step up showed only minutes later (staging,
   2026-10-29). The lead then capped hls.js at 60 s ahead at every quality (`loadsAheadAtMostS`),
   pending this research.
+- **Answered** by the owner, 2026-10-29: *"Agreed with your recommendations"*: P1, P2 and P6 are
+  built, with the runway restore of §1.3 fixed (`web/packages/player/src/forward-buffer.ts`; the
+  player's README says what holds); P3, replacing loaded low quality on a step up, is not to be
+  built. T4 and the step up's showing are VQ121.
 - **Builds on:** [abr-adaptation-2026-10-27.md](abr-adaptation-2026-10-27.md) (the evidence behind
   [D352](../../decisions/working-notes.md#d352--the-chunked-player-trusts-its-link-as-far-as-the-evidence-goes-its-first-seconds-latch-nothing-it-climbs-as-far-as-consistent-samples-carry-and-it-grows-steadier-when-it-swings-or-its-link-flakes))
   and [bandwidth-sampling-2026-10-29.md](bandwidth-sampling-2026-10-29.md) (the estimator). Those
