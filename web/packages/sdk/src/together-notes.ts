@@ -81,8 +81,9 @@ export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>>
  *   away, and nothing said when or by how much the move changed (the owner's cast, staging,
  *   2026-10-28);
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed), "silent"
- *   (nothing was heard on it) or "shown" (nothing was heard within shownAnswerWithinMs of its page
- *   shown again; offlineMs counted from when it was shown);
+ *   (nothing was heard on it), "shown" (nothing was heard within shownAnswerWithinMs of its page
+ *   shown again; offlineMs counted from when it was shown) or "back" (the same, after the way to the
+ *   core came back: a lost network's return was logged as "shown", 2026-10-29);
  * - shownAgain: its page was shown again and its socket answered the ping sent then, why "alive",
  *   after roundTripMs: an S23 unlocked sat 20 s on a socket that heard nothing, and nothing said
  *   so (the owner's VQ105, 2026-10-29);
@@ -200,7 +201,7 @@ export type PlayerNote =
   | {
       readonly kind: "reconnected";
       readonly offlineMs: number;
-      readonly why: "closed" | "silent" | "shown";
+      readonly why: "closed" | "silent" | "shown" | "back";
     }
   | { readonly kind: "shownAgain"; readonly why: "alive"; readonly roundTripMs: number }
   | {

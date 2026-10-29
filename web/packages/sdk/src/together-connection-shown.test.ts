@@ -230,5 +230,12 @@ describe("a connection told the way to the core is back", () => {
     expect(connection.snapshot().status).toBe("reconnecting");
     vi.advanceTimersByTime(reconnectWaitMs(0));
     expect(sockets.opened).toHaveLength(2);
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(JSON.stringify(welcome));
+    // Said as the way back, not the page shown: a lost network's return was logged "shown" (2026-10-29).
+    expect(sockets.sent.find((each) => each["type"] === "note")?.["note"]).toMatchObject({
+      kind: "reconnected",
+      why: "back",
+    });
   });
 });

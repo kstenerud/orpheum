@@ -21,8 +21,11 @@ export interface ShownCheckDoes {
   readonly ping: (tMono: number) => void;
   /** The socket answered, roundTripMs after it was pinged. */
   readonly alive: (roundTripMs: number) => void;
-  /** Nothing answered within shownAnswerWithinMs of the ping sent at atMs: the socket is dead. */
-  readonly dead: (atMs: number) => void;
+  /**
+   * Nothing answered within shownAnswerWithinMs of the ping sent at atMs: the socket is dead, found so
+   * as its page was shown again ("shown") or the way to the core came back ("back").
+   */
+  readonly dead: (atMs: number, why: "shown" | "back") => void;
 }
 
 /**
@@ -44,8 +47,8 @@ export class ShownCheck {
     this.#does = does;
   }
 
-  /** Pings the socket, unless a check is under way already. */
-  start(): void {
+  /** Pings the socket, unless a check is under way already; why is what set it off. */
+  start(why: "shown" | "back"): void {
     if (this.#pending !== undefined) {
       return;
     }
@@ -53,7 +56,7 @@ export class ShownCheck {
     const pingTMono = Math.max(1, atMs);
     const timer = setTimeout(() => {
       this.#pending = undefined;
-      this.#does.dead(atMs);
+      this.#does.dead(atMs, why);
     }, shownAnswerWithinMs);
     this.#pending = { pingTMono, atMs, timer };
     this.#does.ping(pingTMono);

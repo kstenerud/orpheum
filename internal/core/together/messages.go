@@ -222,8 +222,8 @@ const (
 	NotePlayedWhileHeld NoteKind = "playedWhileHeld"
 	// NoteShownAgain is a device's page shown again, its socket answering the ping it sent then, Why
 	// "alive", after RoundTripMs; one that did not answer in time is a NoteReconnected whose Why is
-	// "shown". An S23 unlocked sat 20 s on a socket that heard nothing, and nothing said so (the owner's
-	// VQ105, 2026-10-29).
+	// "shown", or "back" where the way to the core came back rather than the page. An S23 unlocked
+	// sat 20 s on a socket that heard nothing, and nothing said so (the owner's VQ105, 2026-10-29).
 	NoteShownAgain NoteKind = "shownAgain"
 	// NotePlayRefused is a following player's play, as its page was shown again, refused, Why the
 	// browser's error ("NotAllowedError", "AbortError", "NotSupportedError", "other") or "stayedPaused"
