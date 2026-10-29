@@ -1632,13 +1632,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/together-viewer.tsx`, `together-storage.ts`)
   **Passed 2026-10-29 (the owner, staging, core restarted 21:04:25):** Firefox (dan) went Home with "The
   Watch Together session is over."; Chrome (admin, host) played on alone, its Watch Together sign white.
-- [ ] **VQ137** — a page open across a deploy loads a screen it had not opened, on staging. On the
+- [x] **VQ137** — a page open across a deploy loads a screen it had not opened, on staging. On the
   Mac, in Chrome through staging's discovery, open the home page, and open no film's page; deploy
   staging with a client change, so its screens' files are renamed; then open a film's page. Passes
   when the page reloads once by itself and shows the film's page, at the film's address, never "This
   page could not load."; and the core's log has a "page reported a failure" line saying "the page
   reloaded for a newer client, once", naming the title screen and its file.
   (`web/apps/web/src/newer-client.ts`, `screen-load.tsx`)
+  **Passed 2026-10-29 (the owner, staging, deploy 21:59):** a tab on Home across the deploy opened Back to
+  the Future at once (22:00:11, playing in 298 ms), no error page. The run before (21:14) took ~1 min on
+  "Loading..." with nothing in the log to say why; an earlier commit now reports a slow screen or start.
 - [x] **VQ138** — a Watch Together host's Play page left for another site and come back by Back
   attaches its player, on staging. On the Mac, Chrome hosting a session on its Play page, Firefox and
   the S23 guests, the film playing. In Chrome go to google.com, then press Back. Passes when Chrome
