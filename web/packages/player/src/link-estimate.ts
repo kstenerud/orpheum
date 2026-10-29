@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The chunked player's own estimate of its link (D352 §2): the last few chunks that measured it,
- * each counted once whatever its length, their harmonic mean, and how far to trust it.
+ * The chunked player's own estimate of its link (D352 §2, revised 2026-10-29): the last few chunks
+ * that measured it, each counted once whatever its length, their centre and spread in log space,
+ * robust to a sample that is not the link's, and how far to trust it.
  */
 
 /**
@@ -25,6 +26,42 @@ export const samplesAgreeWithinError = 0.2;
  */
 export const trimsErrorFromSamples = linkSamplesKept;
 
+/**
+ * How many spreads from the centre a sample counts at most: one further counts as if it were this
+ * far (Huber's estimator). A textbook starting value, 1.5–2 in the literature, not measured on our
+ * links: to be tuned against the calibration log (bandwidth-sampling-2026-10-29.md §2.4, §6.1).
+ */
+export const clipAtSpreads = 2;
+
+/**
+ * The least spread of the samples' natural logs the estimate assumes, about ±35% for one standard
+ * deviation: five clean samples' own spread can come out near 0, and a bound on it would then trust
+ * them as exact. A textbook starting value, not measured on our links (bandwidth-sampling §2.3, §6.1).
+ */
+export const logSpreadAtLeast = 0.3;
+
+/**
+ * The spread assumed, in natural log, while too few samples are kept to measure one and nothing
+ * remembered says it: a Fire TV's four clean chunks spread 0.38 (staging, 2026-10-28), and CS2P found
+ * most sessions within 0.3–0.5 (bandwidth-sampling §2.3). A starting value.
+ */
+export const assumedLogSpread = 0.38;
+
+/**
+ * The fewest samples kept whose own spread is measured: two say almost nothing of how a link varies
+ * (Student's t at two samples is 3.08 against 1.28; bandwidth-sampling §2.2).
+ */
+export const spreadFromSamples = 3;
+
+/**
+ * The scale from a median absolute deviation to a standard deviation where samples are normal: a
+ * mathematical constant, 1/Φ⁻¹(3/4), not a tuning.
+ */
+const madToSpread = 1.4826;
+
+/** How many times the centre is clipped and averaged again at most: each brings it nearer, and a few settle it. */
+const centreRounds = 20;
+
 /** One chunk that measured the link: its quality, its bytes, how long they took to arrive, and its first byte's wait. */
 export interface LinkSample {
   readonly level: number;
@@ -41,23 +78,76 @@ interface Kept extends LinkSample {
   readonly predictedBps: number | undefined;
 }
 
-/** The harmonic mean of speeds, in bits a second; undefined for none. */
-export function harmonicMean(speedsBps: readonly number[]): number | undefined {
-  if (speedsBps.length === 0) {
+/** A point of the estimate in log space, and how many samples it counts as. */
+interface Weighed {
+  readonly log: number;
+  readonly weight: number;
+}
+
+/** The median of values; undefined for none. */
+function medianOf(values: readonly number[]): number | undefined {
+  if (values.length === 0) {
     return undefined;
   }
-  const inverse = speedsBps.reduce((sum, bps) => sum + 1 / Math.max(bps, 1), 0);
-  return speedsBps.length / inverse;
+  const sorted = values.toSorted((first, second) => first - second);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[middle]
+    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+}
+
+/** The weighted median of points: the first, from the lowest, by which half their weight is reached. */
+function weightedMedianOf(points: readonly Weighed[]): number {
+  const sorted = points.toSorted((first, second) => first.log - second.log);
+  const half = sorted.reduce((sum, point) => sum + point.weight, 0) / 2;
+  let reached = 0;
+  for (const point of sorted) {
+    reached += point.weight;
+    if (reached >= half) {
+      return point.log;
+    }
+  }
+  return sorted.at(-1)?.log ?? 0;
 }
 
 /**
- * The link as its last linkSamplesKept chunks measured it. Its **estimate** is their harmonic mean,
- * which every choice of quality reads (D352 §2): pessimistic about a slow sample, and rid of it
- * linkSamplesKept chunks later, where hls.js's, weighted by each chunk's seconds, held one slow first
- * sample for minutes (the research, §1.4). Its **confident estimate** is the estimate divided by one
- * plus the error of its own predictions over those samples (predictionError), how far each fell
- * from the estimate that stood before it, as a share of the sample (RobustMPC's discount): a link
- * whose chunks vary is targeted near its slowest (§4), but one slow chunk among five is no spread.
+ * The centre of points in log space by Huber's estimator: from their weighted median, each point
+ * further than clipAtSpreads × spread from the centre counts as if it were that far, and their
+ * weighted mean is taken, again until it settles (bandwidth-sampling §2.4).
+ */
+function huberCentreOf(points: readonly Weighed[], spread: number): number {
+  const reach = clipAtSpreads * spread;
+  const total = points.reduce((sum, point) => sum + point.weight, 0);
+  let centre = weightedMedianOf(points);
+  for (let round = 0; round < centreRounds; round += 1) {
+    const next =
+      points.reduce(
+        (sum, point) =>
+          sum + point.weight * Math.min(centre + reach, Math.max(centre - reach, point.log)),
+        0,
+      ) / total;
+    const isSettled = Math.abs(next - centre) < 1e-9;
+    centre = next;
+    if (isSettled) {
+      break;
+    }
+  }
+  return centre;
+}
+
+/**
+ * The link as its last linkSamplesKept chunks measured it (D352 §2, revised 2026-10-29). Each
+ * sample's speed is taken in natural log, a throughput's errors being ratios, not differences. Its
+ * **spread** is the median absolute deviation of those logs, as a standard deviation, never below
+ * logSpreadAtLeast, and assumedLogSpread until spreadFromSamples are kept. Its **estimate**, which
+ * every choice of quality reads, is e to their **centre**, Huber's: a sample further than
+ * clipAtSpreads spreads from it counts as if it were that far, so no one sample rules it. The
+ * harmonic mean it replaces is at most five times its slowest sample: one chunk at 14 kb/s among four
+ * at 14–18 Mb/s made it 69 kb/s, and a Fire TV dropped from Nosferatu's own picture to its lowest
+ * quality for 75 s (staging, 2026-10-28; bandwidth-sampling §1.1). Its **confident estimate** is the
+ * estimate divided by one plus the error of its own predictions over those samples
+ * (predictionError), how far each fell from the estimate that stood before it, as a share of the
+ * sample (RobustMPC's discount).
  */
 export class LinkEstimate {
   #samples: Kept[] = [];
@@ -69,7 +159,7 @@ export class LinkEstimate {
     this.#samples.push({
       ...sample,
       arrivedMs,
-      bps: (sample.bytes * 8 * 1000) / arrivedMs,
+      bps: Math.max(1, (sample.bytes * 8 * 1000) / arrivedMs),
       predictedBps: this.estimateBps(),
     });
     this.#samples = this.#samples.slice(-linkSamplesKept);
@@ -86,9 +176,30 @@ export class LinkEstimate {
     return this.#samples.length;
   }
 
-  /** The harmonic mean of the samples kept, bits a second; undefined before any. */
+  /**
+   * The spread of the samples' natural logs: their median absolute deviation as a standard
+   * deviation, at least logSpreadAtLeast, once spreadFromSamples are kept; assumedLogSpread before.
+   */
+  spread(): number {
+    const logs = this.#logs();
+    const median = medianOf(logs);
+    if (logs.length < spreadFromSamples || median === undefined) {
+      return assumedLogSpread;
+    }
+    const deviation = medianOf(logs.map((log) => Math.abs(log - median))) ?? 0;
+    return Math.max(logSpreadAtLeast, madToSpread * deviation);
+  }
+
+  /** The samples' centre, in natural log of bits a second; undefined before any. */
+  centre(): number | undefined {
+    const points = this.#logs().map((log) => ({ log, weight: 1 }));
+    return points.length === 0 ? undefined : huberCentreOf(points, this.spread());
+  }
+
+  /** The estimate, e to the samples' centre, in bits a second; undefined before any. */
   estimateBps(): number | undefined {
-    return harmonicMean(this.#samples.map((sample) => sample.bps));
+    const centre = this.centre();
+    return centre === undefined ? undefined : Math.exp(centre);
   }
 
   /**
@@ -127,16 +238,21 @@ export class LinkEstimate {
   samples(): readonly LinkSample[] {
     return this.#samples;
   }
+
+  /** The natural logs of the samples' speeds, oldest first. */
+  #logs(): number[] {
+    return this.#samples.map((sample) => Math.log(sample.bps));
+  }
 }
 
 /**
  * The confident estimate and its parts in a line, for a note of the controller's choice (D352 §5):
- * "confident 4200 kb/s (mean 5000, error 19%, 5 samples)"; "unmeasured" before any sample.
+ * "confident 4200 kb/s (estimate 5000, error 19%, 5 samples)"; "unmeasured" before any sample.
  */
 export function estimateText(estimate: LinkEstimate): string {
-  const mean = estimate.estimateBps();
+  const estimated = estimate.estimateBps();
   const confident = estimate.confidentBps();
-  if (mean === undefined || confident === undefined) {
+  if (estimated === undefined || confident === undefined) {
     return "unmeasured";
   }
   const error = estimate.predictionError();
@@ -144,7 +260,7 @@ export function estimateText(estimate: LinkEstimate): string {
   const kept = estimate.kept();
   return (
     `confident ${String(Math.round(confident / 1000))} kb/s` +
-    ` (mean ${String(Math.round(mean / 1000))}, error ${errorText},` +
+    ` (estimate ${String(Math.round(estimated / 1000))}, error ${errorText},` +
     ` ${String(kept)} sample${kept === 1 ? "" : "s"})`
   );
 }

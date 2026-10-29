@@ -26,9 +26,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (D247 §2). `stalls.test.ts`.
 - **A chunked playback's every choice of quality is a bitrate controller of our own inside
   hls.js** (`src/abr.ts`, set inside hls.js by `src/abr-controller.ts`, its rules in
-  `src/abr-choice.ts`; D265), choosing by its own estimate of the link, the harmonic mean of the
-  last five chunks that measured it, each counted once (`src/link-estimate.ts`; hls.js's estimator
-  is still fed, for hls.js's own readers; D352 §2): it starts at the quality the server chose, never
+  `src/abr-choice.ts`; D265), choosing by its own estimate of the link, the centre in log space of
+  the last five chunks that measured it, each counted once, Huber's, a sample further than two
+  spreads from it counted as if that far, so no one sample rules it (`src/link-estimate.ts`;
+  hls.js's estimator is still fed, for hls.js's own readers; D352 §2, revised 2026-10-29): it starts at the quality the server chose, never
   probing the lowest first, whose chunks are made only for a player that needs them (D247 §10);
   while starting, until four chunks measured the link and the video played 20 s, a choice below the
   ceiling is the next chunk's alone, and only a chunk given up or a stall lowers the ceiling, which
