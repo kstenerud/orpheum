@@ -24309,3 +24309,20 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 2: TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes, TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves; VQ129
 - 3: TestHub_TheOnlyContendersStallIsWaitedFor, TestCast_AReceiversStallStandsItsGroupForIt; VQ129
 - The catch-up: TestHub_ALeadersStallWithinItsGraceKeepsTheLead, TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing, web/packages/sdk/src/together-leader.test.ts ("catches up to its group after a stall the group played on through, nudged forward, then leads from there (D374)"); VQ129
+
+## D375 — A session left with no player keeps its playing state, and goes on as it was when a leader returns
+
+**Decided** (2026-10-29), by the project owner, amending D372 §7, after the Mac's Wi-Fi dropped both its
+browsers with the S23 locked, the session paused for everyone's leaving, and both came back to a paused
+film: "When a leaderless session gets a leader again, it should preserve playback state (position, and
+play/pause)."
+
+1. **Everyone gone holds the film where it stands, as it was.** The session stops the clock at the
+   moment its last contender (D374 §1) went, and keeps whether it was playing or paused; it does not
+   become paused for having no one.
+2. **A leader's return carries on that state.** The first contender back leads (D372, D374) from that
+   position: playing if the session was playing, paused if a person had paused it. Followers catch up as
+   ever. No time limit (the lead's proposed 2-minute window was not taken).
+3. **The idle end still applies** (D372 §7, `together_idle_session_end_hours`, D346).
+
+**Status:** Decided 2026-10-29; not built.
