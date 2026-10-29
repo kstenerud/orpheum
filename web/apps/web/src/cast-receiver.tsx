@@ -460,8 +460,8 @@ const samePressWithinMs = 100;
 /**
  * The receiver's way out of controlled mode (D338 §6): Back, a remote's (a Fire TV's is a history
  * step, never a key: the page keeps an entry of its own to step back to) or a key's, and OK pressed
- * twice, or a tap twice, within doublePressWithinMs, leave it; one press of OK, a tap and every other
- * key are the receiver's own controls'. Full screen left by the browser, not by the page, leaves it
+ * twice, or a tap twice, within doublePressWithinMs, leave it, a held OK's repeats no second press;
+ * one press of OK, a tap and every other key are the receiver's own controls'. Full screen left by the browser, not by the page, leaves it
  * too, told to the log: in full screen a Fire TV's Back only leaves full screen, never reaching the
  * page, and a desktop's Escape does the same, each meant as leaving (the owner, 2026-10-27: Back took
  * two presses). A "Controlled from" line, which fades after castNoteShownMs, says who controls it and
@@ -531,8 +531,11 @@ function useLeavingPresses(
         if (detail.command === "select") {
           lastSelectAt = now;
         }
+        // A held OK's repeats are no second press: Android's first comes 400-500 ms after the
+        // press, inside the window (starts-chunks-remote-2026-10-29.md §3.3).
         const isLeaving =
-          detail.command === "back" || (detail.command === "select" && isSecondPress(now));
+          detail.command === "back" ||
+          (detail.command === "select" && detail.isRepeat !== true && isSecondPress(now));
         if (isLeaving) {
           event.preventDefault();
           takeBackRef.current();

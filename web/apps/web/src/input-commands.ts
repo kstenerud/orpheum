@@ -28,6 +28,11 @@ export type CommandSource = "key" | "pad" | "media";
 export interface CommandDetail {
   readonly command: Command;
   readonly source: CommandSource;
+  /**
+   * Whether it is a held key's repeat (KeyboardEvent.repeat), not a press of its own: absent for a
+   * press. A controller's buttons never repeat; its stick's and D-pad's arrows do, as presses.
+   */
+  readonly isRepeat?: true;
 }
 
 /** The name of the DOM event a command is offered as. */
@@ -153,19 +158,26 @@ function padsCommand(press: PadButtonPress | StickPress): Command | undefined {
 export function startInput(ways: InputWays): Input {
   const memory = createContainerMemory(isFocusTarget);
   let lastSource: CommandSource | undefined;
-  const dispatch = (command: Command, source: CommandSource): boolean => {
-    lastSource = source;
+  const offer = (detail: CommandDetail): boolean => {
+    lastSource = detail.source;
     const event = new CustomEvent<CommandDetail>(commandEventName, {
       bubbles: true,
       cancelable: true,
-      detail: { command, source },
+      detail,
     });
     commandTarget().dispatchEvent(event);
     return event.defaultPrevented || actByDefault(event.detail, ways, memory);
   };
+  const dispatch = (command: Command, source: CommandSource): boolean => offer({ command, source });
   const heardKey = (event: KeyboardEvent): void => {
     const command = keysCommand(event);
-    if (command !== undefined && dispatch(command, "key")) {
+    if (command === undefined) {
+      return;
+    }
+    const detail: CommandDetail = event.repeat
+      ? { command, source: "key", isRepeat: true }
+      : { command, source: "key" };
+    if (offer(detail)) {
       event.preventDefault();
     }
   };
