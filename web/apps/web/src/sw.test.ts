@@ -255,6 +255,38 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(network).toHaveBeenCalledTimes(1);
   });
 
+  it("fetches a client's file the discovery has not through the page that asked for it, though it said its path late (the owner's Mac, 2026-10-29)", async () => {
+    let path: "http" | "webrtc" = "http";
+    const send = vi.fn(() => Promise.resolve(answer(script)));
+    const page: FakePage = {
+      ...pageOf("p", "http", send),
+      postMessage(message, transfer) {
+        pageOf("p", path, send).postMessage(message, transfer);
+        // Asked once, the page is busy mounting the client; asked again, it says its path.
+        path = "webrtc";
+      },
+    };
+    const network = vi.fn(() => Promise.resolve(answer("404 page not found", 404)));
+    const worker = await startWorker(stores, [page], network);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    const answered = await load(worker, "/assets/client-main.js?client", { by: "p" });
+    expect(answered?.status).toBe(200);
+    expect(new Uint8Array(await (answered ?? Response.error()).arrayBuffer())).toEqual(script);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers a client's file no page can fetch over its path as such, never with the discovery's 404", async () => {
+    const page = pageOf("p", "http", () => Promise.reject(new Error("no path")));
+    const network = vi.fn(() => Promise.resolve(answer("404 page not found", 404)));
+    const worker = await startWorker(stores, [page], network);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    const answered = await load(worker, "/assets/client-main.js?client", { by: "p" });
+    expect(answered?.status).toBe(502);
+    expect(await answered?.text()).toContain("no page here carries a path to the server");
+  });
+
   it("remembers the named files when the browser starts it again", async () => {
     const page = pageOf("p", "webrtc", () => Promise.resolve(answer(script)));
     const first = await startWorker(

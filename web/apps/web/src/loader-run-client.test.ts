@@ -10,6 +10,7 @@ import type { OrpheumLoader } from "./loader-interface.ts";
 import {
   checkedClient,
   ClientRefused,
+  mountClient,
   type ClientPart,
   type RunParts,
 } from "./loader-run-client.ts";
@@ -130,5 +131,28 @@ describe("the core's client, as the loader runs it (D308 §6)", () => {
     }
     expect(refusals).toEqual(["unsigned", "pageChanged", "refusedVersion"]);
     expect(heard.told).toEqual([]);
+  });
+
+  it("tells a script of the client's that did not load by its address, never leaving the page blank (the owner's Mac, 2026-10-29)", async () => {
+    const failed: string[] = [];
+    const loader = { major: 1 } as unknown as OrpheumLoader;
+    mountClient(document, {
+      loader,
+      parts: [
+        { tag: "link", attributes: [["href", "/assets/index-a.css"]] },
+        { tag: "script", attributes: [["src", "/assets/index-b.js"]] },
+      ],
+      onFailed: (address) => {
+        failed.push(address);
+      },
+    });
+    document.head
+      .querySelector('link[href="/assets/index-a.css"]')
+      ?.dispatchEvent(new Event("error"));
+    // happy-dom loads no script, and says so by the script's error, as a browser does for a 404.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(failed).toEqual(["/assets/index-b.js?client"]);
   });
 });

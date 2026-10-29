@@ -34,7 +34,7 @@ import {
   type Start,
   type Target,
 } from "./discovery-start.ts";
-import { startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
+import { startAtClient } from "./loader-at-client-origin.tsx";
 import type { StringStorage } from "./browser-storage.ts";
 import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
@@ -105,20 +105,11 @@ describe("where a page served by a discovery starts", () => {
   it("starts from a link, else the core it reached before, else nothing", () => {
     const storage = memoryStorage();
     // The loader at the core's client origin, which keeps the core it reached (D308).
-    const at = (hash: string): AtClientOrigin => ({
-      config: {
-        clientApi: "https://discovery.example/client/v1",
-        hasRealms: false,
-        clientOrigins: "https://{core}.client.example",
-        loaderOrigin: "https://app.example",
-      },
+    const at = (hash: string): Parameters<typeof startAtClient>[0] => ({
       coreId: "k7xq2",
       storage,
       location: { hash, pathname: "/", search: "", assign: () => undefined },
       history: { replaceState: () => undefined },
-      loaderOrigin: "https://app.example",
-      unmount: () => undefined,
-      tellWorker: () => Promise.resolve(),
     });
     expect(startAtClient(at(linkHash))).toEqual(linkStart);
     expect(startAtClient(at(""))).toEqual({ kind: "none" });

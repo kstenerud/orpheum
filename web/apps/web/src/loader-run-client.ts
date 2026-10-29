@@ -120,13 +120,19 @@ const clientRun = "client";
 
 /**
  * Adds parts to page, each made anew so a script runs, with loader on its window for the client to
- * take: what RunParts.mount does in a browser.
+ * take: what RunParts.mount does in a browser. A script that does not load is told to onFailed by its
+ * address, since the loader's page is down by then and the page would otherwise stay blank (the
+ * owner's Mac, staging, 2026-10-29).
  */
 export function mountClient(
   page: Document,
-  loader: OrpheumLoader,
-  parts: readonly ClientPart[],
+  run: {
+    readonly loader: OrpheumLoader;
+    readonly parts: readonly ClientPart[];
+    readonly onFailed: (address: string) => void;
+  },
 ): void {
+  const { loader, parts, onFailed } = run;
   Reflect.set(page.defaultView ?? {}, loaderProperty, loader);
   for (const part of parts) {
     const made = page.createElement(part.tag);
@@ -137,6 +143,15 @@ export function mountClient(
       made.setAttribute(
         name,
         part.tag === "script" && name === "src" ? `${value}?${clientRun}` : value,
+      );
+    }
+    if (part.tag === "script") {
+      made.addEventListener(
+        "error",
+        () => {
+          onFailed(made.getAttribute("src") ?? "");
+        },
+        { once: true },
       );
     }
     page.head.append(made);

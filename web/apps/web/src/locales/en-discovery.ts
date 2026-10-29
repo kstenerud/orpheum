@@ -124,6 +124,8 @@ export const enDiscovery = {
       failed: "No code could be had just now. Go back and try again in a minute.",
       back: "Sign in with a realm, name and password instead",
     },
+    clientFailed:
+      "Your server was reached, but its page did not load. Reload to try again; if it goes on, copy what happened and send it to whoever runs your server.",
     refused:
       "This server's client needs version {{needs}} of the page that reaches it, which serves version {{has}}. Ask the person who runs your server to update it.",
   },

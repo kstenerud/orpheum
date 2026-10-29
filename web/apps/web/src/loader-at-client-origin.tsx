@@ -27,6 +27,7 @@ import {
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
+import { ClientFailedPage, clientFailedText } from "./loader-client-failed.tsx";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
 import {
@@ -57,6 +58,8 @@ export interface AtClientOrigin {
   readonly unmount: () => void;
   /** Tells the service worker the client's files, settling once it kept them. */
   readonly tellWorker: (message: ClientFilesMessage) => Promise<void>;
+  /** Shows page in place of the client, once the loader's page is down and the client did not load. */
+  readonly showFailure: (page: JSX.Element) => void;
 }
 
 /** The core this origin reached before, when it did. */
@@ -86,7 +89,9 @@ function keptCore(storage: StringStorage | undefined, coreId: string): KeptCore 
  * core, else the core it reached before, else nothing. The fragment is cleared once read, so neither
  * stays in the address bar or the history.
  */
-export function startAtClient(at: AtClientOrigin): Start {
+export function startAtClient(
+  at: Pick<AtClientOrigin, "coreId" | "storage" | "location" | "history">,
+): Start {
   const { location } = at;
   const link = readLinkFragment(location.hash);
   const handOff = readHandOffFragment(location.hash);
@@ -240,6 +245,16 @@ export async function redeem(send: FetchRequest, session: Session, code: string)
   });
 }
 
+/** Says the core's client did not load, by the address of its script that did not. */
+function showClientFailed(at: AtClientOrigin, coreId: string, address: string): void {
+  reportFailure(new Error(`the server's client did not load: ${address}`));
+  const text = clientFailedText(
+    { coreId, address, isControlled: navigator.serviceWorker.controller !== null },
+    navigator.userAgent,
+  );
+  at.showFailure(<ClientFailedPage text={text} />);
+}
+
 /** The page a client origin opens on until the core's client runs. */
 export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.Element {
   const { at } = props;
@@ -279,7 +294,13 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           refusedVersions: () => refusedClientVersions({ clientApi: at.config.clientApi }),
           inertPage: document,
           mount: (loader, parts) => {
-            mountClient(document, loader, parts);
+            mountClient(document, {
+              loader,
+              parts,
+              onFailed: (address) => {
+                showClientFailed(at, core.coreId, address);
+              },
+            });
           },
           tellWorker: at.tellWorker,
         });

@@ -275,6 +275,7 @@ function clientAt(hash: string, storage: StringStorage, cleared: string[]): AtCl
     loaderOrigin: config.loaderOrigin,
     unmount: () => undefined,
     tellWorker: () => Promise.resolve(),
+    showFailure: () => undefined,
   };
 }
 

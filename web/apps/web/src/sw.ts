@@ -92,6 +92,13 @@ const clientFilesListKey = "/__orpheum/client-files";
 /** The cache the loader's own page and files are kept in. */
 const loaderCache = "orpheum-loader";
 
+/**
+ * How long a page is waited for to say it carries its path, once the discovery has not the client's
+ * file it asked for: a page that asks for one has reached its core, and may only be busy, so it gets
+ * longer than a load's ordinary question.
+ */
+const patientPathQueryMs = 5000;
+
 /** The client's files' hashes by path, as the loader last said; read back after a restart. */
 let clientFiles: Map<string, string> | undefined;
 
@@ -259,6 +266,7 @@ async function clientFilesOf(worker: WorkerScope): Promise<Map<string, string>> 
 async function carryingPageFor(
   worker: WorkerScope,
   clientId: string,
+  waitMs?: number,
 ): Promise<ClientLike | undefined> {
   if (onWebrtc.has(clientId)) {
     return await worker.clients.get(clientId);
@@ -271,7 +279,7 @@ async function carryingPageFor(
   }
   // A worker started again knows no page's path: the page is asked, and one finding the core says
   // nothing in time, which is not kept: it carries its media once it has found the core.
-  const path = onWebrtc.has(page.id) ? "webrtc" : await askPathOf(page);
+  const path = onWebrtc.has(page.id) ? "webrtc" : await askPathOf(page, waitMs);
   if (path === "webrtc") {
     notePath(page.id, path);
   }
@@ -293,12 +301,7 @@ async function clientFile(
   if (kept !== undefined) {
     return kept;
   }
-  const page = await carryingPageFor(worker, event.clientId);
-  // A page with no path yet is the loader starting: its own file of the same name comes from the
-  // discovery, kept only when it is the very file the manifest names, as a name made of its content
-  // says it is.
-  const fetched =
-    page === undefined ? await networkFetch(event.request) : await fetchedBy(page, event.request);
+  const { page, fetched } = await fetchedForClient(worker, event);
   const bytes = await fetched.arrayBuffer();
   const isSigned = fetched.status === 200 && (await sha256Of(bytes)) === sha256;
   if (!isSigned && page !== undefined) {
@@ -312,6 +315,40 @@ async function clientFile(
     await cache.put(key, answer.clone());
   }
   return answer;
+}
+
+/**
+ * A file of the client's, as fetched: by the page that asked for it over its path, or, from a page
+ * with no path yet, the loader starting, from the discovery, whose own file of the same name is
+ * answered, kept only when it is the very file the manifest names, as a name made of its content
+ * says it is. A file the discovery has not is the core's client's, which only the core serves: the
+ * page asking for it has reached its core and carries its path, though it did not say so in time,
+ * and is asked again, more patiently. Answered with the discovery's 404, the client never ran and the
+ * page stayed black, saying nothing (the owner's Mac, staging, 2026-10-29); with no such page, the
+ * answer says so. Its page is undefined where the discovery answered.
+ */
+async function fetchedForClient(
+  worker: WorkerScope,
+  event: FetchEventLike,
+): Promise<{ readonly page: ClientLike | undefined; readonly fetched: Response }> {
+  const page = await carryingPageFor(worker, event.clientId);
+  if (page !== undefined) {
+    return { page, fetched: await fetchedBy(page, event.request) };
+  }
+  const fromOrigin = await networkFetch(event.request).catch(() => undefined);
+  if (fromOrigin?.status === 200) {
+    return { page, fetched: fromOrigin };
+  }
+  const carrying = await carryingPageFor(worker, event.clientId, patientPathQueryMs);
+  if (carrying === undefined) {
+    const { pathname } = new URL(event.request.url);
+    const unfetched = new Response(
+      `${pathname} is a file of the server's client, and no page here carries a path to the server to fetch it over`,
+      { status: 502 },
+    );
+    return { page: carrying, fetched: unfetched };
+  }
+  return { page: carrying, fetched: await fetchedBy(carrying, event.request) };
 }
 
 /**

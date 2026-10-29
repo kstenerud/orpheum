@@ -134,9 +134,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   single-use code; a client origin is bound to the core its name names and opens nothing for
   another; the core's client runs only once its manifest holds under the key the link, the hand-off
   or this origin named, its version is not one the discovery refuses and its page is the one it
-  signed; and the loader clears every cookie it can see. `loader-config.test.ts`,
-  `loader-households.test.ts`, `loader-pages.test.tsx`, `loader-run-client.test.ts`,
-  `loader-sweep.test.ts`, and the SDK's `discovery.test.ts`.
+  signed; and the loader clears every cookie it can see. A client's file comes only over the page's
+  path, never as the discovery's 404, and a client's script that does not load shows what happened to
+  copy, never a black page. `loader-config.test.ts`, `loader-households.test.ts`,
+  `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
+  `loader-sweep.test.ts`, `sw.test.ts`, and the SDK's `discovery.test.ts`.
 - **A TV's code is activated by its QR code with one tap, or typed with a committed check code**
   (D321): the TV shows a QR code of the loader's `/activate` carrying its key's hash; `/activate`
   goes to the one realm's Activate a device, asks which of several, or offers the link to copy or a
