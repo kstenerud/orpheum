@@ -24405,4 +24405,42 @@ gaps with answers (1–6 below), and the owner agreed them all ("agreed").
    arriving later takes over the same way, without churn.
 7. **No one left**: the session holds where it stood with its play or pause (D375), and rule 4 resumes it.
 
-**Status:** Decided 2026-10-29; not built (D376's build is redirected to this).
+**Status:** Decided 2026-10-29; built 2026-10-29 (`internal/core/together/leader.go`). §1: `contends`, as
+D374 built it. §2: each device's run (`runSince`) starts as its state first says it plays or is ready
+with the session's film on a shown page, by the core's clock to the microsecond, and ends as it
+disconnects (`Detach`), its page is hidden, its player has another film or none (`takeRun`), or it stays
+stalled past `stalledLeaderGrace` (`endStalledRuns`), or, leading, paused by its browser past it
+(`passStalledLead`); connecting starts none. The line is the host's newest contender, else the run that
+started earliest, ties to the lower id, a contender with no run behind every one with one
+(`isAheadInLine`, in `nextLeader`); the arrival seniority (`arrivedAt`) is gone. The log says each run's
+start and end (`logEvent=runStarted runSince=…`, `logEvent=runEnded why=closed|silent|hidden|leftFilm|stalled|paused`),
+and each `leaderChanged` line the new leader's `leaderRunSince` and `leaderRunMs` (or `leaderRunSince=none`).
+§3: the web client's player (`web/packages/sdk/src/together-follow.ts`) that played the film with its
+group on its page (`hasPlayedAlong`) keeps where it is on each new connection until its roster names a
+leader (`LeaderAwaited`, `together-roster.ts`), so its first state at its welcome tells its own
+position; once a leader is named it follows as any follower. §4: every change of leader goes through
+`placeByNewLeader`, called by `lead`: chosen while no one led, a device whose latest state says it has a
+position of its own (`remembersPlace`, sent once its player has played along, no older than the
+group's last change) presents it and the group stands there; else, and on every handover from a live
+leader, the core's position stands; each `leaderChanged` line says `positionFrom=leader|core`,
+`positionMs`, and for a presented position `steppedMs`. §5: a leader's own pause, not a person's, no
+longer stands its group (`followLeader`), unless it is the only contender (D374 §3), and past the grace
+hands the lead to one that plays (`goneBecause=paused`). §6: `takeLeadInStep`, as D372 §3 built it, the
+host's device taking no position as it takes the lead. §7: D375's hold, resumed by §4.
+
+Resolved in the build, where the decision left it open (say if any should go otherwise):
+- **"Has a position"** is the device's word (`remembersPlace`): a reloaded page and a device back from a
+  dropped connection are both a new device to the core, and only the page knows which kept its film.
+- **A contender with no run** (attached and contending, never yet ready) stands behind every one with a
+  run, so a lone one still leads a group no one else can.
+- **A leader paused by its browser** is judged by its last state's play and buffering, since its last
+  change of either (`playerChangedAt`).
+
+**Proven by:**
+- 1: TestHub_APlayerNotPlayingTheFilmIsPassedOverForTheLead, TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes
+- 2: TestHub_TheLineForTheLeadIsByRunNotByArrival, TestHub_TheLeadPassesToThePlayerPresentLongest, TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack; VQ139
+- 3: web/packages/sdk/src/together-own-position.test.ts ("is kept on connecting again, …"), web/packages/sdk/src/together-connection-state.test.ts ("tells the group, in its first state at its welcome, …"); VQ139
+- 4: TestHub_AFollowerTakingOverFromALiveLeaderMovesNoOne, TestHub_ALeaderlessGroupGoesOnFromThePositionItsNewLeaderPresents, web/packages/sdk/src/together-own-position.test.ts ("is one it says it has only once it has played along …"); VQ139
+- 5: TestHub_ALeadersOwnPauseNeitherStopsTheGroupNorHoldsTheLead; VQ139
+- 6: TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads; VQ139
+- 7: TestHub_ALeaderlessGroupGoesOnFromThePositionItsNewLeaderPresents, TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns; VQ139

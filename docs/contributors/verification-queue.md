@@ -1641,3 +1641,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   `a request failed … nothing came for /api/v1/playback` and a second `a playback started`, then the
   `role=video` device. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/play.tsx`,
   `reopen.ts`)
+- [ ] **VQ139** — who leads a Watch Together session, and from where (D377), on staging. On the Mac,
+  Chrome hosting a session and Firefox a guest, the S23 a guest too, all playing the film. (1) Close
+  the host's Chrome tab while it leads. Passes when the lead passes to the guest whose run started
+  first, the core's `leaderChanged … why=leaderGone` line saying `positionFrom=core`, and no one's film
+  jumps. (2) Lock the S23, then unlock it: the log has its `runEnded why=hidden` and, as it plays
+  again, a new `runStarted`; it is now behind Firefox in line. (3) With the S23 locked, turn the Mac's
+  Wi-Fi off for about a minute, then on. Passes when the log has `groupChanged … event=everyoneLeft …
+  heldPlaying=true`, then, as the first browser comes back, `leaderChanged … why=noneLed …
+  positionFrom=leader` with that browser's own `positionMs` and `groupChanged state=Waiting
+  event=resumedOnReturn` at it: the browser plays on from where it stood, never sought back to where
+  the group was held, and the other takes its position. (4) Reopen the host's page with everyone else
+  gone: its `leaderChanged` says `positionFrom=core`, and it plays from where the group was held.
+  (5) Reopen Chrome's page while Firefox leads: Chrome takes Firefox's position, then the lead in step
+  (`why=hostInStep`), no one's film jumping. (`internal/core/together/leader.go`,
+  `web/packages/sdk/src/together-follow.ts`, `together-roster.ts`)

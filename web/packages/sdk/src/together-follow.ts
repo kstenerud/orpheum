@@ -11,6 +11,7 @@ import {
   isHostAwaitingLead,
   isAskedByItsGroup,
   isFollowerOf,
+  LeaderAwaited,
   isLeaderOf,
 } from "./together-roster.ts";
 import {
@@ -113,6 +114,10 @@ export class GroupFollower {
   #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
   #hasCaughtUp = false;
+  /** Whether it played the film with its group on this page: a position of its own (D377 §3, §4). */
+  #hasPlayedAlong = false;
+  /** Its wait, on each new connection, to hear of its group's leader (D377 §3). */
+  readonly #leaderAwaited = new LeaderAwaited();
   /** Whether it has stalled or sought, why, and whether it has loaded enough ahead to play on. */
   readonly #refill = new Refill();
   /** Whether the group was last told it buffers, so loading only tells it of a change. */
@@ -209,6 +214,7 @@ export class GroupFollower {
     }
     this.#noteBuffering(isBuffering, isLeading);
     this.#wasReportedBuffering = isBuffering;
+    const remembered = this.#placeRemembered(isBuffering, isLeading);
     const loadsFaster = this.#refill.loadsFaster();
     const playback = this.#playback.report();
     return {
@@ -220,8 +226,23 @@ export class GroupFollower {
       ...(loadsFaster === undefined ? {} : { loadsFaster }),
       ...(playback === undefined ? {} : { playback }),
       ...(this.#options.page?.visibilityState === "hidden" ? { isPageHidden: true } : {}),
+      ...remembered,
     };
   };
+
+  /**
+   * Notes that it played along, ready and playing as its group plays, or as its leader, and says,
+   * for its state, whether it ever has: a position of its own to present (D377 §4).
+   */
+  #placeRemembered(
+    isBuffering: boolean,
+    isLeading: boolean,
+  ): { readonly isPlaceRemembered?: true } {
+    const isPlaying = !this.#media.paused && !isBuffering;
+    this.#hasPlayedAlong ||=
+      isPlaying && (isLeading || this.#connection.snapshot().group?.state === "Playing");
+    return this.#hasPlayedAlong ? { isPlaceRemembered: true } : {};
+  }
 
   /** Notes what holds it, or its group, up, when HoldingNotes says to (bufferingNote). */
   #noteBuffering(isBuffering: boolean, isLeading: boolean): void {
@@ -265,6 +286,9 @@ export class GroupFollower {
     const nowMs = this.#options.monotonicMs();
     if (where === undefined || !this.#followed.mayFollow(heldBy, nowMs, this.#connection)) {
       return;
+    }
+    if (this.#leaderAwaited.holds(this.#connection.snapshot(), this.#hasPlayedAlong)) {
+      return; // it keeps where it was until it hears of its leader (D377 §3)
     }
     if (this.#isLeading() && !this.#catchesUp(where)) {
       this.#hasCaughtUp = true; // its person's moves are the group's from the first

@@ -425,9 +425,14 @@ type Inbound struct {
 	Playback *Playback `json:"playback,omitempty"`
 	// PageHidden, in a state, is the device's page hidden by its browser, its film paused: a
 	// handheld's, a locked phone's. Such a device cannot lead (D372 §5).
-	PageHidden bool        `json:"pageHidden,omitempty"`
-	Command    CommandKind `json:"command,omitempty"`
-	Rate       float64     `json:"rate,omitempty"`
+	PageHidden bool `json:"pageHidden,omitempty"`
+	// RemembersPlace, in a state, is the device's player saying it has played its film with its
+	// session on this page, as a follower in step or as its leader, before this connection or on it:
+	// its position is one of its own, which becomes the group's should it be chosen to lead a group no
+	// one leads, where a fresh page's is only where it loads from (D377 §4; placeByNewLeader).
+	RemembersPlace bool        `json:"remembersPlace,omitempty"`
+	Command        CommandKind `json:"command,omitempty"`
+	Rate           float64     `json:"rate,omitempty"`
 	// FileID is a changeItem's film to put on; in a state, the film the device's player has
 	// loaded, 0 when it has none: its player gone, its film handed to a cast's receiver, or not yet
 	// loaded. Only a device whose player has the session's film contends for the lead (D374 §1).

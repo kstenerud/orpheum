@@ -190,9 +190,10 @@ type device struct {
 	// playback is how its player last said it plays the film: delivered as it is or converted, at
 	// which quality, on what link (D371 §4); nil until it says.
 	playback *Playback
-	// arrivedAt is its seniority: when the core saw it arrive, at microsecond resolution, and again
-	// each time its page is shown after it was hidden (D372 §1, §2).
-	arrivedAt time.Time
+	// runSince is the start of its current run, its place in line for the lead: when the core first
+	// heard it playing or ready with the session's film since its last run ended, by the core's clock
+	// at microsecond resolution; zero while it has none (D377 §2; takeRun).
+	runSince time.Time
 	// isPageHidden is its page's word that its browser hid it, its film paused (a locked phone): it
 	// cannot lead while it is (D372 §5).
 	isPageHidden bool
@@ -211,7 +212,10 @@ type device struct {
 	// within the grace: until its state is in step with the group it catches up as a follower would,
 	// and its states do not place the group, so no one sees a stretch twice (D374); zero otherwise.
 	catchingUpSince time.Time
-	send            Sender
+	// place is where its latest state put its player, and whether that is a position of its own, to
+	// present should it be chosen to lead a group no one leads (D377 §4; placeByNewLeader).
+	place devicePlace
+	send  Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering, round trip and playback,
@@ -462,7 +466,7 @@ func (hub *Hub) Attach(
 	hub.lastID++
 	now := hub.clock.Now()
 	attachedDevice := &device{
-		id: hub.lastID, role: role, canSetRate: canSetRate, send: send, arrivedAt: seniorityAt(now),
+		id: hub.lastID, role: role, canSetRate: canSetRate, send: send,
 	}
 	attachedMember.devices[hub.lastID] = attachedDevice
 	send(Outbound{
@@ -478,7 +482,7 @@ func (hub *Hub) Attach(
 }
 
 // Detach removes a device whose connection ended, because it closed or went silent. The group never
-// stops for it (D371 §2): its member stays, and it catches up once it is back, its seniority new.
+// stops for it (D371 §2): its member stays, and it catches up once it is back, its run ended (D377 §2).
 // The leader leaving hands the lead on at once (leaderGone, D372 §5).
 func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 	hub.mutex.Lock()
@@ -496,6 +500,7 @@ func (hub *Hub) Detach(attachment Attachment, because GoneBecause) {
 		return
 	}
 	delete(left.devices, attachment.DeviceID)
+	detached.endRun(left, gone, string(because))
 	if gone.id == detached.leaderID {
 		detached.leaderGone(hub.clock.Now(), left.isHost, because)
 	}
@@ -570,7 +575,12 @@ func (current *session) takeState(ctx context.Context, now time.Time, who *membe
 	current.logPlayer(ctx, now, who, from, message)
 	from.takeState(message)
 	if message.Type == MessageState {
-		current.takeVisibility(now, who, from, message.PageHidden)
+		from.place = devicePlace{
+			fileID: message.FileID, position: current.reportedPosition(from, message), at: now,
+			isMoving: message.Playing && !message.Buffering, isRemembered: message.RemembersPlace,
+		}
+		current.takeVisibility(who, from, message.PageHidden)
+		current.takeRun(now, who, from, message)
 		current.takeStall(ctx, now, who, from, message)
 		current.takeContention(now, who, from, wasContender)
 		current.takeLeadInStep(now, who, from, message)

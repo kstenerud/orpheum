@@ -29,17 +29,21 @@
 //     a playing role is not enough, and with nothing on no one leads. Every choice of leader goes
 //     through the one predicate. The host's contenders are preferred (D372 §3, D374 §2): the one
 //     that put the film on, and the newest as it first contends; as it leaves, the host's newest
-//     other contender. While none of the host's contends, the contender present longest without a
-//     break leads, a guest's as readily, by the moment the core saw it arrive, to the microsecond,
-//     ties to the lower id (D372 §1); a device that comes back is present only since (§2). A host's
-//     player coming back while a guest's leads a film follows until it plays within the drift a
-//     follower leaves alone, then leads (§3). No panel, no hidden page and no player without the
+//     other contender. While none of the host's contends, the guest's contender whose current run
+//     started earliest leads (D377 §2): a run starts as the core first hears the device playing or
+//     ready with the session's film, by the core's clock to the microsecond, ties to the lower id;
+//     connecting alone starts none; it ends, the device to the back of the line, as the device
+//     disconnects, its page is hidden, its player leaves the film, or it stays stalled or paused past
+//     stalledLeaderGrace, each start and end logged (runStarted, runEnded why). A host's player
+//     coming back while a guest's leads a film follows until it plays within the drift a follower
+//     leaves alone, then leads (D372 §3, D377 §6). No panel, no hidden page and no player without the
 //     film leads: a cast's sender whose page keeps its connection says it plays no film, and its
 //     receiver contends in its place. The roster says who leads, and each change of leader is logged
-//     with why, the new leader's seniority, and each player passed over and why (passedOver).
+//     with why, when the new leader's run started, and each player passed over and why (passedOver).
 //     Enforced by TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves,
 //     TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan,
 //     TestHub_TheLeadPassesToThePlayerPresentLongest,
+//     TestHub_TheLineForTheLeadIsByRunNotByArrival,
 //     TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack,
 //     TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads,
 //     TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes,
@@ -72,6 +76,18 @@
 //     TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns,
 //     TestHub_AGroupLeftWhilePausedStaysPausedAsAPlayerReturns and
 //     TestHub_AGroupHeldForWantOfAPlayerEndsIdle.
+//   - A device's own position becomes the group's only as it is chosen to lead a group no one leads
+//     (D377 §4): every change of leader goes through one rule (placeByNewLeader), and its
+//     leaderChanged line says positionFrom=leader|core. A handover from a live leader takes no
+//     position, its successor in step; chosen while none led, held for want of a player or not, a
+//     device presents its position if it has one of its own (its latest state has the session's film,
+//     says remembersPlace, which a page loaded afresh says only once it has played along, and is no
+//     older than the group's last change), else the core's stands. Enforced by
+//     TestHub_AFollowerTakingOverFromALiveLeaderMovesNoOne and
+//     TestHub_ALeaderlessGroupGoesOnFromThePositionItsNewLeaderPresents.
+//   - Play or pause is the session's (D377 §5): a leader paused by its browser, not its person, while
+//     another plays the film neither stops the group nor keeps the lead past stalledLeaderGrace
+//     (goneBecause=paused). Enforced by TestHub_ALeadersOwnPauseNeitherStopsTheGroupNorHoldsTheLead.
 //   - The group's position is its leader's, which nothing steers (D371 §1): each state the leader
 //     reports while the group plays places the group where it is, and a group to play (a film put
 //     on, a play, a seek) stands where it is until its leader plays, then plays from there at once:
@@ -193,6 +209,9 @@
 //     up to its group.
 //   - D375: a session left with no player keeps its playing state, and goes on as it was when a
 //     leader returns (amending D372 §7).
+//   - D377: who leads and from where, one procedure: contenders, the line by run, a device's own
+//     position official only when no one leads, play or pause the session's (replacing D372 §1–§3
+//     and D376).
 //   - D250 §4–§5: a member's trouble is theirs to catch up on, from what is already being made.
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.

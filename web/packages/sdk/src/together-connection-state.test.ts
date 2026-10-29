@@ -92,4 +92,34 @@ describe("what a device's state tells its session of its player (cut-a §5.1)", 
     connection.reportState();
     expect(lastState()).not.toHaveProperty("pageHidden");
   });
+
+  it("tells the group, in its first state at its welcome, its player's position and that it is its own (D377 §3, §4)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    let isPlaceRemembered = false;
+    connection.setPlayer(() => ({
+      fileId: 3,
+      positionMs: 75_000.4,
+      isPlaying: true,
+      isBuffering: false,
+      isPlaceRemembered,
+    }));
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    const states = (): Record<string, unknown>[] =>
+      sockets.sent.filter((each) => each["type"] === "state");
+    expect(states().at(-1)).not.toHaveProperty("remembersPlace"); // a page loaded afresh
+    isPlaceRemembered = true;
+    sockets.opened[0]!.onClose(1006); // dropped; connected again after its wait
+    sockets.sent.length = 0;
+    connection.open();
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(JSON.stringify(welcome));
+    expect(states()[0]).toMatchObject({ positionMs: 75_000, remembersPlace: true });
+  });
 });

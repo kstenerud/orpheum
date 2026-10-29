@@ -32,6 +32,24 @@ export interface PlayerState {
    * device cannot lead its session (D372 §5). Absent where hiding pauses nothing.
    */
   readonly isPageHidden?: boolean;
+  /**
+   * Whether its player has played the film with its session on this page, as a follower in step or
+   * as its leader, on this connection or before it: its position is one of its own, which becomes its
+   * group's should it be chosen to lead a group no one leads, where a page loaded afresh has only where
+   * it loads from (D377 §4), said to the server as remembersPlace. Absent where it does not say.
+   */
+  readonly isPlaceRemembered?: boolean;
+}
+
+/**
+ * A state's flags as the server reads them, by their names on the wire, each sent only while it
+ * holds: pageHidden, remembersPlace.
+ */
+export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>> {
+  return {
+    ...(state.isPageHidden === true ? { pageHidden: true } : {}),
+    ...(state.isPlaceRemembered === true ? { remembersPlace: true } : {}),
+  };
 }
 
 /**
