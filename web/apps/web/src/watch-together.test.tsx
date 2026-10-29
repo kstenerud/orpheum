@@ -474,6 +474,8 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
     expect(mounted.container.querySelector('a[href="/play/4"]')?.textContent).toBe(
       "Back to the film",
     );
+    // The page's primary action, drawn as the title page's Play: missed as a plain link (2026-10-29).
+    expect(mounted.container.querySelector('a[href="/play/4"]')?.className).toBe("title__play");
     await click(buttonWithText(mounted.container, "Stop the film for everyone"));
     expect(remote.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
     mounted.unmount();
