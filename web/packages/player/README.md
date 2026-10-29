@@ -111,7 +111,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   unplayable, never a ceiling of the moment; **no further than a third of the browser's memory for
   its picture** at the quality's average rate (`videoLimitBytes`: Chromium's 150 MiB, 30 MiB on a
   Chromecast or where `navigator.deviceMemory` says 1 GB or less, about 100 MiB in Firefox, 100 MB in
-  WebKit), but never below 20 s for that; and no further than its Watch Together group's runway
+  WebKit), **nor than a third of its memory for its sound** at the sound's own rate, read from its
+  chunks as they load (`soundLimitBytes`: Chromium's 12 MiB, 2 MiB on the same weak devices, about
+  30 MiB in Firefox, 100 MB in WebKit; a film's own copied 5.1 ran a Fire TV's full twice, staging,
+  2026-10-29), but never below 20 s for either, a floor whose bytes the buffer cannot hold being
+  noted and left to hls.js's cut; and no further than its Watch Together group's runway
   (D285 §2), hls.js's own cut after the browser refused a chunk for its memory, which nothing undoes,
   a runway lifted included, or what its page says (the film page's preload). hls.js's 60 MB never
   stretches it, as it did to ten minutes of 360p. With each play report its notes on its link say

@@ -11,8 +11,9 @@ import {
   loadsAheadAtLeastS,
   loadsAheadAtTopS,
   loadsAheadBelowTopS,
+  soundLimitBytes,
   videoLimitBytes,
-  videoLimitKindOf,
+  bufferLimitKindOf,
   type AheadHls,
   type DeviceFacts,
 } from "./forward-buffer.ts";
@@ -93,7 +94,7 @@ describe("the bytes cap: a third of the browser's memory for a page's picture (f
 
   it("assumes each device's limit from its browser and its memory", () => {
     const kindOf = (userAgent: string, deviceMemoryGb?: number): string =>
-      videoLimitKindOf({ userAgent, deviceMemoryGb });
+      bufferLimitKindOf({ userAgent, deviceMemoryGb });
     expect(kindOf(desktopChrome, 8)).toBe("ordinary");
     expect(kindOf(androidChrome, 4)).toBe("ordinary");
     expect(kindOf(fireTvSilk, 1)).toBe("lowMemory");
@@ -169,7 +170,7 @@ describe("keeping hls.js to the target as its quality changes (P1, P2, P6)", () 
   it("sets the target as each quality begins loading, before hls.js reads it, and notes each change of it once, none for a quality whose target is the same", () => {
     const { hls, notes, stop } = keptOn({ userAgent: desktopChrome, deviceMemoryGb: 8 });
     expect(notes).toEqual([
-      `device memory 8 GB, video buffer 157.3 MB assumed (ordinary); ${desktopChrome}`,
+      `device memory 8 GB, video buffer 157.3 MB, sound 12.6 MB assumed (ordinary); ${desktopChrome}`,
     ]);
     hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 0 });
     expect(hls.config).toEqual({ maxBufferLength: 30, maxMaxBufferLength: 30 });
@@ -211,5 +212,96 @@ describe("keeping hls.js to the target as its quality changes (P1, P2, P6)", () 
     expect(notes.at(-1)).toMatch(/^loads ahead 25\.0 s .*, by cut: level 2 /u);
     hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 1 });
     expect(hls.config).toEqual({ maxBufferLength: 25, maxMaxBufferLength: 25 });
+  });
+});
+
+/** hls.js's FRAG_LOADED for a chunk of 10 s of type from playlist, megabits long. */
+function chunkLoaded(type: "audio" | "main", playlist: string, megabits: number): unknown {
+  return {
+    frag: { type, baseurl: playlist, duration: 10 },
+    payload: new ArrayBuffer((megabits * 1e6) / 8),
+  };
+}
+
+describe("the sound's own bytes cap it too: a third of the browser's memory for a page's sound (P2)", () => {
+  /** A sound of rateMbps on a device of kind. */
+  const soundAt = (
+    rateMbps: number,
+    kind: keyof typeof soundLimitBytes,
+  ): { rateBps: number; limitBytes: number } => ({
+    rateBps: rateMbps * 1e6,
+    limitBytes: soundLimitBytes[kind],
+  });
+
+  it("holds a film's own 5.1 at 2.6 Mb/s on a 1 GB device to the floor, though its picture's bytes would allow 60 s", () => {
+    const loading = { level: levelAt(1.2), isTop: true, limitBytes: videoLimitBytes.lowMemory };
+    expect(aheadTargetOf(loading)).toEqual({ aheadS: loadsAheadAtTopS, by: "top" });
+    expect(aheadTargetOf({ ...loading, sound: soundAt(2.6, "lowMemory") })).toEqual({
+      aheadS: loadsAheadAtLeastS,
+      by: "sound floor",
+    });
+  });
+
+  it("caps by the sound's bytes where they bound more than the picture's, and not for a made 96 kb/s sound below the top", () => {
+    const top = { level: levelAt(3), isTop: true, limitBytes: videoLimitBytes.ordinary };
+    const bySound = aheadTargetOf({ ...top, sound: soundAt(1.3, "ordinary") });
+    expect(bySound.by).toBe("sound bytes");
+    expect(bySound.aheadS).toBeCloseTo((soundLimitBytes.ordinary * 8) / 3 / 1.3e6);
+    expect(
+      aheadTargetOf({
+        level: levelAt(1),
+        isTop: false,
+        limitBytes: videoLimitBytes.lowMemory,
+        sound: soundAt(0.096, "lowMemory"),
+      }),
+    ).toEqual({ aheadS: loadsAheadBelowTopS, by: "below top" });
+  });
+
+  it("assumes Chromium's 12 MiB and its low-end 2 MiB, Firefox's 30 MiB and WebKit's 100 MB", () => {
+    expect(soundLimitBytes).toEqual({
+      ordinary: 12_582_912,
+      lowMemory: 2_097_152,
+      cast: 2_097_152,
+      firefox: 31_457_280,
+      webkit: 100_000_000,
+    });
+  });
+
+  it("reads the sound's rate from its chunks as they load, sets the target again, and says when the floor is more than the buffer", () => {
+    const { hls, notes } = keptOn({ userAgent: fireTvSilk, deviceMemoryGb: 1 });
+    expect(notes[0]).toMatch(/video buffer 31\.5 MB, sound 2\.1 MB assumed \(lowMemory\)/u);
+    hls.levels[2] = levelAt(1.2);
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 2 });
+    expect(hls.config.maxMaxBufferLength).toBe(60);
+    hls.trigger(Hls.Events.FRAG_LOADED, chunkLoaded("audio", "own.m3u8", 26));
+    expect(hls.config).toEqual({ maxBufferLength: 20, maxMaxBufferLength: 20 });
+    expect(notes.at(-1)).toBe(
+      "loads ahead 20.0 s (3.0 MB), by sound floor: level 2 of 0-2, 1800/1200 kb/s; cap 10.5 MB;" +
+        " sound 2600 kb/s, cap 0.7 MB; over its 2.1 MB, left to hls.js's cut",
+    );
+    // A picture's chunk is not the sound's.
+    hls.trigger(Hls.Events.FRAG_LOADED, chunkLoaded("main", "picture.m3u8", 10));
+    expect(hls.config.maxMaxBufferLength).toBe(20);
+    // A made sound's playlist starts its rate afresh.
+    hls.trigger(Hls.Events.FRAG_LOADED, chunkLoaded("audio", "made.m3u8", 0.96));
+    expect(hls.config.maxMaxBufferLength).toBeCloseTo((soundLimitBytes.lowMemory * 8) / 3 / 96e3);
+    expect(notes.at(-1)).toMatch(/, by sound bytes: .*; sound 96 kb\/s, cap 0\.7 MB$/u);
+  });
+
+  it("notes a sound buffer run full with the sound's own bytes, not the picture's", () => {
+    const { hls, notes } = keptOn({ userAgent: desktopChrome, deviceMemoryGb: 8 });
+    hls.trigger(Hls.Events.LEVEL_SWITCHING, { level: 1 });
+    hls.trigger(Hls.Events.FRAG_LOADED, chunkLoaded("audio", "own.m3u8", 6.4));
+    hls.media = {
+      currentTime: 100,
+      buffered: { length: 1, start: () => 90, end: () => 130 } as unknown as TimeRanges,
+    };
+    hls.trigger(Hls.Events.ERROR, {
+      details: Hls.ErrorDetails.BUFFER_FULL_ERROR,
+      sourceBufferName: "audio",
+    });
+    expect(notes.at(-1)).toMatch(
+      /^buffer full on audio: 10\.0 s behind, 30\.0 s ahead \(about 3\.2 MB at 640 kb\/s\); no cut$/u,
+    );
   });
 });
