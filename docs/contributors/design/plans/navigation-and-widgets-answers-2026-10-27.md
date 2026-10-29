@@ -315,3 +315,20 @@ had leaned on.
   refusal could carry a recently ended session's reason. It does now: for a minute after a cast ends,
   a hello with one of its credentials is sent the same `ended` message, with its reason, before the
   socket closes as for no session.
+
+## The SWAG audit's research, next batch (the owner agreed the recommendations, 2026-10-29)
+
+- **Starts, stalls, chunks and the remote** (research/starts-chunks-remote-2026-10-29.md): the slow-start
+  rule at 8 s counting only waits on the link; Watch Together's refill after a stall sized to about a
+  minute of play; merging small back-to-back chunks into one link sample in place of the 128 KiB floor;
+  the held seek moving by time held, scaled to the film's length; the seek rest at 750 ms; "Still
+  watching?" with Netflix's 90-minute floor on TVs; WebRTC started 250 ms in when no direct address has
+  answered (Happy Eyeballs), each address's time logged. Two numbers want the owner at the TV: the Fire
+  TV's key-repeat rate and a deliberate double press's gap (the lab's button test). Its three bugs are
+  folded into this batch.
+- **Sharing the upload and the ladder** (research/upload-and-ladder-2026-10-29.md): the "slow" line at
+  110%, the crowding controller's step at 20 s, sending a member away only after 60 s and only past the
+  whole upload, the presets (x264 `faster`, Quick Sync `medium` after a speed check on nas.example, NVENC
+  `p6`); the simulation and the VMAF plan on gpuhost. Four questions for the owner are in the report.
+- **Climbing back after a recovered link** (VQ86's run, 2026-10-29): one quality a minute after drops;
+  with clean samples after a throttle is lifted, climb as far as they agree (D352 §3 allows it).
