@@ -12,8 +12,9 @@ import (
 // that puts a film on. While none of the host's can lead, the lead passes down the line to the
 // player present longest without a break, a guest's as readily as the host's (D372 §1), by the
 // seniority the core stamped as it saw the device arrive. A leader gone (its connection closed or
-// silent, its page hidden, its member removed) hands the lead on at once (§5); a stall does not.
-// With no one left to lead, a Watch Together group that plays pauses where it stands (§7).
+// silent, its page hidden, its member removed) hands the lead on at once (§5), and one stalled past
+// stalledLeaderGrace while its Watch Together group plays hands it on then, the group playing on
+// (D373 §2). With no one left to lead, a Watch Together group that plays pauses where it stands (§7).
 
 // The reasons a session's leader changes, as its log says them (D371, D372).
 const (
@@ -45,7 +46,22 @@ const (
 	goneHidden GoneBecause = "hidden"
 	// Its member out of the session: removed by the host, left, or their place taken.
 	goneRemoved GoneBecause = "removed"
+	// Its player stalled past stalledLeaderGrace while its Watch Together group played (D373 §2).
+	goneStalled GoneBecause = "stalled"
 )
+
+// stalledLeaderGrace is how long a Watch Together leader's stall lasts, while its group plays, before
+// the leader is gone for the lead (D373 §2). A justified constant, as the session socket's
+// silenceLimit is, not a setting: two other values fix it rather than anyone's taste. A quality
+// switch's or a short refill's stall waits on one chunk, two seconds of film
+// (hls_segment_length_seconds' starting value), which a link that carries the film loads in less
+// than the two seconds it plays for; and a stalled leader tells its state each second
+// (checkDriftEveryMs, web/packages/sdk/src/together-follow-options.ts), so the core sees a stall up
+// to a second late. Three seconds outlasts both, so such a stall never hands the lead back and forth.
+// It is also no longer than a follower's drift before it seeks rather than nudges
+// (together_seek_drift_beyond_ms' starting value): a leader that plays again within the grace steps
+// the group back to where it is by no more than that, which its followers nudge across.
+const stalledLeaderGrace = 3 * time.Second
 
 // seniorityLayout is how a device's seniority is logged: the core's clock to the microsecond.
 const seniorityLayout = "2006-01-02T15:04:05.000000Z07:00"
@@ -155,7 +171,7 @@ func (current *session) leaderGone(now time.Time, wasHost bool, because GoneBeca
 	previous := current.leaderID
 	gone := []any{"goneBecause", string(because), "goneLeaderWasHost", wasHost}
 	// The leader gone is detached, removed or hidden, so it is never the next.
-	if who, next := current.nextLeader(); next != nil {
+	if who, next := current.nextLeader((*device).canLead); next != nil {
 		current.lead(now, who, next, leadLeaderGone, gone...)
 		return
 	}
@@ -170,14 +186,14 @@ func (current *session) leaderGone(now time.Time, wasHost bool, because GoneBeca
 	}
 }
 
-// nextLeader is who leads once the leader is gone: the host's newest device that can lead, else
-// the device that can lead present longest, ties to the lower id; nils for none.
-func (current *session) nextLeader() (*member, *device) {
+// nextLeader is who leads once the leader is gone: of the devices isEligible takes, the host's
+// newest, else the one present longest, ties to the lower id; nils for none.
+func (current *session) nextLeader(isEligible func(*device) bool) (*member, *device) {
 	var hostMember, seniorMember *member
 	var hostNewest, senior *device
 	for _, each := range current.members {
 		for _, attached := range each.devices {
-			if !attached.canLead() {
+			if !isEligible(attached) {
 				continue
 			}
 			if each.isHost && (hostNewest == nil || attached.id > hostNewest.id) {
@@ -192,6 +208,35 @@ func (current *session) nextLeader() (*member, *device) {
 		return hostMember, hostNewest
 	}
 	return seniorMember, senior
+}
+
+// passStalledLead hands the lead on from a leader stalled past stalledLeaderGrace while its Watch
+// Together group plays (D373 §2): to the host's newest other player that plays on, else the most
+// senior, as from a leader gone (D372 §1); the group plays on, and a host's stalled device takes the
+// lead back once it plays in step again (takeLeadInStep, D373 §3). A player stalled too is passed
+// over; with no one else to lead, the stalled leader keeps the lead and the group plays on. A cast's
+// group stands for its receiver's stall instead (followLeader): a session of one holds no one up.
+func (current *session) passStalledLead(now time.Time) {
+	if current.isCast || current.group.state != GroupPlaying {
+		return
+	}
+	leaderMember, leading := current.leaderAndMember()
+	if leading == nil || leading.stalledSince.IsZero() {
+		return
+	}
+	stalledFor := now.Sub(leading.stalledSince)
+	if stalledFor < stalledLeaderGrace {
+		return
+	}
+	who, next := current.nextLeader(func(each *device) bool {
+		return each.canLead() && each.id != leading.id && !each.buffering
+	})
+	if next == nil {
+		return
+	}
+	current.lead(now, who, next, leadLeaderGone, "goneBecause", string(goneStalled),
+		"goneLeaderWasHost", leaderMember.isHost, "stalledMs", stalledFor.Milliseconds())
+	current.sendRoster()
 }
 
 // isSenior is whether one has been present longer than other: arrived earlier, or, arrived the same

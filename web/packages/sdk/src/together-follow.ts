@@ -396,9 +396,9 @@ class GroupFollower {
   };
 
   /**
-   * Each checkDriftEveryMs: applies the group, and tells it this player's state while it waits, by
-   * which the server ends a wait whose time is up (D247 §4), and while this is the host's player
-   * following a guest's lead, by which the server sees it in step to take the lead back (D372 §3).
+   * Each checkDriftEveryMs: applies the group, and tells it this player's state while it waits (D247
+   * §4), while this is the host's player following a guest's lead, to be seen in step (D372 §3), and
+   * while it leads stalled, to have its lead handed on past the grace (D373 §2).
    */
   readonly tick = (): void => {
     for (const move of this.#ownMoves.expired(this.#options.monotonicMs())) {
@@ -407,7 +407,8 @@ class GroupFollower {
     this.#loadSpeed.sample(this.#media, this.#options.monotonicMs());
     this.apply();
     const snapshot = this.#connection.snapshot();
-    if (snapshot.group?.state === "Waiting" || isHostAwaitingLead(snapshot)) {
+    const isStalledLeader = this.#wasReportedBuffering === true && this.#isLeading();
+    if (snapshot.group?.state === "Waiting" || isHostAwaitingLead(snapshot) || isStalledLeader) {
       this.#connection.reportState();
     }
   };

@@ -39,6 +39,7 @@ const (
 	eventLeaderChanged     = "leaderChanged"
 	eventFollowerCaughtUp  = "followerCaughtUp"
 	eventPlayerBuffering   = "playerBuffering"
+	eventStallNotWaitedFor = "stallNotWaitedFor"
 	eventSoundMoved        = "soundMoved"
 	eventPlayedWhileHeld   = "playedWhileHeld"
 	eventShownAgain        = "shownAgain"

@@ -188,6 +188,10 @@ type device struct {
 	// isPageHidden is its page's word that its browser hid it, its film paused (a locked phone): it
 	// cannot lead while it is (D372 §5).
 	isPageHidden bool
+	// stalledSince is when its state first said it buffers while its Watch Together group played,
+	// which the group does not wait for (D373 §1); zero while it plays on, and once the group stops
+	// playing, its loading then the start's (takeStall).
+	stalledSince time.Time
 	send         Sender
 }
 
@@ -516,8 +520,10 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 			V: ProtocolVersion, Type: MessagePong, TMono: message.TMono, Seq: handled.group.seq,
 			Group: handled.groupView(now),
 		})
+		handled.passStalledLead(now)
 	case MessageState, MessageSuspend, MessageResume:
 		handled.takeState(ctx, now, sender, from, message)
+		handled.passStalledLead(now)
 	case MessageCommand:
 		handled.touch(now)
 		handled.command(now, sender, from, message)
@@ -535,14 +541,15 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 // takeState takes what a device says of itself, and everyone is told: whether its page is hidden,
 // which hands on a lead (D372 §5); a host's device in step taking the lead back from a guest's
 // (§3); the leader's state places the group (followLeader), and no one else's moves it, a
-// follower's trouble its own to catch up on (D371 §2). Its first word that even its lowest quality
-// is beyond its link is logged.
+// follower's trouble its own to catch up on (D371 §2); no one's stall is waited for (takeStall,
+// D373 §1). Its first word that even its lowest quality is beyond its link is logged.
 func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	couldKeepUp := from.cannotKeepUp == nil
 	current.logPlayer(ctx, now, who, from, message)
 	from.takeState(message)
 	if message.Type == MessageState {
 		current.takeVisibility(now, who, from, message.PageHidden)
+		current.takeStall(ctx, now, who, from, message)
 		current.takeLeadInStep(now, who, from, message)
 	}
 	if message.Type == MessageState && from.id == current.leaderID {
