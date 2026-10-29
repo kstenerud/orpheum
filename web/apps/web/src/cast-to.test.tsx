@@ -419,6 +419,50 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(tabStorage().getItem(castReturnKey)).toBeNull();
   });
 
+  // The owner's staging, 2026-10-29: casting Back to the Lantern, the person started Watch Together;
+  // the cast handed again with its host's part, of the same film, was kept as it was, and the
+  // receiver stayed out of the session the person's Watch Together page showed.
+  it("takes the same cast handed again with its person's part in Watch Together, and keeps it as a credential is minted afresh for the same part (D364 §11, D372 §8)", async () => {
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
+    const sockets = liveAndSession();
+    function Part(): JSX.Element {
+      const { receiving, endReceiving } = useLive();
+      return (
+        <>
+          <p>{`part ${receiving?.togetherCredential ?? "none"}`}</p>
+          <button type="button" onClick={endReceiving}>
+            take back
+          </button>
+        </>
+      );
+    }
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <Part />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "receive", receive: handed });
+    await pressUse(mounted.container);
+    expect(mounted.container.textContent).toContain("part none");
+    await sockets.live.say({
+      type: "receive",
+      receive: { ...handed, membershipCredential: "cast-2", togetherCredential: "hosted" },
+    });
+    expect(mounted.container.textContent).toContain("part hosted");
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    await sockets.live.say({
+      type: "receive",
+      receive: { ...handed, membershipCredential: "cast-3", togetherCredential: "hosted-again" },
+    });
+    expect(mounted.container.textContent).toContain("part hosted");
+    expect(mounted.container.textContent).not.toContain("hosted-again");
+    await click(buttonWithText(mounted.container, "take back"));
+  });
+
   // The owner's Fire TV, 2026-10-29: playing The Kid as its own, cast Back to the Lantern,
   // the cast stopped and the TV back on The Kid; its Back then played Back to the Lantern.
   it("leaves the cast's entries ahead as casting ends, so Back from the page returned to never goes into its film", async () => {

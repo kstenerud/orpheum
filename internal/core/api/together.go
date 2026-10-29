@@ -260,6 +260,15 @@ func (server *Server) openTogether(ctx context.Context, input *AuthorizationHead
 	}
 	server.logger.InfoContext(ctx, "watch together: a host opened a session",
 		"sessionId", opened.SessionID, "hostUserId", principal.UserID)
+	// A host who casts has one session, not two: their receiver takes their part in this one, leading
+	// it with the film it plays from where it stands (D364 §11, D371 §4, D372 §8).
+	for _, each := range dependencies.Live.PartChanged(principal.UserID, func(castID int64) (int64, bool) {
+		positionMs, _, positionErr := dependencies.Together.CastPosition(castID, principal.UserID)
+		return positionMs, positionErr == nil
+	}) {
+		server.logger.InfoContext(ctx, "cast: a receiver takes its host's part in the session they opened",
+			"castId", each.ID, "sessionId", opened.SessionID, "fileId", each.FileID, logKeyUserID, each.UserID)
+	}
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = opened.SessionID, opened.MembershipCredential
 	return output, nil
