@@ -513,6 +513,22 @@ function useLatest<T>(value: T): RefObject<T> {
 /** The press that took a cast's control back, as its note says it. */
 type TakenBackBy = "back" | "select" | "tap" | "historyBack";
 
+/** Takes control back once, telling the cast's session by which press (and how, for OK) first. */
+function takingBackOnce(
+  connectionRef: RefObject<Pick<TogetherConnection, "note"> | undefined>,
+  takeBackRef: RefObject<() => void>,
+): (by: TakenBackBy, how?: string) => void {
+  let hasLeft = false; // a held key's presses would each note it
+  return (by, how = "") => {
+    if (hasLeft) {
+      return;
+    }
+    hasLeft = true;
+    connectionRef.current?.note({ kind: "takenBack", by, ...(how === "" ? {} : { how }) });
+    takeBackRef.current();
+  };
+}
+
 /**
  * What the keys did between two presses of OK, for the log: the gap between them and how many keys
  * went up between them, which says whether a browser repeats a held OK as fresh presses (VQ122).
@@ -520,6 +536,8 @@ type TakenBackBy = "back" | "select" | "tap" | "historyBack";
 function selectGaps(target: Window): {
   readonly heard: (now: number) => void;
   readonly how: (now: number) => string;
+  /** Whether a key went up since the last OK: a held OK's repeats have none between them. */
+  readonly isUpSince: () => boolean;
   readonly stop: () => void;
 } {
   let previousAt = Number.NEGATIVE_INFINITY;
@@ -534,6 +552,7 @@ function selectGaps(target: Window): {
       upsSince = 0;
     },
     how: (now) => `gapMs=${String(Math.round(now - previousAt))} upsBetween=${String(upsSince)}`,
+    isUpSince: () => upsSince > 0,
     stop: () => {
       target.removeEventListener("keyup", keyUp, true);
     },
@@ -592,10 +611,7 @@ function useLeavingPresses(
   useEffect(() => {
     // Which press took control back goes to the log: a held OK on the Fire TV took it, and the log
     // said only that the cast ended (VQ122, 2026-10-29).
-    const leave = (by: TakenBackBy, how = ""): void => {
-      connectionRef.current?.note({ kind: "takenBack", by, ...(how === "" ? {} : { how }) });
-      takeBackRef.current();
-    };
+    const leave = takingBackOnce(connectionRef, takeBackRef);
     const gaps = selectGaps(window);
     const presses = {
       lastPressAt: Number.NEGATIVE_INFINITY,
@@ -611,10 +627,12 @@ function useLeavingPresses(
       (detail, event) => {
         const now = performance.now();
         const isSelect = detail.command === "select";
-        if (
-          detail.command === "back" ||
-          (isSelect && detail.isRepeat !== true && isSecondPress(now))
-        ) {
+        // Silk on a Fire TV sends a held OK's repeats as presses of their own, unmarked and with no key
+        // up between them (VQ122: gapMs=433 upsBetween=0, then every ~35 ms): a second OK counts only
+        // with a key up since the first.
+        const isSecondOk =
+          isSelect && detail.isRepeat !== true && isSecondPress(now) && gaps.isUpSince();
+        if (detail.command === "back" || isSecondOk) {
           event.preventDefault();
           leave(isSelect ? "select" : "back", isSelect ? gaps.how(now) : "");
         }
