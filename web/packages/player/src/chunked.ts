@@ -43,6 +43,13 @@ import {
   loadsAheadBelowTopS,
   type ForwardBuffer,
 } from "./forward-buffer.ts";
+import {
+  longTasksOf,
+  watchMainThread,
+  type LongTasks,
+  type WatchedFilm,
+  type WatchedHls,
+} from "./main-thread.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { steadinessNoter } from "./steadiness.ts";
@@ -358,8 +365,8 @@ export function tellStalls(
 /**
  * What a chunked playback follows of its video once hls.js plays it: how far ahead it loads
  * (keepForwardBuffer, at most atMostS where given, its top its controller's, its notes for the play
- * report), its group (obeyGroup), its sound's shift, and its stalls (tellStalls). Returns each
- * stopping.
+ * report), its group (obeyGroup), its sound's shift, its stalls (tellStalls), and its page's main
+ * thread's stalls (watchMainThread, for the same notes). Returns each stopping.
  */
 function followAheadGroupSoundAndStalls(
   hls: Hls,
@@ -381,7 +388,21 @@ function followAheadGroupSoundAndStalls(
     obeyGroup(hls, video, { abr: by.abr, ahead: ahead.buffer }),
     by.soundShift.attach(hls, video),
     tellStalls(video, by.abr.choosing),
+    tellMainThreadStalls(hls, video, longTasksOf(globalThis)),
   ];
+}
+
+/**
+ * Notes each stall of the page's main thread while video plays (watchMainThread), from the browser's
+ * longTasks, or a timer where it reports none, with the link's notes, which the play report carries
+ * and the core logs. Returns the stopping.
+ */
+export function tellMainThreadStalls(
+  hls: WatchedHls,
+  video: WatchedFilm,
+  longTasks: LongTasks | undefined,
+): () => void {
+  return watchMainThread(hls, video, { note: linkNoter(video), longTasks });
 }
 
 /**

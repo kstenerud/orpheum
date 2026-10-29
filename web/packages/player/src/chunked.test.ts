@@ -24,12 +24,13 @@ import {
   settledAtBps,
   shareForQualityOf,
   tellChunkedLoading,
+  tellMainThreadStalls,
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
-import { linkSpreadOf } from "./link-estimate.ts";
+import { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
 import { steadinessOf } from "./steadiness.ts";
 import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
@@ -292,6 +293,29 @@ describe("a stall, which the bitrate controller weighs (D352 §1, §4)", () => {
     stop();
     expect(listeners.size).toBe(0);
     vi.useRealTimers();
+  });
+});
+
+describe("a stall of the page's main thread while a chunked playback plays (the Fire TV's skip back, 2026-10-29)", () => {
+  it("is noted with the link's notes, for the play report, with the seek before it, and no more once stopped", () => {
+    let task: ((startMs: number, durationMs: number) => void) | undefined;
+    const video = Object.assign(new EventTarget(), { currentTime: 1200, paused: false });
+    const hls = { on: vi.fn(), off: vi.fn() };
+    const stop = tellMainThreadStalls(hls, video, (report) => {
+      task = report;
+      return () => {
+        task = undefined;
+      };
+    });
+    video.dispatchEvent(new Event("seeking"));
+    task?.(performance.now() + 1, 9700);
+    expect(takeLinkNotes(video)).toEqual([
+      expect.stringMatching(
+        /^main thread stalled 9\.7 s \(long task\) at 1200\.0 s; before: seek to 1200\.0 s -/u,
+      ),
+    ]);
+    stop();
+    expect(task).toBeUndefined();
   });
 });
 

@@ -1347,5 +1347,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   low and the player loads less than it could), no stall follows it, and the `loads ahead … by cut`
   after it stays in force; and (2) the Mac's notes have a `loads ahead 30.0 s … by below top` line
   while held low, and a `stepped up to N shown after M ms` line with M at most about 40 000 (the
-  30 s loaded below the top and a chunk), against the minutes seen before.
-  (`web/packages/player/src/forward-buffer.ts`, `chunked.ts`, `hls.ts`, `step-up.ts`)
+  30 s loaded below the top and a chunk), against the minutes seen before. Also on the Fire TV, at
+  the top of a film whose own sound is 5.1 (Nosferatu's): the `device memory` line says `sound … MB
+  assumed`, a `loads ahead … by sound bytes` or `by sound floor` line follows the first chunk of
+  sound, and a `buffer full on audio` line, if one still comes, gives the sound's own rate, so its
+  seconds give the sound buffer's real limit (about 2 MB: Chromium's low-end; about 12.6 MB: the
+  ordinary one). And a skip back on the Fire TV's remote, three times during the film, shows no
+  main-thread stall over 1 s: no `main thread stalled` line in the notes, or, where one comes, the
+  events it names before it say what froze the page, and the picture plays at its own speed after.
+  (`web/packages/player/src/forward-buffer.ts`, `main-thread.ts`, `chunked.ts`, `hls.ts`,
+  `step-up.ts`)

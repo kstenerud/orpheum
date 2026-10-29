@@ -125,6 +125,13 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   2026-10-29, "Agreed with your recommendations"; its P3, replacing loaded low quality on a step up,
   is not to be built). `forward-buffer.test.ts`, `chunked.test.ts`, `hls.test.ts`,
   `abr-trust.test.ts`.
+- **A chunked playback notes each stall of its page's main thread of `mainThreadStallAtLeastMs`
+  (1 s) or more**, with its linkNotes, naming the player's last events before it (a seek, a quality
+  or sound begun, a buffer flushed or run full), at most `mainThreadStallNotesAtMost` a playback:
+  from the browser's long tasks where it reports them (Chromium, Silk), else from a timer's
+  lateness while the film plays on a shown page. A Fire TV's page froze about 10 s after a skip
+  back, its picture then running fast to catch up, and nothing said so (staging, 2026-10-29;
+  VQ121). `main-thread.test.ts`, `chunked.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
   with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
   `chunked.test.ts`.
@@ -165,7 +172,7 @@ for how far ahead it loads;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`; its estimate of the
   link: `src/link-estimate.ts`; its steadiness: `src/steadiness.ts`; its place inside hls.js:
   `src/abr-controller.ts`; what it reads of its video's position, how long it played and where it
-  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`. The
+  stood still: `src/abr-video.ts`; the chunk on its way it judges: `src/abr-on-its-way.ts`; how long its next chunk is expected to take: `src/next-chunk.ts`; how far ahead it loads: `src/forward-buffer.ts`; noting its page's main thread's stalls: `src/main-thread.ts`. The
   frames a video showed and dropped: `src/frames.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.
