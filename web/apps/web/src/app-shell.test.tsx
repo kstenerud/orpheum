@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
+import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
 import { createNavigation } from "./navigation.ts";
 import { buttonNamed, buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
 import { fakePlace, testServices, withServices } from "./test-services.tsx";
@@ -519,5 +520,45 @@ describe("AppShell", () => {
     await click(buttonWithText(shown.container, "Dismiss"));
     expect(shown.container.textContent).not.toContain(asking);
     shown.unmount();
+  });
+
+  // The owner's Fire TV, 2026-10-29: Silk leaves the permission waiting for good, so the note "comes
+  // back after each reload, and stays persistent on all pages until I dismiss it".
+  it("remembers on this browser that its person dismissed the local network's note, past a reload", async () => {
+    const asking = "Your browser is asking to reach devices on your network.";
+    localStorage.removeItem(localNetworkNoteDismissedKey);
+    const services = {
+      ...testServices(),
+      onLocalNetworkAsking: (listener: (isAsking: boolean) => void) => {
+        listener(true);
+        return () => undefined;
+      },
+    };
+    const shell = (): JSX.Element =>
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        services,
+      );
+    try {
+      const first = await mount(shell());
+      await settleUntil(() => first.container.textContent.includes(asking));
+      await click(buttonWithText(first.container, "Dismiss"));
+      first.unmount();
+      // The page loaded again, the browser still asking.
+      const again = await mount(shell());
+      await settleUntil(() => again.container.textContent.includes("screen"));
+      expect(again.container.textContent).not.toContain(asking);
+      again.unmount();
+    } finally {
+      localStorage.removeItem(localNetworkNoteDismissedKey);
+    }
   });
 });
