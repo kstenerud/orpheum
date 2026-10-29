@@ -40,6 +40,8 @@ const clientKeys = new Set([
   "orpheum.cast.returnTo",
   // The latency of this device's sound through Web Audio, as last measured (sound-latency.ts).
   "orpheum.sound.latencyMs",
+  // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).
+  "orpheum.localNetwork.noteDismissed",
 ]);
 
 /**

@@ -112,7 +112,9 @@ through `index.ts`, so revert-red's related set stays small, devloop §2) and
    it races (protocol §3.1; D292 §6, replacing the last good LAN address).
 8. A line explaining the browser's local-network prompt, and a help page for undoing a block (§7
    item 14, U1). *The line is built (2026-10-20): shown above the screen while the prompt waits,
-   which the loader tells the client since its interface's minor 1; the help page is not. Firefox
+   which the loader tells the client since its interface's minor 1; the help page is not. Its
+   dismissal is remembered by the browser since 2026-10-29: Silk on a Fire TV leaves the prompt
+   waiting for good, and the note came back at every reload (the owner). Firefox
    never uses the LAN name, and so never prompts (idiosyncrasies.md, the owner's choice 2026-10-20).* The service worker's own requests need the permission granted to its
    origin first (protocol §3.4).
 

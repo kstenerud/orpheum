@@ -979,7 +979,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   brought me back to the top of the series list. It should bring me back to the point in the list
   where Copper Kettle is, still highlighted": the remote's Back from a series or film opened far down
   Series, Films or a library's list (past its first 60 titles too) returns to the list with that
-  title focused and in view.
+  title focused and in view. (9) "The note about the browser asking for permission is persistently
+  showing so I've dismissed it", which came back after each reload: on the Fire TV through the
+  discovery, the note on the browser's local-network prompt, once dismissed, stays away after a
+  reload and on every page (`web/apps/web/src/local-network-note.tsx`).
 - [ ] **VQ92** — a remote's commands reach its receiver at once, on staging. Passes when, with the Mac's
   Firefox casting to the Mac's Chrome and Watch Together on (the receiver the host's player), the
   receiver's window behind or beside the remote's: (1) the remote's Pause pauses the receiver's
