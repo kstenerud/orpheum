@@ -88,17 +88,19 @@ function focusedMiddleIn(dialog: HTMLDialogElement): number | undefined {
 
 /**
  * Lays dialog, a drop-down's open list, at opener (drop-down-place.ts); on a big screen, where the
- * screen's edge kept its focused place off the button's middle, scrolls places, the part that
- * scrolls, to bring it there as far as they can, as a select's long list opens.
+ * screen's edge cuts it, cuts places, the part that scrolls, to the height shown; and where its
+ * focused place is off the button's middle, scrolls places to bring it there as far as they can, as
+ * a select's list opens.
  */
 function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTMLElement): void {
   const openerBox = opener.getBoundingClientRect();
   const isPhone = isPhoneWidth();
   dialog.setAttribute("data-placed", isPhone ? "over" : "at");
   dialog.style.setProperty("--drop-down-opener-width", `${String(openerBox.width)}px`);
+  places.style.removeProperty("max-height");
   const box = dialog.getBoundingClientRect();
   const focusedMiddle = focusedMiddleIn(dialog);
-  const { left, top } = listPlace({
+  const { left, top, height } = listPlace({
     opener: openerBox,
     list: box,
     focusedMiddle: focusedMiddle === undefined ? undefined : focusedMiddle - box.top,
@@ -107,6 +109,10 @@ function layAtOpener(dialog: HTMLDialogElement, places: HTMLElement, opener: HTM
   });
   dialog.style.setProperty("left", `${String(left)}px`);
   dialog.style.setProperty("top", `${String(top)}px`);
+  if (height < box.height) {
+    const placesHeight = places.getBoundingClientRect().height;
+    places.style.setProperty("max-height", `${String(placesHeight - (box.height - height))}px`);
+  }
   const laidMiddle = focusedMiddleIn(dialog);
   if (!isPhone && laidMiddle !== undefined) {
     places.scrollBy({ top: laidMiddle - (openerBox.top + openerBox.height / 2) });

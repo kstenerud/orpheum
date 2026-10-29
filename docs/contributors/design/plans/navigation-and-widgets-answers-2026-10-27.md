@@ -287,8 +287,11 @@ had leaned on.
   fixed in the batch (2026-10-29): held low after a drop, it had loaded 450 s of 360p ahead, as hls.js
   loads ahead by bytes; a playback now loads at most 60 s ahead at any quality (the 60 s for the owner
   to confirm). Its step up after a drop waits D352's hold, one quality at a time.
-- **A drop-down in a short window** (1920×600) moves up 22 px to stay on screen, its choice no longer over
-  its button's centre.
+- **Fixed in the batch (the owner agreed the rule, 2026-10-29):** a drop-down in a short window (1920×600)
+  moved up to stay on screen, its choice no longer over its button's centre, with nothing to scroll.
+  Where the screen's edge would cut a list opened at its button, it is now cut there and scrolls within
+  itself, as a select's list, its choice staying over the button, while the cut list keeps at least half
+  its own height; past that it is moved to stay on screen as before (`drop-down-place.ts`; VQ97 (9)).
 - **Fixed in the batch (the owner: "fold in whatever fixes will help", 2026-10-29):** a WARN "a request
   that only reads wrote to the database" from `forgetAttempt` when the boost stopped an own-sound run
   (20:57:08), where every other such line is DEBUG with a reason. The store's list allows it, with why:

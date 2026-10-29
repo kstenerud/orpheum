@@ -1037,8 +1037,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   **The lead's check 2026-10-28 (headless Chromium):** (7), (8), (10) (a 390×844 phone size), (11),
   and Left, Right, Escape, Close and Up to the Close then Left, each closing with focus on the button
   and no scroll, hold; (9) holds at 1920×1080 and 1280×720, while in a 1920×600 window the season
-  list moves up 22 px to stay on screen, its choice no longer over the button's centre. Left for the
-  owner: everything on the Fire TV.
+  list moves up 22 px to stay on screen, its choice no longer over the button's centre. Fixed by the
+  owner's rule of 2026-10-29: (9) also passes when, in a 1920×600 window, a season picker near the
+  screen's bottom opens with its list cut at the screen's edge, scrolling within itself, its current
+  choice over the button; and a chooser so low that the cut list would keep less than half its height
+  opens moved up whole, inside the screen. Left for the owner: everything on the Fire TV.
 - [ ] **VQ98** — a cast from a phone to Firefox on a Mac starts playing, on staging. Passes when, the
   phone casting to the Mac's Firefox a converted film (a ladder) from its middle, where it was left
   partway, five times, with Watch Together off: (1) each starts playing within 10 s of Use and plays
