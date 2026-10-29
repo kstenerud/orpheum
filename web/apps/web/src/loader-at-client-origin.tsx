@@ -200,6 +200,7 @@ export function loaderOver(
     openTogetherSocket: kept.openTogetherSocket,
     onPathMove: kept.onPathMove,
     pathInUse: kept.pathInUse,
+    mediaCarrierOf: kept.mediaCarrierOf,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
     session,
     setMediaCredentials: kept.setMediaCredentials,

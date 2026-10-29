@@ -12,6 +12,7 @@ import {
   apiPrefix,
   browserTogetherSocket,
   carryMediaOver,
+  mediaCarrierOf,
   tellMediaCarriers,
   directFetch,
   namingFailures,
@@ -38,6 +39,8 @@ export interface KeptPath {
   readonly onPathMove: (listener: (to: string) => void) => () => void;
   /** The kind of path the requests and the media go over now. */
   readonly pathInUse: () => Reached["kind"];
+  /** What carries the load of a media url now, for a stuck chunk's log (the SDK's mediaCarrierOf). */
+  readonly mediaCarrierOf: (url: string) => string;
   /** Names what media loads are signed in with. */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
   /**
@@ -156,6 +159,7 @@ export function keepPath(
       };
     },
     pathInUse: () => inUse.kind,
+    mediaCarrierOf,
     setMediaCredentials: (named) => {
       credentials = named;
     },

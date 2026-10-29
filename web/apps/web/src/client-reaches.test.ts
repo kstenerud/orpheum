@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 // @vitest-environment happy-dom
+import { mediaCarrierOf } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
-import { reachesUnderLoader } from "./client-reaches.ts";
+import { reachesUnderLoader, takeMediaCarriers } from "./client-reaches.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
 import { createSession } from "./session.ts";
 
@@ -49,6 +50,20 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
     inUse = "direct";
     expect(reaches.pathMoves.isOverWebrtc()).toBe(false);
     expect(reachesUnderLoader(loaderWith(), document).pathMoves.isOverWebrtc()).toBe(false);
+  });
+
+  it("names what carries a media load by the loader's word, and its own from an older loader (the Fire TV on staging, 2026-10-29)", () => {
+    const chunk = "https://client.example/api/v1/bytes/media/chunks/t/00001.m4s";
+    takeMediaCarriers(loaderWith());
+    expect(mediaCarrierOf(chunk)).toBe("http");
+    takeMediaCarriers({
+      ...loaderWith(),
+      mediaCarrierOf: (url) =>
+        url === chunk ? "WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago" : "",
+    });
+    expect(mediaCarrierOf(chunk)).toBe(
+      "WebRTC connection 2, up 41 s, 3 under way, last bytes 5512 ms ago",
+    );
   });
 
   it("sends the app's requests the loader's way, and names the realm it reached", async () => {

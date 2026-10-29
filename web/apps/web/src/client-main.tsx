@@ -21,7 +21,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
-import { reachesUnderLoader, type Reaches } from "./client-reaches.ts";
+import { reachesUnderLoader, takeMediaCarriers, type Reaches } from "./client-reaches.ts";
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
@@ -119,6 +119,7 @@ function mountOnOwnOrigin(): void {
  */
 function mountUnderLoader(loader: OrpheumLoader): void {
   loader.setMediaCredentials(mediaCredentialsOf(loader.session));
+  takeMediaCarriers(loader);
   mountApp(loader.session, reachesUnderLoader(loader, document), root);
 }
 

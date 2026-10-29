@@ -1317,4 +1317,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   started` line has a non-zero `rememberedLinkKbps` with `rememberedLinkSamples` 2 (or less, if over
   an hour old) after the restart, and its seek/start note says `nextChunkLoadFrom` `remembered` or
   `confident`, not `none`. (`web/packages/player/src/link-estimate.ts`, `abr.ts`, `next-chunk.ts`;
-  `internal/core/playback/speeds.go`, step 0063)
+  `internal/core/playback/speeds.go`, step 0063). Through the discovery's page (its loader
+  repackaged with loader minor 3), a stuck chunk's note names `WebRTC connection N`, not `http`,
+  on the Fire TV (`web/apps/web/src/client-main.tsx`, `client-reaches.ts`, `kept-path.ts`).
