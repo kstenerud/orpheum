@@ -70,7 +70,9 @@ function FilmPlaying(props: {
         durationMs={details.durationMs ?? 0}
       />
       <div className="together-plays__buttons">
-        <Link to={{ screen: "play", fileId: props.fileId }}>
+        {/* The page's one primary action, styled as the title page's Play: the host and guests come
+            back to watching here by it (the owner missed it as a plain link, 2026-10-29). */}
+        <Link to={{ screen: "play", fileId: props.fileId }} className="title__play">
           {t("watchTogether.backToTheFilm")}
         </Link>
         <button
