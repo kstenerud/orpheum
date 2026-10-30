@@ -1877,7 +1877,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   itself from about where the TV was, and the TV, once back on its network, is on its home page.
   (`web/apps/web/src/navigation.ts`, `cast-receiver.tsx`, `cast-remote.tsx`, `live.tsx`, `play.tsx`,
   `status-tray.tsx`, `watch-together.tsx`)
-- [ ] **VQ191** — a jump in Watch Together plays, on staging. A Watch Together session on a film,
+- [x] **VQ191** — a jump in Watch Together plays, on staging. A Watch Together session on a film,
   the S23's guest casting to the Fire TV, which leads, and the Mac's Chrome as host: from Chrome,
   jump far ahead into film not made yet. Passes when every player plays from there within a few
   seconds, and the core's log has a `queued a run of chunks` whose `firstChunk` is the chunk each
@@ -1885,7 +1885,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   `planned no run of chunks: no player wants one from there` repeating for it. Repeat it a few
   times, as the jump that hung landed exactly on a chunk's start.
   (`internal/core/playback/interest.go`)
-- [ ] **VQ192** — a Watch Together session ended under a signed-in guest's film sends them home,
+  **Passed 2026-10-30 (the owner, staging), without a cast:** far jumps, playing and paused, both devices played from the new point each time; the cast-led case follows VQ193's fix.
+- [x] **VQ192** — a Watch Together session ended under a signed-in guest's film sends them home,
   and the cast remote brings a film back by Stop casting alone (D372 §9–§10, D384 §2, D388), on
   staging. (1) The Mac's Chrome hosts a session on a film; the S23, signed in, joins by its link and
   plays the group's film on its Play page; the host ends the session from its dialog: passes when
@@ -1897,3 +1898,4 @@ An item is ticked only by the person who did it, and only with what they saw.
   the remote on the Play page offers Stop casting and no "Play on this device instead", and Stop
   casting sends the TV home and plays the film on Chrome from where the TV stood.
   (`web/apps/web/src/together-guest-play.tsx`, `cast-remote.tsx`)
+  **Passed 2026-10-30 (the owner, staging), part (1):** the S23 as s23 and as admin went home, told, and stayed home on reload; part (2) (Stop casting alone) is checked with VQ193.
