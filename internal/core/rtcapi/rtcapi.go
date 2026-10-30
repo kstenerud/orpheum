@@ -141,6 +141,9 @@ type bounds struct {
 	perSource       int
 	channels        int
 	requestDeadline time.Duration
+	// answerLingers is how long a response's channel may stay open after the core's last byte for it
+	// before its close is logged (answerWatch).
+	answerLingers time.Duration
 }
 
 // AcceptAnyRelayedAddress lets the connections a discovery's offers make check any remote address,
@@ -197,7 +200,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		bounds: bounds{
 			connections:   DefaultMaxConnections,
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
-			requestDeadline: requestDeadline,
+			requestDeadline: requestDeadline, answerLingers: answerLingersAfter,
 		},
 		connections: map[*webrtc.PeerConnection]bool{}, paths: map[Path]int{},
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
@@ -392,6 +395,7 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 			path:        func() Path { return selectedPath(connection) },
 			ownNetworks: own.held,
 			held:        held,
+			now:         server.clock.Now, answerLingers: server.bounds.answerLingers,
 		})
 	})
 	return connection, nil

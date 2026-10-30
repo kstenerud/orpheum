@@ -63,11 +63,16 @@ type channelWriter struct {
 	drained    chan struct{}
 	credit     *credit
 	failed     error
+	// watch is told the bytes handed to SCTP and each wait for its buffer to drain.
+	watch *answerWatch
 }
 
-func newChannelWriter(ctx context.Context, channel *webrtc.DataChannel, granted *credit) *channelWriter {
+func newChannelWriter(
+	ctx context.Context, channel *webrtc.DataChannel, granted *credit, watch *answerWatch,
+) *channelWriter {
 	writer := &channelWriter{
 		ctx: ctx, channel: channel, headers: http.Header{}, drained: make(chan struct{}, 1), credit: granted,
+		watch: watch,
 	}
 	channel.SetBufferedAmountLowThreshold(bufferedLowBytes)
 	channel.OnBufferedAmountLow(func() {
@@ -129,8 +134,10 @@ func (writer *channelWriter) sendHead() error {
 	}
 	if err = writer.channel.SendText(string(head)); err != nil {
 		writer.failed = fmt.Errorf("send the response's head: %w", err)
+		return writer.failed
 	}
-	return writer.failed
+	writer.watch.sent(len(head))
+	return nil
 }
 
 // send sends one message of the body, waiting first while the channel holds too much.
@@ -138,6 +145,24 @@ func (writer *channelWriter) send(message []byte) error {
 	if writer.failed != nil {
 		return writer.failed
 	}
+	if err := writer.waitForRoom(); err != nil {
+		return err
+	}
+	if err := writer.channel.Send(message); err != nil {
+		writer.failed = fmt.Errorf("send the response: %w", err)
+		return writer.failed
+	}
+	writer.watch.sent(len(message))
+	return nil
+}
+
+// waitForRoom waits while the channel holds too much, telling the watch while it does.
+func (writer *channelWriter) waitForRoom() error {
+	if writer.channel.BufferedAmount() <= bufferedHighBytes {
+		return nil
+	}
+	writer.watch.draining(true)
+	defer writer.watch.draining(false)
 	for writer.channel.BufferedAmount() > bufferedHighBytes {
 		select {
 		case <-writer.drained:
@@ -146,16 +171,20 @@ func (writer *channelWriter) send(message []byte) error {
 			return writer.failed
 		}
 	}
-	if err := writer.channel.Send(message); err != nil {
-		writer.failed = fmt.Errorf("send the response: %w", err)
-	}
-	return writer.failed
+	return nil
 }
 
-// finish sends the head if nothing was written, and the empty message that ends the response.
+// finish sends the head if nothing was written, and the empty message that ends the response: the
+// watch is told the response is whole as the end is handed to SCTP, before the client can close the
+// channel on it, and told again should that fail.
 func (writer *channelWriter) finish() error {
 	if err := writer.sendHead(); err != nil {
 		return err
 	}
-	return writer.send([]byte{})
+	writer.watch.finished(true)
+	if err := writer.send([]byte{}); err != nil {
+		writer.watch.finished(false)
+		return err
+	}
+	return nil
 }

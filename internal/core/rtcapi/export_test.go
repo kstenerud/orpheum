@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // Bounds are a server's bounds on each connection, set shorter than the core's for the tests.
@@ -15,6 +17,7 @@ type Bounds struct {
 	PerSource       int
 	Channels        int
 	RequestDeadline time.Duration
+	AnswerLingers   time.Duration
 }
 
 // SetBounds sets server's bounds; a zero field keeps the core's.
@@ -33,6 +36,16 @@ func SetBounds(server *Server, set Bounds) {
 	if set.RequestDeadline > 0 {
 		server.bounds.requestDeadline = set.RequestDeadline
 	}
+	if set.AnswerLingers > 0 {
+		server.bounds.answerLingers = set.AnswerLingers
+	}
+}
+
+// SetClock has server time what it times by clock.
+func SetClock(server *Server, set clock.Clock) {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	server.clock = set
 }
 
 // AnswerOnLoopback has server's own offer endpoint answer on the loopback alone, for a test whose
