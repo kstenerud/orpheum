@@ -24472,3 +24472,59 @@ need most for this batch, and which unfinished tests really need to get sorted o
 
 **Status:** Decided 2026-10-30.
 
+## D379 — A series page shows its seasons as a row of posters
+
+**Decided** (2026-10-30), by the project owner, revising D367 §9's season picker (a choice box). The
+owner (2026-10-28): "I'm not sure I like having the season selection done as a choice box. Jellyfin
+actually shows posters for the seasons in the season page." Shown two shapes, the owner took the
+lead's recommendation ("follow your recommendations on those").
+
+1. **One series page** (D367 §9 stands in that): above its episodes, a row of its seasons' posters, the
+   specials last; a season without a poster shows a still of it, else the series' poster.
+2. **Choosing a poster shows that season's episodes below** and replaces the history entry (D367 §2);
+   coming back preselects the season of the episode left, that episode focused (D367 §9).
+3. **On a TV the row is one focus row**, Left and Right along it, Down into the episodes.
+4. Not chosen: Jellyfin's own shape, a grid of season posters whose each season is a page of its own,
+   which costs an extra page and an extra Back for every episode chosen.
+
+**Status:** Decided 2026-10-30.
+
+---
+
+## D380 — A debug tool caps this tab's download rate, or drops its connection for a while
+
+**Decided** (2026-10-30), by the project owner, on the lead's recommendation ("follow your
+recommendations on those"). Chrome's DevTools throttling never reached the WebRTC carrier (VQ128's
+run), so a slow or lost link could be tested only by turning Wi-Fi off or a phone's remote debugging.
+
+1. **Under Show debug tools** (the person's own option), on the player: a cap on this tab's download
+   rate (off, 0.5, 1, 2 or 5 Mb/s), and "Drop the connection for 10, 30 or 60 s".
+2. **The cap is applied in the player's chunk fetch**, so every carrier, WebRTC and HTTP, is capped
+   alike and the player's link estimate sees what a slow link gives.
+3. **The drop closes every socket and carrier of the tab and refuses to reconnect for that time**, then
+   lets them reconnect as after a real network loss.
+4. **It lasts for the tab only, and says so the whole time**: a badge ("Throttled to 1 Mb/s") stays on
+   the page while a cap is on, as a DevTools box left ticked once cost an afternoon (agent-failures A51).
+
+**Status:** Decided 2026-10-30.
+
+---
+
+## D381 — The player chooses the quality it starts on, by the rule it plays by
+
+**Decided** (2026-10-30), by the project owner, on the lead's recommendation ("follow your
+recommendations on those"), amending D257 §2. On the Fire TV, A View to a Kill and The Kid
+showed two or three black frames at their start: the server chose the first quality at 70% of the
+remembered link (2.5 Mb/s), the player's own choice moved at once to 12.2 Mb/s, and a new
+initialisation segment resets Silk's decoder (navigation-and-widgets-answers-2026-10-27.md, "A black
+blip").
+
+1. **The player chooses its first quality before it loads anything**, from the remembered link speed it
+   is given (`rememberedLinkKbps`), by the same rule its quality choice plays by, so the first chunk is
+   of the quality it plays and no switch lands as playback begins. Every quality choice goes through
+   that one path (memory one-path-for-decisions; principles §11's one way).
+2. **The server's choice (D257 §2) stays for a player that remembers nothing** and for Safari's
+   playlist order, as its start.
+
+**Status:** Decided 2026-10-30.
+
