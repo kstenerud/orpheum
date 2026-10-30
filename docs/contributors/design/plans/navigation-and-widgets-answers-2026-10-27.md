@@ -493,3 +493,8 @@ had leaned on.
   alternate audio (EXT-X-MEDIA), and a track change switches the sound alone (hls.js's `audioTrack`),
   the picture playing on and the new track's chunks made from where it stands. A design for the
   owner (core playlist, player).
+- **A link refused in another browser should say so before the join form (the owner, 2026-10-30,
+  VQ172(3)).** "This works, but ideally it should tell them right off the bat rather than letting
+  them try to fill out the form uselessly first."
+- **D384 §3: no device in the same Watch Together session is a cast target** (the owner, 2026-10-30,
+  after casting from the S23 to the Mac hosting the session ended the cast).

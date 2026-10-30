@@ -1725,13 +1725,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the S23, a guest's Play page sent to another site and back the same way. Its live connection too:
   the core's log has the page's live device leaving and coming back.
   (`web/packages/sdk/src/together-connection.ts`, `live-connection.ts`, `shown-page.ts`)
-- [ ] **VQ171** — a phone's live connection is checked at once as its page is shown again, on
+- [x] **VQ171** — a phone's live connection is checked at once as its page is shown again, on
   staging. On the S23 (Chrome), signed in on any page, lock the phone for 35 s or more, then unlock it.
   Passes when the core's log has its live device connected again (or its socket answering) within a
   couple of seconds of the unlock, not the 20 s it took on 2026-10-29 (VQ126's run), and a cast to the
   S23 from the Mac right after the unlock finds it among the devices. (`web/packages/sdk/src/live-connection.ts`,
   `shown-check.ts`, `shown-page.ts`)
-- [ ] **VQ172** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
+- [x] **VQ172** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
   (1) Signed in as dan on the Mac's Firefox, join Chrome's session by a link. Passes when the guest's
   page has the banner: the tray (Cast and Watch Together's blue sign), the menu with Your account
   (Show debug tools reachable there, and a cast from the tray, unblocking VQ103). (2) With a film

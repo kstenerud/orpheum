@@ -24675,3 +24675,32 @@ film's page, or home on the ready page, with none noted, or on a 403/404 reading
 (`cast-uncontrolled.ts`); a received cast's session ending other than by Stop casting, take-back or
 a replacing cast (gone, its receiver gone too long) does the same. A history entry written by an
 older client has no title noted, so its Play page reached by Back goes home. Device check: VQ189.
+
+## D384 — A cast that ends sends its receiver home, and the page cast from stays the page it was
+
+**Decided** (2026-10-30), by the project owner ("Yes do 1+2 this batch and 3 the next batch", and §3 in
+their own words), amending D364 §10, D383 §2 and the sender's casting page (D337, D364). VQ103's run on
+staging: the S23, a Watch Together guest, cast to the Fire TV. Stop casting left the TV playing the film
+under its own control. A second cast was taken back by the TV 40 ms after its Use (castId 74, 17:42:59;
+again at 17:48:46, `by=historyBack`): the Use dialog's close stepped the history back, and the
+receiver's page, just shown, took that step for the person's Back. A third cast left the S23 on a
+casting page of its own, from which the way back to the group's film went through "Go to Watch
+Together's controls" and "Back to video" to the casting page again ("This is so confusing that I think
+we need to fix it in this batch").
+
+1. **A cast that ends sends its receiver to its home page**: Stop casting, the session's end, its
+   controller gone, or a receiver found with no controller (replacing D383 §2's film page, the owner:
+   "it's probably best from a UX perspective for a castee to go back to the home page whenever its
+   cast ends. Otherwise it's too difficult to decide what it should do"). Taking control back on the
+   receiver (Back, OK twice) is not an end: the film plays on there (D338, settled).
+2. **The page cast from stays where it is**: a solo Play page or a Watch Together page keeps its
+   place; its video's area says "Playing on ‹device›" and its controls work the receiver; Stop casting
+   brings the film back to that same page. The tray's Cast opens a dialog to choose a device or stop,
+   and never navigates. There is no casting page of its own.
+3. **No device in the same Watch Together session, controller or player, is a cast target** (next
+   batch).
+
+Also: a receiver ignores the history steps the app makes itself (a dialog's close): only the person's
+own Back takes control back.
+
+**Status:** Decided 2026-10-30; not built yet.
