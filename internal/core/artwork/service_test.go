@@ -578,3 +578,36 @@ func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTriedAgainAsWorkLost(t *t
 		t.Errorf("a re-encode the node's status no longer holds ended %v; want it tried again, the work lost", err)
 	}
 }
+
+func TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsItsSeriesOwn(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/f.jpg": []byte("series"), "/s1.jpg": []byte("season 1")})
+	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
+		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: ourWebP}}}
+	}
+	bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: "/f.jpg"})
+	bench.handle(t, Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), SourceRef: "/s1.jpg"})
+	var live []string
+	for _, row := range bench.rows(t) {
+		season := "own"
+		if row.SeasonNumber != nil {
+			season = strconv.FormatInt(*row.SeasonNumber, 10)
+		}
+		live = append(live, season+" "+*row.SourceRef)
+	}
+	slices.Sort(live)
+	if want := []string{"1 /s1.jpg", "own /f.jpg"}; !slices.Equal(live, want) {
+		t.Fatalf("live %v; want the series' poster and season 1's, each its own (D379)", live)
+	}
+	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
+		ItemIDListJSON: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
+	})
+	if err != nil || len(shown) != 1 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("series")).sourceSha256()) {
+		t.Errorf("shown %+v (%v); want the series' own poster alone", shown, err)
+	}
+	seasons, err := bench.database.Read().ListSeasonPosters(t.Context(), bench.itemID)
+	if err != nil || len(seasons) != 1 || seasons[0].SeasonNumber != 1 ||
+		!bytes.Equal(seasons[0].SourceSha256, Received([]byte("season 1")).sourceSha256()) {
+		t.Errorf("season posters %+v (%v); want season 1's", seasons, err)
+	}
+}

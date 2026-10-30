@@ -4,6 +4,7 @@ package identify_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -75,5 +76,40 @@ func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 		!slices.Equal(rematched[0].Refs, other.Artwork) {
 		t.Errorf("after the rematch: reported %+v; want the title with Léon's images, so Metropolis's go (D223 §9)",
 			rematched)
+	}
+}
+
+func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "tmdb")
+	series := identify.Metadata{ID: "4807", Name: "Emberwing", Year: 2002, Artwork: []identify.ImageRef{
+		{Kind: library.ArtPoster, Ref: "/emberwing.jpg"},
+		{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Ref: "/season-1.jpg"},
+	}}
+	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(series)}
+	lib.provider.Seasons["1437/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Tranquilla"}}
+	const rel = "Emberwing/Season 01/Emberwing - S01E01.mkv"
+	lib.scanAll(rel)
+	seriesID := lib.onlySeries().ID
+	if _, err := lib.matcher.Match(t.Context(), seriesID); err != nil {
+		t.Fatal(err)
+	}
+	lib.runOwedPasses()
+	// Every pass names them from the series' stored record, so a series matched before its seasons'
+	// posters were read gets them at its next pass (D379).
+	report := lib.scan(videoRecord(rel))
+	var named []string
+	for _, item := range report.NamedImages {
+		for _, ref := range item.Refs {
+			season := "own"
+			if ref.SeasonNumber != nil {
+				season = fmt.Sprint(*ref.SeasonNumber)
+			}
+			named = append(named, fmt.Sprintf("%d %s %s", item.ItemID, season, ref.Ref))
+		}
+	}
+	want := []string{fmt.Sprintf("%d own /emberwing.jpg", seriesID), fmt.Sprintf("%d 1 /season-1.jpg", seriesID)}
+	if !slices.Equal(named, want) {
+		t.Errorf("a pass named %q; want the series' poster and season 1's, by its season", named)
 	}
 }

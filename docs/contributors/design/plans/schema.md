@@ -619,7 +619,10 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   -- not there (a 404, rechecked once, D213 section 1)
   refused_at  INTEGER,
   refusal     TEXT,
-  is_missing_at_source INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_at_source IN (0, 1))
+  is_missing_at_source INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_at_source IN (0, 1)),
+  -- 0064: a series' season's poster, an image of the series naming its season of the aired
+  -- ordering (D379); NULL for an image of the item itself
+  season_number INTEGER CHECK (season_number >= 0)
 );
 CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1;
 CREATE INDEX artwork_item ON artwork(item_id, kind);

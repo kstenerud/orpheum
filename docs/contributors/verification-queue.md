@@ -1807,3 +1807,21 @@ An item is ticked only by the person who did it, and only with what they saw.
   walks the libraries, the list scrolling within its height where they are more than the screen
   holds; Back closes it, as do Left and Right, focus back on the icon, the page unchanged.
   (`web/apps/web/src/app-shell.tsx`, `library-browse.tsx`)
+- [ ] **VQ185** — a series' seasons show their real posters (D379 §1), on staging after its deploy,
+  which migrates to step 0064. (1) Before deploying, note a TMDB series already matched on staging
+  (Copper Kettle, or any with several seasons and specials), whose season cards show stills. Deploy and
+  wait for the library's next pass (the start's sweep, or Scan library): the core's log shows
+  make_artwork_sizes jobs for the series, and no fetch of its TMDB record (the season posters come
+  from the record stored). Passes when its page's season cards show each season's own poster, the
+  specials' too where TMDB has one, and the series' head and its card in Series still show the
+  series' own poster, not a season's. (2) `sqlite3 persistent.db "SELECT season_number, source_ref
+  FROM artwork WHERE item_id = <series id> AND removed_at IS NULL"` lists one row per season with a
+  poster, and one with NULL, the series' own. (`internal/core/artwork/images.go`,
+  `internal/core/library/art.go`)
+- [ ] **VQ186** — a season with no poster of its own, on staging. On the Mac's Chrome, a series
+  whose TMDB record has a season with no poster (a new season, or a series TMDB lacks posters for) or
+  one in a library that does not follow TMDB: passes when that season's card shows its first
+  episode's still in its poster's place with no "No poster" caption, a season with neither its own
+  poster nor a still shows the series' poster, and "No poster" shows only on a card with none of
+  these. Then choose a DVD order on a series that has one: its discs show stills or the series'
+  poster, never an aired season's poster. (`web/apps/web/src/series.tsx`, `poster.tsx`)
