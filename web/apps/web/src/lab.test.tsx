@@ -71,6 +71,7 @@ async function mountedAt(
         },
       ],
       "GET /together/mine": [200, { sessions: [] }],
+      "GET /libraries": [200, { libraries: [] }],
     },
     [],
     "token",

@@ -125,7 +125,7 @@
    signs are and on their centre line, the place shown marked by a line drawn under it rather than a
    border that would lift the icon (the owner, 2026-10-28: "the new icons are darker than the cast and
    watch together ones. Also the two icon sets aren't vertically aligned"). */
-.app-shell__watching a.app-shell__place-icon {
+.app-shell__watching :is(a, button).app-shell__place-icon {
   position: relative;
   display: grid;
   place-items: center;
@@ -137,17 +137,25 @@
   color: var(--color-text);
 }
 
+/* The Libraries icon where it opens the menu of the person's libraries (app-shell.tsx's
+   LibrariesMenu): a button drawn as the links beside it are, with no button's own border or ground. */
+.app-shell__watching button.app-shell__place-icon {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
 /* A hover raises the ground behind the icon, as the tray's signs' (status-tray.css) and every icon
    button's: the owner, 2026-10-28, "The icons on the right highlight on mouse-over while the ones on
    the left do not." */
 @media (hover: hover) {
-  .app-shell__watching a.app-shell__place-icon:hover,
+  .app-shell__watching :is(a, button).app-shell__place-icon:hover,
   .app-shell__end .app-shell__menu-button:hover:not(:disabled) {
     background: var(--color-surface-raised);
   }
 }
 
-.app-shell__watching [aria-current="page"] a.app-shell__place-icon::after {
+.app-shell__watching [aria-current="page"] :is(a, button).app-shell__place-icon::after {
   position: absolute;
   inset-inline: var(--space-2);
   inset-block-end: 0;
@@ -313,7 +321,7 @@
     gap: var(--space-2);
   }
 
-  .app-shell__watching a.app-shell__place-icon {
+  .app-shell__watching :is(a, button).app-shell__place-icon {
     min-width: var(--size-banner-sign-phone);
   }
 
