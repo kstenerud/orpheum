@@ -155,6 +155,15 @@ class CaughtBefore(unittest.TestCase):
         self.assertEqual(failed["go"], {"./internal/core/api": ["TestPlayback_Stalls", "TestPlayback_Starts"]})
         self.assertEqual(failed["vitest"], ["apps/web/src/play.test.tsx", "apps/web/src/up-trail.browser.test.tsx"])
 
+    def test_a_runs_failures_are_its_own_runners_alone(self):
+        # A gate script's tests print vitest's and Go's failures as fixtures (check-pr, 2026-10-30).
+        python_run = [sys.executable, "scripts/py_tests.py"]
+        output = VITEST_OUTPUT + GO_OUTPUT + "--- test_revert_red_web.py failed ---\n"
+        self.assertEqual(known.failed_tests(output, "github.com/kstenerud/orpheum", python_run),
+                         {"python": ["test_revert_red_web.py"]})
+        self.assertEqual(list(known.failed_tests(output, "github.com/kstenerud/orpheum",
+                                                 known.commands.vitest("run"))), ["vitest"])
+
     def test_a_later_probe_of_the_file_runs_them_first(self):
         record: dict = {}
         with mock.patch.object(known.last_run, "update", side_effect=lambda gate, name, change: record.update(change(dict(record)))), \

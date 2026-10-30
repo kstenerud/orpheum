@@ -367,7 +367,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             kind = probe_kind(attempt.command, attempt.label, attempt.env)
             combined = done.stdout + done.stderr
             failed_runs = [] if attempt.compile_only or is_build_failure(combined) else \
-                known_red.runs_of(known_red.failed_tests(combined, go_module(toplevel())))
+                known_red.runs_of(known_red.failed_tests(combined, go_module(toplevel()), attempt.command))
             again, said = failed_pass_clean(failed_runs, lambda command: timed(
                 TIMINGS, change.path, f"{kind_of(command, '', env)}, nothing reverted", None,
                 functools.partial(run_whole_group, command, tree, timeout, env)))
@@ -384,7 +384,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             else:
                 red = Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
             known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail, output=combined)
-            known_red.remember_failed(change.path, combined, go_module(toplevel()))
+            known_red.remember_failed(change.path, combined, go_module(toplevel()), attempt.command)
             return red
         if deferred:
             return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "
