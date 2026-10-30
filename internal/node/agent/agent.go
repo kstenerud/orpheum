@@ -5,12 +5,8 @@ package agent
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"log/slog"
 	"maps"
@@ -22,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/artwork"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -31,7 +26,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -531,237 +525,4 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 		"it speaks node protocol %d", command.Type, nodeproto.ProtocolVersion)
 	refused := attemptOf(command).named(nodeproto.Result{Refusal: refusal})
 	agent.postResult(ctx, nodeID, "a refusal", refused)
-}
-
-// artworkWork re-encodes an artwork job's images, each in turn, and posts one answer for all — each
-// image's sizes, or why there are none — to the core, whose artwork store takes images from nowhere
-// else (D212 §8).
-func (agent *Agent) artworkWork(
-	ctx context.Context, nodeID int64, held attempt, command nodeproto.ArtworkBatch,
-) heldWork {
-	return heldWork{run: func(jobCtx context.Context) {
-		agent.sayProgress(ctx, nodeID, held.progress(nodeproto.ProgressRunning))
-		results := make([]nodeproto.ArtworkResult, 0, len(command.Images))
-		for _, image := range command.Images {
-			results = append(results, agent.reEncode(jobCtx, held.jobID, image))
-			if jobCtx.Err() != nil {
-				break
-			}
-		}
-		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "an artwork re-encode was cancelled", "jobId", held.jobID)
-			return
-		}
-		for _, result := range results {
-			if result.Refusal != "" {
-				agent.logger.WarnContext(ctx, "refused an image", "jobId", held.jobID, "key", result.Key,
-					"refusal", result.Refusal)
-			}
-		}
-		agent.postResult(ctx, nodeID, "an artwork re-encode",
-			held.named(nodeproto.Result{Artwork: &nodeproto.ArtworkBatchResult{Images: results}}))
-	}}
-}
-
-// reEncode re-encodes one image, read from beside the media when it names its path there, or taken
-// from a video it names (D362), and names the image's key in its answer.
-func (agent *Agent) reEncode(ctx context.Context, jobID int64, image nodeproto.Artwork) nodeproto.ArtworkResult {
-	sourceHash := ""
-	var source []byte
-	var err error
-	switch {
-	case image.Video != nil:
-		source, err = agent.takeStill(ctx, jobID, image)
-	case image.AbsolutePath != nil:
-		source, err = agent.readImage(*image.AbsolutePath)
-	}
-	if errors.Is(err, artwork.ErrNoFrame) {
-		return nodeproto.ArtworkResult{Key: image.Key, Refusal: err.Error(), HasNoFrame: true}
-	}
-	if err != nil {
-		return nodeproto.ArtworkResult{Key: image.Key, Refusal: err.Error()}
-	}
-	if source != nil {
-		sum := sha256.Sum256(source)
-		image.SourceImage, image.AbsolutePath, image.Video, sourceHash = source, nil, nil, hex.EncodeToString(sum[:])
-	}
-	result := agent.workers.Artworker.Derive(ctx, image)
-	result.Key, result.SourceSha256 = image.Key, sourceHash
-	return result
-}
-
-// takeStill takes a frame still from the video an artwork command names, once it is the file the core
-// named (D100), read as every run reads its film (openFilm, D330), and logs it made or why not (D362 §5).
-func (agent *Agent) takeStill(ctx context.Context, jobID int64, image nodeproto.Artwork) ([]byte, error) {
-	if agent.workers.StillTaker == nil {
-		return nil, errors.New("this node does not take frame stills")
-	}
-	path := image.Video.RootPath + "/" + string(image.Video.Path)
-	film, closeFilm, err := agent.openFilm(ctx, *image.Video)
-	if err != nil {
-		agent.logger.WarnContext(ctx, "could not open a video to take a still from", "jobId", jobID, "path", path,
-			"err", err)
-		return nil, err
-	}
-	defer closeFilm()
-	started := agent.clock.Now()
-	still, err := agent.workers.StillTaker.Still(ctx, film, image.FrameStreamIndex,
-		time.Duration(image.FrameAtMs)*time.Millisecond)
-	said := []any{
-		"jobId", jobID, "path", path, "atMs", image.FrameAtMs,
-		"tookMs", agent.clock.Now().Sub(started).Milliseconds(),
-	}
-	switch {
-	case errors.Is(err, artwork.ErrNoFrame):
-		agent.logger.InfoContext(ctx, "a video has no frame to take a still from", said...)
-	case err != nil:
-		agent.logger.WarnContext(ctx, "could not take a still from a video", append(said, "err", err)...)
-	default:
-		agent.logger.InfoContext(ctx, "took a still from a video", append(said, "stillBytes", len(still))...)
-	}
-	return still, err
-}
-
-// maxImageBytes bounds an image beside the media the node reads: posters are megabytes.
-const maxImageBytes = 64 << 20
-
-// readImage reads an image beside the media through the root it is under, so no path the core
-// names can reach outside the node's roots (D107).
-func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
-	absolute := named.Text
-	if named.Raw != nil {
-		absolute = string(named.Raw)
-	}
-	var holder *confine.MediaRoot
-	holderRelativePath := ""
-	for _, root := range agent.roots {
-		relativePath, inside := root.RelativeIfInside(absolute)
-		// The deepest root holds it when roots nest, whatever order the map gives them in.
-		if inside && relativePath != "." && (holder == nil || len(relativePath) < len(holderRelativePath)) {
-			holder, holderRelativePath = root, relativePath
-		}
-	}
-	if holder == nil {
-		return nil, errors.New("the image is under none of this node's roots")
-	}
-	return holder.ReadFile(holderRelativePath, maxImageBytes)
-}
-
-// postChanges posts what the watcher saw change while the session lasts, and those it held while
-// there was none. A notice the core does not take is not sent again: the root's periodic scan finds
-// what it named (nodeproto.PathChanged).
-func (agent *Agent) postChanges(ctx context.Context, nodeID int64) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case change := <-agent.workers.Watcher.Changes():
-			encoded, err := json.Marshal(change)
-			if err == nil {
-				var answer struct{}
-				err = agent.exchange(ctx, http.MethodPost, nodeproto.PathChanged, nodeID, bytes.NewReader(encoded),
-					&answer)
-			}
-			if err != nil && ctx.Err() == nil {
-				agent.logger.WarnContext(ctx, "the core did not take a change the watcher saw; the root's periodic "+
-					"scan finds it", "rootPath", change.RootPath, "path", change.Path, "err", err)
-			}
-		}
-	}
-}
-
-// postStatus posts the node's status, now (D234 §6).
-func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
-	encoded, err := json.Marshal(agent.status(ctx))
-	if err != nil {
-		return fmt.Errorf("encode the status: %w", err)
-	}
-	var answer struct{}
-	return agent.exchange(ctx, http.MethodPost, nodeproto.PathStatus, nodeID, bytes.NewReader(encoded), &answer)
-}
-
-// status is what the node is doing and holds, and its disks, now.
-func (agent *Agent) status(ctx context.Context) nodeproto.Status {
-	disks := agent.disks(ctx)
-	agent.mutex.Lock()
-	defer agent.mutex.Unlock()
-	takenCommandSeq, held := takenThenHeld(&agent.takenCommandSeq, agent.held)
-	status := nodeproto.Status{
-		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: held, TakenCommandSeq: takenCommandSeq,
-	}
-	if agent.workers.Stuck != nil {
-		status.Stuck = agent.workers.Stuck()
-	}
-	status.Stuck = append(status.Stuck, agent.stuckReads.all()...)
-	status.Stuck = append(status.Stuck, stuckOfGate(agent.diskGate.Stuck(), status.Stuck)...)
-	if agent.workers.Watcher != nil {
-		status.Watches = agent.workers.Watcher.States()
-	}
-	if agent.workers.PreparedShelf != nil {
-		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
-			status.PreparedUsage = &nodeproto.PreparedUsage{
-				UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
-				DiskUsedLimitPercent: usage.DiskUsedLimitPercent, DiskAvailableBytes: usage.DiskAvailableBytes,
-				DiskMinFreeBytes: usage.DiskMinFreeBytes,
-			}
-		}
-	}
-	return status
-}
-
-// takenThenHeld is the last command the node took, then the work it holds, read in that order. A
-// command is held before it counts as taken, so every command the status says was taken is among
-// what it says is held, or among what has ended. Read the other way round, a command taken between
-// the two reads is said taken and not held, and the core judges the work lost and gives it again
-// later (D234 §6): a scan lost so at a server's start delayed identifying a library by minutes
-// (TestM2_EveryFileHasAFiling…, under check-pr's load, 2026-10-08).
-func takenThenHeld(
-	takenCommandSeq *atomic.Int64, held func() []nodeproto.HeldAttempt,
-) (int64, []nodeproto.HeldAttempt) {
-	taken := takenCommandSeq.Load()
-	return taken, held()
-}
-
-// held is every attempt the node holds, and every one whose result the core has not acknowledged,
-// for the core to reconcile with what it gave the node (D234 §6).
-func (agent *Agent) held() []nodeproto.HeldAttempt {
-	states := agent.work.states()
-	held := make([]nodeproto.HeldAttempt, 0, len(states))
-	for _, each := range states {
-		state := nodeproto.HeldWaiting
-		switch {
-		case each.isPaused:
-			state = nodeproto.HeldPaused
-		case each.isRunning:
-			state = nodeproto.HeldRunning
-		}
-		held = append(held, nodeproto.HeldAttempt{
-			JobID: each.jobID, AttemptToken: each.token, State: state, SinceMovedMs: each.sinceMoved.Milliseconds(),
-		})
-	}
-	return append(held, agent.ended.awaitingAcknowledgement()...)
-}
-
-// exchange makes one request and decodes its JSON answer.
-func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID int64, body io.Reader, into any) error {
-	request, err := http.NewRequestWithContext(ctx, method, coreURL+path, body)
-	if err != nil {
-		return fmt.Errorf("build %s %s: %w", method, path, err)
-	}
-	if nodeID != 0 {
-		request.Header.Set(nodeHeader, strconv.FormatInt(nodeID, 10))
-	}
-	response, err := agent.client.Do(request)
-	if err != nil {
-		return fmt.Errorf("%s %s: %w", method, path, err)
-	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only, and decoded below
-	if response.StatusCode != http.StatusOK {
-		text, _ := io.ReadAll(io.LimitReader(response.Body, outbound.BodyExcerptBytes)) //nolint:errcheck // best effort
-		return fmt.Errorf("%s %s: %s: %s", method, path, response.Status, bytes.TrimSpace(text))
-	}
-	if err := json.NewDecoder(response.Body).Decode(into); err != nil {
-		return fmt.Errorf("%s %s: the answer is not JSON: %w", method, path, err)
-	}
-	return nil
 }
