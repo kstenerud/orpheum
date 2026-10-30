@@ -1885,3 +1885,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   `planned no run of chunks: no player wants one from there` repeating for it. Repeat it a few
   times, as the jump that hung landed exactly on a chunk's start.
   (`internal/core/playback/interest.go`)
+- [ ] **VQ192** — a Watch Together session ended under a signed-in guest's film sends them home,
+  and the cast remote brings a film back by Stop casting alone (D372 §9–§10, D384 §2, D388), on
+  staging. (1) The Mac's Chrome hosts a session on a film; the S23, signed in, joins by its link and
+  plays the group's film on its Play page; the host ends the session from its dialog: passes when
+  the S23's film stops and its page goes home, in the shell (the top bar shown), with the
+  session-ended notice, and reloading the S23 then shows its home page, no film starting (the core's
+  log shows no `a playback started … deviceId=<the S23's>` after `the host ended the session`). Run
+  it twice: once with the S23 signed in as a person of its own (s23), once as the host's own person
+  (admin) on its second device. (2) Cast a film from the Mac's Chrome to the Fire TV: passes when
+  the remote on the Play page offers Stop casting and no "Play on this device instead", and Stop
+  casting sends the TV home and plays the film on Chrome from where the TV stood.
+  (`web/apps/web/src/together-guest-play.tsx`, `cast-remote.tsx`)

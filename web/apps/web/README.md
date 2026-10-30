@@ -136,8 +136,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   keeps Join again (the owner, 2026-10-29). A session the server no longer has, as after its
   restart, ends so too: a signed-in guest with none once the server was asked goes home told it is no
   longer there, and a guest by link alone whose page loads again after theirs ended is told it is
-  over, never that the address has no invitation (staging, 2026-10-29; VQ136).
-  `src/together-viewer.test.tsx`,
+  over, never that the address has no invitation (staging, 2026-10-29; VQ136). A Play page that
+  asks a guest's session what it plays and finds it over, loaded again after it ended or on a device
+  that hosted it too, the guest's own person, ends it so as well, the film never played as their own
+  (`WhoseFilm`; the owner's S23, staging, 2026-10-30; VQ192).
+  `src/together-viewer.test.tsx`, `src/together-guest-play.test.tsx`, `src/together-viewer-shell.test.tsx`,
   `src/together-viewer-over.test.tsx`,
   `src/notice-note.test.tsx`.
 - **Casting is a session with a device: whatever the person plays goes there while it lasts, and
