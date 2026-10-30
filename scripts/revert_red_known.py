@@ -192,9 +192,24 @@ PYTHON_TESTS = "scripts/tests"
 HINTS = "hints"
 
 
-def failed_tests(output: str, module: str) -> dict[str, Any]:
+def runner_of(command: list[str]) -> str | None:
+    """Which runner a run is, "go", "vitest" or "python", or None for one that runs several (the
+    browser tier, a whole suite)."""
+    if any(part.endswith("py_tests.py") for part in command):
+        return "python"
+    if commands.is_vitest(command):
+        return "vitest"
+    if commands.is_go_test(command):
+        return "go"
+    return None
+
+
+def failed_tests(output: str, module: str, command: list[str] | None = None) -> dict[str, Any]:
     """The tests a red run's output says failed: Go's top-level tests by package (`./dir`),
-    vitest's files, and the gate scripts' test modules."""
+    vitest's files, and the gate scripts' test modules; of command's own runner alone where it has
+    one. A gate script's tests print vitest's and Go's failures as fixtures, and their probe, taking
+    those for its own red, ran vitest on a file no tree has (check-pr, 2026-10-30)."""
+    runner = runner_of(command) if command is not None else None
     go: dict[str, list[str]] = {}
     tests: list[str] = []
     for line in output.splitlines():
@@ -207,7 +222,8 @@ def failed_tests(output: str, module: str) -> dict[str, Any]:
             tests = []
     vitest = sorted({match.group(1) for match in VITEST_FAILED.finditer(output)})
     python = sorted({match.group(1) for match in PYTHON_FAILED.finditer(output)})
-    return {key: value for key, value in (("go", go), ("vitest", vitest), ("python", python)) if value}
+    return {key: value for key, value in (("go", go), ("vitest", vitest), ("python", python))
+            if value and runner in (None, key)}
 
 
 def runs_of(failed: dict[str, Any], label: str = "") -> list[Attempt]:
@@ -229,9 +245,9 @@ def runs_of(failed: dict[str, Any], label: str = "") -> list[Attempt]:
     return runs
 
 
-def remember_failed(path: str, output: str, module: str) -> None:
-    """Records, by path alone, the tests a red run of its revert failed."""
-    failed = failed_tests(output, module)
+def remember_failed(path: str, output: str, module: str, command: list[str] | None = None) -> None:
+    """Records, by path alone, the tests a red run of its revert, command, failed."""
+    failed = failed_tests(output, module, command)
     if not failed:
         return
 
