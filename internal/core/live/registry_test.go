@@ -180,12 +180,12 @@ func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testin
 		}
 	}
 	position := int64(61_000)
-	_, replaced, err := registry.Cast(Cast{
+	_, left, err := registry.Cast(Cast{
 		ID: 7, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, SenderName: "Pixel", FileID: 3,
 		PositionMs: &position,
 	}, "secret")
-	if err != nil || len(replaced) != 0 {
-		t.Fatalf("the cast to the TV: %v, replacing %v", err, replaced)
+	if err != nil || len(left) != 0 {
+		t.Fatalf("the cast to the TV: %v, leaving %v", err, left)
 	}
 	received, isTold := tvBox.last(MessageReceive)
 	if !isTold || *received.Receive != (Receive{
@@ -211,71 +211,62 @@ func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testin
 	}
 }
 
-// The last cast wins: a cast to a receiver replaces its cast, and a sender casting elsewhere leaves
-// the receiver it controlled (D337 §6).
-func TestRegistry_TheLastCastWins(t *testing.T) {
+// A device receiving a cast is no device's target until that cast ends, the same sender's included:
+// a cast to it is refused, its cast going on untouched, and the person's every connection is told
+// which of their devices receive, as each cast starts and ends (D386 §1, the owner: "When a device
+// is being cast to, no other device may cast to it until the current casting ends").
+func TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
-	tvBox := &inbox{}
+	tvBox, laptopBox := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, tvBox.send)
-	registry.Connect(owner, laptop, inFront, (&inbox{}).send)
-	first := Cast{ID: 1, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
-	if _, _, err := registry.Cast(first, "a"); err != nil {
+	registry.Connect(owner, laptop, inFront, laptopBox.send)
+	castToTheTV(t, registry, 1, phone)
+	if told, _ := laptopBox.last(MessageDevices); !slices.Equal(told.ReceivingDeviceIDs, []int64{television}) {
+		t.Errorf("the laptop was told %v receive; want the TV", told.ReceivingDeviceIDs)
+	}
+	for name, sender := range map[string]int64{"another device": laptop, "the same sender": phone} {
+		_, _, err := registry.Cast(
+			Cast{ID: 2, UserID: owner, SenderDeviceID: sender, ReceiverDeviceID: television}, "b")
+		if !errors.Is(err, ErrReceiving) {
+			t.Errorf("a cast from %s to the receiving TV: %v; want ErrReceiving", name, err)
+		}
+	}
+	if casts := registry.CastsOf(owner, television); len(casts) != 1 || casts[0].ID != 1 {
+		t.Errorf("the TV holds %+v; want cast 1 alone", casts)
+	}
+	if handed := tvBox.count(MessageReceive); handed != 1 {
+		t.Errorf("the TV was handed %d casts; want the first alone", handed)
+	}
+	if _, err := registry.End(owner, phone, 1); err != nil {
 		t.Fatal(err)
 	}
-	second := Cast{ID: 2, UserID: owner, SenderDeviceID: laptop, ReceiverDeviceID: television}
-	_, replaced, err := registry.Cast(second, "b")
-	if err != nil || len(replaced) != 1 || replaced[0].ID != 1 {
-		t.Fatalf("the laptop's cast replaced %+v, %v; want the phone's, 1", replaced, err)
+	if told, _ := laptopBox.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
+		t.Errorf("after the cast ended the laptop was told %v receive; want none", told.ReceivingDeviceIDs)
 	}
-	if received, _ := tvBox.last(MessageReceive); received.Receive.CastID != 2 {
-		t.Errorf("the TV receives cast %d, want 2", received.Receive.CastID)
-	}
-	_, replaced, err = registry.Cast(Cast{ID: 3, UserID: owner, SenderDeviceID: laptop, ReceiverDeviceID: phone}, "c")
-	if err != nil || len(replaced) != 1 || replaced[0].ID != 2 {
-		t.Errorf("the laptop casting to the phone replaced %+v, %v; want its cast to the TV, 2", replaced, err)
+	castToTheTV(t, registry, 3, laptop)
+}
+
+// A sender casting to another device leaves the receiver it controlled, whose cast it returns for its
+// session to be ended (D337 §6: each sender controls one receiver).
+func TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	phoneBox := &inbox{}
+	registry.Connect(owner, phone, inFront, phoneBox.send)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	registry.Connect(owner, laptop, inFront, (&inbox{}).send)
+	castToTheTV(t, registry, 1, phone)
+	_, left, err := registry.Cast(Cast{ID: 2, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: laptop}, "b")
+	if err != nil || len(left) != 1 || left[0].ID != 1 {
+		t.Fatalf("the phone casting to the laptop left %+v, %v; want its cast to the TV, 1", left, err)
 	}
 	if casts := registry.CastsOf(owner, television); len(casts) != 0 {
 		t.Errorf("the TV still has %+v", casts)
 	}
-}
-
-// A cast from another of the person's devices to a receiver that said Use to the one it receives
-// replaces it accepted: the tab that receives takes it at once, asking nothing (D364 §2), so the new
-// sender is told it casts to a receiver that took it, and the films played there go on to it. The
-// owner's Chrome cast to the Fire TV that the S23 cast to, and its Play stayed in Chrome
-// (2026-10-29). A cast replacing one not yet taken, or handed to another tab, which asks, is not.
-func TestRegistry_ACastReplacingOneTheReceiverTookIsTakenToo(t *testing.T) {
-	t.Parallel()
-	registry := NewRegistry(minted(), newClock())
-	phoneBox, laptopBox := &inbox{}, &inbox{}
-	registry.Connect(owner, phone, inFront, phoneBox.send)
-	registry.Connect(owner, television, inFront, (&inbox{}).send)
-	registry.Connect(owner, laptop, inFront, laptopBox.send)
-	castToTheTV(t, registry, 1, phone)
-	if unaccepted := castToTheTV(t, registry, 2, laptop); unaccepted.IsAccepted {
-		t.Fatalf("a cast replacing one the TV was still asked about started %+v; want it asked", unaccepted)
-	}
-	if _, err := registry.Accept(owner, television, 2); err != nil {
-		t.Fatal(err)
-	}
-	if started := castToTheTV(t, registry, 3, phone); !started.IsAccepted {
-		t.Fatalf("the phone's cast to the TV that took the laptop's started %+v; want it taken", started)
-	}
-	if casts := registry.CastsOf(owner, television); len(casts) != 1 || !casts[0].IsAccepted {
-		t.Errorf("the TV holds %+v; want cast 3, taken", casts)
-	}
-	if told, _ := phoneBox.last(MessageSending); told.Sending == nil || told.Sending.CastID != 3 ||
-		!told.Sending.IsAccepted {
-		t.Errorf("the phone was told it sends %+v; want cast 3, taken", told.Sending)
-	}
-	registry.Connect(owner, television, inFront, (&inbox{}).send) // another tab of the TV, in front
-	if other := castToTheTV(t, registry, 4, laptop); other.IsAccepted {
-		t.Errorf("a cast handed to a TV tab that receives nothing started %+v; want it asked", other)
-	}
-	if told, _ := laptopBox.last(MessageSending); told.Sending == nil || told.Sending.IsAccepted {
-		t.Errorf("the laptop was told it sends %+v; want cast 4, not yet taken", told.Sending)
+	if told, _ := phoneBox.last(MessageDevices); !slices.Equal(told.ReceivingDeviceIDs, []int64{laptop}) {
+		t.Errorf("the phone was told %v receive; want the laptop alone", told.ReceivingDeviceIDs)
 	}
 }
 
@@ -582,5 +573,8 @@ func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
 	}
 	if casts := registry.CastsOf(owner, phone); len(casts) != 0 {
 		t.Errorf("the sender still has %+v", casts)
+	}
+	if told, _ := sender.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
+		t.Errorf("the sender was told %v receive; want none, the cast over", told.ReceivingDeviceIDs)
 	}
 }

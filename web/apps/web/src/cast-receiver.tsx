@@ -249,16 +249,17 @@ function useReceiversSessions(cast: CastToReceive): {
 }
 
 /**
- * Ends receiving as the cast ends, sending the receiver home (onLeave, D384 §1): control taken back
- * here (D385 §1), Stop casting on the sender, its session's end or its controller gone (as its
- * receiver was gone too long or the server restarted). A cast replacing it is received already.
+ * Ends receiving as the cast ends, however it ends, sending the receiver home (onLeave, D384 §1):
+ * control taken back here (D385 §1), Stop casting on the sender, its session's end or its controller
+ * gone (as its receiver was gone too long or the server restarted). No other cast takes it over
+ * (D386 §1).
  */
 export function useEndsAsTheCastDoes(
   endReason: TogetherEndReason | undefined,
   onLeave: () => void,
 ): void {
   useEffect(() => {
-    if (endReason !== undefined && endReason !== "replaced") {
+    if (endReason !== undefined) {
       onLeave();
     }
   }, [endReason, onLeave]);

@@ -14,6 +14,8 @@ export const enCast = {
       "Open, but no Orpheum tab is in front: bring one to the front there to cast to it",
     notInFront:
       "{{name}} has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
+    showingAnother: "Showing another cast: unavailable until it ends",
+    receivingAnother: "{{name}} is showing another cast. Cast to it once that cast ends.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
     asked: {
@@ -51,7 +53,6 @@ export const enCast = {
     playHereInstead: "Play on this device instead",
     sendingOn: "Sending it to the device you cast to…",
     over: {
-      replaced: "Another of your devices now controls {{name}}.",
       gone: "The cast is over.",
     },
   },

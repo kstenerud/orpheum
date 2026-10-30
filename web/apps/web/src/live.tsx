@@ -37,6 +37,8 @@ export interface Live {
   readonly connectedDeviceIds: readonly number[];
   /** Those of connectedDeviceIds with an Orpheum tab in front, which a cast goes to (D338 §2). */
   readonly inFrontDeviceIds: readonly number[];
+  /** The person's devices receiving a cast now, which no device may cast to (D386 §1). */
+  readonly receivingDeviceIds: readonly number[];
   /** The cast this device receives now, until it ends here. */
   readonly receiving: CastToReceive | undefined;
   /** The cast this device sends now, as the server last said (D364 §6); undefined for none. */
@@ -65,6 +67,7 @@ export interface Live {
 const nothingLive: Live = {
   connectedDeviceIds: [],
   inFrontDeviceIds: [],
+  receivingDeviceIds: [],
   receiving: undefined,
   sending: undefined,
   isSendingKnown: true,
@@ -161,6 +164,7 @@ function useLiveOf(
     (): Live => ({
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
       inFrontDeviceIds: snapshot?.inFrontDeviceIds ?? noDevices,
+      receivingDeviceIds: snapshot?.receivingDeviceIds ?? noDevices,
       receiving,
       sending: snapshot?.sending,
       isSendingKnown: snapshot?.isSendingKnown ?? true,
@@ -171,6 +175,7 @@ function useLiveOf(
     [
       snapshot?.deviceIds,
       snapshot?.inFrontDeviceIds,
+      snapshot?.receivingDeviceIds,
       snapshot?.sending,
       snapshot?.isSendingKnown,
       receiving,
@@ -258,8 +263,8 @@ interface Received extends Pick<Live, "receiving" | "answer" | "leaveReceiving">
 /**
  * The cast connection hands this device, and what it does with it: one arriving while the device
  * receives none is asked about first, and received once its Use is pressed (D364 §2, D358 §2); one
- * arriving while it receives one, the same cast handed again or another replacing it, is received
- * at once. A cast received opens its film's Play page, or with nothing playing the full-screen ready
+ * arriving while it receives one, the same cast handed again, is received at once (no other cast
+ * takes a receiving device over, D386 §1). A cast received opens its film's Play page, or with nothing playing the full-screen ready
  * page (D364 §5), marking the tab as receiving (D383 §2); handed again as the
  * connection came back, it is received already, unless the page left it; handed again with another
  * film, or nothing, the person played another on the sender (D364 §3) or the cast moved on to the

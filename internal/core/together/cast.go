@@ -23,8 +23,6 @@ import (
 const (
 	// CastTakenBack is the receiver's person taking control back on it (D337 §4).
 	CastTakenBack = "takenBack"
-	// CastReplaced is another of the person's devices casting to the same receiver (D337 §6).
-	CastReplaced = "replaced"
 	// CastStopped is the remote's Stop casting.
 	CastStopped = "stopped"
 	// CastReceiverGone is the receiver gone, no page of it connected, for two minutes (D364 §6).

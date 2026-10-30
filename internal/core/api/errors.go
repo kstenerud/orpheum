@@ -51,7 +51,10 @@ const (
 	// CodeInAnotherSession is a join to a Watch Together session refused because its person is in
 	// another, which they have not said to leave; its detail says whose (D372 §8).
 	CodeInAnotherSession Code = "in_another_session"
-	CodeInternal         Code = "internal"
+	// CodeReceivingACast is a cast to a device that receives another cast now, which no device may
+	// take over until that cast ends (D386 §1).
+	CodeReceivingACast Code = "receiving_a_cast"
+	CodeInternal       Code = "internal"
 )
 
 // codes are every Code, in the order above: the one list the API document's ProblemBody names.
@@ -61,7 +64,7 @@ func codes() []Code {
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
 		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeNoRoomToMake, CodePlaybackGone,
-		CodeMigrating, CodeInAnotherSession, CodeInternal,
+		CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeInternal,
 	}
 }
 

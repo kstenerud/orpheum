@@ -168,8 +168,9 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 // startCast starts casting from the asking device to another of the person's, connected now, which
 // is handed it on its live connection: a session of one in Watch Together's hub, which the receiver
 // leads and the sender commands (D88, D337), playing the video given, if any, and every one the
-// person plays after it until it ends (D364). The receiver's earlier cast, and the one the sender
-// controlled, end (D337 §6: the last cast wins).
+// person plays after it until it ends (D364). A device that receives a cast is no device's target
+// until that cast ends, receiving_a_cast (D386 §1); the cast the sender controlled before ends, as
+// stopped (D337 §6).
 func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*StartCastOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
@@ -196,22 +197,18 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		FileID: film.FileID, TitleID: film.TitleID, TitleName: film.TitleName, DurationMs: film.DurationMs,
 		PositionMs: input.Body.PositionMs,
 	}
-	cast, replaced, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
+	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {
 		//nolint:errcheck // just opened, it ends
 		_ = dependencies.Together.EndCast(opened.SessionID, principal.UserID, together.CastStopped)
 		return nil, castError(err)
 	}
-	for _, each := range replaced {
-		reason := together.CastStopped // the sender went on to another receiver
-		if each.ReceiverDeviceID == cast.ReceiverDeviceID {
-			reason = together.CastReplaced
-		}
-		_ = dependencies.Together.EndCast(each.ID, principal.UserID, reason) //nolint:errcheck // gone is ended
+	for _, each := range left { // the sender went on to another receiver
+		//nolint:errcheck // gone is ended
+		_ = dependencies.Together.EndCast(each.ID, principal.UserID, together.CastStopped)
 	}
 	server.logger.InfoContext(ctx, "cast: a device cast to another", "castId", cast.ID, logKeyUserID, cast.UserID,
-		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "replaced", len(replaced),
-		"accepted", cast.IsAccepted)
+		"from", cast.SenderDeviceID, "to", cast.ReceiverDeviceID, "fileId", cast.FileID, "left", len(left))
 	return &StartCastOutput{Body: castBodyOf(cast, principal.DeviceID, opened.SenderCredential)}, nil
 }
 
@@ -389,6 +386,8 @@ func castError(err error) error {
 	switch {
 	case errors.Is(err, live.ErrNotConnected), errors.Is(err, live.ErrNotInFront):
 		return newError(http.StatusConflict, CodeConflict, err.Error())
+	case errors.Is(err, live.ErrReceiving):
+		return newError(http.StatusConflict, CodeReceivingACast, err.Error())
 	case errors.Is(err, live.ErrToItself):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.toDeviceId", err.Error())
 	}

@@ -389,15 +389,6 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
   });
 
-  it("says another device took the receiver, and offers to play here from where it stood (D337 §6)", async () => {
-    const { sockets, onPlayHere } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "replaced" });
-    expect(mounted!.container.textContent).toContain("Fire TV");
-    expect(onPlayHere).not.toHaveBeenCalled();
-    await click(buttonWithText(mounted!.container, "Play here from 1:01"));
-    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
-  });
-
   it("offers the film's Up next, which moves the cast on (plans/up-next.md)", async () => {
     const heard: Heard[] = [];
     const cat = { ...cast, fileId: 5, titleId: 3, titleName: "Cat", durationMs: 1_200_000 };

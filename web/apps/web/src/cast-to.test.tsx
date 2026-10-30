@@ -316,6 +316,46 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
   });
 
+  it("shows a device receiving a cast unavailable, and a cast to one raced is refused with its name (D386 §1)", async () => {
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          { devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(3, "Pixel")] },
+        ],
+        "POST /me/casts": refusal(409, "receiving_a_cast"),
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({
+      type: "devices",
+      deviceIds: [1, 2, 3],
+      inFrontDeviceIds: [1, 2, 3],
+      receivingDeviceIds: [2],
+    });
+    const items = [...mounted.container.querySelectorAll(".cast-to__devices li")].map(
+      (item) => item.textContent,
+    );
+    expect(items[0]).toContain("Showing another cast");
+    expect(items[1]).toContain("Open now");
+    expect(buttonWithText(mounted.container, "Fire TV")?.disabled).toBe(true);
+    await click(buttonWithText(mounted.container, "Pixel"));
+    expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
+      "Pixel is showing another cast. Cast to it once that cast ends.",
+    );
+  });
+
   it("says in its hello and as the tab moves whether its tab is in front (D338 §2)", async () => {
     const services = servedBy({}, [], "token");
     const server = fakeTogetherServer();
@@ -403,7 +443,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(mounted.container.textContent).toContain("receiving file 0");
   });
 
-  it("goes to its home page in the page's place as a cast ends there, through a cast that replaced it (D384 §1)", async () => {
+  it("goes to its home page in the page's place as a cast ends there, through the cast handed again with another film (D384 §1)", async () => {
     const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const before = services.navigation.route();
     expect(before.screen).not.toBe("play");
@@ -420,8 +460,8 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     await server.accept();
     await server.say({ type: "receive", receive: handed });
     await pressUse(mounted.container);
-    // A cast replacing the one received is received at once: its device is asked no more.
-    await server.say({ type: "receive", receive: { ...handed, castId: 6, fileId: 9 } });
+    // The cast handed again with another film is received at once: its device is asked no more.
+    await server.say({ type: "receive", receive: { ...handed, fileId: 9 } });
     expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
     await click(buttonWithText(mounted.container, "leave"));

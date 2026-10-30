@@ -17,8 +17,8 @@ const (
 
 // The messages the server sends.
 const (
-	// MessageDevices is the person's devices connected now, sent as the connection opens and each
-	// time the set changes.
+	// MessageDevices is the person's devices connected now, those in front and those receiving a
+	// cast, sent as the connection opens and each time one of the sets changes.
 	MessageDevices MessageType = "devices"
 	// MessageReceive hands the device a cast to receive (§4), again each time what it plays changes
 	// (D364 §3).
@@ -56,6 +56,9 @@ type Outbound struct {
 	// InFrontDeviceIDs are a devices message's: those of DeviceIDs with an Orpheum tab in front,
 	// which a cast can go to (D338 §2).
 	InFrontDeviceIDs []int64 `json:"inFrontDeviceIds,omitempty"`
+	// ReceivingDeviceIDs are a devices message's: those of the person's devices receiving a cast now,
+	// which no device may cast to until it ends (D386 §1). A receiver gone a while stays one.
+	ReceivingDeviceIDs []int64 `json:"receivingDeviceIds,omitempty"`
 	// Receive is a receive message's cast.
 	Receive *Receive `json:"receive,omitempty"`
 	// Sending is a sending message's cast; absent, the device sends none.

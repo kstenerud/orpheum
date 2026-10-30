@@ -63,6 +63,8 @@ export interface LiveSnapshot {
   readonly deviceIds: readonly number[];
   /** Those of deviceIds with an Orpheum tab in front, which a cast can go to (D338 §2). */
   readonly inFrontDeviceIds: readonly number[];
+  /** The person's devices receiving a cast now, which no device may cast to until it ends (D386 §1). */
+  readonly receivingDeviceIds: readonly number[];
   /** The last cast handed to this device, until it is taken (takeReceive). */
   readonly receive: CastToReceive | undefined;
   /** The cast this device sends, as last told; undefined for none, or until told. */
@@ -121,6 +123,7 @@ const startingSnapshot: LiveSnapshot = {
   isConnected: false,
   deviceIds: [],
   inFrontDeviceIds: [],
+  receivingDeviceIds: [],
   receive: undefined,
   sending: undefined,
   isSendingKnown: false,
@@ -207,6 +210,7 @@ export type LiveMessage =
       readonly type: "devices";
       readonly deviceIds: readonly number[];
       readonly inFrontDeviceIds: readonly number[];
+      readonly receivingDeviceIds: readonly number[];
     }
   | { readonly type: "receive"; readonly receive: CastToReceive }
   /** The cast this device sends now, undefined for none (D364 §6). */
@@ -238,6 +242,7 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
         type: "devices",
         deviceIds: idsIn(record["deviceIds"]),
         inFrontDeviceIds: idsIn(record["inFrontDeviceIds"]),
+        receivingDeviceIds: idsIn(record["receivingDeviceIds"]),
       };
     case "receive": {
       const receive = parseReceive(record["receive"]);
@@ -427,6 +432,7 @@ class PageLiveConnection implements LiveConnection {
           isConnected: true,
           deviceIds: message.deviceIds,
           inFrontDeviceIds: message.inFrontDeviceIds,
+          receivingDeviceIds: message.receivingDeviceIds,
         });
         this.#askWhetherHanded();
         return;

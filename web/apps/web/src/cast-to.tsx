@@ -35,12 +35,13 @@ import { watchingOf } from "./watching.ts";
  * The device is asked once whether to be used (D364 §2), and this page says it is asking until it
  * answers: its Use makes the session the server's and the live connection says so (useLive's
  * sending), and its Not now or no answer is said in a line. A device with no Orpheum tab in front
- * says so, and a cast to it is refused with what to do (D338 §2).
+ * says so, and a cast to it is refused with what to do (D338 §2). A device receiving a cast is
+ * shown unavailable, and a cast to it, raced, is refused with its name (D386 §1).
  */
 export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { connectedDeviceIds, inFrontDeviceIds, sending } = useLive();
+  const { connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } = useLive();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
@@ -48,7 +49,10 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
   const [asking, setAsking] = useState<Asking | undefined>(undefined);
   const [answered, setAnswered] = useState<string | undefined>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
-    problemText(t, cause, { conflict: t("cast.notInFront", { name: chosenNameRef.current }) }),
+    problemText(t, cause, {
+      conflict: t("cast.notInFront", { name: chosenNameRef.current }),
+      receivingACast: t("cast.receivingAnother", { name: chosenNameRef.current }),
+    }),
   );
   const castTo = (device: Device): void => {
     chosenNameRef.current = device.name;
@@ -75,7 +79,11 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
     <section className="cast-to" aria-labelledby="cast-to-heading">
       <h2 id="cast-to-heading">{t("cast.heading")}</h2>
       <BusyGroup isBusy={isBusy}>
-        <Targets devices={devices} inFrontDeviceIds={inFrontDeviceIds} onCast={castTo} />
+        <Targets
+          devices={devices}
+          states={{ inFrontDeviceIds, receivingDeviceIds }}
+          onCast={castTo}
+        />
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         {answered === undefined ? null : <output>{answered}</output>}
       </BusyGroup>
@@ -158,10 +166,16 @@ function notTakenText(t: TFunction, reason: TogetherEndReason, name: string): st
     : t("cast.answered.ended", { name });
 }
 
+/** Which of the person's devices have an Orpheum tab in front, and which receive a cast now. */
+interface TargetStates {
+  readonly inFrontDeviceIds: readonly number[];
+  readonly receivingDeviceIds: readonly number[];
+}
+
 /** The devices to cast to as they are read: Loaded's words while loading or failed. */
 function Targets(props: {
   readonly devices: Resource<Device[]>;
-  readonly inFrontDeviceIds: readonly number[];
+  readonly states: TargetStates;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -175,41 +189,44 @@ function Targets(props: {
   return devices.value.length === 0 ? (
     <p>{t("cast.none")}</p>
   ) : (
-    <TargetList
-      devices={devices.value}
-      inFrontDeviceIds={props.inFrontDeviceIds}
-      onCast={props.onCast}
-    />
+    <TargetList devices={devices.value} states={props.states} onCast={props.onCast} />
   );
 }
 
 /**
  * The devices to cast to: each a button with its name and when it was last used, or, with no Orpheum
- * tab in front, that one must be brought to the front there (D338 §2).
+ * tab in front, that one must be brought to the front there (D338 §2); one receiving a cast is
+ * unavailable, its button disabled, until that cast ends (D386 §1).
  */
 function TargetList(props: {
   readonly devices: readonly Device[];
-  readonly inFrontDeviceIds: readonly number[];
+  readonly states: TargetStates;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
+  const { inFrontDeviceIds, receivingDeviceIds } = props.states;
+  const stateOf = (device: Device): string => {
+    if (receivingDeviceIds.includes(device.id)) {
+      return t("cast.showingAnother");
+    }
+    return inFrontDeviceIds.includes(device.id)
+      ? t("cast.connectedNow", { used: dateTimeText(device.lastUsedAt, i18n.language) })
+      : t("cast.noTabInFront");
+  };
   return (
     <ul className="cast-to__devices">
       {props.devices.map((device) => (
         <li key={device.id}>
           <button
             type="button"
+            disabled={receivingDeviceIds.includes(device.id)}
             onClick={() => {
               props.onCast(device);
             }}
           >
             {device.name}
           </button>{" "}
-          <span>
-            {props.inFrontDeviceIds.includes(device.id)
-              ? t("cast.connectedNow", { used: dateTimeText(device.lastUsedAt, i18n.language) })
-              : t("cast.noTabInFront")}
-          </span>
+          <span>{stateOf(device)}</span>
         </li>
       ))}
     </ul>

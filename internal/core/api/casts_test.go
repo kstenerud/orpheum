@@ -277,10 +277,11 @@ func TestCast_GoesOnlyToADeviceWithATabInFront(t *testing.T) {
 	}
 }
 
-// The last cast wins: a cast from another device ends the earlier one for its remote, which is told
-// it was replaced; the receiver taking control back ends it for the remote, told so, and says where
-// it stood (D337 §4, §6).
-func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
+// A device receiving a cast is no device's target until it ends: a cast to it, from another device
+// or from its own sender again, is refused, receiving_a_cast, and its remote goes on; the person's
+// devices are told it receives. The receiver taking control back ends the cast for the remote, told
+// so, and says where it stood; the device may then be cast to again (D386 §1, D337 §4).
+func TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	phoneToken := harness.createAdminAndSignIn(t)
@@ -288,26 +289,27 @@ func TestCast_TheLastCastWinsAndTheReceiverTakesControlBack(t *testing.T) {
 	tvToken := harness.signIn(t, "owner", "owner-password")
 	laptopToken := harness.signIn(t, "owner", "owner-password")
 	tv := harness.thisDevice(t, tvToken)
-	harness.dialLive(t, tvToken).awaitDevices(tv)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
 	first := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
+	tvSocket.await(live.MessageDevices, func(message live.Outbound) bool {
+		return slices.Equal(message.ReceivingDeviceIDs, []int64{tv})
+	})
 	phoneRemote := harness.dialCast(t, first.MembershipCredential, together.RolePanel)
 	phoneRemote.awaitWelcome()
-	second := startedCast(t, harness.startCast(t, laptopToken, tv, 5_000))
-	if reason := phoneRemote.awaitEnded(); reason != together.CastReplaced {
-		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastReplaced)
-	}
-	laptopRemote := harness.dialCast(t, second.MembershipCredential, together.RolePanel)
-	laptopRemote.awaitWelcome()
-	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", second.CastID), phoneToken,
+	wantError(t, harness.startCast(t, laptopToken, tv, 5_000), http.StatusConflict, api.CodeReceivingACast)
+	wantError(t, harness.startCast(t, phoneToken, tv, 5_000), http.StatusConflict, api.CodeReceivingACast)
+	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", first.CastID), laptopToken,
 		map[string]string{"reason": "stopped"}), http.StatusNotFound, api.CodeNotFound)
-	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", second.CastID), tvToken,
+	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", first.CastID), tvToken,
 		map[string]string{"reason": "takenBack"})
 	if ended.status != http.StatusOK || !strings.Contains(ended.body, `"positionMs":`) {
 		t.Errorf("the TV's take-back = %d %s; want where it stood", ended.status, ended.body)
 	}
-	if reason := laptopRemote.awaitEnded(); reason != together.CastTakenBack {
-		t.Errorf("the laptop's remote was told %q, want %q", reason, together.CastTakenBack)
+	if reason := phoneRemote.awaitEnded(); reason != together.CastTakenBack {
+		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastTakenBack)
 	}
+	startedCast(t, harness.startCast(t, laptopToken, tv, 5_000))
 }
 
 // A remote whose hello reaches its cast just after the receiver took control back is told why, as

@@ -5224,6 +5224,7 @@
                   "no_room_to_make",
                   "playback_gone",
                   "migrating",
+                  "receiving_a_cast",
                   "internal"
                 ],
                 "type": "string"
