@@ -440,3 +440,7 @@ had leaned on.
   half built: a fix branch from what production runs (nas.example's commit, the last connect package), its
   own narrow gate (the fix's tests, check-vulns, the build), deployed, then merged into the batch.
   Tonight's pion/stun and MPTCP fixes were made on main with the batch's other work in it.
+- **If the restart-order fault comes back (the owner agreed 2026-10-30):** the core's link to connectd now
+  finds a dead connection within about 48 s, but the staging fault's cause was not seen; if
+  a proxy answered the core's pings for connectd, only a ping connectd itself answers would find it: a
+  `discovery/single` protocol change, with connect's re-pin and a deploy order.
