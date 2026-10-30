@@ -342,6 +342,7 @@ function SessionView(props: {
         </div>
         <SessionPeople
           details={props.details}
+          roster={session.snapshot?.roster}
           run={runRequest}
           onChanged={props.onChanged}
           onIssued={showIssued}

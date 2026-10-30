@@ -24112,7 +24112,7 @@ session's page (to find the next film, the owner's case) is §6: a device not pl
 cannot lead, so the lead passes, and the host's device on its return catches up, then leads again
 (§3); a host whose film plays on a device they cast to keeps that device leading as they browse.
 
-**Status:** Decided 2026-10-28; §9–§10 not built (the next batch); §1–§8 built 2026-10-28.
+**Status:** Decided 2026-10-28; §1–§8 built 2026-10-28; §9–§10 built 2026-10-30, below.
 The lead (`internal/core/together/leader.go`): each device's seniority is the core's clock as it attaches, to
 the microsecond (`arrivedAt`), stamped again as its page is shown after its browser hid it; a device
 leads only while it plays the film on a page its browser shows (`canLead`); the host's player leads
@@ -24169,6 +24169,30 @@ Resolved in the build, where the decision left it open (say if any should go oth
   is known by the membership the browser keeps as the link's page loads (a link pasted into a tab
   already on another session's page forgets it first, as before, and is not asked).
 
+§9–§10, built 2026-10-30 (the owner's item 7, navigation-and-widgets-answers-2026-10-27.md): a
+signed-in guest's page (`/together`) is a screen in the shell, under the banner with its tray, menu and
+Your account, in its one main landmark (`web/apps/web/src/app.tsx`'s `Screen`, `ViewerPage` in
+`together-viewer-tap.tsx`); a guest by link alone keeps the bare page. Leaving the page closes only the
+page's session connection: the membership stays the browser's (`orpheum.together.viewer`) and the
+core's (a member is removed only by the host, by leaving, or by the session's end), so the guest goes
+anywhere in the app, plays another film only they see, and comes back by the tray's Watch Together
+sign (`/together`), whose page connects again by the kept membership and follows the group, catching
+up (§3, D377 §3). A guest by link alone comes back by the same link in the same browser, as D267 §1
+built it; in another browser the spent link is refused.
+
+Resolved in the build, where §9–§10 left it open (say if any should go otherwise):
+- **"Away"** is a member with no device on the session's page, whatever took it away: the roster
+  cannot tell a guest who wandered from one whose page closed or whose connection dropped and was
+  counted gone, and wandering is now the common case. Who is here says "‹name› (away)" (it said
+  "(reconnecting)"); the host's list of people adds ", away" once the host's connection knows the
+  roster (`together-news.tsx`, `together-people.tsx`). No new message or server state.
+- **A signed-in guest playing another film** plays it as anyone signed in plays one, attached to no
+  session: nothing of it reaches the group, and nothing new was needed.
+- **Its debug tools**, on the bare page by link alone, are never shown (no person to choose them); in
+  the shell, by the person's own Show debug tools, as on every signed-in page.
+- **A spent link opened in another browser** is refused with the words every refused link has; the
+  owner's distinct words for a used link (item 6) wait for the server to say "used" apart, not built.
+
 **Proven by:**
 - 1: TestHub_TheLeadPassesToThePlayerPresentLongest, TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, TestHub_TheHostsPlayerLeadsAndAnotherTakesTheLeadAsItLeaves; VQ104
 - 2: TestHub_ADeviceThatComesBackIsPresentOnlySinceItCameBack, web/packages/sdk/src/together-lead-passes.test.ts ("tells its session as its page is hidden, where hiding pauses its film, and as it is shown again"); VQ105
@@ -24178,6 +24202,8 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 6: TestHub_NoPanelLeadsAndAGuestsLeadsWhileNoneOfTheHostsCan, TestHub_ALeaderHiddenOrSilentIsGoneAndAStalledOneIsNot, web/packages/sdk/src/together-lead-passes.test.ts ("says nothing of a hidden page where hiding pauses nothing")
 - 7: TestHub_WithEveryoneGoneTheGroupPausesWhereItStandsThenEndsIdle, TestHub_AGroupPlayingToNoPlayerIsIdle; VQ104
 - 8: TestHub_StartingASessionEndsTheOneThePersonHostsAndLeavesTheOneTheyJoined, TestHub_JoiningAnotherSessionIsRefusedUntilThePersonSaysToLeaveTheirs, TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn, TestTogether_OnlyAHostOpensMakesLinksAndEnds, web/apps/web/src/together-join.test.tsx ("asks first whether to leave the other, and joins, leaving it, only when told to"); VQ106
+- 9: web/apps/web/src/together-viewer-shell.test.tsx ("is a screen in the shell: …", "goes elsewhere in the app a member still, and comes back by the tray's sign …", "who is away from the session's page"); VQ172
+- 10: web/apps/web/src/together-viewer-session.test.tsx ("comes back as the same member by the link it joined by, after the page was closed (D267 §1)"), web/apps/web/src/together-viewer-shell.test.tsx ("stays a page of its own for a guest by link alone: no banner"); VQ172
 
 ## D373 — No one's stall holds a Watch Together group: a leader stalled past a short grace passes the lead
 

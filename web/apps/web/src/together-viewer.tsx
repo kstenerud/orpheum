@@ -52,8 +52,10 @@ import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
 import {
   TapToContinue,
+  useIsInShell,
   useKeptVideo,
   useViewerVoiceDevices,
+  ViewerPage,
   type KeptVideo,
 } from "./together-viewer-tap.tsx";
 import { useVoice, VoiceControls } from "./together-voice.tsx";
@@ -181,14 +183,14 @@ function SessionOver(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <main className="together-viewer">
+    <ViewerPage className="together-viewer">
       <output>{t(`together.over.${props.reason}`)}</output>
       {props.reason === "uploadFull" ? (
         <button type="button" onClick={props.onAgain}>
           {t("together.over.joinAgain")}
         </button>
       ) : null}
-    </main>
+    </ViewerPage>
   );
 }
 
@@ -211,6 +213,7 @@ function ViewerSession(props: {
   readonly onOver: (reason: TogetherEndReason) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const isInShell = useIsInShell();
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
   const { onOver, kept } = props;
@@ -234,8 +237,9 @@ function ViewerSession(props: {
     );
   }
   return (
-    <main className="together-viewer">
-      <img className="together-viewer__logo" src={logo} alt={productName} />
+    <ViewerPage className="together-viewer">
+      {/* In the shell, its banner shows the logo. */}
+      {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
       <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
       <ViewingArea
         kept={kept}
@@ -251,7 +255,7 @@ function ViewerSession(props: {
       <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
-    </main>
+    </ViewerPage>
   );
 }
 

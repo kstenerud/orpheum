@@ -100,10 +100,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   Continue-watching tile's click showed "Loading…" for near a minute with nothing told the core's
   log at all, until the playback started (VQ137, 2026-10-29). `src/play-start-timing.test.ts`,
   `src/play-unanswered.test.tsx`; VQ137.
-- **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
-  page is only the host's playback, black while nothing plays, with nothing asked of their speakers
-  (D336 §4), voice, their own volume and Leave; the link's secret leaves
-  the address once used. Their session ended, a guest by link alone is told so on that page; a
+- **A Watch Together viewer needs no sign-in and, by link alone, sees none of the app** (D246 §3, §5,
+  §6): their page is only the host's playback, black while nothing plays, with nothing asked of their
+  speakers (D336 §4), voice, their own volume and Leave; the link's secret leaves
+  the address once used. **A signed-in guest's page is a screen in the shell** (D372 §9): the banner,
+  the tray, the menu and Your account stay theirs, in its one main landmark, its own logo left to the
+  banner's (`ViewerPage`); they may go anywhere in the app, even play another film only they see,
+  still a member, and come back by the tray's Watch Together sign, connecting again by the membership
+  their browser keeps and catching up. A member with no device on the session's page is said away, in
+  who is here and on the host's list of people. A guest by link alone comes back by the same link in
+  the same browser (D267 §1). `src/together-viewer-shell.test.tsx`; on devices, VQ172. Their session ended, a guest by link alone is told so on that page; a
   signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`,
   closed by its × or gone at the next screen), but for one sent away for the host's connection, who
   keeps Join again (the owner, 2026-10-29). A session the server no longer has, as after its

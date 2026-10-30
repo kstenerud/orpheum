@@ -97,13 +97,16 @@ describe("a signed-in guest's leader debug view (the owner, 2026-10-29)", () => 
           {
             "GET /me": [200, { id: 4, name: "Gran", isAdmin: false, showsDebugTools }],
             "GET /together/mine": [200, { sessions: [] }],
+            // A signed-in guest's page is a screen in the shell (D372 §9), which reads these.
+            "GET /client-settings": [200, {}],
           },
           [],
           "token",
         ),
         navigation: createNavigation(fakePlace("/together")),
       };
-      const sockets = liveAndSession(2);
+      // The shell's live connection opens first, before the screen's session (D372 §9).
+      const sockets = liveAndSession(1);
       const mounted = await mount(
         withServices(<App />, { ...services, openTogetherSocket: sockets.openSocket }),
       );

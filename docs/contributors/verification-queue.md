@@ -1731,3 +1731,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   couple of seconds of the unlock, not the 20 s it took on 2026-10-29 (VQ126's run), and a cast to the
   S23 from the Mac right after the unlock finds it among the devices. (`web/packages/sdk/src/live-connection.ts`,
   `shown-check.ts`, `shown-page.ts`)
+- [ ] **VQ172** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
+  (1) Signed in as dan on the Mac's Firefox, join Chrome's session by a link. Passes when the guest's
+  page has the banner: the tray (Cast and Watch Together's blue sign), the menu with Your account
+  (Show debug tools reachable there, and a cast from the tray, unblocking VQ103). (2) With a film
+  playing for the group, go home in Firefox and play another film: it plays for Firefox alone, the
+  host's page lists dan ", away" and Chrome's "Here:" says "dan (away)"; press the tray's Watch
+  Together sign: Firefox is back on the session's page, catches up to the shared film and plays in
+  step. (3) A guest by link alone (the S23's Chrome, not signed in): close the tab, open the same link
+  again in that browser: back as the same member, no join asked; open it in another browser (Samsung
+  Internet): the link is refused. (`web/apps/web/src/app.tsx`, `together-viewer.tsx`,
+  `together-viewer-tap.tsx`, `together-people.tsx`, `together-news.tsx`)

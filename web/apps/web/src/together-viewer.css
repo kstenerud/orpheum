@@ -11,6 +11,13 @@
   align-content: start;
 }
 
+/* A signed-in guest's page, a screen in the shell (D372 §9): the shell's main pads it and fills
+   the window below the banner. */
+.together-viewer--in-shell {
+  min-height: auto;
+  padding: 0;
+}
+
 .together-viewer__logo {
   height: 1.625rem;
   width: auto;
@@ -49,6 +56,11 @@
   padding: var(--space-4);
   text-align: center;
   background: var(--color-background);
+}
+
+/* Its first page under the shell's banner: as tall as the window leaves it, not the whole window. */
+.together-viewer__continue--in-shell {
+  min-height: 60dvh;
 }
 
 /* A viewer without the player's own controls still has full screen, at the film's corner. */
