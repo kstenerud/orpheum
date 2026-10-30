@@ -24748,6 +24748,22 @@ back to the film; a guest by link alone keeps their page of its own, which shows
 (D246 §3), and is the one page their film plays on; a page of the group's film opened by a press
 asks for no tap to continue. Device check: VQ190.
 
+**Revised the same day** (2026-10-30), by the owner, for a guest's way in: "When I start a watch
+together session, the guest now shows the watch together popup as well, instead of showing the
+video player like it used to. That's going to be confusing because guests won't know what to do,
+and will see no video." A signed-in guest's join, and their page's address (`/together`), no longer
+go home with Watch Together's dialog open while the group plays nothing: they go to the Play page of
+the group's film at once where it plays one, else the guest's page waits, saying it waits for the
+host to start a film, and moves to that film's Play page as one starts, as a guest on the group's
+film follows to the next. The dialog opens from the tray's sign alone; the host's old
+`/watch-together` address keeps going home with it open. A guest by link alone's page says it waits
+too. Built (2026-10-30) in `together-viewer.tsx` (`ToTheGroupsFilm`, `GroupFilmPage` moving on from
+`/together`, `NothingPlays`), asking the session by `together-what-plays.tsx` (`AsksWhatPlays`, which
+`WhoseFilm` shares). Proven by web/apps/web/src/together-viewer-shell.test.tsx ("waits on their page,
+in the shell, while the group plays nothing, no dialog opened, and moves to the Play page of the film
+the host starts (VQ193)", "lands on the Play page of the group's film from the join, no dialog opened
+(VQ193)"), web/apps/web/src/together-viewer.test.tsx; on devices, VQ193.
+
 ## D385 — A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood
 
 **Decided** (2026-10-30), by the project owner, amending D338 (settled 2026-10-27: a receiver taking

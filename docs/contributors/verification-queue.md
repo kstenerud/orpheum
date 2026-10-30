@@ -1899,3 +1899,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   casting sends the TV home and plays the film on Chrome from where the TV stood.
   (`web/apps/web/src/together-guest-play.tsx`, `cast-remote.tsx`)
   **Passed 2026-10-30 (the owner, staging), part (1):** the S23 as s23 and as admin went home, told, and stayed home on reload; part (2) (Stop casting alone) is checked with VQ193.
+- [ ] **VQ193** — a Watch Together guest who joins lands on the group's film, and a guest's cast
+  follows the group (D364 §11, D371 §4, D384 §2), on staging. (1) The Mac's Chrome starts a session
+  with nothing on; the S23, signed in, joins by its link: passes when the S23 shows its own page
+  saying it waits for the host to start a film, with no Watch Together dialog open; Chrome starts a
+  film: the S23 moves to that film's Play page and plays it in step. Chrome puts on another film:
+  the S23 follows to its Play page. Repeat with a session already playing a film: the S23's join
+  lands straight on that film's Play page. Repeat once with a private window, not signed in (a guest
+  by link alone): its page waits, saying so, and plays each film as it starts. (2) The S23 on the
+  group's film casts to the Fire TV from the tray: passes when the TV plays the group's film in step
+  with Chrome (the core's log shows the TV's `a device connected sessionId=<the session's>
+  … role=video`, not a session of the cast's own, and, for an S23 of a person of its own, no `the
+  session's leader changed` naming the TV), the S23's page says "Playing on Fire TV" with the group's controls; pause, play and a jump
+  from the S23 and from Chrome each move the TV with the group; Stop casting sends the TV home and
+  the S23 plays the film again on its page. Run (2) twice: once with the S23 signed in as a person of
+  its own (s23), once as the host's own person (admin).
+  (`web/apps/web/src/together-viewer.tsx`, `cast-dialog.tsx`, `internal/core/together/cast.go`)

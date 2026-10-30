@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { TogetherEndReason } from "@orpheum/sdk";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { useLive } from "./live.tsx";
@@ -28,15 +27,13 @@ export function CastingLeft(): null {
 }
 
 /**
- * An address of Watch Together's page, which D384 §2 made a dialog, as a history entry or a signed-in
- * guest's way in may hold one: once the session this browser is in says what it plays, the Play page
- * of the group's film in its place, the one page that plays it; with nothing playing, or no session,
- * home, Watch Together's dialog open over it. A session that turns out ended is told onEnded, where
- * given (a signed-in guest's, whose page says why), else goes home so too.
+ * An address of Watch Together's page, which D384 §2 made a dialog, as a history entry may hold one:
+ * once the session this browser is in says what it plays, the Play page of the group's film in its
+ * place, the one page that plays it; with nothing playing, no session or one ended, home, Watch
+ * Together's dialog open over it. A signed-in guest's own page (/together) goes elsewhere: to the
+ * group's film, or a page waiting for it (ToTheGroupsFilm), never the dialog.
  */
-export function TogetherLeft(props: {
-  readonly onEnded?: ((reason: TogetherEndReason) => void) | undefined;
-}): null {
+export function TogetherLeft(): null {
   const { navigation } = useServices();
   const hosting = useMembership(tabStorage, "host");
   const viewing = useMembership(browserStorage, "viewer");
@@ -46,22 +43,16 @@ export function TogetherLeft(props: {
     sessionToken: useToken(),
     role: "panel",
   });
-  const endedRef = useRef(props.onEnded);
-  useEffect(() => {
-    endedRef.current = props.onEnded;
-  });
   const fileId = snapshot?.status === "connected" ? (snapshot.group?.fileId ?? 0) : undefined;
-  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
+  const isEnded = snapshot?.status === "ended";
   const hasNone = membership === undefined;
   useEffect(() => {
-    if (endReason !== undefined && endedRef.current !== undefined) {
-      endedRef.current(endReason);
-    } else if (fileId !== undefined && fileId !== 0) {
+    if (fileId !== undefined && fileId !== 0) {
       navigation.replace({ screen: "play", fileId });
-    } else if (hasNone || fileId === 0 || endReason !== undefined) {
+    } else if (hasNone || fileId === 0 || isEnded) {
       navigation.replace({ screen: "home" });
       openTrayDialog("together");
     }
-  }, [fileId, endReason, hasNone, navigation]);
+  }, [fileId, isEnded, hasNone, navigation]);
   return null;
 }
