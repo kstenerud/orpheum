@@ -31,13 +31,11 @@ import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
-import { idempotent } from "./idempotent.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
-import { ApiProblem, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
@@ -50,7 +48,8 @@ import { Loaded } from "./loaded.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
-import { TogetherLeft } from "./old-addresses.tsx";
+import { LeaveButton } from "./together-leave.tsx";
+import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
 import {
   hasBeenPressed,
   TapToContinue,
@@ -70,7 +69,6 @@ import {
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
-import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { VolumeRange } from "./volume-range.tsx";
 import { useIsVolumeSettable, VolumeButtonsNote } from "./film-volume-slider.tsx";
@@ -134,8 +132,9 @@ export function TogetherViewer(): JSX.Element {
     );
   }
   if (isSignedIn) {
-    // A signed-in guest's film plays on its Play page, the one page every film plays on (D384 §2).
-    return <TogetherLeft onEnded={over.end} />;
+    // A signed-in guest's film plays on its Play page, the one page every film plays on (D384 §2);
+    // with nothing playing yet, this page waits for it (ToTheGroupsFilm).
+    return <ToTheGroupsFilm membership={membership} />;
   }
   return (
     <ViewerSession
@@ -151,7 +150,8 @@ export function TogetherViewer(): JSX.Element {
 /**
  * The group's film on its Play page, for a signed-in guest in a session that plays it (D384 §2): the
  * one page every film plays on, here as a guest's, the film following the group, with who is here,
- * voice, their own volume and Leave; it moves to the Play page of the next film the group plays. Ended,
+ * voice, their own volume and Leave; it moves to the Play page of the next film the group plays, as it
+ * does from the guest's own page (/together), where it waits while the group plays nothing. Ended,
  * they are taken home and told why (useSessionEnd); sent away for the host's connection, the page says
  * so, with Join again. A page shown by a press needs no tap to continue: the press was it.
  */
@@ -163,7 +163,7 @@ export function GroupFilmPage(props: { readonly membership: Membership }): JSX.E
   const toFilm = useCallback(
     (fileId: number) => {
       const shown = navigation.route();
-      if (shown.screen === "play" && shown.fileId !== fileId) {
+      if (shown.screen === "together" || (shown.screen === "play" && shown.fileId !== fileId)) {
         navigation.replace({ screen: "play", fileId });
       }
     },
@@ -182,6 +182,28 @@ export function GroupFilmPage(props: { readonly membership: Membership }): JSX.E
       onGroupFilm={toFilm}
     />
   );
+}
+
+/**
+ * A signed-in guest's way into their session, where their join lands and their page's address
+ * (/together) leads: the Play page of the group's film in its place, at once where the group plays
+ * one (D384 §2); else this page, waiting for the host to start one (GroupFilmPage), which moves to its
+ * Play page as one starts. No dialog opens: Watch Together's opens from the tray's sign alone (the
+ * owner, 2026-10-30: a guest who joined saw the dialog over home, "Nothing is playing", no video).
+ */
+function ToTheGroupsFilm(props: { readonly membership: Membership }): JSX.Element | null {
+  const { navigation } = useServices();
+  const [plays, setPlays] = useState<GroupPlays | undefined>(undefined);
+  const fileId = plays?.kind === "film" ? plays.fileId : 0;
+  useEffect(() => {
+    if (fileId !== 0) {
+      navigation.replace({ screen: "play", fileId });
+    }
+  }, [fileId, navigation]);
+  if (plays === undefined) {
+    return <AsksWhatPlays membership={props.membership} onAnswered={setPlays} />;
+  }
+  return plays.kind === "nothing" ? <GroupFilmPage membership={props.membership} /> : null;
 }
 
 /**
@@ -346,48 +368,6 @@ function VolumeSlider(props: {
   );
 }
 
-/** Leave: the membership ends, and with it every device of it. */
-function LeaveButton(props: {
-  readonly membership: Membership;
-  readonly onLeft: (reason: TogetherEndReason) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  return (
-    <>
-      <button
-        type="button"
-        disabled={isBusy}
-        onClick={() => {
-          runRequest(async (idempotencyKey) => {
-            const answer = await api.POST("/together/leave", {
-              headers: {
-                ...idempotent(idempotencyKey).headers,
-                ...membershipHeaders(props.membership.credential),
-              },
-            });
-            try {
-              throwIfRefused(answer);
-            } catch (cause: unknown) {
-              // A session the server no longer has, as after its restart, is over, not a failure.
-              if (cause instanceof ApiProblem && cause.code === "not_found") {
-                props.onLeft("gone");
-                return;
-              }
-              throw cause;
-            }
-            props.onLeft("left");
-          });
-        }}
-      >
-        {t("together.leave")}
-      </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
-    </>
-  );
-}
-
 /**
  * The group's film followed on a cast's receiver that takes a guest's part in their session (D371 §4):
  * just another follower, by the guest's credential the cast handed it, as the guest's own device
@@ -413,10 +393,10 @@ export function FollowsTheGroupHere(props: { readonly credential: string }): JSX
 }
 
 /**
- * Where the film plays: black while nothing does (D246 §6), else the group's film, followed, in the
- * session's kept video; over either, a tap asked for while the voices wait for one, as when a phone
- * call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the video").
- * While this device casts, the device it casts to plays the film in its place, a follower too, and
+ * Where the film plays: black while nothing does (NothingPlays), else the group's film, followed, in
+ * the session's kept video; over either, a tap asked for while the voices wait for one, as when a
+ * phone call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the
+ * video"). While this device casts, the device it casts to plays the film in its place, a follower too, and
  * this one holds the group's controls its rights give (D371 §4), telling its session it plays no
  * film, so it never leads in its receiver's place (D374 §1).
  */
@@ -448,14 +428,7 @@ function ViewingArea(props: {
   return (
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? (
-        <EmptyStage>
-          {props.isVoiceWaiting ? (
-            // Its tap is the page's (playWaitingAtTaps): the button only asks for one.
-            <button type="button" className="together-viewer__sound-on">
-              {t("together.soundBack")}
-            </button>
-          ) : null}
-        </EmptyStage>
+        <NothingPlays snapshot={props.snapshot} isVoiceWaiting={props.isVoiceWaiting} />
       ) : (
         <GroupFilm
           key={fileId}
@@ -467,6 +440,33 @@ function ViewingArea(props: {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * The stage while no film plays here: black (D246 §6), saying, once the session says it plays
+ * nothing, that it waits for the host to start a film (the owner, 2026-10-30: a guest who joined
+ * "won't know what to do"), with the voices' tap asked for over it while they wait for one.
+ */
+function NothingPlays(props: {
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly isVoiceWaiting: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { snapshot } = props;
+  const isWaiting = snapshot?.status === "connected" && (snapshot.group?.fileId ?? 0) === 0;
+  return (
+    <>
+      {isWaiting ? <p>{t("together.waitsForAFilm")}</p> : null}
+      <EmptyStage>
+        {props.isVoiceWaiting ? (
+          // Its tap is the page's (playWaitingAtTaps): the button only asks for one.
+          <button type="button" className="together-viewer__sound-on">
+            {t("together.soundBack")}
+          </button>
+        ) : null}
+      </EmptyStage>
+    </>
   );
 }
 

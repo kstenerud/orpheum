@@ -40,7 +40,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   page it is pressed on, or, with a cast on, what plays where, the way back to its film's page and
   Stop casting; it closes once a cast started from it is taken. There is no Watch Together page nor
   casting page: an old `/watch-together` address goes to the Play page of the group's film, else
-  home with the dialog open, and `/casting` to the Play page of the cast's film, else home
+  home with the dialog open (a guest's `/together` never opens it), and `/casting` to the Play page of the cast's film, else home
   (`src/old-addresses.tsx`). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
 - **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
@@ -119,7 +119,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   log at all, until the playback started (VQ137, 2026-10-29). `src/play-start-timing.test.ts`,
   `src/play-unanswered.test.tsx`; VQ137.
 - **A Watch Together viewer needs no sign-in and, by link alone, sees none of the app** (D246 §3, §5,
-  §6): their page is only the host's playback, black while nothing plays, with nothing asked of their
+  §6): their page is only the host's playback, black while nothing plays, saying it waits for the
+  host to start a film, with nothing asked of their
   speakers (D336 §4), voice, their own volume and Leave; the link's secret leaves
   the address once used. **A signed-in guest's film is the group's on its Play page, the one page
   every film plays on** (D372 §9, D384 §2; `src/together-guest-play.tsx`): a Play page whose film
@@ -127,7 +128,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   volume and Leave (`GroupFilmPage`, `ViewerPage`), moving to the Play page of each next film the group
   plays; another film plays as their own, still a member; they come back by the tray's Watch
   Together dialog's way back to the film, connecting again by the membership their browser keeps and
-  catching up. Their way in, `/together`, goes to that Play page once joined. A member with no device on the session's page is said away, in
+  catching up. Their way in, `/together`, where their join lands, goes to that Play page once
+  joined, or, while the group plays nothing, waits on that page, saying so, for the host to start a
+  film, then moves to its Play page; no dialog opens but from the tray's sign (`ToTheGroupsFilm`;
+  the owner, 2026-10-30; VQ193). A member with no device on the session's page is said away, in
   who is here and on the host's list of people. A guest by link alone comes back by the same link in
   the same browser (D267 §1). `src/together-viewer-shell.test.tsx`; on devices, VQ172. Their session ended, a guest by link alone is told so on that page; a
   signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`, a
@@ -589,7 +593,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
-  their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
+  their link), `together-what-plays.tsx` (asking a guest's session what it plays),
+  `together-leave.tsx` (a guest's Leave), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
   connection), `together-voice.tsx` (voice's controls), `volume-range.tsx` (every volume slider, which a touch anywhere moves), `together-storage.ts` (the memberships this tab keeps),
   `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a

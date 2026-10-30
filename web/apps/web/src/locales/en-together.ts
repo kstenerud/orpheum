@@ -22,6 +22,7 @@ export const enTogether = {
       "This link does not work: invitations are short-lived, and this one has expired, was used already or was withdrawn, or the session is over. Ask the person who sent it for a new one.",
     viewerHeading: "Watching together",
     stage: "The film",
+    waitsForAFilm: "Waiting for the host to start a film.",
     soundOn: "Tap for sound",
     soundBack: "Tap to turn the sound back on",
     invitedBy: "{{host}} invited you to watch together.",

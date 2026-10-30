@@ -9,12 +9,21 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "./app.tsx";
 import { createNavigation } from "./navigation.ts";
 import { dismissNotice, currentNotice } from "./notice.ts";
-import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Answers,
+  type Heard,
+} from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 import { TogetherNews } from "./together-news.tsx";
 import { SessionPeople, type SessionDetails } from "./together-people.tsx";
+import { currentTrayDialog } from "./tray-dialog.ts";
 
 const welcome = {
   type: "welcome",
@@ -29,8 +38,11 @@ const welcome = {
   ],
 };
 
-/** A signed-in guest's App at address, keeping their membership of session 1. */
-function signedInGuest(address: string): {
+/** A signed-in guest's App at address, keeping their membership of session 1; more answered too. */
+function signedInGuest(
+  address: string,
+  more: Answers = {},
+): {
   readonly services: ReturnType<typeof servedBy>;
   readonly sockets: ReturnType<typeof liveAndSession>;
   readonly heard: Heard[];
@@ -52,6 +64,7 @@ function signedInGuest(address: string): {
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
           "POST /together/playback": [200, directDecision({})],
+          ...more,
         },
         heard,
         "token",
@@ -74,25 +87,63 @@ beforeEach(() => {
 });
 
 describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", () => {
-  it("goes from the session's old page home, in the shell, Watch Together's dialog open over it, while the group plays nothing (D384 §2)", async () => {
+  it("waits on their page, in the shell, while the group plays nothing, no dialog opened, and moves to the Play page of the film the host starts (VQ193)", async () => {
     const { services, sockets } = signedInGuest("/together");
     const mounted = await mount(withServices(<App />, services));
     await sockets.live.accept();
-    await settleUntil(() => sockets.session.openedCount() > 0);
-    await sockets.session.acceptEach();
-    await sockets.session.say(welcome);
-    await settleUntil(() => services.navigation.route().screen === "home");
-    await settleUntil(() => sockets.session.openedCount() > 1); // the dialog's, its code loaded
+    await settleUntil(() => sockets.session.openedCount() > 0); // what the group plays
     await sockets.session.acceptEach();
     await sockets.session.say(welcome);
     const { container } = mounted;
+    await settleUntil(() => buttonWithText(container, "Tap to continue") !== undefined);
+    await click(buttonWithText(container, "Tap to continue"));
+    await sockets.session.acceptEach();
+    await sockets.session.say(welcome);
+    expect(services.navigation.route()).toEqual({ screen: "together" });
+    expect(container.textContent).toContain("Waiting for the host to start a film.");
     expect(container.querySelector("header nav")).not.toBeNull();
     expect(container.querySelectorAll("main")).toHaveLength(1);
-    expect(container.querySelector("dialog.together-dialog")?.textContent).toContain(
-      "Nothing is playing",
-    );
+    expect(container.querySelector("dialog")).toBeNull();
+    expect(currentTrayDialog()).toBeUndefined();
     const hellos = sockets.session.heard.filter((each) => each["type"] === "hello");
-    expect(hellos.at(-1)).toMatchObject({ credential: "viewer-credential", role: "panel" });
+    expect(hellos.at(-1)).toMatchObject({ credential: "viewer-credential", role: "video" });
+    await sockets.session.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    await settleUntil(() => services.navigation.route().screen === "play");
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
+    expect(currentTrayDialog()).toBeUndefined();
+    mounted.unmount();
+  });
+
+  it("lands on the Play page of the group's film from the join, no dialog opened (VQ193)", async () => {
+    const { services, sockets } = signedInGuest("/together#link-secret", {
+      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join": [
+        200,
+        { sessionId: 1, memberId: 2, membershipCredential: "viewer-credential", locator: "" },
+      ],
+    });
+    window.localStorage.clear(); // not a member yet: the link joins
+    const mounted = await mount(withServices(<App />, services));
+    await sockets.live.accept();
+    const { container } = mounted;
+    await settleUntil(() => buttonWithText(container, "Join") !== undefined);
+    await settleUntil(() => container.querySelector("input")?.value === "Gran");
+    await click(buttonWithText(container, "Join"));
+    await settleUntil(() => sockets.session.openedCount() > 0); // what the group plays
+    await sockets.session.acceptEach();
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    await settleUntil(() => services.navigation.route().screen === "play");
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
+    expect(container.querySelector("dialog")).toBeNull();
+    expect(currentTrayDialog()).toBeUndefined();
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
     mounted.unmount();
   });
 

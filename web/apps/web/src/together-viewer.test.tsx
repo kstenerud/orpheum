@@ -114,6 +114,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const stage = mounted.container.querySelector('section[aria-label="The film"]');
     expect(stage).not.toBeNull();
     expect(stage?.querySelector("video")).toBeNull();
+    // A guest by link alone waits on their own page too, told for what (VQ193).
+    expect(stage?.textContent).toContain("Waiting for the host to start a film.");
     expect(mounted.container.textContent).toContain("Here: Karl and Gran");
     expect(mounted.container.textContent).not.toContain("Sign out");
     mounted.unmount();
