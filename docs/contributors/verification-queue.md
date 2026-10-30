@@ -1706,7 +1706,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the receiver (on 2026-10-29 one took it from 9018 to 1896 kb/s on a link of 18451 kb/s).
   (`web/packages/sdk/src/together-player-events.ts`, `together-follow.ts`)
   **Passed 2026-10-29 (the owner, staging):** Nosferatu cast to the Fire TV held 9018 kb/s through six seeks of the remote; no common-quality step.
-- [ ] **VQ142** — a cast while Watch Together is hosted plays on the TV, and a device receiving a
+- [x] **VQ142** — a cast while Watch Together is hosted plays on the TV, and a device receiving a
   cast is no other device's target (D386 §1), on staging. (1) Host a Watch Together session from one
   admin device (the S23's Firefox) with a guest in it; from Chrome on the Mac, with nothing playing,
   cast to the Fire TV (Use on the TV), then play a film on Chrome. Passes when it plays on the TV,
