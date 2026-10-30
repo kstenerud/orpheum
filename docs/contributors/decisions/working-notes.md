@@ -24878,4 +24878,12 @@ Ready page for the next video: "We're either casting to a device or we're not. I
    home, this page plays on). A cast waiting on the receiver's Ready page between videos, the film
    over and the next not yet sent, stays a cast to that device (D364 §5).
 
-**Status:** Decided 2026-10-30; not built yet.
+**Status:** Decided 2026-10-30; built (2026-10-30) in the web client. `cast-remote.tsx`'s remote
+(`RemoteOf`) shows the film, its controls, Up next and Stop casting, no "Play on this device
+instead"; its handler, its string and the remote's position kept only for it are gone. The
+receiver's Ready page between videos is unchanged (`cast-ready.tsx`), and the server's way to send
+a cast nothing (`playInCast` with no film) stays, the receiver's own path to its Ready page as a
+film ends. Device check: VQ192.
+
+**Proven by:**
+- 1: web/apps/web/src/cast-remote.test.tsx ("offers Stop casting alone to bring the film back, never playing here while the cast goes on (D388)", "stops casting at Stop, the film playing here again at once from where the receiver stood (D384 §2)", "says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)"), web/e2e/cast.spec.ts; on a device, VQ192
