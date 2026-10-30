@@ -67,6 +67,16 @@ STOP_GRACE_SECONDS = 10
 STOPPED_NOTE = "quiet_gate: a step failed, so the steps still running were stopped (--fail-fast)"
 
 
+# Lines a run prints for the reader whether it passes or fails: check_vulns.py's report, a prompt to
+# upgrade that never fails the run (the owner, 2026-10-30).
+ALWAYS_SHOWN = "check-vulns: "
+
+
+def shown_on_a_pass(output: str) -> list[str]:
+    """The lines a passing run shows besides its last: the reports that never fail it."""
+    return [line for line in output.splitlines() if line.startswith(ALWAYS_SHOWN)]
+
+
 def is_noise(line: str) -> bool:
     return not line.strip() or any(pattern.search(line) for pattern in NOISE)
 
@@ -142,6 +152,8 @@ def main(argv: list[str]) -> int:
     log.write_text(output, encoding="utf-8")
     if code == 0:
         last = next((line for line in reversed(output.splitlines()) if line.strip()), "")
+        for line in shown_on_a_pass(output):
+            print(line)
         print(last if last.startswith(label) else f"{label}: passed")
         return 0
     failed_log = log.with_name(f"{make_args[0]}.failed.log")

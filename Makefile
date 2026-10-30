@@ -151,6 +151,10 @@ check-source: ## SPDX licence headers match their directory; files stay under 80
 check-deps: ## Every dependency is on the owner's allowlist with a reason
 	@$(PYTHON) scripts/check_deps.py
 
+.PHONY: check-vulns
+check-vulns: ## Known vulnerabilities in the pinned dependencies (govulncheck, npm audit): a prompt to upgrade, never a failure; first in check-pr and the nightly run
+	@$(PYTHON) scripts/check_vulns.py
+
 .PHONY: check-claims
 check-claims: ## TestArch_ citations, decision IDs in code, and ORPHEUM_TEST_ variables resolve
 	@$(PYTHON) scripts/check_claims.py
@@ -318,6 +322,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  $(PYTHON) scripts/disk_guard.py; \
+	  $(PYTHON) scripts/check_vulns.py; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
@@ -442,6 +447,7 @@ SINCE ?= 24 hours ago
 check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's nightly run; SINCE (default "24 hours ago") bounds revert-red's commits
 	@rm -rf "$$(git rev-parse --path-format=absolute --git-common-dir)/orpheum-area-stamps" "$$(git rev-parse --git-path orpheum-check-passed)"; \
 	  failed=0; \
+	  $(PYTHON) scripts/check_vulns.py; \
 	  $(MAKE) --no-print-directory check-verbose || failed=1; \
 	  npm --prefix web run --silent test:isolated || failed=1; \
 	  $(UNCONTROLLED); $(HERMETIC) go test -race -count=1 -p "$$(( ($$(nproc) + 1) / 2 ))" -timeout 30m ./... || failed=1; \
