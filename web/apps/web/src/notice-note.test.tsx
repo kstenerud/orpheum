@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { currentNotice, dismissNotice, showNotice } from "./notice.ts";
 import { NoticeNote } from "./notice-note.tsx";
-import { buttonNamed, click, mount, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -25,15 +25,33 @@ afterEach(() => {
 // A page's word for the person on the screen they were taken to, such as why their Watch Together
 // session ended (the owner, 2026-10-29).
 describe("NoticeNote", () => {
-  it("shows the notice as a status, until Close", async () => {
+  // The owner, 2026-10-29: the notice that a Watch Together session ended "is a modal popup", not
+  // the note at the top of the page.
+  it("shows the notice as a modal pop-up, until OK", async () => {
     showNotice("The host ended the Watch Together session.");
     mounted = await mount(withServices(<NoticeNote />, testServices("token", "/")));
-    const status = mounted.container.querySelector("output");
-    expect(status?.textContent).toBe("The host ended the Watch Together session.");
-    const close = buttonNamed(mounted.container, "Close");
-    expect(close).toBeDefined();
-    await click(close);
+    const dialog = mounted.container.querySelector('dialog[role="alertdialog"]');
+    expect(dialog?.hasAttribute("open")).toBe(true);
+    expect(dialog?.getAttribute("aria-label")).toBe("The host ended the Watch Together session.");
+    expect(dialog?.textContent).toContain("The host ended the Watch Together session.");
+    expect(mounted.container.querySelector("output")).toBeNull();
+    const ok = buttonWithText(mounted.container, "OK");
+    expect(ok).toBeDefined();
+    await click(ok);
     expect(mounted.container.textContent).toBe("");
+    expect(currentNotice()).toBeUndefined();
+  });
+
+  it("closes at a press outside it", async () => {
+    showNotice("The host ended the Watch Together session.");
+    mounted = await mount(withServices(<NoticeNote />, testServices("token", "/")));
+    const dialog = mounted.container.querySelector("dialog");
+    // On the backdrop: the press reaches the dialog itself, at a point outside its box.
+    await act(async () => {
+      dialog?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: -10, clientY: -10 }));
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector("dialog")).toBeNull();
     expect(currentNotice()).toBeUndefined();
   });
 
@@ -44,7 +62,9 @@ describe("NoticeNote", () => {
       showNotice("You left the Watch Together session.");
       await Promise.resolve();
     });
-    expect(mounted.container.textContent).toBe("You left the Watch Together session.");
+    expect(mounted.container.querySelector("dialog")?.textContent).toContain(
+      "You left the Watch Together session.",
+    );
   });
 
   it("goes once the screen changes", async () => {

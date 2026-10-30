@@ -496,7 +496,7 @@ export const en = {
     notFound: "There is nothing at this address.",
   },
   notice: {
-    close: "Close",
+    ok: "OK",
   },
   common: {
     loading: "Loading…",

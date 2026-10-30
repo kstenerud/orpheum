@@ -362,12 +362,6 @@
   max-width: none;
 }
 
-/* The tab's notice (notice-note.tsx): its words take the row, its × at the row's end. */
-.notice-note__text {
-  flex: 1 1 0;
-  min-width: 12ch;
-}
-
 /* A label and its control sit side by side with room between them; a theme restyles this. */
 .app-shell__main label {
   display: inline-flex;

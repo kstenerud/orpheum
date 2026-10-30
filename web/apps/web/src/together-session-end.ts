@@ -42,7 +42,7 @@ export function useSessionEnd(
   );
   const over = useMemo(() => {
     const homeTold = (text: string): void => {
-      // Home first, so the notice is first seen there, the screen it stays on (notice-note.tsx).
+      // Home first, so the notice pops up there, the screen it stays on (notice-note.tsx).
       navigation.replace({ screen: "home" });
       showNotice(text);
     };

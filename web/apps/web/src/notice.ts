@@ -6,7 +6,8 @@ import { useSyncExternalStore } from "react";
  * A word for the person on the page they are taken to, such as why what they were in ended (the
  * owner, 2026-10-29: a signed-in guest whose Watch Together session ended is taken home, "maybe with
  * a popup telling them that the play together session ended"). One at a time, in this tab: a new one
- * replaces the last. The shell shows it (notice-note.tsx) until it is closed or the screen changes.
+ * replaces the last. The shell shows it, a pop-up (notice-note.tsx), until it is closed or the screen
+ * changes.
  */
 export interface Notice {
   /** What it says, in the person's words. */

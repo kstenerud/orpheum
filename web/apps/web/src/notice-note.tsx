@@ -3,15 +3,15 @@
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { IconButton } from "./icon-button.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { dismissNotice, useNotice, type Notice } from "./notice.ts";
-import { CloseIcon } from "./player-icons.tsx";
 import { useRoute } from "./services.tsx";
 
 /**
- * The tab's notice (notice.ts) above the screen, with a × that closes it: a button a remote's
- * arrows reach like any other, no held key needed. It goes too once the screen it was first shown
- * on changes.
+ * The tab's notice (notice.ts), a pop-up over the screen (the owner, 2026-10-29: the notice that a
+ * Watch Together session ended "is a modal popup", not the note at the top of the page): the shared
+ * modal dialog, its words and an OK a remote's arrows reach, closed too by a press outside it, Escape
+ * and Back. It goes too once the screen it was first shown on changes.
  */
 export function NoticeNote(): JSX.Element | null {
   const { t } = useTranslation();
@@ -30,17 +30,21 @@ export function NoticeNote(): JSX.Element | null {
   if (notice === undefined || isLeftBehind) {
     return null;
   }
+  const close = (): void => {
+    dismissNotice(notice);
+  };
   return (
-    <output className="app-shell__note notice-note">
-      <span className="notice-note__text">{notice.text}</span>
-      <IconButton
-        className="notice-note__close"
-        label={t("notice.close")}
-        icon={<CloseIcon />}
-        onClick={() => {
-          dismissNotice(notice);
-        }}
-      />
-    </output>
+    <ModalDialog
+      className="notice-note"
+      role="alertdialog"
+      label={notice.text}
+      onClose={close}
+      shouldCloseOnOutsidePress
+    >
+      <p>{notice.text}</p>
+      <button type="button" onClick={close}>
+        {t("notice.ok")}
+      </button>
+    </ModalDialog>
   );
 }
