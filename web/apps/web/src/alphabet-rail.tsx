@@ -79,18 +79,28 @@ export function fromForLetter(letter: string, isZToA: boolean): { readonly from?
  * with the list's own background poll (D237); undefined while that first answer is loading, for
  * AlphabetRail's own letters prop. Films, Series and the Libraries page all ask this one way.
  */
-export function useAlphabetRailLetters(
-  kind: "movie" | "series" | "other" | "any",
-  library: number | undefined,
-  sort: "name" | "file_name",
-): readonly string[] | undefined {
+export function useAlphabetRailLetters(list: {
+  readonly kind: "movie" | "series" | "other" | "any";
+  readonly library: number | undefined;
+  readonly sort: "name" | "file_name";
+  /** The list's search, "" for none: only letters some matching title begins with. */
+  readonly search: string;
+}): readonly string[] | undefined {
+  const { kind, library, sort, search } = list;
   const { api } = useServices();
   const [letters] = useResource(
-    `alphabet-rail-letters/${kind}/${String(library)}/${sort}`,
+    `alphabet-rail-letters/${kind}/${String(library)}/${sort}/${search}`,
     async () => {
       const body = dataOrThrow(
         await api.GET("/titles/letters", {
-          params: { query: { kind, sort, ...(library === undefined ? {} : { library }) } },
+          params: {
+            query: {
+              kind,
+              sort,
+              ...(library === undefined ? {} : { library }),
+              ...(search === "" ? {} : { query: search }),
+            },
+          },
         }),
       );
       return body.letters ?? [];
@@ -123,12 +133,15 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
   readonly sort: "name" | "file_name";
   readonly isZToA?: boolean | undefined;
   readonly library: number | undefined;
+  /** The list's search, "" for none: a jump finds its letter among what the search lists. */
+  readonly search?: string;
   readonly jump: LetterJump | undefined;
   readonly pages: Pages<T>;
   readonly listRef: RefObject<HTMLElement | null>;
 }): void {
   const { api } = useServices();
   const { kind, sort, library, jump, listRef } = props;
+  const search = props.search ?? "";
   const isZToA = props.isZToA === true;
   const { loadUntil, loadedSoFar } = props.pages;
   // The place of the poster to focus once it is drawn, the last's for -1, undefined for none; the
@@ -146,6 +159,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
       limit: 1,
       ...(isZToA ? { order: "descending" as const } : {}),
       ...(library === undefined ? {} : { library }),
+      ...(search === "" ? {} : { query: search }),
       ...fromForLetter(jump.letter, isZToA),
     };
     api
@@ -162,7 +176,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
     return () => {
       isCurrent = false;
     };
-  }, [api, kind, sort, isZToA, library, jump, loadUntil]);
+  }, [api, kind, sort, isZToA, library, search, jump, loadUntil]);
   useEffect(() => {
     const place = toFocusRef.current;
     if (place === undefined) {

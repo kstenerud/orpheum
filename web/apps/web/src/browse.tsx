@@ -32,7 +32,6 @@ import {
   type SortChoice,
 } from "./sort-choices.ts";
 import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
-import { QueryResults } from "./search.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
@@ -181,9 +180,10 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<SortChoice>({ sort: "name", order: "ascending" });
   const [jump, onLetter, clearJump] = useLetterJumpState();
-  const [query, setQuery] = useState("");
+  // The list's search, a criterion of the list itself, as its sort is (the owner, 2026-10-30).
+  const [search, setSearch] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const isNamed = choice.sort === "name" && query === "";
+  const isNamed = choice.sort === "name";
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -192,7 +192,13 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
           <ListingTools>
-            <SearchButton query={query} onSearch={setQuery} />
+            <SearchButton
+              query={search}
+              onSearch={(next) => {
+                clearJump();
+                setSearch(next);
+              }}
+            />
             <SortChooser
               choice={choice}
               onChoose={(chosen) => {
@@ -202,21 +208,19 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
             />
           </ListingTools>
         </div>
-        {query === "" ? (
-          <BrowsePages
-            key={`${props.kind}/${choice.sort}/${choice.order}`}
-            kind={props.kind}
-            choice={choice}
-            jump={isNamed ? jump : undefined}
-            listRef={listRef}
-          />
-        ) : (
-          <QueryResults key={query} query={query} kind={props.kind} />
-        )}
+        <BrowsePages
+          key={`${props.kind}/${choice.sort}/${choice.order}/${search}`}
+          kind={props.kind}
+          choice={choice}
+          search={search}
+          jump={isNamed ? jump : undefined}
+          listRef={listRef}
+        />
       </div>
       {isNamed ? (
         <BrowseAlphabetRail
           kind={props.kind}
+          search={search}
           isZToA={choice.order === "descending"}
           onLetter={onLetter}
         />
@@ -233,10 +237,16 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
  */
 function BrowseAlphabetRail(props: {
   readonly kind: BrowseKind;
+  readonly search: string;
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
-  const letters = useAlphabetRailLetters(props.kind, undefined, "name");
+  const letters = useAlphabetRailLetters({
+    kind: props.kind,
+    library: undefined,
+    sort: "name",
+    search: props.search,
+  });
   return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
 
@@ -283,11 +293,13 @@ const entryId = (entry: Entry): number => entry.id;
 function BrowsePages(props: {
   readonly kind: BrowseKind;
   readonly choice: SortChoice;
+  /** The list's search, "" for none (GET /titles' query). */
+  readonly search: string;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { api } = useServices();
-  const { kind } = props;
+  const { kind, search } = props;
   const { sort, order } = props.choice;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
@@ -296,12 +308,13 @@ function BrowsePages(props: {
         sort,
         ...orderQuery({ sort, order }),
         limit: entriesPerPage,
+        ...(search === "" ? {} : { query: search }),
         ...(cursor === "" ? {} : { cursor }),
       };
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, sort, order],
+    [api, kind, sort, order, search],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
@@ -314,6 +327,7 @@ function BrowsePages(props: {
     sort: "name",
     isZToA: order === "descending",
     library: undefined,
+    search,
     jump: props.jump,
     pages,
     listRef: props.listRef,
@@ -321,6 +335,7 @@ function BrowsePages(props: {
   return (
     <BrowseView
       kind={kind}
+      search={search}
       loadedEntries={pages.loadedSoFar}
       isLoadingMore={pages.isLoadingMore}
       onLoadMore={pages.loadMore}
@@ -332,6 +347,8 @@ function BrowsePages(props: {
 /** A list's pages as they show: loading, failed with why, empty, or the grid and a way to more. */
 export function BrowseView(props: {
   readonly kind: BrowseKind;
+  /** The list's search, "" for none: an empty list then says nothing matches it. */
+  readonly search?: string;
   readonly loadedEntries: Resource<Page<Entry>>;
   readonly isLoadingMore: boolean;
   readonly onLoadMore: () => void;
@@ -342,7 +359,7 @@ export function BrowseView(props: {
       resource={props.loadedEntries}
       render={(page) =>
         page.items.length === 0 ? (
-          <EmptyList />
+          <EmptyList search={props.search ?? ""} />
         ) : (
           <>
             <PosterGrid kind={props.kind} entries={page.items} watchItemAt={props.watchItemAt} />
@@ -357,14 +374,17 @@ export function BrowseView(props: {
 }
 
 /**
- * Why a list is empty: nothing scanned yet, or, for someone whose role the admin has given no
+ * Why a list is empty: nothing its search matches; nothing scanned yet; or, for someone whose role the admin has given no
  * library, that they have been given none (D243 §4), which only the admin can change.
  */
-function EmptyList(): JSX.Element {
+function EmptyList(props: { readonly search: string }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const isGivenNoLibrary = me.state === "loaded" && me.value.hasNoLibrary;
+  if (props.search !== "") {
+    return <p className="browse__empty">{t("search.none", { query: props.search })}</p>;
+  }
   return (
     <p className="browse__empty">{t(isGivenNoLibrary ? "browse.noLibrary" : "browse.empty")}</p>
   );
