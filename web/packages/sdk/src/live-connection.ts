@@ -7,6 +7,8 @@
  * that changes, and hands a device a cast to receive on it.
  */
 
+import { ShownCheck } from "./shown-check.ts";
+import { whenPageChanges, type PageOfConnection } from "./shown-page.ts";
 import { deadAfterUnansweredPings, pingEveryMs, reconnectWaitMs } from "./together-connection.ts";
 import { recordOf, type OpenTogetherSocket, type TogetherSocket } from "./together.ts";
 
@@ -87,8 +89,14 @@ export interface LiveConnection {
   readonly close: () => void;
 }
 
-/** What a live connection needs. */
-export interface LiveConnectionOptions {
+/**
+ * What a live connection needs. Its page (PageOfConnection) is heard as the session connection hears
+ * its own, by one mechanism: shown again, or the way to the core back, its socket is pinged and dropped
+ * as dead unless it answers within shownAnswerWithinMs, and one waiting to connect again connects at
+ * once; left, its socket closes, until the page returns from the back/forward cache. Its own pings
+ * waited out their silence limit after a phone was unlocked (the S23: 20 s, VQ126's run, 2026-10-29).
+ */
+export interface LiveConnectionOptions extends PageOfConnection {
   /** The page's session token, sent in the hello, never in the address (D154). */
   readonly sessionToken: string;
   /** The web client's script the page runs, said in the hello for the server's log. */
@@ -195,7 +203,8 @@ export type LiveMessage =
   | { readonly type: "receive"; readonly receive: CastToReceive }
   /** The cast this device sends now, undefined for none (D364 §6). */
   | { readonly type: "sending"; readonly sending: CastSending | undefined }
-  | { readonly type: "pong" }
+  /** The answer to a ping, carrying back its tMono. */
+  | { readonly type: "pong"; readonly tMono: number }
   | { readonly type: "signedOut" };
 
 /** A list of ids as a message carries it; empty for none or one malformed. */
@@ -229,7 +238,7 @@ export function parseLiveMessage(text: string): LiveMessage | undefined {
     case "sending":
       return { type: "sending", sending: parseSending(record["sending"]) };
     case "pong":
-      return { type: "pong" };
+      return { type: "pong", tMono: numberIn(record, "tMono") ?? 0 };
     case "signedOut":
       return { type: "signedOut" };
     default:
@@ -250,6 +259,25 @@ class PageLiveConnection implements LiveConnection {
   #isClosed = true;
   /** Whether the current socket has said hello, after which a move of the tab is said on it. */
   #isGreeted = false;
+  /** Whether its page was left, its socket given up, until it returns from the back/forward cache. */
+  #isLeft = false;
+  /** Ends hearing its page; undefined while closed. */
+  #stopHearingPage: (() => void) | undefined;
+  /** The check of the socket as its page is shown again: the session connection's, one mechanism. */
+  readonly #shownCheck = new ShownCheck({
+    nowMs: () => Math.round(this.#options.monotonicMs()),
+    ping: (tMono) => {
+      this.#send({ type: "ping", tMono });
+    },
+    alive: () => {
+      // kept: it answered
+    },
+    dead: () => {
+      this.#generation += 1; // its close, whenever it comes, is not heard
+      this.#socket?.close();
+      this.#reconnectLater();
+    },
+  });
 
   constructor(options: LiveConnectionOptions) {
     this.#options = options;
@@ -276,18 +304,82 @@ class PageLiveConnection implements LiveConnection {
 
   readonly open = (): void => {
     this.#isClosed = false;
+    this.#isLeft = false;
     this.#attempt = 0;
+    this.#stopHearingPage?.();
+    this.#stopHearingPage = whenPageChanges(this.#options, {
+      shownAgain: (why) => {
+        this.#shownAgain(why);
+      },
+      left: () => {
+        this.#leftPage();
+      },
+      returned: () => {
+        this.#returned();
+      },
+    });
     this.#connect();
   };
 
   readonly close = (): void => {
     this.#isClosed = true;
     this.#generation += 1;
-    clearTimeout(this.#reconnectTimer);
+    this.#stopHearingPage?.();
+    this.#stopHearingPage = undefined;
+    this.#cancelReconnect();
     clearInterval(this.#pinger);
+    this.#shownCheck.stop();
     this.#socket?.close();
     this.#change({ ...this.#snapshot, isConnected: false });
   };
+
+  /**
+   * Its page shown again, or the way to the core back: as the session connection does, one waiting to
+   * connect again connects now, and a greeted socket is checked (ShownCheck).
+   */
+  #shownAgain(why: "shown" | "back"): void {
+    if (this.#isClosed || this.#isLeft) {
+      return;
+    }
+    if (this.#reconnectTimer !== undefined) {
+      this.#cancelReconnect();
+      this.#connect();
+      return;
+    }
+    if (this.#isGreeted) {
+      this.#shownCheck.start(why);
+    }
+  }
+
+  /** Its page left: its socket closes at once, and nothing connects until the page returns. */
+  #leftPage(): void {
+    if (this.#isClosed || this.#isLeft) {
+      return;
+    }
+    this.#isLeft = true;
+    this.#generation += 1; // its close, whenever it comes, is not heard
+    this.#cancelReconnect();
+    clearInterval(this.#pinger);
+    this.#shownCheck.stop();
+    this.#socket?.close();
+    this.#socket = undefined;
+    this.#change({ ...this.#snapshot, isConnected: false });
+  }
+
+  /** Its page back from the back/forward cache: it connects again at once, if it was left. */
+  #returned(): void {
+    if (!this.#isLeft || this.#isClosed) {
+      return;
+    }
+    this.#isLeft = false;
+    this.#attempt = 0;
+    this.#connect();
+  }
+
+  #cancelReconnect(): void {
+    clearTimeout(this.#reconnectTimer);
+    this.#reconnectTimer = undefined;
+  }
 
   #change(next: LiveSnapshot): void {
     this.#snapshot = next;
@@ -334,6 +426,7 @@ class PageLiveConnection implements LiveConnection {
         this.#change({ ...this.#snapshot, sending: message.sending, isSendingKnown: true });
         return;
       case "pong":
+        this.#shownCheck.heardPong(message.tMono);
         return;
       case "signedOut":
         this.#refused();
@@ -345,8 +438,9 @@ class PageLiveConnection implements LiveConnection {
   #refused(): void {
     this.#isClosed = true;
     this.#generation += 1; // its close, whenever it comes, is not heard
-    clearTimeout(this.#reconnectTimer);
+    this.#cancelReconnect();
     clearInterval(this.#pinger);
+    this.#shownCheck.stop();
     this.#socket?.close();
     this.#change({ ...this.#snapshot, isConnected: false, isRefused: true });
   }
@@ -365,9 +459,11 @@ class PageLiveConnection implements LiveConnection {
 
   #reconnectLater(): void {
     clearInterval(this.#pinger);
+    this.#shownCheck.stop();
     this.#change({ ...this.#snapshot, isConnected: false });
     clearTimeout(this.#reconnectTimer);
     this.#reconnectTimer = setTimeout(() => {
+      this.#reconnectTimer = undefined;
       this.#connect();
     }, reconnectWaitMs(this.#attempt));
     this.#attempt += 1;
@@ -378,6 +474,7 @@ class PageLiveConnection implements LiveConnection {
     this.#isGreeted = false;
     this.#unansweredPings = 0;
     clearInterval(this.#pinger);
+    this.#shownCheck.stop();
     this.#socket?.close();
     const generation = this.#generation;
     const isCurrent = (): boolean => generation === this.#generation;
@@ -412,8 +509,9 @@ class PageLiveConnection implements LiveConnection {
  * A page's live connection, which connects when opened: says hello with the session token and
  * whether its tab is in front, says so again as that changes, keeps the person's connected devices,
  * those in front, the last cast handed to this device and the one it sends, pings as the session
- * socket does, and connects again with a growing wait after a drop, until closed or until the server
- * refuses the sign-in or says it ended.
+ * socket does, and connects again with a growing wait after a drop, or at once as its page is shown
+ * again on a socket that does not answer within shownAnswerWithinMs; its page left, it closes its
+ * socket until the page returns; until closed or until the server refuses the sign-in or says it ended.
  */
 export function createLiveConnection(options: LiveConnectionOptions): LiveConnection {
   return new PageLiveConnection(options);

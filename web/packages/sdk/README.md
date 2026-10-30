@@ -116,20 +116,26 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   the session token in the hello alone; the hello says whether the tab is in front, and the page
   says it again as that changes (D338 §2); it keeps the person's devices connected now, those with a
   tab in front, and the cast handed to it until taken, pings, and connects again with a growing wait, but not after the server
-  refused the sign-in. `src/live-connection.test.ts`.
+  refused the sign-in. `src/live-connection.test.ts`. **It hears its page as the session connection
+  does, by the same mechanism** (`whenPageChanges`, `src/shown-page.ts`; `ShownCheck`): shown again,
+  or the way to the core back, it pings at once and drops a socket that does not answer within
+  `shownAnswerWithinMs`, and one waiting to connect again connects then; its own pings waited out
+  their silence limit after a phone was unlocked (the S23: 20 s, VQ126's run, 2026-10-29).
+  `src/live-connection-shown.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
   the hello. `src/together-connection.test.ts`. **Its page shown again, it pings at once and drops
   the socket as dead, the one way its pings drop one, unless answered within `shownAnswerWithinMs`**,
   and one waiting to connect again connects then: an S23 unlocked sat 20 s on a socket that heard
   nothing (the owner's VQ105, 2026-10-29). The video device's and the voice device's connections are
-  given the page; the page's live connection (`src/live-connection.ts`) keeps its own pings and is not.
+  given the page, and so is the page's live connection (`src/live-connection.ts`).
   `src/together-connection.test.ts`. **Its page left** (`pagehide`: navigated away, perhaps into the
   back/forward cache, where its socket stayed open and the core counted it present, leading, until
   its silence limit), **it closes its socket at once**, as closing the tab does, so the lead passes,
   and connects nothing until the page comes back from that cache (`pageshow`, persisted), when it
-  connects at once and notes `reconnected` `why=left` (the owner, 2026-10-29).
-  `src/together-connection-shown.test.ts`; in a browser, VQ170.
+  connects at once and notes `reconnected` `why=left`; the live connection does the same (the owner,
+  2026-10-29). `src/together-connection-shown.test.ts`, `src/live-connection-shown.test.ts`; in a
+  browser, VQ170.
 - **A follower whose page is shown again is put where its group is at once** (`apply`, as each change
   of its group puts it), not left paused where it was hidden; a refusal of any kind of its play
   before it plays again, while it still follows a playing group, is noted (`playRefused`) and answered
