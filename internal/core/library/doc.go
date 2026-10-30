@@ -372,6 +372,10 @@
 //     by TestWithLandscapes_AFrameStillShowsOnlyWhereNoOtherPictureIs and
 //     TestWithPosters_APosterlessFilmOrSeriesShowsAStillUntilAPosterArrives.
 //
+//   - A series' aired seasons each show their own poster where one is stored, never as the series'
+//     own; another ordering's groups, discs or parts, show none (D379 §1).
+//     TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone (internal/core/api).
+//
 //   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).

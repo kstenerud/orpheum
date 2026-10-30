@@ -244,3 +244,22 @@ func SeasonStillMembers(ctx context.Context, queries *sqlcgen.Queries, members [
 	}
 	return shown, nil
 }
+
+// withSeasonPosters gives each of a series' aired seasons its own poster, where one is stored (D379):
+// per season, the first of ListSeasonPosters' order.
+func (browser *Browser) withSeasonPosters(ctx context.Context, seriesID int64, seasons []SeasonSummary) error {
+	rows, err := browser.database.Read().ListSeasonPosters(ctx, seriesID)
+	if err != nil {
+		return fmt.Errorf("read the season posters of series %d: %w", seriesID, err)
+	}
+	posterByNumber := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		if _, alreadyHas := posterByNumber[row.SeasonNumber]; !alreadyHas {
+			posterByNumber[row.SeasonNumber] = hex.EncodeToString(row.SourceSha256)
+		}
+	}
+	for index := range seasons {
+		seasons[index].PosterSha256 = posterByNumber[seasons[index].Number]
+	}
+	return nil
+}

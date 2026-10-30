@@ -148,14 +148,17 @@ type SeriesDetail struct {
 }
 
 // SeasonSummary is one season of a series, a group of the ordering it is shown in: its number,
-// aired's 0 for the specials and the episodes with no season, how many episodes it has, and the
-// still of its first episode that has one.
+// aired's 0 for the specials and the episodes with no season, how many episodes it has, its own
+// poster, and the still of its first episode that has one.
 type SeasonSummary struct {
 	Number int64
 	// Name is the ordering's name for the group ("Disc 2"), "" where it names none, as aired names
 	// none of its seasons.
 	Name         string
 	EpisodeCount int64
+	// PosterSha256 is the season's own poster (D379), "" where it has none stored; only aired's
+	// seasons are a provider's seasons, so another ordering's groups have none.
+	PosterSha256 string
 	StillSha256  string
 	// IsWatched is whether its person watched every one of its episodes with a file, one at least
 	// (D370 §3).
@@ -198,6 +201,12 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 		return SeriesDetail{}, err
 	}
 	detail.Seasons = seasonsOf(episodes, stills, watched, ordering == OrderingAired)
+	if ordering == OrderingAired {
+		err = browser.withSeasonPosters(ctx, seriesID, detail.Seasons)
+		if err != nil {
+			return SeriesDetail{}, err
+		}
+	}
 	detail.IsWatched = len(detail.Seasons) > 0
 	for _, season := range detail.Seasons {
 		detail.IsWatched = detail.IsWatched && season.IsWatched

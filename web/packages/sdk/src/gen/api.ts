@@ -4482,6 +4482,8 @@ export interface components {
             isWatched?: boolean;
             /** @description The ordering's name for it (Disc 2); absent where it names none, as aired names no season */
             name?: string;
+            /** @description Its own poster's hash, absent where it has none (D379): GET /bytes/art/{sourceSha256}/portrait-m.webp */
+            posterSha256?: string;
             /**
              * Format: int64
              * @description Its group's number; aired's 0 for the specials and the episodes with no season
