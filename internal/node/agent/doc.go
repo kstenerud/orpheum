@@ -182,7 +182,9 @@
 //
 // # Where to change
 //
-//   - agent.go: the session, its poll and its status, and the commands; listing.go: listing and
+//   - agent.go: the session, its poll and the commands; agent_status.go: posting the node's status
+//     and the watcher's changes, and the held attempts they report; agent_artwork.go: re-encoding
+//     artwork, from a video's still or an image beside the media; listing.go: listing and
 //     examining;
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
 //     open.go: opening the file a command names; film.go: a run's film, from the file the node
