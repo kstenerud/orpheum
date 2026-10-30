@@ -51,8 +51,12 @@ describe("a page's menu of rarely used actions, in a real browser", () => {
     await expect
       .poll(() => [...document.querySelectorAll("dialog[open]")].map((each) => each.ariaLabel))
       .toEqual(["Rare"]);
-    // A press on the backdrop, outside the dialog's box.
-    await userEvent.click(document.body, { position: { x: 5, y: 5 } });
+    // A press on the backdrop, which reaches the dialog itself at a point outside its box: told, not
+    // moved to by the pointer, which would stay there, hovering whatever the next file draws under
+    // it.
+    document
+      .querySelector("dialog[open]")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 2, clientY: 2 }));
     await expect.poll(() => document.querySelectorAll("dialog").length).toBe(0);
     // Focus back where the person was (D361 §3), not lost to the page's start with the list the
     // dialog was opened from.
