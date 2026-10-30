@@ -14,7 +14,9 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   and any Markdown file, `scripts/documentation_only.py`), `code` for the rest. The pre-commit hook
   formats what is staged too, so an edit made by a shell command is formatted before the gate looks.
 - **At the end of a turn**, `.claude/hooks/on_stop.py` runs `make check` (also when no edit marked the
-  tree but it is not the one the gate last passed: a shell write, a picked commit) (or only
+  tree but it is not the one the gate last passed: a shell write, a picked commit). While the owner iterates on a
+  design, `touch .claude/.cache/check-deferred` defers it until the owner is happy, and `make check`
+  refuses to run until the file is gone (docs/contributors/standards/design-cycle.md) (or only
   `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
   pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
   output. Fix it; don't argue with it.

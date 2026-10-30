@@ -42,3 +42,4 @@ branch gates (`make check-pr`) run on pull requests. Gate files are the owner's 
 | [shell.md](shell.md) | shell scripts and git hooks |
 | [makefile.md](makefile.md) | the Makefile |
 | [markdown.md](markdown.md) | documentation |
+| [design-cycle.md](design-cycle.md) | iterating on a look with the owner: the gate deferred, then taken up once |

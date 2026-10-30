@@ -15,6 +15,9 @@ import run_gate
 import worktrees
 
 PENDING = hooklib.ROOT / ".claude" / ".cache"
+# Its presence in PENDING defers the turn-end gate while the owner iterates on a design, which make
+# check refuses to run beside (scripts/check_stamp.py DEFERRED_MARK; standards/design-cycle.md).
+DEFERRED = "check-deferred"
 
 
 def main() -> None:
@@ -26,6 +29,11 @@ def main() -> None:
         worktrees.clean(hooklib.ROOT)
     code = PENDING / "check-pending-code"
     docs = PENDING / "check-pending-docs"
+    if (PENDING / DEFERRED).exists():
+        # A design being iterated on with the owner, checked once when the owner is happy (the owner,
+        # 2026-10-30: "Treat this whole cycle as if it were a single change ... with the checks
+        # deferred"). The marks stay; removing the file brings the gate back at the next turn's end.
+        return
     if code.exists():
         target = "check"
     elif docs.exists():

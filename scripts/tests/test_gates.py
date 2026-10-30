@@ -417,6 +417,23 @@ class CheckStamp(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
+    def test_the_gate_refuses_to_begin_while_a_design_cycle_defers_it(self):
+        # The owner, 2026-10-30: a make check ends the cycle, every safeguard back in place.
+        root = git_repo({"a.go": "package a\n"})
+        cwd = Path.cwd()
+        try:
+            os.chdir(root)
+            mark = root / stamp.DEFERRED_MARK
+            mark.parent.mkdir(parents=True)
+            mark.touch()
+            with mock_argv(["check_stamp.py", "begin"]), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(stamp.main(), 1)
+            mark.unlink()
+            with mock_argv(["check_stamp.py", "begin"]):
+                self.assertEqual(stamp.main(), 0)
+        finally:
+            os.chdir(cwd)
+
     def test_a_tree_edited_while_the_gate_ran_is_not_recorded_as_passed(self):
         """The stamp race (gate-throughput A, 2026-10-26): only the tree the gate began on, unchanged."""
         root = git_repo({"a.go": "package a\n"})
