@@ -95,3 +95,23 @@ class WebTests(unittest.TestCase):
                                  ["apps/web/src/b.test.tsx", "apps/web/src/c.test.tsx"])
             finally:
                 os.chdir(saved)
+
+    def test_a_browser_mode_test_is_left_to_make_check_and_named_not_run(self):
+        # A commit of browser tests alone ran the plain vitest, which excludes them, and failed on no
+        # test file (2026-10-30).
+        import tempfile
+        with tempfile.TemporaryDirectory() as scratch:
+            src = Path(scratch) / "web/apps/web/src"
+            src.mkdir(parents=True)
+            (src / "a.tsx").write_text("export const a = 1;\n")
+            (src / "a.browser.test.tsx").write_text('import { a } from "./a.tsx";\n')
+            (src / "a.test.tsx").write_text('import { a } from "./a.tsx";\n')
+            saved = Path.cwd()
+            os.chdir(scratch)
+            try:
+                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.browser.test.tsx"]), [])
+                self.assertEqual(spot_check.web_tests(["web/apps/web/src/a.tsx"]), ["apps/web/src/a.test.tsx"])
+            finally:
+                os.chdir(saved)
+        planned = spot_check.plan(["web/apps/web/src/a.browser.test.tsx"], "m", {})
+        self.assertIn("browser-mode tests, which run in a browser (`make check`)", planned.not_run)

@@ -101,6 +101,8 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
         result.not_run.append("stylesheets, which only the browser tier renders: " + ", ".join(styles))
     if result.web_files:
         result.not_run.append("the web type check and lint (`make check`)")
+    if any(is_browser_test(path) for path in result.web_files):
+        result.not_run.append("browser-mode tests, which run in a browser (`make check`)")
     if result.go_packages:
         result.not_run.append("what imports the importers, the dev build's tests and Go lint (`make check`)")
     result.not_run = list(dict.fromkeys(result.not_run))
@@ -167,7 +169,15 @@ def web_tests(paths: list[str]) -> list[str]:
             tests.add(str(Path(path).relative_to("web")))
         else:
             tests.update(importing_tests(".", path, depth=1))
-    return sorted(tests)
+    # A browser-mode test runs only in a browser (vitest.browser.config.ts, make check's): handed to
+    # the plain run, which excludes it, it found no test file and failed a commit of browser tests
+    # alone (agent A's report, 2026-10-30).
+    return sorted(test for test in tests if not is_browser_test(test))
+
+
+def is_browser_test(path: str) -> bool:
+    """Whether path is a browser-mode test, which spot leaves to make check."""
+    return ".browser.test." in path
 
 
 def execute(run: Run) -> tuple[Run, int, float, str]:
