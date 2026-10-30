@@ -30,6 +30,12 @@ def main() -> None:
         target = "check"
     elif docs.exists():
         target = "check-documentation"
+    elif not already_passed():
+        # Nothing marked, but the tree is not the one make check last passed: a shell command wrote
+        # it, or commits were picked in, which no edit hook sees. A commit runs only the spot check
+        # (the owner, 2026-10-30), so a 62-line function written by a script went unlinted until an
+        # agent's gate found it (c9189b2a); the gate runs here instead.
+        target = "check"
     else:
         return
     if already_passed():
