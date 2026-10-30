@@ -430,3 +430,13 @@ had leaned on.
   (recommendation 5); the connect package signed; the image and FFmpeg reproducible, rebuilt on gpuhost
   before signing. The account's own hardening (hardware keys as the only 2FA, old keys and tokens
   pruned, no force-pushes, `v*` tags for the owner alone) is the owner's to do in GitHub's settings.
+- **Done (2026-10-30): CVE-2026-98432** (a Linux TCP use-after-free that Go's default MPTCP listeners
+  expose to remote code execution; golang-announce): `godebug multipathtcp=0` in Orpheum's and
+  connect's go.mod, tested (`TestSockets_UseNoMultipathTCP`), on staging and nas.example; the prod connect
+  package `connect-production-6f0ec54-276ef290.run` waits for the owner. The fix proper is the hosts'
+  kernels: nas.example's Proxmox host (7.0.14-25-pve), prod-api, the edge VPS, the owner's to update. The
+  Docker daemon's own embedded DNS listens with MPTCP too (seen in staging's container).
+- **Once in beta (the owner, 2026-10-30):** a way to ship a security fix in hours while a batch is
+  half built: a fix branch from what production runs (nas.example's commit, the last connect package), its
+  own narrow gate (the fix's tests, check-vulns, the build), deployed, then merged into the batch.
+  Tonight's pion/stun and MPTCP fixes were made on main with the batch's other work in it.
