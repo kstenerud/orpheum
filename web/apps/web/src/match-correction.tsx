@@ -1,59 +1,92 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { use, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CandidateChooser, identifyProblemText } from "./candidate-chooser.tsx";
+import { FilingReportButton } from "./filing-report.tsx";
 import { idempotent } from "./idempotent.ts";
+import { ModalDialog } from "./modal-dialog.tsx";
+import type { MoreAction } from "./more-actions.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
-import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
- * An admin's "Identified incorrectly" on a film's or series' page: the works its search found,
- * one of which they choose as its match, final as any person's choice (D301 §2); and "Rescan
- * this", which scans its files and matches it again from them as the matcher now matches (D357).
- * Nothing for anyone else.
+ * An admin's "Identified incorrectly" on a film's, an episode's or a series' page, one entry of its
+ * "…" menu for what all stems from a file wrongly identified (the owner, 2026-10-29: "keep only
+ * 'Identified incorrectly', which opens a modal ... offering Rescan, Enter manually, and Report
+ * this"). isWork says the item is a film or a series, which alone a rescan and a chosen match apply
+ * to (D357 §1, D301 §2); an episode's or another video's offers only its report (D306 §3). The page
+ * gives it to an admin alone.
  */
-export function MatchCorrection(props: {
+export function identifiedIncorrectlyAction(
+  t: ReturnType<typeof useTranslation>["t"],
+  item: { readonly itemId: number; readonly isWork: boolean; readonly onCorrected: () => void },
+): MoreAction {
+  return {
+    key: "identified-incorrectly",
+    label: t("title.identifiedIncorrectly"),
+    dialog: (close) => <IdentifiedIncorrectlyDialog {...item} onClose={close} />,
+  };
+}
+
+/**
+ * The dialog "Identified incorrectly" opens: Rescan, Enter manually, which opens the works its search
+ * found to choose one as its match, final as any person's choice (D301 §2), and Report this. A press
+ * outside it closes it, as every dialog a menu opens does (the owner, 2026-10-29).
+ */
+function IdentifiedIncorrectlyDialog(props: {
   readonly itemId: number;
+  readonly isWork: boolean;
   readonly onCorrected: () => void;
-}): JSX.Element | null {
+  readonly onClose: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
-  const isAdmin = use(IsAdminContext);
   const [isChoosing, setIsChoosing] = useState(false);
-  if (!isAdmin) {
-    return null;
-  }
+  const heading = t("title.identifiedIncorrectly");
   return (
-    <div className="match-correction">
-      <button
-        type="button"
-        aria-expanded={isChoosing}
-        onClick={() => {
-          setIsChoosing(!isChoosing);
-        }}
-      >
-        {t("title.identifiedIncorrectly")}
-      </button>{" "}
-      <RescanThis itemId={props.itemId} />
-      {isChoosing ? (
-        <CandidateChooser
-          itemId={props.itemId}
-          onChosen={() => {
-            setIsChoosing(false);
-            props.onCorrected();
-          }}
-        />
-      ) : null}
-    </div>
+    <ModalDialog
+      className="match-correction"
+      label={heading}
+      onClose={props.onClose}
+      shouldCloseOnOutsidePress
+    >
+      <h2>{heading}</h2>
+      <div className="more-actions__offers">
+        {props.isWork ? <RescanThis itemId={props.itemId} /> : null}
+        {props.isWork ? (
+          <button
+            type="button"
+            aria-expanded={isChoosing}
+            onClick={() => {
+              setIsChoosing(!isChoosing);
+            }}
+          >
+            {t("identify.enterManually")}
+          </button>
+        ) : null}
+        {isChoosing ? (
+          <CandidateChooser
+            itemId={props.itemId}
+            onChosen={() => {
+              props.onClose();
+              props.onCorrected();
+            }}
+          />
+        ) : null}
+        <FilingReportButton itemId={props.itemId} />
+      </div>
+      <button type="button" onClick={props.onClose}>
+        {t("moreActions.close")}
+      </button>
+    </ModalDialog>
   );
 }
 
 /**
- * "Rescan this": the item's files scanned, then the item matched again from them, in the
- * background (D357 §1, §5); it says whether it started, or one already runs.
+ * Rescan: the item's files scanned, then the item matched again from them, in the background (D357
+ * §1, §5); it says whether it started, or one already runs.
  */
 function RescanThis(props: { readonly itemId: number }): JSX.Element {
   const { t } = useTranslation();
@@ -61,7 +94,7 @@ function RescanThis(props: { readonly itemId: number }): JSX.Element {
   const [note, setNote] = useState("");
   const rescanning = useRequest((cause) => identifyProblemText(t, cause));
   return (
-    <>
+    <div>
       <button
         type="button"
         disabled={rescanning.isBusy}
@@ -86,6 +119,6 @@ function RescanThis(props: { readonly itemId: number }): JSX.Element {
       </button>
       {note === "" ? null : <output>{note}</output>}
       {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
-    </>
+    </div>
   );
 }

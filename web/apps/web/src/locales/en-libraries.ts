@@ -35,7 +35,7 @@ export const enLibraries = {
     rescanRunning: "A rescan of it is already running.",
     rescanEverythingStarted: "Rescanning {{count}} libraries of films or series.",
     rescanScanning: "Rescanning… scanning first.",
-    rescanThis: "Rescan this",
+    rescanThis: "Rescan",
     rescanThisStarted: "Rescanning: its files are scanned, then it is matched again from them.",
     rescanThisRunning: "A rescan of it, or of its library, is already running.",
     rescanMatching: "Rescanning… {{matched}} of {{count}} films and series matched again.",

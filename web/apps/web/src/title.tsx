@@ -6,7 +6,7 @@ import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
 import type { components } from "@orpheum/sdk";
-import { useEffect, type JSX } from "react";
+import { use, useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
@@ -14,8 +14,9 @@ import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
-import { FilingReportButton } from "./filing-report.tsx";
-import { MatchCorrection } from "./match-correction.tsx";
+import { identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { MoreActions } from "./more-actions.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -79,7 +80,11 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
   }
 }
 
-/** A title's page: its art, name, year and length, what it is about, its versions and extras. */
+/**
+ * A title's page: its art, name, year and length, what it is about, its versions, Play first among
+ * its buttons (the owner, 2026-10-29: "Play is the page's first button, not its last"), then Mark as
+ * watched and the "…" of what is rarely used, and its extras.
+ */
 export function TitleView(props: {
   readonly title: TitleDetail;
   /** Says one file that cannot be read now is gone for good (D241 §5); an admin's. */
@@ -101,26 +106,54 @@ export function TitleView(props: {
         <TitleArt title={title} />
         <TitleFacts title={title} />
       </div>
-      {title.kind === "movie" && props.onMatchCorrected !== undefined ? (
-        <MatchCorrection itemId={title.id} onCorrected={props.onMatchCorrected} />
-      ) : null}
-      {title.kind === "extra" ? null : <FilingReportButton itemId={title.id} />}
       <StatusNotes subject={title} />
-      {/* An extra is a different work, never marked watched (D370 §2, D162). */}
-      {title.kind === "extra" || props.onWatchedChanged === undefined ? null : (
-        <MarkWatched
-          target={{ kind: "title", id: title.id }}
-          isWatched={title.isWatched === true}
-          onChanged={props.onWatchedChanged}
-        />
-      )}
       <Versions
         versions={title.versions ?? []}
         isPlayable={title.unavailable === undefined}
         {...(props.onRetireFile === undefined ? {} : { onRetireFile: props.onRetireFile })}
       />
+      <div className="page-actions">
+        {/* An extra is a different work, never marked watched (D370 §2, D162). */}
+        {title.kind === "extra" || props.onWatchedChanged === undefined ? null : (
+          <MarkWatched
+            target={{ kind: "title", id: title.id }}
+            isWatched={title.isWatched === true}
+            onChanged={props.onWatchedChanged}
+          />
+        )}
+        <TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />
+      </div>
       <Extras extras={title.extras ?? []} />
     </article>
+  );
+}
+
+/**
+ * A title's rarely used actions, under its "…": an admin's "Identified incorrectly" (none for an
+ * extra, a work of its film's), its match chosen again only for a film, the one kind of title matched
+ * itself (D301 §2), and only where the page is told of a correction.
+ */
+function TitleMoreActions(props: {
+  readonly title: TitleDetail;
+  readonly onMatchCorrected: (() => void) | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const isAdmin = use(IsAdminContext);
+  const { title, onMatchCorrected } = props;
+  if (!isAdmin || title.kind === "extra") {
+    return null;
+  }
+  const isWork = title.kind === "movie" && onMatchCorrected !== undefined;
+  return (
+    <MoreActions
+      actions={[
+        identifiedIncorrectlyAction(t, {
+          itemId: title.id,
+          isWork,
+          onCorrected: onMatchCorrected ?? (() => undefined),
+        }),
+      ]}
+    />
   );
 }
 

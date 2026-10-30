@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A page's row of actions after its Play (title.tsx, series.tsx): Mark as watched, then the "…" of
+   the rarely used ones (more-actions.tsx), side by side, wrapping on a narrow screen. */
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin-block: var(--space-3);
+}
+
+.page-actions > p {
+  margin: 0;
+}
+
+/* The "…" button: a button like the page's others, square, its three dots in the text colour. */
+.more-actions__button {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-control);
+  padding: 0;
+  color: var(--color-text);
+}
+
+.more-actions__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: currentColor;
+}
+
+/* An action's dialog (match-correction.tsx, series.tsx): its heading, then what it offers, each on
+   its own line, then its Close. */
+.more-actions__offers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin-block: var(--space-3);
+}

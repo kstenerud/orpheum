@@ -7,8 +7,16 @@ import { afterEach, expect, it } from "vitest";
 
 import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
-import { MatchCorrection } from "./match-correction.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { SeriesView, type SeriesDetail } from "./series.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
@@ -76,23 +84,28 @@ it("rescans one film or series from its page, for an admin alone (D357 §1)", as
     },
     heard,
   );
+  const series: SeriesDetail = { id: 12, kind: "series", name: "The Ledger Room", art: {}, seasons: [] };
+  const corrected = (): void => undefined;
   mounted = await mount(
-    withServices(<MatchCorrection itemId={12} onCorrected={() => undefined} />, services),
+    withServices(<SeriesView series={series} onMatchCorrected={corrected} />, services),
   );
-  expect(buttonWithText(mounted.container, "Rescan this")).toBeUndefined();
+  // Nothing rarely used for anyone else: no "…" at all.
+  expect(buttonNamed(mounted.container, "More actions")).toBeUndefined();
   mounted.unmount();
   mounted = await mount(
     withServices(
       <IsAdminContext value={true}>
-        <MatchCorrection itemId={12} onCorrected={() => undefined} />
+        <SeriesView series={series} onMatchCorrected={corrected} />
       </IsAdminContext>,
       services,
     ),
   );
   const page = mounted.container;
-  await click(buttonWithText(page, "Rescan this"));
+  await click(buttonNamed(page, "More actions"));
+  await click(buttonWithText(page, "Identified incorrectly"));
+  await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain("its files are scanned, then it is matched again from them.");
-  await click(buttonWithText(page, "Rescan this"));
+  await click(buttonWithText(page, "Rescan"));
   expect(page.textContent).toContain("A rescan of it, or of its library, is already running.");
   expect(posts(heard)).toEqual(["POST /items/12/rescan", "POST /items/12/rescan"]);
 });

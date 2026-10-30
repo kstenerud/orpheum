@@ -7,8 +7,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { rowName, type EpisodeNaming } from "./continue-watching.tsx";
-import { SeriesView, type SeriesDetail } from "./series.tsx";
-import { choose, mount, servedBy, type Heard } from "./test-dom.tsx";
+import { OrderingChoice, SeriesView, type SeriesDetail } from "./series.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  choose,
+  click,
+  mount,
+  servedBy,
+  type Heard,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { TitleView, titleUp, type TitleDetail } from "./title.tsx";
 
@@ -70,8 +78,8 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     );
   });
 
-  it("offers its orderings, aired first, each with its kind and how many it holds; none when it has one", () => {
-    const markup = renderToStaticMarkup(withServices(<SeriesView series={inDVDOrder} />));
+  it("offers its orderings, aired first, each with its kind and how many it holds; none when it has one", async () => {
+    const markup = renderToStaticMarkup(withServices(<OrderingChoice series={inDVDOrder} />));
     expect(markup).toContain('<option value="aired">Aired</option>');
     expect(markup).toContain(
       '<option value="tmdb:dvd" selected="">DVD Order (DVD) · episodes here: 3</option>',
@@ -79,7 +87,9 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     expect(markup.indexOf('value="aired"')).toBeLessThan(markup.indexOf('value="tmdb:dvd"'));
     const listedOnly = renderToStaticMarkup(
       withServices(
-        <SeriesView series={{ ...inDVDOrder, orderings: [aired, { ...dvd, episodeCount: 0 }] }} />,
+        <OrderingChoice
+          series={{ ...inDVDOrder, orderings: [aired, { ...dvd, episodeCount: 0 }] }}
+        />,
       ),
     );
     expect(listedOnly).toContain("DVD Order (DVD) · episodes listed: 5");
@@ -95,14 +105,21 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
       ),
     );
     expect(awaiting).toContain("Fetching this order; its episodes show here once it is fetched.");
+    // The choice is under the page's "…", rarely used (the owner, 2026-10-29), which a series of
+    // one ordering does not show to someone who is not an admin.
     const onlyAired = renderToStaticMarkup(
       withServices(<SeriesView series={{ ...inAired, orderings: [aired] }} />),
     );
     expect(onlyAired).not.toContain("<select");
+    expect(onlyAired).not.toContain('aria-label="More actions"');
     // One page whatever its season (D367 §9): the choice is offered at every season.
-    expect(
-      renderToStaticMarkup(withServices(<SeriesView series={inDVDOrder} season={1} />)),
-    ).toContain("<select");
+    const atSeason = await mount(withServices(<SeriesView series={inDVDOrder} season={1} />));
+    expect(atSeason.container.querySelector("select")).toBeNull();
+    await click(buttonNamed(atSeason.container, "More actions"));
+    await click(buttonWithText(atSeason.container, "Order"));
+    expect(atSeason.container.querySelectorAll("dialog")).toHaveLength(1);
+    expect(atSeason.container.querySelector("dialog select")).not.toBeNull();
+    atSeason.unmount();
   });
 
   it("keeps a choice, goes to the series' top page and reads it again (§7 Q10)", async () => {
@@ -129,7 +146,11 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
         services,
       ),
     );
+    await click(buttonNamed(page.container, "More actions"));
+    await click(buttonWithText(page.container, "Order"));
     await choose(page.container.querySelector("select"), "aired");
+    // Chosen, its dialog closes.
+    expect(page.container.querySelector("dialog")).toBeNull();
     page.unmount();
     const puts = heard.filter((each) => each.methodAndPath.startsWith("PUT "));
     expect(puts.map((each) => [each.methodAndPath, each.body])).toEqual([

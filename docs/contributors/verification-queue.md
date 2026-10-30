@@ -1748,3 +1748,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the server as before; on the Mac's Chrome, with the site's local-network permission reset, the note
   still shows while Chrome's prompt is up. Before this change the note showed on the Fire TV, where
   Silk asks nothing (the owner, 2026-10-28). (`web/apps/web/src/local-network-note.tsx`)
+- [ ] **VQ161** — a title's and a series' rarely used actions under a vertical "…", on staging.
+  (1) On the Mac's Chrome as admin, a film's page: Play is its first button, then Mark as watched and
+  the "…"; the page shows no "Identified incorrectly", "Rescan this" or "Report filed wrongly" of its
+  own. The "…" opens a list with "Identified incorrectly", which opens one dialog in the list's place
+  (no list left behind it) offering Rescan, Enter manually and Report this; one click outside it is
+  back on the page. (2) A series with more than one ordering (as dan): its "…" holds Order, whose
+  dialog changes the ordering and closes. (3) On the Fire TV (Silk), the same film page by the
+  remote: arrows reach the "…", OK opens it on "Identified incorrectly", OK opens its dialog, the
+  arrows reach Enter manually and the works it finds, and Back closes it with focus on the "…".
+  (`web/apps/web/src/more-actions.tsx`, `match-correction.tsx`, `modal-dialog.tsx`)
