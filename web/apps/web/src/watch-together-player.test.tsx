@@ -12,6 +12,7 @@ import { PlayView } from "./play.tsx";
 import { buttonWithText, click, mount, servedBy } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
+import { currentNotice, dismissNotice } from "./notice.ts";
 import { fakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
 
@@ -73,6 +74,29 @@ describe("the host's player in a session (D246 §5)", () => {
     mounted.unmount();
     // Leaving the player stops nothing for the group: Stop, or another film, does (D246 §5 withdrawn).
     expect(server.heard.filter((message) => message["command"] === "stop")).toEqual([]);
+  });
+
+  it("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)", async () => {
+    hostSession();
+    const server = fakeTogetherServer();
+    const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+    services.navigation.go({ screen: "play", fileId: 5 });
+    const mounted = await mount(
+      withServices(
+        <HostPlaysTogether fileId={5} video={null} startPositionMs={0} cannotKeepUp={undefined} />,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "ended", reason: "hostEnded" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+    const notice = currentNotice();
+    expect(notice?.text).toBe("The Watch Together session was ended on another of your devices.");
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
+    mounted.unmount();
   });
 
   it("offers the host a tap for sound when the browser plays the film muted, as after a reload", async () => {

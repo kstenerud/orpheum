@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { TogetherEndReason } from "@orpheum/sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
@@ -13,6 +13,7 @@ import {
   forgetMembership,
   isEndedHere,
   noteEndedHere,
+  readMembership,
 } from "./together-storage.ts";
 
 /** How a guest's session ends for their page, and how it starts again (useSessionEnd). */
@@ -65,6 +66,55 @@ export function useSessionEnd(
     };
   }, [isSignedIn, navigation, t]);
   return { endReason, over };
+}
+
+/** The sessions this tab's host is ending itself, whose end goes home with no word (useHostsSessionOver). */
+const endingHere = new Set<number>();
+
+/**
+ * Notes that this tab's host ends sessionId itself, as it asks the server to, or, isEnding false, that
+ * the asking failed: its end then takes this tab home with no word, the host having done it.
+ */
+export function noteEndingHere(sessionId: number, isEnding: boolean): void {
+  if (isEnding) {
+    endingHere.add(sessionId);
+  } else {
+    endingHere.delete(sessionId);
+  }
+}
+
+/**
+ * How the session this tab hosts ends for it, whatever ended it and whichever of the tab's
+ * connections heard it first (D389 §1, the owner: "when a watch together session ends, ALL
+ * associated devices go back home (including the host)"): its membership forgotten, and the page
+ * home, its film played on alone no more; told why there, unless this tab ended it (noteEndingHere).
+ * Once: a session that is no longer this tab's to host is left as it is.
+ */
+export function useHostsSessionOver(): (sessionId: number, reason: TogetherEndReason) => void {
+  const { t } = useTranslation();
+  const { navigation } = useServices();
+  return useCallback(
+    (sessionId: number, reason: TogetherEndReason) => {
+      if (readMembership(tabStorage(), "host")?.sessionId !== sessionId) {
+        return;
+      }
+      forgetMembership(tabStorage(), "host");
+      if (endingHere.delete(sessionId)) {
+        navigation.replace({ screen: "home" });
+        return;
+      }
+      homeTold(navigation, t(hostsOverNotice(reason)));
+    },
+    [navigation, t],
+  );
+}
+
+/** What the host is told at home of their session's end, which they did not make on this tab. */
+function hostsOverNotice(reason: TogetherEndReason): string {
+  if (reason === "hostEnded") {
+    return "together.overNotice.endedElsewhere"; // on another of their devices, or one started there
+  }
+  return reason === "idle" ? "together.overNotice.idle" : "together.overNotice.gone";
 }
 
 /**

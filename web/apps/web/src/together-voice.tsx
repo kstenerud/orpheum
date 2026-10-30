@@ -7,6 +7,7 @@ import {
   partnerGainMost,
   type BrowserVoiceDevices,
   type Api,
+  type TogetherEndReason,
   type TogetherVoice,
   type VoiceSnapshot,
 } from "@orpheum/sdk";
@@ -30,6 +31,7 @@ import { Icon } from "./icon.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
+import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs } from "./use-together.ts";
 import { VolumeRange } from "./volume-range.tsx";
@@ -146,7 +148,25 @@ function HostVoiceOf(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const voice = useVoice(props.membership, useToken());
+  useHostLeavesAsTheSessionEnds(props.membership.sessionId, voice.snapshot.endReason);
   return <HostVoiceContext value={voice}>{props.children}</HostVoiceContext>;
+}
+
+/**
+ * Takes the host's page home as the session it hosts ends, whatever page it shows (D389 §1): the
+ * tab's voice is its one connection to the session on every page, a film's Play page or none, so
+ * its end, as that connection is told, is heard here.
+ */
+function useHostLeavesAsTheSessionEnds(
+  sessionId: number,
+  endReason: TogetherEndReason | undefined,
+): void {
+  const over = useHostsSessionOver();
+  useEffect(() => {
+    if (endReason !== undefined) {
+      over(sessionId, endReason);
+    }
+  }, [endReason, over, sessionId]);
 }
 
 /**

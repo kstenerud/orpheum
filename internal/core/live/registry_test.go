@@ -451,7 +451,7 @@ func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	parts := map[int64]string{owner: "hosted"}
-	registry.TakesPartBy(func(userID int64, _ string) (string, bool) { return parts[userID], true })
+	registry.TakesPartBy(func(userID int64, _ string) (string, bool, int64) { return parts[userID], true, 1 })
 	receiver, partnerReceiver := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -481,7 +481,7 @@ func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
-	registry.TakesPartBy(func(int64, string) (string, bool) { return "guest", false })
+	registry.TakesPartBy(func(int64, string) (string, bool, int64) { return "guest", false, 1 })
 	receiver := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -501,11 +501,11 @@ func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
 func TestRegistry_AReceiverTakesThePartItsSendersPageHolds(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
-	registry.TakesPartBy(func(_ int64, held string) (string, bool) {
+	registry.TakesPartBy(func(_ int64, held string) (string, bool, int64) {
 		if held == "guest-membership" {
-			return "guest-part", false
+			return "guest-part", false, 1
 		}
-		return "hosted", true
+		return "hosted", true, 1
 	})
 	receiver := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
@@ -535,7 +535,7 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	parts := map[int64]string{}
-	registry.TakesPartBy(func(userID int64, _ string) (string, bool) { return parts[userID], true })
+	registry.TakesPartBy(func(userID int64, _ string) (string, bool, int64) { return parts[userID], true, 1 })
 	receiver, partnerReceiver := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -608,5 +608,43 @@ func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
 	}
 	if told, _ := sender.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
 		t.Errorf("the sender was told %v receive; want none, the cast over", told.ReceivingDeviceIDs)
+	}
+}
+
+// A Watch Together session's end ends every cast whose receiver was handed its person's part in it,
+// and no other: a cast in another session goes on (D389 §1). The sender is told it sends none, and
+// the person's devices that it receives no more.
+func TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sessions := map[int64]int64{owner: 7, partner: 8}
+	registry.TakesPartBy(func(userID int64, _ string) (string, bool, int64) {
+		return "part", false, sessions[userID]
+	})
+	sender := &inbox{}
+	partnersTV := television + 10
+	registry.Connect(owner, phone, inFront, sender.send)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	registry.Connect(partner, laptop, inFront, (&inbox{}).send)
+	registry.Connect(partner, partnersTV, inFront, (&inbox{}).send)
+	ownCast := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	partnersCast := Cast{ID: 6, UserID: partner, SenderDeviceID: laptop, ReceiverDeviceID: partnersTV}
+	if _, _, err := registry.Cast(partnersCast, "b"); err != nil {
+		t.Fatal(err)
+	}
+	if ended := registry.EndPartIn(7); len(ended) != 1 || ended[0].ID != 5 {
+		t.Fatalf("session 7's end ended %+v; want cast 5", ended)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
+	}
+	if told, _ := sender.last(MessageDevices); len(told.ReceivingDeviceIDs) != 0 {
+		t.Errorf("the sender was told %v receive; want none, the cast over", told.ReceivingDeviceIDs)
+	}
+	if casts := registry.CastsOf(partner, laptop); len(casts) != 1 {
+		t.Errorf("the partner's cast in session 8 = %+v; want it going on", casts)
 	}
 }

@@ -31,6 +31,9 @@ const (
 	CastDeclined = "declined"
 	// CastUnanswered is the receiver's question left unanswered for a minute (D358 §4).
 	CastUnanswered = "unanswered"
+	// CastSessionEnded is the end of the Watch Together session the receiver took its person's part
+	// in (D389 §1): the cast ends with it.
+	CastSessionEnded = "sessionEnded"
 )
 
 // endedCastKept is how long a cast's end is kept for a device of it that says hello after it: a
@@ -201,30 +204,30 @@ func (hub *Hub) CastReady(sessionID, userID int64) error {
 // the membership credential its page holds as a guest, is taken where given: a person who hosts a
 // session and joined it as a guest from another device casts from that device as its guest, the
 // receiver following the group, not leading it as their host's player. "" when they are in none, or
-// none can be made.
-func (hub *Hub) TogetherPart(userID int64, held string) (credential string, isHost bool) {
+// none can be made. SessionID is the session the part is in, whose end ends the cast (D389 §1).
+func (hub *Hub) TogetherPart(userID int64, held string) (credential string, isHost bool, sessionID int64) {
 	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
-		return "", false
+		return "", false, 0
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	places := hub.placesOf(&Person{UserID: userID}, held, 0)
 	if len(places) == 0 {
-		return "", false
+		return "", false, 0
 	}
-	taken := places[0].as // the host's first, should a person be in two by a sign-in at a hello
+	taken := places[0] // the host's first, should a person be in two by a sign-in at a hello
 	if held != "" {
 		heldHash := sha256.Sum256([]byte(held))
 		for _, each := range places {
 			if each.as.admits(heldHash) {
-				taken = each.as
+				taken = each
 				break
 			}
 		}
 	}
-	taken.addCredential(madeCredential{credential: made})
-	return made, taken.isHost
+	taken.as.addCredential(madeCredential{credential: made})
+	return made, taken.as.isHost, taken.in.id
 }
 
 // castOf is the cast userID cast by sessionID.

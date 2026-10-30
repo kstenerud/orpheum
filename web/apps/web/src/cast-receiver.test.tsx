@@ -349,6 +349,16 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(currentNotice()).toBeUndefined();
   });
 
+  // The owner, staging, 2026-10-30: the host ended the session while a guest cast the group's film
+  // to the Fire TV, and the TV played on under a cast no page controlled (VQ193).
+  it("goes home with no word as its cast ends with the Watch Together session it took a part in (D389 §1)", async () => {
+    const { server, onLeave } = await receiver();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "sessionEnded" });
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(currentNotice()).toBeUndefined();
+  });
+
   it("goes home, saying in a pop-up there that the server no longer knows its cast (D386 §2)", async () => {
     const { server, onLeave } = await receiver();
     await server.say(welcome);

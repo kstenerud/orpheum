@@ -403,6 +403,14 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     }
   });
 
+  it("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "sessionEnded" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(currentNotice()).toBeUndefined();
+  });
+
   it("goes home, saying so, where the server lists the cast no more", async () => {
     const services = servedBy(
       { "GET /me/casts": [200, { casts: [] }], "GET /files/4/up-next": [200, {}] },

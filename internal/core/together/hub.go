@@ -71,6 +71,9 @@ type Hub struct {
 	logger *slog.Logger
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
 	onLinksChanged func()
+	// onSessionEnded is told each Watch Together session that ends, after the hub's lock is let go
+	// (OnSessionEnded); nil tells nothing.
+	onSessionEnded func(sessionID int64)
 
 	mutex sync.Mutex
 	// lifetimes are what links made now live for, and when an idle session ends (EndStale); guarded
@@ -80,7 +83,10 @@ type Hub struct {
 	// endedCasts are the credentials of the casts that ended within endedCastKept, the oldest
 	// first, each with why (cast.go); guarded by mutex.
 	endedCasts []endedCast
-	lastID     int64 // the last id given a session, link, member or device; guarded by mutex
+	// endedToTell are the sessions ended since the lock was taken, which onSessionEnded is told as
+	// it is let go (unlockTellingEnds); guarded by mutex.
+	endedToTell []int64
+	lastID      int64 // the last id given a session, link, member or device; guarded by mutex
 }
 
 // NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on, and
@@ -262,7 +268,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 		return Opened{}, fmt.Errorf("make a membership credential: %w", err)
 	}
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTellingEnds()
 	for _, held := range hub.placesOf(&host, "", 0) {
 		hub.leavePlace(held)
 	}
@@ -394,14 +400,44 @@ func (hub *Hub) Leave(credential string) error {
 // End ends the session: every device is told, and every credential and link admits nothing more.
 func (hub *Hub) End(sessionID, hostUserID int64) error {
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTellingEnds()
 	hosted, err := hub.hostedSession(sessionID, hostUserID)
 	if err != nil {
 		return err
 	}
-	hosted.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "hostEnded"})
-	delete(hub.sessions, sessionID)
+	hub.endSession(hosted, "hostEnded")
 	return nil
+}
+
+// OnSessionEnded has ended called with each Watch Together session that ends, however it ends: its
+// host's end, its host starting another, or its idle end; a cast's own end is not one. The casts
+// whose receiver takes a part in it end with it (D389 §1). Called before the hub is used; ended is
+// called once the hub's lock is let go, so it may call the hub.
+func (hub *Hub) OnSessionEnded(ended func(sessionID int64)) {
+	hub.onSessionEnded = ended
+}
+
+// endSession ends the Watch Together session ended: each of its devices is told why, every
+// credential and link admits nothing more, and onSessionEnded is told as the lock is let go
+// (unlockTellingEnds). The one way a Watch Together session ends; the caller holds the mutex.
+func (hub *Hub) endSession(ended *session, reason string) {
+	ended.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
+	delete(hub.sessions, ended.id)
+	hub.endedToTell = append(hub.endedToTell, ended.id)
+}
+
+// unlockTellingEnds lets the mutex go, then tells onSessionEnded each session ended while it was
+// held (endSession): every method that may end a session lets its lock go here.
+func (hub *Hub) unlockTellingEnds() {
+	ended := hub.endedToTell
+	hub.endedToTell = nil
+	hub.mutex.Unlock()
+	if hub.onSessionEnded == nil {
+		return
+	}
+	for _, id := range ended {
+		hub.onSessionEnded(id)
+	}
 }
 
 // Viewer is a member who is not the host, as their player plays: the film the session plays now,

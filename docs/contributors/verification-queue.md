@@ -1913,5 +1913,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   session's leader changed` naming the TV), the S23's page says "Playing on Fire TV" with the group's controls; pause, play and a jump
   from the S23 and from Chrome each move the TV with the group; Stop casting sends the TV home and
   the S23 plays the film again on its page. Run (2) twice: once with the S23 signed in as a person of
-  its own (s23), once as the host's own person (admin).
-  (`web/apps/web/src/together-viewer.tsx`, `cast-dialog.tsx`, `internal/core/together/cast.go`)
+  its own (s23), once as the host's own person (admin). (3) With the S23 casting the group's film to
+  the Fire TV, end the session from Chrome's dialog: passes when the S23 goes home, told; the TV goes
+  home; and Chrome, the host, goes home too, with no notice; the core's log has `cast: a cast ended …
+  reason=sessionEnded` for it (D389 §1).
+  (`web/apps/web/src/together-viewer.tsx`, `cast-dialog.tsx`, `internal/core/together/cast.go`,
+  `internal/core/assembly/assembly.go`, `together-session-end.ts`)

@@ -9,6 +9,7 @@ import {
   type PlaybackReport,
   type PlaybackSound,
   type TogetherConnection,
+  type TogetherEndReason,
 } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +19,8 @@ import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
-import { forgetMembership, type Membership } from "./together-storage.ts";
+import { useHostsSessionOver } from "./together-session-end.ts";
+import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
@@ -46,11 +48,13 @@ interface HostPlayer {
  * host's video leads the session, playing as it would alone, and the viewers catch up to it (D371). Leaving the player
  * leaves the film playing for the group, on the server's clock, the host's session page holding its
  * controls; Stop there, or another film the host plays, ends it (D364 §15, withdrawing D246 §5's stop
- * on leaving). With no session it shows nothing and does nothing.
+ * on leaving). The session's end, however it ends, takes the page home, the film played on alone no
+ * more (D389 §1). With no session it shows nothing and does nothing.
  */
 export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
   // Started on this device or another of the host's, had back from the server (D267 §2).
   const membership = useMembership(tabStorage, "host");
+  const over = useHostsSessionOver();
   if (membership === undefined) {
     return null;
   }
@@ -59,8 +63,8 @@ export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
       key={membership.credential}
       {...props}
       membership={membership}
-      onOver={() => {
-        forgetMembership(tabStorage(), "host");
+      onOver={(reason) => {
+        over(membership.sessionId, reason);
       }}
     />
   );
@@ -152,7 +156,10 @@ function whereItStandsMs(video: HTMLVideoElement | null): number | undefined {
 
 /** The host's player, leading the session it is connected to. */
 function HostLeading(
-  props: HostPlayer & { readonly membership: Membership; readonly onOver: () => void },
+  props: HostPlayer & {
+    readonly membership: Membership;
+    readonly onOver: (reason: TogetherEndReason) => void;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   const token = useToken();
@@ -164,14 +171,14 @@ function HostLeading(
   // The tab's one voice for the session, shared with the session's page (D281 §5).
   const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
-  const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;
+  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs, delivery });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
-    if (isOver) {
-      onOver();
+    if (endReason !== undefined) {
+      onOver(endReason);
     }
-  }, [isOver, onOver]);
+  }, [endReason, onOver]);
   return (
     <div className="together-host">
       <SoundOn video={video} connection={connection} />

@@ -239,6 +239,19 @@ func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
 	}
 }
 
+// endCastsOfSession ends, as a Watch Together session ends, every cast whose receiver was handed its
+// person's part in it: a member's cast of the group's film, the host's included (D389 §1). Each
+// cast's session ends as sessionEnded, so its receiver goes home and its sender's page is told.
+func endCastsOfSession(casts *live.Registry, hub *together.Hub, logger *slog.Logger) func(sessionID int64) {
+	return func(sessionID int64) {
+		for _, ended := range casts.EndPartIn(sessionID) {
+			_ = hub.EndCast(ended.ID, ended.UserID, together.CastSessionEnded) //nolint:errcheck // ended either way
+			logger.Info("cast: a cast ended", "castId", ended.ID, "userId", ended.UserID,
+				"to", ended.ReceiverDeviceID, "sessionId", sessionID, "reason", together.CastSessionEnded)
+		}
+	}
+}
+
 // newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
 // (D243 §4), read from dependencies when asked: the hub is made before the library, so the discovery
 // may find its links (discovery-core.md K7).
@@ -331,6 +344,8 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential, parts.Clock)
 	// A cast's receiver plays the Watch Together session its person hosts, if any (D364 §11).
 	dependencies.Live.TakesPartBy(dependencies.Together.TogetherPart)
+	// A Watch Together session's end ends every cast whose receiver takes a part in it (D389 §1).
+	dependencies.Together.OnSessionEnded(endCastsOfSession(dependencies.Live, dependencies.Together, parts.Logger))
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)
