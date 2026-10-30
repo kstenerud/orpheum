@@ -463,3 +463,11 @@ had leaned on.
 - **VQ181's one-library case has no account to show it.** Every staging person (dan, s23,
   lead-tests) has four libraries and admin five, so "the icon goes straight to its page" was
   checked by its tests only; a device check needs a role with one library.
+- **The decoder's own limit (D382's sequel; the owner, 2026-10-30).** File 5664 (HEVC, 15.6 Mb/s) on
+  the Fire TV dropped 6 of its first 101 frames, H.264 file 5766 2 of 185. Design, after a one-off
+  probe page on the Fire TV that reads MediaCapabilities `decodingInfo` (smooth, powerEfficient) and
+  Compute Pressure for each of our rungs: a decode ceiling beside the link's (a rung dropping more
+  than a share of its frames is capped for that device and codec, remembered by the server as the
+  link and steadiness are), and, the owner's: "consider dropping to a simpler codec without changing
+  quality, even if it increases the bandwidth requirement (provided we are confident the pipe can
+  handle it)", e.g. HEVC to H.264 at the same resolution. Amends D352.

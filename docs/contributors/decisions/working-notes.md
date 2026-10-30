@@ -24604,3 +24604,33 @@ lower quality (D253) and a start the page chose itself (a warm-up's settled qual
 `isStartThePages`) start at `startAtBps` as before; Safari's native HLS has no controller and keeps its
 playlist order. On the Fire TV: VQ176.
 
+
+## D382 — A given-up chunk lowers quality only as far as the link's estimate carries, and a busy page or a first piece measures nothing
+
+**Decided** (2026-10-30), by the project owner, on the lead's recommendation ("yes I agree with
+those proposals in principle", then "Yes agreed"), amending D352 §4. On the Fire TV, file 5664 started
+on its top rung (15.6 Mb/s, the link remembered near 20 Mb/s); three seconds in, a chunk had brought
+128 KiB, one WebRTC piece, after two seconds, as the TV dropped 6 of its first 101 frames. It was
+given up and measured as 680 kb/s, and the give-up chose by that one chunk's rate: the lowest rung,
+400 kb/s at 360p, held for the 30 s hold though the next chunks came at 17–20 Mb/s (the owner, staging,
+VQ176's round).
+
+1. **A give-up chooses by the link's estimate**, the given-up chunk's sample counted in it, never by
+   that chunk's rate alone: the chunk's rate says only whether to give it up. Every quality choice
+   goes through the one estimate (memory one-path-for-decisions).
+2. **A chunk's first arriving piece measures nothing**: a transport that delivers in pieces (the
+   WebRTC path's 128 KiB) brings the first with the first byte, so a sample counts the bytes after it
+   over the time after it. A chunk given up with only its first piece is stuck, not slow (D352 §4,
+   bandwidth-sampling-2026-10-29.md P3).
+3. **A busy page measures nothing**: a chunk whose arrival a long task overlapped (the browser's own
+   50 ms, where it reports them) is no sample of the link and cannot cause a give-up; bytes the page
+   was too busy to read say nothing of the link. Long tasks of 50 ms and more are noted, with the
+   chunk they excused.
+4. **Each of a solo play's quality steps reaches the core's log**, as Watch Together's
+   `qualitySwitched` notes do; until now a solo step was told only beside a stall or a seek.
+
+The decoder's own limit (a rung that drops frames, MediaCapabilities, Compute Pressure, and a simpler
+codec at the same quality where the link can carry it, the owner's addition) is next batch's design,
+after a probe on the Fire TV (navigation-and-widgets-answers-2026-10-27.md).
+
+**Status:** Decided 2026-10-30; not built yet.
