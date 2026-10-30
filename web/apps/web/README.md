@@ -35,8 +35,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   over the page, which never moves** (D384 §2; `src/tray-dialog.ts`, one open at a time, closed as
   the page moves to another address): Watch Together's (`src/together-dialog.tsx`) starts a session
   or runs it, what plays with the way back to its film's Play page and Stop for everyone, voice and
-  the volumes, the people and Invite, and ending it, or, for a signed-in guest, the way back to the
-  group's film; Cast's (`src/cast-dialog.tsx`) the devices to cast to, taking the film of the Play
+  the volumes, the people and Invite, and ending it, which closes the dialog, nothing opening it
+  again (D385's Also), or, for a signed-in guest, the way back to the group's film; Cast's (`src/cast-dialog.tsx`) the devices to cast to, taking the film of the Play
   page it is pressed on, or, with a cast on, what plays where, the way back to its film's page and
   Stop casting; it closes once a cast started from it is taken. There is no Watch Together page nor
   casting page: an old `/watch-together` address goes to the Play page of the group's film, else
@@ -174,10 +174,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
   history step too, the person's alone: never a step the app makes itself, as the Use question's
   close, navigation's `onPersonsStep`, D384, `src/cast-receiver-steps.test.tsx`; and full screen left by the browser, not the page, told to the log), or OK or a
-  click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, ending the session: a film plays on here, the
-  ready page goes home. **A cast that ends any other way sends its receiver home** (D384 §1): Stop
-  casting on the sender, the session's end, its controller gone (its receiver gone too long), in the
-  page's place, out of full screen; a Play page of the cast's that Back reaches after shows its
+  click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, which
+  ends the cast like any other end (D385 §1, amending D338 §6), the film left as it stands until the
+  end has reached the sender. **A cast that ends sends its receiver home** (D384 §1): control taken
+  back there, Stop casting on the sender, the session's end, its controller gone (its receiver gone
+  too long), in the page's place, out of full screen; a Play page of the cast's that Back reaches after shows its
   title's page, never playing (D383 §1). A page loaded again while its tab received a cast (a reload,
   a deploy) holds its film until the server says whether it hands the cast again (the live
   connection's `isReceiveKnown`, the tab's mark in `src/cast-receiving-mark.ts`), and, handed none
@@ -188,9 +189,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`src/cast-remote.tsx`), which holds no player: with a film playing, *Playing on ‹Device›*, its
   controls (`src/session-remote.tsx`), working the session the tab hosts while Watch Together is on
   too, Up next, *Play on this device instead* (the receiver waiting ready) and Stop casting; with
-  none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, the film plays on
-  the same page again from where the receiver stood, asked for with cause castOver and that start;
-  ended any other way it says why with *Play here from*; a film's warm-up is let go of while the page
+  none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, its control taken
+  back on the receiver, or the receiver gone (D364 §6), the film plays on the same page again, asked
+  for with cause castOver and that start: stopped, from where the server says the receiver stood,
+  playing; taken back or gone, from where the receiver last stood while it led the session the remote
+  works (the hosted one while Watch Together is on, the device then the member's player again),
+  playing or paused as it was (D385 §2, §3; the route's `paused` for a cast moved on to another film);
+  ended any other way (another device took the receiver, the server lost the cast) it says why with
+  *Play here from*; a film's warm-up is let go of while the page
   is a remote. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
