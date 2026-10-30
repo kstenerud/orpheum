@@ -1780,3 +1780,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   Bond on a link remembered near 12 Mb/s), why "first by the remembered link". Before D381 both showed
   2–3 black frames as a low first rung switched to the top at play (the owner, 2026-10-28).
   (`web/packages/player/src/abr-ceiling.ts`)
+- [ ] **VQ177** — the debug link caps and drops the tab's connection, on staging's client origin (over
+  WebRTC) in Chrome on the Mac, Show debug tools on. (1) Play a film on its ladder and choose a cap of
+  1 Mb/s under the player: passes when "Throttled to 1 Mb/s" shows above the screen, the player steps
+  down within a minute to a quality within 1 Mb/s, and the core's log has its link estimate near
+  1000 kb/s; set No cap and the badge goes and it climbs back. (2) Choose "Drop the connection for 30
+  s": passes when the page counts down, the core's log shows the tab's live and Watch Together
+  sockets closed and not back for 30 s, the film plays on what it had loaded and waits after, and
+  within a few seconds of the end the sockets are back and the film plays on, with nothing reloaded.
+  (`web/apps/web/src/link-debug.ts`, `web/packages/player/src/link-shaping.ts`)

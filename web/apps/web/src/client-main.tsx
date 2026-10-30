@@ -30,8 +30,9 @@ import {
   type Reaches,
 } from "./client-reaches.ts";
 import { removeLeftOverKeys } from "./client-keys.ts";
-import { storageIfAllowed } from "./browser-storage.ts";
+import { storageIfAllowed, tabStorage } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
+import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
 import {
@@ -57,8 +58,25 @@ keepPageAudio(document);
 const navigation = createNavigation(window);
 const root = createRoot(rootElement);
 
-/** Mounts the app over session on root, its requests sent as reaches says. */
-function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
+/**
+ * The tab's debug link (D380): its cap kept in the tab's session storage, a drop timed on the page's
+ * clock and ended with the browser's `online`.
+ */
+const linkDebug = new LinkDebug(
+  tabStorage(),
+  {
+    nowMs: () => performance.now(),
+    setTimeout: (run, ms) => setTimeout(run, ms),
+    clearTimeout: (timer) => {
+      clearTimeout(timer);
+    },
+  },
+  window,
+);
+
+/** Mounts the app over session on root, its requests sent as reaches says, shaped by linkDebug. */
+function mountApp(session: Session, given: Reaches, mountedOn: Root): Api {
+  const reaches = linkDebug.shape(given);
   const api = createApi({ getToken: session.token, fetch: reaches.fetch });
   api.use(watchForSignOut(session, navigation));
   // A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click.
@@ -89,6 +107,7 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
     codeAddress: reaches.codeAddress,
     onLocalNetworkAsking: reaches.onLocalNetworkAsking,
     onPathBack: reaches.onPathBack,
+    linkDebug,
   };
   mountedOn.render(
     <StrictMode>

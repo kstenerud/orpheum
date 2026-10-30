@@ -15,6 +15,7 @@ import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
 import { WorkerBypassedNote } from "./worker-bypassed-note.tsx";
+import { LinkCapBadge } from "./link-debug-tools.tsx";
 import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
@@ -285,6 +286,7 @@ function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
     <main className="app-shell__main" data-focus-memory="">
       <PlainHttpNote />
       <WorkerBypassedNote />
+      <LinkCapBadge />
       <LocalNetworkNote />
       <NoticeNote />
       <InShellContext value={true}>{props.children}</InShellContext>

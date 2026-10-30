@@ -28,6 +28,8 @@ export { canMoveSoundEarlier } from "./audio-shift.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget, SoundChoiceCause } from "./hls.ts";
 export { linkShareForQuality } from "./abr-choice.ts";
+export { shapeChunkLoads } from "./link-shaping.ts";
+export type { LinkShaping } from "./link-shaping.ts";
 export { playChunked, playerFoundUnplayableEvent, unplayableOf } from "./chunked.ts";
 export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.ts";
 export { meterBufferGrowth } from "./link.ts";

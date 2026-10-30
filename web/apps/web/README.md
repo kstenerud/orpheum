@@ -41,8 +41,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   which renders it only while the signed-in person's own Show debug tools is on, off until they turn
   it on in Your account, kept on the server (`PUT /me/preferences`) and read with who they are
   (`GET /me`'s `showsDebugTools`), so it follows them to every device; a guest by link alone never
-  sees one. Marked so: Play the original file, and Watch Together's leader view
-  (`src/together-debug.tsx`) on the host's session page and a signed-in guest's. `src/debug-tools.test.tsx`,
+  sees one. Marked so: Play the original file, Watch Together's leader view
+  (`src/together-debug.tsx`) on the host's session page and a signed-in guest's, and the debug link
+  on the player (D380, `src/link-debug-tools.tsx`): a cap on the tab's download rate, applied in the
+  player's chunk fetch so every carrier is capped alike, and a drop of its connection for 10, 30 or
+  60 s, which closes the tab's sockets and refuses its requests, sockets and chunk loads, then says
+  the browser is back online (`src/link-debug.ts`); for the tab alone, its cap said above every
+  screen the whole time it is on ("Throttled to 1 Mb/s"), shown or not. `src/link-debug.test.ts`,
+  `src/link-debug-tools.test.tsx`, `src/debug-tools.test.tsx`,
   `src/play-original.test.tsx`, `src/together-debug.test.tsx`, `src/watch-together.test.tsx`,
   `src/together-viewer-cast.test.tsx`.
 - **Nothing of the page is drawn under a player's stage that fills the window** (a cast's receiver, a

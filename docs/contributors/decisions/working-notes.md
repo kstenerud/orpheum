@@ -24532,7 +24532,18 @@ run), so a slow or lost link could be tested only by turning Wi-Fi off or a phon
 4. **It lasts for the tab only, and says so the whole time**: a badge ("Throttled to 1 Mb/s") stays on
    the page while a cap is on, as a DevTools box left ticked once cost an afternoon (agent-failures A51).
 
-**Status:** Decided 2026-10-30.
+**Status:** Built 2026-10-30. §1: `LinkDebugTools` under the Play page's player, a `DebugTool`
+(`web/apps/web/src/link-debug-tools.tsx`). §2: `shapedLoader` wraps hls.js's chunk loader
+(`web/packages/player/src/link-shaping.ts`), letting each load's bytes through no faster than the cap,
+one load after another as one link, its stats saying them as they come, so the controller's estimate
+and its watch on a chunk on its way see the slow link; `link-shaping.test.ts` (fake clock). A film
+played as its own file, with no ladder, is the browser's load and is not capped. §3: `LinkDebug.dropFor`
+(`web/apps/web/src/link-debug.ts`) closes every socket the tab opened (the live and Watch Together
+connections), refuses its API requests, sockets and chunk loads until the time is up, then dispatches
+the browser's `online`, so they reconnect as after a real loss; `link-debug.test.ts`. The loader's
+WebRTC peer connection itself, which the client has no handle on, stays open: everything the client
+sends over it is refused instead. §4: the cap is kept in the tab's session storage, and `LinkCapBadge`
+says it above every screen while it is on; `link-debug-tools.test.tsx`. On devices: VQ177.
 
 ---
 

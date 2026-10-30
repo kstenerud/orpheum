@@ -7,6 +7,13 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 
 ## Invariants
 
+- **A debug tool's cap and drop shape every chunk load of the tab in the player's own fetch**
+  (`src/link-shaping.ts`, D380): with a cap, a load's bytes are let through no faster than it, one
+  load after another as one link carries them, its stats saying the bytes as they come, so the
+  bitrate controller sees a slow link as it would, over WebRTC and HTTP alike; while the tab is
+  dropped, each load fails as a lost network's does. Nothing shapes a tab that sets neither.
+  `link-shaping.test.ts`.
+
 - **Never imports an app.** `package-not-to-app` (`web/.dependency-cruiser.cjs`).
 - **Its play report is the API's own shape**: `PlayReport`, `PlayEvent` and `PlaySpan` are
   derived from the SDK's generated types (`src/report.ts`), so a field the API renames fails
