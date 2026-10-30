@@ -509,3 +509,11 @@ had leaned on.
   Sits beside D382's sequel (the decoder's limit, a simpler codec at the same quality).
   **The owner chose the second (2026-10-30): the controller judges a rung by its average, deferred to
   a later batch** ("It works well enough for an edge case for now").
+- **A checkbox on the Fire TV's sign-in submits the form (the owner, 2026-10-30, VQ160's run).** "As
+  soon as I select the checkbox, it acts as though I'd pressed the log in button and attempts a
+  login." OK on a checkbox is clicked by the input layer (`focus-navigation.ts` `pressFocused`) and
+  its keydown default-prevented (`input-commands.ts`), so on a desktop Enter does not submit; Silk
+  must do something more (its OK's keyCode 23, or a click of its own on key up). Owed: reproduce on
+  the TV with the device lab's remote probe (`lab-remote.tsx`), log the OK's events on a form, then
+  fix. Also seen: clearing Silk's site data sends it to bing.com, so VQ160 (the local-network note
+  on a fresh visit) needs the address typed by the remote; left owed (D378).
