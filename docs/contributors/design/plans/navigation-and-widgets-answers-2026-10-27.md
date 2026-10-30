@@ -537,3 +537,11 @@ had leaned on.
 - **Sign out asks first (the owner, 2026-10-30).** "Selecting 'sign out' should open a confirmation":
   the menu's Sign out opens a dialog (the standard modal, `modal-dialog.tsx`) asking to confirm, Sign
   out and Cancel, before the session is signed out (`app-shell.tsx` `MenuPlaces`' onSignOut).
+- **Signing out lands on two different sign-in pages (the owner, 2026-10-30).** "When I sign out from
+  the fire tv, it goes to the discovery server's login page. When I do so from the s23, it goes to
+  the core's login." The two reach the core by different paths: the Fire TV (Silk, local-network
+  permission `prompt`) over WebRTC through the discovery's client origin; the S23 (Chrome, permission
+  `granted`) over plain https to the core's own LAN name (`a page chose its path … over=http
+  isLanNameUsed=true localNetwork=granted`). Sign out sends each to the sign-in of where its page now
+  is. One place to land is owed, for the owner to choose: the discovery's sign-in (where a person
+  first arrives, and which finds their server again from anywhere) is the lead's recommendation.
