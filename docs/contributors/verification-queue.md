@@ -1829,3 +1829,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   poster nor a still shows the series' poster, and "No poster" shows only on a card with none of
   these. Then choose a DVD order on a series that has one: its discs show stills or the series'
   poster, never an aired season's poster. (`web/apps/web/src/series.tsx`, `poster.tsx`)
+- [ ] **VQ187** — the Fire TV keeps its quality through a chunk the page was too busy to read
+  (D382), on staging: play file 5664 from its middle on the Fire TV alone; passes when it plays on
+  its top or next rung throughout the first minute, and the core's log shows any give-up excused as
+  stuck or busy, never `level 0`; each step as `step:` in its link notes.
+  (`web/packages/player/src/abr-ceiling.ts`, `first-piece.ts`, `abr-busy.ts`, `chunked.ts`)

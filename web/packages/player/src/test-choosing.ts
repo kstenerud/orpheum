@@ -108,6 +108,8 @@ export interface Scene {
   linkNotes: string[];
   /** Each load's first piece, its first progress, by URL (D382 §2); a load not here says none. */
   firstPieces: Map<string, FirstPiece>;
+  /** Tells the choosing of a long task of the page, as the browser would (D382 §3). */
+  longTask: (startMs: number, durationMs: number) => void;
 }
 
 export const scene: Scene = {
@@ -122,6 +124,7 @@ export const scene: Scene = {
   spreadsNoted: [],
   linkNotes: [],
   firstPieces: new Map<string, FirstPiece>(),
+  longTask: () => undefined,
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -147,6 +150,7 @@ export function useScene(vitest: {
     scene.spreadsNoted = [];
     scene.linkNotes = [];
     scene.firstPieces = new Map<string, FirstPiece>();
+    scene.longTask = () => undefined;
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -164,6 +168,14 @@ export interface Chosen {
   /** Where each load again was from, in seconds of the film. */
   readonly loadsAgainFromS: number[];
   readonly unplayable: { readonly qualityKbps: number; readonly positionMs: number }[];
+}
+
+/** A choosing's long tasks: the scene's longTask tells it each; returns the stopping. */
+function hearSceneLongTasks(task: (startMs: number, durationMs: number) => void): () => void {
+  scene.longTask = task;
+  return () => {
+    scene.longTask = () => undefined;
+  };
 }
 
 /**
@@ -210,6 +222,7 @@ export function choosingFrom(
       isOffline: () => scene.isOffline,
       fromCache: (url) => (scene.cachedUrls.has(url) ? true : undefined),
       firstPieceOf: (url) => scene.firstPieces.get(url),
+      longTasks: hearSceneLongTasks,
       onUnplayable: (found) => unplayable.push(found),
       noteStep: (step) => scene.steps.push(step),
       noteSamples: (samples) => scene.samplesNoted.push(samples),

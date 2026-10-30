@@ -20,6 +20,7 @@ import { PlayedTime, StandingStill } from "./abr-video.ts";
 import { Steadiness } from "./steadiness.ts";
 import { StepUpShown } from "./step-up.ts";
 import { bufferAheadS, QualityCeiling } from "./abr-ceiling.ts";
+import { BusyPage, busyText } from "./abr-busy.ts";
 
 /** How often the controller looks at a chunk on its way (D265 §3). */
 export const lookAtChunkEveryMs = 500;
@@ -71,6 +72,8 @@ export class Choosing<Chunk extends FollowedChunk> {
   readonly #played = new PlayedTime();
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
   readonly #still = new StandingStill();
+  /** The page's long tasks, which excuse a chunk from measuring the link or being given up (D382 §3). */
+  readonly #busy: BusyPage;
   /** The ceiling and choice state this playback's quality is decided from (abr-ceiling.ts). */
   readonly #ceiling: QualityCeiling<Chunk>;
   readonly #timers: ReturnType<typeof setInterval>[];
@@ -79,6 +82,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#hls = hls;
     this.#options = options;
     this.#estimate = new LinkEstimate(options.rememberedLink);
+    this.#busy = new BusyPage(options.longTasks);
     const prior = this.#estimate.prior();
     if (prior !== undefined) {
       options.noteLink?.(priorNoteText(prior));
@@ -95,6 +99,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       stepUpShown,
       onItsWay: this.#onItsWay,
       still: this.#still,
+      busy: this.#busy,
     });
     this.#timers = [
       setInterval(() => {
@@ -208,13 +213,14 @@ export class Choosing<Chunk extends FollowedChunk> {
       { bytes: loaded, fromMs: loading.first, toMs: loading.end },
       this.#options.firstPieceOf?.(chunk.url),
     );
-    const isCounted = measuresTheLink({
-      loadMs: loading.end - loading.start,
-      arrivingMs: measured.ms,
-      bytes: measured.bytes,
-      paceBps: this.#paces.get(chunk),
-      isFromCache: this.#options.fromCache(chunk.url),
-    });
+    const isCounted =
+      measuresTheLink({
+        loadMs: loading.end - loading.start,
+        arrivingMs: measured.ms,
+        bytes: measured.bytes,
+        paceBps: this.#paces.get(chunk),
+        isFromCache: this.#options.fromCache(chunk.url),
+      }) && !this.#isExcusedBusy(chunk);
     if (isCounted) {
       this.#ceiling.sample({
         level: chunk.level,
@@ -225,6 +231,21 @@ export class Choosing<Chunk extends FollowedChunk> {
       this.#ceiling.endStartingWhenDone(this.#played.playedMs());
     }
     return isCounted;
+  }
+
+  /**
+   * Whether a loaded chunk's arrival, its first byte to its last, overlapped a long task of the page,
+   * which excuses it from measuring the link (D382 §3), noted with the longest task's length.
+   */
+  #isExcusedBusy(chunk: Chunk): boolean {
+    const { loading, loaded } = chunk.stats;
+    const longestMs = this.#busy.longestWithin(loading.first, loading.end);
+    if (longestMs === undefined) {
+      return false;
+    }
+    const came = `${String(loaded)} B in ${String(Math.round(loading.end - loading.first))} ms`;
+    this.#options.noteLink?.(busyText({ level: chunk.level, how: `loaded (${came})` }, longestMs));
+    return true;
   }
 
   /**
@@ -301,6 +322,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     for (const timer of this.#timers) {
       clearInterval(timer);
     }
+    this.#busy.stop();
   }
 
   /**
