@@ -107,7 +107,7 @@ function usePageLiveConnection(): {
   readonly snapshot: LiveSnapshot | undefined;
 } {
   const token = useToken();
-  const { openTogetherSocket } = useServices();
+  const { openTogetherSocket, onPathBack } = useServices();
   const connection = useMemo(
     (): LiveConnection | undefined =>
       token === undefined
@@ -118,8 +118,13 @@ function usePageLiveConnection(): {
             openSocket: openTogetherSocket,
             monotonicMs,
             isInFront: isTabInFront,
+            // Heard as the session connection hears its page, one mechanism: shown again, or the way
+            // to the core back, its socket is checked at once; left, it closes until the page returns.
+            page: document,
+            pathBack: onPathBack,
+            leftPage: window,
           }),
-    [token, openTogetherSocket],
+    [token, openTogetherSocket, onPathBack],
   );
   useEffect(() => {
     connection?.open();
