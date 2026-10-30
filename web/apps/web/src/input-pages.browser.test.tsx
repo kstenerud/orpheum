@@ -242,7 +242,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     // Back closes it, and focus is on the "…" again (D361 §3).
     await press("{Backspace}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
-    expect(document.activeElement).toBe(more);
+    // Given back as the dialog's effects end, which may be a moment after it leaves the page.
+    await expect.poll(() => document.activeElement).toBe(more);
   });
 
   // D367 §9: one series page, its season a view picked by a chooser, which adds no step to Back.
