@@ -140,6 +140,10 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   page goes (its view and sort choosers stay), changing library being the icon's, the trail leading
   back to the library's list; (4) on a TV it closes as any chooser does (Back, Left/Right) and scrolls
   within its height cap. A household with many libraries (15 or more) may later want a grid page instead.
+  **Built 2026-10-30**: `web/apps/web/src/app-shell.tsx`'s `LibrariesMenu` over `drop-down.tsx`
+  (`libraries-reached.ts` the one read of the person's libraries, shared with the library's page), the
+  library's page's chooser removed and its heading the library shown (`library-browse.tsx`); tests
+  `libraries-menu.test.tsx`, `library-browse.test.tsx`, `input-pages.browser.test.tsx`; on a TV, VQ181.
 - **Next batch (the owner, 2026-10-28):** "When I send out an invite link for someone to create an
   account on my core, it only shows the invite link once ... it would be nice to be able to see the
   currently issued link." Chosen: "Keep invite links like Watch Together links" (D267 §5): the core

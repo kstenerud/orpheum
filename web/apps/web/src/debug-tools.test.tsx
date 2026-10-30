@@ -82,6 +82,7 @@ describe("debug tools (the owner, 2026-10-29: a per-person Show debug tools)", (
               "GET /titles/letters": [200, { letters: [] }],
               "GET /client-settings": [200, {}],
               "GET /together/mine": [200, { sessions: [] }],
+              "GET /libraries": [200, { libraries: [] }],
               "GET /me": [
                 200,
                 { id: 1, name: "owner", role: "user", isAdmin: false, showsDebugTools },

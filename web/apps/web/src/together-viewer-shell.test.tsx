@@ -45,6 +45,7 @@ function signedInGuest(address: string): {
           "GET /me": [200, { id: 4, name: "Gran", role: "user", isAdmin: false }],
           "GET /client-settings": [200, {}],
           "GET /together/mine": [200, { sessions: [] }],
+          "GET /libraries": [200, { libraries: [] }],
         },
         [],
         "token",

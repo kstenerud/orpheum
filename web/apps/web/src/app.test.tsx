@@ -28,10 +28,12 @@ import { forgetMembership, keepMembership } from "./together-storage.ts";
 
 /**
  * What every screen asks in the background once the shell mounts, regardless of what a test
- * cares about: the alphabet rail's letters, the poll's own waits, and this tab's Watch Together
- * sessions (D237, D267 §2). A test spreads this in and adds what it is actually testing.
+ * cares about: the alphabet rail's letters, the poll's own waits, this tab's Watch Together
+ * sessions (D237, D267 §2) and the libraries the banner's Libraries menu lists. A test spreads this
+ * in and adds what it is actually testing.
  */
 const backgroundAnswers: Answers = {
+  "GET /libraries": [200, { libraries: [] }],
   "GET /titles/letters": [200, { letters: [] }],
   "GET /client-settings": [
     200,
@@ -249,6 +251,7 @@ describe("App", () => {
         {
           "GET /titles/letters": [200, { letters: [] }],
           "GET /together/mine": [200, { sessions: [] }],
+          "GET /libraries": [200, { libraries: [] }],
           "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
@@ -418,6 +421,7 @@ describe("the signed-in page's start", () => {
           },
         ],
         "GET /together/mine": [200, { sessions: [] }],
+        "GET /libraries": [200, { libraries: [] }],
       },
       heard,
       "token",

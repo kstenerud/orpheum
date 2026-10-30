@@ -27,6 +27,7 @@ import type { Upward } from "./upward.ts";
 import { dataOrThrow } from "./problem.ts";
 import { itemRoute, routeHref, type LibrarySort, type Route, type SortOrder } from "./router.ts";
 import { LibraryConfigure } from "./library-configure.tsx";
+import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
 import { QueryResults } from "./search.tsx";
 import { useServices } from "./services.tsx";
@@ -41,9 +42,6 @@ import {
 } from "./sort-choices.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
-
-/** A library, as the server sends it. */
-type LibraryBody = components["schemas"]["LibraryBody"];
 
 /** A subfolder of an other library's folder, as the server sends it. */
 type SubfolderBody = components["schemas"]["SubfolderBody"];
@@ -82,11 +80,6 @@ function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort
     case "any":
       return ["name", "added"];
   }
-}
-
-/** The libraries the person reaches, in their locale's alphabetical order (D349 §9.1). */
-function sortedLibraries(loaded: readonly LibraryBody[]): LibraryBody[] {
-  return [...loaded].sort((first, second) => first.name.localeCompare(second.name));
 }
 
 /** What the page shows, read from its route (app.tsx), with what changed when a person chooses. */
@@ -199,12 +192,8 @@ function useAutoSelectFirstLibrary(
  * Folders; no genre.
  */
 export function LibraryBrowse(props: BrowseState): JSX.Element {
-  const { api, navigation } = useServices();
-  const [libraries] = useResource(
-    "browse-libraries",
-    async () => dataOrThrow(await api.GET("/libraries")).libraries ?? [],
-    useBackgroundChangesPoller(),
-  );
+  const { navigation } = useServices();
+  const libraries = useLibrariesReached();
   useAutoSelectFirstLibrary(props, libraries, navigation);
   return (
     <Loaded
@@ -292,40 +281,6 @@ function LibraryBrowseLayout(props: {
   );
 }
 
-/** The library chooser's choices: every one the person reaches, by name, then All libraries. */
-function libraryChoicesOf(
-  state: BrowseState,
-  libraries: readonly LibraryBody[],
-  t: TFunction,
-): Choice[] {
-  return [
-    ...libraries.map((library) => ({
-      key: String(library.id),
-      label: library.name,
-      to: routeFor(state, {
-        library: library.id,
-        view: undefined,
-        folder: undefined,
-        sort: undefined,
-        order: undefined,
-      }),
-      isCurrent: state.library === library.id,
-    })),
-    {
-      key: "all",
-      label: t("browse.allLibraries"),
-      to: routeFor(state, {
-        library: "all",
-        view: undefined,
-        folder: undefined,
-        sort: undefined,
-        order: undefined,
-      }),
-      isCurrent: state.library === "all",
-    },
-  ];
-}
-
 /**
  * The sort chooser's choices: each sort the resolved library (or All libraries) offers, its own way
  * and the other (D366 §2); the address names the way only when it is not the sort's own.
@@ -357,7 +312,11 @@ function viewChoicesOf(state: BrowseState, resolved: ResolvedBrowse, t: TFunctio
   ];
 }
 
-/** The page's top row: the library chooser, the view it offers, the sort, and a search field. */
+/**
+ * The page's top row: the library's name, its view where it offers one, the sort, and a search
+ * field. Another library is the banner's Libraries menu's to choose (app-shell.tsx; the owner,
+ * 2026-10-28), so the page has no library chooser of its own.
+ */
 function LibraryBrowseBar(props: {
   readonly state: BrowseState;
   readonly libraryOptions: readonly LibraryBody[];
@@ -371,13 +330,7 @@ function LibraryBrowseBar(props: {
   const chosen = props.libraryOptions.find((library) => library.id === resolved.libraryId);
   return (
     <div className="browse__bar" data-focus-container="">
-      <h1 id="browse-heading">{t("browse.libraries")}</h1>
-      <RouteChooser
-        fieldLabel={t("browse.library")}
-        isFieldLabelShown={false}
-        current={resolved.currentLabel}
-        options={libraryChoicesOf(state, props.libraryOptions, t)}
-      />
+      <h1 id="browse-heading">{resolved.currentLabel}</h1>
       {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
       {resolved.showsFolders ? (
         <RouteChooser

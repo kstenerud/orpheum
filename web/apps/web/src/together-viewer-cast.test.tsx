@@ -99,6 +99,7 @@ describe("a signed-in guest's leader debug view (the owner, 2026-10-29)", () => 
             "GET /together/mine": [200, { sessions: [] }],
             // A signed-in guest's page is a screen in the shell (D372 §9), which reads these.
             "GET /client-settings": [200, {}],
+            "GET /libraries": [200, { libraries: [] }],
           },
           [],
           "token",

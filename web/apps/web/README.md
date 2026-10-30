@@ -374,11 +374,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   either way; an other library lists its videos by recorded date (the
   default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
   recorded date in place of a poster and a year; its folders are only a view, each leading into its
-  own, with a trail back out (D367); the library, the view and the sort are each a focusable
+  own, with a trail back out (D367); the view and the sort are each a focusable
   drop-down (`src/route-chooser.tsx`, over `drop-down.tsx`), since a native `<select>` is
-  unreliable on a television's browser, its button marked by a down chevron as opening a list.
-  `src/library-browse.test.tsx`, `src/route-chooser.test.tsx`,
-  `src/library-browse.browser.test.tsx`; on devices, VQ72.
+  unreliable on a television's browser, its button marked by a down chevron as opening a list. The
+  page has no library chooser, its heading the library shown: **the banner's Libraries icon is a
+  menu of the person's libraries** (the owner, 2026-10-28; `app-shell.tsx`'s `LibrariesMenu`, over
+  `drop-down.tsx`), each by name, *All libraries* last, the one shown marked; with one library the
+  icon goes straight to its page, and with none, or before they are read, to `/browse`.
+  `src/library-browse.test.tsx`, `src/route-chooser.test.tsx`, `src/libraries-menu.test.tsx`,
+  `src/library-browse.browser.test.tsx`, `src/input-pages.browser.test.tsx`; on devices, VQ72,
+  VQ181.
 - **A chooser and the banner's menu are one drop-down** (`src/drop-down.tsx`, the owner, 2026-10-28):
   a button, the chooser's with its chevron and the menu's its icon alone, that opens a modal list
   (`modal-dialog.tsx`) of places and its own Close after them; a press outside it closes it and

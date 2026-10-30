@@ -100,7 +100,9 @@ describe("the Libraries page (D349)", () => {
     mounted = undefined;
   });
 
-  it("lists every reachable library in the chooser, alphabetically, then All libraries", async () => {
+  // Another library is the banner's Libraries menu's to choose (the owner, 2026-10-28; app-shell.tsx):
+  // the page names the one it shows and keeps its view and sort choosers.
+  it("has no library chooser of its own, its heading the library shown, or All libraries", async () => {
     mounted = await mountBrowse(
       { library: 1 },
       {
@@ -110,15 +112,24 @@ describe("the Libraries page (D349)", () => {
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    expect(buttonWithText(mounted.container, "Alpha")).toBeDefined();
-    await click(buttonWithText(mounted.container, "Alpha"));
-    const links = [...mounted.container.querySelectorAll<HTMLAnchorElement>("a")].filter((link) =>
-      link.href.includes("library="),
+    const bar = mounted.container.querySelector(".browse__bar");
+    expect(bar?.querySelector("h1")?.textContent).toBe("Alpha");
+    expect(buttonWithText(mounted.container, "Alpha")).toBeUndefined();
+    expect(bar?.querySelector('[aria-label^="Library:"]')).toBeNull();
+    expect(bar?.querySelector('a[href*="library="]')).toBeNull();
+    // Its sort chooser stays.
+    expect(bar?.querySelectorAll(".route-chooser__button")).toHaveLength(1);
+    mounted.unmount();
+    mounted = await mountBrowse(
+      { library: "all" },
+      {
+        "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+      },
     );
-    expect(links.map((link) => link.textContent)).toEqual(["Alpha", "Zoo", "All libraries"]);
-    expect(links[0]?.getAttribute("href")).toContain("library=1");
-    expect(links[1]?.getAttribute("href")).toContain("library=2");
-    expect(links[2]?.getAttribute("href")).toContain("library=all");
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    expect(mounted.container.querySelector(".browse__bar h1")?.textContent).toBe("All libraries");
   });
 
   it("names neither the library chooser nor the search on the page, only to a screen reader (the owner, 2026-10-27)", async () => {
@@ -137,9 +148,6 @@ describe("the Libraries page (D349)", () => {
     );
     expect(fieldNames).not.toContain("Library");
     expect(bar?.textContent).not.toContain("Search the library chosen, or every one");
-    expect(buttonWithText(mounted.container, "Alpha")?.getAttribute("aria-label")).toBe(
-      "Library: Alpha",
-    );
     expect(bar?.querySelector("input[type=search]")?.getAttribute("aria-label")).toBe(
       "Search the library chosen, or every one",
     );

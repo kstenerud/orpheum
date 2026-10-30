@@ -1798,3 +1798,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   (2) On the Fire TV (Silk), by the remote: Down reaches the row, Left and Right move along it (the row
   scrolling sideways where it is wider than the screen), OK shows the season, and Down from the row
   lands on the season's first episode, not on its Mark as watched. (`web/apps/web/src/series.tsx`)
+- [ ] **VQ181** — the banner's Libraries icon as a menu of the person's libraries, on staging.
+  (1) On the Mac's Chrome as admin (several libraries): the Libraries icon opens a list of the
+  libraries by name, "All libraries" last, the one shown marked; choosing one opens its page, whose
+  top has no library chooser (its view and sort choosers stay) and names the library. As dan, with
+  access to one library only (or a household of one library), the icon goes straight to its page, no
+  menu. (2) On the Fire TV (Silk), by the remote: OK on the icon opens the menu from its top; Down
+  walks the libraries, the list scrolling within its height where they are more than the screen
+  holds; Back closes it, as do Left and Right, focus back on the icon, the page unchanged.
+  (`web/apps/web/src/app-shell.tsx`, `library-browse.tsx`)

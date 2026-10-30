@@ -66,6 +66,58 @@ const glassTide = {
   nextUp: { titleId: 302, name: "Low Water", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
 };
 
+/** A films library, as GET /libraries lists it. */
+function filmsLibrary(id: number, name: string): Record<string, unknown> {
+  return {
+    id,
+    name,
+    kind: "movies",
+    metadataSource: "nfo_then_tmdb",
+    changeDetection: "watch",
+    isWritable: true,
+    createdAt: 0,
+  };
+}
+
+/** A person's one films library, its page listing six films. */
+const aLibrary: WalkAnswers = {
+  ...signedIn,
+  "GET /libraries": { libraries: [filmsLibrary(1, "Films")] },
+  "GET /titles/letters": { letters: [] },
+};
+
+/** Sixteen libraries, more than a Fire TV's screen holds in the banner's Libraries menu. */
+const manyLibraries: WalkAnswers = {
+  ...signedIn,
+  "GET /libraries": {
+    libraries: Array.from({ length: 16 }, (_, at) =>
+      filmsLibrary(at + 1, `Library ${String(at + 1).padStart(2, "0")}`),
+    ),
+  },
+};
+
+/** A library's page's sort chooser: its button, found by the field it chooses. */
+function sortChooser(): HTMLElement | undefined {
+  const chooser = [...document.querySelectorAll("main .route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
+  );
+  return chooser?.querySelector<HTMLElement>(".route-chooser__button") ?? undefined;
+}
+
+/** Whether element holds more than it shows, scrolling within its own height. */
+function isScrollingWithin(element: HTMLElement | null): boolean {
+  return element !== null && element.scrollHeight > element.clientHeight;
+}
+
+/** Whether element is drawn whole inside container's box, to half a pixel. */
+function isShownWholeIn(element: Element | null, container: Element | null): boolean {
+  if (element === null || container === null) {
+    return false;
+  }
+  const [box, within] = [element.getBoundingClientRect(), container.getBoundingClientRect()];
+  return box.top >= within.top - 0.5 && box.bottom <= within.bottom + 0.5;
+}
+
 /** Presses keys as a remote does: real key events, the browser's own handling with them. */
 async function press(keys: string): Promise<void> {
   await userEvent.keyboard(keys);
@@ -246,7 +298,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => document.activeElement).toBe(more);
   });
 
-  // D367 §9: one series page, its season a view picked by a chooser, which adds no step to Back.
+  // D367 §9: one series page, its season a view picked from its row of seasons' posters (D379),
+  // which adds no step to Back.
   it("reaches every control of a series' page, and picks a season in its place", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
@@ -258,12 +311,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(document.querySelector("main .more-actions__button")).not.toBeNull();
     expect(await unreachedInMain()).toEqual([]);
     await press("{ArrowDown}");
-    const isOnPicker = (): boolean =>
-      document.activeElement?.classList.contains("route-chooser__button") === true;
-    expect(await pressUntil("{ArrowDown}", isOnPicker)).toBe(true);
-    await press("{Enter}");
-    await drawn("dialog a");
-    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/series/20?season=2"))).toBe(
+    expect(await pressUntil("{ArrowDown}", () => isFocusIn(".series__seasons"))).toBe(true);
+    expect(await pressUntil("{ArrowRight}", () => isFocusOnLinkTo("/series/20?season=2"))).toBe(
       true,
     );
     await press("{Enter}");
@@ -278,17 +327,14 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
   });
 
-  it("closes a season picker's list by the browser's own Back, a history step, choosing nothing, and by its Close", async () => {
+  it("closes a chooser's list by the browser's own Back, a history step, choosing nothing, and by its Close", async () => {
     await page.viewport(width, height);
     const place = fakePlace("/");
     const navigation = createNavigation(place, false);
-    navigation.go({ screen: "series-page", collectionId: 20 });
-    walking = await mountApp({
-      ...walkServices({ ...signedIn, "GET /collections/20": glassTide }),
-      navigation,
-    });
-    await drawn(".title__play");
-    const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
+    navigation.go({ screen: "browse", library: 1 });
+    walking = await mountApp({ ...walkServices(aLibrary), navigation });
+    await drawn(".poster-grid a");
+    const picker = sortChooser();
     // The chooser shows its chevron, the menu none (the owner, 2026-10-28).
     expect(picker?.querySelector(".route-chooser__chevron")).not.toBeNull();
     expect(document.querySelector(".app-shell__menu-button .route-chooser__chevron")).toBeNull();
@@ -298,7 +344,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     place.history.back();
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(picker);
-    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
+    expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
     expect(navigation.behind()).toEqual([{ screen: "home" }]);
     // Its Close, the cross at its top-right, reached by the arrows.
     await press("{Enter}");
@@ -312,32 +358,22 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await press("{Enter}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(picker);
-    expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
+    expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
 
-  // The owner on a Fire TV, 2026-10-28: the season picker "shifted the page up before displaying
-  // it", and opened on its Close, not a season.
-  it("opens a season picker mid-page on its season, the page moving neither as it opens, its Close reached, nor as it closes", async () => {
+  // The owner on a Fire TV, 2026-10-28: the season picker, a chooser like this, "shifted the page up
+  // before displaying it", and opened on its Close, not a season.
+  it("opens a chooser mid-page on its choice, the page moving neither as it opens, its Close reached, nor as it closes", async () => {
     await page.viewport(width, height);
     const above = document.createElement("div");
     above.style.height = `${String(height * 2)}px`;
     document.body.prepend(above);
-    // Seasons enough that the list is as tall as the screen lets it be, its Close under the banner.
-    const seasons = Array.from({ length: 16 }, (_, at) => ({
-      seasonNumber: at + 1,
-      episodeCount: 1,
-    }));
     try {
-      walking = await mountApp(
-        walkServices(
-          { ...signedIn, "GET /collections/20": { ...glassTide, seasons } },
-          "/series/20",
-        ),
-      );
-      await drawn(".title__play");
-      const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
-      if (picker === null) {
-        throw new Error("the series' page draws no season picker");
+      walking = await mountApp(walkServices(aLibrary, "/browse?library=1"));
+      await drawn(".poster-grid a");
+      const picker = sortChooser();
+      if (picker === undefined) {
+        throw new Error("the library's page draws no sort chooser");
       }
       window.scrollBy({ top: picker.getBoundingClientRect().top - height / 2 });
       const scrolled = window.scrollY;
@@ -359,27 +395,35 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     }
   });
 
-  // The owner on a Fire TV, 2026-10-28: "Left/right didn't close it", focus on the Close.
-  it("closes a season picker's list by Left and by Right from its Close, focus on the picker", async () => {
+  // The owner on a Fire TV, 2026-10-28: "Left/right didn't close it", focus on the Close. The banner's
+  // Libraries menu closes as any chooser does, and scrolls within its height (the owner, 2026-10-28).
+  it("closes the banner's Libraries menu by Left and by Right from its Close, focus on its icon, its places scrolling within its height", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
+    walking = await mountApp(walkServices(manyLibraries, "/"));
+    await drawn('.app-shell__watching button[aria-label="Libraries"]');
+    const icon = document.querySelector<HTMLElement>(
+      '.app-shell__watching button[aria-label="Libraries"]',
     );
-    await drawn(".title__play");
-    const picker = document.querySelector<HTMLElement>("main .route-chooser__button");
-    picker?.focus();
+    icon?.focus();
     for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
       await press("{Enter}");
       await drawn("dialog a");
       expect(await pressUntil("{ArrowUp}", isOnClose), arrow).toBe(true);
       await press(arrow);
       await expect.poll(() => document.querySelector("dialog"), { message: arrow }).toBeNull();
-      await expect.poll(() => document.activeElement, { message: arrow }).toBe(picker);
+      await expect.poll(() => document.activeElement, { message: arrow }).toBe(icon);
     }
-    expect(walking.services.navigation.route()).toEqual({
-      screen: "series-page",
-      collectionId: 20,
-    });
+    // Its places, more than the screen holds, scroll under its Close; Down reaches the last, All
+    // libraries, shown whole within the list.
+    await press("{Enter}");
+    await drawn("dialog a");
+    const places = document.querySelector<HTMLElement>("dialog .drop-down__places");
+    expect(isScrollingWithin(places)).toBe(true);
+    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/browse?library=all"), 24)).toBe(
+      true,
+    );
+    expect(isShownWholeIn(document.activeElement, places)).toBe(true);
+    expect(walking.services.navigation.route()).toEqual({ screen: "home" });
   });
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {

@@ -10,6 +10,7 @@ import { DropDown } from "./drop-down.tsx";
 import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
+import { sortedLibraries, useLibrariesReached } from "./libraries-reached.ts";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
 import { NoticeNote } from "./notice-note.tsx";
@@ -19,6 +20,7 @@ import { LinkCapBadge } from "./link-debug-tools.tsx";
 import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
+import { useRoute } from "./services.tsx";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 /** The laurel alone, which the page's favicon is, served beside the client (index.html). */
@@ -119,6 +121,8 @@ interface Destination {
   readonly group: "watching" | "manage" | "develop" | "own";
   /** Its icon, which a place for watching shows in the banner in place of its name (2026-10-28). */
   readonly icon?: (props: { readonly className: string }) => JSX.Element;
+  /** Whether it opens the menu of the person's libraries rather than going to its route (LibrariesMenu). */
+  readonly isLibrariesMenu?: boolean;
 }
 
 const destinations: readonly Destination[] = [
@@ -144,6 +148,7 @@ const destinations: readonly Destination[] = [
     audience: "everyone",
     group: "watching",
     icon: LibrariesIcon,
+    isLibrariesMenu: true,
   },
   {
     // In the menu, not the places for watching: on a phone the row ran past the window (the owner,
@@ -389,9 +394,22 @@ export function MenuIcon(): JSX.Element {
 
 /**
  * One place, in the banner or the menu, marked when it is the current screen: by its icon where it
- * has one, its name then its label for a screen reader and a pointer's hover.
+ * has one, its name then its label for a screen reader and a pointer's hover; Libraries the menu of
+ * the person's libraries (LibrariesMenu).
  */
 function Place(props: {
+  readonly destination: Destination;
+  readonly isCurrent: boolean;
+}): JSX.Element {
+  return props.destination.isLibrariesMenu === true ? (
+    <LibrariesMenu destination={props.destination} isCurrent={props.isCurrent} />
+  ) : (
+    <PlaceLink destination={props.destination} isCurrent={props.isCurrent} />
+  );
+}
+
+/** A place as a link to its route, by its icon where it has one, else its name. */
+function PlaceLink(props: {
   readonly destination: Destination;
   readonly isCurrent: boolean;
 }): JSX.Element {
@@ -408,6 +426,65 @@ function Place(props: {
           <PlaceIcon className="app-shell__place-glyph" />
         </Link>
       )}
+    </li>
+  );
+}
+
+/**
+ * The banner's Libraries (the owner, 2026-10-28: "make the libraries icon a menu that lists the
+ * libraries under it"): a drop-down of the person's libraries by name, each its page, then All
+ * libraries last, the one shown marked; the shared drop-down (drop-down.tsx), so on a TV it closes as
+ * any chooser does, at Back, Left or Right, and scrolls within its height. With one library the icon
+ * goes straight to its page, no menu of one; with none, or before they are read, to the Libraries
+ * page, as it did.
+ */
+function LibrariesMenu(props: {
+  readonly destination: Destination;
+  readonly isCurrent: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const libraries = useLibrariesReached();
+  const route = useRoute();
+  const { destination, isCurrent } = props;
+  const sorted = libraries.state === "loaded" ? sortedLibraries(libraries.value) : [];
+  const [only] = sorted;
+  if (sorted.length < 2) {
+    return (
+      <PlaceLink
+        destination={
+          only === undefined
+            ? destination
+            : { ...destination, route: { screen: "browse", library: only.id } }
+        }
+        isCurrent={isCurrent}
+      />
+    );
+  }
+  const name = t(`nav.${destination.labelKey}`);
+  const shown = route.screen === "browse" ? route.library : undefined;
+  return (
+    <li aria-current={isCurrent ? "page" : undefined}>
+      <DropDown
+        label={name}
+        opener={<LibrariesIcon className="app-shell__place-glyph" />}
+        openerClassName="app-shell__place-icon"
+        openerNaming={{ "aria-label": name, title: name }}
+        listClassName="app-shell__libraries-list"
+        isFromItsTop
+      >
+        {sorted.map((library) => (
+          <li key={library.id}>
+            <Link to={{ screen: "browse", library: library.id }} isCurrent={shown === library.id}>
+              {library.name}
+            </Link>
+          </li>
+        ))}
+        <li>
+          <Link to={{ screen: "browse", library: "all" }} isCurrent={shown === "all"}>
+            {t("browse.allLibraries")}
+          </Link>
+        </li>
+      </DropDown>
     </li>
   );
 }
