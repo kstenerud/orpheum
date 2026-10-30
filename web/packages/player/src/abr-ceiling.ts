@@ -301,21 +301,23 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       return;
     }
     const { chunk } = judged;
-    const chosen = giveUpFor({
-      shareForQuality: this.#options.shareForQuality,
-      levels: this.#hls.levels,
-      loadingLevel: chunk.level,
-      lowestLevel: this.#hls.minAutoLevel,
-      durationS: chunk.duration,
-      loadingMs: judged.loadingMs,
-      firstByteMs: judged.firstByteMs,
-      loadedBytes: judged.firstByteMs === undefined ? 0 : judged.loadedBytes,
-      totalBytes: chunk.stats.total,
-      linkBps: this.#linkBps(),
-      bufferAheadS: bufferAheadS(this.#hls),
-    });
-    if (chosen !== undefined) {
-      this.#giveUp(judged, chosen);
+    // The chunk's own rate says whether to give it up; the link's estimate, for what (D382 §1).
+    const isGivenUp =
+      giveUpFor({
+        shareForQuality: this.#options.shareForQuality,
+        levels: this.#hls.levels,
+        loadingLevel: chunk.level,
+        lowestLevel: this.#hls.minAutoLevel,
+        durationS: chunk.duration,
+        loadingMs: judged.loadingMs,
+        firstByteMs: judged.firstByteMs,
+        loadedBytes: judged.firstByteMs === undefined ? 0 : judged.loadedBytes,
+        totalBytes: chunk.stats.total,
+        linkBps: this.#linkBps(),
+        bufferAheadS: bufferAheadS(this.#hls),
+      }) !== undefined;
+    if (isGivenUp) {
+      this.#giveUp(judged);
       return;
     }
     // Not given up, as one of the lowest quality: stuck, noted with what carried it, and asked for
@@ -336,13 +338,14 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   }
 
   /**
-   * Gives up a chunk on its way for chosen (D265 §3), a drop (D352 §4). One that was arriving is a
-   * sample of the link, hls.js's estimator fed it too, and lowers the ceiling to chosen; one stuck is
-   * no sample, and lowers the ceiling while starting only as far as the estimate then carries, as a
-   * stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport is not a slow link, and a
-   * lower quality's chunk travels it no better.
+   * Gives up a chunk on its way (D265 §3), a drop (D352 §4), for the highest quality below it the
+   * link's estimate carries, its own sample counted in it (#givenUpLevel, D382 §1). One that was
+   * arriving is a sample of the link, hls.js's estimator fed it too, and lowers the ceiling to that
+   * quality; one stuck is no sample, and lowers the ceiling while starting only as far as the
+   * estimate then carries, as a stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport
+   * is not a slow link, and a lower quality's chunk travels it no better.
    */
-  #giveUp(judged: JudgedChunk<Chunk>, chosen: number): void {
+  #giveUp(judged: JudgedChunk<Chunk>): void {
     const { chunk } = judged;
     const carried = this.#carrierText(chunk); // before it is aborted
     this.#onItsWay.ended(chunk);
@@ -353,12 +356,13 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       this.#link.measureGivenUp(sample.firstByteMs + sample.arrivedMs, sample.bytes);
       this.sample(sample);
     }
+    const chosen = this.#givenUpLevel(chunk.level);
     const why = `gave up a chunk of ${String(chunk.level)}, ${givenUpText({
       ...judged,
       isSample: sample !== undefined,
     })}; ${this.#stateText()}`;
     const isStuckStarting = sample === undefined && this.#isStarting;
-    if (!this.#lower(isStuckStarting ? Math.max(chosen, this.#carriedNow()) : chosen, () => why)) {
+    if (!this.#lower(isStuckStarting ? this.#carriedNow() : chosen, () => why)) {
       this.#options.noteStep?.(why); // a give-up is always told, the ceiling lowered or not
     }
     this.#options.noteLink?.(
@@ -367,6 +371,16 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     this.#noteSteadiness(this.#steadiness.dropped(nowMs));
     this.#choose(chosen, () => why);
     this.#link.giveUp(chunk);
+  }
+
+  /**
+   * The quality a chunk of level given up is given up for (D382 §1): the highest below it the link's
+   * estimate carries now (#carriedNow), never the chunk's own rate, by which one chunk that brought a
+   * single 128 KiB piece took a Fire TV on a 20 Mb/s link to its lowest quality (staging,
+   * 2026-10-30); the lowest the player may play at the least.
+   */
+  #givenUpLevel(level: number): number {
+    return Math.max(Math.min(this.#carriedNow(), level - 1), this.#hls.minAutoLevel);
   }
 
   /** The quality the link's estimate carries now, under the ceiling, by D265 §4's share; the ceiling with no estimate. */

@@ -65,7 +65,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (P4); holds the quality loading against any reading of the link, the
   next chunk's choice and the ceiling alike, while `holdsQualityAheadS` (20 s) is loaded ahead,
   noting the hold (D352's revision of 2026-10-28); gives up a slow chunk on its
-  way, playing or not, for the lowest quality too, a sample of the link only while its bytes were
+  way, playing or not, by that chunk's own rate, for the highest quality below it the link's estimate
+  carries, its sample counted in it, never by that one chunk's rate (D382 §1), the lowest too, a sample of the link only while its bytes were
   arriving (within `arrivingWithinMs`, and `measuresFromBytesAtLeast` of them after its first
   arriving piece), over the time from that piece to the give-up, and one stuck, or with only its
   first piece, no sample (D382 §2), lowering the ceiling while starting no further than the
@@ -100,7 +101,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   hls.js stopped its loading, and while the browser is offline; each quality judged unplayable, and
   each long standing still not judged, is noted with why. A minute's outage stood a video 0.07 s short
   of the end of what it held, hls.js saying 33.9 s loaded ahead, and the top quality was given up for
-  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
+  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-given-up.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,
