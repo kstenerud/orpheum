@@ -8,8 +8,10 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { dataOrThrow } from "./problem.ts";
+import { readMembership } from "./together-storage.ts";
 
 /** A cast as one of its devices sees it, with this device's credential for its session of one. */
 export type Cast = components["schemas"]["CastBody"];
@@ -57,15 +59,26 @@ function filmFields(film: CastFilm | undefined): { readonly fileId?: number; pos
 /**
  * Starts casting from this device to toDeviceId, another of the person's connected now: a session
  * with it (D364), playing film, the video playing here as it starts (§1), or nothing for undefined.
+ * A page that is a Watch Together guest's, hosting nothing, says its membership, whose part the
+ * receiver takes, following the group (D371 §4): the person's own device joined as a guest of the
+ * session they host casts as its guest, not as their host's player (VQ193).
  */
 export async function startCast(
   api: Api,
   toDeviceId: number,
   film: CastFilm | undefined,
 ): Promise<Cast> {
+  const guests =
+    readMembership(tabStorage(), "host") === undefined
+      ? readMembership(browserStorage(), "viewer")
+      : undefined;
   return dataOrThrow(
     await api.POST("/me/casts", {
-      body: { toDeviceId, ...filmFields(film) },
+      body: {
+        toDeviceId,
+        ...filmFields(film),
+        ...(guests === undefined ? {} : { togetherCredential: guests.credential }),
+      },
       ...idempotent(newIdempotencyKey()),
     }),
   );

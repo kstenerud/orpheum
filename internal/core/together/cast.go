@@ -197,20 +197,32 @@ func (hub *Hub) CastReady(sessionID, userID int64) error {
 // to take their part in it (D371 §4), and whether it is the host's: the session they host, the
 // receiver then playing it as their player, its leader, so what they play plays for the group (D364
 // §11; plans/cast-to-device.md §7); else the one they joined signed in as a guest, the receiver then
-// just another follower. A person is in one session at most (D372 §8). "" when they are in none, or
+// just another follower. A person is in one session at most (D372 §8). The sender's own part, held,
+// the membership credential its page holds as a guest, is taken where given: a person who hosts a
+// session and joined it as a guest from another device casts from that device as its guest, the
+// receiver following the group, not leading it as their host's player. "" when they are in none, or
 // none can be made.
-func (hub *Hub) TogetherPart(userID int64) (credential string, isHost bool) {
+func (hub *Hub) TogetherPart(userID int64, held string) (credential string, isHost bool) {
 	made, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
 		return "", false
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	places := hub.placesOf(&Person{UserID: userID}, "", 0)
+	places := hub.placesOf(&Person{UserID: userID}, held, 0)
 	if len(places) == 0 {
 		return "", false
 	}
 	taken := places[0].as // the host's first, should a person be in two by a sign-in at a hello
+	if held != "" {
+		heldHash := sha256.Sum256([]byte(held))
+		for _, each := range places {
+			if each.as.admits(heldHash) {
+				taken = each.as
+				break
+			}
+		}
+	}
 	taken.addCredential(madeCredential{credential: made})
 	return made, taken.isHost
 }

@@ -22,6 +22,10 @@ type StartCastInput struct {
 	Body struct {
 		ToDeviceID int64 `doc:"Another of one's own devices, connected now" json:"toDeviceId" minimum:"1"`
 		CastFilm
+		// TogetherCredential is the Watch Together membership the asking page holds as a guest, whose
+		// part in the session the receiver takes, following the group (D371 §4); absent, the person's
+		// own part, the session they host first.
+		TogetherCredential string `doc:"The membership this page holds as a Watch Together guest, whose part the receiver takes" json:"togetherCredential,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -195,7 +199,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		ID: opened.SessionID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
 		FileID: film.FileID, TitleID: film.TitleID, TitleName: film.TitleName, DurationMs: film.DurationMs,
-		PositionMs: input.Body.PositionMs,
+		PositionMs: input.Body.PositionMs, SendersMembership: input.Body.TogetherCredential,
 	}
 	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {

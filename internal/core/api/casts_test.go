@@ -477,6 +477,32 @@ func TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession(t *testing.T) {
 	}
 }
 
+// A cast from a page that holds a guest's membership of the session hands its receiver that guest's
+// part, following the group, not the host's: the person's own phone, joined as a guest of the session
+// they host, casts as its guest (VQ193).
+func TestCast_AReceiverTakesTheGuestsPartTheSendingPageHolds(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	hosted := harness.openTogether(t, phoneToken)
+	guest := harness.joinByLink(t, phoneToken, hosted.Body.SessionID, "my phone", "Phone")
+	startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{
+		"toDeviceId": tv, "togetherCredential": guest.Body.MembershipCredential,
+	}))
+	handed := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
+	if handed.TogetherCredential == "" || !handed.IsTogetherFollower {
+		t.Fatalf("the TV was handed %+v; want the guest's part, following", handed)
+	}
+	player := harness.dialCast(t, handed.TogetherCredential, together.RoleVideo)
+	if welcome := player.awaitWelcome(); welcome.IsHost || welcome.MemberID != guest.Body.MemberID {
+		t.Errorf("the TV's welcome = %+v; want the guest's, member %d", welcome, guest.Body.MemberID)
+	}
+}
+
 // A host who starts Watch Together while they cast has one session, not two (D364 §11, D372 §8): the
 // receiver is handed the cast again with the host's part in the new session and the film from where
 // the cast stands, takes it, leading it, and a guest who joins finds that film on and the receiver

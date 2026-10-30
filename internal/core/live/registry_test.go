@@ -451,7 +451,7 @@ func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	parts := map[int64]string{owner: "hosted"}
-	registry.TakesPartBy(func(userID int64) (string, bool) { return parts[userID], true })
+	registry.TakesPartBy(func(userID int64, _ string) (string, bool) { return parts[userID], true })
 	receiver, partnerReceiver := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -481,7 +481,7 @@ func TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts(t *testing.T) {
 func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
-	registry.TakesPartBy(func(int64) (string, bool) { return "guest", false })
+	registry.TakesPartBy(func(int64, string) (string, bool) { return "guest", false })
 	receiver := &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)
@@ -495,6 +495,38 @@ func TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow(t *testing.T) {
 	}
 }
 
+// A cast from a page that holds a guest's membership hands its receiver that guest's part, by the
+// membership the sender gave, following, here and as it is handed again: the person's own device
+// joined as a guest of the session they host casts as its guest (VQ193).
+func TestRegistry_AReceiverTakesThePartItsSendersPageHolds(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	registry.TakesPartBy(func(_ int64, held string) (string, bool) {
+		if held == "guest-membership" {
+			return "guest-part", false
+		}
+		return "hosted", true
+	})
+	receiver := &inbox{}
+	registry.Connect(owner, phone, inFront, (&inbox{}).send)
+	registry.Connect(owner, television, inFront, receiver.send)
+	cast := Cast{
+		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television,
+		SendersMembership: "guest-membership",
+	}
+	if _, _, err := registry.Cast(cast, "a"); err != nil {
+		t.Fatal(err)
+	}
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "guest-part" ||
+		!handed.Receive.IsTogetherFollower {
+		t.Errorf("the TV was handed %+v; want the sender's guest's part, following", handed.Receive)
+	}
+	registry.PartChanged(owner, func(int64) (int64, bool) { return 0, false })
+	if handed, _ := receiver.last(MessageReceive); handed.Receive.TogetherCredential != "guest-part" {
+		t.Errorf("the TV was handed again %+v; want the sender's guest's part still", handed.Receive)
+	}
+}
+
 // A person who starts Watch Together while they cast has their receiver handed the cast again, on the
 // connection that holds it, with their part in the new session and the film from where the cast
 // stands, so the receiver leads that one session with the film it plays (D364 §11, D372 §8); another
@@ -503,7 +535,7 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	t.Parallel()
 	registry := NewRegistry(minted(), newClock())
 	parts := map[int64]string{}
-	registry.TakesPartBy(func(userID int64) (string, bool) { return parts[userID], true })
+	registry.TakesPartBy(func(userID int64, _ string) (string, bool) { return parts[userID], true })
 	receiver, partnerReceiver := &inbox{}, &inbox{}
 	registry.Connect(owner, phone, inFront, (&inbox{}).send)
 	registry.Connect(owner, television, inFront, receiver.send)

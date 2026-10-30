@@ -10,14 +10,16 @@ import { CastTargets } from "./cast-to.tsx";
 import { endCast } from "./cast.ts";
 import { useLive } from "./live.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { positionPlayedHere } from "./playing-here.ts";
+import { isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
 import { useRoute, useServices } from "./services.tsx";
 
 /**
  * Cast's dialog, which the tray's Cast opens over whatever page is shown and which never moves it
  * (D384 §2): with no cast, the devices to cast to, a cast started there moving the film of the Play
- * page it opened over to the receiver at its position (D364 §1); with one, what plays where, the way
- * back to its film's page, whose video's area is the cast's remote, and Stop casting.
+ * page it opened over to the receiver at its position (D364 §1), but a guest's group's film, which
+ * goes with no film, the receiver following the group in the guest's part (D371 §4); with one, what
+ * plays where, the way back to its film's page, whose video's area is the cast's remote, and Stop
+ * casting.
  */
 export function CastDialog(props: { readonly onClose: () => void }): JSX.Element {
   const { t } = useTranslation();
@@ -25,7 +27,9 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   const { sending, isSendingKnown } = useLive();
   const fileId = route.screen === "play" ? route.fileId : undefined;
   const film = (): { fileId: number; positionMs: number | undefined } | undefined =>
-    fileId === undefined ? undefined : { fileId, positionMs: positionPlayedHere(fileId) };
+    fileId === undefined || isTheGroupsFilmShown()
+      ? undefined
+      : { fileId, positionMs: positionPlayedHere(fileId) };
   const taken = sending?.isAccepted === true ? sending : undefined;
   useClosesOnceTaken(taken?.castId, props.onClose);
   return (
