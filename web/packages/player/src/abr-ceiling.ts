@@ -37,6 +37,7 @@ import { resumePositionOf } from "./resume-position.ts";
 import type { StandingStill } from "./abr-video.ts";
 import type { Steadiness } from "./steadiness.ts";
 import { nextCap, stepUpBufferMs, type StepUpShown } from "./step-up.ts";
+import { busyText, type BusyPage } from "./abr-busy.ts";
 
 /**
  * How much loaded ahead holds the quality loading, in seconds: while at least this much is loaded,
@@ -69,6 +70,7 @@ export interface QualityCeilingInit<Chunk extends FollowedChunk> {
   readonly stepUpShown: StepUpShown;
   readonly onItsWay: ChunkOnItsWay<Chunk>;
   readonly still: StandingStill;
+  readonly busy: BusyPage;
 }
 
 /**
@@ -88,6 +90,9 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   readonly #stepUpShown: StepUpShown;
   readonly #onItsWay: ChunkOnItsWay<Chunk>;
   readonly #still: StandingStill;
+  readonly #busy: BusyPage;
+  /** The chunk on its way last excused by a long task of the page, noted once (D382 §3). */
+  #excused: Chunk | undefined;
   /** The highest quality it may choose: the start, lowered by each step down, raised by the step-up. */
   #ceiling: number | undefined;
   #changedAtMs: number;
@@ -122,6 +127,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     this.#stepUpShown = init.stepUpShown;
     this.#onItsWay = init.onItsWay;
     this.#still = init.still;
+    this.#busy = init.busy;
     this.#changedAtMs = init.options.monotonicMs();
   }
 
@@ -301,22 +307,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
       return;
     }
     const { chunk } = judged;
-    // The chunk's own rate says whether to give it up; the link's estimate, for what (D382 §1).
-    const isGivenUp =
-      giveUpFor({
-        shareForQuality: this.#options.shareForQuality,
-        levels: this.#hls.levels,
-        loadingLevel: chunk.level,
-        lowestLevel: this.#hls.minAutoLevel,
-        durationS: chunk.duration,
-        loadingMs: judged.loadingMs,
-        firstByteMs: judged.firstByteMs,
-        loadedBytes: judged.firstByteMs === undefined ? 0 : judged.loadedBytes,
-        totalBytes: chunk.stats.total,
-        linkBps: this.#linkBps(),
-        bufferAheadS: bufferAheadS(this.#hls),
-      }) !== undefined;
-    if (isGivenUp) {
+    if (this.#isToGiveUp(judged)) {
       this.#giveUp(judged);
       return;
     }
@@ -330,6 +321,54 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     if (stuck?.isAskedAgain === true) {
       this.#link.giveUp(chunk);
     }
+  }
+
+  /**
+   * Whether the chunk on its way is to be given up: by its own rate (giveUpFor), unless the page was
+   * too busy to read it (D382 §3); what for is the link's estimate's to say (#givenUpLevel, §1).
+   */
+  #isToGiveUp(judged: JudgedChunk<Chunk>): boolean {
+    const { chunk } = judged;
+    return (
+      !this.#isExcusedBusy(judged) &&
+      giveUpFor({
+        shareForQuality: this.#options.shareForQuality,
+        levels: this.#hls.levels,
+        loadingLevel: chunk.level,
+        lowestLevel: this.#hls.minAutoLevel,
+        durationS: chunk.duration,
+        loadingMs: judged.loadingMs,
+        firstByteMs: judged.firstByteMs,
+        loadedBytes: judged.firstByteMs === undefined ? 0 : judged.loadedBytes,
+        totalBytes: chunk.stats.total,
+        linkBps: this.#linkBps(),
+        bufferAheadS: bufferAheadS(this.#hls),
+      }) !== undefined
+    );
+  }
+
+  /**
+   * Whether the chunk on its way arrived, from its first byte to now, while a long task of the page
+   * ran, which excuses it from being given up (D382 §3): stuck, it is still asked for again. Noted
+   * once for each chunk, with the longest task's length.
+   */
+  #isExcusedBusy(judged: JudgedChunk<Chunk>): boolean {
+    const { chunk } = judged;
+    const longestMs =
+      judged.firstByteMs === undefined
+        ? undefined
+        : this.#busy.longestWithin(chunk.stats.loading.first, this.#options.monotonicMs());
+    if (longestMs === undefined) {
+      return false;
+    }
+    if (this.#excused !== chunk) {
+      this.#excused = chunk;
+      const came = `${String(judged.loadedBytes)} B in ${String(judged.loadingMs)} ms`;
+      this.#options.noteLink?.(
+        busyText({ level: chunk.level, how: `on its way (${came})` }, longestMs),
+      );
+    }
+    return true;
   }
 
   /** What carries chunk's load, for a note of it given up or stuck (the owner, 2026-10-29). */

@@ -4,6 +4,7 @@ import type { HlsProgressivePerformanceTiming, LoaderStats } from "hls.js";
 
 import type { ChoiceLevel, FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
+import type { LongTasks } from "./main-thread.ts";
 
 /**
  * What the chunked player's bitrate controller (abr.ts) is given: the chunks it follows, what it reads
@@ -79,6 +80,11 @@ export interface ChoosingOptions {
    * (D382 §2); undefined where it is not known, and a chunk is measured from its first byte.
    */
   readonly firstPieceOf?: ((url: string) => FirstPiece | undefined) | undefined;
+  /**
+   * The browser's long tasks, of 50 ms and more (longTasksOf): a chunk whose arrival one overlapped
+   * is no sample of the link and cannot cause a give-up (D382 §3); undefined where it reports none.
+   */
+  readonly longTasks?: LongTasks | undefined;
   /**
    * Told each change of the ceiling it chooses under, and why, for the diagnosis's steps: a player
    * that dropped from the twin to 360p after a jump on a 77 Mb/s link said nothing of why (the owner's

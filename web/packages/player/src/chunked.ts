@@ -535,6 +535,7 @@ export function choosingOptionsOf(
     isInAGroup: isFollowingAGroup,
     isOffline: isBrowserOffline,
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
+    longTasks: longTasksOf(globalThis),
     onUnplayable: sendUnplayable(video),
     noteStep: stepNoter(video),
     noteSamples: samplesNoter(video),
