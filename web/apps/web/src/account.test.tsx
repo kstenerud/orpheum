@@ -50,6 +50,12 @@ async function accountOf(
 }
 
 describe("your account", () => {
+  it("says who is signed in, under its heading (the owner, 2026-10-30)", async () => {
+    const page = await accountOf(true);
+    await settleUntil(() => page.querySelector(".account__who") !== null);
+    expect(page.querySelector(".account__who")?.textContent).toBe("Signed in as owner");
+  });
+
   it("offers a session that may not change the account's security only what it may do, and says where to do the rest (D292 §4)", async () => {
     const limited = await accountOf(false);
     expect(limited.textContent).toContain("Living room TV");
