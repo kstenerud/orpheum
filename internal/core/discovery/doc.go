@@ -81,7 +81,8 @@
 //
 // # Where to change
 //
-//   - discovery.go: connecting, the loop, sessions and calls; renewal.go: one session renewal at a
-//     time; signal.go: the signalling connection; urls.go: which discovery addresses and client
-//     origins the core takes; house_networks.go: the house's IPv6 networks (D356).
+//   - discovery.go: connecting and the loop; discovery_call.go: sessions and the signed call they
+//     carry; renewal.go: one session renewal at a time; signal.go: the signalling connection;
+//     urls.go: which discovery addresses and client origins the core takes; house_networks.go: the
+//     house's IPv6 networks (D356).
 package discovery
