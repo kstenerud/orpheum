@@ -14823,6 +14823,7 @@
     },
     "/search": {
       "get": {
+        "description": "Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.",
         "operationId": "search",
         "parameters": [
           {
@@ -14890,7 +14891,7 @@
             "description": "Error"
           }
         },
-        "summary": "Titles and series by name, in any script (D48)",
+        "summary": "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
         "tags": [
           "Browse"
         ]
@@ -15826,6 +15827,17 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first",
+            "explode": false,
+            "in": "query",
+            "name": "query",
+            "schema": {
+              "description": "Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first",
+              "maxLength": 200,
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -15911,6 +15923,17 @@
               "format": "int64",
               "minimum": 0,
               "type": "integer"
+            }
+          },
+          {
+            "description": "As GET /titles takes it: only the letters some title whose name matches it is under",
+            "explode": false,
+            "in": "query",
+            "name": "query",
+            "schema": {
+              "description": "As GET /titles takes it: only the letters some title whose name matches it is under",
+              "maxLength": 200,
+              "type": "string"
             }
           }
         ],

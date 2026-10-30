@@ -117,6 +117,7 @@ type TitlesInput struct {
 	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
 	From    string `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles" maxLength:"100" query:"from"` //nolint:lll // one struct tag
 	Limit   int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
+	Query   string `doc:"Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 }
 
 // TitlesOutput is one page.
@@ -310,7 +311,8 @@ type SeasonOutput struct {
 	}
 }
 
-// SearchInput is a search.
+// SearchInput is a search. Superseded by TitlesInput's Query, search a criterion of the one list (the
+// owner, 2026-10-30); kept for the clients that call it.
 type SearchInput struct {
 	AuthorizationHeader
 	Query   string `query:"query" required:"true"`
@@ -358,7 +360,10 @@ func (server *Server) registerBrowse() {
 	}, server.getNotInOrdering)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
-		Summary: "Titles and series by name, in any script (D48)", Tags: tags,
+		Summary: "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
+		Description: "Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, " +
+			"library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.",
+		Tags: tags,
 	}, server.search)
 }
 
@@ -383,7 +388,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	}
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
 		Kind: input.Kind, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
-		Limit: input.Limit, Reach: reach, UserID: principal.UserID,
+		Limit: input.Limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)

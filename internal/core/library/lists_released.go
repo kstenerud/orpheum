@@ -64,6 +64,7 @@ func (browser *Browser) listFilmsOrSeriesByReleased(
 		reads = browser.seriesReleased(ctx, query.isReversed())
 	}
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	var keyed []keyedEntry
 	afterUndatedID := from.id
 	if !isUndated(from.key) {
@@ -71,6 +72,7 @@ func (browser *Browser) listFilmsOrSeriesByReleased(
 		dated, err := reads.dated(sqlcgen.ListFilmsByReleasedParams{
 			BeforeReleasedOn: day, BeforeID: from.id, MaxRows: query.Limit,
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+			ItemIdsJSON: itemIDsJSON,
 		})
 		if err != nil || int64(len(dated)) >= query.Limit {
 			return dated, err
@@ -80,6 +82,7 @@ func (browser *Browser) listFilmsOrSeriesByReleased(
 	undated, err := reads.undated(sqlcgen.ListFilmsUndatedParams{
 		AfterID: afterUndatedID, MaxRows: query.Limit - int64(len(keyed)),
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	})
 	return append(keyed, undated...), err
 }
@@ -90,6 +93,7 @@ func oldestReleasedFirst(forward sqlcgen.ListFilmsByReleasedParams) sqlcgen.List
 	return sqlcgen.ListFilmsByReleasedAscendingParams{
 		AfterReleasedOn: forward.BeforeReleasedOn, AfterID: forward.BeforeID, MaxRows: forward.MaxRows,
 		IsEveryLibrary: forward.IsEveryLibrary, LibraryIdsJSON: forward.LibraryIdsJSON,
+		ItemIdsJSON: forward.ItemIdsJSON,
 	}
 }
 

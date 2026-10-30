@@ -166,6 +166,11 @@ type ListQuery struct {
 	Reach auth.Reach
 	// UserID is the person listing, whose progress each entry shows.
 	UserID int64
+	// Query, when not "", lists only the titles whose names match it, as search matches them (D48):
+	// a film, other video or series by its own name, never by an episode's or an extra's.
+	Query string
+	// matched is the items Query matched, which List and Letters find before they read the list.
+	matched matchedItems
 }
 
 // isDescending is whether the list runs Z to A or newest first: as asked, or by its sort's own
@@ -202,6 +207,10 @@ func isSortOfKind(kind, sort string) bool {
 func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error) {
 	if !isSortOfKind(query.Kind, query.Sort) {
 		return Page{}, fmt.Errorf("%s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
+	}
+	query, isNoneMatched, err := browser.withMatched(ctx, query)
+	if err != nil || isNoneMatched {
+		return Page{Entries: []Entry{}}, err
 	}
 	keyed, err := browser.listKeyed(ctx, query)
 	if err != nil {

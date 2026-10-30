@@ -2,8 +2,9 @@
 
 // Package store is the database: the one Open() for persistent.db and cache.db with its pragmas read
 // back at startup, the single writer connection and the reader pool, our migration runner, the
-// sqlc-generated queries in sqlcgen, and search's three hand-written static statements. It knows
-// tables, not features.
+// sqlc-generated queries in sqlcgen, and search's hand-written static statements, three that find
+// hits and three that find the ids a searched list holds (MatchListed). It knows tables, not
+// features.
 //
 // # Invariants
 //

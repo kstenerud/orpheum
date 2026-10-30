@@ -25,8 +25,10 @@ WHERE title.kind = 'movie' AND item.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY title.found_at, title.found_file_modified_at, title.id
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListFilmsByAddedAscendingParams struct {
@@ -35,6 +37,7 @@ type ListFilmsByAddedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -57,6 +60,7 @@ func (q *Queries) ListFilmsByAddedAscending(ctx context.Context, arg ListFilmsBy
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -105,8 +109,10 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'movie' AND item.removed_at IS
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY sort_key.collation_key DESC, sort_key.item_id DESC
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListFilmsByNameDescendingParams struct {
@@ -115,6 +121,7 @@ type ListFilmsByNameDescendingParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -139,6 +146,7 @@ func (q *Queries) ListFilmsByNameDescending(ctx context.Context, arg ListFilmsBy
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -184,8 +192,10 @@ WHERE title.kind = 'movie' AND item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY title.released_on DESC, title.id DESC
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListFilmsByReleasedParams struct {
@@ -193,6 +203,7 @@ type ListFilmsByReleasedParams struct {
 	BeforeID         int64
 	IsEveryLibrary   int64
 	LibraryIdsJSON   string
+	ItemIdsJSON      *string
 	MaxRows          int64
 }
 
@@ -214,6 +225,7 @@ func (q *Queries) ListFilmsByReleased(ctx context.Context, arg ListFilmsByReleas
 		arg.BeforeID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -259,8 +271,10 @@ WHERE title.kind = 'movie' AND item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY title.released_on, title.id
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListFilmsByReleasedAscendingParams struct {
@@ -268,6 +282,7 @@ type ListFilmsByReleasedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -288,6 +303,7 @@ func (q *Queries) ListFilmsByReleasedAscending(ctx context.Context, arg ListFilm
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -332,14 +348,17 @@ WHERE title.kind = 'movie' AND title.released_on IS NULL AND item.removed_at IS 
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
+  AND (CAST(?4 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 ORDER BY title.id
-LIMIT ?4
+LIMIT ?5
 `
 
 type ListFilmsUndatedParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -360,6 +379,7 @@ func (q *Queries) ListFilmsUndated(ctx context.Context, arg ListFilmsUndatedPara
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -408,8 +428,10 @@ WHERE title.kind = 'other' AND item.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY title.found_at, title.found_file_modified_at, title.id
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListOtherByAddedAscendingParams struct {
@@ -418,6 +440,7 @@ type ListOtherByAddedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -441,6 +464,7 @@ func (q *Queries) ListOtherByAddedAscending(ctx context.Context, arg ListOtherBy
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -490,8 +514,10 @@ WHERE item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY other_video.file_name_key DESC, other_video.title_id DESC
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListOtherByFileNameDescendingParams struct {
@@ -499,6 +525,7 @@ type ListOtherByFileNameDescendingParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -520,6 +547,7 @@ func (q *Queries) ListOtherByFileNameDescending(ctx context.Context, arg ListOth
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -568,8 +596,10 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'other' AND item.removed_at IS
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY sort_key.collation_key DESC, sort_key.item_id DESC
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListOtherByNameDescendingParams struct {
@@ -578,6 +608,7 @@ type ListOtherByNameDescendingParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -600,6 +631,7 @@ func (q *Queries) ListOtherByNameDescending(ctx context.Context, arg ListOtherBy
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -647,8 +679,10 @@ WHERE item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY other_video.recorded_at, other_video.title_id
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListOtherByRecordedAscendingParams struct {
@@ -656,6 +690,7 @@ type ListOtherByRecordedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -677,6 +712,7 @@ func (q *Queries) ListOtherByRecordedAscending(ctx context.Context, arg ListOthe
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -726,8 +762,10 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY collection.found_at, collection.found_file_modified_at, collection.id
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListSeriesByAddedAscendingParams struct {
@@ -736,6 +774,7 @@ type ListSeriesByAddedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -758,6 +797,7 @@ func (q *Queries) ListSeriesByAddedAscending(ctx context.Context, arg ListSeries
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -807,8 +847,10 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at I
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
+  AND (CAST(?6 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?6 AS TEXT))))
 ORDER BY sort_key.collation_key DESC, sort_key.item_id DESC
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListSeriesByNameDescendingParams struct {
@@ -817,6 +859,7 @@ type ListSeriesByNameDescendingParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -838,6 +881,7 @@ func (q *Queries) ListSeriesByNameDescending(ctx context.Context, arg ListSeries
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -885,8 +929,10 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY collection.released_on DESC, collection.id DESC
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListSeriesByReleasedParams struct {
@@ -894,6 +940,7 @@ type ListSeriesByReleasedParams struct {
 	BeforeID         int64
 	IsEveryLibrary   int64
 	LibraryIdsJSON   string
+	ItemIdsJSON      *string
 	MaxRows          int64
 }
 
@@ -915,6 +962,7 @@ func (q *Queries) ListSeriesByReleased(ctx context.Context, arg ListSeriesByRele
 		arg.BeforeID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -962,8 +1010,10 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
+  AND (CAST(?5 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
 ORDER BY collection.released_on, collection.id
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListSeriesByReleasedAscendingParams struct {
@@ -971,6 +1021,7 @@ type ListSeriesByReleasedAscendingParams struct {
 	AfterID         int64
 	IsEveryLibrary  int64
 	LibraryIdsJSON  string
+	ItemIdsJSON     *string
 	MaxRows         int64
 }
 
@@ -991,6 +1042,7 @@ func (q *Queries) ListSeriesByReleasedAscending(ctx context.Context, arg ListSer
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -1038,14 +1090,17 @@ WHERE collection.kind = 'series' AND collection.released_on IS NULL AND item.rem
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
+  AND (CAST(?4 AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 ORDER BY collection.id
-LIMIT ?4
+LIMIT ?5
 `
 
 type ListSeriesUndatedParams struct {
 	AfterID        int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	ItemIdsJSON    *string
 	MaxRows        int64
 }
 
@@ -1065,6 +1120,7 @@ func (q *Queries) ListSeriesUndated(ctx context.Context, arg ListSeriesUndatedPa
 		arg.AfterID,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
+		arg.ItemIdsJSON,
 		arg.MaxRows,
 	)
 	if err != nil {
