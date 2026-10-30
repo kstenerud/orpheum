@@ -103,6 +103,25 @@ function startsOnFilmsPicture(): boolean {
 /** The start rate that puts a player on a ladder's top quality. */
 const topOfTheLadderBps = Number.MAX_SAFE_INTEGER;
 
+/**
+ * The ladder offers whose start the page chose itself, a warm-up's settled quality or the ladder's
+ * top (startsOnFilmsPicture), which the player starts from as given; every other playback's own
+ * offer the player starts by the link it remembers (D381).
+ */
+const startsThePageChose = new WeakSet<object>();
+
+/** offer with the start the page chose, startAtBps, kept as the page's (isStartThePages). */
+function withThePagesStart(offer: LadderOffer, startAtBps: number): LadderOffer {
+  const chosen = { ...offer, startAtBps };
+  startsThePageChose.add(chosen);
+  return chosen;
+}
+
+/** Whether offer's start is one the page chose itself, which the player starts from as given. */
+export function isStartThePages(offer: object): boolean {
+  return startsThePageChose.has(offer);
+}
+
 /** Starts a Preload of the film's ladder from where its playback resumes. */
 export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
 
@@ -119,7 +138,8 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
   document.body.append(video);
   const playback = playChunked(video, offer.url, {
     onFailed: () => undefined,
-    ...startOn(offer, positionMs),
+    // A playback's own start, as the Play page's player starts it (D381).
+    ...startOn({ ...offer, shouldStartByRememberedLink: !isStartThePages(offer) }, positionMs),
     monotonicMs,
     loadsAheadAtMostS: preloadAheadS,
   });
@@ -244,7 +264,7 @@ export class Watching {
         });
         return settledAtBps === undefined
           ? decision
-          : { ...decision, onLadder: { ...decision.onLadder, startAtBps: settledAtBps } };
+          : { ...decision, onLadder: withThePagesStart(decision.onLadder, settledAtBps) };
       },
       // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
       // first press of Play instead (the M4 closing audit, 2026-10-08).
@@ -273,7 +293,7 @@ export class Watching {
     const answered = await requestPlayback(this.api, fileId, asked);
     const decision =
       answered.onLadder !== undefined && startsOnFilmsPicture()
-        ? { ...answered, onLadder: { ...answered.onLadder, startAtBps: topOfTheLadderBps } }
+        ? { ...answered, onLadder: withThePagesStart(answered.onLadder, topOfTheLadderBps) }
         : answered;
     if (this.fileId === fileId) {
       this.tokens.add(decision.mediaToken);

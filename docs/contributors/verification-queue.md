@@ -1773,3 +1773,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   remote's controls then showing what the TV says; the TV stays controlled throughout, and its own
   controls, opened by a press, show the same choices. (`web/apps/web/src/sound-panel.ts`,
   `internal/core/together/hub.go`)
+- [ ] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play A View to
+  a Kill, then The Kid, from their start, on the Fire TV alone (no cast). Passes when neither
+  shows black frames as it begins, and the core's log has no quality switch within the first seconds
+  of either: its first `qualitySwitched` names the rung its first chunk was of (the 12.2 Mb/s rung for
+  Bond on a link remembered near 12 Mb/s), why "first by the remembered link". Before D381 both showed
+  2–3 black frames as a low first rung switched to the top at play (the owner, 2026-10-28).
+  (`web/packages/player/src/abr-ceiling.ts`)

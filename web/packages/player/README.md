@@ -40,8 +40,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   hls.js's estimator is still fed, for hls.js's own readers; D352 §2, revised 2026-10-29), the link
   its device last measured on its network, as its offer says it, counted among them as up to two
   samples, fewer as it ages, until two of its own agree against it or its own fill the five (P2),
-  and the spread it reports with its speed kept by the core beside it for the next start: it starts at the quality the server chose, never
-  probing the lowest first, whose chunks are made only for a player that needs them (D247 §10);
+  and the spread it reports with its speed kept by the core beside it for the next start: a playback's
+  own start on its ladder chooses its first quality before anything loads from that remembered link,
+  by the rule every later choice plays by (`steadyLevel`, nothing loaded ahead), so the first chunk is
+  of the quality it plays and no switch lands as playback begins (`shouldStartByRememberedLink`; D381,
+  a Fire TV blinking black as a low first rung switched to the top at play); a player that remembers
+  nothing, a stalled player's lower quality and a start the page chose itself start at the quality
+  given (D257 §2), never probing the lowest first, whose chunks are made only for a player that needs
+  them (D247 §10), `abr-start.test.ts`;
   while starting, until the video played 20 s and its samples settle the ceiling (it is the same
   with any one left out, P5) or four measured the link, a choice below the ceiling is the next
   chunk's alone, and only a chunk given up or a stall lowers the ceiling, which

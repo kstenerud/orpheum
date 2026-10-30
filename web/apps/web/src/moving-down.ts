@@ -22,6 +22,11 @@ export function startOn(
     readonly rememberedLinkKbps?: number | undefined;
     readonly rememberedLinkSpread?: number | undefined;
     readonly rememberedLinkSamples?: number | undefined;
+    /**
+     * Whether the player chooses its first quality from the remembered link by its own rule (D381):
+     * a playback's own start on its ladder, which no stalled player's offer nor the page's own start is.
+     */
+    readonly shouldStartByRememberedLink?: boolean | undefined;
   },
   positionMs: number,
 ): {
@@ -32,9 +37,11 @@ export function startOn(
   readonly rememberedLinkKbps?: number;
   readonly rememberedLinkSpread?: number;
   readonly rememberedLinkSamples?: number;
+  readonly shouldStartByRememberedLink?: boolean;
 } {
   const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
   return {
+    ...(offer.shouldStartByRememberedLink === true ? { shouldStartByRememberedLink: true } : {}),
     startAtBps: offer.startAtBps,
     linkSharePercent: offer.linkSharePercent,
     startPositionS: positionMs / 1000,

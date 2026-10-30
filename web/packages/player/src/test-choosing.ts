@@ -169,12 +169,22 @@ export interface Chosen {
 export function choosingFrom(
   startAtBps: number,
   shareForQuality?: number,
-  started?: number | { readonly steadiness?: number; readonly rememberedLink?: RememberedLink },
+  started?:
+    | number
+    | {
+        readonly steadiness?: number;
+        readonly rememberedLink?: RememberedLink;
+        /** Whether its first quality is chosen from the remembered link (D381). */
+        readonly shouldStartByRememberedLink?: boolean;
+      },
 ): Chosen {
-  const { steadiness: startSteadiness, rememberedLink } =
-    typeof started === "number"
-      ? { steadiness: started, rememberedLink: undefined }
-      : (started ?? {});
+  const {
+    steadiness: startSteadiness,
+    rememberedLink,
+    shouldStartByRememberedLink,
+  } = typeof started === "number"
+    ? { steadiness: started, rememberedLink: undefined, shouldStartByRememberedLink: undefined }
+    : (started ?? {});
   const hls = new FakeHls();
   const fedToHls: [number, number][] = [];
   const givenUp: FollowedChunk[] = [];
@@ -185,6 +195,7 @@ export function choosingFrom(
     hls,
     {
       startAtBps,
+      shouldStartByRememberedLink,
       shareForQuality,
       startSteadiness,
       rememberedLink,

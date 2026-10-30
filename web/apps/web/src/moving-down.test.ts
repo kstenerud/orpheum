@@ -150,6 +150,16 @@ describe("where a chunked player starts on an offer", () => {
     expect(startOn(offer, 0)).not.toHaveProperty("rememberedLinkSamples");
   });
 
+  it("chooses its first quality from the remembered link where the playback's own start says so (D381)", () => {
+    expect(startOn({ ...offer, shouldStartByRememberedLink: true }, 0)).toMatchObject({
+      shouldStartByRememberedLink: true,
+      startAtBps: 1_896_000,
+    });
+    expect(startOn({ ...offer, shouldStartByRememberedLink: false }, 0)).not.toHaveProperty(
+      "shouldStartByRememberedLink",
+    );
+  });
+
   it("starts at the steadiness level the offer says its device last ended at (D352 Q2)", () => {
     expect(startOn({ ...offer, steadiness: 2 }, 0)).toEqual({
       startAtBps: 1_896_000,

@@ -605,9 +605,31 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   /** The ceiling, the start until the levels are known and it is set from them. */
   #ceilingNow(): number {
     if (this.#ceiling === undefined && this.#hls.levels.length > 0) {
-      this.#ceiling = startingLevel(this.#hls.levels, this.#options.startAtBps);
+      this.#ceiling = this.#startingCeiling();
     }
     return this.#ceiling ?? 0;
+  }
+
+  /**
+   * Where it starts: where the link its device remembers carries it, by the rule every later choice
+   * plays by, nothing loaded ahead yet, so the first chunk is of the quality it plays and no switch
+   * lands as playback begins (D381); else the start it was given (D257 §2, D260 §3).
+   */
+  #startingCeiling(): number {
+    const { levels } = this.#hls;
+    const remembered = this.#options.rememberedLink;
+    if (this.#options.shouldStartByRememberedLink !== true || remembered === undefined) {
+      return startingLevel(levels, this.#options.startAtBps);
+    }
+    const level = steadyLevel({
+      levels,
+      ceiling: levels.length - 1,
+      linkBps: remembered.kbps * 1000,
+      bufferAheadS: 0,
+      shareForQuality: this.#options.shareForQuality,
+    });
+    this.#ceilingWhy = `first by the remembered link, ${String(Math.round(remembered.kbps))} kb/s`;
+    return level;
   }
 
   /** Lowers the ceiling to level, a step down, saying whether it did; one at or above it changes nothing. */
