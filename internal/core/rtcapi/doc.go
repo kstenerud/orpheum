@@ -20,6 +20,14 @@
 //   - A response sends InitialCreditMessages messages of its body, then only as many more as its
 //     client grants as it reads ({"credit": n} after the request), so a film asked for from its
 //     first byte never sits whole in the browser. TestCredit_AResponseWaitsForTheClientsNextGrant.
+//   - A channel its client holds open answerLingersAfter or longer after the core's last byte for its
+//     response, handed to SCTP whole or waiting for SCTP's buffer to drain, is logged as it closes:
+//     its connection, SCTP stream and label, its path, what SCTP still held then and at the end, and
+//     how soon after another channel of its stream closed it opened. A playback answered and never
+//     received said nothing of where its bytes stopped (staging, 2026-10-30).
+//     TestChannel_AChannelHeldOpenLongAfterItsAnswerIsLoggedByItsStream,
+//     TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte,
+//     TestHeld_SaysHowSoonAStreamWasUsedAgain.
 //   - Requests on their own channels are answered at once, none waiting for another.
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is

@@ -199,10 +199,17 @@ func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
 	if err != nil {
 		client.tb.Fatal(err)
 	}
-	begun := &Channel{channel: channel, closed: make(chan struct{}), answered: make(chan struct{})}
-	var closeOnce, answerOnce sync.Once
+	begun := &Channel{
+		channel: channel, closed: make(chan struct{}), answered: make(chan struct{}), ended: make(chan struct{}),
+	}
+	var closeOnce, answerOnce, endOnce sync.Once
 	channel.OnClose(func() { closeOnce.Do(func() { close(begun.closed) }) })
-	channel.OnMessage(func(webrtc.DataChannelMessage) { answerOnce.Do(func() { close(begun.answered) }) })
+	channel.OnMessage(func(message webrtc.DataChannelMessage) {
+		answerOnce.Do(func() { close(begun.answered) })
+		if !message.IsString && len(message.Data) == 0 {
+			endOnce.Do(func() { close(begun.ended) })
+		}
+	})
 	channel.OnOpen(func() {
 		var sendErr error
 		if isWhole {
@@ -225,8 +232,28 @@ func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
 
 // Channel is a request Begin sent.
 type Channel struct {
-	channel          *webrtc.DataChannel
-	closed, answered chan struct{}
+	channel                 *webrtc.DataChannel
+	closed, answered, ended chan struct{}
+}
+
+// Stream is the channel's SCTP stream id, as the core's log names it, or -1 before it has one.
+func (channel *Channel) Stream() int {
+	if id := channel.channel.ID(); id != nil {
+		return int(*id)
+	}
+	return -1
+}
+
+// IsEndedWithin is whether the core's whole answer, its empty end message too, came within wait.
+func (channel *Channel) IsEndedWithin(wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-channel.ended:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // Close closes the channel from the client's end, as a browser does with a request its caller

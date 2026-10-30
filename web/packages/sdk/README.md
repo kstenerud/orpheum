@@ -166,9 +166,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   (`json()`, `text()`, `arrayBuffer()`, `blob()`) fails with the body's own failure, not the
   browser's: Chromium said "TypeError: Failed to fetch" and Firefox an AbortError of a playback whose
   head came and whose body never did, which was not asked again (the owner's Mac Chrome, staging,
-  2026-10-30; idiosyncrasies.md). `src/rtc-request-silence.browser.test.ts`, in both browsers. Requests go
-  to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
-  new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
+  2026-10-30; idiosyncrasies.md). `src/rtc-request-silence.browser.test.ts`, in both browsers. A
+  request given up for its silence names its channel's SCTP stream in what `carrierOf` says, as the
+  core's log names the channel (`src/rtc-transport-carrier.test.ts`). Requests go to the connection
+  with the fewest under way, and a switchable fetch moves the API's requests to a new path while the
+  app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.
 - **A WebRTC transport holds one connection, and more only while its requests crowd it**: another
   opens, one at a time up to `clientConnections`, while every one up carries

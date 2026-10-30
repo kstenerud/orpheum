@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -20,6 +21,10 @@ type heldConnection struct {
 	openedAt time.Time
 	requests atomic.Int64
 	client   atomic.Pointer[string]
+	// streamClosedAt is when the last channel of each SCTP stream closed, for a channel that reuses
+	// the stream to say how soon (answerWatch).
+	streamsMutex   sync.Mutex
+	streamClosedAt map[uint16]time.Time
 }
 
 // newHeldConnection is the record of the connection numbered number, opened at at.
@@ -33,6 +38,24 @@ func (held *heldConnection) name() string {
 		return fmt.Sprintf("c%d (%s)", held.number, *client)
 	}
 	return fmt.Sprintf("c%d (no sign-in yet)", held.number)
+}
+
+// streamClosed notes that the channel of stream id closed at at.
+func (held *heldConnection) streamClosed(id uint16, at time.Time) {
+	held.streamsMutex.Lock()
+	defer held.streamsMutex.Unlock()
+	if held.streamClosedAt == nil {
+		held.streamClosedAt = map[uint16]time.Time{}
+	}
+	held.streamClosedAt[id] = at
+}
+
+// sinceStreamClosed is how long before at the last channel of stream id closed, and whether one did.
+func (held *heldConnection) sinceStreamClosed(id uint16, at time.Time) (time.Duration, bool) {
+	held.streamsMutex.Lock()
+	defer held.streamsMutex.Unlock()
+	closedAt, wasClosed := held.streamClosedAt[id]
+	return at.Sub(closedAt), wasClosed
 }
 
 // heldKey carries a request's connection record in its context.

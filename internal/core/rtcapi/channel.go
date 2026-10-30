@@ -69,6 +69,11 @@ type servedChannel struct {
 	// held is the channel's connection's record, which counts its requests and learns whose it is
 	// (NoteClient); nil keeps none.
 	held *heldConnection
+	// now reads the clock a response's lingering channel is timed by, and answerLingers is how long
+	// after the core's last byte for it its channel may stay open before its close is logged
+	// (answerWatch); a nil now times none.
+	now           func() time.Time
+	answerLingers time.Duration
 }
 
 // serveChannel serves the one request a channel carries: its head, its body, an empty message ending
@@ -83,8 +88,11 @@ func serveChannel(
 ) {
 	ctx, cancel := context.WithCancel(base)
 	conn := newMessageConn(channel)
+	watch := newAnswerWatch(channel, served, logger)
 	var endOnce sync.Once
 	channel.OnClose(func() {
+		// Before the context ends, which ends a wait for SCTP's buffer the watch may still report.
+		watch.closed()
 		conn.ended()
 		cancel()
 		endOnce.Do(served.ended)
@@ -120,10 +128,11 @@ func serveChannel(
 			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
+		watch.asked(request.URL.Path)
 		if reader.isUpgrade {
 			request = request.WithContext(context.WithValue(overWebRTC, messageConnKey{}, conn))
 		}
-		writer := newChannelWriter(ctx, channel, credit)
+		writer := newChannelWriter(ctx, channel, credit, watch)
 		if !serveGuarded(ctx, handler, writer, request, logger) {
 			_ = channel.Close() //nolint:errcheck // the response is cut short, and the client knows it so
 			return

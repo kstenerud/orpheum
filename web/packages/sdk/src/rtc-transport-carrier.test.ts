@@ -220,6 +220,23 @@ describe("a request that hears nothing for silentAtMostMs", () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([5]));
   });
 
+  // A playback's answer whose head came and whose body never did said nothing of which channel its
+  // bytes stopped on, for the core's log of it to be found (staging, 2026-10-30).
+  it("names the SCTP stream of the channel it heard nothing on", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const opening = first.createDataChannel.bind(first);
+    first.createDataChannel = () => Object.assign(opening(), { id: 7 });
+    const { transport } = growing(first);
+    const url = "https://app.example/api/v1/playback";
+    const outcome = transport.fetch(new Request(url)).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(silentAtMostMs);
+    await outcome;
+    expect(transport.carrierOf(url)?.ended).toBe(
+      `nothing came for ${String(silentAtMostMs)} ms on stream 7, nor over its connection, which was replaced`,
+    );
+  });
+
   it("replaces a connection that opens no channel, and gives its room back", async () => {
     vi.useFakeTimers();
     const first = new FakePeer();

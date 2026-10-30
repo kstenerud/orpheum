@@ -29,6 +29,11 @@ export interface ChannelLike {
    * amount drained. Absent, everything sent is taken as gone at once.
    */
   readonly whenSent?: ((sent: () => void) => void) | undefined;
+  /**
+   * Its SCTP stream's id, which the core's log names its channel by too: null until the browser
+   * gives it one, and absent from a test's.
+   */
+  readonly id?: number | null | undefined;
 }
 
 /** A request's head, as the core reads it: rtcapi.RequestHead. */
@@ -52,6 +57,9 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
   return {
     get readyState() {
       return channel.readyState;
+    },
+    get id() {
+      return channel.id;
     },
     send: (data) => {
       // RTCDataChannel.send is overloaded per type, so a union must be narrowed to pick one.

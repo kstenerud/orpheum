@@ -76,6 +76,9 @@ export function countedChannel(
     get readyState() {
       return channel.readyState;
     },
+    get id() {
+      return channel.id;
+    },
     send: (data) => {
       channel.send(data);
     },

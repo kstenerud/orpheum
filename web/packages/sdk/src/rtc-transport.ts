@@ -195,7 +195,7 @@ export class RtcTransport {
     );
     try {
       return await sendOnChannel(channel, request, () => {
-        this.silent(link, url);
+        this.silent(link, { url, stream: channel.id });
       });
     } catch (problem: unknown) {
       channel.close();
@@ -250,24 +250,31 @@ export class RtcTransport {
   }
 
   /**
-   * The request for url heard nothing for silentAtMostMs on link: remembered for carrierOf, and link,
-   * when nothing of any request came over it for as long, taken as gone and replaced, its other
-   * requests failing with it. A connection whose data channels stopped while it stayed connected
-   * otherwise carried every request after them into the same silence (the owner's Chrome, throttled
-   * and unthrottled, staging, 2026-10-29).
+   * The request for url heard nothing for silentAtMostMs on link, on the channel of SCTP stream
+   * stream: remembered for carrierOf, and link, when nothing of any request came over it for as long,
+   * taken as gone and replaced, its other requests failing with it. A connection whose data channels
+   * stopped while it stayed connected otherwise carried every request after them into the same
+   * silence (the owner's Chrome, throttled and unthrottled, staging, 2026-10-29). The stream is named
+   * so the core's log of the same channel can be found: a playback's answer whose head came and
+   * whose body never did said nothing of where its bytes stopped (staging, 2026-10-30).
    */
-  private silent(link: Link, url: string): void {
+  private silent(
+    link: Link,
+    request: { readonly url: string; readonly stream: number | null | undefined },
+  ): void {
+    const { url, stream } = request;
     const nowMs = this.nowMs();
     const sinceDeliveredMs =
       link.deliveredAtMs === undefined ? undefined : nowMs - link.deliveredAtMs;
     const isLinkSilent = sinceDeliveredMs === undefined || sinceDeliveredMs >= silentAtMostMs;
+    const onStream = typeof stream === "number" ? ` on stream ${String(stream)}` : "";
     this.ended.delete(url);
     this.ended.set(url, {
       connection: link.number,
       upMs: nowMs - link.upSinceMs,
       underWay: link.underWay,
       sinceDeliveredMs,
-      ended: `nothing came for ${String(silentAtMostMs)} ms${isLinkSilent ? ", nor over its connection, which was replaced" : ""}`,
+      ended: `nothing came for ${String(silentAtMostMs)} ms${onStream}${isLinkSilent ? ", nor over its connection, which was replaced" : ""}`,
     });
     for (const oldest of this.ended.keys()) {
       if (this.ended.size <= endedKept) {
