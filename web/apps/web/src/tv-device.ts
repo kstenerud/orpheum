@@ -39,6 +39,11 @@ export interface BrowserWindow {
   readonly isFullscreenDisplay: boolean;
   /** Whether automation drives the browser (navigator.webdriver), as a test's does. */
   readonly isAutomated: boolean;
+  /**
+   * Whether its main pointer is a finger (a phone's, a tablet's): its browser's window is always its
+   * screen's size, full screen or not.
+   */
+  readonly isTouch: boolean;
 }
 
 /**
@@ -48,9 +53,10 @@ export interface BrowserWindow {
  * Safari, which keeps its toolbar showing in full screen (the owner's Mac, 2026-10-25: a page of
  * 1710 by 1021 on a screen of 1710 by 1112). A maximised window is not: a menu bar or a taskbar
  * keeps part of the screen. A test's browser, whose screen is whatever its window was made, is
- * judged by the display mode alone. A film there plays full screen at once, as on a television (the
- * owner, 2026-10-25: "Is there a way to detect if a desktop browser is in fullscreen mode? If so,
- * we should auto-fullscreen").
+ * judged by the display mode alone, as is a phone's or a tablet's, whose browser's window is always its
+ * screen's size (the owner's S23, 2026-10-30: every Play page filled the window over the banner). A
+ * film there plays full screen at once, as on a television (the owner, 2026-10-25: "Is there a way to
+ * detect if a desktop browser is in fullscreen mode? If so, we should auto-fullscreen").
  */
 export function isBrowserFullscreen(browser: BrowserWindow): boolean {
   const isPageScreenSized =
@@ -58,7 +64,7 @@ export function isBrowserFullscreen(browser: BrowserWindow): boolean {
   const isWindowScreenSized =
     browser.outerWidth === browser.screenWidth && browser.outerHeight === browser.screenHeight;
   const isScreenSized = isPageScreenSized || isWindowScreenSized;
-  return browser.isFullscreenDisplay || (isScreenSized && !browser.isAutomated);
+  return browser.isFullscreenDisplay || (isScreenSized && !browser.isAutomated && !browser.isTouch);
 }
 
 /** This window and browser, as isBrowserFullscreen reads them. */
@@ -72,5 +78,6 @@ export function thisBrowserWindow(): BrowserWindow {
     screenHeight: window.screen.height,
     isFullscreenDisplay: window.matchMedia("(display-mode: fullscreen)").matches,
     isAutomated: navigator.webdriver,
+    isTouch: window.matchMedia("(pointer: coarse)").matches,
   };
 }

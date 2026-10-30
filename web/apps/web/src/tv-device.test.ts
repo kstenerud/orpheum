@@ -47,6 +47,7 @@ describe("a browser that is itself full screen", () => {
     more: {
       readonly isFullscreenDisplay?: boolean;
       readonly isAutomated?: boolean;
+      readonly isTouch?: boolean;
       readonly outer?: readonly [number, number];
     } = {},
   ): BrowserWindow => ({
@@ -58,6 +59,7 @@ describe("a browser that is itself full screen", () => {
     screenHeight: screen[1],
     isFullscreenDisplay: more.isFullscreenDisplay ?? false,
     isAutomated: more.isAutomated ?? false,
+    isTouch: more.isTouch ?? false,
   });
 
   it("is known by a window exactly its screen's size, or by Chromium's fullscreen display mode", () => {
@@ -78,5 +80,16 @@ describe("a browser that is itself full screen", () => {
       false,
     );
     expect(isBrowserFullscreen(sized([1280, 800], [1280, 800], { isAutomated: true }))).toBe(false);
+  });
+
+  it("is not a phone's browser by its window alone, always its screen's size (the owner's S23, 2026-10-30)", () => {
+    expect(
+      isBrowserFullscreen(sized([412, 780], [412, 915], { outer: [412, 915], isTouch: true })),
+    ).toBe(false);
+    expect(
+      isBrowserFullscreen(
+        sized([412, 915], [412, 915], { isTouch: true, isFullscreenDisplay: true }),
+      ),
+    ).toBe(true);
   });
 });

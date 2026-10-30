@@ -34,11 +34,16 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
 /**
  * A full-screen button's press, or a double click on the film: out of full screen it puts the
  * player's stage full screen (fillTheScreen), from the press the Fullscreen API needs; in full screen
- * it leaves, as the page's own asking (leaveFullScreenAsked), so a cast's receiver keeps its cast.
+ * it leaves, as the page's own asking (leaveFullScreenAsked), so a cast's receiver keeps its cast, and
+ * the stage goes back into the page, no longer filling the window where the browser once refused full
+ * screen: its banner shows again (the owner's S23, 2026-10-30: the button changed nothing). A stage
+ * filling the window out of full screen asks for it at the press, which the browser grants (a Fire TV
+ * whose player opened out of full screen, 2026-10-27).
  */
 export function toggleFullScreen(stage: Element | null | undefined, page: Document): void {
   if (page.fullscreenElement instanceof Element) {
     leaveFullScreenAsked(page);
+    stage?.classList.remove(fillsWindowClass);
     return;
   }
   if (stage instanceof HTMLElement) {
