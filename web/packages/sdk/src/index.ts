@@ -143,7 +143,16 @@ export {
   responseFromPort,
   sayMediaGoesOverHttp,
 } from "./rtc-media.ts";
-export { controlWaitMs, PageNotControlled } from "./worker-control.ts";
+export {
+  controlWaitMs,
+  isPageWorkerBypassed,
+  isWorkerBypassed,
+  isWorkerProbe,
+  PageNotControlled,
+  workerProbeAnswer,
+  workerProbePath,
+  workerProbeResponse,
+} from "./worker-control.ts";
 export type {
   ClaimMessage,
   FetchMessage,

@@ -57,3 +57,69 @@ export async function controlledWithin(
     workers.addEventListener("controllerchange", changed);
   });
 }
+
+/**
+ * The address a page asks to learn whether its worker answers its loads: the worker answers it
+ * itself, and nothing else does, so an answer from the network, or none, is a worker bypassed, as
+ * DevTools' "Bypass for network" does (idiosyncrasies.md). Posters and films then 404 at a client
+ * origin, saying nothing (agent-failures A51).
+ */
+export const workerProbePath = "/orpheum-worker-probe";
+
+/** What the worker answers the probe with, which no server says. */
+export const workerProbeAnswer = "answered by Orpheum's service worker";
+
+/** Whether a load of url, made at origin, is the probe, which the worker answers itself. */
+export function isWorkerProbe(url: URL, origin: string): boolean {
+  return url.origin === origin && url.pathname === workerProbePath;
+}
+
+/** The worker's answer to the probe. */
+export function workerProbeResponse(): Response {
+  return new Response(workerProbeAnswer, {
+    status: 200,
+    headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
+  });
+}
+
+/**
+ * How long a page waits for the probe's answer before it takes the silence for a worker bypassed:
+ * the worker answers at once, from memory, so this bounds only a load sent to a network that
+ * answers nothing. A justified constant.
+ */
+export const workerProbeWaitMs = 5000;
+
+/**
+ * Whether the worker controlling the page is bypassed: the probe, loaded by load, answered by
+ * anything but the worker, or by nothing within waitMs. Asked only of a page a worker controls: one
+ * none controls has no worker to bypass.
+ */
+export async function isWorkerBypassed(
+  load: (path: string, init: RequestInit) => Promise<Response>,
+  waitMs: number = workerProbeWaitMs,
+): Promise<boolean> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => {
+    abort.abort();
+  }, waitMs);
+  try {
+    const answer = await Promise.race([
+      load(workerProbePath, { cache: "no-store", signal: abort.signal }),
+      new Promise<undefined>((resolve) => {
+        abort.signal.addEventListener("abort", () => {
+          resolve(undefined);
+        });
+      }),
+    ]);
+    return answer === undefined || !answer.ok || (await answer.text()) !== workerProbeAnswer;
+  } catch {
+    return true;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** isWorkerBypassed, the probe loaded by the page's own fetch, which its worker sees first. */
+export async function isPageWorkerBypassed(): Promise<boolean> {
+  return await isWorkerBypassed(async (path, init) => await fetch(path, init));
+}

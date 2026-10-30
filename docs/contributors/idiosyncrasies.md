@@ -1005,7 +1005,10 @@ User-Agent (D263; the User-Agent is logged only).
   by Cloudflare with the discovery's 19-byte "404 page not found", never by the worker), through
   reloads, while a fresh tab without DevTools showed them. The box was found ticked (the owner,
   2026-10-29), most likely left so by VQ123's step that ticks it. A media load the worker never sees
-  says nothing in the page, unlike a client script (`loader-client-failed.tsx`).
+  said nothing in the page, unlike a client script (`loader-client-failed.tsx`); now the page asks
+  its worker for an address only the worker answers, and answered by the network it says
+  "Developer tools are bypassing the service worker; media won't load" and tells the core's log
+  (`web/apps/web/src/worker-bypassed-note.tsx`).
 - **Not the only cause:** the second black page that day (13:13 UTC: the home page loaded, a film's
   page did not, its screens' chunks `title-…`, `play-…`, `film-player-…` 404 at the client origin)
   came with the box unticked, the owner says. The same signature comes from the worker itself when

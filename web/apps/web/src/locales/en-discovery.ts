@@ -17,6 +17,7 @@ export const enDiscovery = {
       note: "This page is open over plain http, so your browser turns off voice in Watch Together, copying links and installing the app. They work at the server's https address, which it has once it's paired with an Orpheum account.",
       dismiss: "Dismiss",
     },
+    workerBypassed: "Developer tools are bypassing the service worker; media won't load.",
     localNetwork: {
       asking:
         "Your browser is asking to reach devices on your network. Allow it, and films play over your home network instead of going out and back. If you're not at home right now, it's fine to choose Block.",
