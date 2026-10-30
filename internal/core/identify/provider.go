@@ -147,7 +147,10 @@ type Metadata struct {
 // ImageRef is one image a provider's record names: its kind and the provider's reference to it.
 type ImageRef struct {
 	Kind string // library.ArtPoster, ArtBackdrop, ArtLogo, ArtStill
-	Ref  string // the provider's path, which its image service resolves
+	// SeasonNumber is, for a series' season's poster, its season in the series' aired ordering, the
+	// specials' 0 among them (D379); nil for an image of the work itself.
+	SeasonNumber *int64
+	Ref          string // the provider's path, which its image service resolves
 }
 
 // Errors a provider returns, wrapped.

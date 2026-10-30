@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
@@ -253,4 +254,65 @@ func TestRecordFailure_AnArtworkJobThatGaveUpHoldsItsImagesAsRefusedWithWhy(t *t
 		refused[0].RefusedAt == nil || *refused[0].RefusedAt != bench.clock.Now().UnixMilli() {
 		t.Errorf("rows %+v; want the backdrop held as refused, when it was given up (D231 section 10)", rows)
 	}
+}
+
+func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	queue := &jobstest.Queue{}
+	bench.service.parts.Queue = queue
+	// TMDB often names one image as the series' poster and its first season's: each is owed apart.
+	bench.insert(t, sqlcgen.InsertArtworkParams{
+		Kind: library.ArtPoster, Source: "tmdb", SourceRef: new("/f.jpg"), SourceSha256: []byte{1},
+	})
+	own := Ref{Kind: library.ArtPoster, SourceRef: "/f.jpg"}
+	first := Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), SourceRef: "/f.jpg"}
+	specials := Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(0)), SourceRef: "/s0.jpg"}
+	named := Found{Named: []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{own, first, specials}}}}
+	bench.service.Take(t.Context(), named)
+	if got := seasonsOf(queuedRefs(t, queue)["tmdb"]); !slices.Equal(got, []string{"1 /f.jpg", "0 /s0.jpg"}) {
+		t.Fatalf("queued %v; want both seasons' posters, the series' own held (D379)", got)
+	}
+	// Season 1's poster is stored: only the specials' is owed.
+	bench.insert(t, sqlcgen.InsertArtworkParams{
+		Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Source: "tmdb", SourceRef: new("/f.jpg"),
+		SourceSha256: []byte{1},
+	})
+	*queue = nil
+	bench.service.Take(t.Context(), named)
+	if got := seasonsOf(queuedRefs(t, queue)["tmdb"]); !slices.Equal(got, []string{"0 /s0.jpg"}) {
+		t.Errorf("queued %v once season 1's is held; want only the specials'", got)
+	}
+}
+
+func TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	queue := &jobstest.Queue{}
+	bench.service.parts.Queue = queue
+	_, libraryID := bench.inLibrary(t, "nfo_then_tmdb")
+	poster := LocalImage{ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 1, ModifiedAtMs: 1}
+	named := []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{
+		{Kind: library.ArtPoster, SourceRef: "/poster.jpg"},
+		{Kind: library.ArtPoster, SeasonNumber: new(int64(2)), SourceRef: "/s2.jpg"},
+	}}}
+	bench.service.Take(t.Context(), Found{
+		BesideTheMedia: &LocalImages{LibraryID: libraryID, Images: []LocalImage{poster}}, Named: named,
+	})
+	if got := seasonsOf(queuedRefs(t, queue)["tmdb"]); !slices.Equal(got, []string{"2 /s2.jpg"}) {
+		t.Errorf("TMDB images owed %v; want season 2's poster: no image beside the media is a season's", got)
+	}
+}
+
+// seasonsOf names each ref by its season, "own" for an item's own image, and its source's reference.
+func seasonsOf(refs []Ref) []string {
+	var named []string
+	for _, ref := range refs {
+		season := "own"
+		if ref.SeasonNumber != nil {
+			season = strconv.FormatInt(*ref.SeasonNumber, 10)
+		}
+		named = append(named, season+" "+ref.SourceRef)
+	}
+	return named
 }

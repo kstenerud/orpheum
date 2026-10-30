@@ -111,6 +111,14 @@
 //   - The core decodes only its own WebP, under the pixel limit, to cut JPEG, and keeps what it
 //     cut. TestServe_AJPEGIsCutFromTheWebPOfItsSizeAndKept (integration tier).
 //
+//   - A series' season's poster is an image of its series, of kind poster, that names its season of
+//     the aired ordering (D379): owed, stored and replaced apart from the series' own poster and from
+//     every other season's, even where TMDB names one image for both, never shown as the series' own,
+//     and owed where the series shows a poster beside its media, which no season's poster is.
+//     TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn,
+//     TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia,
+//     TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsItsSeriesOwn.
+//
 //   - A frame still is the last resort (D362 §2, §3): after a pass, one is queued, at the
 //     background's priority, for each film with no poster or backdrop, episode with no still and other
 //     video with neither, once every other source was tried: not awaiting a match, a fetch or a
@@ -130,6 +138,7 @@
 //
 //   - D212: the whole design; D99 as D212 §5 narrows it.
 //   - D362: a still of a video's frames, the last resort, and when it is planned.
+//   - D379 §1: a season's own poster, held as its series' image by its season.
 //   - principles §22: clean at the boundary.
 //   - docs/contributors/design/plans/artwork.md.
 //

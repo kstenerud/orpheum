@@ -143,9 +143,10 @@ type workDetails struct {
 		IMDbID string `json:"imdb_id"`
 		TVDbID int64  `json:"tvdb_id"`
 	} `json:"external_ids"`
-	// Seasons are a series' seasons, the specials' 0 among them.
+	// Seasons are a series' seasons, the specials' 0 among them, each with its own poster, if any.
 	Seasons []struct {
-		SeasonNumber int `json:"season_number"`
+		SeasonNumber int    `json:"season_number"`
+		PosterPath   string `json:"poster_path"`
 	} `json:"seasons"`
 }
 
@@ -183,6 +184,12 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	var seasons []int
 	for _, season := range work.Seasons {
 		seasons = append(seasons, season.SeasonNumber)
+		if season.PosterPath != "" && season.SeasonNumber >= 0 {
+			number := int64(season.SeasonNumber)
+			artwork = append(artwork, identify.ImageRef{
+				Kind: library.ArtPoster, SeasonNumber: &number, Ref: season.PosterPath,
+			})
+		}
 	}
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,

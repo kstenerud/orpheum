@@ -292,6 +292,34 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	}
 }
 
+func TestParse_ASeriesNamesEachSeasonsPosterByItsSeason(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"id":7615,"name":"Orbitorama","first_air_date":"1999-03-28","poster_path":"/f.jpg",
+		"seasons":[{"season_number":0,"poster_path":"/s0.jpg"},{"season_number":1,"poster_path":"/s1.jpg"},
+		{"season_number":2,"poster_path":null}]}`)
+	series, err := (&Client{}).Parse(identify.KindSeries, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type named struct {
+		kind, ref string
+		season    int64
+	}
+	var got []named
+	for _, image := range series.Artwork {
+		season := int64(-1)
+		if image.SeasonNumber != nil {
+			season = *image.SeasonNumber
+		}
+		got = append(got, named{kind: image.Kind, ref: image.Ref, season: season})
+	}
+	// The series' own poster is no season's; a season TMDB has no poster of names none.
+	want := []named{{"poster", "/f.jpg", -1}, {"poster", "/s0.jpg", 0}, {"poster", "/s1.jpg", 1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("Parse's artwork = %+v, want %+v", got, want)
+	}
+}
+
 func TestGet_RefusesAnAnswerLargerThanItsBoundRatherThanReadingItCutShort(t *testing.T) {
 	t.Parallel()
 	// Cut at the bound, this answer still parses: only refusing it shows it was too large.

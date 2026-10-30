@@ -98,15 +98,17 @@ func (q *Queries) GetTitleKind(ctx context.Context, id int64) (string, error) {
 }
 
 const insertArtwork = `-- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, refused_at, refusal, is_missing_at_source)
+INSERT INTO artwork (item_id, kind, season_number, source, source_ref, source_sha256, refused_at, refusal,
+  is_missing_at_source)
 VALUES (?1, ?2, ?3, ?4, ?5,
-  ?6, ?7, ?8)
+  ?6, ?7, ?8, ?9)
 RETURNING id
 `
 
 type InsertArtworkParams struct {
 	ItemID            int64
 	Kind              string
+	SeasonNumber      *int64
 	Source            string
 	SourceRef         *string
 	SourceSha256      []byte
@@ -116,11 +118,13 @@ type InsertArtworkParams struct {
 }
 
 // A stored image, with its hash; or one that could not be stored, with none, and when and why
-// (D231 section 4), and whether its source said it was not there (D213 section 1).
+// (D231 section 4), and whether its source said it was not there (D213 section 1). A season's
+// poster names its season (D379); NULL is the item's own.
 func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertArtwork,
 		arg.ItemID,
 		arg.Kind,
+		arg.SeasonNumber,
 		arg.Source,
 		arg.SourceRef,
 		arg.SourceSha256,
@@ -403,7 +407,8 @@ WHERE artwork.source = ?1 AND artwork.removed_at IS NULL AND artwork.source_sha2
   AND artwork.is_missing_at_source = 1 AND artwork.refused_at <= ?2
   AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
-    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind AND earlier.source = artwork.source
+    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
+      AND earlier.season_number IS artwork.season_number AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   )
 ORDER BY artwork.item_id
@@ -477,11 +482,12 @@ func (q *Queries) ListItemsWithLiveUnchosenLocalArtwork(ctx context.Context, lib
 
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
-SELECT artwork.id, artwork.kind, artwork.source, artwork.source_ref, artwork.source_sha256, artwork.is_chosen,
-  artwork.refused_at, artwork.is_missing_at_source,
+SELECT artwork.id, artwork.kind, artwork.season_number, artwork.source, artwork.source_ref, artwork.source_sha256,
+  artwork.is_chosen, artwork.refused_at, artwork.is_missing_at_source,
   CAST(artwork.is_missing_at_source = 1 AND artwork.source_sha256 IS NULL AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
-    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind AND earlier.source = artwork.source
+    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
+      AND earlier.season_number IS artwork.season_number AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   ) AS INTEGER) AS is_recheck_owed
 FROM artwork
@@ -492,6 +498,7 @@ ORDER BY artwork.kind, artwork.is_chosen DESC, artwork.id DESC
 type ListLiveArtworkRow struct {
 	ID                int64
 	Kind              string
+	SeasonNumber      *int64
 	Source            string
 	SourceRef         *string
 	SourceSha256      []byte
@@ -504,8 +511,9 @@ type ListLiveArtworkRow struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // An item's images (schema.md, artwork; D212): which it has, where each came from, and the hash
 // its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
-// An item's images, stored or refused; a miss at its source that is not yet looked at again, as
-// ListItemsDueRecheck finds it, is one still to be tried (D213 section 1).
+// An item's images, stored or refused, a series' seasons' among them (season_number, D379); a miss at
+// its source that is not yet looked at again, as ListItemsDueRecheck finds it, is one still to be
+// tried (D213 section 1).
 func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLiveArtworkRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveArtwork, itemID)
 	if err != nil {
@@ -518,6 +526,7 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
+			&i.SeasonNumber,
 			&i.Source,
 			&i.SourceRef,
 			&i.SourceSha256,
@@ -539,13 +548,56 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 	return items, nil
 }
 
+const listSeasonPosters = `-- name: ListSeasonPosters :many
+SELECT CAST(artwork.season_number AS INTEGER) AS season_number, artwork.source_sha256
+FROM artwork
+JOIN item ON item.id = artwork.item_id
+LEFT JOIN library ON library.id = item.filing_library_id
+WHERE artwork.item_id = ?1 AND artwork.kind = 'poster' AND artwork.season_number IS NOT NULL
+  AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
+ORDER BY artwork.season_number, artwork.is_chosen DESC,
+  (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
+`
+
+type ListSeasonPostersRow struct {
+	SeasonNumber int64
+	SourceSha256 []byte
+}
+
+// The posters of a series' seasons, D379: per season, a person's choice first, then the source its
+// library prefers, then the newest stored, as ListShownArtwork orders an item's own. The caller keeps
+// each season's first row.
+func (q *Queries) ListSeasonPosters(ctx context.Context, seriesID int64) ([]ListSeasonPostersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeasonPosters, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeasonPostersRow{}
+	for rows.Next() {
+		var i ListSeasonPostersRow
+		if err := rows.Scan(&i.SeasonNumber, &i.SourceSha256); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listShownArtwork = `-- name: ListShownArtwork :many
 SELECT artwork.item_id, artwork.source_sha256, artwork.source
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.filing_library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
+  AND artwork.kind = ?2 AND artwork.season_number IS NULL AND artwork.removed_at IS NULL
+  AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
 `
@@ -561,7 +613,8 @@ type ListShownArtworkRow struct {
 	Source       string
 }
 
-// The images a page of items shows, of one kind; the ids are a JSON array. Per item, any image but
+// The images a page of items shows, of one kind, each its own, never a season's; the ids are a JSON
+// array. Per item, any image but
 // a frame still before one, which stands in only where no other is, D362; then a person's choice;
 // then the source the item's library prefers, an image beside the media unless the library takes
 // TMDB only, D215; then the newest stored. The caller keeps each item's first row.
@@ -632,24 +685,28 @@ func (q *Queries) RetireArtworkRow(ctx context.Context, arg RetireArtworkRowPara
 
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND kind = ?3 AND source = ?4
-  AND is_chosen = 0 AND removed_at IS NULL AND id != ?5
+WHERE item_id = ?2 AND kind = ?3 AND season_number IS ?4
+  AND source = ?5
+  AND is_chosen = 0 AND removed_at IS NULL AND id != ?6
 `
 
 type RetireReplacedArtworkParams struct {
-	RemovedAt *int64
-	ItemID    int64
-	Kind      string
-	Source    string
-	KeepID    int64
+	RemovedAt    *int64
+	ItemID       int64
+	Kind         string
+	SeasonNumber *int64
+	Source       string
+	KeepID       int64
 }
 
-// A provider's image replaced by a newer one; a person's choice is never replaced this way.
+// A provider's image replaced by a newer one of the same season, or of none; a person's choice is
+// never replaced this way.
 func (q *Queries) RetireReplacedArtwork(ctx context.Context, arg RetireReplacedArtworkParams) error {
 	_, err := q.db.ExecContext(ctx, retireReplacedArtwork,
 		arg.RemovedAt,
 		arg.ItemID,
 		arg.Kind,
+		arg.SeasonNumber,
 		arg.Source,
 		arg.KeepID,
 	)
