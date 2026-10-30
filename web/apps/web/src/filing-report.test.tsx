@@ -34,7 +34,7 @@ it("writes an admin's report on the server and shows it, with where it is, to co
       servedBy({ "POST /items/606/filing-report": [201, report] }, heard),
     ),
   );
-  await click(buttonWithText(mounted.container, "Report filed wrongly"));
+  await click(buttonWithText(mounted.container, "Report this"));
   expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /items/606/filing-report"]);
   expect(mounted.container.querySelector("textarea")?.value).toBe("# Filed wrongly: Quillwick\n");
   expect(mounted.container.textContent).toContain(`Saved on the server as ${report.path}.`);

@@ -321,7 +321,7 @@ export const en = {
     searchSubmit: "Search",
   },
   filingReport: {
-    write: "Report filed wrongly",
+    write: "Report this",
     savedAt:
       "Saved on the server as {{path}}. Edit anything you would rather not post, then post it as an issue.",
     text: "The report, in Markdown",
@@ -447,6 +447,7 @@ export const en = {
     searchName: "Name",
     searchYear: "Year",
     search: "Search",
+    enterManually: "Enter manually",
     link: "TMDB or IMDb page",
     linkHint: "https://www.themoviedb.org/… or https://www.imdb.com/title/tt…",
     useLink: "Use this match",
@@ -497,6 +498,10 @@ export const en = {
   },
   notice: {
     ok: "OK",
+  },
+  moreActions: {
+    label: "More actions",
+    close: "Close",
   },
   common: {
     loading: "Loading…",

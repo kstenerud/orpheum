@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BackgroundChangesContext, backingOffPoller } from "./polling.ts";
 import { ApiProblem } from "./problem.ts";
 import {
+  buttonNamed,
   buttonWithText,
   click,
   mount,
@@ -121,6 +122,30 @@ describe("TitleView", () => {
     expect(details).toContain("Audio: truehd English 8 channels");
     expect(details).not.toContain("Play");
     expect(markup).toMatch(/class="title__play"[^>]*>Play<\/a><details class="title__details">/u);
+  });
+
+  // The owner, 2026-10-29: "Play is the page's first button, not its last", and the rarely used
+  // ones under a vertical "…".
+  it("has Play as its first button, then Mark as watched and an admin's …, no correction loose on the page", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <IsAdminContext value={true}>
+          <TitleView
+            title={heat}
+            onMatchCorrected={() => undefined}
+            onWatchedChanged={() => undefined}
+          />
+        </IsAdminContext>,
+      ),
+    );
+    const controls = [
+      ...markup.matchAll(/<(?:a [^>]*class="title__play"|button)[^>]*>([^<]*)/gu),
+    ].map((control) =>
+      control[0].includes('aria-label="More actions"') ? "More actions" : control[1],
+    );
+    expect(controls).toEqual(["Play", "Mark as watched", "More actions"]);
+    expect(markup).not.toContain("Identified incorrectly");
+    expect(markup).not.toContain("Report this");
   });
 
   it("says why a title cannot be played now, and offers no play (D241 §3)", () => {
@@ -430,7 +455,7 @@ describe("a film whose match is a guess (D301)", () => {
     );
     const forUser = await mount(withServices(<Title id={12} />, services));
     expect(forUser.container.textContent).toContain("may be another work of the same name");
-    expect(buttonWithText(forUser.container, "Identified incorrectly")).toBeUndefined();
+    expect(buttonNamed(forUser.container, "More actions")).toBeUndefined();
     forUser.unmount();
     const forAdmin = await mount(
       withServices(
@@ -441,7 +466,16 @@ describe("a film whose match is a guess (D301)", () => {
       ),
     );
     const page = forAdmin.container;
+    await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
+    await click(buttonNamed(page, "More actions"));
     await click(buttonWithText(page, "Identified incorrectly"));
+    // One dialog, in the list's place (the owner, 2026-10-29): Rescan, Enter manually, Report this.
+    expect(page.querySelectorAll("dialog")).toHaveLength(1);
+    const offered = [...(page.querySelector("dialog")?.querySelectorAll("button") ?? [])].map(
+      (button) => button.textContent,
+    );
+    expect(offered).toEqual(["Rescan", "Enter manually", "Report this", "Close"]);
+    await click(buttonWithText(page, "Enter manually"));
     await settleUntil(() => page.textContent.includes("1986"));
     const picks = [...page.querySelectorAll("li button")];
     await click(picks[1] ?? null);

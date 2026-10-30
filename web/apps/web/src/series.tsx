@@ -3,7 +3,7 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { useCallback, useEffect, useId, useState, type JSX } from "react";
+import { use, useCallback, useEffect, useId, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -16,8 +16,10 @@ import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
-import { FilingReportButton } from "./filing-report.tsx";
-import { MatchCorrection } from "./match-correction.tsx";
+import { identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
+import { MoreActions, type MoreAction } from "./more-actions.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -55,8 +57,8 @@ function seasonName(t: TFunction, series: SeriesDetail, season: Season): string 
  * history; with none chosen, the season of the person's next episode, else the first. Every season's
  * episodes on one page, the seasons only headings, was too long a list to find one in (the owner,
  * 2026-10-07). The seasons are the groups of the ordering the person watches the series in, which a
- * series of more than one offers to change; the episodes that ordering leaves out follow them
- * (episode-orderings.md §4, §7 Q4).
+ * series of more than one offers to change, under the "…" of what is rarely used; the episodes that
+ * ordering leaves out follow them (episode-orderings.md §4, §7 Q4).
  */
 export function SeriesView(props: {
   readonly series: SeriesDetail;
@@ -89,16 +91,19 @@ export function SeriesView(props: {
               isOnlyGroup={seasons.length === 1}
             />
           )}
-          <OrderingChoice series={series} onChosen={props.onOrderingChosen} />
-          <SeriesMark series={series} onChanged={onWatchedChanged} />
+          <OrderingFetching series={series} />
+          <div className="page-actions">
+            <SeriesMark series={series} onChanged={onWatchedChanged} />
+            <SeriesMoreActions
+              series={series}
+              onMatchCorrected={props.onMatchCorrected}
+              onOrderingChosen={props.onOrderingChosen}
+            />
+          </div>
           {/* Among the series' choices, where a remote's arrows reach it with them (D367 §9). */}
           {shown === undefined || seasons.length === 1 ? null : (
             <SeasonPicker series={series} shown={shown} />
           )}
-          {props.onMatchCorrected === undefined ? null : (
-            <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
-          )}
-          <FilingReportButton itemId={series.id} />
         </div>
       </div>
       <SeriesSeasons
@@ -109,6 +114,78 @@ export function SeriesView(props: {
       />
     </article>
   );
+}
+
+/**
+ * A series' rarely used actions, under its "…" (the owner, 2026-10-29): the order its episodes are
+ * shown in, where it has more than one, and an admin's "Identified incorrectly".
+ */
+function SeriesMoreActions(props: {
+  readonly series: SeriesDetail;
+  readonly onMatchCorrected: (() => void) | undefined;
+  readonly onOrderingChosen: (() => void) | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const isAdmin = use(IsAdminContext);
+  const { series, onMatchCorrected } = props;
+  const actions: MoreAction[] = [];
+  if ((series.orderings ?? []).length > 1) {
+    actions.push({
+      key: "ordering",
+      label: t("ordering.label"),
+      dialog: (close) => (
+        <OrderingDialog series={series} onClose={close} onChosen={props.onOrderingChosen} />
+      ),
+    });
+  }
+  if (isAdmin) {
+    actions.push(
+      identifiedIncorrectlyAction(t, {
+        itemId: series.id,
+        isWork: onMatchCorrected !== undefined,
+        onCorrected: onMatchCorrected ?? (() => undefined),
+      }),
+    );
+  }
+  return <MoreActions actions={actions} />;
+}
+
+/** The dialog the "…"'s Order opens: the choice of ordering, closed once one is chosen. */
+function OrderingDialog(props: {
+  readonly series: SeriesDetail;
+  readonly onClose: () => void;
+  readonly onChosen: (() => void) | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const heading = t("ordering.label");
+  return (
+    <ModalDialog label={heading} onClose={props.onClose} shouldCloseOnOutsidePress>
+      <h2>{heading}</h2>
+      <OrderingChoice
+        series={props.series}
+        onChosen={() => {
+          props.onClose();
+          props.onChosen?.();
+        }}
+      />
+      <button type="button" onClick={props.onClose}>
+        {t("moreActions.close")}
+      </button>
+    </ModalDialog>
+  );
+}
+
+/**
+ * That the ordering chosen is being fetched, on the page, until it is (episode-orderings.md §4):
+ * its choice is in a dialog gone once chosen.
+ */
+function OrderingFetching(props: { readonly series: SeriesDetail }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { series } = props;
+  const chosen = (series.orderings ?? []).find((ordering) => ordering.name === series.ordering);
+  return chosen?.isAwaitingFetch === true ? (
+    <p className="series__absent">{t("ordering.fetching")}</p>
+  ) : null;
 }
 
 /**
@@ -256,8 +333,8 @@ export function NextUpPlay(props: {
  * it has more than one, aired first, each by its label with its kind and how many of the series'
  * episodes it holds (or its provider lists, before it holds any). A choice keeps it and shows the
  * series at its default season, a season of the order left meaning nothing (episode-orderings.md §7
- * Q10);
- * one chosen before its contents were fetched says it is being fetched until it is (§4).
+ * Q10); one chosen before its contents were fetched is said to be fetched on the page
+ * (OrderingFetching, §4).
  */
 export function OrderingChoice(props: {
   readonly series: SeriesDetail;
@@ -300,9 +377,6 @@ export function OrderingChoice(props: {
           </option>
         ))}
       </select>
-      {orderings.find((ordering) => ordering.name === series.ordering)?.isAwaitingFetch === true ? (
-        <span className="series__absent"> {t("ordering.fetching")}</span>
-      ) : null}
       {problem === undefined ? null : (
         <span className="series__absent">{t("ordering.failed", { why: problem })}</span>
       )}

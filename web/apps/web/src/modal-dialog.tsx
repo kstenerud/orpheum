@@ -30,21 +30,45 @@ function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): v
 }
 
 /**
- * Gives focus back to what had it before the dialog opened, as it closes, while that is still on the
- * page and focus is nowhere else: in the dialog going, or lost to the page with it. The browser gives
- * it back itself only to a dialog closed while on the page, and the page closes one by removing it,
- * so focus fell to the page's start, and a keyboard or a remote began again from there (D361 §3).
- * Focus something else took meanwhile, as a page moved to, stays where it is. Given back without
- * scrolling the page, which brings it into view only where it is out of it: the browser's own focus
- * scrolled the page to a chooser's button the opening had moved off the screen (the owner on a Fire
- * TV, 2026-10-28), and centres what it brings in.
+ * What each open dialog gives focus back to as it closes, the nearest first: what had focus as it
+ * opened, then, where that was in another dialog, what that one gives it back to.
  */
-function giveFocusBack(dialog: HTMLDialogElement, focusedBefore: Element | null): void {
+const focusReturns = new WeakMap<HTMLDialogElement, readonly Element[]>();
+
+/**
+ * What a dialog opening with focusedBefore focused gives focus back to: focusedBefore, then, where it
+ * is in another open dialog, what that one would. A dialog opened from a drop-down's place takes the
+ * list's place (the owner, 2026-10-29: "they should swap in/out"), the list closing as it opens, so
+ * the place is gone when it closes, and focus goes back to the drop-down's button.
+ */
+function focusReturnsFrom(focusedBefore: Element | null): readonly Element[] {
+  if (focusedBefore === null) {
+    return [];
+  }
+  const under = focusedBefore.closest("dialog");
+  return [focusedBefore, ...(under === null ? [] : (focusReturns.get(under) ?? []))];
+}
+
+/**
+ * Gives focus back to the first of returns still on the page, outside any dialog closed, as the
+ * dialog closes, where focus is nowhere else: in the dialog going, or lost to the page with it. The
+ * browser gives it back itself only to a dialog closed while on the page, and the page closes one by
+ * removing it, so focus fell to the page's start, and a keyboard or a remote began again from there
+ * (D361 §3). Focus something else took meanwhile, as a page moved to, stays where it is. Given back
+ * without scrolling the page, which brings it into view only where it is out of it: the browser's own
+ * focus scrolled the page to a chooser's button the opening had moved off the screen (the owner on a
+ * Fire TV, 2026-10-28), and centres what it brings in.
+ */
+function giveFocusBack(dialog: HTMLDialogElement, returns: readonly Element[]): void {
   const now = document.activeElement;
   const isLost = now === null || now === document.body || dialog.contains(now);
-  if (isLost && focusedBefore instanceof HTMLElement && focusedBefore.isConnected) {
-    focusedBefore.focus({ preventScroll: true });
-    scrollIntoViewGently(focusedBefore);
+  const to = returns.find(
+    (each) =>
+      each.isConnected && !dialog.contains(each) && each.closest("dialog:not([open])") === null,
+  );
+  if (isLost && to instanceof HTMLElement) {
+    to.focus({ preventScroll: true });
+    scrollIntoViewGently(to);
   }
 }
 
@@ -87,7 +111,8 @@ const firstFieldSelector =
  * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
  * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
  * press, with focus held inside it until it closes, the arrows moving among its own controls alone
- * (focus-navigation.ts), and given back to what had it before once it closes. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
+ * (focus-navigation.ts), and given back to what had it before once it closes, or, where that went
+ * with a drop-down whose place opened it, to the drop-down's button. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
  * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx), and the
  * browser's own Back, which takes an entry held in the history while it is open (D367 §10).
  */
@@ -123,7 +148,8 @@ export function ModalDialog(props: {
     if (dialog === null) {
       return undefined;
     }
-    const focusedBefore = document.activeElement;
+    const returns = focusReturnsFrom(document.activeElement);
+    focusReturns.set(dialog, returns);
     openModal(dialog, toldRef.current.shouldFocusFirstField === true);
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
@@ -152,7 +178,7 @@ export function ModalDialog(props: {
       dialog.removeEventListener("keydown", keepEscape);
       dialog.removeEventListener("click", pressOutside);
       dialog.close();
-      giveFocusBack(dialog, focusedBefore);
+      giveFocusBack(dialog, returns);
     };
   }, []);
   useBackCloses(ref, toldRef);

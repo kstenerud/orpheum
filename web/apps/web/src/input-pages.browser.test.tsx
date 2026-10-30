@@ -200,7 +200,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(await unreachedInMain()).toEqual([]);
   });
 
-  it("reaches every control of an admin's film page, Identified incorrectly's chooser opened by OK", async () => {
+  // Under the page's "…" (the owner, 2026-10-29), whose place opens its dialog in the list's place.
+  it("reaches every control of an admin's film page, and of Identified incorrectly's dialog opened from its … by OK", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
       walkServices(
@@ -219,11 +220,29 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         "/titles/103",
       ),
     );
-    await drawn(".match-correction button");
-    document.querySelector<HTMLElement>(".match-correction button")?.focus();
+    await drawn(".more-actions__button");
+    expect(await unreachedInMain()).toEqual([]);
+    const more = document.querySelector<HTMLElement>(".more-actions__button");
+    more?.focus();
+    await press("{Enter}");
+    await drawn("dialog .drop-down__places button");
+    expect(focusedName()).toBe("Identified incorrectly");
+    await press("{Enter}");
+    await drawn("dialog.match-correction");
+    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(await pressUntil("{ArrowDown}", () => focusedName() === "Enter manually")).toBe(true);
     await press("{Enter}");
     await drawn(".match-correction li button");
-    expect(await unreachedInMain()).toEqual([]);
+    const inDialog = focusTargetsIn(document.querySelector("dialog.match-correction") ?? document);
+    const first = inDialog[0];
+    const reached = first === undefined ? new Set<Element>() : await reachedFrom(first, press);
+    expect(
+      inDialog.filter((control) => !reached.has(control)).map((each) => each.outerHTML),
+    ).toEqual([]);
+    // Back closes it, and focus is on the "…" again (D361 §3).
+    await press("{Backspace}");
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(more);
   });
 
   // D367 §9: one series page, its season a view picked by a chooser, which adds no step to Back.
@@ -233,7 +252,9 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
     );
     await drawn(".title__play");
-    expect(document.querySelector("main select")).not.toBeNull();
+    // Its order chosen under its "…", rarely used (the owner, 2026-10-29), not on the page.
+    expect(document.querySelector("main select")).toBeNull();
+    expect(document.querySelector("main .more-actions__button")).not.toBeNull();
     expect(await unreachedInMain()).toEqual([]);
     await press("{ArrowDown}");
     const isOnPicker = (): boolean =>

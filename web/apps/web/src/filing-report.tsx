@@ -19,7 +19,8 @@ type Report = components["schemas"]["FilingReportBody"];
 type ReportEntry = components["schemas"]["FilingReportEntryBody"];
 
 /**
- * An admin's "Report filed wrongly" on a film's, episode's or series' page (D306 §3): the server
+ * An admin's "Report this", in "Identified incorrectly" on a film's, episode's or series' page
+ * (match-correction.tsx; D306 §3): the server
  * writes a Markdown report of how its files were read and filed to its own disk, and shows it here,
  * to copy, edit and post as an issue. Nothing leaves the server by itself. Nothing for anyone else.
  */

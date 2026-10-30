@@ -239,8 +239,10 @@ describe("a series whose match is a guess (D301)", () => {
       ),
     );
     expect(forUser).toContain("may be another work of the same name");
-    expect(forUser).not.toContain(">Identified incorrectly<");
-    expect(forAdmin).toContain(">Identified incorrectly<");
+    // Under the "…" of what is rarely used (the owner, 2026-10-29), which a person with nothing
+    // there is not shown.
+    expect(forUser).not.toContain('aria-label="More actions"');
+    expect(forAdmin).toContain('aria-label="More actions"');
     expect(forAdmin).toContain("the likeliest was taken");
     expect(
       renderToStaticMarkup(withServices(<SeriesView series={{ ...series, isGuessed: false }} />)),

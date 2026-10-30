@@ -110,8 +110,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   their browser keeps and catching up. A member with no device on the session's page is said away, in
   who is here and on the host's list of people. A guest by link alone comes back by the same link in
   the same browser (D267 §1). `src/together-viewer-shell.test.tsx`; on devices, VQ172. Their session ended, a guest by link alone is told so on that page; a
-  signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`,
-  closed by its × or gone at the next screen), but for one sent away for the host's connection, who
+  signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`, a
+  pop-up, the shared modal dialog, closed by its OK, a press outside it or Back, or gone at the next
+  screen; the owner, 2026-10-29), but for one sent away for the host's connection, who
   keeps Join again (the owner, 2026-10-29). A session the server no longer has, as after its
   restart, ends so too: a signed-in guest with none once the server was asked goes home told it is no
   longer there, and a guest by link alone whose page loads again after theirs ended is told it is
@@ -375,6 +376,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/series-page.test.tsx`, `src/input-pages.browser.test.tsx`,
   `src/app-shell.browser.test.tsx`, `src/drop-down.browser.test.tsx`, `src/drop-down.test.tsx`,
   `src/modal-dialog.browser.test.tsx`; on devices, VQ97.
+- **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
+  takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
+  no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a
+  title's and a series' "Identified incorrectly" (an admin's, one dialog offering Rescan, Enter
+  manually and Report this, `src/match-correction.tsx`) and a series' Order. The list closes as its
+  place's dialog opens, never stacked under it, so one press outside the dialog is back on the page,
+  and focus goes back to the "…" (`modal-dialog.tsx`'s chain of what each dialog gives focus back
+  to). `src/more-actions.browser.test.tsx`, `src/title.test.tsx`, `src/episode-orderings.test.tsx`,
+  `src/rescan.test.tsx`, `src/input-pages.browser.test.tsx`; on devices, VQ161.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
@@ -493,7 +503,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
   (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
-  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" and "Rescan this" on a film's or series' page, D301 §2, D357), `files.tsx` (what
+  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Rescan, Enter manually and Report this, D301 §2, D357, D306 §3), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
