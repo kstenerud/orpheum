@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import "./i18n.ts";
+
 import { act, useState, type JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -30,6 +32,36 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     mounted.unmount();
     document.removeEventListener("keydown", pageHeard);
     showModal.mockRestore();
+  });
+
+  // The owner, 2026-10-30: "This should be a standard widget so they all behave the same".
+  it("has the standard Close, a cross after what it holds, unless it draws its own", async () => {
+    const onClose = vi.fn();
+    const mounted = await mount(
+      withServices(
+        <ModalDialog label="Gran" onClose={onClose}>
+          <button type="button">inside</button>
+        </ModalDialog>,
+      ),
+    );
+    const buttons = [
+      ...(mounted.container.querySelector("dialog")?.querySelectorAll("button") ?? []),
+    ];
+    expect(
+      buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent),
+    ).toEqual(["inside", "Close"]);
+    await fire(buttons[1], new MouseEvent("click", { bubbles: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+    mounted.unmount();
+    const own = await mount(
+      withServices(
+        <ModalDialog label="List" onClose={onClose} hasOwnClose>
+          <p>places</p>
+        </ModalDialog>,
+      ),
+    );
+    expect(own.container.querySelector(".modal-dialog__close")).toBeNull();
+    own.unmount();
   });
 
   it("stays open as its page renders again with a new onClose, its focus kept", async () => {
