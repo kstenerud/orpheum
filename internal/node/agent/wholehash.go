@@ -56,7 +56,7 @@ func (agent *Agent) hashWhole(ctx context.Context, held attempt, command nodepro
 		}
 		read, readErr := file.Read(buffer)
 		execx.Moved(ctx)
-		hash.Write(buffer[:read])
+		_, _ = hash.Write(buffer[:read]) // a hash.Hash's Write never returns an error
 		if errors.Is(readErr, io.EOF) {
 			break
 		}

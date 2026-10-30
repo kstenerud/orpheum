@@ -97,7 +97,7 @@ func IssueFound(secret secrets.Value, now time.Time) Credentials {
 // password is username's password under secret.
 func password(secret secrets.Value, username string) string {
 	mac := hmac.New(sha256.New, []byte(secret.Reveal()))
-	mac.Write([]byte(username))
+	_, _ = mac.Write([]byte(username)) // a hash.Hash's Write never returns an error
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
