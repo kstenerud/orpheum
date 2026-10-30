@@ -5,10 +5,11 @@ import "./i18n.ts";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { CastDialog } from "./cast-dialog.tsx";
 import { DebugToolsContext } from "./debug-tools.tsx";
 import { LiveProvider } from "./live.tsx";
 import { createNavigation } from "./navigation.ts";
-import { buttonWithText, click, mount, servedBy } from "./test-dom.tsx";
+import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
@@ -80,6 +81,55 @@ describe("a signed-in guest's Play page of the group's film while their device c
     const states = sockets.session.heard.filter((each) => each["type"] === "state");
     expect(states.at(-1)).toMatchObject({ fileId: 0, playing: false });
     expect(states.some((each) => each["fileId"] === 5)).toBe(true);
+    mounted.unmount();
+  });
+});
+
+describe("a cast from over a guest's Play page of the group's film (D371 §4, VQ193)", () => {
+  it("carries no film of its own, and says the guest's membership, so its receiver follows the group in the guest's part", async () => {
+    window.localStorage.setItem("orpheum.together.viewer", JSON.stringify(viewer.membership));
+    const heard: Heard[] = [];
+    const devices = [
+      { id: 1, name: "Phone", isThisDevice: true, isSignedIn: true, lastUsedAt: 0 },
+      { id: 2, name: "Fire TV", isThisDevice: false, isSignedIn: true, lastUsedAt: 0 },
+    ];
+    const services = {
+      ...servedBy(
+        {
+          "POST /together/playback": [200, directDecision({})],
+          "GET /me/devices": [200, { devices }],
+          "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+        },
+        heard,
+        "token",
+      ),
+      navigation: createNavigation(fakePlace("/play/5")),
+    };
+    const sockets = liveAndSession(2); // the page's session opens first, its live connection after
+    const mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <GroupFilmPage {...viewer} />
+          <CastDialog onClose={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await sockets.live.accept();
+    await sockets.live.say({ type: "sending" });
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await sockets.session.acceptEach();
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 },
+    });
+    await settleUntil(() => buttonWithText(mounted.container, "Fire TV") !== undefined);
+    await click(buttonWithText(mounted.container, "Fire TV"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
+      toDeviceId: 2,
+      togetherCredential: "viewer-credential",
+    });
     mounted.unmount();
   });
 });

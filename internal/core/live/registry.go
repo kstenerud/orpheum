@@ -33,8 +33,9 @@ type Credential func(castID, userID int64) (string, error)
 
 // TogetherPart mints a credential for the Watch Together session userID is in, for a cast's receiver
 // to take their part in it, and whether it is the host's, which the receiver leads (plans/cast-to-
-// device.md §7; D371 §4), or "" when they are in none: the hub's TogetherPart.
-type TogetherPart func(userID int64) (credential string, isHost bool)
+// device.md §7; D371 §4), or "" when they are in none: the hub's TogetherPart. Held, where given, is
+// the membership the sender holds as a guest, whose part is taken.
+type TogetherPart func(userID int64, held string) (credential string, isHost bool)
 
 // ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
 // sender told (D364 §6): a television switched off or its page closed, not one loaded again or
@@ -62,6 +63,10 @@ type Cast struct {
 	PositionMs *int64
 	// IsAccepted is whether the receiver said Use to the session, asked once (D364 §2).
 	IsAccepted bool
+	// SendersMembership is the Watch Together membership credential the sender's page holds as a
+	// guest, whose part in the session the receiver takes (TogetherPart); "" for the person's own
+	// part, the session they host first. A secret: never logged or answered.
+	SendersMembership string
 }
 
 // Connection is one registered live connection, which Disconnect takes.
@@ -454,7 +459,7 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 func (registry *Registry) receiveOf(cast Cast, credential string) *Receive {
 	partCredential, isHost := "", false
 	if registry.togetherPart != nil {
-		partCredential, isHost = registry.togetherPart(cast.UserID)
+		partCredential, isHost = registry.togetherPart(cast.UserID, cast.SendersMembership)
 	}
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,

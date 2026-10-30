@@ -24764,6 +24764,23 @@ in the shell, while the group plays nothing, no dialog opened, and moves to the 
 the host starts (VQ193)", "lands on the Play page of the group's film from the join, no dialog opened
 (VQ193)"), web/apps/web/src/together-viewer.test.tsx; on devices, VQ193.
 
+**Fixed the same day** (2026-10-30), a guest's cast, which §2 broke: with the group's film on its
+Play page, Cast's dialog took it for the person's own film and cast it as a cast of one, which its
+receiver led at the person's own place, apart from the group, while the guest's page worked the
+group (staging, castId 51: `fileId=5908`, then the TV `role=video` in session 51 leading at
+4672771 ms; the S23 was user 1, the host user 4). A cast from over a guest's group's film now
+carries no film, so its receiver follows the group in the guest's part (D371 §4), as it did from the
+guest's own page before §2; and a cast from a page that holds a guest's membership, hosting nothing,
+says it (`togetherCredential` on `POST /me/casts`), the core taking that part (`TogetherPart`'s
+`held`), so the person's own device joined as a guest of the session they host casts as its guest,
+not as their host's player. Built in `cast-dialog.tsx`, `playing-here.ts`
+(`useNotesTheGroupsFilmShown`), `cast.ts` (`startCast`), `internal/core/api/casts.go`,
+`internal/core/live/registry.go` (`Cast.SendersMembership`) and `internal/core/together/cast.go`.
+Proven by web/apps/web/src/together-viewer-cast.test.tsx ("carries no film of its own, and says the
+guest's membership, so its receiver follows the group in the guest's part"),
+TestCast_AHostsGuestDeviceCastsAsTheirGuest, TestRegistry_AReceiverTakesThePartItsSendersPageHolds,
+TestCast_AReceiverTakesTheGuestsPartTheSendingPageHolds; on devices, VQ193.
+
 ## D385 — A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood
 
 **Decided** (2026-10-30), by the project owner, amending D338 (settled 2026-10-27: a receiver taking

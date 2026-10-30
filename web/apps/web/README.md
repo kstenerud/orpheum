@@ -37,7 +37,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   or runs it, what plays with the way back to its film's Play page and Stop for everyone, voice and
   the volumes, the people and Invite, and ending it, which closes the dialog, nothing opening it
   again (D385's Also), or, for a signed-in guest, the way back to the group's film; Cast's (`src/cast-dialog.tsx`) the devices to cast to, taking the film of the Play
-  page it is pressed on, or, with a cast on, what plays where, the way back to its film's page and
+  page it is pressed on, but a guest's group's film, which it leaves to the group: the cast carries
+  no film and says the guest's membership, the receiver following the group in the guest's part
+  (D371 §4; `src/together-viewer-cast.test.tsx`; VQ193), or, with a cast on, what plays where, the way back to its film's page and
   Stop casting; it closes once a cast started from it is taken. There is no Watch Together page nor
   casting page: an old `/watch-together` address goes to the Play page of the group's film, else
   home with the dialog open (a guest's `/together` never opens it), and `/casting` to the Play page of the cast's film, else home

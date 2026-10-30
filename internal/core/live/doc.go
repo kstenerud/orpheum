@@ -43,9 +43,14 @@
 //     cast, to take their part: their host's, to play it as their player (D364 §11), or their guest's,
 //     to follow it as just another follower (D371 §4). Enforced by
 //     TestRegistry_AReceiverIsHandedTheSessionItsPersonHosts and
-//     TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow. A host who starts Watch Together while
-//     they cast has one session, not two (D364 §11, D372 §8): the receiver holding the cast is handed
-//     it again with their part in the new one and the film from where the cast stands, to lead it.
+//     TestRegistry_AGuestsReceiverIsHandedTheirPartToFollow. A cast whose sending page holds a guest's
+//     membership (Cast.SendersMembership) takes that guest's part, the person's own device joined
+//     as a guest of the session they host casting as its guest. Enforced by
+//     TestRegistry_AReceiverTakesThePartItsSendersPageHolds and, through the API,
+//     TestCast_AReceiverTakesTheGuestsPartTheSendingPageHolds in internal/core/api. A host who starts
+//     Watch Together while they cast has one session, not two (D364 §11, D372 §8): the receiver
+//     holding the cast is handed it again with their part in the new one and the film from where the
+//     cast stands, to lead it.
 //     Enforced by TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart and, through
 //     the API, TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt in internal/core/api.
 //   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other

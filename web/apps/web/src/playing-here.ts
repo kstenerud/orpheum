@@ -35,6 +35,30 @@ export function useNotesPlayingHere(
   }, [isOwn, fileId, positionMs]);
 }
 
+/** How many pages of this tab show a Watch Together guest's group's film (GroupFilmPage). */
+let groupsFilmsShown = 0;
+
+/**
+ * Notes, while the calling page shows a Watch Together guest the group's film, that the film is the
+ * group's, not one the person plays: a cast started over it carries no film, and its receiver takes
+ * the guest's part in the session, following the group (D371 §4). Taken for the person's own, on the
+ * one Play page every film plays on (D384 §2), it played apart from the group at the person's own
+ * place, the guest's page working the group, not the receiver (the owner's S23, staging, 2026-10-30).
+ */
+export function useNotesTheGroupsFilmShown(): void {
+  useEffect(() => {
+    groupsFilmsShown += 1;
+    return () => {
+      groupsFilmsShown -= 1;
+    };
+  }, []);
+}
+
+/** Whether a page of this tab shows a Watch Together guest the group's film now. */
+export function isTheGroupsFilmShown(): boolean {
+  return groupsFilmsShown > 0;
+}
+
 /** Where this tab played fileId last, in ms; undefined where it was not the film it played last. */
 export function positionPlayedHere(fileId: number): number | undefined {
   return played?.fileId === fileId ? played.positionMs() : undefined;

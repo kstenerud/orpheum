@@ -47,6 +47,7 @@ import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
+import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
 import { requestTogetherPlayback } from "./together-playback.ts";
 import { LeaveButton } from "./together-leave.tsx";
 import { AsksWhatPlays, type GroupPlays } from "./together-what-plays.tsx";
@@ -159,6 +160,7 @@ export function GroupFilmPage(props: { readonly membership: Membership }): JSX.E
   const { navigation } = useServices();
   const { endReason, over } = useSessionEnd(true, undefined);
   const keptVideo = useKeptVideo(hasBeenPressed());
+  useNotesTheGroupsFilmShown(); // a cast from over it follows the group (D371 §4)
   const devices = useViewerVoiceDevices();
   const toFilm = useCallback(
     (fileId: number) => {

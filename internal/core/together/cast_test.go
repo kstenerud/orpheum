@@ -187,10 +187,10 @@ func TestCast_AHostsReceiverHasACredentialForTheirSession(t *testing.T) {
 	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}); err != nil {
 		t.Fatal(err)
 	}
-	if credential, _ := stage.hub.TogetherPart(77); credential != "" {
+	if credential, _ := stage.hub.TogetherPart(77, ""); credential != "" {
 		t.Errorf("a person with only a cast was given %q; want none", credential)
 	}
-	credential, isHost := stage.hub.TogetherPart(stage.owner.UserID)
+	credential, isHost := stage.hub.TogetherPart(stage.owner.UserID, "")
 	sessionID, memberID, isMember := stage.hub.MemberOf(credential)
 	if !isMember || !isHost || sessionID != stage.opened.SessionID ||
 		stage.hub.hostOf(sessionID) != stage.owner.UserID {
@@ -215,7 +215,7 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, isHost := stage.hub.TogetherPart(guestPerson.UserID)
+	credential, isHost := stage.hub.TogetherPart(guestPerson.UserID, "")
 	if sessionID, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost ||
 		sessionID != stage.opened.SessionID || memberID != joined.MemberID {
 		t.Fatalf("the guest's receiver was given session %d, member %d (%v, host %v); want the guest's own part",
@@ -235,6 +235,31 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 	}
 	if hostBox.last(MessageGroup).Seq != seq {
 		t.Errorf("the guest's receiver loading changed the group: %+v", hostBox.last(MessageGroup).Group)
+	}
+}
+
+// A person who hosts a session and joined it as a guest from another device casts from that device as
+// its guest: the membership the sending page holds is the part its receiver takes, a follower of the
+// group, never their host's player (VQ193); without it, the session they host is the part, as before.
+func TestCast_AHostsGuestDeviceCastsAsTheirGuest(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my phone", Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := stage.owner
+	joined, err := stage.hub.Join(made.Secret, "Phone", &owner, Leaving{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential, isHost := stage.hub.TogetherPart(owner.UserID, joined.MembershipCredential)
+	if _, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost || memberID != joined.MemberID {
+		t.Fatalf("the guest's device's receiver was given member %d (%v, host %v); want the guest's part %d",
+			memberID, isMember, isHost, joined.MemberID)
+	}
+	if _, isHost := stage.hub.TogetherPart(owner.UserID, ""); !isHost {
+		t.Error("a cast from a page holding no guest's membership took a guest's part; want the host's")
 	}
 }
 

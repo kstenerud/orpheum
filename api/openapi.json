@@ -7015,6 +7015,11 @@
             "format": "int64",
             "minimum": 1,
             "type": "integer"
+          },
+          "togetherCredential": {
+            "description": "The membership this page holds as a Watch Together guest, whose part the receiver takes",
+            "maxLength": 100,
+            "type": "string"
           }
         },
         "required": [

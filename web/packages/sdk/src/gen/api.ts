@@ -4722,6 +4722,8 @@ export interface components {
              * @description Another of one's own devices, connected now
              */
             toDeviceId: number;
+            /** @description The membership this page holds as a Watch Together guest, whose part the receiver takes */
+            togetherCredential?: string;
         };
         StartPlaybackInputBody: {
             /**
