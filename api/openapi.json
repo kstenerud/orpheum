@@ -6257,6 +6257,10 @@
             "description": "The ordering's name for it (Disc 2); absent where it names none, as aired names no season",
             "type": "string"
           },
+          "posterSha256": {
+            "description": "Its own poster's hash, absent where it has none (D379): GET /bytes/art/{sourceSha256}/portrait-m.webp",
+            "type": "string"
+          },
           "seasonNumber": {
             "description": "Its group's number; aired's 0 for the specials and the episodes with no season",
             "format": "int64",

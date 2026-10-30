@@ -498,3 +498,39 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 		t.Errorf("Metropolis hidden: %s; want %s, as Continue Watching leaves it out", got, want)
 	}
 }
+
+// A series' page gives each season its own poster where one is stored (D379), not its series' own,
+// which stays the series'; a season with none has none. Another ordering's groups are discs or parts,
+// no provider's seasons, so none has a season's poster.
+func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	seasonOne, seriesPoster := strings.Repeat("ab", 32), strings.Repeat("cc", 32)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO artwork (item_id, kind, season_number, source, source_ref, source_sha256) VALUES
+		 (20, 'poster', 1, 'tmdb', '/s1.jpg', X'`+seasonOne+`')`)
+	var seen struct {
+		Art struct {
+			PosterSha256 string `json:"posterSha256"`
+		} `json:"art"`
+		Seasons []struct {
+			SeasonNumber int64  `json:"seasonNumber"`
+			PosterSha256 string `json:"posterSha256"`
+		} `json:"seasons"`
+	}
+	harness.readJSON(t, "/collections/20", user, &seen)
+	got, want := fmt.Sprint(seen.Seasons), "[{1 "+seasonOne+"} {2 }]"
+	if got != want || seen.Art.PosterSha256 != seriesPoster {
+		t.Errorf("aired: seasons %s, series poster %s; want %s and the series' own poster", got,
+			seen.Art.PosterSha256, want)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
+		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+	seen.Seasons = nil
+	harness.readJSON(t, "/collections/20", user, &seen)
+	if got, want = fmt.Sprint(seen.Seasons), "[{1 } {2 }]"; got != want {
+		t.Errorf("the DVD order: seasons %s; want %s, no disc a season's poster", got, want)
+	}
+}

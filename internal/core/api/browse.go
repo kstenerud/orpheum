@@ -233,6 +233,7 @@ type SeasonBody struct {
 	SeasonNumber int64  `doc:"Its group's number; aired's 0 for the specials and the episodes with no season" json:"seasonNumber"`              //nolint:lll // one struct tag
 	Name         string `doc:"The ordering's name for it (Disc 2); absent where it names none, as aired names no season" json:"name,omitempty"` //nolint:lll // one struct tag
 	EpisodeCount int64  `json:"episodeCount"`
+	PosterSha256 string `doc:"Its own poster's hash, absent where it has none (D379): GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 	StillSha256  string `doc:"Its first episode's still that has one" json:"stillSha256,omitempty"`
 	IsWatched    bool   `doc:"Whether the person watched every one of its episodes with a file (D370)" json:"isWatched,omitempty"` //nolint:lll // one struct tag
 }
@@ -508,7 +509,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	for _, season := range series.Seasons {
 		body.Seasons = append(body.Seasons, SeasonBody{
 			SeasonNumber: season.Number, Name: season.Name, EpisodeCount: season.EpisodeCount,
-			StillSha256: season.StillSha256, IsWatched: season.IsWatched,
+			PosterSha256: season.PosterSha256, StillSha256: season.StillSha256, IsWatched: season.IsWatched,
 		})
 	}
 	body.Orderings = make([]OrderingBody, 0, len(series.Orderings))
