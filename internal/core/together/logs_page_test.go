@@ -90,6 +90,20 @@ func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
 	}
 }
 
+// A page left for another site closes its socket at once and, back from the back/forward cache,
+// connects again saying so: the log tells that return from a drop (the owner, 2026-10-29).
+func TestHub_LogsAPageBackFromBeingLeft(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	note := PlayerNote{Kind: NoteReconnected, OfflineMs: 60000, Why: "left"}
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	if logged := stage.logs.String(); !strings.Contains(logged, "kind=reconnected offlineMs=60000 why=left") ||
+		box.last(MessageRejected).Code != "" {
+		t.Errorf("the log does not say the page connected again on coming back:\n%s", logged)
+	}
+}
+
 // A page shown again says whether its socket answered and how fast, or connected again because it did
 // not, and a play the browser refused then says how and whether the page had been pressed: an S23
 // unlocked sat 20 s, paused, on a socket that heard nothing, and nothing said so (the owner's VQ105,

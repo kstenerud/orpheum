@@ -89,7 +89,7 @@ export interface TogetherVoice {
  */
 export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> extends Pick<
   TogetherConnectionOptions,
-  "credential" | "client" | "sessionToken" | "openSocket" | "monotonicMs" | "page"
+  "credential" | "client" | "sessionToken" | "openSocket" | "monotonicMs" | "page" | "leftPage"
 > {
   /** The relay's ICE servers for this membership (GET /together/{id}/ice). */
   readonly fetchIceServers: () => Promise<readonly RTCIceServer[]>;
@@ -318,6 +318,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       openSocket: this.#options.openSocket,
       monotonicMs: this.#options.monotonicMs,
       page: this.#options.page,
+      leftPage: this.#options.leftPage,
     });
     this.#connection = connection;
     this.#unsubscribes = [

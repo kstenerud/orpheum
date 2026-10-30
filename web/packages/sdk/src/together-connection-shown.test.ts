@@ -11,7 +11,7 @@ import {
   reconnectWaitMs,
 } from "./together-connection.ts";
 import type { TogetherSocketListeners } from "./together.ts";
-import { FakePage } from "./test-follow.ts";
+import { FakeLeftPage, FakePage } from "./test-follow.ts";
 
 /** A stand-in for the server's end of each socket: what was opened, sent, and closed from here. */
 function fakeSockets(): {
@@ -237,5 +237,64 @@ describe("a connection told the way to the core is back", () => {
       kind: "reconnected",
       why: "back",
     });
+  });
+});
+
+describe("a connection whose page is left (the owner, 2026-10-29)", () => {
+  it("left, closes its socket at once, connects nothing while away, and connects at once on its return from the back/forward cache", () => {
+    const sockets = fakeSockets();
+    const page = new FakePage();
+    const leftPage = new FakeLeftPage();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+      page,
+      leftPage,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    page.hide();
+    leftPage.leave(); // navigated to another site, kept in the back/forward cache
+    expect(sockets.closedHere).toEqual([0]); // at once, as closing the tab: the lead passes
+    expect(connection.snapshot().status).toBe("reconnecting");
+    sockets.opened[0]!.onClose(1000); // its close, heard later, is not a drop to connect again from
+    vi.advanceTimersByTime(longestReconnectWaitMs * 4);
+    page.show(); // shown, as a page coming back is, before its pageshow
+    vi.advanceTimersByTime(shownAnswerWithinMs * 2);
+    expect(sockets.opened).toHaveLength(1);
+    monotonicNowMs = 61_000;
+    leftPage.show();
+    expect(sockets.opened).toHaveLength(2);
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(JSON.stringify(welcome));
+    expect(connection.snapshot().status).toBe("connected");
+    expect(sockets.sent.find((each) => each["type"] === "note")?.["note"]).toEqual({
+      kind: "reconnected",
+      offlineMs: 60_000,
+      why: "left",
+    });
+  });
+
+  it("shown as it first loads, or closed, does nothing more", () => {
+    const sockets = fakeSockets();
+    const leftPage = new FakeLeftPage();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+      leftPage,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    leftPage.show(false); // a page loading is shown, not returned
+    expect(sockets.opened).toHaveLength(1);
+    expect(sockets.closedHere).toEqual([]);
+    connection.close();
+    leftPage.leave();
+    leftPage.show();
+    expect(sockets.opened).toHaveLength(1);
   });
 });
