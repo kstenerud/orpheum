@@ -35,3 +35,12 @@
   background: var(--color-video-control);
   color: var(--color-on-video);
 }
+
+/* A row of icon buttons, the banner's tray and a listing page's tools alike (the owner, 2026-10-30:
+   "Icon trays should ideally share the same code"): side by side, each button's own room the only
+   gap between them. */
+.icon-tray {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}

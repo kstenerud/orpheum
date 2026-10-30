@@ -293,6 +293,7 @@
      (D369 §1's size elsewhere): the owner, 2026-10-28, "the top icons on the phone feel too far
      apart, regardless of the available real estate. Try putting them about 1/4 closer". */
   .app-shell__end .status-tray__button {
+    width: var(--size-banner-sign-phone);
     min-width: var(--size-banner-sign-phone);
   }
 

@@ -138,9 +138,9 @@ function BannerTrays(): JSX.Element {
           <div className="ui-gallery__banner">
             <div className="app-shell__end">
               <span className="app-shell__realm">{t("gallery.realm")}</span>
-              <span className="status-tray">
+              <span className="status-tray icon-tray">
                 {tray.needsAttention ? (
-                  <span className="status-tray__button status-tray__button--warning">
+                  <span className="icon-button status-tray__button status-tray__button--warning">
                     <WarningIcon />
                   </span>
                 ) : null}

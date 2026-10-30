@@ -37,7 +37,7 @@ export function StatusTray(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending } = useLive();
   return (
-    <section className="status-tray" aria-label={t("status.tray")}>
+    <section className="status-tray icon-tray" aria-label={t("status.tray")}>
       {props.isAdmin ? <NeedsAttentionSign /> : null}
       {props.canHostWatchTogether || isHosting || isViewing ? (
         <TogetherSign isHosting={isHosting} isViewing={isViewing} />
@@ -50,8 +50,8 @@ export function StatusTray(props: {
 /** A sign's class: the tray's button, white while its function is off, blue while it is on. */
 function signClass(isOn: boolean): string {
   return isOn
-    ? "status-tray__button status-tray__button--on"
-    : "status-tray__button status-tray__button--off";
+    ? "icon-button status-tray__button status-tray__button--on"
+    : "icon-button status-tray__button status-tray__button--off";
 }
 
 /**
@@ -182,7 +182,7 @@ function NeedsAttentionSign(): JSX.Element | null {
   return (
     <Link
       to={{ screen: "needs-attention" }}
-      className="status-tray__button status-tray__button--warning"
+      className="icon-button status-tray__button status-tray__button--warning"
       label={t("status.needsAttention")}
     >
       <WarningIcon />
