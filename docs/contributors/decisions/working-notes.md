@@ -24935,4 +24935,24 @@ Otherwise we get these weird edge cases."
    the owner: "when a watch together session ends, ALL associated devices go back home (including the
    host), and all cast sessions also terminate"; the host's film no longer plays on alone.
 
-**Status:** Decided 2026-10-30; not built yet.
+**Status:** Decided 2026-10-30; built (2026-10-30) in the core and the web client. The core: every
+way a Watch Together session ends (its host's end, its host starting or joining another, its idle
+end) goes through the hub's one `endSession`, which tells `OnSessionEnded` once the hub's lock is let
+go; `TogetherPart` says which session a receiver's part is in, the registry keeps it on the cast
+(`partIn`), and the assembly's `endCastsOfSession` ends each such cast (`Registry.EndPartIn`, the
+hub's `EndCast`) as `sessionEnded`, logged `cast: a cast ended … reason=sessionEnded`. A cast whose
+receiver took no part (its person in no session as it was handed) goes on. The web: the SDK knows
+`sessionEnded`; the receiver goes home with no notice (`cast-receiver.tsx`'s `useEndsAsTheCastDoes`,
+as at every end but `gone`), and the sender's remote goes home with no word (`cast-remote.tsx`), the
+session's own end telling the page (a guest home, told, as before). The host's tab goes home as its
+session ends, whichever of its connections hears it first (`together-session-end.ts`'s
+`useHostsSessionOver`): the voice connection every hosting tab holds, on any page
+(`together-voice.tsx`, its snapshot now saying why the session ended), the Play page's player
+(`together-host.tsx`) or the dialog (`watch-together.tsx`). Left open, and decided so: the tab that
+ended the session goes home with no notice (`noteEndingHere`), the host having done it; the host's
+other tabs and devices are told "The Watch Together session was ended on another of your devices.",
+an idle end as a guest is, and any other end "The Watch Together session is over."; a guest who
+leaves or is removed ends no cast, the session going on. Device check: VQ193 (3).
+
+**Proven by:**
+- 1: internal/core/api/casts_test.go (TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt), internal/core/together/cast_test.go (TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith), internal/core/live/registry_test.go (TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt), web/apps/web/src/cast-receiver.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in (D389 §1)"), web/apps/web/src/cast-remote.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)"), web/apps/web/src/together-voice.test.tsx ("the host's page as the session it hosts ends (D389 §1)"), web/apps/web/src/watch-together-player.test.tsx ("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)"), web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, and goes home with no word (D385's Also, D389 §1)"), web/packages/sdk/src/together-voice.test.ts; on devices, VQ193
