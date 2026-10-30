@@ -523,3 +523,14 @@ had leaned on.
   permanent, and never moved by a later pass", D172), but no API or page calls it. Owed: an
   "Identified correctly" beside "Identified incorrectly" under a guessed title's "…" (D379's menu),
   confirming the match through an endpoint, and the guessed mark gone once confirmed.
+- **A source whose B-frames have no display times plays choppily in Chrome (the owner, 2026-10-30,
+  after a cast's takeover; not the cast's fault).** File 5667 (MP4, HEVC `hev1`, `has_b_frames=2`):
+  every packet's pts equals its dts (`-100099,-100099 | -50050,-50050 | 0,0 …`) where a sound file's
+  differ (file 5664: `0,-2002 | 5005,-1001 | 3003,0 …`); our remux copies that, its chunks' `trun` with
+  no composition offsets, and Chrome renders in "low delay mode", dropping each reordered frame
+  ("Decoded frame … is out of order", freezing ratio 0.60, 14–16 fps). **The owner, option 1, a later
+  batch:** detect it at scan (B-frames, yet pts = dts) and rebuild the display times "as if it never
+  had one": each frame's display order is in the bitstream itself (HEVC/H.264 picture order count in
+  the slice headers), so the remux re-times frames by it; to settle at design: whether FFmpeg gives
+  the order without decoding (its parser) or one decoding pass at scan is needed, and whether the
+  table is kept with the file's probe or worked out per chunk.
