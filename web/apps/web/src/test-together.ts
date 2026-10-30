@@ -23,6 +23,23 @@ export interface FakeTogetherServer {
    * socket opened where there is none.
    */
   readonly say: (message: Readonly<Record<string, unknown>>) => Promise<void>;
+  /** The server refusing the last socket's hello (1008: no such session or member), and its renders. */
+  readonly refuse: () => Promise<void>;
+}
+
+/** A few turns of the event loop: what a message sets off, renders and all. */
+async function turns(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+/** Runs what the server does inside act, then lets what it set off render. */
+function served(does: () => void): Promise<void> {
+  return act(async () => {
+    does();
+    await turns();
+  });
 }
 
 /** A fake Watch Together server. */
@@ -77,14 +94,14 @@ export function fakeTogetherServer(): FakeTogetherServer {
         await Promise.resolve();
       });
     },
-    say: async (message) => {
-      await act(async () => {
+    refuse: () =>
+      served(() => {
+        last().onClose(1008);
+      }),
+    say: (message) =>
+      served(() => {
         device().onMessage(JSON.stringify({ v: 2, ...message }));
-        for (let turn = 0; turn < 5; turn += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-      });
-    },
+      }),
   };
 }
 
