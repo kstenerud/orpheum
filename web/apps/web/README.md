@@ -164,14 +164,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   history step too, the person's alone: never a step the app makes itself, as the Use question's
   close, navigation's `onPersonsStep`, D384, `src/cast-receiver-steps.test.tsx`; and full screen left by the browser, not the page, told to the log), or OK or a
   click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, ending the session: a film plays on here, the
-  ready page goes home. Stopped by the sender it goes back to the page it was on before the session; either way back through the history where that page is behind, the pages the session added left ahead, so Back never steps into a film the cast played (`leaveTheCastsEntries`).
-  **A cast no one controls is left for the film's page** (D383 §2): a page loaded again while its tab
-  received a cast (a reload, a deploy) holds its film until the server says whether it hands the cast
-  again (the live connection's `isReceiveKnown`), and, handed none or one not taken, goes in its
-  place to the film's page its Play page noted, or home where none was noted, on the ready page, or
-  where the person may not see it (403, 404); a received cast's session that ends with no one
-  controlling it (gone, its receiver gone too long) does the same (`src/cast-uncontrolled.ts`).
-  `src/cast-uncontrolled.test.tsx`, `src/cast-receiver.test.tsx`; on a device, VQ189.
+  ready page goes home. **A cast that ends any other way sends its receiver home** (D384 §1): Stop
+  casting on the sender, the session's end, its controller gone (its receiver gone too long), in the
+  page's place, out of full screen; a Play page of the cast's that Back reaches after shows its
+  title's page, never playing (D383 §1). A page loaded again while its tab received a cast (a reload,
+  a deploy) holds its film until the server says whether it hands the cast again (the live
+  connection's `isReceiveKnown`, the tab's mark in `src/cast-receiving-mark.ts`), and, handed none
+  or one not taken, goes home too. `src/cast-uncontrolled.test.tsx`, `src/cast-receiver.test.tsx`,
+  `src/cast-ready.test.tsx`, `src/cast-to.test.tsx`; on a device, VQ189 and VQ190.
   The remote holds no player: with a film playing, its controls (`src/session-remote.tsx`), Up next,
   *Play on this device instead* (`/play/‹id›?at=‹ms›&here=1`, the receiver waiting ready) and Stop
   casting; with none, *Ready on ‹Device›* and Stop casting; with Watch Together on too, a way to its
@@ -179,7 +179,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
-  `src/cast-return.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
+  `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with

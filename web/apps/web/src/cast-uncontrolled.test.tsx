@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
-import { castReturnKey } from "./cast-return.ts";
+import { castReceivingKey } from "./cast-receiving-mark.ts";
 import { PlayOrSendOn } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { createNavigation, type Navigation } from "./navigation.ts";
@@ -14,7 +14,6 @@ import {
   buttonWithText,
   click,
   mount,
-  refusal,
   servedBy,
   settleUntil,
   type Answers,
@@ -40,12 +39,12 @@ const handed = {
 
 // The owner's Fire TV received a cast as staging was deployed; its page loaded again as a plain Play
 // page of the cast's film, playing with no controller (staging, 2026-10-30).
-describe("a page loaded again while its tab received a cast (D383 §2)", () => {
+describe("a page loaded again while its tab received a cast (D383 §2, D384 §1)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
-    tabStorage().removeItem(castReturnKey);
+    tabStorage().removeItem(castReceivingKey);
   });
 
   /**
@@ -58,7 +57,7 @@ describe("a page loaded again while its tab received a cast (D383 §2)", () => {
     readonly live: FakeTogetherServer;
     readonly shown: Mounted;
   }> {
-    tabStorage().setItem(castReturnKey, JSON.stringify({ castId: 5, href: "/titles/3" }));
+    tabStorage().setItem(castReceivingKey, "5");
     const place = fakePlace("/titles/3");
     place.history.pushState({ appDepth: 1, inPlace: "/titles/10" }, "", "/play/7");
     const navigation = createNavigation(place, false, false);
@@ -88,21 +87,14 @@ describe("a page loaded again while its tab received a cast (D383 §2)", () => {
     await live.say({ type: "pong", tMono: ping?.["tMono"] });
   }
 
-  it("holds the film, then goes to the film's page in its place once the server hands it nothing", async () => {
-    const { place, navigation, live, shown } = await loadedAgain({ "GET /items/10": [200, {}] });
+  it("holds the film, then goes home in its place once the server hands it nothing", async () => {
+    const { place, navigation, live, shown } = await loadedAgain({});
     expect(shown.container.textContent).not.toContain("the film plays");
     await handedNothing(live);
     await settleUntil(() => navigation.route().screen !== "play");
-    expect(navigation.route()).toEqual({ screen: "title", itemId: 10 });
-    expect(place.addresses).toEqual(["/titles/3", "/titles/10"]);
-    expect(tabStorage().getItem(castReturnKey)).toBeNull();
-  });
-
-  it("goes home where the person may not see the film's page", async () => {
-    const { navigation, live } = await loadedAgain({ "GET /items/10": refusal(404, "not_found") });
-    await handedNothing(live);
-    await settleUntil(() => navigation.route().screen !== "play");
     expect(navigation.route()).toEqual({ screen: "home" });
+    expect(place.addresses).toEqual(["/titles/3", "/"]);
+    expect(tabStorage().getItem(castReceivingKey)).toBeNull();
   });
 
   it("receives its cast again where the server hands it, and plays the film", async () => {

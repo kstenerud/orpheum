@@ -226,7 +226,7 @@ function createPageNavigation(place: Place, isOnTelevision: boolean): PageNaviga
       upFromBase(place, baseListeners, rereadRoute);
     }
   };
-  // Whether the step under way is Up's own, as to the page a cast took over (leaveTheCastsEntries).
+  // Whether the step under way is Up's own, never shown in place as a Back or Forward is (D383 §1).
   let isGoingUp = false;
   place.addEventListener("popstate", () => {
     showInPlaceAtReturn(place, current, isGoingUp);

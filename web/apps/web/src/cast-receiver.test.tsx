@@ -17,7 +17,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
-import { mount, refusal, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -313,7 +313,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(JSON.stringify(notes)).not.toContain("playedWhileHeld");
   });
 
-  it("goes back to the page it was on before the cast when the remote stops casting (D338 §1)", async () => {
+  it("goes home when the remote stops casting (D384 §1)", async () => {
     const { server, onOver, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "stopped" });
@@ -337,17 +337,12 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("goes to the film's page, its receiving over, when its cast ended unseen with no one controlling it (D383 §2)", async () => {
-    const { server, services, onOver, onLeave } = await receiver({ "GET /items/10": [200, {}] });
-    act(() => {
-      services.navigation.go({ screen: "play", fileId: 4 });
-      services.navigation.noteInPlace({ screen: "title", itemId: 10 });
-    });
+  it("goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)", async () => {
+    const { server, onOver, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "receiverGone" });
-    await settleUntil(() => onOver.mock.calls.length > 0);
-    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 10 });
-    expect(onLeave).not.toHaveBeenCalled();
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(onOver).not.toHaveBeenCalled();
   });
 
   it("goes on receiving when another cast replaces this one", async () => {
@@ -443,7 +438,7 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
     expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("waits ready for the next video where it cannot move on, and goes back to the page it was on where the cast is gone (D364 §5)", async () => {
+  it("waits ready for the next video where it cannot move on, and goes home where the cast is gone (D364 §5, D384 §1)", async () => {
     for (const [played, isLeft] of [
       [[200, { castId: 9, fileId: 0 }], false],
       [refusal(404, "not_found"), true],
