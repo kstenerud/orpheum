@@ -9,11 +9,14 @@ import { fromForLetter, railLetters } from "./alphabet-rail.tsx";
 import { Browse, type Entry } from "./browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
+  buttonNamed,
   buttonWithText,
   click,
+  enter,
   mount,
   servedBy,
   settleUntil,
+  submit,
   type Answer,
   type Heard,
   type Mounted,
@@ -169,10 +172,48 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
   });
 });
 
+describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("finds the page's own kind alone, in place of its list", async () => {
+    const services = servedBy({
+      "GET /titles": [firstPage],
+      "GET /titles/letters": [200, { letters: [] }],
+      "GET /search": [
+        200,
+        {
+          results: [
+            { id: 7, kind: "movie", name: "Metropolis" },
+            { id: 8, kind: "series", name: "Metropolis Wave" },
+          ],
+        },
+      ],
+    });
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<Browse kind="movie" />, services)}
+      </BackgroundChangesContext>,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    expect(mounted.container.querySelector("h1")?.textContent).toBe("All Films");
+    await click(mounted.container.querySelector('button[aria-label="Search"]'));
+    await enter(mounted.container.querySelector("dialog input[type=search]"), "heat");
+    await submit(mounted.container.querySelector("dialog form[role=search]"));
+    await settleUntil(() => mounted?.container.textContent.includes("Metropolis") === true);
+    expect(mounted.container.querySelector('a[href="/titles/7"]')).not.toBeNull();
+    expect(mounted.container.querySelector('a[href="/series/8"]')).toBeNull();
+    expect(mounted.container.querySelector(".poster-grid")).toBeNull();
+  });
+});
+
 /** Chooses the sort labelled label in the page's sort chooser, opened for it. */
 async function chooseSort(container: HTMLElement, label: string): Promise<void> {
   await click(container.querySelector(".route-chooser__button"));
-  await click(buttonWithText(container, label));
+  await click(buttonNamed(container, label));
 }
 
 describe("the rail follows a name sort's direction (D366 §4)", () => {
@@ -206,18 +247,18 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
     await click(mounted.container.querySelector(".route-chooser__button"));
-    const options = [...mounted.container.querySelectorAll("dialog li button")].map(
-      (each) => each.textContent,
+    const options = [...mounted.container.querySelectorAll("dialog li button")].map((each) =>
+      each.getAttribute("aria-label"),
     );
     expect(options).toEqual([
       "Name, A–Z",
       "Name, Z–A",
-      "Newest released",
       "Oldest released",
-      "Newest added",
+      "Newest released",
       "Oldest added",
+      "Newest added",
     ]);
-    await click(buttonWithText(mounted.container, "Name, Z–A"));
+    await click(buttonNamed(mounted.container, "Name, Z–A"));
     await settleUntil(() => titlesHeard(heard).length >= 2);
     expect(new URLSearchParams(titlesHeard(heard)[1]?.query).get("order")).toBe("descending");
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);

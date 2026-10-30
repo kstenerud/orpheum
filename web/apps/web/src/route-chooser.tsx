@@ -13,6 +13,10 @@ import type { Route } from "./router.ts";
 export interface Choice {
   readonly key: string;
   readonly label: string;
+  /** A mark drawn before the label: a sort's arrow. */
+  readonly mark?: ReactNode;
+  /** The choice as a screen reader says it, where the mark says part of it: "Name, A–Z". */
+  readonly spoken?: string;
   readonly to: Route;
   readonly isCurrent: boolean;
 }
@@ -24,6 +28,10 @@ export interface Choice {
 export interface ActionChoice {
   readonly key: string;
   readonly label: string;
+  /** A mark drawn before the label: a sort's arrow. */
+  readonly mark?: ReactNode;
+  /** The choice as a screen reader says it, where the mark says part of it. */
+  readonly spoken?: string;
   readonly isCurrent: boolean;
   readonly onChoose: () => void;
 }
@@ -37,6 +45,11 @@ interface ChooserTold {
    */
   readonly isFieldLabelShown?: boolean;
   readonly current: string;
+  /**
+   * An icon its button shows alone, in place of the current choice: a listing's sort (the owner,
+   * 2026-10-30: "put the whole sort thing behind an icon"), its choice seen in the list it opens.
+   */
+  readonly openerIcon?: ReactNode;
 }
 
 /**
@@ -45,9 +58,10 @@ interface ChooserTold {
  */
 function Chooser(props: ChooserTold & { readonly children: ReactNode }): JSX.Element {
   const fieldId = useId();
+  const isIcon = props.openerIcon !== undefined;
   return (
     <div className="route-chooser">
-      {props.isFieldLabelShown === false ? null : (
+      {props.isFieldLabelShown === false || isIcon ? null : (
         <span className="route-chooser__field" id={fieldId}>
           {props.fieldLabel}
         </span>
@@ -55,15 +69,19 @@ function Chooser(props: ChooserTold & { readonly children: ReactNode }): JSX.Ele
       <DropDown
         label={props.fieldLabel}
         opener={
-          <>
-            {props.current}
-            <ChevronDownIcon />
-          </>
+          isIcon ? (
+            props.openerIcon
+          ) : (
+            <>
+              {props.current}
+              <ChevronDownIcon />
+            </>
+          )
         }
-        openerClassName="route-chooser__button"
+        openerClassName={isIcon ? "icon-button route-chooser__button" : "route-chooser__button"}
         listClassName="route-chooser__panel"
         openerNaming={
-          props.isFieldLabelShown === false
+          props.isFieldLabelShown === false || isIcon
             ? { "aria-label": `${props.fieldLabel}: ${props.current}` }
             : { "aria-describedby": fieldId }
         }
@@ -94,7 +112,13 @@ export function RouteChooser(
     <Chooser {...props}>
       {props.options.map((option) => (
         <li key={option.key}>
-          <Link to={option.to} isCurrent={option.isCurrent} isReplacing={props.isAView === true}>
+          <Link
+            to={option.to}
+            isCurrent={option.isCurrent}
+            isReplacing={props.isAView === true}
+            {...(option.spoken === undefined ? {} : { label: option.spoken })}
+          >
+            {option.mark}
             {option.label}
           </Link>
         </li>
@@ -118,8 +142,10 @@ export function ActionChooser(
           <button
             type="button"
             aria-current={option.isCurrent ? "true" : undefined}
+            aria-label={option.spoken}
             onClick={option.onChoose}
           >
+            {option.mark}
             {option.label}
           </button>
         </li>

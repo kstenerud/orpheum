@@ -28,8 +28,11 @@ import {
   orderQuery,
   sortChoiceLabel,
   sortChoicesOf,
+  sortFieldLabel,
   type SortChoice,
 } from "./sort-choices.ts";
+import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
+import { QueryResults } from "./search.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
@@ -178,8 +181,9 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<SortChoice>({ sort: "name", order: "ascending" });
   const [jump, onLetter, clearJump] = useLetterJumpState();
+  const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const isNamed = choice.sort === "name";
+  const isNamed = choice.sort === "name" && query === "";
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -187,21 +191,28 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
           <h1 id="browse-heading">
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
-          <SortChooser
-            choice={choice}
-            onChoose={(chosen) => {
-              clearJump();
-              setChoice(chosen);
-            }}
-          />
+          <ListingTools>
+            <SearchButton query={query} onSearch={setQuery} />
+            <SortChooser
+              choice={choice}
+              onChoose={(chosen) => {
+                clearJump();
+                setChoice(chosen);
+              }}
+            />
+          </ListingTools>
         </div>
-        <BrowsePages
-          key={`${props.kind}/${choice.sort}/${choice.order}`}
-          kind={props.kind}
-          choice={choice}
-          jump={isNamed ? jump : undefined}
-          listRef={listRef}
-        />
+        {query === "" ? (
+          <BrowsePages
+            key={`${props.kind}/${choice.sort}/${choice.order}`}
+            kind={props.kind}
+            choice={choice}
+            jump={isNamed ? jump : undefined}
+            listRef={listRef}
+          />
+        ) : (
+          <QueryResults key={query} query={query} kind={props.kind} />
+        )}
       </div>
       {isNamed ? (
         <BrowseAlphabetRail
@@ -249,10 +260,13 @@ export function SortChooser(props: {
   return (
     <ActionChooser
       fieldLabel={t("browse.sort")}
+      openerIcon={<SortIcon />}
       current={sortChoiceLabel(t, props.choice)}
       options={sortChoicesOf(browseSorts).map((choice) => ({
         key: choiceValue(choice),
-        label: sortChoiceLabel(t, choice),
+        label: sortFieldLabel(t, choice.sort),
+        mark: <SortArrowIcon isAscending={choice.order === "ascending"} />,
+        spoken: sortChoiceLabel(t, choice),
         isCurrent: choiceValue(choice) === chosen,
         onChoose: () => {
           props.onChoose(choice);
