@@ -24809,3 +24809,18 @@ taking the receiver (`replaced`) and the server no longer knowing the cast (`gon
 the cast's Play page as it ends plays nothing, as for Stop casting; the receiver's take-back no longer
 names who took control back on the sender's page, which plays the film at once instead. Device
 check: VQ190.
+
+## D386 — A device receiving a cast is no one else's cast target, and a cast the server no longer knows sends its page home
+
+**Decided** (2026-10-30), by the project owner, amending D364's replacing cast (VQ142's second case)
+and D385's two remaining "Play here from" ends.
+
+1. **While a device receives a cast, no other device may cast to it** until that cast ends: it is not
+   offered as a target, and a cast to it is refused (the owner: "Don't let other devices take over
+   casting. When a device is being cast to, no other device may cast to it until the current casting
+   ends"). The person's own replacing cast (D364's `replaced=1`) goes with it.
+2. **A cast the server no longer knows sends the page home with an error message**, sender or
+   receiver (the owner: "For extreme edge cases like this, it's usually best to just go home"). With
+   §1 and D385, "Play here from" has no end left to offer it, and goes.
+
+**Status:** Decided 2026-10-30; not built yet.
