@@ -9,14 +9,12 @@ import { Icon } from "./icon.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 
-/** One choice among several, each a route: a library, a view, a sort, a season. */
+/** One choice among several, each a route: a library, a view, a sort. */
 export interface Choice {
   readonly key: string;
   readonly label: string;
   readonly to: Route;
   readonly isCurrent: boolean;
-  /** What shows after its label, as a season's watched check (D370 §3). */
-  readonly aside?: ReactNode;
 }
 
 /**
@@ -80,9 +78,9 @@ function Chooser(props: ChooserTold & { readonly children: ReactNode }): JSX.Ele
  * One choice among several, each a route: a drop-down (drop-down.tsx; a native select does not work
  * reliably on a television's browser, library-browsing.md §5.5) whose button shows the current
  * choice, marked by a chevron as opening a list (the owner, 2026-10-28: it looked "no different from
- * a regular button"), one list for the Libraries page's library, view and sort and a series' season
- * alike. A choice of a view of the page, a sort or a season, replaces the history's entry, not adding
- * one (D367 §9); a choice of another page, a library, adds one.
+ * a regular button"), one list for the Libraries page's library, view and sort alike (a series'
+ * seasons are a row of posters, D379). A choice of a view of the page, a sort, replaces the history's
+ * entry, not adding one (D367 §9); a choice of another page, a library, adds one.
  */
 export function RouteChooser(
   props: ChooserTold & {
@@ -97,7 +95,6 @@ export function RouteChooser(
         <li key={option.key}>
           <Link to={option.to} isCurrent={option.isCurrent} isReplacing={props.isAView === true}>
             {option.label}
-            {option.aside}
           </Link>
         </li>
       ))}

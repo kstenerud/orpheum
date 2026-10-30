@@ -40,6 +40,10 @@ export function PosterCard(props: {
   readonly actions?: ReactNode;
   /** Watches the item, for a list that loads more as its end comes into view. */
   readonly watch?: ((element: Element | null) => void) | undefined;
+  /** Whether it leads to the view shown now: a series' season in its row (D379). */
+  readonly isCurrent?: boolean;
+  /** Whether following it replaces the history's entry: a view of the same page (D367 §9). */
+  readonly isReplacing?: boolean;
 }): JSX.Element {
   const {
     to,
@@ -58,7 +62,12 @@ export function PosterCard(props: {
     isDimmed === true ? "poster-card__link poster-card__link--dimmed" : "poster-card__link";
   return (
     <li ref={watch} className="poster-card">
-      <Link to={to} className={linkClass}>
+      <Link
+        to={to}
+        className={linkClass}
+        isCurrent={props.isCurrent === true}
+        isReplacing={props.isReplacing === true}
+      >
         <span className="poster-card__art">
           {art ?? <Poster sourceSha256={posterSha256} stillSha256={noPosterStillSha256} />}
           {progress === undefined ? null : (

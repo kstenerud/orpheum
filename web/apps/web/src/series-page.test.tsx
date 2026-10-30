@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * A series is one page with a season picker (D367 §9): choosing a season replaces the history's
+ * A series is one page with a row of its seasons (D367 §9, D379): choosing a season replaces the history's
  * entry, and returning to the series shows the season of the episode one comes back from, that
  * episode focused.
  */
@@ -73,20 +73,10 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
     navigation.go({ screen: "series-page", collectionId: 6 });
     shown = await mount(withServices(<Series id={6} />, { ...servedBy(answers), navigation }));
     const { container } = shown;
-    await settleUntil(() => container.querySelector(".route-chooser__button") !== null);
-    await click(container.querySelector(".route-chooser__button"));
-    const seasonTwo = [...container.querySelectorAll<HTMLAnchorElement>("dialog a")].find((link) =>
-      link.textContent.startsWith("Season 2"),
-    );
-    await click(seasonTwo);
-    // Ahead of it, as a browser keeps an entry Back left, the entry the picker's list held while it
-    // was open, so the browser's own Back closed it (Silk's, the owner, 2026-10-28); Forward onto it
-    // steps straight back off it, the season chosen staying.
-    expect(place.addresses).toEqual(["/series", "/series/6?season=2", "/series/6"]);
-    expect(navigation.behind()).toEqual([{ screen: "series" }]);
-    act(() => {
-      place.history.go(1);
-    });
+    await settleUntil(() => container.querySelector(".series__seasons a") !== null);
+    // Its poster in the row of seasons (D379 §2), no list opened between.
+    await click(container.querySelector('.series__seasons a[href="/series/6?season=2"]'));
+    expect(place.addresses).toEqual(["/series", "/series/6?season=2"]);
     expect(navigation.route()).toEqual({ screen: "series-page", collectionId: 6, season: 2 });
     expect(navigation.behind()).toEqual([{ screen: "series" }]);
   });

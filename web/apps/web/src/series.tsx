@@ -3,14 +3,13 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { use, useCallback, useEffect, useId, useState, type JSX } from "react";
+import { use, useCallback, useEffect, useId, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
 import { episodeReachedOf, letGoOfEpisodeReached, type EpisodeReached } from "./episode-reached.ts";
 import { restoreWhenDrawn } from "./focus-memory.ts";
 import { focusAndShow } from "./focus-navigation.ts";
-import { RouteChooser } from "./route-chooser.tsx";
 import { routeHref } from "./router.ts";
 import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
@@ -20,7 +19,8 @@ import { identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
-import { StatusNotes } from "./status-cues.tsx";
+import { StatusNotes, StatusTray } from "./status-cues.tsx";
+import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { usePageInterest } from "./page-interest.ts";
@@ -52,9 +52,9 @@ function seasonName(t: TFunction, series: SeriesDetail, season: Season): string 
 }
 
 /**
- * A series' page, one page whatever season it shows (D367 §9): its art and what it is about, then one
- * season's episodes, the season chosen by a picker, which changes the view and adds no step to the
- * history; with none chosen, the season of the person's next episode, else the first. Every season's
+ * A series' page, one page whatever season it shows (D367 §9): its art and what it is about, then its
+ * seasons as a row of posters (D379), then one season's episodes, the season chosen in the row, which
+ * changes the view and adds no step to the history; with none chosen, the season of the person's next episode, else the first. Every season's
  * episodes on one page, the seasons only headings, was too long a list to find one in (the owner,
  * 2026-10-07). The seasons are the groups of the ordering the person watches the series in, which a
  * series of more than one offers to change, under the "…" of what is rarely used; the episodes that
@@ -100,12 +100,11 @@ export function SeriesView(props: {
               onOrderingChosen={props.onOrderingChosen}
             />
           </div>
-          {/* Among the series' choices, where a remote's arrows reach it with them (D367 §9). */}
-          {shown === undefined || seasons.length === 1 ? null : (
-            <SeasonPicker series={series} shown={shown} />
-          )}
         </div>
       </div>
+      {shown === undefined || seasons.length === 1 ? null : (
+        <SeasonRow series={series} shown={shown} />
+      )}
       <SeriesSeasons
         series={series}
         season={props.season}
@@ -263,8 +262,9 @@ function shownSeasonOf(series: SeriesDetail, chosen: number | undefined): Season
 }
 
 /**
- * Below a series' head: the season shown, picked in the head, with its Mark as watched; then the
- * episodes its ordering leaves out.
+ * Below the row of seasons: the season shown, chosen in the row, with its Mark as watched at the
+ * heading's end, out of the way of Down from the row into the episodes (D379 §3); then the episodes
+ * its ordering leaves out.
  */
 function SeriesSeasons(props: {
   readonly series: SeriesDetail;
@@ -280,8 +280,10 @@ function SeriesSeasons(props: {
     <>
       {shown === undefined ? null : (
         <section aria-labelledby={`season-${String(shown.seasonNumber)}`}>
-          <h2 id={`season-${String(shown.seasonNumber)}`}>{seasonName(t, series, shown)}</h2>
-          <SeasonMark series={series} season={shown} onChanged={props.onWatchedChanged} />
+          <div className="series__season-head">
+            <h2 id={`season-${String(shown.seasonNumber)}`}>{seasonName(t, series, shown)}</h2>
+            <SeasonMark series={series} season={shown} onChanged={props.onWatchedChanged} />
+          </div>
           <SeasonEpisodes key={props.marks} seriesId={series.id} season={shown.seasonNumber} />
         </section>
       )}
@@ -401,33 +403,49 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
 }
 
 /**
- * The picker of a series' seasons, each by its name and how many episodes it holds, with the check
- * once its person watched every one (D370 §3): a choice is a view of the series, which replaces the
- * history's entry (D367 §9).
+ * A series' seasons as a row of posters above the episodes (D379 §1), in the server's order, the
+ * specials last; each by its name and how many episodes it holds, with the check once its person
+ * watched every one (D370 §3). A season has no poster of its own yet: one with a still shows it in
+ * its poster's place (D362 §2), else the series' poster. Choosing one is a view of the series, which
+ * replaces the history's entry (D379 §2, D367 §9). The row is one focus container: a remote's Left and
+ * Right move along it, Down leaves it for the season's episodes (D379 §3).
  */
-function SeasonPicker(props: {
-  readonly series: SeriesDetail;
-  readonly shown: Season;
-}): JSX.Element {
+function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Season }): JSX.Element {
   const { t } = useTranslation();
-  const { series } = props;
+  const { series, shown } = props;
+  const rowRef = useRef<HTMLUListElement>(null);
+  // The season shown in view, where the row scrolls sideways past it.
+  useEffect(() => {
+    const current = rowRef.current?.querySelector('[aria-current="page"]');
+    if (current instanceof HTMLElement && typeof current.scrollIntoView === "function") {
+      current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [shown.seasonNumber]);
   return (
-    <RouteChooser
-      fieldLabel={t("title.seasonChoice")}
-      isFieldLabelShown={false}
-      current={seasonName(t, series, props.shown)}
-      options={(series.seasons ?? []).map((season) => ({
-        key: String(season.seasonNumber),
-        label: t("title.seasonWithCount", {
-          season: seasonName(t, series, season),
-          count: season.episodeCount,
-        }),
-        to: { screen: "series-page", collectionId: series.id, season: season.seasonNumber },
-        isCurrent: season.seasonNumber === props.shown.seasonNumber,
-        aside: season.isWatched === true ? <WatchedRowMark /> : undefined,
-      }))}
-      isAView
-    />
+    <ul
+      ref={rowRef}
+      className="poster-row series__seasons"
+      aria-label={t("title.seasons")}
+      data-focus-container=""
+    >
+      {(series.seasons ?? []).map((season) => (
+        <PosterCard
+          key={season.seasonNumber}
+          to={{ screen: "series-page", collectionId: series.id, season: season.seasonNumber }}
+          isCurrent={season.seasonNumber === shown.seasonNumber}
+          isReplacing
+          posterSha256={season.stillSha256 === undefined ? series.art.posterSha256 : undefined}
+          noPosterStillSha256={season.stillSha256}
+          name={seasonName(t, series, season)}
+          details={
+            <PosterDetail>
+              {t("title.seasonEpisodeCount", { count: season.episodeCount })}
+            </PosterDetail>
+          }
+          cues={<StatusTray subject={{ isWatched: season.isWatched }} />}
+        />
+      ))}
+    </ul>
   );
 }
 
@@ -590,7 +608,7 @@ const rememberedSeries = new Remembered<SeriesDetail>();
 function useSeasonReturnedTo(seriesId: number, season: number | undefined): number | undefined {
   const { navigation } = useServices();
   const [arrival] = useState<EpisodeReached | undefined>(() => episodeReachedOf(seriesId));
-  // The arrival's season, shown until the address holds it; then the address's, the picker's.
+  // The arrival's season, shown until the address holds it; then the address's, the row's.
   const [arriving, setArriving] = useState(arrival);
   if (arriving !== undefined && arriving.season === season) {
     setArriving(undefined);

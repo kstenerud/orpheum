@@ -88,3 +88,34 @@
   border-radius: var(--radius-control);
   background: var(--color-surface-raised);
 }
+
+/* The seasons' row (D379): the season shown is underlined in the accent under its name, and its
+   poster ringed, as the banner marks the place shown (app-shell.css). */
+.series__seasons {
+  margin-block-start: var(--space-4);
+}
+
+.series__seasons [aria-current="page"] .poster-card__name {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.series__seasons [aria-current="page"] .poster {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The season's heading, its Mark as watched at the line's end: Down from the row lands in the
+   episodes, not on the mark (D379 §3). */
+.series__season-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.series__season-head > .watched-marking {
+  margin: 0;
+}

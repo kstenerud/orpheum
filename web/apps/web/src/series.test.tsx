@@ -24,6 +24,16 @@ const episode = (
 
 const loaded = <T,>(value: T) => ({ state: "loaded" as const, value });
 
+/** The markup of each poster in a series page's row of seasons, in its order; none where it has none. */
+function seasonCards(markup: string): string[] {
+  const row = /<ul class="poster-row series__seasons" aria-label="Seasons"[^>]*>(.*?)<\/ul>/su.exec(
+    markup,
+  )?.[1];
+  return [...(row ?? "").matchAll(/<li class="poster-card">(.*?)<\/li>/gsu)].map(
+    (card) => card[1] ?? "",
+  );
+}
+
 describe("SeriesView", () => {
   it("shows one season at a time, the first where nothing is chosen, picked from the rest (D367 §9)", () => {
     const series: SeriesDetail = {
@@ -33,22 +43,42 @@ describe("SeriesView", () => {
       art: { posterSha256: "p" },
       seasons: [
         { seasonNumber: 1, episodeCount: 2, stillSha256: "s31" },
-        { seasonNumber: 2, episodeCount: 1 },
+        { seasonNumber: 2, episodeCount: 1, isWatched: true },
         { seasonNumber: 0, episodeCount: 1 },
       ],
     };
-    // One series page whose season is a view, picked by a chooser a remote reaches (D367 §9; the
-    // owner, 2026-10-27), in place of a page of seasons each leading to its own.
+    // One series page whose season is a view (D367 §9), picked from a row of its seasons' posters
+    // above its episodes, in place of a choice box (D379 §1; the owner, 2026-10-28).
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(markup).toContain(">Season 1</h2>");
-    expect(markup).toContain('aria-label="Season: Season 1"');
-    expect(markup).not.toContain("Season 2");
-    expect(markup).not.toContain("Specials");
+    expect(markup).not.toContain(">Season 2</h2>");
+    expect(markup).not.toContain("route-chooser");
+    const cards = seasonCards(markup);
+    // In the server's order, the specials last, each leading to its season.
+    expect(cards.map((card) => /href="([^"]*)"/u.exec(card)?.[1])).toEqual([
+      "/series/20?season=1",
+      "/series/20?season=2",
+      "/series/20?season=0",
+    ]);
+    expect(cards[2]).toContain("Specials");
+    expect(cards[0]).toContain("episodes: 2");
+    // The season shown is marked; the others are not.
+    expect(cards[0]).toContain('aria-current="page"');
+    expect(cards[1]).not.toContain('aria-current="page"');
+    // A season with a still shows it in its poster's place (D362 §2); one without, the series' poster.
+    expect(cards[0]).toContain("/bytes/art/s31/landscape-s.webp");
+    expect(cards[0]).not.toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[1]).toContain("/bytes/art/p/portrait-m.webp");
+    // A season watched whole shows its check over its poster (D370 §3).
+    expect(cards[1]).toContain("poster-card__cues");
+    expect(cards[0]).not.toContain("poster-card__cues");
     // A season chosen names the season; its episodes are read apart.
     const season = renderToStaticMarkup(withServices(<SeriesView series={series} season={0} />));
     expect(season).toContain(">Specials</h2>");
-    expect(season).toContain('aria-label="Season: Specials"');
-    expect(season).not.toContain("Season 1");
+    expect(season).not.toContain(">Season 1</h2>");
+    const chosen = seasonCards(season);
+    expect(chosen[2]).toContain('aria-current="page"');
+    expect(chosen[0]).not.toContain('aria-current="page"');
   });
 });
 
@@ -245,6 +275,7 @@ describe("a series of one season", () => {
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(markup).toContain(">Season 1</h2>");
     expect(markup).not.toContain("All seasons");
+    expect(markup).not.toContain("series__seasons");
   });
 });
 
