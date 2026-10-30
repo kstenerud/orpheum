@@ -227,6 +227,12 @@ export const en = {
     heading: "Testing",
     show: "Show debug tools",
     hint: "Shows extra controls and readouts for testing.",
+    linkCap: "Cap this tab's download rate",
+    linkCapOff: "No cap",
+    linkCapRate: "{{rate}} Mb/s",
+    drop: "Drop the connection for {{seconds}} s",
+    dropped: "Connection dropped for testing: back in {{seconds}} s",
+    throttled: "Throttled to {{rate}} Mb/s",
   },
   activate: {
     heading: "Activate a device",

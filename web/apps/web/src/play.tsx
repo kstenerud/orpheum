@@ -44,6 +44,7 @@ import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
+import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
@@ -202,15 +203,21 @@ function PlayerView(
 }
 
 /**
- * The bare player's button where onBare is given. Casting is no longer offered here: it is started
- * from the status tray's Cast, and moves this film with it (D364 §1, §12).
+ * The bare player's button where onBare is given, and the debug link's tools (D380). Casting is no
+ * longer offered here: it is started from the status tray's Cast, and moves this film with it (D364
+ * §1, §12).
  */
-function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): JSX.Element | null {
+function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): JSX.Element {
   const { t } = useTranslation();
-  return props.onBare === undefined ? null : (
-    <button type="button" onClick={props.onBare}>
-      {t("play.bare.open")}
-    </button>
+  return (
+    <>
+      {props.onBare === undefined ? null : (
+        <button type="button" onClick={props.onBare}>
+          {t("play.bare.open")}
+        </button>
+      )}
+      <LinkDebugTools />
+    </>
   );
 }
 

@@ -3,6 +3,7 @@
 import type { Api, BrowserVoiceDevices, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
+import type { LinkDebug } from "./link-debug.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
@@ -63,6 +64,11 @@ export interface Services {
    * removal. Undefined where nothing tells.
    */
   readonly onPathBack?: ((listener: () => void) => () => void) | undefined;
+  /**
+   * The tab's debug link, its cap and its drop, which a debug tool on the player sets (D380);
+   * undefined where nothing shapes the page's link, as in a test that gives none.
+   */
+  readonly linkDebug?: LinkDebug | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

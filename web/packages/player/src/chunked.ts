@@ -24,6 +24,7 @@ import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
 import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
+import { shapedLoader } from "./link-shaping.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -569,6 +570,14 @@ function failOrLoadOn(
 }
 
 /**
+ * The loader of a playback's chunks: hls.js's own, shaped by the tab's debug cap and drop, in the
+ * chunk fetch so every carrier is shaped alike (D380 §2), its sound moved earlier by soundShift.
+ */
+function chunkLoader(soundShift: SoundShift): ReturnType<typeof shiftingFragmentLoader> {
+  return shiftingFragmentLoader(shapedLoader(Hls.DefaultConfig.loader), () => soundShift.earlierMs);
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, its
  * quality chosen by a bitrate controller of our own from startAtBps (D265); else with the element's
  * own HLS, which adapts by itself.
@@ -610,7 +619,7 @@ export function playChunked(
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const hls = new Hls({
-    fLoader: shiftingFragmentLoader(Hls.DefaultConfig.loader, () => soundShift.earlierMs),
+    fLoader: chunkLoader(soundShift),
     ...chunkedHlsConfig({
       ...options,
       paceKbps: () => abr.choosing()?.paceKbps(),

@@ -38,6 +38,14 @@
   justify-self: start;
 }
 
+/* The debug link's tools (link-debug-tools.tsx, D380): the cap and the drops in one wrapping row. */
+.play__link-debug {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 /* The bare player (bare-player.tsx): the video alone, as wide as the page, nothing over it. */
 .bare-player {
   width: 100%;
