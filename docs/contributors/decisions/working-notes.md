@@ -24444,3 +24444,31 @@ Resolved in the build, where the decision left it open (say if any should go oth
 - 5: TestHub_ALeadersOwnPauseNeitherStopsTheGroupNorHoldsTheLead; VQ139
 - 6: TestHub_TheHostsPlayerComingBackFollowsUntilInStepThenLeads; VQ139
 - 7: TestHub_ALeaderlessGroupGoesOnFromThePositionItsNewLeaderPresents, TestHub_AGroupLeftWhilePlayingIsHeldAndPlaysOnAsAPlayerReturns; VQ139
+
+## D378 — An unticked verification item is owed, not a failure; web reds are kept by their tests' modules
+
+**Decided** (2026-10-30), by the project owner, amending D190's `Verified-By:` rule and the caching
+audit's finding 3 (revert-red's record). The 10-27 batch's check-pr took 75 minutes and failed only on
+files whose VQ items were unticked; the owner: "Sometimes it's better to push through a batch that's been
+taking too long, even if it risks a bug getting through. We have the VQs as a record of things we need to
+test but haven't yet, so we don't actually lose anything when pushing through anyway ... since I'm the
+only one who controls what in the VQs pass, it doesn't make much sense for it to cause spurious failures
+in the mechanical checks. What I actually need from them is to be able to ask you 'What are the tests we
+need most for this batch, and which unfinished tests really need to get sorted out?'"
+
+1. **A `Verified-By:` naming a VQ item in the queue passes revert-red, ticked or not.** A trailer naming
+   no item, or one not in the queue, still fails. The probe still runs first, so a file a test covers is
+   covered whatever its commit claims (an earlier commit's lesson stands).
+2. **Revert-red lists the owed items**: after its verdicts, "Owed device checks", each unticked VQ item
+   with the batch's files that rest on it. That list, with each item's text, is what the lead answers
+   the owner's question from: which checks this batch needs most, and which owed ones must be done.
+3. **A web red is kept by the modules of the tests it failed** (read from the run's output), what they
+   import, relative and through the workspace packages, and the runs' configurations
+   (`scripts/revert_red_web.py` `modules_read`), not by the whole web client's tree, which every web
+   commit changed (140 related runs, half the 75 minutes). A test whose modules read files by a path no
+   import names (node:fs, import.meta.glob), a red whose output names no test, and every web green keep
+   the whole tree. A missed import would keep a stale red, which passes a file; the nightly
+   `check-everything` trusts no record, so such a red lasts a day at most.
+
+**Status:** Decided 2026-10-30.
+
