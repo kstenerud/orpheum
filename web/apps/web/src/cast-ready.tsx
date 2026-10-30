@@ -49,11 +49,11 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
     sessionToken: token,
     role: "panel", // it plays nothing; it hears the cast's end
   });
-  // With nothing playing, control taken back goes home too (D364 §9), as every other end does.
-  useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
-    onOver: leaveReceiving,
-    onLeave: leaveReceiving,
-  });
+  // Control taken back goes home, as every other end does (D384 §1, D385 §1).
+  useEndsAsTheCastDoes(
+    snapshot?.status === "ended" ? snapshot.endReason : undefined,
+    leaveReceiving,
+  );
   const takeBack = useCallback(() => {
     endCast(api, cast.castId, "takenBack").catch(() => undefined);
     leaveReceiving();

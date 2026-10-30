@@ -59,7 +59,7 @@ describe("a cast's receiver and its person's Watch Together session (D364 §11, 
       handAgain = setHanded;
       return (
         <CastReceiver
-          receiving={{ cast: handed, onOver: vi.fn(), onLeave: vi.fn() }}
+          receiving={{ cast: handed, onLeave: vi.fn() }}
           fileId={4}
           video={video}
           startPositionMs={0}

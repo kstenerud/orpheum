@@ -69,7 +69,7 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
       withServices(
         <SoundPanelContext value={newSoundPanel()}>
           <CastReceiver
-            receiving={{ cast, onOver: vi.fn(), onLeave: vi.fn() }}
+            receiving={{ cast, onLeave: vi.fn() }}
             fileId={4}
             video={video}
             startPositionMs={0}

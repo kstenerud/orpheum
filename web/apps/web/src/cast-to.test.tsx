@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
 import { castAnswerGraceMs, castAnswerWithinMs } from "./cast.ts";
+import { useReceiving } from "./cast-receiver.tsx";
 import { castReceivingKey } from "./cast-receiving-mark.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
@@ -81,16 +82,26 @@ function ReceivingFile(): JSX.Element {
   return <p>{receiving === undefined ? "" : `receiving file ${String(receiving.fileId)}`}</p>;
 }
 
-/** What the receiver shows, and its two ways out, as children of the provider. */
+/** What the receiver shows, and its way out, as children of the provider. */
 function Leaving(): JSX.Element {
-  const { receiving, endReceiving, leaveReceiving } = useLive();
+  const { receiving, leaveReceiving } = useLive();
   return (
     <>
       <p>{receiving === undefined ? "" : `receiving cast ${String(receiving.castId)}`}</p>
       <button type="button" onClick={leaveReceiving}>
         leave
       </button>
-      <button type="button" onClick={endReceiving}>
+    </>
+  );
+}
+
+/** The receiver of film 7's Play page, and its way out as its control is taken back (useReceiving). */
+function TakingBack(): JSX.Element {
+  const receiving = useReceiving(7);
+  return (
+    <>
+      <p>{receiving === undefined ? "" : `receiving cast ${String(receiving.cast.castId)}`}</p>
+      <button type="button" onClick={receiving?.onLeave}>
         take back
       </button>
     </>
@@ -427,11 +438,11 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const sockets = liveAndSession();
     function Part(): JSX.Element {
-      const { receiving, endReceiving } = useLive();
+      const { receiving, leaveReceiving } = useLive();
       return (
         <>
           <p>{`part ${receiving?.togetherCredential ?? "none"}`}</p>
-          <button type="button" onClick={endReceiving}>
+          <button type="button" onClick={leaveReceiving}>
             take back
           </button>
         </>
@@ -498,14 +509,14 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(navigation.route().screen).not.toBe("play");
   });
 
-  it("stays on the film, forgetting it received, as its control is taken back here (D338 §6)", async () => {
+  it("goes home, forgetting it received, as its control is taken back here (D385 §1, amending D338 §6)", async () => {
     const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const sockets = liveAndSession();
     const server = sockets.live;
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <Leaving />
+          <TakingBack />
         </LiveProvider>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),
@@ -513,8 +524,10 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     await server.accept();
     await server.say({ type: "receive", receive: handed });
     await pressUse(mounted.container);
+    expect(mounted.container.textContent).toContain("receiving cast 5");
     await click(buttonWithText(mounted.container, "take back"));
-    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(mounted.container.textContent).not.toContain("receiving");
     expect(tabStorage().getItem(castReceivingKey)).toBeNull();
   });
 });
