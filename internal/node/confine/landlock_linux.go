@@ -151,9 +151,9 @@ func rulesetFor(abi int) unix.LandlockRulesetAttr {
 	case abi >= 2:
 		handled = fsRightsABI2
 	}
-	attributes := unix.LandlockRulesetAttr{Access_fs: handled}
+	attributes := unix.LandlockRulesetAttr{Handled_access_fs: handled}
 	if abi >= 4 {
-		attributes.Access_net = unix.LANDLOCK_ACCESS_NET_BIND_TCP | unix.LANDLOCK_ACCESS_NET_CONNECT_TCP
+		attributes.Handled_access_net = unix.LANDLOCK_ACCESS_NET_BIND_TCP | unix.LANDLOCK_ACCESS_NET_CONNECT_TCP
 	}
 	if abi >= 6 {
 		attributes.Scoped = unix.LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | unix.LANDLOCK_SCOPE_SIGNAL
@@ -203,15 +203,17 @@ func grantsFor(spec Spec) []grant {
 // restrictLandlock confines the calling thread, and what it executes, to the spec's grants.
 func restrictLandlock(abi int, spec Spec) error {
 	attributes := rulesetFor(abi)
+	// Passed up to Scoped, the last field rulesetFor sets: x/sys v0.49 added the quiet fields after
+	// it, which a kernel without them takes only when they are zero.
 	//nolint:gosec // G103: the ruleset's attributes, passed as the syscall defines them
 	ruleset, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
-		uintptr(unsafe.Pointer(&attributes)), unsafe.Sizeof(attributes), 0)
+		uintptr(unsafe.Pointer(&attributes)), unsafe.Offsetof(attributes.Quiet_access_fs), 0)
 	if errno != 0 {
 		return fmt.Errorf("create a Landlock ruleset: %w", errno)
 	}
 	defer func() { _ = unix.Close(int(ruleset)) }() //nolint:errcheck // the thread keeps the domain
 	for _, rule := range grantsFor(spec) {
-		err := addLandlockRule(int(ruleset), rule.path, rule.rights&attributes.Access_fs)
+		err := addLandlockRule(int(ruleset), rule.path, rule.rights&attributes.Handled_access_fs)
 		if err != nil && (rule.isRequired || !errors.Is(err, os.ErrNotExist)) {
 			return err
 		}
