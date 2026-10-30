@@ -410,3 +410,23 @@ had leaned on.
   The modal still needs "Back to the playing film" when Watch Together plays on this device (no
   cast): someone browsing other films while the shared one plays has no easy way back otherwise (the
   owner, 2026-10-29).
+
+## Security (the owner, 2026-10-30)
+
+- **Done:** pion/stun v3.1.5 (the TURN relay's remote panic), on staging and nas.example; check-vulns first
+  in check-pr and the nightly run; every Action pinned by commit (research/security-pins-2026-10-30.md,
+  research/github-integrity-2026-10-30.md).
+- **This batch, the owner's part first:** signed tags (github-integrity recommendation 3). The owner
+  makes an SSH signing key on a FIDO hardware key (`ssh-keygen -t ed25519-sk`), with a second key as a
+  spare; then the lead adds `allowed_signers` on nas.example and prod-api, outside the clone, and
+  `deploy/release/build.sh` runs `git verify-tag` before it builds.
+- **This batch, to the owner for a yes:** the audit's "in the batch" bumps: Vite 8.3.5, vitest 5.0.5,
+  happy-dom 21, x/net v0.62.0, Node 22.23.4, a fresh Debian digest, a lockfile refresh, FFmpeg 8.1.3
+  (jellyfin v8.1.3-1), and staging's Mailpit 1.30.4.
+- **Before the public release:** each release's image digest signed with the owner's key and published
+  off GitHub, with a bootstrap install on orpheum-app.com that checks it and pulls by digest (the owner
+  to choose ssh-keygen or cosign, and whether the household install command changes; recommendation 4);
+  a second remote the owner controls, compared with GitHub's refs, which nas.example clones from
+  (recommendation 5); the connect package signed; the image and FFmpeg reproducible, rebuilt on gpuhost
+  before signing. The account's own hardening (hardware keys as the only 2FA, old keys and tokens
+  pruned, no force-pushes, `v*` tags for the owner alone) is the owner's to do in GitHub's settings.
