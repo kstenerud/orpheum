@@ -388,6 +388,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D380](working-notes.md#d380--a-debug-tool-caps-this-tabs-download-rate-or-drops-its-connection-for-a-while) A debug tool caps this tab's download rate, or drops its connection for a while
 - [D381](working-notes.md#d381--the-player-chooses-the-quality-it-starts-on-by-the-rule-it-plays-by) The player chooses the quality it starts on, by the rule it plays by
 - [D382](working-notes.md#d382--a-given-up-chunk-lowers-quality-only-as-far-as-the-links-estimate-carries-and-a-busy-page-or-a-first-piece-measures-nothing) A given-up chunk lowers quality only as far as the link's estimate carries, and a busy page or a first piece measures nothing
+- [D383](working-notes.md#d383--back-or-forward-never-starts-a-film-and-a-receiver-with-no-controller-goes-to-the-films-page) Back or Forward never starts a film, and a receiver with no controller goes to the film's page
 
 ## Archived
 
