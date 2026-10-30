@@ -545,3 +545,6 @@ had leaned on.
   isLanNameUsed=true localNetwork=granted`). Sign out sends each to the sign-in of where its page now
   is. One place to land is owed, for the owner to choose: the discovery's sign-in (where a person
   first arrives, and which finds their server again from anywhere) is the lead's recommendation.
+  **The owner chose (2026-10-30): the discovery's sign-in, except where there is no discovery**; for
+  the closed beta one is assumed. Three operating modes are coming: standalone (no discovery: the
+  core's own sign-in), a self-deployed discovery server, and our paid discovery server.

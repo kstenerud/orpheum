@@ -1198,7 +1198,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   jumps from Chrome and then from the TV's remote):** the S23 stayed in step; one leader (device 64)
   on every `groupChanged`, the S23 (device 67) caught up by a seek at each jump and nudges to within
   0.5 s. (2) still left.
-- [ ] **VQ103** — a guest casting to a second device follows the group there (D371 §4), on staging.
+- [x] **VQ103** — a guest casting to a second device follows the group there (D371 §4), on staging.
   Passes when the Mac hosts a session playing a film and a guest, signed in on the iPhone as a
   person of their own, joins it, then casts from the iPhone (the tray's Cast) to a second device of
   theirs (the Fire TV or a computer's browser) and says Use there: (1) the second device plays the
