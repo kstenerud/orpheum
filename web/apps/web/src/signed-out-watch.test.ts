@@ -45,6 +45,7 @@ function recordingNavigation(went: Route[]): Navigation {
     noteInPlace: () => undefined,
     notedInPlace: () => undefined,
     onBase: () => () => undefined,
+    onPersonsStep: () => () => undefined,
     holdBack: () => () => undefined,
   };
 }

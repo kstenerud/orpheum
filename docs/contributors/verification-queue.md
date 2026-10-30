@@ -1857,3 +1857,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   page (or redeploy staging): passes when the TV goes to the film's page within a few seconds, not a
   Play page playing with no controller; Back from it never starts the film.
   (`web/apps/web/src/navigation.ts`, `play-up.tsx`, `live.tsx`, `cast-receiver.tsx`)
+- [ ] **VQ190** — a cast that ends sends its receiver home, and the page cast from stays where it is
+  (D384), on staging. (1) The Fire TV receiving a cast from the Mac's Chrome, Use pressed on the TV
+  with one OK: passes when the cast holds, never taken back by the OK that said Use (the core's log
+  shows no `a cast ended … reason=takenBack` after the `a receiver said Use`); Stop casting on Chrome
+  sends the TV to its home page; in a second cast, Back on the TV takes control back and the film
+  plays on there. (2) The S23, a Watch Together guest on the group's film: Cast from the tray,
+  choose the Fire TV: passes when the S23 stays on its page of the group's film, its video's area
+  saying "Playing on Fire TV" with the group's controls; Stop casting plays the film on the S23
+  again on that page, the TV going home. (3) The Mac's Chrome, a solo Play page: cast to the Fire
+  TV and stop: passes when Chrome stays on its Play page throughout, the film playing there again
+  from the TV's position. (4) Watch Together's sign opens a dialog over whatever page is shown;
+  "Back to the film" goes to the Play page of the group's film; leaving it and coming back never
+  shows a separate session page. (`web/apps/web/src/navigation.ts`, `cast-receiver.tsx`, `live.tsx`,
+  `play.tsx`, `status-tray.tsx`)

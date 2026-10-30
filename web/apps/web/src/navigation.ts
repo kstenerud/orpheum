@@ -77,6 +77,14 @@ export interface Navigation {
    */
   readonly onBase: (listener: () => void) => () => void;
   /**
+   * Tells listener when the person stepped through the history, by the browser's own Back or Forward
+   * or the page's Back, to a page's own entry; returns the stopping. Never a step the app makes itself
+   * (a dialog's close stepping off the entry it held, a go waiting on that, Up's way back), nor a Back
+   * that only closed what was open over the page: a cast's receiver took the step closing its Use
+   * question for the person's Back, and gave its control back at once (D384).
+   */
+  readonly onPersonsStep: (listener: () => void) => () => void;
+  /**
    * Lays an entry of the same address over the current one for something open over the page, a
    * dialog or a drop-down's list, so the browser's own Back closes it before leaving the page: a Fire
    * TV's remote Back in Silk is a step of the history, never a key the page hears (idiosyncrasies.md;
@@ -193,11 +201,15 @@ export function createNavigation(
     },
     back: (up) => held.stepsOffOne() || pages.back(up),
     holdBack: held.hold,
+    onPersonsStep: held.onPersonsStep,
   };
 }
 
+/** What navigates among the pages' own entries: Navigation but for what the held entries do. */
+type PageNavigation = Omit<Navigation, "holdBack" | "onPersonsStep">;
+
 /** Navigation among the pages' own entries, over a place whose held entries are kept apart. */
-function createPageNavigation(place: Place, isOnTelevision: boolean): Omit<Navigation, "holdBack"> {
+function createPageNavigation(place: Place, isOnTelevision: boolean): PageNavigation {
   const readRoute = (): Route => parseRoute(place.location.pathname, place.location.search);
   let current = readRoute();
   let depth = isOnTelevision ? layBase(place, current) : depthOf(place.history.state);
@@ -310,14 +322,18 @@ class HeldEntries {
   readonly #waiting: (() => void)[] = [];
   /** Whether a step of the app's own is under way, its popstate still to come. */
   #isStepping = false;
+  /** Whether a step the pages' navigation took itself is under way (Up's), its popstate to come. */
+  #isPagesStepping = false;
   /** The pages' navigation's popstate listener, which rereads the route. */
   #rereadRoute: () => void = () => undefined;
+  /** Those told of the person's own steps (Navigation's onPersonsStep). */
+  readonly #personsStepListeners = new Set<() => void>();
 
   constructor(place: Place) {
     this.#place = place;
     this.place = {
       location: place.location,
-      history: place.history,
+      history: this.#pagesHistory(place.history),
       addEventListener: (_type, listener) => {
         this.#rereadRoute = listener;
       },
@@ -327,6 +343,34 @@ class HeldEntries {
     });
     // A page opened again on a held entry, as by a reload while a dialog was open, steps off it.
     this.#keepLaid();
+  }
+
+  /** Navigation's onPersonsStep: tells listener of each of the person's own steps. */
+  readonly onPersonsStep = adderTo(this.#personsStepListeners);
+
+  /**
+   * The history as the pages' navigation works it: the place's, but a move through it by go is the
+   * pages' own step (Up's way back), never the person's.
+   */
+  #pagesHistory(history: Place["history"]): Place["history"] {
+    return {
+      get state(): unknown {
+        return history.state;
+      },
+      back: () => {
+        history.back();
+      },
+      go: (delta) => {
+        this.#isPagesStepping = true; // a test's history steps at once, telling popstate within go
+        history.go(delta);
+      },
+      pushState: (data, unused, url) => {
+        history.pushState(data, unused, url);
+      },
+      replaceState: (data, unused, url) => {
+        history.replaceState(data, unused, url);
+      },
+    };
   }
 
   /** Lays an entry for a new hold; returns its release. */
@@ -402,9 +446,13 @@ class HeldEntries {
 
   /**
    * A popstate: the end of a step of the app's own, or the browser's Back or Forward, which closes
-   * each hold whose entry it stepped off. Rereads the route, runs what waited, lays what is held.
+   * each hold whose entry it stepped off. Rereads the route, tells the person's own step (neither
+   * the app's, the pages' Up nor a Back that closed a hold), runs what waited, lays what is held.
    */
   #heardPopstate(): void {
+    const isPagesStep = this.#isPagesStepping;
+    this.#isPagesStepping = false;
+    let isPersons = false;
     if (this.#isStepping) {
       this.#isStepping = false;
       if (this.#waiting.length > 0 && this.#laid() > 0) {
@@ -412,20 +460,35 @@ class HeldEntries {
         return;
       }
     } else {
-      for (const closed of this.#holds.splice(this.#laid()).reverse()) {
-        closed.onBack();
-      }
-      // Forward onto an entry left ahead by a list closed, which nothing holds: straight back off it.
-      if (this.#laid() > this.#holds.length) {
-        this.#stepBack(this.#laid() - this.#holds.length);
+      const closed = this.#closeHoldsSteppedOff();
+      if (closed === undefined) {
         return;
       }
+      isPersons = closed === 0 && !isPagesStep;
     }
     this.#rereadRoute();
-    for (const action of this.#waiting.splice(0)) {
-      action();
+    if (isPersons) {
+      tellEach(this.#personsStepListeners);
     }
+    tellEach(this.#waiting.splice(0));
     this.#keepLaid();
+  }
+
+  /**
+   * Closes each hold whose entry the browser's Back or Forward stepped off; how many it closed, or
+   * undefined where it steps straight back off an entry Forward reached that nothing holds.
+   */
+  #closeHoldsSteppedOff(): number | undefined {
+    const closing = this.#holds.splice(this.#laid()).reverse();
+    for (const closed of closing) {
+      closed.onBack();
+    }
+    // Forward onto an entry left ahead by a list closed, which nothing holds: straight back off it.
+    if (this.#laid() > this.#holds.length) {
+      this.#stepBack(this.#laid() - this.#holds.length);
+      return undefined;
+    }
+    return closing.length;
   }
 }
 
@@ -513,6 +576,13 @@ function adderTo(listeners: Set<() => void>): (listener: () => void) => () => vo
     listeners.add(listener);
     return () => listeners.delete(listener);
   };
+}
+
+/** Calls each of calls, in order. */
+function tellEach(calls: Iterable<() => void>): void {
+  for (const call of calls) {
+    call();
+  }
 }
 
 /**

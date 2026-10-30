@@ -648,7 +648,8 @@ function listenForTaps(
 
 /**
  * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
- * hears it, or as a step back from the receiver's own history entry, kept as it starts; OK or a tap
+ * hears it, or as the person's step back from the receiver's own history entry, kept as it starts,
+ * never a step the app makes itself (navigation's onPersonsStep, D384); OK or a tap
  * twice within doublePressWithinMs, the second press taken from the page (a held OK's repeats no
  * second press: Android's first comes 400-500 ms after the press, inside the window,
  * starts-chunks-remote-2026-10-29.md §3.3); and full screen left
@@ -703,15 +704,16 @@ function useLeavingPresses(
       leave("tap");
     });
     navigation.go(navigation.route());
-    const onBack = (): void => {
+    // The person's own step alone: the step closing the Use question, which the page may be shown
+    // before, took control back 16 ms after Use (staging, 2026-10-30; D384).
+    const stopSteps = navigation.onPersonsStep(() => {
       leave("historyBack");
-    };
-    window.addEventListener("popstate", onBack);
+    });
     return () => {
       stopCommands();
       stopTaps();
       gaps.stop();
-      window.removeEventListener("popstate", onBack);
+      stopSteps();
     };
   }, [navigation, takeBackRef, connectionRef]);
 }

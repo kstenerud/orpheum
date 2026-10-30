@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createNavigation, type Navigation, type Place } from "./navigation.ts";
+import { createNavigation, type Navigation } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
-import { fakePlace, testOrigin, type FakePlace } from "./test-services.tsx";
+import { fakePlace, steppingLater, testOrigin, type FakePlace } from "./test-services.tsx";
 
 describe("navigation's Up (D367 §7)", () => {
   const isSeries = (route: Route): boolean =>
@@ -229,48 +229,6 @@ describe("a base under a page a television opened on (the owner's Fire TV, 2026-
   });
 });
 
-/**
- * A place whose history steps come later, as a browser's do: each back or go waits for settle, and
- * its popstate with it.
- */
-function steppingLater(place: FakePlace): { readonly place: Place; readonly settle: () => void } {
-  const queued: (() => void)[] = [];
-  return {
-    place: {
-      location: place.location,
-      history: {
-        get state() {
-          return place.history.state;
-        },
-        back: () => {
-          queued.push(() => {
-            place.history.back();
-          });
-        },
-        go: (delta) => {
-          queued.push(() => {
-            place.history.go(delta);
-          });
-        },
-        pushState: (data, unused, url) => {
-          place.history.pushState(data, unused, url);
-        },
-        replaceState: (data, unused, url) => {
-          place.history.replaceState(data, unused, url);
-        },
-      },
-      addEventListener: (type, listener) => {
-        place.addEventListener(type, listener);
-      },
-    },
-    settle: () => {
-      for (let step = queued.shift(); step !== undefined; step = queued.shift()) {
-        step();
-      }
-    },
-  };
-}
-
 // The owner's Fire TV, 2026-10-28: Silk's remote Back is the history's, never a key, so a list open
 // over the page closed only by leaving the page.
 describe("an entry held over the page while something is open over it", () => {
@@ -385,5 +343,49 @@ describe("an entry held over the page while something is open over it", () => {
     expect(reloaded.route()).toEqual({ screen: "films" });
     expect(reloaded.back()).toBe(true);
     expect(reloaded.route()).toEqual({ screen: "home" });
+  });
+});
+
+// Staging, 2026-10-30: a cast's receiver gave its control back 16 ms after Use, the step that closed
+// the Use question heard as the person's Back (D384).
+describe("the person's own steps through the history", () => {
+  it("are told, never the app's own step off a held entry, a go waiting on it, or Up's", () => {
+    const later = steppingLater(fakePlace("/"));
+    const navigation = createNavigation(later.place, false);
+    navigation.go({ screen: "films" });
+    navigation.go({ screen: "title", itemId: 12 });
+    let steps = 0;
+    navigation.onPersonsStep(() => {
+      steps += 1;
+    });
+    navigation.holdBack(() => undefined)();
+    navigation.go({ screen: "play", fileId: 3 });
+    later.settle();
+    navigation.up({ screen: "films" }, (route) => route.screen === "films");
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(steps).toBe(0);
+    navigation.back();
+    later.settle();
+    expect(navigation.route()).toEqual({ screen: "home" });
+    expect(steps).toBe(1);
+  });
+
+  it("are not told for a Back that only closed what was open over the page", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false);
+    navigation.go({ screen: "films" });
+    let steps = 0;
+    const stop = navigation.onPersonsStep(() => {
+      steps += 1;
+    });
+    navigation.holdBack(() => undefined);
+    place.history.back();
+    expect(steps).toBe(0);
+    place.history.back();
+    expect(steps).toBe(1);
+    stop();
+    place.history.go(1);
+    expect(steps).toBe(1);
   });
 });

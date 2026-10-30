@@ -81,6 +81,51 @@ export function fakePlace(start: string): FakePlace {
 }
 
 /**
+ * A place whose history steps come later, as a browser's do: each back or go waits for settle, and
+ * its popstate with it.
+ */
+export function steppingLater(place: FakePlace): {
+  readonly place: Place;
+  readonly settle: () => void;
+} {
+  const queued: (() => void)[] = [];
+  return {
+    place: {
+      location: place.location,
+      history: {
+        get state() {
+          return place.history.state;
+        },
+        back: () => {
+          queued.push(() => {
+            place.history.back();
+          });
+        },
+        go: (delta) => {
+          queued.push(() => {
+            place.history.go(delta);
+          });
+        },
+        pushState: (data, unused, url) => {
+          place.history.pushState(data, unused, url);
+        },
+        replaceState: (data, unused, url) => {
+          place.history.replaceState(data, unused, url);
+        },
+      },
+      addEventListener: (type, listener) => {
+        place.addEventListener(type, listener);
+      },
+    },
+    settle: () => {
+      for (let step = queued.shift(); step !== undefined; step = queued.shift()) {
+        step();
+      }
+    },
+  };
+}
+
+/**
  * Services for a test render: an API that sends through send (by default nowhere: each request fails
  * at once, as with no network, and never reaches the real one; AGENTS.md rule 16), a session with the
  * token given, and a place at path.
