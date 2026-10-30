@@ -8,6 +8,7 @@ import {
   mediaErrorFailure,
   meterBufferGrowth,
   playChunked,
+  shapeChunkLoads,
   watchStalls,
   type ChunkedPlayback,
   type LinkMeter,
@@ -39,6 +40,7 @@ import { isThisHandheld } from "./handheld.ts";
 import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
+import { useServices } from "./services.tsx";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import { isStartThePages, type PlaybackDecision } from "./watching.ts";
@@ -521,6 +523,7 @@ function useLadderPlayback(
   readonly playSound: (sound: PlayingSound) => void;
 } {
   const { offer, positionMs, tracks, shouldStartByRememberedLink } = starting;
+  useShapedByTheTabsLink();
   const [sound, setSound] = useState(starting.sound);
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
   const chunked = useChunkedPlayback(
@@ -612,6 +615,17 @@ function useRememberedLink(
     }),
     [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples, shouldStartByRememberedLink],
   );
+}
+
+/**
+ * Has the tab's chunk loads shaped by its debug link, its cap and its drop (D380), where the page
+ * has one: handed to the player here, with the player, so the home page loads no player for it.
+ */
+function useShapedByTheTabsLink(): void {
+  const { linkDebug } = useServices();
+  useEffect(() => {
+    shapeChunkLoads(linkDebug);
+  }, [linkDebug]);
 }
 
 /**

@@ -31,6 +31,8 @@ const clientKeys = new Set([
   "orpheum.screenCode.reloadNote",
   // A debugging aid that starts each film on its own picture, with no preload (watching.ts).
   "orpheum.debug.startOnFilmsPicture",
+  // The tab's debug cap on its download rate (link-debug.ts, D380).
+  "orpheum.debug.linkCapKbps",
   // The realm a person asked the page to remember (discovery-start.ts).
   "orpheum.discovery.realm",
   // The custom Cast receiver's app id the lab's cast probe launches (lab-cast.tsx).
