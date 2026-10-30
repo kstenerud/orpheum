@@ -395,6 +395,37 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
         self.assertFalse((pending / "check-pending-code").exists())
 
 
+class StopWithoutMarks(unittest.TestCase):
+    def test_the_stop_hook_gates_a_tree_changed_by_no_edit_it_saw(self):
+        # A shell command's write or a picked commit leaves no mark; the tree is still not the one the
+        # gate passed (the owner, 2026-10-30).
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        targets = []
+
+        def command(target, env):
+            targets.append(target)
+            return ["true"]
+
+        passed = {"value": False}
+        with mock.patch.object(on_stop, "PENDING", Path(tempfile.mkdtemp())), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: passed["value"]), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            on_stop.main()
+            self.assertEqual(targets, ["check"])
+            passed["value"] = True
+            on_stop.main()
+        self.assertEqual(targets, ["check"], "a tree the gate passed is not gated again")
+
+
 class GatePaths(unittest.TestCase):
     def test_classification(self):
         self.assertTrue(gate_paths.is_gate("web/apps/web/tsconfig.json"))
