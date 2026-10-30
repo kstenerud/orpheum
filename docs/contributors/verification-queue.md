@@ -1716,7 +1716,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   replaced=1 accepted=true`; play a film on Chrome: it plays on the TV, Chrome's sign staying on.
   Before this change Chrome waited on a Use the TV never asked for, and its Play stayed in Chrome (the
   owner, staging, 2026-10-29). (`internal/core/live/registry.go`)
-- [ ] **VQ170** — a Watch Together Play page navigated away gives up the lead at once, on staging.
+- [x] **VQ170** — a Watch Together Play page navigated away gives up the lead at once, on staging.
   On the Mac, Chrome hosting a session on its Play page, Firefox a guest, the film playing, Chrome
   leading. In Chrome go to google.com. Passes when the core's log has Chrome's video device detached
   closed (`goneBecause=closed`, not `silent`) within a second or two and Firefox's `leaderChanged`
@@ -1837,7 +1837,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   its top or next rung throughout the first minute, and the core's log shows any give-up excused as
   stuck or busy, never `level 0`; each step as `step:` in its link notes.
   (`web/packages/player/src/abr-ceiling.ts`, `first-piece.ts`, `abr-busy.ts`, `chunked.ts`)
-- [ ] **VQ188** — a Watch Together host's Play page never dead-ends on a playback answer lost over
+- [x] **VQ188** — a Watch Together host's Play page never dead-ends on a playback answer lost over
   WebRTC, on staging. On the Mac, Chrome hosting a Watch Together session on its Play page: open the
   Watch Together page, then go back to the film by its button, ten times. Passes when it plays each
   time within a few seconds, never "The server could not be reached", and any lost answer shows in
@@ -1849,7 +1849,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the result. Needs a staging connect rebuilt from this commit, as its loader carries the client's
   requests. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/reopen.ts`,
   `internal/core/rtcapi/answer_watch.go`)
-- [ ] **VQ189** — Back or Forward never starts a film, and a receiver with no controller goes to the
+- [x] **VQ189** — Back or Forward never starts a film, and a receiver with no controller goes to the
   film's page (D383), on staging, on the Fire TV (Silk). (1) Play film A, go home, play film B, then
   press the remote's Back twice: passes when each Back lands on a title's page (B's, then A's or the
   page before it), Play first, and no film starts (the core's log shows no `a playback started` for
