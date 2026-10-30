@@ -24640,3 +24640,21 @@ after a probe on the Fire TV (navigation-and-widgets-answers-2026-10-27.md).
 - 2: web/packages/player/src/abr-first-piece.test.ts ("gives up a chunk that brought only its first piece as stuck, …", "measures a loaded chunk by its bytes after its first piece, …"); VQ187
 - 3: web/packages/player/src/abr-busy.test.ts ("does not give up a chunk whose arrival a long task overlapped, …", "takes no sample of a loaded chunk whose arrival a long task overlapped"); VQ187
 - 4: web/packages/player/src/chunked.test.ts ("reach the core's log among its link's notes, each marked a step"); VQ187
+
+## D383 — Back or Forward never starts a film, and a receiver with no controller goes to the film's page
+
+**Decided** (2026-10-30), by the project owner ("yes, build it", and the second point in their own
+words). On the Fire TV, a page reloaded after a deploy while it received a cast came back as a plain
+Play page of the cast's film; Back then landed on an older Play page in its history, which started a
+film watched earlier, and again on the next Back (the owner, staging).
+
+1. **A Play page reached through the browser's history (Back or Forward) does not play**: it shows
+   its title's page in its place, Play first. A film starts only by a deliberate act: Play, a cast,
+   Up next, or rejoining a Watch Together session.
+2. **A page showing a cast with no one controlling it**, by whatever strange circumstance (a reload,
+   a deploy, a session that ended unseen), goes to the film's information page, or, where the person
+   may not see it, to the home page (the owner: "if it ever finds itself in a cast page with no
+   controller due to strange circumstances, it should go back to the info page, or if it doesn't
+   have access to it, to the home page").
+
+**Status:** Decided 2026-10-30; not built yet.
