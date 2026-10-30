@@ -395,7 +395,8 @@
 // # Where to change
 //
 //   - reach.go: whether a person reaches a file, an item or an image (D243 §4).
-//   - scans.go: a scan's jobs, from its request to its end; schedule.go: the scans libraries are
+//   - scans.go: a scan's request, its listing and its jobs' assignees; scans_records.go: taking a
+//     scan's listing and its batches' records, and finishing it; schedule.go: the scans libraries are
 //     due; scope.go: a scan of a folder; compare.go: a listing compared with what is stored, by
 //     the library's rules; extensions.go: the extensions a scan reads; batches.go: the batches a scan's
 //     node reads;
