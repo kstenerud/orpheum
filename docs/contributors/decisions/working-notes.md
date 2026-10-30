@@ -24764,8 +24764,48 @@ device."
    device: its Play page plays the film from where the receiver stood, playing or paused as the
    receiver was, with no "Play here from" offer. In Watch Together, the sender's device becomes the
    member's player again (D364 §11).
+3. **A receiver that loses its network ends the cast the same way, once the core is sure it is
+   gone** (added the same day, by the owner: "We'll also need to handle the real edge case of a
+   castee that loses network. The caster doesn't need to get its position exactly right. We could
+   just have it take over at the last known playback position once it's sure the castee is gone."):
+   the core's own judgment ends it, its receiver with no connection for `ReceiverGoneAfter` (D364
+   §6, reason `receiverGone`), and the sender takes the film over as in §2, from the receiver's last
+   known position, playing or paused as it was. A receiver back after that has no cast, and goes
+   home (D384 §1).
 
 Also (the owner, the same day): **ending a Watch Together session from its dialog closes the dialog**,
 and nothing reopens it.
 
-**Status:** Decided 2026-10-30; not built yet.
+**Proven by:**
+- 1: web/apps/web/src/cast-receiver.test.tsx ("ends the cast as its control is taken back here, and goes home once it has ended, the film as it stood until then (D385 §1)", "leaves Back to leave controlled mode, the sound still off", "takes control back at once when a Fire TV's Back or Escape leaves full screen, telling the log"), web/apps/web/src/cast-to.test.tsx ("goes home, forgetting it received, as its control is taken back here (D385 §1, amending D338 §6)"), web/e2e/cast.spec.ts; on a device, VQ190
+- 2: web/apps/web/src/cast-remote.test.tsx ("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", "plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", "waits paused there where the receiver had the film paused as its sender took it over, and plays at once where it played (D385 §2)"), web/apps/web/src/router.test.ts, web/e2e/cast.spec.ts; on a device, VQ190
+- 3: web/apps/web/src/cast-remote.test.tsx ("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)"), cmd/orpheum/casts_gone_test.go, internal/core/live/registry_test.go (the core's end, unchanged); on a device, VQ190
+- Also: web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, the page where it was (D385's Also)"), web/e2e/together-pages.ts (every Watch Together browser test that ends its session); on a device, VQ190
+
+**Status:** Decided 2026-10-30; §1–§3 and the Also built (2026-10-30) in the web client, the core
+unchanged. §1 in `cast-receiver.tsx`: control taken back ends the cast as `takenBack`
+(`useTakingBackEnds`), and the receiver goes home through `live.tsx`'s `leaveReceiving` once the
+server has answered or its session says the cast ended, whichever comes first, leaving the film as
+it stands until then so the session holds it as the receiver left it for the sender;
+`useEndsAsTheCastDoes` sends it home at every end but `replaced`. The film played on after taking
+back is gone (`Receiving.onOver`, Live's `endReceiving`). §2 and §3 in `cast-remote.tsx`: `takenBack`
+and `receiverGone` join `stopped` among the ends after which the Play page plays the film itself at
+once (`useTakesTheFilmOver`), from where the receiver last stood while a device led the session the
+remote works (`useWhereItStood`; the hosted one while Watch Together is on, so the sender's player
+leads it again as the Play page's `HostPlaysTogether` does), paused where it was paused, through the
+path Stop casting already used (`PlayOrSendOn`'s `playHereFrom`, now carrying `isPaused` to the Play
+page's first ask, `Opened`'s `isStartPaused`; the play route's `paused=1` where the cast had moved
+on to another film). §3 uses the core's existing end: a cast's session is not held for want of a
+player, its clock running on after the receiver's connection is lost, so the last position is taken
+where the server detached the receiver and no device led any more, at most the core's 45 s of
+silence late, never the two minutes after. The Also in `watch-together.tsx` and
+`together-dialog.tsx`: ending the session from the dialog closes it once the session is forgotten
+(`WatchTogetherControls`' `onEnded`); before, the dialog stayed open and showed Start a session in
+the session's place, which read as the dialog closing and opening again. Left open, and decided so:
+Stop casting still plays the film here playing, whatever the receiver was doing (D384 §2 as built;
+the server's answer says whether it played, should the owner want it paused as it was); "Play here
+from" stays for the two ends the sender did not choose and cannot take over from, another device
+taking the receiver (`replaced`) and the server no longer knowing the cast (`gone`); a sender not on
+the cast's Play page as it ends plays nothing, as for Stop casting; the receiver's take-back no longer
+names who took control back on the sender's page, which plays the film at once instead. Device
+check: VQ190.
