@@ -471,3 +471,11 @@ had leaned on.
   link and steadiness are), and, the owner's: "consider dropping to a simpler codec without changing
   quality, even if it increases the bandwidth requirement (provided we are confident the pipe can
   handle it)", e.g. HEVC to H.264 at the same resolution. Amends D352.
+- **The Fire TV's focus stuck once on a series' season row (the owner, 2026-10-30, VQ180's run).**
+  The first time a series of many seasons was opened that day, season 1 highlighted and no arrow moved it, until after
+  many presses it moved on; not seen again. The core's log has the TV's live connection silent from
+  about 16:22:45 UTC and dropped at 16:23:28, which fits a frozen page (many season posters decoding
+  on a 1 GB device is a guess), but the owner cannot place the time. The owner: pass, and watch for
+  it. Owed so the next one explains itself (digging means missing logs): a page's main-thread
+  freezes of a second or more noted on every page, not only while a film plays
+  (`web/packages/player/src/main-thread.ts`), with what the page was doing.

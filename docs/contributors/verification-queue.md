@@ -1748,7 +1748,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the server as before; on the Mac's Chrome, with the site's local-network permission reset, the note
   still shows while Chrome's prompt is up. Before this change the note showed on the Fire TV, where
   Silk asks nothing (the owner, 2026-10-28). (`web/apps/web/src/local-network-note.tsx`)
-- [ ] **VQ161** — a title's and a series' rarely used actions under a vertical "…", on staging.
+- [x] **VQ161** — a title's and a series' rarely used actions under a vertical "…", on staging.
   (1) On the Mac's Chrome as admin, a film's page: Play is its first button, then Mark as watched and
   the "…"; the page shows no "Identified incorrectly", "Rescan this" or "Report filed wrongly" of its
   own. The "…" opens a list with "Identified incorrectly", which opens one dialog in the list's place
@@ -1793,7 +1793,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   sockets closed and not back for 30 s, the film plays on what it had loaded and waits after, and
   within a few seconds of the end the sockets are back and the film plays on, with nothing reloaded.
   (`web/apps/web/src/link-debug.ts`, `web/packages/player/src/link-shaping.ts`)
-- [ ] **VQ180** — a series' seasons as a row of posters (D379), on staging. (1) On the Mac's Chrome,
+- [x] **VQ180** — a series' seasons as a row of posters (D379), on staging. (1) On the Mac's Chrome,
   a series of several seasons with specials (Copper Kettle, or any with a season 0): above the episodes a
   row of season posters, the specials last, the season shown marked; no season choice box. Each
   season shows its still in its poster's place, or the series' poster where it has none. Choosing a
@@ -1802,7 +1802,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (2) On the Fire TV (Silk), by the remote: Down reaches the row, Left and Right move along it (the row
   scrolling sideways where it is wider than the screen), OK shows the season, and Down from the row
   lands on the season's first episode, not on its Mark as watched. (`web/apps/web/src/series.tsx`)
-- [ ] **VQ181** — the banner's Libraries icon as a menu of the person's libraries, on staging.
+- [x] **VQ181** — the banner's Libraries icon as a menu of the person's libraries, on staging.
   (1) On the Mac's Chrome as admin (several libraries): the Libraries icon opens a list of the
   libraries by name, "All libraries" last, the one shown marked; choosing one opens its page, whose
   top has no library chooser (its view and sort choosers stay) and names the library. As dan, with
