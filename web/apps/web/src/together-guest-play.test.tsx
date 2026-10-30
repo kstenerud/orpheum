@@ -3,15 +3,19 @@
 
 import "./i18n.ts";
 
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { tabStorage } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
+import { currentNotice, dismissNotice } from "./notice.ts";
 import { TogetherLeft } from "./old-addresses.tsx";
 import { buttonWithText, click, mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { WhoseFilm } from "./together-guest-play.tsx";
+import { forgetMembership } from "./together-storage.ts";
 import { GroupFilmPage } from "./together-viewer.tsx";
 import { currentTrayDialog } from "./tray-dialog.ts";
 
@@ -42,6 +46,10 @@ function beAGuest(): void {
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  const left = currentNotice();
+  if (left !== undefined) {
+    dismissNotice(left);
+  }
 });
 
 describe("whose a Play page's film is (D384 §2)", () => {
@@ -52,12 +60,15 @@ describe("whose a Play page's film is (D384 §2)", () => {
   });
 
   /** Film fileId's Play page, its own playback standing for the person's own. */
-  async function playPage(fileId: number): Promise<FakeTogetherServer> {
+  async function playPage(
+    fileId: number,
+    navigation = createNavigation(fakePlace(`/play/${String(fileId)}`)),
+  ): Promise<FakeTogetherServer> {
     const server = fakeTogetherServer();
     mounted = await mount(
       withServices(<WhoseFilm fileId={fileId} own={<p>own film</p>} />, {
         ...servedBy({}, [], "token"),
-        navigation: createNavigation(fakePlace(`/play/${String(fileId)}`)),
+        navigation,
         openTogetherSocket: server.openSocket,
       }),
     );
@@ -82,6 +93,40 @@ describe("whose a Play page's film is (D384 §2)", () => {
     await server.say(welcomePlaying(5));
     expect(mounted?.container.textContent).toContain("own film");
     expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
+  });
+
+  it("ends for a guest who hosts the session too, the person's own on another device, as it ends under the page: home, told so, the film never theirs (the owner's S23, staging, 2026-10-30)", async () => {
+    beAGuest(); // joined here by the link
+    window.sessionStorage.setItem(
+      "orpheum.together.host",
+      JSON.stringify({ sessionId: 1, credential: "host-credential" }),
+    );
+    const navigation = createNavigation(fakePlace("/play/5"));
+    const server = await playPage(5, navigation);
+    expect(mounted?.container.textContent).toContain("own film"); // the host's player
+    // The session ended, the host's player forgets it (HostPlaysTogether).
+    act(() => {
+      forgetMembership(tabStorage(), "host");
+    });
+    expect(mounted?.container.textContent).not.toContain("own film");
+    await server.accept();
+    await server.refuse();
+    expect(navigation.route()).toEqual({ screen: "home" });
+    expect(currentNotice()?.text).toBe("The Watch Together session is over.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(mounted?.container.textContent).not.toContain("own film");
+  });
+
+  it("ends for a guest whose session ends before it says what it plays, the film never theirs", async () => {
+    beAGuest();
+    const navigation = createNavigation(fakePlace("/play/5"));
+    const server = await playPage(5, navigation);
+    await server.accept();
+    await server.say({ type: "ended", reason: "hostEnded" });
+    expect(navigation.route()).toEqual({ screen: "home" });
+    expect(currentNotice()?.text).toBe("The host ended the Watch Together session.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(mounted?.container.textContent).not.toContain("own film");
   });
 
   it("is the person's own at once outside a session", async () => {

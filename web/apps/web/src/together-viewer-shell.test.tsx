@@ -8,7 +8,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./app.tsx";
 import { createNavigation } from "./navigation.ts";
-import { buttonWithText, click, mount, servedBy, settleUntil } from "./test-dom.tsx";
+import { dismissNotice, currentNotice } from "./notice.ts";
+import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 import { TogetherNews } from "./together-news.tsx";
@@ -31,12 +33,14 @@ const welcome = {
 function signedInGuest(address: string): {
   readonly services: ReturnType<typeof servedBy>;
   readonly sockets: ReturnType<typeof liveAndSession>;
+  readonly heard: Heard[];
 } {
   window.localStorage.setItem(
     "orpheum.together.viewer",
     JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
   );
   const sockets = liveAndSession(1); // the shell's live connection opens first
+  const heard: Heard[] = [];
   return {
     services: {
       ...servedBy(
@@ -47,20 +51,26 @@ function signedInGuest(address: string): {
           "GET /libraries": [200, { libraries: [] }],
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
+          "POST /together/playback": [200, directDecision({})],
         },
-        [],
+        heard,
         "token",
       ),
       navigation: createNavigation(fakePlace(address)),
       openTogetherSocket: sockets.openSocket,
     },
     sockets,
+    heard,
   };
 }
 
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  const left = currentNotice();
+  if (left !== undefined) {
+    dismissNotice(left);
+  }
 });
 
 describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", () => {
@@ -129,6 +139,52 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
     expect(mounted.container.querySelector("dialog.together-dialog")).toBeNull();
     expect(mounted.container.querySelector(sign)).toBeNull();
+    mounted.unmount();
+  });
+
+  it("goes home from the group's film on its Play page as the host ends the session, in the shell, told why there, the membership forgotten (the owner's S23, staging, 2026-10-30)", async () => {
+    const { services, sockets } = signedInGuest("/play/5");
+    const mounted = await mount(withServices(<App />, services));
+    await sockets.live.accept();
+    await settleUntil(() => sockets.session.openedCount() > 0); // whose the film is
+    await sockets.session.acceptEach();
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    const { container } = mounted;
+    await settleUntil(() => buttonWithText(container, "Tap to continue") !== undefined);
+    await click(buttonWithText(container, "Tap to continue"));
+    await sockets.session.acceptEach();
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    expect(container.querySelector('[aria-label="The film"], .together-viewer')).not.toBeNull();
+    await sockets.session.say({ type: "ended", reason: "hostEnded" });
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(currentNotice()?.text).toBe("The host ended the Watch Together session.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(container.querySelector("header nav")).not.toBeNull();
+    expect(container.querySelectorAll("main")).toHaveLength(1);
+    expect(container.querySelector(".together-viewer")).toBeNull();
+    expect(container.querySelector("video")).toBeNull();
+    mounted.unmount();
+  });
+
+  it("goes home from the Play page of the group's film loaded again after the session ended, told so, never playing the film as their own (the owner's S23, staging, 2026-10-30)", async () => {
+    const { services, sockets, heard } = signedInGuest("/play/5");
+    const mounted = await mount(withServices(<App />, services));
+    await sockets.live.accept();
+    await settleUntil(() => sockets.session.openedCount() > 0); // whose the film is
+    await sockets.session.accept();
+    await sockets.session.refuse();
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(currentNotice()?.text).toBe("The Watch Together session is over.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /playback");
+    expect(mounted.container.querySelector("header nav")).not.toBeNull();
+    expect(mounted.container.querySelector("video")).toBeNull();
     mounted.unmount();
   });
 
