@@ -64,7 +64,24 @@
   color: inherit;
 }
 
+/* An episode's still, and over its top-right corner the watched check, as a poster's tray draws it
+   (poster-card.css). */
+.series__still-frame {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+.series__still-frame > .watched-row-mark {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+}
+
+/* A block, as it was as the row's grid item: a still not made yet is an empty span, which inline in
+   its frame would have no size. */
 .series__still {
+  display: block;
   width: 7rem;
   aspect-ratio: 16 / 9;
   object-fit: cover;
