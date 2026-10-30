@@ -80,6 +80,37 @@ describe("SeriesView", () => {
     expect(chosen[2]).toContain('aria-current="page"');
     expect(chosen[0]).not.toContain('aria-current="page"');
   });
+
+  it("shows a season's own poster, and says No poster only where a season has nothing (D379 §1)", () => {
+    const series: SeriesDetail = {
+      id: 20,
+      kind: "series",
+      name: "Glass Tide",
+      art: { posterSha256: "p" },
+      seasons: [
+        { seasonNumber: 1, episodeCount: 2, posterSha256: "sp1", stillSha256: "s31" },
+        { seasonNumber: 2, episodeCount: 1, stillSha256: "s41" },
+        { seasonNumber: 3, episodeCount: 1 },
+      ],
+    };
+    const cards = seasonCards(renderToStaticMarkup(withServices(<SeriesView series={series} />)));
+    // Its own poster, over its still and its series' poster.
+    expect(cards[0]).toContain("/bytes/art/sp1/portrait-m.webp");
+    expect(cards[0]).not.toContain("/bytes/art/s31/");
+    expect(cards[0]).not.toContain("No poster");
+    // None of its own: its still in its poster's place, a picture of it, so no caption.
+    expect(cards[1]).toContain("/bytes/art/s41/landscape-s.webp");
+    expect(cards[1]).not.toContain("No poster");
+    // Neither: its series' poster.
+    expect(cards[2]).toContain("/bytes/art/p/portrait-m.webp");
+    expect(cards[2]).not.toContain("No poster");
+    // A series with no poster at all: the season with nothing is the one named a blank.
+    const bare = seasonCards(
+      renderToStaticMarkup(withServices(<SeriesView series={{ ...series, art: {} }} />)),
+    );
+    expect(bare[1]).not.toContain("No poster");
+    expect(bare[2]).toContain("No poster");
+  });
 });
 
 describe("a series' next episode (the owner, 2026-10-25)", () => {

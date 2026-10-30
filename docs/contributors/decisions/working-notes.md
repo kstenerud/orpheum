@@ -24528,6 +24528,18 @@ left is D367 §9's `useSeasonReturnedTo` over `episode-reached.ts`, unchanged. �
 (`series__season-head`) so Down from the row lands in the episodes. Tests: `series.test.tsx`,
 `series-page.test.tsx`, `input-rows.browser.test.tsx`; on a TV, VQ180.
 
+Season posters built 2026-10-30 (the owner: "Get real posters"): a season's poster is an artwork row
+of its series, of kind poster, naming its aired season (`artwork.season_number`, step 0064); TMDB's
+`seasons[].poster_path` in the series' stored record is named at every pass
+(`internal/core/providers/tmdb/works.go`), so a series matched before gets its seasons' posters at its
+library's next pass, fetched, sized and stored as any poster is (`internal/core/artwork`). The
+series' page gives each aired season its own (`SeasonBody.posterSha256`, by `ListSeasonPosters`);
+another ordering's groups have none. A card shows its season's poster, else its still with no "No
+poster" caption, else the series' poster. Not built: a season's poster beside the media
+(`season01-poster.jpg`), and a person's choice of one. Tests: `TestTake_ASeasonsPosterIsOwed…`,
+`TestService_ASeasonsPosterIsKept…`, `TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone`,
+`series.test.tsx`; on staging, VQ185, VQ186.
+
 ---
 
 ## D380 — A debug tool caps this tab's download rate, or drops its connection for a while

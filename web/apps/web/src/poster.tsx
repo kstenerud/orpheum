@@ -21,6 +21,11 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 export function Poster(props: {
   readonly sourceSha256: string | undefined;
   readonly stillSha256?: string | undefined;
+  /**
+   * Whether a still shown in the poster's place stands for it with no "No poster" caption: a season's
+   * still is a picture of the season itself, and the caption is for a card with nothing (D379 §1).
+   */
+  readonly isStillEnough?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const shown = useArtShown(props.sourceSha256, "portrait-m");
@@ -33,7 +38,9 @@ export function Poster(props: {
       >
         {hasStill ? <Still sourceSha256={props.stillSha256} className="poster__still" /> : null}
         <Clapperboard />
-        <span className="poster__caption">{t("common.noPoster")}</span>
+        {hasStill && props.isStillEnough === true ? null : (
+          <span className="poster__caption">{t("common.noPoster")}</span>
+        )}
       </span>
     );
   }
