@@ -63,6 +63,10 @@ type fakeDiscovery struct {
 	// discovery passes a page's offers (discovery/single); without it, each waits for the last's reply.
 	passesAtOnce bool
 	onSignal     func()
+	// silentDials is how many of the next signalling connections are held open reading nothing,
+	// answering neither ping nor offer: a discovery restarted behind its tunnel, which left the core's
+	// link open (staging, 2026-10-29). Those after them are served as the fields above say.
+	silentDials int
 	// locateHashes and locators are each set of links and locators the core sent, in turn.
 	locateHashes []discoveryproto.LocateHashesRequest
 	locators     []discoveryproto.LocatorsRequest
@@ -296,13 +300,33 @@ func (fake *fakeDiscovery) TXT(name string) string {
 	return fake.txt[name]
 }
 
+// signalMode is how the fake serves one signalling connection, as its fields said at the dial.
+type signalMode struct {
+	drops, answersPings, atOnce, isSilent bool
+}
+
+// takeSignalMode is how the fake serves the connection being dialled, a silent dial counted off.
+func (fake *fakeDiscovery) takeSignalMode() signalMode {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	mode := signalMode{
+		drops: fake.dropsSignalling, answersPings: fake.answersPings, atOnce: fake.passesAtOnce,
+		isSilent: fake.silentDials > 0,
+	}
+	if mode.isSilent {
+		fake.silentDials--
+	}
+	return mode
+}
+
 // serveSignal is the signalling connection: the offers the test sends go to the core, and its
 // answers come back to the test.
 func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	isSignedIn := fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")]
-	drops, onSignal, answersPings, atOnce := fake.dropsSignalling, fake.onSignal, fake.answersPings, fake.passesAtOnce
+	onSignal := fake.onSignal
 	fake.mutex.Unlock()
+	mode := fake.takeSignalMode()
 	if onSignal != nil {
 		onSignal()
 	}
@@ -315,11 +339,14 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		return
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // the test is over
-	if drops {
-		return
-	}
 	ctx := request.Context()
-	if answersPings {
+	switch {
+	case mode.drops:
+		return
+	case mode.isSilent:
+		<-ctx.Done()
+		return
+	case mode.answersPings:
 		// Reads only control frames, answering each ping, until the connection or the request ends.
 		reading := connection.CloseRead(ctx)
 		select {
@@ -328,6 +355,12 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		}
 		return
 	}
+	fake.passOffers(ctx, connection, mode.atOnce)
+}
+
+// passOffers passes on each offer the test sends until the connection ends: as they come when
+// atOnce, else each after the last's reply.
+func (fake *fakeDiscovery) passOffers(ctx context.Context, connection *websocket.Conn, atOnce bool) {
 	if atOnce {
 		go fake.takeReplies(ctx, connection)
 	}
