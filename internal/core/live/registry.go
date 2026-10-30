@@ -307,21 +307,17 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
-	if owner == nil {
+	held := owner.castByEither(castID, deviceID)
+	if held == nil {
 		return Cast{}, ErrNoCast
 	}
-	for receiverID, held := range owner.casts {
-		if held.ID == castID && (held.SenderDeviceID == deviceID || held.ReceiverDeviceID == deviceID) {
-			delete(owner.casts, receiverID)
-			owner.tellSending(held.SenderDeviceID)
-			owner.tellDevices()
-			if len(owner.connections) == 0 && len(owner.casts) == 0 {
-				delete(registry.people, userID)
-			}
-			return held.Cast, nil
-		}
+	delete(owner.casts, held.ReceiverDeviceID)
+	owner.tellSending(held.SenderDeviceID)
+	owner.tellDevices()
+	if len(owner.connections) == 0 && len(owner.casts) == 0 {
+		delete(registry.people, userID)
 	}
-	return Cast{}, ErrNoCast
+	return held.Cast, nil
 }
 
 // Film is what a cast plays: the file, the title it is and its name, and how long it plays.

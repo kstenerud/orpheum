@@ -288,17 +288,17 @@ func TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack(t *testing.T
 	harness.shelveFilms(t)
 	tvToken := harness.signIn(t, "owner", "owner-password")
 	laptopToken := harness.signIn(t, "owner", "owner-password")
-	tv := harness.thisDevice(t, tvToken)
+	television := harness.thisDevice(t, tvToken)
 	tvSocket := harness.dialLive(t, tvToken)
-	tvSocket.awaitDevices(tv)
-	first := startedCast(t, harness.startCast(t, phoneToken, tv, 0))
+	tvSocket.awaitDevices(television)
+	first := startedCast(t, harness.startCast(t, phoneToken, television, 0))
 	tvSocket.await(live.MessageDevices, func(message live.Outbound) bool {
-		return slices.Equal(message.ReceivingDeviceIDs, []int64{tv})
+		return slices.Equal(message.ReceivingDeviceIDs, []int64{television})
 	})
 	phoneRemote := harness.dialCast(t, first.MembershipCredential, together.RolePanel)
 	phoneRemote.awaitWelcome()
-	wantError(t, harness.startCast(t, laptopToken, tv, 5_000), http.StatusConflict, api.CodeReceivingACast)
-	wantError(t, harness.startCast(t, phoneToken, tv, 5_000), http.StatusConflict, api.CodeReceivingACast)
+	wantError(t, harness.startCast(t, laptopToken, television, 5_000), http.StatusConflict, api.CodeReceivingACast)
+	wantError(t, harness.startCast(t, phoneToken, television, 5_000), http.StatusConflict, api.CodeReceivingACast)
 	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", first.CastID), laptopToken,
 		map[string]string{"reason": "stopped"}), http.StatusNotFound, api.CodeNotFound)
 	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", first.CastID), tvToken,
@@ -309,7 +309,7 @@ func TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack(t *testing.T
 	if reason := phoneRemote.awaitEnded(); reason != together.CastTakenBack {
 		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastTakenBack)
 	}
-	startedCast(t, harness.startCast(t, laptopToken, tv, 5_000))
+	startedCast(t, harness.startCast(t, laptopToken, television, 5_000))
 }
 
 // A remote whose hello reaches its cast just after the receiver took control back is told why, as
