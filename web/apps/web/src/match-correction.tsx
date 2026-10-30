@@ -46,12 +46,7 @@ function IdentifiedIncorrectlyDialog(props: {
   const [isChoosing, setIsChoosing] = useState(false);
   const heading = t("title.identifiedIncorrectly");
   return (
-    <ModalDialog
-      className="match-correction"
-      label={heading}
-      onClose={props.onClose}
-      shouldCloseOnOutsidePress
-    >
+    <ModalDialog className="match-correction" label={heading} onClose={props.onClose}>
       <h2>{heading}</h2>
       <div className="more-actions__offers">
         {props.isWork ? <RescanThis itemId={props.itemId} /> : null}

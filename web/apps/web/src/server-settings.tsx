@@ -95,7 +95,6 @@ export function AboutButton(props: {
         <ModalDialog
           label={about}
           className="settings__about"
-          shouldCloseOnOutsidePress={true}
           onClose={() => {
             setIsOpen(false);
           }}

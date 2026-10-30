@@ -27,7 +27,7 @@ function Page(): JSX.Element {
           key: "rare",
           label: "Something rare",
           dialog: (close) => (
-            <ModalDialog label="Rare" onClose={close} shouldCloseOnOutsidePress>
+            <ModalDialog label="Rare" onClose={close}>
               <button type="button">inside</button>
             </ModalDialog>
           ),

@@ -107,7 +107,13 @@ export function CastAsked(props: {
   };
   const question = t("cast.asked.question", { device: cast.fromDeviceName });
   return (
-    <ModalDialog label={question} onClose={decline} className="cast-asked">
+    <ModalDialog
+      label={question}
+      onClose={decline}
+      className="cast-asked"
+      // Closing declines the cast: a press beside the question must not answer it.
+      shouldStayOpenOnOutsidePress
+    >
       <p className="cast-asked__question">{question}</p>
       <div className="cast-asked__buttons">
         <button

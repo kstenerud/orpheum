@@ -18,7 +18,7 @@ import { mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** A page with a button beside a dialog of two choices, which a controller's Back closes. */
-function PageWithADialog(): JSX.Element {
+function PageWithADialog(props: { readonly shouldStayOpenOnOutsidePress?: boolean }): JSX.Element {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <main>
@@ -29,6 +29,7 @@ function PageWithADialog(): JSX.Element {
           onClose={() => {
             setIsOpen(false);
           }}
+          shouldStayOpenOnOutsidePress={props.shouldStayOpenOnOutsidePress === true}
         >
           <button type="button">first</button>
           <button type="button">second</button>
@@ -55,6 +56,29 @@ describe("a modal dialog, laid out by a real browser", () => {
     ).toBe("contain");
     mounted.unmount();
     expect(getComputedStyle(page).overflow).not.toBe("hidden");
+  });
+
+  // The owner, 2026-10-30: "a single click outside of any modal view dismisses"; a question whose
+  // closing would answer it stays.
+  it("closes on a press outside it, unless told to stay open", async () => {
+    // A press on the backdrop reaches the dialog itself at a point outside its box: told, not moved
+    // to by the pointer, which would stay hovering whatever the next file draws there.
+    const pressOutside = (): void => {
+      document
+        .querySelector("dialog[open]")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 2, clientY: 2 }));
+    };
+    const closing = await mount(withServices(<PageWithADialog />));
+    await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(1);
+    pressOutside();
+    await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(0);
+    closing.unmount();
+    const staying = await mount(withServices(<PageWithADialog shouldStayOpenOnOutsidePress />));
+    await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(1);
+    pressOutside();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
+    staying.unmount();
   });
 
   it("keeps the arrows among its own controls, and closes on a remote's Back", async () => {
