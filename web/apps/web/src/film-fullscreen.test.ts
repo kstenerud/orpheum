@@ -8,6 +8,7 @@ import {
   fillsWindowClass,
   fillTheScreen,
   fullscreenAnswerWithinMs,
+  toggleFullScreen,
 } from "./film-fullscreen.ts";
 
 describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)", () => {
@@ -18,6 +19,19 @@ describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)
     await Promise.resolve();
     await Promise.resolve();
     expect(stage.classList.contains(fillsWindowClass)).toBe(true);
+  });
+
+  it("goes back into the page as it leaves full screen, filling the window no more (the owner's S23, 2026-10-30)", () => {
+    const stage = document.createElement("div");
+    stage.classList.add(fillsWindowClass);
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => stage });
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: () => Promise.resolve(),
+    });
+    toggleFullScreen(stage, document);
+    Reflect.deleteProperty(document, "fullscreenElement");
+    expect(stage.classList.contains(fillsWindowClass)).toBe(false);
   });
 
   it("goes full screen where the browser lets it, filling nothing itself", async () => {
