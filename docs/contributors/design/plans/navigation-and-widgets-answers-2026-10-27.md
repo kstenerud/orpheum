@@ -479,3 +479,17 @@ had leaned on.
   it. Owed so the next one explains itself (digging means missing logs): a page's main-thread
   freezes of a second or more noted on every page, not only while a film plays
   (`web/packages/player/src/main-thread.ts`), with what the page was doing.
+- **Changing the audio track restarts the whole film (the owner, 2026-10-30, VQ175's run).** "When I
+  switch audio tracks, the whole video stops and restarts. Is there a way to make this more
+  seamless?" Each playback carries one sound rendition (`ladderSound`), so another track is a new
+  playback from where it stood. Proposal: the playlist lists the film's sound renditions as
+  alternate audio (EXT-X-MEDIA), and a track change switches the sound alone (hls.js's `audioTrack`),
+  the picture playing on and the new track's chunks made from where it stands; the boost and
+  levelling likewise where they are renditions. A design for the owner (core playlist, player).
+- **Changing the audio track restarts the whole film (the owner, 2026-10-30, VQ175's run).** "When I
+  switch audio tracks, the whole video stops and restarts. Is there a way to make this more
+  seamless?" Each playback carries one sound rendition (`ladderSound`), so another track is a new
+  playback from where it stood. Proposal: the playlist lists the film's sound renditions as
+  alternate audio (EXT-X-MEDIA), and a track change switches the sound alone (hls.js's `audioTrack`),
+  the picture playing on and the new track's chunks made from where it stands. A design for the
+  owner (core playlist, player).

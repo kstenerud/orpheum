@@ -1769,13 +1769,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   load. A reload with the box ticked never reaches the client, so the note shows only for a box ticked
   after the page loaded (the owner, 2026-10-30). (`web/apps/web/src/worker-bypassed-note.tsx`,
   `loader-client-failed.tsx`, `poster.tsx`)
-- [ ] **VQ175** — a cast's remote works the receiver's sound, on staging: cast a film with more than
+- [x] **VQ175** — a cast's remote works the receiver's sound, on staging: cast a film with more than
   one audio track and a 5.1 track (so it has a boosted mix) from Chrome on the Mac to the Fire TV, Use
   on the TV. Passes when the casting page shows Dialogue boost, Level loudness and the Audio menu as
   the TV has them, and each change made there is heard on the TV within a couple of seconds (the boost
   and levelling at once; another track after the film is asked for again from where it stood), the
-  remote's controls then showing what the TV says; the TV stays controlled throughout, and its own
-  controls, opened by a press, show the same choices. (`web/apps/web/src/sound-panel.ts`,
+  remote's controls then showing what the TV says; the TV stays controlled throughout. While
+  controlled the TV's own controls are play/pause, the scrubber and full screen alone (its sound
+  controls hidden, cast-receiver.tsx); Back there leaves controlled mode, the film playing on, and
+  its own controls then show the same sound choices (corrected after the owner's run, 2026-10-30).
+  (`web/apps/web/src/sound-panel.ts`,
   `internal/core/together/hub.go`)
 - [x] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play A View to
   a Kill, then The Kid, from their start, on the Fire TV alone (no cast). Passes when neither
