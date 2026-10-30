@@ -115,6 +115,23 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     mounted.unmount();
   });
 
+  it("ends a session the server no longer has from the tray's dialog: home, told so, the membership forgotten, the dialog closed (the owner's S23, 2026-10-30)", async () => {
+    const { services, sockets } = signedInGuest("/about");
+    const mounted = await mount(withServices(<App />, services));
+    await sockets.live.accept();
+    const sign = '.status-tray button[aria-label="Watch Together is on: its controls"]';
+    await settleUntil(() => mounted.container.querySelector(sign) !== null);
+    await click(mounted.container.querySelector(sign));
+    await settleUntil(() => sockets.session.openedCount() > 0);
+    await sockets.session.accept();
+    await sockets.session.refuse();
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(mounted.container.querySelector("dialog.together-dialog")).toBeNull();
+    expect(mounted.container.querySelector(sign)).toBeNull();
+    mounted.unmount();
+  });
+
   it("stays a page of its own for a guest by link alone: no banner", async () => {
     window.localStorage.setItem(
       "orpheum.together.viewer",

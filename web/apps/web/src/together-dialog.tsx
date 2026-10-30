@@ -2,13 +2,14 @@
 
 import "./watch-together.css";
 
-import type { JSX } from "react";
+import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { useMembership } from "./together-membership.ts";
+import { useSessionEnd } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { useTogether } from "./use-together.ts";
 import { WatchTogetherControls } from "./watch-together.tsx";
@@ -35,7 +36,7 @@ export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Ele
       <section className="watch-together" aria-labelledby="watch-together-heading">
         <h2 id="watch-together-heading">{t("watchTogether.heading")}</h2>
         {viewing !== undefined && !isHosting ? (
-          <GuestsSession membership={viewing} />
+          <GuestsSession membership={viewing} onEnded={props.onClose} />
         ) : (
           <WatchTogetherControls onEnded={props.onClose} />
         )}
@@ -47,9 +48,15 @@ export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Ele
 /**
  * A signed-in guest's session, in Watch Together's dialog: the way back to the group's film, whose
  * Play page is theirs in the session (voice, their volume and Leave under it), or that nothing plays
- * yet. Read by a panel of the session while the dialog is open, which plays nothing.
+ * yet. Read by a panel of the session while the dialog is open, which plays nothing. A session the
+ * server no longer has (lost with a restart, or ended unseen) ends here as any end does: the
+ * membership forgotten, the page home and told so, the dialog closed (the owner's S23, staging,
+ * 2026-10-30: the sign stayed blue and the dialog said "Loading…" for good).
  */
-function GuestsSession(props: { readonly membership: Membership }): JSX.Element {
+function GuestsSession(props: {
+  readonly membership: Membership;
+  readonly onEnded: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
   const { snapshot } = useTogether({
@@ -57,6 +64,15 @@ function GuestsSession(props: { readonly membership: Membership }): JSX.Element 
     sessionToken: useToken(),
     role: "panel",
   });
+  const { over } = useSessionEnd(true, undefined);
+  const endReason = snapshot?.status === "ended" ? (snapshot.endReason ?? "gone") : undefined;
+  const { onEnded } = props;
+  useEffect(() => {
+    if (endReason !== undefined) {
+      onEnded();
+      over.end(endReason);
+    }
+  }, [endReason, onEnded, over]);
   if (snapshot?.status !== "connected") {
     return <p>{t("common.loading")}</p>;
   }
