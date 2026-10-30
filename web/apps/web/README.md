@@ -197,7 +197,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   playing; taken back or gone, from where the receiver last stood while it led the session the remote
   works (the hosted one while Watch Together is on, the device then the member's player again),
   playing or paused as it was (D385 §2, §3; the route's `paused` for a cast moved on to another film);
-  ended any other way (the server lost the cast) it says why with *Play here from*; a film's warm-up is let go of while the page
+  a cast the server no longer knows (not among the device's casts, or its session's credential
+  refused, as after a restart) sends the page home, the shared notice's pop-up saying so there
+  (`homeTold`, `src/notice.ts`; D386 §2), as it does the receiver; *Play here from* is gone; a film's warm-up is let go of while the page
   is a remote. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,

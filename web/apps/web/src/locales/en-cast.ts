@@ -49,11 +49,10 @@ export const enCast = {
     },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     stop: "Stop casting",
-    playHere: "Play here from {{at}}",
     playHereInstead: "Play on this device instead",
     sendingOn: "Sending it to the device you cast to…",
     over: {
-      gone: "The cast is over.",
+      lost: "The cast ended: the server no longer knows it.",
     },
   },
   remote: {

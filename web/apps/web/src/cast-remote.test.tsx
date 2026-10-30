@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Screen } from "./app.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { LiveProvider } from "./live.tsx";
+import { currentNotice, dismissNotice } from "./notice.ts";
 import { Play } from "./play.tsx";
 import {
   bodyField,
@@ -387,6 +388,47 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets, onPlayHere } = await casting({});
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
+  });
+
+  it("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "gone" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
+    const notice = currentNotice();
+    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
+  });
+
+  it("goes home, saying so, where the server lists the cast no more", async () => {
+    const services = servedBy(
+      { "GET /me/casts": [200, { casts: [] }], "GET /files/4/up-next": [200, {}] },
+      [],
+      "token",
+    );
+    const sockets = liveAndSession();
+    const onPlayHere = vi.fn();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastRemote castId={9} fileId={4} onPlayHere={onPlayHere} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "sending", sending });
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
+    const notice = currentNotice();
+    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
   });
 
   it("offers the film's Up next, which moves the cast on (plans/up-next.md)", async () => {

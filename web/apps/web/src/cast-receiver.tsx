@@ -38,6 +38,7 @@ import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
+import { showNotice } from "./notice.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { SoundPanelContext, type SoundPanel } from "./sound-panel.ts";
@@ -251,18 +252,23 @@ function useReceiversSessions(cast: CastToReceive): {
 /**
  * Ends receiving as the cast ends, however it ends, sending the receiver home (onLeave, D384 §1):
  * control taken back here (D385 §1), Stop casting on the sender, its session's end or its controller
- * gone (as its receiver was gone too long or the server restarted). No other cast takes it over
- * (D386 §1).
+ * gone (as its receiver was gone too long). No other cast takes it over (D386 §1). A cast the server
+ * no longer knows ("gone", as after a restart) is said in a pop-up there (D386 §2).
  */
 export function useEndsAsTheCastDoes(
   endReason: TogetherEndReason | undefined,
   onLeave: () => void,
 ): void {
+  const { t } = useTranslation();
   useEffect(() => {
-    if (endReason !== undefined) {
-      onLeave();
+    if (endReason === undefined) {
+      return;
     }
-  }, [endReason, onLeave]);
+    onLeave();
+    if (endReason === "gone") {
+      showNotice(t("cast.over.lost")); // after onLeave's way home, the screen it stays on
+    }
+  }, [endReason, onLeave, t]);
 }
 
 /**
