@@ -40,13 +40,15 @@ export type Route =
    * A file's Play page; with atMs, starting there in place of where the person last left the file:
    * a cast's remote playing here from where its receiver stood (D337's §9 answers, Q5). With
    * shouldPlayHere, it plays on this device while it casts, not on the receiver: the remote's "Play on this
-   * device instead" (D364 §4).
+   * device instead" (D364 §4). With isPaused, it waits paused at atMs: a cast's film taken over
+   * from a receiver that had it paused (D385 §2).
    */
   | {
       readonly screen: "play";
       readonly fileId: number;
       readonly atMs?: number;
       readonly shouldPlayHere?: true;
+      readonly isPaused?: true;
     }
   /**
    * The Libraries page (D349 §9.1), which replaces Search: the library chosen ("all" for every one
@@ -169,7 +171,7 @@ const shapes: readonly Shape[] = [
 
 /**
  * The Play page's route, with where it starts, `at` in ms, where the address says a whole number,
- * and whether it plays here while the device casts (`here`).
+ * whether it plays here while the device casts (`here`), and whether it waits paused there (`paused`).
  */
 function playRoute(fileId: number, search: URLSearchParams): Route {
   const at = search.get("at") ?? "";
@@ -178,6 +180,7 @@ function playRoute(fileId: number, search: URLSearchParams): Route {
     fileId,
     ...(/^\d{1,12}$/u.test(at) ? { atMs: Number(at) } : {}),
     ...(search.get("here") === "1" ? { shouldPlayHere: true } : {}),
+    ...(search.get("paused") === "1" ? { isPaused: true } : {}),
   };
 }
 
@@ -253,6 +256,9 @@ function queryRouteHref(route: Route): string | undefined {
     }
     if (route.shouldPlayHere === true) {
       query.set("here", "1");
+    }
+    if (route.isPaused === true) {
+      query.set("paused", "1");
     }
     const asString = query.toString();
     return `/play/${String(route.fileId)}${asString === "" ? "" : `?${asString}`}`;

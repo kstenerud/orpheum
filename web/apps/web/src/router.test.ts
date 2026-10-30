@@ -17,6 +17,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "play", fileId: 9, atMs: 982_680 },
       { screen: "play", fileId: 9, atMs: 982_680, shouldPlayHere: true },
       { screen: "play", fileId: 9, shouldPlayHere: true },
+      { screen: "play", fileId: 9, atMs: 982_680, shouldPlayHere: true, isPaused: true },
       { screen: "browse" },
       { screen: "browse", library: "all" },
       { screen: "browse", library: 3 },

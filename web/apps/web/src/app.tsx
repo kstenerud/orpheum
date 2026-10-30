@@ -293,6 +293,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
         key={route.fileId}
         fileId={route.fileId}
         atMs={route.atMs}
+        isPaused={route.isPaused === true}
         shouldPlayHere={route.shouldPlayHere === true}
       />
     );

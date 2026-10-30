@@ -5,8 +5,9 @@
  * browsers signed in as the owner are two devices; one plays a film and casts to the other from the
  * status tray's Cast, which asks once and plays it with a television's controls while the first is
  * its remote, the page it cast from staying where it is (D384 §2); every film the first then plays
- * goes to the second, which waits full screen and ready between them; either takes control back by
- * Back, or the receiver goes home when the remote stops casting (D384 §1).
+ * goes to the second, which waits full screen and ready between them; the receiver goes home as the
+ * cast ends, its control taken back by Back, the first then playing the film itself (D385), or the
+ * remote's Stop casting (D384 §1).
  */
 
 import { expect, type Browser, type Page } from "@playwright/test";
@@ -150,12 +151,17 @@ test(
         timeout: 10_000,
       });
 
+      // Control taken back ends the cast: the receiver goes home, and the sender plays the film
+      // itself from where the receiver stood, playing as it was, offering nothing (D385 §1, §2).
+      const playAddress = sender.url();
       await receiver.keyboard.press("Escape");
-      await expect(sender.getByText(/took control back/u)).toBeVisible({ timeout: 10_000 });
-      await expect(sender.getByRole("button", { name: /^Play here from / })).toBeVisible();
-      await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u);
-      await expect(receiver.getByText(/^Controlled from /u)).toHaveCount(0);
-      expect(await isPaused(receiver)).toBe(false);
+      await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
+      await expect(receiver.locator("video")).toHaveCount(0);
+      await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, { timeout: 10_000 });
+      await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
+      await expect(sender.getByRole("button", { name: /^Play here from / })).toHaveCount(0);
+      await expect(sender.getByText(/took control back/u)).toHaveCount(0);
+      expect(sender.url()).toBe(playAddress);
     });
   },
 );

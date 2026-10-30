@@ -3,8 +3,11 @@
 
 import "./i18n.ts";
 
+import { tellNextChunkLoadMs } from "@orpheum/sdk";
+import { act, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Screen } from "./app.tsx";
 import { CastRemote } from "./cast-remote.tsx";
 import { LiveProvider } from "./live.tsx";
 import { Play } from "./play.tsx";
@@ -52,6 +55,11 @@ const welcome = {
   group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
   roster: [],
 };
+
+/** The cast's roster, its receiver's video leading it. */
+const receiverLeads = [
+  { id: 2, name: "owner", isHost: true, devices: [{ id: 6, role: "video", isLeader: true }] },
+];
 
 /** The cast this device sends, as the live connection says it, its receiver having said Use. */
 const sending = {
@@ -261,7 +269,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     );
     await click(buttonWithText(mounted!.container, "Play on this device instead"));
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({});
-    expect(onPlayHere).toHaveBeenCalledWith(61_000);
+    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
     expect(services.navigation.route()).toEqual({ screen: "films" });
   });
 
@@ -306,17 +314,19 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(castSession.heard.some((each) => each["type"] === "command")).toBe(false);
   });
 
-  it("says control was taken back, and offers to play here from where it stood, on the page it shows on (D364 §9)", async () => {
+  // The owner, staging, 2026-10-30: after a Fire TV took control back, the page offered "Play here
+  // from ‹time›", its time rising on its own whatever the TV then did.
+  it("plays the film here at once from where the receiver stood, paused as it was, as control is taken back there, offering nothing (D385 §2)", async () => {
     const { sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "roster", roster: receiverLeads });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
-    expect(mounted!.container.textContent).toContain("Fire TV took control back.");
-    expect(onPlayHere).not.toHaveBeenCalled();
-    await click(buttonWithText(mounted!.container, "Play here from 1:01"));
-    expect(onPlayHere).toHaveBeenCalledWith(61_000);
+    expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(61_000, true);
+    expect(mounted!.container.textContent).not.toContain("took control back");
+    expect(buttonWithText(mounted!.container, "Play here from 1:01")).toBeUndefined();
   });
 
-  it("plays the film of another page on that page, in this one's place, where the cast moved on to it", async () => {
+  it("plays the film of another page on that page, in this one's place, where the cast moved on to it, paused as the receiver had it", async () => {
     const { services, sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
     await sockets.live.say({
       type: "sending",
@@ -324,13 +334,40 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
-    await click(buttonWithText(mounted!.container, "Play here from 1:01"));
     expect(services.navigation.route()).toEqual({
       screen: "play",
       fileId: 5,
       atMs: 61_000,
       shouldPlayHere: true,
+      isPaused: true,
     });
+  });
+
+  // The owner, 2026-10-30: "We could just have it take over at the last known playback position once
+  // it's sure the castee is gone."
+  it("plays the film here, playing, from where the receiver last stood once it is gone, not where the clock has moved it to since (D385 §3)", async () => {
+    vi.useFakeTimers({ toFake: ["performance", "setInterval", "clearInterval"] });
+    try {
+      const { sockets, onPlayHere } = await casting({});
+      const playing = { state: "Playing", positionMs: 61_000, rate: 1, fileId: 4 };
+      await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
+      await sockets.session.say({ type: "roster", roster: receiverLeads });
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      // The receiver's connection lost: the server detaches it, and no device leads the cast.
+      await sockets.session.say({ type: "roster", roster: [] });
+      act(() => {
+        // The server sure it is gone: its minutes, shortened, as this stand-in answers no ping.
+        vi.advanceTimersByTime(20_000);
+      });
+      await sockets.live.say({ type: "sending" });
+      await sockets.session.say({ type: "ended", reason: "receiverGone" });
+      expect(onPlayHere).toHaveBeenCalledExactlyOnceWith(66_000, false);
+      expect(mounted!.container.textContent).not.toContain("was gone");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stops casting at Stop, the film playing here again at once from where the receiver stood (D384 §2)", async () => {
@@ -343,21 +380,22 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "stopped",
     });
-    expect(onPlayHere).toHaveBeenCalledWith(75_000);
+    expect(onPlayHere).toHaveBeenCalledWith(75_000, false);
   });
 
   it("plays the film here again as the cast is stopped elsewhere, as from Cast's dialog (D384 §2)", async () => {
     const { sockets, onPlayHere } = await casting({});
     await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(onPlayHere).toHaveBeenCalledWith(61_000);
+    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
   });
 
-  it("says the receiver was gone for two minutes (D364 §6)", async () => {
-    const { sockets } = await casting({});
-    await sockets.session.say({ type: "ended", reason: "receiverGone" });
-    expect(mounted!.container.textContent).toContain(
-      "Fire TV was gone for two minutes, so casting stopped.",
-    );
+  it("says another device took the receiver, and offers to play here from where it stood (D337 §6)", async () => {
+    const { sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "replaced" });
+    expect(mounted!.container.textContent).toContain("Fire TV");
+    expect(onPlayHere).not.toHaveBeenCalled();
+    await click(buttonWithText(mounted!.container, "Play here from 1:01"));
+    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
   });
 
   it("offers the film's Up next, which moves the cast on (plans/up-next.md)", async () => {
@@ -402,6 +440,59 @@ describe("playing here from where a cast stood (§9 Q5)", () => {
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
+  });
+
+  /** How often the video of film 2's Play page, page, was played once loaded far ahead of it. */
+  async function playsOf(page: JSX.Element): Promise<number> {
+    const services = servedBy({
+      "POST /playback": [200, directDecision({ resumePositionMs: 0 })],
+      "PUT /files/2/preferences": [204, undefined],
+      "GET /files/2/waits": [200, {}],
+      "GET /files/2/up-next": [200, {}],
+      "POST /playback/t/report": [204, undefined],
+      "PUT /playback/t/interest": [204, null],
+      "DELETE /playback/t": [204, null],
+    });
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(page, services));
+    await settleUntil(() => mounted?.container.querySelector("video") !== null);
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    let plays = 0;
+    Object.defineProperty(video, "readyState", { value: 4 });
+    Object.defineProperty(video, "networkState", { value: 2 }); // loading
+    Object.defineProperty(video, "buffered", {
+      get: () => ({ length: 1, start: () => 0, end: () => 7200 }),
+    });
+    Object.defineProperty(video, "play", {
+      value: async (): Promise<void> => {
+        plays += 1;
+        await Promise.resolve();
+      },
+    });
+    tellNextChunkLoadMs(video, () => ({ loadMs: 100, from: "confident" }));
+    for (const event of ["loadstart", "loadedmetadata", "canplay", "progress"]) {
+      await act(async () => {
+        video.dispatchEvent(new Event(event));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+    mounted.unmount();
+    mounted = undefined;
+    return plays;
+  }
+
+  it("waits paused there where the receiver had the film paused as its sender took it over, and plays at once where it played (D385 §2)", async () => {
+    expect(await playsOf(<Play fileId={2} atMs={982_680} isPaused />)).toBe(0);
+    expect(await playsOf(<Play fileId={2} atMs={982_680} />)).toBeGreaterThan(0);
+  });
+
+  it("waits paused there from its address, as on another film's page the cast had moved on to (D385 §2)", async () => {
+    const route = { screen: "play", fileId: 2, atMs: 982_680, shouldPlayHere: true } as const;
+    expect(await playsOf(<Screen route={{ ...route, isPaused: true }} />)).toBe(0);
+    expect(await playsOf(<Screen route={route} />)).toBeGreaterThan(0);
   });
 
   it("starts the film there, not where the server last heard it was, and asks saying so", async () => {
