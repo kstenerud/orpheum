@@ -90,7 +90,10 @@ export function TapToContinue(props: {
   const host = props.roster.find((member) => member.isHost)?.name;
   useToldContinueAsked(props.connection, props.hasJoinedHere);
   return (
-    <ViewerPage className="together-viewer__continue">
+    <ViewerPage
+      className="together-viewer__continue"
+      inShellClassName="together-viewer__continue--in-shell"
+    >
       <p>
         {host === undefined ? t("together.invitedBySomeone") : t("together.invitedBy", { host })}
       </p>
@@ -108,11 +111,13 @@ export function TapToContinue(props: {
  */
 export function ViewerPage(props: {
   readonly className: string;
+  /** Its class in the shell, beside className, written whole so the stylesheets' test finds it. */
+  readonly inShellClassName: string;
   readonly children: ReactNode;
 }): JSX.Element {
   const isInShell = use(InShellContext);
   return isInShell ? (
-    <div className={`${props.className} ${props.className}--in-shell`}>{props.children}</div>
+    <div className={`${props.className} ${props.inShellClassName}`}>{props.children}</div>
   ) : (
     <main className={props.className}>{props.children}</main>
   );
