@@ -193,7 +193,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   sent on or taken by a cast started over it, shows in its video's place the cast's remote
   (`src/cast-remote.tsx`), which holds no player: with a film playing, *Playing on ‹Device›*, its
   controls (`src/session-remote.tsx`), working the session the tab hosts while Watch Together is on
-  too, Up next, *Play on this device instead* (the receiver waiting ready) and Stop casting; with
+  too, Up next and Stop casting, the one way to bring the film back (D388); with
   none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, its control taken
   back on the receiver, or the receiver gone (D364 §6), the film plays on the same page again, asked
   for with cause castOver and that start: stopped, from where the server says the receiver stood,
