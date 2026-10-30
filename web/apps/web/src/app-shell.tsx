@@ -2,7 +2,7 @@
 
 import "./app-shell.css";
 
-import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import { createContext, useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
@@ -272,6 +272,12 @@ function isShownTo(
   }
 }
 
+/**
+ * Whether a screen renders in the shell, under its banner and in its one main landmark: a screen that
+ * is also a page of its own (a Watch Together guest's, D372 §9) draws no second landmark or logo.
+ */
+export const InShellContext = createContext(false);
+
 /** The screen, under any word the page has about what the browser is doing, and the tab's notice. */
 function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
   return (
@@ -279,7 +285,7 @@ function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
       <PlainHttpNote />
       <LocalNetworkNote />
       <NoticeNote />
-      {props.children}
+      <InShellContext value={true}>{props.children}</InShellContext>
     </main>
   );
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import type { components, RosterMember } from "@orpheum/sdk";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -318,11 +318,23 @@ function LinkDialog(
 /** Which row of the people's list has its dialog open. */
 type Opened = { readonly memberId: number } | { readonly linkId: number } | undefined;
 
-/** The people's rows: each member, then each link not used yet, opening its dialog when pressed. */
+/**
+ * Whether the session's roster has member with no device on the session's page: away, elsewhere in
+ * the app or their page closed (D372 §9); false while the roster is not known or does not have them.
+ */
+function isAway(roster: readonly RosterMember[] | undefined, member: SessionMember): boolean {
+  return roster?.find((each) => each.id === member.id)?.devices.length === 0;
+}
+
+/**
+ * The people's rows: each member, said away while they have no device on the session's page, then
+ * each link not used yet, opening its dialog when pressed.
+ */
 function PeopleList(props: {
   readonly members: readonly SessionMember[];
   readonly links: readonly SessionLink[];
   readonly allLinks: readonly SessionLink[];
+  readonly roster: readonly RosterMember[] | undefined;
   readonly onOpen: (opened: Opened) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
@@ -340,6 +352,7 @@ function PeopleList(props: {
             >
               {t("watchTogether.member", { name: member.name, note: member.hostNote ?? "" })}
               {joinedBy === undefined ? null : `, ${rightsText(t, joinedBy.rights)}`}
+              {isAway(props.roster, member) ? `, ${t("watchTogether.memberAway")}` : null}
             </button>
           </li>
         );
@@ -365,10 +378,15 @@ function PeopleList(props: {
 
 /**
  * Each member who joined and each link not used yet, with the host's note of who each is and what
- * they may do, each a row that opens its own dialog (D281 §5).
+ * they may do, each a row that opens its own dialog (D281 §5); a member the session's roster has
+ * with no device on its page is said away (D372 §9).
  */
 export function SessionPeople(
-  props: Omit<PeopleActions, "sessionId"> & { readonly details: SessionDetails },
+  props: Omit<PeopleActions, "sessionId"> & {
+    readonly details: SessionDetails;
+    /** The session's roster as the host's connection knows it; undefined until it does. */
+    readonly roster?: readonly RosterMember[] | undefined;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   const [opened, setOpened] = useState<Opened>(undefined);
@@ -396,7 +414,13 @@ export function SessionPeople(
   return (
     <>
       {links.length === 0 && members.length === 0 ? <p>{t("watchTogether.nobody")}</p> : null}
-      <PeopleList members={members} links={links} allLinks={allLinks} onOpen={setOpened} />
+      <PeopleList
+        members={members}
+        links={links}
+        allLinks={allLinks}
+        roster={props.roster}
+        onOpen={setOpened}
+      />
       {openMember === undefined ? null : (
         <PersonDialog
           {...actions}

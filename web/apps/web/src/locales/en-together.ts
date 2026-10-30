@@ -38,7 +38,9 @@ export const enTogether = {
       "Even the lowest quality, {{lowest}}, is too much for {{name}}'s connection: their film will keep pausing.",
     reconnecting: "Connection lost. Reconnecting…",
     here: "Here: {{names, list}}",
-    away: "{{name}} (reconnecting)",
+    // A member with no device on the session's page: wandered elsewhere in the app, or their page
+    // closed or lost (D372 §9); the roster cannot tell which.
+    away: "{{name}} (away)",
     status: {
       needsTap: "{{name}}: needs to tap the page to start",
       loading: "{{name}}: loading the film",
@@ -165,6 +167,8 @@ export const enTogether = {
     people: "People",
     nobody: "No one is invited yet.",
     member: "{{name}} ({{note}})",
+    // Said after a member with no device on the session's page (D372 §9).
+    memberAway: "away",
     eject: "Remove",
     ejectConsequence: "{{name}} leaves the session and can't come back by their link.",
     ejectConfirm: "Remove them",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { setReadyAheadPercent, type Api, type components } from "@orpheum/sdk";
-import { useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -87,14 +87,13 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
   if (props.route.screen === "register") {
     return <Register />;
   }
-  if (props.route.screen === "together") {
-    // Its live connection, signed in, says whether this device casts the film to another (D371 §4).
+  if (props.route.screen === "together" && token === undefined) {
+    // A guest by link alone sees none of the app (D246 §3): a page of its own, no debug tools. A
+    // signed-in guest's is a screen in the shell (D372 §9; Screen).
     return (
       <LaterScreen resetKey={props.route.screen}>
         <LiveProvider>
-          <GuestDebugTools>
-            <TogetherViewer />
-          </GuestDebugTools>
+          <TogetherViewer />
         </LiveProvider>
       </LaterScreen>
     );
@@ -111,22 +110,6 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
     return <SignedIn />;
   }
   return isLeavingForTheDiscovery ? <LeavingForSignIn /> : <SignIn />;
-}
-
-/**
- * A Watch Together page's debug tools, by its person's own choice when they are signed in, read with
- * who they are (GET /me); hidden for a guest by link alone, who has no choice to read.
- */
-function GuestDebugTools(props: { readonly children: ReactNode }): JSX.Element {
-  const { api } = useServices();
-  const token = useToken();
-  const [me, reload] = useResource(
-    `debug-tools:${token === undefined ? "guest" : "signed-in"}`,
-    async () => (token === undefined ? undefined : dataOrThrow(await api.GET("/me"))),
-  );
-  const isShown = me.state === "loaded" && me.value?.showsDebugTools === true;
-  const choice = useMemo(() => ({ isShown, onChanged: reload }), [isShown, reload]);
-  return <DebugToolsContext value={choice}>{props.children}</DebugToolsContext>;
 }
 
 /**
@@ -343,6 +326,12 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "watch-together") {
     return <WatchTogether />;
+  }
+  if (route.screen === "together") {
+    // A signed-in guest's page, in the shell: the tray, the menu and Your account stay theirs while
+    // they are in a session, and they may go anywhere and come back by the tray (D372 §9). Its live
+    // connection, the shell's, says whether this device casts the film to another (D371 §4).
+    return <TogetherViewer />;
   }
   const casting = castingScreen(route);
   if (casting !== undefined) {

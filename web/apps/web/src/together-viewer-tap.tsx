@@ -6,9 +6,10 @@ import {
   type RosterMember,
   type TogetherConnection,
 } from "@orpheum/sdk";
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { use, useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { InShellContext } from "./app-shell.tsx";
 import { useServices } from "./services.tsx";
 
 /** The one video every film of the session plays in, and whether the page has had a tap yet. */
@@ -75,14 +76,37 @@ export function TapToContinue(props: {
   const host = props.roster.find((member) => member.isHost)?.name;
   useToldContinueAsked(props.connection, props.hasJoinedHere);
   return (
-    <main className="together-viewer__continue">
+    <ViewerPage className="together-viewer__continue">
       <p>
         {host === undefined ? t("together.invitedBySomeone") : t("together.invitedBy", { host })}
       </p>
       {/* Its tap is the page's (useKeptVideo, playWaitingAtTaps): the button only asks for one. */}
       <button type="button">{t("together.tapToContinue")}</button>
-    </main>
+    </ViewerPage>
   );
+}
+
+/**
+ * A Watch Together guest's page: the whole page, its own main landmark, for a guest by link alone,
+ * who sees none of the app (D246 §3); a screen in the shell, under its banner, for a signed-in guest,
+ * who keeps the tray, the menu and Your account (D372 §9; the owner, 2026-10-29: a guest's page had no
+ * banner, so Show debug tools, or a cast from it, needed a second tab).
+ */
+export function ViewerPage(props: {
+  readonly className: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const isInShell = use(InShellContext);
+  return isInShell ? (
+    <div className={`${props.className} ${props.className}--in-shell`}>{props.children}</div>
+  ) : (
+    <main className={props.className}>{props.children}</main>
+  );
+}
+
+/** Whether the page is a screen in the shell, whose banner already shows the product's logo. */
+export function useIsInShell(): boolean {
+  return use(InShellContext);
 }
 
 /**
