@@ -75,6 +75,8 @@ test(
     if (await end.isVisible()) {
       await end.click();
       await host.getByRole("button", { name: "End it" }).click();
+      // Ending it closes the dialog (D385's Also): the sign opens it again to start one.
+      await host.getByRole("button", { name: "Watch Together", exact: true }).click();
     }
     await start.click();
     // Inviting is a button that opens a dialog of its own (D281 §5).

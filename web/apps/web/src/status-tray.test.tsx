@@ -13,6 +13,7 @@ import { StatusTray } from "./status-tray.tsx";
 import {
   buttonNamed,
   buttonWithText,
+  click,
   mount,
   servedBy,
   settleUntil,
@@ -154,6 +155,35 @@ it("turns Watch Together's sign blue for the host and for a signed-in guest, a b
   );
   expect(sign("Watch Together is on: its controls")).toEqual({ isOn: true, href: null });
   window.localStorage.clear();
+});
+
+// The owner, 2026-10-30: the session ended from its dialog, Watch Together's dialog showed again.
+it("closes Watch Together's dialog as the session is ended from it, nothing opening it again, the page where it was (D385's Also)", async () => {
+  window.sessionStorage.setItem(
+    "orpheum.together.host",
+    JSON.stringify({ sessionId: 7, credential: "host-credential" }),
+  );
+  const heard: Heard[] = [];
+  const services = servedBy(
+    { "GET /together/7": [200, hostedSession], "DELETE /together/7": [204, undefined] },
+    heard,
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  mounted = await mount(
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether />, services),
+  );
+  const dialog = await openDialogOf("Watch Together is on: its controls");
+  await click(buttonWithText(dialog, "End the session"));
+  await click(buttonWithText(dialog, "End it"));
+  await settleUntil(() => heard.some((each) => each.methodAndPath === "DELETE /together/7"));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(document.querySelector("dialog[open]")).toBeNull();
+  expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+  expect(sign("Watch Together")).toEqual({ isOn: false, href: null });
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
 });
 
 it("has the hosted session's details at hand as the sign shows, so its page shows them at once (the owner, 2026-10-12)", async () => {
