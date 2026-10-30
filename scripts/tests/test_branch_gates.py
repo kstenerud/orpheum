@@ -452,6 +452,18 @@ class RevertRedClaims(unittest.TestCase):
                          ("CLAIMED", "Refactor-Only: the rename moved no behaviour"))
         self.assertIn("On the author's word", rr.report([outcome]))
 
+    def test_an_unticked_vq_item_passes_the_file_and_is_listed_as_owed(self):
+        # The owner, 2026-10-30 (D378): the queue records what is owed; it fails no gate.
+        repo, base = self.repo()
+        queue = repo.root / rr.VQ_FILE
+        queue.parent.mkdir(parents=True, exist_ok=True)
+        repo.commit("docs: queue", {rr.VQ_FILE: "- [ ] **VQ7** — on the TV\n"})
+        repo.commit("fix(tool): answer two\n\nIt answered one.\n\nVerified-By: VQ7", {self.CODE: "def f():\n    return 2\n"})
+        outcome = self.probe(repo, base)
+        self.assertEqual(outcome.verdict, "CLAIMED")
+        self.assertIn("owed: VQ7", outcome.detail)
+        self.assertIn(f"VQ7: {self.CODE}", rr.report([outcome]))
+
     def test_a_claim_on_its_commit_does_not_excuse_a_file_a_test_covers(self):
         repo, base = self.repo()
         repo.commit("fix(tool): answer two\n\nIt answered one.\n\nVerified-By: VQ99", {

@@ -19,9 +19,13 @@ file a fresh probe would fail.
 
 **What a Go run read** is every package of the module it compiled, its tests' imports included
 (`go list -deps -test`), and go.mod and go.sum: the named packages alone missed a changed package
-they import (finding 3). The web runs' are the web client's whole tree, which a narrower key by
-vitest's own module graph would improve (finding 3, not built: a key missing an edge would take a
-stale red, and a red passes a file).
+they import (finding 3). A web red is kept by the modules of the tests it failed, read from its
+output, and what they import, relative and through the workspace packages, with the runs'
+configurations (revert_red_web.modules_read; the owner, 2026-10-30: the whole web client's tree,
+which every web commit changed, re-ran 140 related runs, half a 75-minute check-pr). A key missing an
+import would take a stale red, and a red passes a file: a test whose module reads files no import
+names (node:fs, import.meta.glob) keeps the whole tree, and the nightly run trusts no record. A web
+green, and a red whose output names no test, still keeps the whole tree.
 
 **The test that caught it before.** A red also records which test failed, by the file's path alone,
 at any base: a Go test's name and package, a vitest file. A later probe of the same file, whose
@@ -35,6 +39,7 @@ on to the usual runs.
 from __future__ import annotations
 
 import functools
+import hashlib
 import re
 import subprocess
 import sys
@@ -43,6 +48,7 @@ from typing import Any
 
 import last_run
 import revert_red_commands as commands
+import revert_red_web
 from revert_red_attempts import Attempt
 
 GATE = "revert-red"
@@ -60,6 +66,14 @@ def blob(root: str, rev: str, path: str) -> str:
 def tree(root: str, rev: str, directory: str) -> str:
     """The git tree of a directory at rev, or "" when it has none there."""
     return blob(root, rev, directory.removeprefix("./").rstrip("/") or ".")
+
+
+def files_digest(root: str, rev: str, paths: list[str]) -> str:
+    """One digest of the blobs paths have at rev, read in one git run: a red's web key names
+    hundreds of files, a git run each too slow for every probe's lookup."""
+    listed = subprocess.run(["git", "ls-tree", "-r", "--full-tree", rev, "--", *paths], cwd=root,
+                            capture_output=True, text=True, check=False).stdout
+    return hashlib.sha256(listed.encode()).hexdigest()
 
 
 def revert_key(root: str, base: str, head: str, paths: list[str]) -> str:
@@ -110,25 +124,41 @@ def dirs_read(command: list[str], root: str = "") -> list[str]:
     return []
 
 
+def web_modules_read(root: str, command: list[str], output: str) -> list[str] | None:
+    """The files a red vitest run read that a test it failed rests on: the failed tests' modules
+    and the runs' configurations (revert_red_web.modules_read), or None when the run is not
+    vitest's, its output names no failed test, or what those read cannot be known."""
+    if not command or command[0] not in ("npx", "npm") or not output:
+        return None
+    failed = sorted({match.group(1) for match in VITEST_FAILED.finditer(output)})
+    return revert_red_web.modules_read(root, failed) if failed else None
+
+
 def remember(root: str, head: str, key: str, ran: list[str] | list[list[str]], verdict: str, detail: str,
-             part: str = "") -> None:
+             part: str = "", output: str = "") -> None:
     """Records a revert's verdict, with the trees at head of what its runs read: a red's one run, or a
-    green's every run (ran, a list of commands), the part it was probed in. Nothing is kept when a
-    run read something unknown."""
+    green's every run (ran, a list of commands), the part it was probed in. A red vitest run whose
+    output names the tests it failed is kept by those tests' modules alone (output), so a later web
+    commit elsewhere keeps it. Nothing is kept when a run read something unknown."""
     runs = ran if ran and isinstance(ran[0], list) else [ran]
+    files = web_modules_read(root, runs[0], output) if len(runs) == 1 and verdict != "GREEN" else None
     dirs: list[str] = []
-    for command in runs:
+    for command in ([] if files else runs):
         read = dirs_read(command, root)
         if not read:
             return
         dirs += read
     trees = {directory: tree(root, head, directory) for directory in dict.fromkeys(dirs)}
+    kept_files = {"paths": files, "digest": files_digest(root, head, files)} if files else None
 
     def change(old: dict[str, Any] | None) -> dict[str, Any]:
         reverts = dict((old or {}).get("reverts", {}))
         stored = verdict_key(key, verdict, part)
         reverts.pop(stored, None)
-        reverts[stored] = {"trees": trees, "verdict": verdict, "detail": detail, "head": head}
+        entry: dict[str, Any] = {"trees": trees, "verdict": verdict, "detail": detail, "head": head}
+        if kept_files:
+            entry["files"] = kept_files
+        reverts[stored] = entry
         return {**(old or {}), "reverts": dict(list(reverts.items())[-KEPT:])}
     last_run.update(GATE, NAME, change)
 
@@ -145,7 +175,8 @@ def known(root: str, head: str, key: str, part: str = "") -> dict[str, Any] | No
     reverts = (last_run.read(GATE, NAME) or {}).get("reverts", {})
     for stored in (key, verdict_key(key, "GREEN", part)):
         entry = reverts.get(stored)
-        if entry and all(tree(root, head, directory) == was for directory, was in entry["trees"].items()):
+        if entry and all(tree(root, head, directory) == was for directory, was in entry["trees"].items()) and (
+                "files" not in entry or files_digest(root, head, entry["files"]["paths"]) == entry["files"]["digest"]):
             return entry
     return None
 

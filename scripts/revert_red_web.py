@@ -74,6 +74,75 @@ def importing_tests(tree: str, path: str, depth: int | None = None) -> list[str]
                   if found != target and TEST_FILE.search(found.name))
 
 
+# The web client's own packages, by the name its files import them by, at their entry point
+# (each package.json's "exports").
+WORKSPACE_IMPORT = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["']@orpheum/([\w-]+)["']""")
+WORKSPACE_ENTRY = "packages/{}/src/index.ts"
+# What every vitest run reads besides its tests' modules: the configurations, with what they import,
+# and what installs the packages.
+RUN_CONFIGURATION = ("vitest.config.ts", "vitest.browser.config.ts", "apps/web/vite.config.ts", "package.json",
+                     "package-lock.json", "tsconfig.json", "tsconfig.base.json", "apps/web/package.json",
+                     "apps/web/tsconfig.json", "packages/sdk/package.json", "packages/sdk/tsconfig.json",
+                     "packages/player/package.json", "packages/player/tsconfig.json")
+# A module that reads files no import names: what it reads cannot be known from its imports.
+READS_UNNAMED = re.compile(r"""["']node:fs(?:/promises)?["']|import\.meta\.glob""")
+
+
+def _imported(web: Path, source: Path, text: str) -> list[Path]:
+    """The web files source imports: relatively, or a workspace package's entry point."""
+    found = [imported for specifier in RELATIVE_IMPORT.findall(text)
+             if (imported := _resolve(source, specifier.split("?", 1)[0])) is not None]
+    for package in WORKSPACE_IMPORT.findall(text):
+        entry = web / WORKSPACE_ENTRY.format(package)
+        if entry.is_file():
+            found.append(entry.resolve())
+    return found
+
+
+def _closure(web: Path, roots: set[Path], refuses_unnamed: bool) -> set[Path] | None:
+    """roots and the web files they import, directly or through others; None when refuses_unnamed
+    and one of them reads files no import names, or one cannot be read."""
+    seen = set(roots)
+    frontier = list(roots)
+    while frontier:
+        following = []
+        for current in frontier:
+            if current.suffix not in (".ts", ".tsx"):
+                continue
+            try:
+                text = current.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                return None
+            if refuses_unnamed and READS_UNNAMED.search(text):
+                return None
+            for imported in _imported(web, current, text):
+                if imported not in seen and imported.is_relative_to(web):
+                    seen.add(imported)
+                    following.append(imported)
+        frontier = following
+    return seen
+
+
+def modules_read(tree: str, tests: list[str]) -> list[str] | None:
+    """Every file a vitest run of tests (relative to web/) reads, relative to the tree: the tests and
+    what they import, directly or through other files, and the runs' configurations with theirs; None
+    when one of the tests' modules reads files by a path no import names (node:fs, import.meta.glob),
+    or a test is not in the tree. The configurations' own reads (the timings they write) decide no
+    test's result. Revert-red keys a web verdict by these files (revert_red_known.py) where it once
+    took the whole web client, which any web commit changed."""
+    web = (Path(tree) / "web").resolve()
+    roots = {(web / test).resolve() for test in tests}
+    if not roots or not all(root.is_file() for root in roots):
+        return None
+    configuration = _closure(web, {(web / name).resolve() for name in RUN_CONFIGURATION if (web / name).is_file()},
+                             refuses_unnamed=False)
+    modules = _closure(web, roots, refuses_unnamed=True)
+    if configuration is None or modules is None:
+        return None
+    top = Path(tree).resolve()
+    return sorted(str(path.relative_to(top)) for path in configuration | modules)
+
+
 VITEST_RUN = vitest("run", first_red=False)
 # A probe's run, which its first red settles; the spot check runs VITEST_RUN to its end, to list every
 # failure.

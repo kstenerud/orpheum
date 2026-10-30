@@ -80,7 +80,7 @@ import browser_map
 import revert_red_known as known_red
 import revert_red_reruns as reruns
 from revert_red_queries import callers_of_change, users_of_change
-from revert_red_report import failure_advice, report
+from revert_red_report import OWED, failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
 from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_VITEST, TS_SOURCE, Attempt,  # noqa: F401 (tests reach them here)
@@ -89,7 +89,7 @@ from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_V
 import revert_red_commands
 from revert_red_commands import go_test, vitest, web_suite
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
-from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
+from revert_red_claims import VQ_FILE, refactor_only, unticked_items, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import (git_run as _git, go_dependents, go_module, python_tests_naming,  # noqa: F401 (tests reach rev_exists here)
@@ -404,7 +404,8 @@ def claimed(tree: str, base: str, head: str, path: str) -> Outcome | None:
         problem = verification_queue_problem(claim, tree)
         if problem:
             return Outcome(path, "GREEN", f"Verified-By: {claim} — {problem}")
-        return Outcome(path, "CLAIMED", f"Verified-By: {claim}")
+        owed = unticked_items(claim, tree)
+        return Outcome(path, "CLAIMED", f"Verified-By: {claim}" + (f"{OWED}{', '.join(owed)}" if owed else ""))
     return None
 
 
@@ -502,7 +503,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
                 red = Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
             else:
                 red = Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
-            known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail)
+            known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail, output=combined)
             known_red.remember_failed(change.path, combined, go_module(toplevel()))
             return red
         if deferred:

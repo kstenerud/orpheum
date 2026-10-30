@@ -69,3 +69,31 @@ class AddedFileProbe(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModulesRead(unittest.TestCase):
+    """What a vitest run of some tests reads: their imports, relative and through the workspace's
+    packages, and the configurations; unknown when a test's module reads files by path."""
+
+    def test_the_tests_imports_through_relative_paths_and_packages_and_the_configuration(self):
+        repo = Repo({**FILES, f"{SRC}/uses-sdk.test.tsx": 'import { x } from "@orpheum/sdk";\nx;\n',
+                     "web/packages/sdk/src/index.ts": 'export * from "./x.ts";\n',
+                     "web/packages/sdk/src/x.ts": "export const x = 1;\n",
+                     "web/vitest.config.ts": 'import "./e2e/timings.ts";\n',
+                     "web/e2e/timings.ts": 'import "node:fs";\n'})
+        root = str(repo.root)
+        self.assertEqual(web.modules_read(root, ["apps/web/src/list.test.tsx"]),
+                         [f"{SRC}/list.test.tsx", f"{SRC}/list.tsx", f"{SRC}/row.tsx", f"{SRC}/sign.tsx",
+                          "web/e2e/timings.ts", "web/vitest.config.ts"])
+        self.assertEqual(web.modules_read(root, ["apps/web/src/uses-sdk.test.tsx"]),
+                         [f"{SRC}/uses-sdk.test.tsx", "web/e2e/timings.ts", "web/packages/sdk/src/index.ts",
+                          "web/packages/sdk/src/x.ts", "web/vitest.config.ts"])
+
+    def test_a_test_whose_modules_read_files_by_path_or_that_is_not_there_reads_what_is_unknown(self):
+        repo = Repo({**FILES, f"{SRC}/reads.test.ts": 'import { readFileSync } from "node:fs";\nreadFileSync;\n',
+                     f"{SRC}/globs.test.ts": 'import "./globbed.ts";\n',
+                     f"{SRC}/globbed.ts": 'export const all = import.meta.glob("./*.ts");\n'})
+        root = str(repo.root)
+        self.assertIsNone(web.modules_read(root, ["apps/web/src/reads.test.ts"]))
+        self.assertIsNone(web.modules_read(root, ["apps/web/src/globs.test.ts"]))
+        self.assertIsNone(web.modules_read(root, ["apps/web/src/missing.test.ts"]))
