@@ -213,13 +213,18 @@ export type {
   TogetherSnapshot,
   VoiceCallStep,
 } from "./together-connection.ts";
-export { createTogetherVoice, microphoneFailureOf, partnerGainMost } from "./together-voice.ts";
+export { createTogetherVoice, partnerGainMost } from "./together-voice.ts";
+export type {
+  TogetherVoice,
+  TogetherVoiceOptions,
+  VoiceSnapshot,
+  VoiceStatus,
+} from "./together-voice.ts";
+export { microphoneFailureOf } from "./together-voice-call.ts";
 export type {
   MicrophoneFailure,
   MicrophoneProcessing,
   VoiceFailure,
-  TogetherVoice,
-  TogetherVoiceOptions,
   VoiceCall,
   VoiceCallEvents,
   VoiceCallSetup,
@@ -227,9 +232,7 @@ export type {
   VoiceDevices,
   VoiceMicrophone,
   VoicePartner,
-  VoiceSnapshot,
-  VoiceStatus,
-} from "./together-voice.ts";
+} from "./together-voice-call.ts";
 export { browserVoiceDevices } from "./together-voice-browser.ts";
 export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export { isVoiceLive } from "./voice-live.ts";

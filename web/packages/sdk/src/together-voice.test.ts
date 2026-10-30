@@ -16,13 +16,15 @@ import {
   createTogetherVoice,
   iceServersFreshForMs,
   partnerGainMost,
+  type TogetherVoice,
+} from "./together-voice.ts";
+import {
   microphoneFailureOf,
   type MicrophoneProcessing,
-  type TogetherVoice,
   type VoiceCall,
   type VoiceCallSetup,
   type VoiceMicrophone,
-} from "./together-voice.ts";
+} from "./together-voice-call.ts";
 
 /** Processing with gain control and noise suppression, no echo cancelling. */
 const levelled: MicrophoneProcessing = { shouldCancelEcho: false, shouldLevel: true };

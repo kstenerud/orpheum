@@ -20,7 +20,7 @@ import type {
   VoiceCallSetup,
   VoiceCallState,
   VoiceDevices,
-} from "./together-voice.ts";
+} from "./together-voice-call.ts";
 
 /**
  * The microphone as voice asks for it. Echo of the film is kept out by headphones (D63, tier 1),
