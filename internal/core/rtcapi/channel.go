@@ -184,7 +184,7 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	case reader.body.Len()+len(message.Data) > MaxRequestBodyBytes:
 		reader.end(fmt.Errorf("the request's body is over %d bytes", MaxRequestBodyBytes))
 	default:
-		reader.body.Write(message.Data)
+		_, _ = reader.body.Write(message.Data) // a bytes.Buffer's Write never returns an error
 	}
 }
 
