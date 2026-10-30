@@ -528,7 +528,8 @@ export function SeasonView(props: {
 
 /**
  * One season's episodes, each with its still, those not on disk or unavailable said so, and the
- * check on each its person watched (D370 §2).
+ * check on each its person watched (D370 §2), over its still's corner as on a poster's tray (the
+ * owner, 2026-10-28: "I think the checkmark should be over the screenshot").
  */
 function EpisodeList(props: {
   readonly episodes: readonly Episode[];
@@ -549,7 +550,10 @@ function EpisodeList(props: {
           }
         >
           <Link to={{ screen: "title", itemId: episode.id }} className="series__episode">
-            <Still sourceSha256={episode.stillSha256} className="series__still" />
+            <span className="series__still-frame">
+              <Still sourceSha256={episode.stillSha256} className="series__still" />
+              {episode.isWatched === true ? <WatchedRowMark /> : null}
+            </span>
             <span>
               {t("title.episodeLabel", {
                 number:
@@ -568,7 +572,6 @@ function EpisodeList(props: {
             {episode.unavailable === undefined ? null : (
               <span className="series__absent">{unavailableText(t, episode.unavailable)}</span>
             )}
-            {episode.isWatched === true ? <WatchedRowMark /> : null}
           </Link>
         </li>
       ))}

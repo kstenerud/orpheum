@@ -174,6 +174,37 @@ describe("SeasonView", () => {
   });
 });
 
+describe("an episode watched (D370 §2)", () => {
+  // The owner, 2026-10-28: "I think the checkmark should be over the screenshot", as on a poster's
+  // tray, not beside the row.
+  it("is checked over its still, and one not watched is not", () => {
+    const page = {
+      items: [
+        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), isWatched: true },
+        episode(32, { seasonNumber: 1, episodeNumber: 2 }),
+      ],
+      nextCursor: "",
+    };
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeasonView
+          loadedEpisodes={loaded(page)}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
+    );
+    const frames = [
+      ...markup.matchAll(/<span class="series__still-frame">(.*?<\/span>)<\/span><span>/gu),
+    ].map((frame) => frame[1] ?? "");
+    expect(frames).toHaveLength(2);
+    expect(frames[0]).toContain('class="series__still"');
+    expect(frames[0]).toContain('class="watched-row-mark"');
+    expect(frames[1]).not.toContain("watched-row-mark");
+    expect(markup.match(/watched-row-mark/gu)).toHaveLength(1);
+  });
+});
+
 describe("an episode that cannot be played now (D241 §3)", () => {
   it("is listed, marked with why", () => {
     const page = {
