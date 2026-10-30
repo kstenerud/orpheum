@@ -37,7 +37,7 @@
      (the guest's words, the warning sign's page, the uncertain match, season posters, "…" menu, the
      player's controls, the nameless-series parser, the Libraries icon as a menu, invitation links shown
      again with a 7-day expiry).
-   - End: one check-pr, the owner's go, nas.example.
+   - **Done 2026-10-30:** check-pr (green but unticked VQs), owner's go, nas.example an earlier commit, prod connect.
    **Queued for the owner to order later:** the rest of inventory-2026-10-27.md (132 items).
    **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
