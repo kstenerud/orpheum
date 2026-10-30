@@ -66,3 +66,14 @@ def mock_argv(argv: list[str]):
         yield
     finally:
         sys.argv = saved
+
+
+def git_repo(files: dict[str, str]) -> Path:
+    """A throwaway git repository holding `files`, so the gates' `git ls-files` works."""
+    root = Path(tempfile.mkdtemp(prefix="gate-test-"))
+    for path, text in files.items():
+        full = root / path
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(text)
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    return root
