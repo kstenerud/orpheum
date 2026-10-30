@@ -24929,8 +24929,10 @@ session had ended, but the TV played on under a cast no page controlled: "since 
 guest is being forced back home, the cast session should also end, and the cast target also go home.
 Otherwise we get these weird edge cases."
 
-1. **When a Watch Together session ends, every cast of it ends with it**: a member's cast carrying the
-   group's film (its receiver the member's player in the session), the host's included. Each receiver
-   goes home (D384 §1); the sending pages end the session as they do (home, told, for a guest).
+1. **When a Watch Together session ends, every device of it goes home, the host's included, and
+   every cast of it ends**: a member's cast carrying the group's film (its receiver the member's player
+   in the session), the host's included, each receiver going home (D384 §1). Widened the same day by
+   the owner: "when a watch together session ends, ALL associated devices go back home (including the
+   host), and all cast sessions also terminate"; the host's film no longer plays on alone.
 
 **Status:** Decided 2026-10-30; not built yet.
