@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The project's one entry point. `make check` is the gate: the Stop hook runs it at the end of
-# every agent turn that touched a file, the pre-commit hook runs it, and CI runs it. A change is
+# every agent turn that touched a file, and CI runs it; the pre-commit hook runs `make spot`. A change is
 # not done until it passes. Standards: docs/contributors/standards/makefile.md.
 
 SHELL := bash
@@ -75,7 +75,8 @@ check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE
 	  else $(GATE_LOCK) $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose; fi
 
 # The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
-# the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
+# the gate, which make check is at the turn's end; the pre-commit hook runs it (D279, testing.md §10).
+# BASE=<rev> checks commits.
 .PHONY: spot
 spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
 	@# In the gate's container, as make check: one Go test cache for both (the caching audit's finding 4).

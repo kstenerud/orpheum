@@ -28,13 +28,14 @@ pointers.
 ## The gate
 
 **`make check` must pass before you finish.** The Stop hook runs it at the end of every turn
-that changed a file and blocks the turn with the failures. The pre-commit hook and CI run it too.
+that changed a file and blocks the turn with the failures; CI runs it too. The pre-commit hook runs
+`make spot` (the owner, 2026-10-30).
 A branch also passes `make check-pr` (the integration tier, revert-red, test weakening, commit
 lint) before it merges.
 `make help` lists everything.
 
 **While working, `make spot`**: the tests of what changed and of what imports it, in about 30
-seconds. `make check` waits for the commit, and `make check-pr` for an accumulated batch, never a
+seconds; a commit runs it too. `make check` waits for the turn's end, and `make check-pr` for an accumulated batch, never a
 single small fix (principles §23, D279).
 
 **Fixing a failure, re-run only what failed; then run the whole gate once.** Loop on the narrowest
