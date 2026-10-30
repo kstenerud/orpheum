@@ -24657,4 +24657,21 @@ film watched earlier, and again on the next Back (the owner, staging).
    controller due to strange circumstances, it should go back to the info page, or if it doesn't
    have access to it, to the home page").
 
-**Status:** Decided 2026-10-30; not built yet.
+**Proven by:**
+- 1: web/apps/web/src/navigation.test.ts ("a Play page the browser's Back or Forward returns to (D383 §1)"), web/apps/web/src/play-back.test.tsx; on a device, VQ189
+- 2: web/apps/web/src/cast-uncontrolled.test.tsx, web/apps/web/src/cast-receiver.test.tsx ("goes to the film's page, its receiving over, when its cast ended unseen with no one controlling it (D383 §2)"), web/packages/sdk/src/live-connection.test.ts; on a device, VQ189
+
+**Status:** Decided 2026-10-30, and built (2026-10-30) in the web client. Point 1 in `navigation.ts`,
+the one place a route is read from the history: a Play page the browser's Back or Forward arrives
+at, by a popstate or by loading the page again (the navigation timing's `back_forward`), is replaced
+by the title's page its Play page noted on its entry once its playback named it (`noteInPlace`, from
+`play-up.tsx`), else home. Left open, and decided so: a reload of the Play page the person is on
+plays on (a reload is no step of the history), and so does Up's own step back to the page a stopped
+cast took over (D338 §1, the app's step, not the person's). Point 2: the live connection pings once
+told the devices and knows by the answer, which the server sends after anything handed on
+connecting, that no cast was handed (`isReceiveKnown`); a page loaded again while its tab received
+a cast holds its film until then, and, handed none or one not taken (Not now), goes to the noted
+film's page, or home on the ready page, with none noted, or on a 403/404 reading the title
+(`cast-uncontrolled.ts`); a received cast's session ending other than by Stop casting, take-back or
+a replacing cast (gone, its receiver gone too long) does the same. A history entry written by an
+older client has no title noted, so its Play page reached by Back goes home. Device check: VQ189.
