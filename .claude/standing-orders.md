@@ -19,6 +19,9 @@
      link throttle and connection drop (Show debug tools); the page says when DevTools bypass its
      worker; the cast remote's sound controls and the receiver's quality/link on the sender; core and
      discovery find each other whatever the restart order; pagehide gives up the lead.
+   - Process (owner 2026-10-30): D378 built (unticked VQs owed, not failures; web reds keyed by their
+     tests' modules); CI frees the runner's disk; files near 800 lines split; a security audit of every
+     pin (CVEs), bumps proposed to the owner.
    - **Not this batch (owner):** the remembered link kept across deploys (a clean slate on deploy).
    - End: one check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
