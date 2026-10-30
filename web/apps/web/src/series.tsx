@@ -403,12 +403,23 @@ export function orderingName(t: TFunction, ordering: Ordering): string {
 }
 
 /**
+ * The poster a season's card shows: its own (D379 §1), else, where it has no still to show in its
+ * place, its series'; undefined shows its still, or a named blank where it has none either.
+ */
+function seasonPosterOf(series: SeriesDetail, season: Season): string | undefined {
+  return (
+    season.posterSha256 ?? (season.stillSha256 === undefined ? series.art.posterSha256 : undefined)
+  );
+}
+
+/**
  * A series' seasons as a row of posters above the episodes (D379 §1), in the server's order, the
  * specials last; each by its name and how many episodes it holds, with the check once its person
- * watched every one (D370 §3). A season has no poster of its own yet: one with a still shows it in
- * its poster's place (D362 §2), else the series' poster. Choosing one is a view of the series, which
- * replaces the history's entry (D379 §2, D367 §9). The row is one focus container: a remote's Left and
- * Right move along it, Down leaves it for the season's episodes (D379 §3).
+ * watched every one (D370 §3). A season shows its own poster; one with none shows its still in its
+ * poster's place (D362 §2), with no "No poster" caption, else the series' poster. Choosing one is a
+ * view of the series, which replaces the history's entry (D379 §2, D367 §9). The row is one focus
+ * container: a remote's Left and Right move along it, Down leaves it for the season's episodes (D379
+ * §3).
  */
 function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Season }): JSX.Element {
   const { t } = useTranslation();
@@ -434,8 +445,9 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
           to={{ screen: "series-page", collectionId: series.id, season: season.seasonNumber }}
           isCurrent={season.seasonNumber === shown.seasonNumber}
           isReplacing
-          posterSha256={season.stillSha256 === undefined ? series.art.posterSha256 : undefined}
+          posterSha256={seasonPosterOf(series, season)}
           noPosterStillSha256={season.stillSha256}
+          isStillEnough
           name={seasonName(t, series, season)}
           details={
             <PosterDetail>
