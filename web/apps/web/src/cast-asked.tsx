@@ -3,7 +3,7 @@
 import "./cast.css";
 
 import type { CastToReceive, Press } from "@orpheum/sdk";
-import { useEffect, useRef, type JSX } from "react";
+import { useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { acceptCast, castAnswerWithinMs, endCast } from "./cast.ts";
@@ -63,23 +63,16 @@ export function leaveFullScreen(page: Document): void {
 }
 
 /**
- * A cast arrived, asked about once for its whole session (D364 §2, D358 §1–§4): "‹Device› wants to use
- * this device for playback", with Use focused, so a remote's OK answers it, and Not now. Use's press
- * is the one that lets every video of the session play with sound (sticky activation) and puts the
- * page full screen (transient activation, so asked in the press itself), and the server is told, so
- * the sender's Plays come here; Not now, Back or Escape decline it, and no answer within
- * castAnswerWithinMs leaves it unanswered, the sender told either way. A cast that ends while asked,
- * its sender gone, closes it.
+ * What closes a cast's question with no answer: castAnswerWithinMs gone by, the sender told it went
+ * unanswered, or the cast ended, its sender gone. It focuses Use, play, as the question opens.
  */
-export function CastAsked(props: {
-  readonly cast: CastToReceive;
-  readonly onAnswered: (answer: CastAnswer | undefined) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
+function useUnansweredCastCloses(
+  cast: CastToReceive,
+  onAnswered: (answer: CastAnswer | undefined) => void,
+  playRef: RefObject<HTMLButtonElement | null>,
+): void {
   const { api } = useServices();
   const token = useToken();
-  const { cast, onAnswered } = props;
-  const playRef = useRef<HTMLButtonElement>(null);
   const { snapshot } = useTogether({ credential: cast.membershipCredential, sessionToken: token });
   const isEnded = snapshot?.status === "ended";
   const answeredRef = useRef(onAnswered);
@@ -95,12 +88,32 @@ export function CastAsked(props: {
     return () => {
       clearTimeout(timer);
     };
-  }, [api, cast.castId]);
+  }, [api, cast.castId, playRef]);
   useEffect(() => {
     if (isEnded) {
       answeredRef.current(undefined);
     }
   }, [isEnded]);
+}
+
+/**
+ * A cast arrived, asked about once for its whole session (D364 §2, D358 §1–§4): "‹Device› wants to use
+ * this device for playback", with Use focused, so a remote's OK answers it, and Not now. Use's press
+ * is the one that lets every video of the session play with sound (sticky activation) and puts the
+ * page full screen (transient activation, so asked in the press itself), and the server is told, so
+ * the sender's Plays come here; Not now, Back or Escape decline it, and no answer within
+ * castAnswerWithinMs leaves it unanswered, the sender told either way. A cast that ends while asked,
+ * its sender gone, closes it.
+ */
+export function CastAsked(props: {
+  readonly cast: CastToReceive;
+  readonly onAnswered: (answer: CastAnswer | undefined) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { cast, onAnswered } = props;
+  const playRef = useRef<HTMLButtonElement>(null);
+  useUnansweredCastCloses(cast, onAnswered, playRef);
   const decline = (): void => {
     endCast(api, cast.castId, "declined").catch(() => undefined);
     onAnswered(undefined);
