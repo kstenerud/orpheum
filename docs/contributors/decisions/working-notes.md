@@ -24866,3 +24866,16 @@ player's fetch marked sought moves its wanted position; one not marked moves not
 
 **Proven by:**
 - 1: internal/core/playback/interest_test.go (`TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere`); on a device, VQ191
+
+## D388 — A device is cast to or it is not: the remote offers no "Play on this device instead"
+
+**Decided** (2026-10-30), by the project owner, amending D364 §4. The cast remote offered "Play on this
+device instead", which kept the cast while the film played on the sender, the receiver waiting on its
+Ready page for the next video: "We're either casting to a device or we're not. I don't like the idea of
+'casting but the video is actually on the caster'. Drop it."
+
+1. **The remote's way to bring the film back is Stop casting alone** (D384 §1: the receiver goes
+   home, this page plays on). A cast waiting on the receiver's Ready page between videos, the film
+   over and the next not yet sent, stays a cast to that device (D364 §5).
+
+**Status:** Decided 2026-10-30; not built yet.
