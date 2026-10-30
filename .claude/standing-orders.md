@@ -25,7 +25,7 @@
    - **Not this batch (owner):** the remembered link kept across deploys (a clean slate on deploy).
    - End: one check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
-   **Settled (owner 2026-10-27):** D338 stays as it is: a receiver taking control back stays on the video.
+   **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
    docs/contributors/code-debt.md when the owner schedules one.
 

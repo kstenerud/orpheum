@@ -24747,3 +24747,25 @@ Play page, where their voice already lived, rather than in the dialog, which for
 back to the film; a guest by link alone keeps their page of its own, which shows none of the app
 (D246 §3), and is the one page their film plays on; a page of the group's film opened by a press
 asks for no tap to continue. Device check: VQ190.
+
+## D385 — A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood
+
+**Decided** (2026-10-30), by the project owner, amending D338 (settled 2026-10-27: a receiver taking
+control back stays on the video) and D384 §1. On staging, after a Fire TV took control back, the
+sender's page offered "Play here from ‹time›", its time rising on its own whatever the TV then did:
+"This will get very confusing. I think there are too many weird edge cases if we allow the castee to
+continue playback after taking back control from the caster. Let's just make the castee go back to the
+home page, and the caster takes over the castee's playback state, as the controller + playback
+device."
+
+1. **Taking control back on the receiver (Back, OK twice) ends the cast like any other end**: the
+   receiver goes to its home page (D384 §1, now without exception).
+2. **The sender takes over the receiver's playback state** as the one controlling and playing
+   device: its Play page plays the film from where the receiver stood, playing or paused as the
+   receiver was, with no "Play here from" offer. In Watch Together, the sender's device becomes the
+   member's player again (D364 §11).
+
+Also (the owner, the same day): **ending a Watch Together session from its dialog closes the dialog**,
+and nothing reopens it.
+
+**Status:** Decided 2026-10-30; not built yet.
