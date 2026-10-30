@@ -4,6 +4,11 @@ go 1.26.0
 
 toolchain go1.26.10
 
+// No socket uses Multipath TCP: CVE-2026-98432, a Linux use-after-free in TCP that an MPTCP
+// listener (Go's default since 1.24) exposes to remote code execution; a patched kernel is the
+// fix, this the mitigation (golang-announce, 2026-10; the owner, 2026-10-30).
+godebug multipathtcp=0
+
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/coder/websocket v1.8.15
