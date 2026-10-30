@@ -35,15 +35,16 @@
 //   - Each playback holds what its player wants of its film's chunks, which decides the runs that go
 //     on (D309): one picture and its sound, each from its own position, moved by its own stream's
 //     chunks its player asks for, and both by its player's word, a picture asked for where a seek took
-//     it and its start on its ladder (D355), with its stall's offer beside it; none moves the position
-//     its player reports, which it resumes from; and where its player stands: playing, lapsing
+//     it, paused or not, and its start on its ladder (D355), with its stall's offer beside it; none
+//     moves the position its player reports, which it resumes from; and where its player stands: playing, lapsing
 //     after chunk_interest_lapses_after_seconds of silence; paused or gone from its page, wanting
 //     only what it keeps ahead; gone to another film, said so or by starting one, wanting nothing.
 //     TestInterestsIn_AreWhatEachPlayerLastAskedFor,
 //     TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth,
 //     TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy,
 //     TestReplaceOthers_APlayerStartingAnotherFilmLeavesTheOthersForGood; through the API,
-//     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
+//     TestInterest_ARunOfAQualityThePlayerLeftStops and
+//     TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere (internal/core/api).
 //
 //   - Each chunk store a player asked for is kept at the highest tier any playback gives it, by
 //     where its player stands and how long since it was heard (D309 §8), and every answer to a node's
