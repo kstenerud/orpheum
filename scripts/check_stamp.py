@@ -45,6 +45,17 @@ def working_tree_id() -> str:
         return _git("write-tree", env=env)
 
 
+# The mark a design cycle leaves while the owner iterates on a look (standards/design-cycle.md): the
+# Stop hook runs no gate while it is there, and make check refuses to (the owner, 2026-10-30: "make
+# check should fail if that end-of-turn blocker file is present").
+DEFERRED_MARK = ".claude/.cache/check-deferred"
+
+
+def deferred_path() -> Path:
+    """Where the working tree's design-cycle mark is, at its top."""
+    return Path(_git("rev-parse", "--show-toplevel")) / DEFERRED_MARK
+
+
 def stamp_path() -> Path:
     return Path(_git("rev-parse", "--git-path", "orpheum-check-passed"))
 
@@ -61,6 +72,10 @@ def passed_tree() -> str | None:
 def main() -> int:
     action = sys.argv[1] if len(sys.argv) > 1 else ""
     if action == "begin":
+        if deferred_path().exists():
+            print(f"check_stamp: a design cycle is still deferring the gate ({DEFERRED_MARK}); a make check ends "
+                  "the cycle with every safeguard back, so remove the mark first (standards/design-cycle.md)")
+            return 1
         begun_path().write_text(working_tree_id() + "\n")
         return 0
     if action == "write":

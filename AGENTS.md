@@ -38,6 +38,10 @@ lint) before it merges.
 seconds; a commit runs it too. `make check` waits for the turn's end, and `make check-pr` for an accumulated batch, never a
 single small fix (principles §23, D279).
 
+**Iterating on a look with the owner, defer the gate for the whole cycle** and take it up once at
+the owner's go: [`design-cycle.md`](docs/contributors/standards/design-cycle.md). `make check`
+refuses to run until the cycle's mark is gone.
+
 **Fixing a failure, re-run only what failed; then run the whole gate once.** Loop on the narrowest
 run that shows the failure: `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`,
 `make check-revert-red BASE=<base> ONLY="<path>..."`, or `make check-pr-failed`, which re-runs

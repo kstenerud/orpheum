@@ -426,6 +426,39 @@ class StopWithoutMarks(unittest.TestCase):
         self.assertEqual(targets, ["check"], "a tree the gate passed is not gated again")
 
 
+class StopDeferred(unittest.TestCase):
+    def test_the_stop_hook_runs_no_gate_while_checks_are_deferred_and_keeps_its_mark(self):
+        # The owner, 2026-10-30: a design iterated on is checked once, when the owner is happy.
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        targets = []
+
+        def command(target, env):
+            targets.append(target)
+            return ["true"]
+
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            (pending / "check-pending-code").touch()
+            (pending / on_stop.DEFERRED).touch()
+            on_stop.main()
+            self.assertEqual(targets, [])
+            self.assertTrue((pending / "check-pending-code").exists())
+            (pending / on_stop.DEFERRED).unlink()
+            on_stop.main()
+        self.assertEqual(targets, ["check"])
+
+
 class GatePaths(unittest.TestCase):
     def test_classification(self):
         self.assertTrue(gate_paths.is_gate("web/apps/web/tsconfig.json"))
