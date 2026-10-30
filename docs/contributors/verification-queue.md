@@ -1849,3 +1849,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the result. Needs a staging connect rebuilt from this commit, as its loader carries the client's
   requests. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/reopen.ts`,
   `internal/core/rtcapi/answer_watch.go`)
+- [ ] **VQ189** — Back or Forward never starts a film, and a receiver with no controller goes to the
+  film's page (D383), on staging, on the Fire TV (Silk). (1) Play film A, go home, play film B, then
+  press the remote's Back twice: passes when each Back lands on a title's page (B's, then A's or the
+  page before it), Play first, and no film starts (the core's log shows no `a playback started` for
+  either). (2) Cast a film from the Mac's Chrome to the TV, press Use on the TV, then reload the TV's
+  page (or redeploy staging): passes when the TV goes to the film's page within a few seconds, not a
+  Play page playing with no controller; Back from it never starts the film.
+  (`web/apps/web/src/navigation.ts`, `play-up.tsx`, `live.tsx`, `cast-receiver.tsx`)

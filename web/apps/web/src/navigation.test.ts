@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createNavigation, type Place } from "./navigation.ts";
+import { createNavigation, type Navigation, type Place } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
 import { fakePlace, testOrigin, type FakePlace } from "./test-services.tsx";
 
@@ -123,6 +123,78 @@ describe("navigation's notes on history entries", () => {
     // The note rides beside what the entry already kept: it is still this app's.
     expect(navigation.back({ screen: "series" })).toBe(true);
     expect(navigation.route()).toEqual({ screen: "series" });
+  });
+});
+
+describe("a Play page the browser's Back or Forward returns to (D383 §1)", () => {
+  /** Home, then film 30's Play page noting its title 12, then film 31's noting 13, then home. */
+  function watchedTwo(): { readonly place: FakePlace; readonly navigation: Navigation } {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false, false);
+    navigation.go({ screen: "play", fileId: 30 });
+    navigation.noteInPlace({ screen: "title", itemId: 12 });
+    navigation.go({ screen: "play", fileId: 31 });
+    navigation.noteInPlace({ screen: "title", itemId: 13 });
+    navigation.go({ screen: "home" });
+    return { place, navigation };
+  }
+
+  it("shows the title's page it noted in its place, by Back and by Forward, never the film", () => {
+    const { place, navigation } = watchedTwo();
+    place.history.back();
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 13 });
+    place.history.back();
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 12 });
+    expect(place.addresses).toEqual(["/", "/titles/12", "/titles/13", "/"]);
+    // Back from the title's page that took its place goes on to what was before it.
+    expect(navigation.back()).toBe(true);
+    expect(navigation.route()).toEqual({ screen: "home" });
+    place.history.go(1);
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 12 });
+  });
+
+  it("goes home in its place where it noted no title, as a playback that never answered", () => {
+    const place = fakePlace("/titles/4");
+    const navigation = createNavigation(place, false, false);
+    navigation.go({ screen: "play", fileId: 30 });
+    navigation.go({ screen: "title", itemId: 5 });
+    place.history.back();
+    expect(navigation.route()).toEqual({ screen: "home" });
+    expect(navigation.behind()).toEqual([{ screen: "title", itemId: 4 }]);
+  });
+
+  it("is the Play page itself where Up goes back to it, the app's own step, as a stopped cast's return", () => {
+    const { place, navigation } = watchedTwo();
+    navigation.up({ screen: "home" }, (route) => route.screen === "play" && route.fileId === 31);
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 31 });
+    // The person's Back after it still never plays the film before.
+    place.history.back();
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 12 });
+  });
+
+  it("stays the Play page as Back closes something open over it, the page's own entry stepped back to", () => {
+    const place = fakePlace("/");
+    const navigation = createNavigation(place, false, false);
+    navigation.go({ screen: "play", fileId: 30 });
+    const closed: string[] = [];
+    navigation.holdBack(() => closed.push("menu"));
+    place.history.back();
+    expect(closed).toEqual(["menu"]);
+    expect(navigation.route()).toEqual({ screen: "play", fileId: 30 });
+  });
+
+  it("shows the title in its place where the page was loaded by Back, but plays on at a reload", () => {
+    // The entry as the browser keeps it across the page unloaded, as by a reload, and loaded again.
+    const shownOnLoad = fakePlace("/");
+    shownOnLoad.history.pushState({ appDepth: 1, inPlace: "/titles/13" }, "", "/play/31");
+    const loadedByBack = createNavigation(shownOnLoad, false, true);
+    expect(loadedByBack.route()).toEqual({ screen: "title", itemId: 13 });
+    const reloaded = fakePlace("/");
+    reloaded.history.pushState({ appDepth: 1, inPlace: "/titles/13" }, "", "/play/31");
+    expect(createNavigation(reloaded, false, false).route()).toEqual({
+      screen: "play",
+      fileId: 31,
+    });
   });
 });
 

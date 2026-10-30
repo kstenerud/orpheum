@@ -8,6 +8,7 @@ import { noteEpisodeReached } from "./episode-reached.ts";
 import { i18n } from "./i18n.ts";
 import { useBackTarget } from "./input-layer.tsx";
 import { routeHref, routeOfHref, type Route } from "./router.ts";
+import { useServices } from "./services.tsx";
 import { isTelevision } from "./tv-device.ts";
 import { UpLink, UpTrail, useLibraryContext } from "./up-trail.tsx";
 import {
@@ -120,6 +121,7 @@ export function PlayTrail(props: { readonly upward: Upward; readonly plays: Play
 /**
  * The Play page's top, its trail and the film's name, over children, the player, whose television
  * overlay finds its Up and Back by PlayUpwardContext; a cast's receiver shows neither (D337 §3).
+ * Notes on the page's history entry its title's page, which Back or Forward shows in its place.
  */
 export function PlayTop(props: {
   readonly plays: Plays;
@@ -129,6 +131,7 @@ export function PlayTop(props: {
 }): JSX.Element {
   const { plays, titleName, isOwn } = props;
   const upward = usePlayUpward(plays, titleName);
+  useTitleNotedInPlace(plays?.titleId);
   return (
     <>
       {isOwn ? <PlayTrail upward={upward} plays={plays} /> : null}
@@ -136,6 +139,21 @@ export function PlayTop(props: {
       <PlayUpwardContext value={isOwn ? upward : undefined}>{props.children}</PlayUpwardContext>
     </>
   );
+}
+
+/**
+ * Notes on the Play page's history entry its title's page, titleId's, as the page to show in its
+ * place when the browser's Back or Forward returns to it (D383 §1), and, after a reload, the page a
+ * cast's receiver with no controller goes to (§2); nothing where the playback names no title.
+ */
+function useTitleNotedInPlace(titleId: number | undefined): void {
+  const { navigation } = useServices();
+  useEffect(() => {
+    // Only on the Play page's own entry: never on a page the person has gone on to.
+    if (titleId !== undefined && navigation.route().screen === "play") {
+      navigation.noteInPlace({ screen: "title", itemId: titleId });
+    }
+  }, [navigation, titleId]);
 }
 
 /** Notes the episode a playback plays as reached, for its series' page (D367 §9). */

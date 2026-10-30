@@ -290,6 +290,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   base laid under a page it opened on. `src/navigation.test.ts`, `src/upward.test.ts` (the research's
   scenarios over the history), `src/up-trail.test.tsx`, `src/play.test.tsx`,
   `src/input-player.browser.test.tsx`, `src/up-trail.browser.test.tsx`.
+- **Back or Forward never starts a film** (D383 §1): a Play page the browser's history returns to,
+  by a popstate or by loading the page again (`isLoadedByHistory`), shows in its entry's place its
+  title's page, which the Play page noted on its entry once its playback named it
+  (`navigation.noteInPlace`), else home; one place reads it, `navigation.ts`, never each screen. A
+  film starts only by a deliberate act: Play, a cast, Up next, rejoining Watch Together, Up's own
+  step back to the page a stopped cast took over, or a reload of the Play page the person is on.
+  Seen on the owner's Fire TV: Back from a page reloaded mid-cast started a film watched earlier
+  (2026-10-30). `src/navigation.test.ts`, `src/play-back.test.tsx`; on a device, VQ189.
 - **A series is one page; its season, a sort, a view and a search are views of a page, not steps**
   (D367 §9): choosing one replaces the history's entry (`Link`'s `isReplacing`, `RouteChooser`'s
   `isAView`); a series' page shows the season chosen, else that of the person's next episode, else

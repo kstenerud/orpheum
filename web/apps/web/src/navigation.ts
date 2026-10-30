@@ -65,6 +65,13 @@ export interface Navigation {
   /** What was noted on the current history entry; undefined where nothing was. */
   readonly entryNote: () => unknown;
   /**
+   * Keeps with the current history entry the page shown in its place when the browser's Back or
+   * Forward returns to it (D383 §1): a Play page's title's page, so a film never starts by Back.
+   */
+  readonly noteInPlace: (route: Route) => void;
+  /** The page noted to be shown in the current entry's place (noteInPlace); undefined for none. */
+  readonly notedInPlace: () => Route | undefined;
+  /**
    * Tells listener when the browser's own Back reached the base laid under a page this app opened
    * on, where the page's Back goes up from; returns the stopping. With no listener, home.
    */
@@ -111,6 +118,41 @@ function belowOf(state: unknown): readonly string[] {
  */
 const belowKept = 50;
 
+/** The page an entry's state says is shown in its place, as noteInPlace kept it; undefined for none. */
+function inPlaceOf(state: unknown): Route | undefined {
+  if (typeof state !== "object" || state === null || !("inPlace" in state)) {
+    return undefined;
+  }
+  const { inPlace } = state;
+  return typeof inPlace === "string" ? routeOfHref(inPlace) : undefined;
+}
+
+/**
+ * What the browser's Back or Forward shows on arriving at an entry of route, in its place (D383 §1):
+ * a Play page never plays by it, its title's page shown instead, as the page noted it, else home,
+ * where nothing was noted (a page whose playback never answered, or an entry from an older client);
+ * undefined for any other page, shown as it is. A film starts only by a deliberate act: Play, a cast,
+ * Up next, rejoining Watch Together, or a reload of the Play page the person is on.
+ */
+function shownInPlaceOf(route: Route, state: unknown): Route | undefined {
+  return route.screen === "play" ? (inPlaceOf(state) ?? { screen: "home" }) : undefined;
+}
+
+/**
+ * Whether this page was loaded by the browser's Back or Forward: a step to an entry whose page was
+ * unloaded since, as by a reload, which no popstate tells (the owner's Fire TV, 2026-10-30).
+ */
+export function isLoadedByHistory(): boolean {
+  const entries: readonly unknown[] =
+    typeof performance.getEntriesByType === "function"
+      ? performance.getEntriesByType("navigation")
+      : [];
+  const [entry] = entries;
+  return (
+    typeof entry === "object" && entry !== null && "type" in entry && entry.type === "back_forward"
+  );
+}
+
 /** What an entry's state noted with it, as noteOnEntry kept it; undefined for none. */
 function noteOf(state: unknown): unknown {
   return typeof state === "object" && state !== null && "note" in state ? state.note : undefined;
@@ -118,12 +160,18 @@ function noteOf(state: unknown): unknown {
 
 /**
  * Navigation over a place: a pushed or replaced route and the back button all tell every listener,
- * with entries held over the page while something open over it takes Back first (holdBack).
+ * with entries held over the page while something open over it takes Back first (holdBack). A page
+ * the browser's Back or Forward arrives at, by a popstate or, isLoadedByBack, by loading it, shows
+ * what shownInPlaceOf puts in its place (D383 §1).
  */
 export function createNavigation(
   place: Place,
   isOnTelevision: boolean = isTelevision(globalThis.navigator.userAgent),
+  isLoadedByBack: boolean = isLoadedByHistory(),
 ): Navigation {
+  if (isLoadedByBack) {
+    showInPlace(place);
+  }
   const held = new HeldEntries(place);
   const pages = createPageNavigation(held.place, isOnTelevision);
   return {
@@ -166,7 +214,13 @@ function createPageNavigation(place: Place, isOnTelevision: boolean): Omit<Navig
       upFromBase(place, baseListeners, rereadRoute);
     }
   };
-  place.addEventListener("popstate", rereadRoute);
+  // Whether the step under way is Up's own, as to the page a cast took over (leaveTheCastsEntries).
+  let isGoingUp = false;
+  place.addEventListener("popstate", () => {
+    showInPlaceAtReturn(place, current, isGoingUp);
+    isGoingUp = false;
+    rereadRoute();
+  });
   return {
     route: () => current,
     go: (route) => {
@@ -182,12 +236,13 @@ function createPageNavigation(place: Place, isOnTelevision: boolean): Omit<Navig
       rereadRoute();
     },
     up: (parent, isParent) => {
+      isGoingUp = true; // a test's history steps at once, telling popstate before goBackTo returns
       if (!goBackTo(place, isParent)) {
+        isGoingUp = false;
         replaceKeepingBelow(place, depth, parent);
         rereadRoute();
       }
     },
-    behind: () => belowOf(place.history.state).map(routeOfHref),
     back: (up) => {
       const went = backOrUp(place, depth, up);
       if (went === "up") {
@@ -195,15 +250,32 @@ function createPageNavigation(place: Place, isOnTelevision: boolean): Omit<Navig
       }
       return went !== "nowhere";
     },
-    origin: () => place.location.origin,
-    fragment: () => place.location.hash.replace(/^#/u, ""),
     subscribe: adderTo(listeners),
     beforeLeaving: adderTo(leavingListeners),
+    onBase: adderTo(baseListeners),
+    ...readingsOf(place),
+  };
+}
+
+/** What navigation reads of the place, and keeps with its current entry, beside the route. */
+function readingsOf(
+  place: Place,
+): Pick<
+  Navigation,
+  "behind" | "origin" | "fragment" | "noteOnEntry" | "entryNote" | "noteInPlace" | "notedInPlace"
+> {
+  return {
+    behind: () => belowOf(place.history.state).map(routeOfHref),
+    origin: () => place.location.origin,
+    fragment: () => place.location.hash.replace(/^#/u, ""),
     noteOnEntry: (note) => {
       noteOn(place, note);
     },
     entryNote: () => noteOf(place.history.state),
-    onBase: adderTo(baseListeners),
+    noteInPlace: (route) => {
+      keepOnEntry(place, { inPlace: routeHref(route) });
+    },
+    notedInPlace: () => inPlaceOf(place.history.state),
   };
 }
 
@@ -381,10 +453,44 @@ function replaceKeepingBelow(place: Place, depth: number, route: Route): void {
 
 /** Keeps note with the current entry, beside what its state holds already. */
 function noteOn(place: Place, note: unknown): void {
+  keepOnEntry(place, { note });
+}
+
+/** Keeps fields with the current entry's state, beside what it holds already. */
+function keepOnEntry(place: Place, fields: Readonly<Record<string, unknown>>): void {
   const state: unknown = place.history.state;
   const kept = typeof state === "object" && state !== null ? state : {};
   const { pathname, search, hash } = place.location;
-  place.history.replaceState({ ...kept, note }, "", pathname + search + hash);
+  place.history.replaceState({ ...kept, ...fields }, "", pathname + search + hash);
+}
+
+/**
+ * Shows in place what the browser's Back or Forward shows on arriving at the current entry (D383 §1),
+ * where the step that left the page of route left is a return: not the page's own entry stepped back
+ * to, off one held over it; not Up's own step (isGoingUp), as to the page a cast took the tab over
+ * from; not to a base, which is gone up from (upFromBase).
+ */
+function showInPlaceAtReturn(place: Place, left: Route, isGoingUp: boolean): void {
+  if (!isGoingUp && routeHref(left) !== currentHref(place) && !isBase(place.history.state)) {
+    showInPlace(place);
+  }
+}
+
+/** The current entry's route's address, without what follows its #. */
+function currentHref(place: Place): string {
+  return routeHref(parseRoute(place.location.pathname, place.location.search));
+}
+
+/**
+ * Puts in the current entry's place the page shownInPlaceOf says for it, where it says one: the
+ * browser's Back or Forward arrived at it (D383 §1).
+ */
+function showInPlace(place: Place): void {
+  const state: unknown = place.history.state;
+  const shown = shownInPlaceOf(parseRoute(place.location.pathname, place.location.search), state);
+  if (shown !== undefined) {
+    replaceKeepingBelow(place, depthOf(state), shown);
+  }
 }
 
 /**
