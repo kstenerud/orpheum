@@ -23,7 +23,10 @@ jobs:
   image:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        # The job's token, which can publish images, stays out of the checkout's git config.
+        with:
+          persist-credentials: false
       - name: Build and push the runtime image
         env:
           TAG: ${{ github.ref_name }}
