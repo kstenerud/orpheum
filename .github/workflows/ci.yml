@@ -30,6 +30,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # The runner arrives with about 14 GiB free, under the 12 GiB the disk guard keeps for a gate
+      # once the image and caches are in (6.8 GiB free, the owner's run, 2026-10-30). The toolchains
+      # it carries that nothing here uses (.NET, Android, Haskell, Swift, CodeQL) hold over 20 GiB.
+      - name: Free the runner's disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h /
       # ./dev keeps Go's, npm's and Playwright's caches here, which the cache step below saves. It is
       # set by a step because a job's env cannot read the runner context.
       - name: The development caches' directory
@@ -52,6 +61,8 @@ jobs:
         run: |
           set -o pipefail
           zstd -d -c "$RUNNER_TEMP/dev-image.tar.zst" | docker load
+          # Loaded, the archive is a second copy of the image; only a miss saves one.
+          rm "$RUNNER_TEMP/dev-image.tar.zst"
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/dev-cache
