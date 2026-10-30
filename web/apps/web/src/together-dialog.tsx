@@ -19,7 +19,8 @@ import { WatchTogetherControls } from "./watch-together.tsx";
  * and offers a way to get back to it, but ultimately there is one playback page that everything goes
  * through"): for one who may host, starting a session and running it, what plays with the way back
  * to its film's Play page and Stop for everyone, voice and the volumes, the people and Invite, and
- * ending it (watch-together.tsx); for a signed-in guest, the way back to the group's film.
+ * ending it (watch-together.tsx), which closes the dialog, nothing opening it again (D385's Also); for
+ * a signed-in guest, the way back to the group's film.
  */
 export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Element {
   const { t } = useTranslation();
@@ -36,7 +37,7 @@ export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Ele
         {viewing !== undefined && !isHosting ? (
           <GuestsSession membership={viewing} />
         ) : (
-          <WatchTogetherControls />
+          <WatchTogetherControls onEnded={props.onClose} />
         )}
       </section>
     </ModalDialog>

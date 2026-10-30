@@ -35,9 +35,10 @@ import { TogetherPlays } from "./together-plays.tsx";
 /**
  * What the host does with their session, in Watch Together's dialog (together-dialog.tsx, D384 §2):
  * start one, or have back the one this tab started, and run it. Opening it over the film stops
- * nothing (D364 §15).
+ * nothing (D364 §15). Ending the session here is told onEnded once it is forgotten: the dialog
+ * closes then, its work done (D385's Also).
  */
-export function WatchTogetherControls(): JSX.Element {
+export function WatchTogetherControls(props: { readonly onEnded: () => void }): JSX.Element {
   const { t } = useTranslation();
   // Started here, or had back from the server on another of the host's devices (D267 §2).
   const membership = useMembership(tabStorage, "host");
@@ -66,7 +67,10 @@ export function WatchTogetherControls(): JSX.Element {
             setIsOver(true);
             forget();
           }}
-          onEnded={forget}
+          onEnded={() => {
+            forget();
+            props.onEnded();
+          }}
         />
       )}
     </>

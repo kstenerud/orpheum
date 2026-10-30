@@ -20,8 +20,24 @@ const voiceConcealedAtMostShare = 0.02;
  */
 export async function openTogether(host: Page): Promise<void> {
   await host.goto(`${serverUrl()}/`);
+  await openTogetherHere(host);
+}
+
+/** Opens Watch Together's dialog over the host's page as it is, by the tray's sign. */
+async function openTogetherHere(host: Page): Promise<void> {
   await host.locator(".status-tray button[aria-label^='Watch Together']").click();
   await expect(host.locator("dialog.together-dialog")).toBeVisible();
+}
+
+/**
+ * Ends the host's session from Watch Together's dialog, open over their page, which closes it, and
+ * nothing opens it again (D385's Also).
+ */
+async function endFromTheDialog(host: Page): Promise<void> {
+  await host.getByRole("button", { name: "End the session" }).click();
+  await host.getByRole("button", { name: "End it" }).click();
+  await expect(host.locator("dialog.together-dialog")).toHaveCount(0);
+  await expect(host.locator(".status-tray button[aria-label='Watch Together']")).toBeVisible();
 }
 
 /** The host's session, started in Watch Together's dialog, with one link made for Anna. */
@@ -33,8 +49,8 @@ export async function startSessionWithLink(host: Page): Promise<string> {
   const end = host.getByRole("button", { name: "End the session" });
   await expect(start.or(end)).toBeVisible();
   if (await end.isVisible()) {
-    await end.click();
-    await host.getByRole("button", { name: "End it" }).click();
+    await endFromTheDialog(host);
+    await openTogetherHere(host);
   }
   await start.click();
   // Inviting is a button that opens a dialog of its own (D281 §5).
@@ -49,9 +65,7 @@ export async function startSessionWithLink(host: Page): Promise<string> {
 /** Ends the host's session, so the next test, or the next browser's run, starts with none. */
 export async function endSession(host: Page): Promise<void> {
   await openTogether(host);
-  await host.getByRole("button", { name: "End the session" }).click();
-  await host.getByRole("button", { name: "End it" }).click();
-  await expect(host.getByRole("button", { name: "Start a session" })).toBeVisible();
+  await endFromTheDialog(host);
 }
 
 /** The guest joins by link with their name, asked nothing of how they hear the film (D336 §4). */
