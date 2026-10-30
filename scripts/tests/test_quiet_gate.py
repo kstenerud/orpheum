@@ -78,6 +78,14 @@ class Running(unittest.TestCase):
         self.assertEqual(printed.strip(), "make gate: all gates passed")
         self.assertIn("ok  \tpkg", log.read_text())
 
+    def test_a_pass_shows_the_vulnerability_report_too(self):
+        # The owner, 2026-10-30: a prompt to upgrade, which a passing check-pr must not hide.
+        code, printed, _ = self.run_gate("gate:\n\t@echo 'check-vulns: Go: 1 known vulnerability'\n"
+                                         "\t@echo 'ok  \tpkg\t1s'\n\t@echo 'make gate: all gates passed'\n")
+        self.assertEqual(code, 0)
+        self.assertEqual(printed.strip().splitlines(),
+                         ["check-vulns: Go: 1 known vulnerability", "make gate: all gates passed"])
+
     def test_a_failure_prints_its_errors_fails_and_names_the_log(self):
         code, printed, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n\t@echo 'broken thing'\n\t@false\n")
         self.assertNotEqual(code, 0)
