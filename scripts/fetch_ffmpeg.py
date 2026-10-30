@@ -38,12 +38,12 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-# ffmpeg-fdproxy's release: jellyfin-ffmpeg v8.1.2-5 and its patches, the protocol named fdproxy
-# (GitHub API, 2026-10-24).
-FDPROXY_VERSION = "8.1.2-5-2"
+# ffmpeg-fdproxy's release: jellyfin-ffmpeg v8.1.3-1 and its patches, the protocol named fdproxy
+# (GitHub API, 2026-10-30; the hashes match its SHA256SUMS).
+FDPROXY_VERSION = "8.1.3-1-2"
 FDPROXY_URL = f"https://github.com/kstenerud/ffmpeg-fdproxy/releases/download/v{FDPROXY_VERSION}"
-# jellyfin-ffmpeg's own release, which ffmpeg-fdproxy builds no macOS binary of (GitHub API, 2026-09-23).
-JELLYFIN_VERSION = "8.1.2-5"
+# jellyfin-ffmpeg's own release, which ffmpeg-fdproxy builds no macOS binary of (GitHub API, 2026-10-30).
+JELLYFIN_VERSION = "8.1.3-1"
 JELLYFIN_URL = f"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v{JELLYFIN_VERSION}"
 
 
@@ -62,15 +62,15 @@ class Pin:
 PINS = {
     "linux/amd64": Pin(
         f"{FDPROXY_URL}/ffmpeg-fdproxy_{FDPROXY_VERSION}_linux64-gpl.tar.xz",
-        "27ee2f006ac3ca77543e3d3f328e72e816e4f8ed88900b19c611215580d66608",
+        "4a8e9295723e138fae0f7f3af0475b930d54bc661d626d2b6b5d2f4051f149c1",
     ),
     "linux/arm64": Pin(
         f"{FDPROXY_URL}/ffmpeg-fdproxy_{FDPROXY_VERSION}_linuxarm64-gpl.tar.xz",
-        "62ea684f02a9eff27761568f418faa93bb24f26aa89e9e057291333c2c8210ef",
+        "08e678b1b1e622c45d6594c6e941af7ecf733f23e8b5c5408283263162788012",
     ),
     "darwin/arm64": Pin(
         f"{JELLYFIN_URL}/jellyfin-ffmpeg_{JELLYFIN_VERSION}_portable_macarm64-gpl.tar.xz",
-        "b2ac80bb184e9a2f3f7c236876b2f56a5639596a95b42f41ced34fab66ad720d",
+        "22445d7299742749ad2eeb9ce87963d50def0357e45b3e6c7b69987c8365dbf6",
     ),
 }
 
