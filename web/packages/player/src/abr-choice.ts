@@ -104,8 +104,8 @@ export const voiceLinkShare = 0.5;
 export const cacheHitUnderMs = 10;
 
 /**
- * The fewest bytes a chunk measures the link with: a smaller one's time is mostly its request's
- * wait, not its bytes arriving. A Woman of Paris opens on black, a first chunk of 44.8 KB, which
+ * The fewest bytes a chunk measures the link with, counted after its first piece (D382 §2): a
+ * smaller one's time is mostly its request's wait, not its bytes arriving. A Woman of Paris opens on black, a first chunk of 44.8 KB, which
  * measured a LAN as 676 kbit/s and started the film at its lowest quality (the owner's test on
  * staging, 2026-10-18). The lowest quality's 10 s chunk is about 500 KB.
  */
@@ -231,6 +231,41 @@ export function giveUpFor(chunk: ChunkOnItsWay): number | undefined {
   return chosenS < leftS || bps === 0 ? chosen : undefined;
 }
 
+/**
+ * A chunk's first arriving piece, its load's first progress: when it came, in ms on its stats'
+ * clock (performance.now's), and how many bytes it brought.
+ */
+export interface FirstPiece {
+  readonly atMs: number;
+  readonly bytes: number;
+}
+
+/** What of a chunk measures the link: its bytes after its first piece, over the ms after it. */
+export interface AfterFirstPiece {
+  readonly bytes: number;
+  readonly ms: number;
+}
+
+/**
+ * What of a chunk's arrival measures the link (D382 §2): its bytes after its first piece, over the
+ * time from it to toMs, its last byte's or the give-up's. A transport that delivers in pieces, the
+ * WebRTC path's 128 KiB, brings the first with the first byte, so a chunk given up with only that
+ * measured a 20 Mb/s link at 680 kb/s (the Fire TV, staging, 2026-10-30). Where its first piece is
+ * not known, or is an earlier load's, before fromMs, its bytes since its first byte, fromMs.
+ */
+export function afterFirstPiece(
+  arrived: { readonly bytes: number; readonly fromMs: number; readonly toMs: number },
+  piece: FirstPiece | undefined,
+): AfterFirstPiece {
+  if (piece === undefined || piece.atMs < arrived.fromMs) {
+    return { bytes: arrived.bytes, ms: Math.max(1, arrived.toMs - arrived.fromMs) };
+  }
+  return {
+    bytes: Math.max(0, arrived.bytes - piece.bytes),
+    ms: Math.max(1, arrived.toMs - piece.atMs),
+  };
+}
+
 /** A chunk given up on its way, as what it says of the link reads it. */
 export interface GivenUpChunk {
   readonly level: number;
@@ -241,13 +276,16 @@ export interface GivenUpChunk {
   readonly arrivedBytes: number;
   /** How long since its last bytes arrived, in ms. */
   readonly sinceArrivedMs: number;
+  /** What of it measures the link (afterFirstPiece); its bytes since its first byte where absent. */
+  readonly afterFirstPiece?: AfterFirstPiece | undefined;
 }
 
 /**
  * What a chunk given up says of the link's speed (bandwidth-sampling-2026-10-29.md P3): one that was
  * arriving, its bytes coming within arrivingWithinMs of the give-up and at least
- * measuresFromBytesAtLeast of them, is a sample of those bytes over its first byte to the give-up, as
- * arrivalMs times a whole chunk; one stuck, nothing arriving, says nothing of it: undefined. It is a
+ * measuresFromBytesAtLeast of them after its first piece, is a sample of those bytes over the time
+ * from its first piece to the give-up (D382 §2), as arrivalMs times a whole chunk; one stuck, nothing
+ * arriving or only its first piece, says nothing of it: undefined. It is a
  * censored measurement, "slower than this, or the transport stopped", which belongs to the link's
  * reliability, a drop (D352 §4), never to its speed. Counted as one byte over the whole wait, one
  * such chunk among four at 14–18 Mb/s made the estimate 69 kb/s, and a Fire TV played Nosferatu at its
@@ -255,20 +293,18 @@ export interface GivenUpChunk {
  * abandons with nothing loaded.
  */
 export function givenUpSample(chunk: GivenUpChunk): LinkSample | undefined {
-  const { firstByteMs, arrivedBytes } = chunk;
-  if (
-    firstByteMs === undefined ||
-    arrivedBytes < measuresFromBytesAtLeast ||
-    chunk.sinceArrivedMs > arrivingWithinMs
-  ) {
+  const { firstByteMs } = chunk;
+  if (firstByteMs === undefined) {
     return undefined;
   }
-  return {
-    level: chunk.level,
-    bytes: arrivedBytes,
-    arrivedMs: Math.max(1, chunk.loadingMs - firstByteMs),
-    firstByteMs,
+  const measured = chunk.afterFirstPiece ?? {
+    bytes: chunk.arrivedBytes,
+    ms: Math.max(1, chunk.loadingMs - firstByteMs),
   };
+  if (measured.bytes < measuresFromBytesAtLeast || chunk.sinceArrivedMs > arrivingWithinMs) {
+    return undefined;
+  }
+  return { level: chunk.level, bytes: measured.bytes, arrivedMs: measured.ms, firstByteMs };
 }
 
 /**
@@ -287,21 +323,25 @@ export function isStuck(chunk: {
 
 /**
  * How a chunk given up came, for its note: "750000 B in 6000 ms", a sample; "stuck: 5000 B in 6000 ms,
- * none for 4500 ms", nothing arriving within arrivingWithinMs; or "100000 B in 6000 ms, too few to
- * measure".
+ * none for 4500 ms", nothing arriving within arrivingWithinMs; "stuck: 131072 B in 2028 ms, only its
+ * first piece", nothing after it (D382 §2); or "100000 B in 6000 ms, too few to measure".
  */
 export function givenUpText(chunk: {
   readonly loadedBytes: number;
   readonly loadingMs: number;
   readonly sinceArrivedMs: number;
   readonly isSample: boolean;
+  readonly afterFirstPiece?: AfterFirstPiece | undefined;
 }): string {
   const came = `${String(chunk.loadedBytes)} B in ${String(chunk.loadingMs)} ms`;
   if (chunk.isSample) {
     return came;
   }
-  return chunk.sinceArrivedMs > arrivingWithinMs
-    ? `stuck: ${came}, none for ${String(chunk.sinceArrivedMs)} ms`
+  if (chunk.sinceArrivedMs > arrivingWithinMs) {
+    return `stuck: ${came}, none for ${String(chunk.sinceArrivedMs)} ms`;
+  }
+  return chunk.afterFirstPiece?.bytes === 0 && chunk.loadedBytes > 0
+    ? `stuck: ${came}, only its first piece`
     : `${came}, too few to measure`;
 }
 

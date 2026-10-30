@@ -66,8 +66,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   next chunk's choice and the ceiling alike, while `holdsQualityAheadS` (20 s) is loaded ahead,
   noting the hold (D352's revision of 2026-10-28); gives up a slow chunk on its
   way, playing or not, for the lowest quality too, a sample of the link only while its bytes were
-  arriving (within `arrivingWithinMs`, and `measuresFromBytesAtLeast` of them), over its first byte
-  to the give-up, and one stuck no sample, lowering the ceiling while starting no further than the
+  arriving (within `arrivingWithinMs`, and `measuresFromBytesAtLeast` of them after its first
+  arriving piece), over the time from that piece to the give-up, and one stuck, or with only its
+  first piece, no sample (D382 §2), lowering the ceiling while starting no further than the
   estimate carries, a drop either way, and noted always (P3); takes a share of the link that rises with what
   is loaded ahead; steps up after its steadiness level's hold with `stepUpBufferMs` loaded ahead,
   as far as the confident estimate carries at the level's headroom, several qualities at once only
@@ -77,8 +78,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   player its own (`src/steadiness.ts`; D352 §3–§4), starting at the level its offer says, the one
   its device last ended at on its network as the core remembers it (D352 Q2); holds the film to half the link while voice is
   live; and counts neither a chunk from the browser's cache, as its Resource Timing says or, where
-  it does not, a load under 10 ms, nor one its pace held back as a measure of the link, and times a
-  chunk that does from its first byte to its last, never the wait for its first (D247 §9). It
+  it does not, a load under 10 ms, nor one its pace held back as a measure of the link, and counts a
+  chunk that does by its bytes after its first arriving piece, its load's first progress
+  (`src/first-piece.ts`), from that piece to its last byte, never the wait for its first (D247 §9):
+  a transport that delivers in pieces brings the first with the first byte, and a Fire TV's chunk
+  given up with only its first 128 KiB measured a 20 Mb/s link at 680 kb/s (D382 §2). It
   reports its estimate as the link's speed, never a bound of it and never from a lone first sample
   (D352 §1), with its spread, and its steadiness level, with every play report (D352 Q2, P2); and notes each choice with what it rests
   on, and its last five samples in every stall's and seek's report, in their own `linkSamples`
@@ -96,7 +100,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   hls.js stopped its loading, and while the browser is offline; each quality judged unplayable, and
   each long standing still not judged, is noted with why. A minute's outage stood a video 0.07 s short
   of the end of what it held, hls.js saying 33.9 s loaded ahead, and the top quality was given up for
-  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
+  good (a local reproduction, 2026-10-29; VQ135). `abr-outage.test.ts`, `abr-choice.test.ts`, `abr.test.ts`, `abr-first-piece.test.ts`, `abr-trust.test.ts`, `abr-measure.test.ts`,
   `cache-hit.test.ts`, `link-estimate.test.ts`, `steadiness.test.ts`, `step-up.test.ts`,
   `diagnosis.test.ts`, `chunked.test.ts`, `report.test.ts`.
 - **A chunked playback never waits for good on a chunk stuck on its way**: one the core answered,

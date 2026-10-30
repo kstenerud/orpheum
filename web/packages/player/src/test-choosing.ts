@@ -17,6 +17,7 @@ import {
   type ChoosingHls,
   type FollowedChunk,
 } from "./abr.ts";
+import type { FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 
 /** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
@@ -105,6 +106,8 @@ export interface Scene {
   spreadsNoted: number[];
   /** The notes on the link for the play report, in order. */
   linkNotes: string[];
+  /** Each load's first piece, its first progress, by URL (D382 §2); a load not here says none. */
+  firstPieces: Map<string, FirstPiece>;
 }
 
 export const scene: Scene = {
@@ -118,6 +121,7 @@ export const scene: Scene = {
   steadinessNoted: [],
   spreadsNoted: [],
   linkNotes: [],
+  firstPieces: new Map<string, FirstPiece>(),
 };
 
 /** The fake timers useScene was given, which waitMs moves. */
@@ -142,6 +146,7 @@ export function useScene(vitest: {
     scene.steadinessNoted = [];
     scene.spreadsNoted = [];
     scene.linkNotes = [];
+    scene.firstPieces = new Map<string, FirstPiece>();
   });
   vitest.afterEach(() => {
     vitest.vi.useRealTimers();
@@ -204,6 +209,7 @@ export function choosingFrom(
       isInAGroup: () => scene.isInAGroup,
       isOffline: () => scene.isOffline,
       fromCache: (url) => (scene.cachedUrls.has(url) ? true : undefined),
+      firstPieceOf: (url) => scene.firstPieces.get(url),
       onUnplayable: (found) => unplayable.push(found),
       noteStep: (step) => scene.steps.push(step),
       noteSamples: (samples) => scene.samplesNoted.push(samples),
@@ -284,4 +290,47 @@ export function pastStarting(chosen: Chosen, level: number, ...mbps: number[]): 
     throw new Error("the playback is still starting");
   }
   chosen.hls.setVideoAside();
+}
+
+/** File 5664's ladder on staging, its top 15.6 Mb/s HEVC; the rungs between made up. */
+export const fireTvLadder = [696_000, 2_000_000, 4_000_000, 8_000_000, 15_635_000].map((bps) => ({
+  bitrate: bps,
+  averageBitrate: bps,
+}));
+
+/**
+ * The Fire TV's playback of file 5664 (staging, 2026-10-30): its link remembered at 19973 kb/s, a
+ * chunk of its top quality at 19 Mb/s and one at 10 Mb/s, on its top quality still.
+ */
+export function fireTvPlaying(): Chosen {
+  const chosen = choosingFrom(40_000_000, undefined, {
+    rememberedLink: { kbps: 19_973, logSpread: 0.3, countsAsSamples: 2 },
+  });
+  chosen.hls.levels = fireTvLadder;
+  Object.defineProperty(chosen.hls, "maxAutoLevel", { value: 4 });
+  chosen.choosing.firstLevel();
+  load(chosen.choosing, 4, { bytes: 7_167_928, loadMs: 2981 + 50 });
+  load(chosen.choosing, 4, { bytes: 2_301_147, loadMs: 1751 + 50 });
+  return chosen;
+}
+
+/**
+ * A chunk of the top quality, four seconds long, on its way until it is given up at 2 s: its head at
+ * 487 ms, its first piece of 128 KiB at pieceAtMs, then afterBytes more by the give-up.
+ */
+export function topChunkOnItsWay(
+  chosen: Chosen,
+  arrived: { readonly pieceAtMs: number; readonly afterBytes: number },
+): ReturnType<typeof chunkAt> {
+  const chunk = { ...chunkAt(4), duration: 4 };
+  const startMs = scene.nowMs;
+  chosen.choosing.loading(chunk);
+  chunk.stats.loading = { start: startMs, first: startMs + 487, end: 0 };
+  waitMs(arrived.pieceAtMs);
+  chunk.stats.loaded = 131_072;
+  scene.firstPieces.set(chunk.url, { atMs: scene.nowMs, bytes: 131_072 });
+  waitMs(2000 - arrived.pieceAtMs - 1);
+  chunk.stats.loaded += arrived.afterBytes;
+  waitMs(1); // the look that gives it up
+  return chunk;
 }
