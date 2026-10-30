@@ -188,10 +188,11 @@
 //     limit, and a hello of no sign-in is closed for policy (D337 §2). Enforced by
 //     TestLive_ADeviceIsListedWhileItsSocketIsOpenAndGoneAfterTheSilenceLimit.
 //   - A device casts only to another of its person's devices connected now; the receiver is handed
-//     the cast on its live socket and leads the cast's session of one, the sender commands it, the
-//     last cast wins, and either may end it, the other told why (D337). Enforced by
+//     the cast on its live socket and leads the cast's session of one, the sender commands it, and
+//     either may end it, the other told why (D337). A device receiving a cast is no device's target
+//     until it ends, refused as receiving_a_cast (D386 §1). Enforced by
 //     TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow and
-//     TestCast_TheLastCastWinsAndTheReceiverTakesControlBack.
+//     TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack.
 //   - Every operation checks the caller's reach, is an admin's, or holds no library content
 //     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.
 //   - Every answer names its request's ID, the core's own, in X-Request-ID (RequestIDHeader), and every

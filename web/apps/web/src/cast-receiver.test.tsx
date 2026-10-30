@@ -347,13 +347,6 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
-  it("goes on receiving when another cast replaces this one", async () => {
-    const { server, onLeave } = await receiver();
-    await server.say(welcome);
-    await server.say({ type: "ended", reason: "replaced" });
-    expect(onLeave).not.toHaveBeenCalled();
-  });
-
   it("waits ready for the next video at the film's end, the session going on (D364 §5)", async () => {
     const { server, video, heard, onLeave } = await receiver({
       "POST /me/casts/9/play": [200, { castId: 9, fileId: 0 }],

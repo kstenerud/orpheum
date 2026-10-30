@@ -7,7 +7,8 @@
  * its remote, the page it cast from staying where it is (D384 §2); every film the first then plays
  * goes to the second, which waits full screen and ready between them; the receiver goes home as the
  * cast ends, its control taken back by Back, the first then playing the film itself (D385), or the
- * remote's Stop casting (D384 §1).
+ * remote's Stop casting (D384 §1). While it receives, a third device's Cast dialog shows it
+ * unavailable, no device taking it over (D386 §1).
  */
 
 import { expect, type Browser, type Page } from "@playwright/test";
@@ -167,28 +168,47 @@ test(
 );
 
 test(
-  "a receiver waits ready between videos, and goes home when the remote stops casting, the remote's page staying where it is",
+  "a receiver waits ready between videos, is no other device's target, and goes home when the remote stops casting, the remote's page staying where it is",
   { tag: oneBrowserTag },
   async ({ browser }) => {
-    await castBetweenTwo(browser, async ({ sender, receiver }) => {
-      // Played here instead, the receiver waits full screen and ready for the next (D364 §4, §5).
-      await sender.getByRole("button", { name: "Play on this device instead" }).click();
-      await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
-      await expect(receiver.getByText(/^Ready, controlled from /u)).toBeVisible({
-        timeout: 10_000,
+    const thirdContext = await browser.newContext();
+    try {
+      await castBetweenTwo(browser, async ({ sender, receiver }) => {
+        // A third device's Cast dialog shows the receiver unavailable while it receives (D386 §1).
+        const third = await thirdContext.newPage();
+        await signIn(third);
+        await castSign(third).click();
+        const receiving = third
+          .locator(".cast-dialog .cast-to__devices li")
+          .filter({ hasText: "Showing another cast" });
+        await expect(receiving).toHaveCount(1, { timeout: 10_000 });
+        await expect(receiving.getByRole("button")).toBeDisabled();
+
+        // Played here instead, the receiver waits full screen and ready for the next (D364 §4, §5).
+        await sender.getByRole("button", { name: "Play on this device instead" }).click();
+        await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
+        await expect(receiver.getByText(/^Ready, controlled from /u)).toBeVisible({
+          timeout: 10_000,
+        });
+        await expect(receiver.locator("video")).toHaveCount(0);
+        const playAddress = sender.url();
+        await castSign(sender).click();
+        const dialog = sender.locator(".cast-dialog");
+        await expect(dialog.getByText(/^Ready on /u)).toBeVisible({ timeout: 10_000 });
+        await dialog.getByRole("button", { name: "Stop casting" }).click();
+        await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, {
+          timeout: 10_000,
+        });
+        await expect(receiver.getByText(/^Ready, controlled from /u)).toHaveCount(0, {
+          timeout: 10_000,
+        });
+        await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
+        expect(sender.url()).toBe(playAddress);
+        // Its cast over, the receiver is a target again (D386 §1).
+        await expect(receiving).toHaveCount(0, { timeout: 10_000 });
       });
-      await expect(receiver.locator("video")).toHaveCount(0);
-      const playAddress = sender.url();
-      await castSign(sender).click();
-      const dialog = sender.locator(".cast-dialog");
-      await expect(dialog.getByText(/^Ready on /u)).toBeVisible({ timeout: 10_000 });
-      await dialog.getByRole("button", { name: "Stop casting" }).click();
-      await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, { timeout: 10_000 });
-      await expect(receiver.getByText(/^Ready, controlled from /u)).toHaveCount(0, {
-        timeout: 10_000,
-      });
-      await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
-      expect(sender.url()).toBe(playAddress);
-    });
+    } finally {
+      await thirdContext.close();
+    }
   },
 );

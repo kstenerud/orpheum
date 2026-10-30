@@ -22,6 +22,9 @@ var (
 	ErrNoCast = errors.New("no such cast")
 	// ErrNotInFront is a cast to a device connected now on which no Orpheum tab is in front (D338 §2).
 	ErrNotInFront = errors.New("that device has no Orpheum tab in front")
+	// ErrReceiving is a cast to a device that receives a cast now, which no device may take over
+	// until that cast ends (D386 §1).
+	ErrReceiving = errors.New("that device is showing another cast")
 )
 
 // Credential mints another credential for a cast's session, for a receiver loaded again: the hub's
@@ -244,13 +247,13 @@ func (registry *Registry) Connected(userID int64) []int64 {
 }
 
 // Cast starts cast, handing it by receiverCredential to the receiver's tab in front, the one that
-// came to the front last (D338 §2), and telling the sender's pages it sends it. It replaces the cast
-// its receiver had, and the one its sender controlled, which it returns for their sessions to be
-// ended, their senders told (D337 §6: the last cast wins). The receiver must be another of the
-// person's devices, connected now, with a tab in front. It returns the cast as it started: accepted
-// already when it replaces one its receiver said Use to on the tab it is handed to, which receives it
-// at once, asking nothing (D364 §2, the receiver asks once).
-func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Cast, replaced []Cast, err error) {
+// came to the front last (D338 §2), and telling the sender's pages it sends it, and the person's
+// connections that the receiver receives now. The receiver must be another of the person's devices,
+// connected now, with a tab in front, that receives no cast: one that does is no device's target
+// until its cast ends, the same sender's included (D386 §1). The cast its sender controlled before,
+// if any, ends (D337 §6: each sender controls one receiver), returned in left for its session to be
+// ended, its receiver told it was stopped.
+func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Cast, left []Cast, err error) {
 	if cast.ReceiverDeviceID == cast.SenderDeviceID {
 		return Cast{}, nil, ErrToItself
 	}
@@ -260,30 +263,24 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 	if owner == nil || !owner.isConnected(cast.ReceiverDeviceID) || cast.ReceiverDeviceID == 0 {
 		return Cast{}, nil, ErrNotConnected
 	}
+	if owner.casts[cast.ReceiverDeviceID] != nil {
+		return Cast{}, nil, ErrReceiving
+	}
 	front := owner.frontOf(cast.ReceiverDeviceID)
 	if front == nil {
 		return Cast{}, nil, ErrNotInFront
 	}
 	for receiverID, held := range owner.casts {
-		if receiverID == cast.ReceiverDeviceID || held.SenderDeviceID == cast.SenderDeviceID {
-			replaced = append(replaced, held.Cast)
+		if held.SenderDeviceID == cast.SenderDeviceID {
+			left = append(left, held.Cast)
 			delete(owner.casts, receiverID)
-		}
-		if receiverID == cast.ReceiverDeviceID && held.IsAccepted && held.heldBy == front.id {
-			// The tab receives a cast already, so takes this one at once, unasked (live.tsx's
-			// useReceiving): no Use will come, and the sender's Play would stay on the sender.
-			cast.IsAccepted = true
 		}
 	}
 	owner.casts[cast.ReceiverDeviceID] = &heldCast{Cast: cast, heldBy: front.id}
 	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(cast, receiverCredential)})
-	for _, each := range replaced {
-		if each.SenderDeviceID != cast.SenderDeviceID {
-			owner.tellSending(each.SenderDeviceID)
-		}
-	}
 	owner.tellSending(cast.SenderDeviceID)
-	return cast, replaced, nil
+	owner.tellDevices()
+	return cast, left, nil
 }
 
 // CastsOf is the casts userID's device deviceID sends or receives.
@@ -317,6 +314,7 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 		if held.ID == castID && (held.SenderDeviceID == deviceID || held.ReceiverDeviceID == deviceID) {
 			delete(owner.casts, receiverID)
 			owner.tellSending(held.SenderDeviceID)
+			owner.tellDevices()
 			if len(owner.connections) == 0 && len(owner.casts) == 0 {
 				delete(registry.people, userID)
 			}
@@ -412,6 +410,7 @@ func (registry *Registry) EndGone() []Cast {
 	now := registry.clock.Now()
 	ended := []Cast{}
 	for userID, owner := range registry.people {
+		endedBefore := len(ended)
 		for receiverID, held := range owner.casts {
 			if held.goneSince.IsZero() || now.Sub(held.goneSince) < ReceiverGoneAfter {
 				continue
@@ -419,6 +418,9 @@ func (registry *Registry) EndGone() []Cast {
 			delete(owner.casts, receiverID)
 			owner.tellSending(held.SenderDeviceID)
 			ended = append(ended, held.Cast)
+		}
+		if len(ended) > endedBefore {
+			owner.tellDevices()
 		}
 		if len(owner.connections) == 0 && len(owner.casts) == 0 {
 			delete(registry.people, userID)
@@ -550,14 +552,22 @@ func (owner *person) devicesInFront() []int64 {
 	return slices.Sorted(maps.Keys(devices))
 }
 
-// devicesMessage is the devices message of the person's connected devices now, and those in front.
+// devicesReceiving is the person's devices that receive a cast now, by id, in order (D386 §1).
+func (owner *person) devicesReceiving() []int64 {
+	return slices.Sorted(maps.Keys(owner.casts))
+}
+
+// devicesMessage is the devices message of the person's connected devices now, those in front, and
+// those receiving a cast.
 func (owner *person) devicesMessage() Outbound {
 	return Outbound{
 		Type: MessageDevices, DeviceIDs: owner.connectedDevices(), InFrontDeviceIDs: owner.devicesInFront(),
+		ReceivingDeviceIDs: owner.devicesReceiving(),
 	}
 }
 
-// tellDevices tells every connection of the person their connected devices now.
+// tellDevices tells every connection of the person their connected devices now, those in front and
+// those receiving.
 func (owner *person) tellDevices() {
 	message := owner.devicesMessage()
 	for _, each := range owner.connections {

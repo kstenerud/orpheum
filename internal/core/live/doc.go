@@ -17,9 +17,12 @@
 //     A sign-in of no device (one from before D217 §8, which no sign-in makes now) is refused at the
 //     socket, never registered: review-only.
 //   - A cast goes only to another of the asker's own devices that is connected now (D337 §1, §2);
-//     each receiver has one cast, the last one made, and each sender controls one receiver (D337 §6).
-//     Enforced by TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson and
-//     TestRegistry_TheLastCastWins.
+//     each sender controls one receiver, a cast elsewhere leaving the one it controlled (D337 §6).
+//     A device receiving a cast is no device's target until that cast ends, its own sender's
+//     included, and the person's connections are told which devices receive (D386 §1). Enforced by
+//     TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson,
+//     TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled and
+//     TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds.
 //   - The hand-off reaches one connection of the receiver, its tab in front, the one that came to the
 //     front last; a device with none in front is refused, and the person's connections are told which
 //     devices have one (D338 §2). A connection in front once none holds the cast, loaded again or come
@@ -29,13 +32,11 @@
 //     TestCast_GoesOnlyToADeviceWithATabInFront in internal/core/api.
 //   - A cast is a session with the receiver (D364): it plays another film, or nothing between videos,
 //     only at its sender's or its receiver's asking, in the same cast, its receiver handed it again;
-//     only the receiver says Use, once, a cast replacing one it said Use to on the tab it is handed to
-//     taken already, as that tab takes it unasked; and the sender's every page is told the cast it
-//     sends, as a page opens before its devices, and at each change and its end (plans/up-next.md).
+//     only the receiver says Use, once; and the sender's every page is told the cast it sends, as a
+//     page opens before its devices, and at each change and its end (plans/up-next.md).
 //     Enforced by TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt,
-//     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver,
-//     TestRegistry_ACastIsASessionTheSenderIsToldOf and
-//     TestRegistry_ACastReplacingOneTheReceiverTookIsTakenToo.
+//     TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver and
+//     TestRegistry_ACastIsASessionTheSenderIsToldOf.
 //   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
 //     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
 //   - A receiver whose person is in a Watch Together session is handed a credential for it with each
@@ -57,8 +58,9 @@
 //
 // # Read before changing
 //
-//   - D364: casting is a session with a device, ended only by Stop, take-back, another cast or the
-//     receiver gone; it revises D337, D338 and D358.
+//   - D364: casting is a session with a device, ended only by Stop, take-back, its sender casting
+//     elsewhere or the receiver gone; it revises D337, D338 and D358. D386 §1: no cast takes a
+//     receiving device over.
 //   - D337: casting to one's own signed-in devices, and its §9 answers (plans/cast-to-device.md);
 //     D338, the owner's changes after the first build: the tab in front receives.
 //     at a film's end, the next episode as the sender would play it (plans/up-next.md).

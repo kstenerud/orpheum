@@ -128,14 +128,7 @@ function Remote(props: {
     return null; // the film plays here again at once
   }
   if (over !== undefined) {
-    return (
-      <CastOver
-        sent={sent}
-        reason={over.reason}
-        positionMs={over.positionMs}
-        onPlayHere={playHere}
-      />
-    );
+    return <CastOver sent={sent} positionMs={over.positionMs} onPlayHere={playHere} />;
   }
   return (
     <>
@@ -515,15 +508,14 @@ function RemoteUpNext(props: { readonly sent: CastSending }): JSX.Element | null
  */
 function CastOver(props: {
   readonly sent: CastSending;
-  readonly reason: string;
   readonly positionMs: number;
   readonly onPlayHere: (atMs: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, reason, positionMs } = props;
+  const { sent, positionMs } = props;
   return (
     <>
-      <output id="cast-remote-heading">{overText(t, reason, sent.receiverName)}</output>
+      <output id="cast-remote-heading">{overText(t)}</output>
       <button
         type="button"
         onClick={() => {
@@ -540,9 +532,8 @@ function CastOver(props: {
 
 /**
  * Why a cast is over, in the person's words, for an end the page does not take the film over from
- * (takenOverAt): another of the person's devices took the receiver, or the server knows the cast no
- * more; name is its receiver's.
+ * (takenOverAt): the server knows the cast no more; no other device takes a receiver (D386 §1).
  */
-function overText(t: TFunction, reason: string, name: string): string {
-  return reason === "replaced" ? t("cast.over.replaced", { name }) : t("cast.over.gone", { name });
+function overText(t: TFunction): string {
+  return t("cast.over.gone");
 }

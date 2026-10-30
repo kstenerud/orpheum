@@ -212,6 +212,23 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().inFrontDeviceIds).toEqual([]);
   });
 
+  it("keeps the devices receiving a cast as it is told, which no device may cast to (D386 §1)", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({ type: "devices", deviceIds: [3, 4], receivingDeviceIds: [4] }),
+    );
+    expect(connection.snapshot().receivingDeviceIds).toEqual([4]);
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3, 4] }));
+    expect(connection.snapshot().receivingDeviceIds).toEqual([]);
+  });
+
   it("keeps the cast this device sends as it is told, and that it sends none (D364 §6)", () => {
     const sockets = fakeSockets();
     const connection = createLiveConnection({

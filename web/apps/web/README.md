@@ -145,7 +145,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   plans/cast-to-device.md): every signed-in page holds a live connection (`src/live.tsx`) that says
   whether its tab is in front and is told the cast its device sends. Cast's dialog (the tray's Cast)
   lists the person's other devices open now, by name and last use, saying of one with no Orpheum tab
-  in front that one must be brought to the front; one chosen starts a session, moving the film of
+  in front that one must be brought to the front, and showing one receiving a cast unavailable, its
+  button disabled, a cast to it refused as "‹Device› is showing another cast" (D386 §1: no device
+  takes a receiving one over, the same sender's included); one chosen starts a session, moving the film of
   the Play page under it at its position (`src/playing-here.ts`). There is no casting page (D384 §2):
   an old `/casting` address goes to the Play page of the film the cast plays, else home
   (`src/old-addresses.tsx`).
@@ -155,8 +157,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the sender saying so. Every film the sender then plays (`PlayOrSendOn`) is handed to the receiver
   in the same cast, which opens its Play page, noting the page the session took the tab over from;
   between videos the receiver waits full screen on "Ready, controlled from ‹Device›"
-  (`/cast-ready`, `src/cast-ready.tsx`), at a film's end with nothing after it too; a cast replacing
-  one received is received at once; should the sound still be refused, the first key, click or tap
+  (`/cast-ready`, `src/cast-ready.tsx`), at a film's end with nothing after it too; the same cast
+  handed again is received at once; should the sound still be refused, the first key, click or tap
   turns it on, and does nothing else. The page leads the cast's session from where the sender stood,
   or, while its person hosts Watch Together, that session as their player, playing as the device
   plays a film alone, nothing steering it, each of the remote's commands carried out as its own press
@@ -195,8 +197,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   playing; taken back or gone, from where the receiver last stood while it led the session the remote
   works (the hosted one while Watch Together is on, the device then the member's player again),
   playing or paused as it was (D385 §2, §3; the route's `paused` for a cast moved on to another film);
-  ended any other way (another device took the receiver, the server lost the cast) it says why with
-  *Play here from*; a film's warm-up is let go of while the page
+  ended any other way (the server lost the cast) it says why with *Play here from*; a film's warm-up is let go of while the page
   is a remote. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
