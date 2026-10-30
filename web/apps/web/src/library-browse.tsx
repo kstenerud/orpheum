@@ -29,7 +29,6 @@ import { itemRoute, routeHref, type LibrarySort, type Route, type SortOrder } fr
 import { LibraryConfigure } from "./library-configure.tsx";
 import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
-import { QueryResults } from "./search.tsx";
 import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
 import { useServices } from "./services.tsx";
 import {
@@ -248,7 +247,7 @@ function LibraryBrowseLayout(props: {
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
   useResetJumpOnChange(`${String(state.library)}/${resolved.sort}/${resolved.order}`, clearJump);
-  const showsRail = state.query === "" && resolved.view === "all" && isByName(resolved.sort);
+  const showsRail = (state.query !== "" || resolved.view === "all") && isByName(resolved.sort);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -270,6 +269,7 @@ function LibraryBrowseLayout(props: {
       {showsRail ? (
         <LibraryLetters
           kind={resolved.kind}
+          search={state.query}
           library={resolved.libraryId}
           sort={resolved.sort === "file_name" ? "file_name" : "name"}
           isZToA={resolved.order === "descending"}
@@ -362,10 +362,7 @@ function LibraryBrowseBody(props: {
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { state, resolved } = props;
-  if (state.query !== "") {
-    return <QueryResults key={state.query} query={state.query} library={resolved.libraryId} />;
-  }
-  if (resolved.view === "folders" && resolved.libraryId !== undefined) {
+  if (resolved.view === "folders" && state.query === "" && resolved.libraryId !== undefined) {
     return (
       <>
         <UpTrail
@@ -387,9 +384,10 @@ function LibraryBrowseBody(props: {
   }
   return (
     <LibraryGrid
-      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}`}
+      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}`}
       kind={resolved.kind}
       library={resolved.libraryId}
+      search={state.query}
       choice={resolved}
       jump={props.jump}
       listRef={props.listRef}
@@ -403,17 +401,41 @@ function LibraryBrowseBody(props: {
  */
 function LibraryLetters(props: {
   readonly kind: TitlesKind;
+  readonly search: string;
   readonly library: number | undefined;
   readonly sort: "name" | "file_name";
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
-  const letters = useAlphabetRailLetters(props.kind, props.library, props.sort);
+  const letters = useAlphabetRailLetters(props);
   return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
 
 /** An entry's id, by which a list shows an entry read twice once. */
 const entryId = (entry: Entry): number => entry.id;
+
+/** A library list's page as GET /titles is asked for it: its criteria, its search one of them. */
+function titlesQuery(
+  list: {
+    readonly kind: TitlesKind;
+    readonly library: number | undefined;
+    readonly sort: LibrarySort;
+    readonly order: SortOrder;
+    readonly search: string;
+  },
+  cursor: string,
+) {
+  const { kind, library, sort, order, search } = list;
+  return {
+    kind,
+    sort,
+    ...orderQuery({ sort, order }),
+    limit: entriesPerPage,
+    ...(library === undefined ? {} : { library }),
+    ...(search === "" ? {} : { query: search }),
+    ...(cursor === "" ? {} : { cursor }),
+  };
+}
 
 /** The address an entry's poster leads to, by the entry's own kind, as PosterGrid draws it. */
 const entryHref = (entry: Entry): string => routeHref(itemRoute(entry.kind, entry.id));
@@ -426,28 +448,23 @@ const entryHref = (entry: Entry): string => routeHref(itemRoute(entry.kind, entr
 function LibraryGrid(props: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
+  /** The list's search, "" for none (GET /titles' query). */
+  readonly search: string;
   readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { kind, library } = props;
+  const { kind, library, search } = props;
   const { sort, order } = props.choice;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = {
-        kind,
-        sort,
-        ...orderQuery({ sort, order }),
-        limit: entriesPerPage,
-        ...(library === undefined ? {} : { library }),
-        ...(cursor === "" ? {} : { cursor }),
-      };
+      const query = titlesQuery({ kind, library, sort, order, search }, cursor);
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, library, sort, order],
+    [api, kind, library, sort, order, search],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
@@ -457,6 +474,7 @@ function LibraryGrid(props: {
     sort: sort === "file_name" ? "file_name" : "name",
     isZToA: order === "descending",
     library,
+    search,
     jump: isByName(sort) ? props.jump : undefined,
     pages,
     listRef: props.listRef,
@@ -466,7 +484,9 @@ function LibraryGrid(props: {
       resource={pages.loadedSoFar}
       render={(page) =>
         page.items.length === 0 ? (
-          <p className="browse__empty">{t("browse.empty")}</p>
+          <p className="browse__empty">
+            {search === "" ? t("browse.empty") : t("search.none", { query: search })}
+          </p>
         ) : (
           <>
             <PosterGrid entries={page.items} watchItemAt={watchItemAt} />

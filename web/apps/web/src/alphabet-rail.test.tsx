@@ -179,20 +179,15 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
     mounted = undefined;
   });
 
-  it("finds the page's own kind alone, in place of its list", async () => {
-    const services = servedBy({
-      "GET /titles": [firstPage],
-      "GET /titles/letters": [200, { letters: [] }],
-      "GET /search": [
-        200,
-        {
-          results: [
-            { id: 7, kind: "movie", name: "Metropolis" },
-            { id: 8, kind: "series", name: "Metropolis Wave" },
-          ],
-        },
-      ],
-    });
+  it("lists its own kind, as sorted, filtered by the search (GET /titles' query)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /titles": [firstPage, page([film(4, "Metropolis")], "")],
+        "GET /titles/letters": [200, { letters: [] }],
+      },
+      heard,
+    );
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
         {withServices(<Browse kind="movie" />, services)}
@@ -203,10 +198,15 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
     await click(mounted.container.querySelector('button[aria-label="Search"]'));
     await enter(mounted.container.querySelector("dialog input[type=search]"), "heat");
     await submit(mounted.container.querySelector("dialog form[role=search]"));
-    await settleUntil(() => mounted?.container.textContent.includes("Metropolis") === true);
-    expect(mounted.container.querySelector('a[href="/titles/7"]')).not.toBeNull();
-    expect(mounted.container.querySelector('a[href="/series/8"]')).toBeNull();
-    expect(mounted.container.querySelector(".poster-grid")).toBeNull();
+    await settleUntil(() => titlesHeard(heard).length >= 2);
+    const searched = new URLSearchParams(titlesHeard(heard)[1]?.query);
+    expect([searched.get("kind"), searched.get("query"), searched.get("sort")]).toEqual([
+      "movie",
+      "heat",
+      "name",
+    ]);
+    await settleUntil(() => mounted?.container.querySelector('a[href="/titles/4"]') !== null);
+    expect(mounted.container.querySelector('a[href="/titles/1"]')).toBeNull();
   });
 });
 

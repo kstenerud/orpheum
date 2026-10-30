@@ -447,11 +447,27 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             ],
           },
           "GET /titles/letters": { letters: [] },
-          "GET /search": {
-            results: [
-              { id: 101, kind: "movie", name: "Metropolis", year: 1995 },
-              { id: 102, kind: "movie", name: "Metropolis Wave", year: 2001 },
+          // A search is the list's own query (the owner, 2026-10-30): its matches are the list.
+          "GET /titles": {
+            titles: [
+              {
+                id: 101,
+                kind: "movie",
+                name: "Metropolis",
+                year: 1995,
+                identificationState: "identified",
+                addedAt: 1,
+              },
+              {
+                id: 102,
+                kind: "movie",
+                name: "Metropolis Wave",
+                year: 2001,
+                identificationState: "identified",
+                addedAt: 2,
+              },
             ],
+            nextCursor: "",
           },
           "GET /items/102": filmDetail(102, "Metropolis Wave"),
         },

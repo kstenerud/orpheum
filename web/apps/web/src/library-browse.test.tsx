@@ -3,12 +3,10 @@
 
 import "./i18n.ts";
 
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LibraryBrowse } from "./library-browse.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
-import { SearchResults } from "./search.tsx";
 import {
   buttonWithText,
   click,
@@ -500,7 +498,6 @@ describe("the Libraries page (D349)", () => {
   it("drops the search by its dialog's Show all, closing it, the list shown again", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "GET /search": [200, { results: [{ id: 7, kind: "movie", name: "Metropolis" }] }],
       "GET /titles": titlesPage(),
       "GET /titles/letters": lettersPage(),
     });
@@ -518,27 +515,39 @@ describe("the Libraries page (D349)", () => {
         )}
       </BackgroundChangesContext>,
     );
-    await settleUntil(() => mounted?.container.textContent.includes("Metropolis") === true);
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     await click(searchButton(mounted.container));
     await click(buttonWithText(mounted.container, "Show all"));
     expect(mounted.container.querySelector("dialog")).toBeNull();
     expect(services.navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
 
-  it("searches only the library chosen (GET /search's own library parameter)", async () => {
+  // The owner, 2026-10-30: search is a criterion of the one list, as its library and sort are.
+  it("lists the library chosen, as sorted, filtered by its search (GET /titles' query)", async () => {
     const heard: Heard[] = [];
     mounted = await mountBrowse(
       { library: 1, query: "heat" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /search": [200, { results: [{ id: 7, kind: "movie", name: "Metropolis" }] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
       },
       heard,
     );
-    await settleUntil(() => mounted?.container.textContent.includes("Metropolis") === true);
-    const search = heard.find((each) => each.methodAndPath === "GET /search");
-    expect(new URLSearchParams(search?.query).get("library")).toBe("1");
-    expect(new URLSearchParams(search?.query).get("query")).toBe("heat");
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const titles = new URLSearchParams(
+      heard.find((each) => each.methodAndPath === "GET /titles")?.query,
+    );
+    expect([titles.get("library"), titles.get("query"), titles.get("sort")]).toEqual([
+      "1",
+      "heat",
+      "name",
+    ]);
+    // The rail's letters are the search's too.
+    const letters = new URLSearchParams(
+      heard.find((each) => each.methodAndPath === "GET /titles/letters")?.query,
+    );
+    expect(letters.get("query")).toBe("heat");
     // The query the address names is in the box its search opens (as the retired Search page's was).
     await click(searchButton(mounted.container));
     expect(mounted.container.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe(
@@ -546,21 +555,18 @@ describe("the Libraries page (D349)", () => {
     );
   });
 
-  it("says when nothing matches, and keeps the query in the box", async () => {
-    expect(renderToStaticMarkup(withServices(<SearchResults query="zzz" hits={[]} />))).toContain(
-      "Nothing matches “zzz”.",
-    );
+  it("says when nothing matches its search", async () => {
     mounted = await mountBrowse(
-      { library: 1, query: "heat" },
+      { library: 1, query: "zzz" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /search": [200, { results: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /titles/letters": lettersPage(),
       },
     );
-    await settleUntil(() => mounted?.container.textContent.includes("Nothing matches") === true);
-    await click(searchButton(mounted.container));
-    expect(mounted.container.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe(
-      "heat",
+    await settleUntil(() => mounted?.container.querySelector(".browse__empty") !== null);
+    expect(mounted.container.querySelector(".browse__empty")?.textContent).toBe(
+      "Nothing matches “zzz”.",
     );
   });
 });

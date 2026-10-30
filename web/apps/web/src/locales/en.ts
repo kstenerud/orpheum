@@ -423,12 +423,8 @@ export const en = {
   },
   search: {
     none: "Nothing matches “{{query}}”.",
-    kindMovie: "Film",
-    kindSeries: "Series",
-    kindEpisode: "Episode",
-    kindExtra: "Extra",
-    kindOther: "Video",
   },
+
   files: {
     heading: "What the scanner saw",
     all: "Everything",
