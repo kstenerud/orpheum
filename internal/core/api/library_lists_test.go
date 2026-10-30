@@ -176,6 +176,42 @@ func TestBrowse_ALibraryLeftOutOfFilmsAndSeries(t *testing.T) {
 	}
 }
 
+// GET /titles' query is a criterion of the one list, as its kind and library are (the owner,
+// 2026-10-30): a series matches by its own name, never by an episode's; the rail's letters are those
+// of the titles that match.
+func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveOtherVideos(t)
+	for path, want := range map[string]string{
+		"/titles?kind=any&sort=name&limit=10&query=beach":             "[Beach day]",
+		"/titles?kind=any&sort=name&limit=10&query=b":                 "[Beach day Brass Arena]",
+		"/titles?kind=movie&sort=name&limit=10&query=beach":           "[]",
+		"/titles?kind=other&sort=name&limit=10&query=beach&library=1": "[]",
+		"/titles?kind=other&sort=recorded&limit=10&query=beach":       "[Beach day]",
+		"/titles?kind=series&sort=added&limit=10&query=breaking":      "[Brass Arena]",
+		"/titles?kind=series&sort=name&limit=10&query=pilot":          "[]", // its episode's name
+		"/titles?kind=any&sort=name&limit=10&query=%20":               "[]",
+		"/titles?kind=any&sort=name&limit=10&home=true&query=heat":    "[Metropolis]",
+	} {
+		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
+			t.Errorf("%s = %v; want %s", path, names, want)
+		}
+	}
+	for path, want := range map[string]string{
+		"/titles/letters?kind=any&sort=name&query=b":                 "[B]",
+		"/titles/letters?kind=any&sort=name&query=wedding":           "[W]",
+		"/titles/letters?kind=other&sort=file_name&query=clip":       "[C]",
+		"/titles/letters?kind=any&sort=name&query=wedding&library=1": "[]",
+	} {
+		if got := harness.railLetters(t, path, admin); got != want {
+			t.Errorf("%s = %s; want %s", path, got, want)
+		}
+	}
+}
+
 // A search may be of one library alone (D349 §1).
 func TestSearch_OfOneLibrary(t *testing.T) {
 	t.Parallel()

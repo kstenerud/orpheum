@@ -26,6 +26,10 @@ func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string,
 	if !isByName(query.Sort) {
 		return nil, fmt.Errorf("letters of %s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
 	}
+	query, isNoneMatched, err := browser.withMatched(ctx, query)
+	if err != nil || isNoneMatched {
+		return []string{}, err
+	}
 	sorter, err := browser.sorter(ctx)
 	if err != nil {
 		return nil, err

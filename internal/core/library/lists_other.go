@@ -39,6 +39,7 @@ func (browser *Browser) listOtherByName(
 	}
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	rows, err := eitherWay[sqlcgen.ListOtherByNameParams, sqlcgen.ListOtherByNameDescendingParams,
 		sqlcgen.ListOtherByNameRow, sqlcgen.ListOtherByNameDescendingRow]{
 		forward: queries.ListOtherByName, reversed: queries.ListOtherByNameDescending,
@@ -51,6 +52,7 @@ func (browser *Browser) listOtherByName(
 	}.read(ctx, query.isReversed(), sqlcgen.ListOtherByNameParams{
 		Locale: sorter.Locale(), AfterKey: after.key, AfterID: after.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	})
 	keyed := make([]keyedEntry, 0, len(rows))
 	for _, row := range rows {
@@ -66,6 +68,7 @@ func (browser *Browser) listOtherByFileName(
 ) ([]keyedEntry, error) {
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	rows, err := eitherWay[sqlcgen.ListOtherByFileNameParams, sqlcgen.ListOtherByFileNameDescendingParams,
 		sqlcgen.ListOtherByFileNameRow, sqlcgen.ListOtherByFileNameDescendingRow]{
 		forward: queries.ListOtherByFileName, reversed: queries.ListOtherByFileNameDescending,
@@ -78,6 +81,7 @@ func (browser *Browser) listOtherByFileName(
 	}.read(ctx, query.isReversed(), sqlcgen.ListOtherByFileNameParams{
 		AfterKey: after.key, AfterID: after.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	})
 	keyed := make([]keyedEntry, 0, len(rows))
 	for _, row := range rows {
@@ -94,6 +98,7 @@ func (browser *Browser) listOtherByRecorded(
 	recordedAt, _ := keyTimes(from.key)
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	rows, err := eitherWay[sqlcgen.ListOtherByRecordedParams, sqlcgen.ListOtherByRecordedAscendingParams,
 		sqlcgen.ListOtherByRecordedRow, sqlcgen.ListOtherByRecordedAscendingRow]{
 		forward: queries.ListOtherByRecorded, reversed: queries.ListOtherByRecordedAscending,
@@ -101,6 +106,7 @@ func (browser *Browser) listOtherByRecorded(
 			return sqlcgen.ListOtherByRecordedAscendingParams{
 				AfterRecordedAt: forward.BeforeRecordedAt, AfterID: forward.BeforeID, MaxRows: forward.MaxRows,
 				IsEveryLibrary: forward.IsEveryLibrary, LibraryIdsJSON: forward.LibraryIdsJSON,
+				ItemIdsJSON: forward.ItemIdsJSON,
 			}
 		},
 		rowOf: func(row sqlcgen.ListOtherByRecordedAscendingRow) sqlcgen.ListOtherByRecordedRow {
@@ -109,6 +115,7 @@ func (browser *Browser) listOtherByRecorded(
 	}.read(ctx, query.isReversed(), sqlcgen.ListOtherByRecordedParams{
 		BeforeRecordedAt: recordedAt, BeforeID: from.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	})
 	keyed := make([]keyedEntry, 0, len(rows))
 	for _, row := range rows {
@@ -125,6 +132,7 @@ func (browser *Browser) listOtherByAdded(
 	foundAt, modifiedAt := keyTimes(from.key)
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	rows, err := eitherWay[sqlcgen.ListOtherByAddedParams, sqlcgen.ListOtherByAddedAscendingParams,
 		sqlcgen.ListOtherByAddedRow, sqlcgen.ListOtherByAddedAscendingRow]{
 		forward: queries.ListOtherByAdded, reversed: queries.ListOtherByAddedAscending,
@@ -137,6 +145,7 @@ func (browser *Browser) listOtherByAdded(
 	}.read(ctx, query.isReversed(), sqlcgen.ListOtherByAddedParams{
 		BeforeFoundAt: foundAt, BeforeModifiedAt: modifiedAt, BeforeID: from.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	})
 	keyed := make([]keyedEntry, 0, len(rows))
 	for _, row := range rows {

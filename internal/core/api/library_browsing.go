@@ -19,6 +19,7 @@ type LettersInput struct {
 	Kind    string `doc:"As GET /titles takes it" enum:"movie,series,other,any" query:"kind" required:"true"`
 	Sort    string `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"` //nolint:lll // one struct tag
 	Library int64  `doc:"As GET /titles takes it" minimum:"0" query:"library"`
+	Query   string `doc:"As GET /titles takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 }
 
 // LettersOutput are the rail's letters the list has titles under.
@@ -135,7 +136,7 @@ func (server *Server) getTitleLetters(ctx context.Context, input *LettersInput) 
 		return nil, err
 	}
 	letters, err := dependencies.Browser.Letters(ctx,
-		library.ListQuery{Kind: input.Kind, Sort: input.Sort, Reach: reach})
+		library.ListQuery{Kind: input.Kind, Sort: input.Sort, Reach: reach, Query: input.Query})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list a list's letters", err)
 	}

@@ -60,9 +60,11 @@ func (browser *Browser) listFilmsOrSeriesByName(
 	}
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	params := sqlcgen.ListFilmsByNameParams{
 		Locale: sorter.Locale(), AfterKey: after.key, AfterID: after.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	}
 	var keyed []keyedEntry
 	if kind == ListSeries {
@@ -113,9 +115,11 @@ func (browser *Browser) listFilmsOrSeriesByAdded(
 	foundAt, modifiedAt := keyTimes(from.key)
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	itemIDsJSON := query.matched.idsJSON
 	params := sqlcgen.ListFilmsByAddedParams{
 		BeforeFoundAt: foundAt, BeforeModifiedAt: modifiedAt, BeforeID: from.id, MaxRows: query.Limit,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		ItemIdsJSON: itemIDsJSON,
 	}
 	var keyed []keyedEntry
 	if kind == ListSeries {
@@ -162,6 +166,7 @@ func oldestAddedFirst(forward sqlcgen.ListFilmsByAddedParams) sqlcgen.ListFilmsB
 	return sqlcgen.ListFilmsByAddedAscendingParams{
 		AfterFoundAt: forward.BeforeFoundAt, AfterModifiedAt: forward.BeforeModifiedAt, AfterID: forward.BeforeID,
 		MaxRows: forward.MaxRows, IsEveryLibrary: forward.IsEveryLibrary, LibraryIdsJSON: forward.LibraryIdsJSON,
+		ItemIdsJSON: forward.ItemIdsJSON,
 	}
 }
 

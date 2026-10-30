@@ -1747,7 +1747,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Titles and series by name, in any script (D48) */
+        /**
+         * Titles and series by name, in any script (D48); superseded by GET /titles?query=
+         * @description Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.
+         */
         get: operations["search"];
         put?: never;
         post?: never;
@@ -9995,6 +9998,8 @@ export interface operations {
                 limit: number;
                 /** @description The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way */
                 order?: "ascending" | "descending";
+                /** @description Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first */
+                query?: string;
                 /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
                 sort: "name" | "added" | "recorded" | "file_name" | "released";
             };
@@ -10034,6 +10039,8 @@ export interface operations {
                 kind: "movie" | "series" | "other" | "any";
                 /** @description As GET /titles takes it */
                 library?: number;
+                /** @description As GET /titles takes it: only the letters some title whose name matches it is under */
+                query?: string;
                 /** @description The order the rail follows: by name, or an other video's by file name */
                 sort: "name" | "file_name";
             };

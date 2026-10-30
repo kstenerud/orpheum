@@ -7,7 +7,9 @@
 -- JOIN: started from file, it read every file for every title, seconds at the reference scale
 -- (audit-2026-09-25). Each list holds only the libraries its caller reaches: every one, or those in
 -- library_ids_json (D243 section 4), and an item two folders, two libraries or two copies reach is
--- listed once (D363 section 6).
+-- listed once (D363 section 6). A list searched holds, too, only the items its search matched: those
+-- in item_ids_json, the ids search.go's matching statements found; NULL, a list not searched, holds
+-- every item (one listing API with search a criterion of it, the owner 2026-10-30).
 
 -- name: ListFilmsByName :many
 SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.added_at,
@@ -24,6 +26,8 @@ WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'movie' AND item
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
@@ -45,6 +49,8 @@ WHERE title.kind = 'movie' AND item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY title.found_at DESC, title.found_file_modified_at DESC, title.id DESC
 LIMIT sqlc.arg(max_rows);
 
@@ -65,6 +71,8 @@ WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'series' AND ite
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
@@ -88,6 +96,8 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY collection.found_at DESC, collection.found_file_modified_at DESC, collection.id DESC
 LIMIT sqlc.arg(max_rows);
 
@@ -460,6 +470,8 @@ WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'other' AND item
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
@@ -481,6 +493,8 @@ WHERE title.kind = 'other' AND item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY title.found_at DESC, title.found_file_modified_at DESC, title.id DESC
 LIMIT sqlc.arg(max_rows);
 
@@ -501,6 +515,8 @@ WHERE item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY other_video.recorded_at DESC, other_video.title_id DESC
 LIMIT sqlc.arg(max_rows);
 
@@ -521,6 +537,8 @@ WHERE item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
+  AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
+    OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
 ORDER BY other_video.file_name_key, other_video.title_id
 LIMIT sqlc.arg(max_rows);
 

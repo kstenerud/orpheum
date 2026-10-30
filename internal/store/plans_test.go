@@ -126,12 +126,16 @@ func wholeReads(t *testing.T, pool *sql.DB, query listQuery) []string {
 	return reads
 }
 
-// searchQueries are search's three hand-written statements.
+// searchQueries are search's hand-written statements: those that find hits, and those that find the
+// ids a searched list holds.
 func searchQueries() []listQuery {
 	return []listQuery{
 		{name: "SearchWords", sql: searchWordsSQL},
 		{name: "SearchTrigram", sql: searchTrigramSQL},
 		{name: "SearchSubstring", sql: searchSubstringSQL},
+		{name: "MatchWords", sql: matchWordsSQL},
+		{name: "MatchTrigram", sql: matchTrigramSQL},
+		{name: "MatchSubstring", sql: matchSubstringSQL},
 	}
 }
 
@@ -235,6 +239,8 @@ func wholeReadsAllowed() map[string]string {
 			"and the series, which are few",
 		"SearchSubstring": "a query too short for either full-text index reads every name once, by design " +
 			"(D48): a household's names take milliseconds",
+		"MatchSubstring": "a list searched by a query too short for either full-text index reads every name " +
+			"once, as search does (D48)",
 		"DeleteSortKeysOfOtherLocales": "runs once, when the sort locale changes",
 		"cache.ListArtServed":          "the artwork ceiling's sweep reads when every image was served, once a day",
 		"cache.ListNodeAttempts":       few + "nodes' attempts",
@@ -323,6 +329,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListUncoveredFilesUnder":        folders + "a retired folder's places no library covers",
 		"SearchTrigram":                  folders + "a search's hits",
 		"SearchWords":                    folders + "a search's hits",
+		"MatchTrigram":                   folders + "the titles a searched list holds",
+		"MatchWords":                     folders + "the titles a searched list holds",
 		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
 			"found before it has (D363 section 2)",
 		// Defects the redesign removes (the access audit and the independent audit).
