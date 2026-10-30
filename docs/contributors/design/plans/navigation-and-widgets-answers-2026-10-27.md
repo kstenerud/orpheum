@@ -516,4 +516,4 @@ had leaned on.
   must do something more (its OK's keyCode 23, or a click of its own on key up). Owed: reproduce on
   the TV with the device lab's remote probe (`lab-remote.tsx`), log the OK's events on a form, then
   fix. Also seen: clearing Silk's site data sends it to bing.com, so VQ160 (the local-network note
-  on a fresh visit) needs the address typed by the remote; left owed (D378).
+  on a fresh visit) needed the address typed by the remote; it passed so (no note shown).

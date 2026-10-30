@@ -1742,7 +1742,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   again in that browser: back as the same member, no join asked; open it in another browser (Samsung
   Internet): the link is refused. (`web/apps/web/src/app.tsx`, `together-viewer.tsx`,
   `together-viewer-tap.tsx`, `together-people.tsx`, `together-news.tsx`)
-- [ ] **VQ160** — no local-network note on a Fire TV, on staging. On the Fire TV (Silk), clear the
+- [x] **VQ160** — no local-network note on a Fire TV, on staging. On the Fire TV (Silk), clear the
   site's data (so a dismissal of the note is forgotten), open staging and reload it twice. Passes
   when "Your browser is asking to reach devices on your network" never shows, and the page reaches
   the server as before; on the Mac's Chrome, with the site's local-network permission reset, the note
