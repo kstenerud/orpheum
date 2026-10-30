@@ -17,6 +17,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
+import { currentNotice, dismissNotice } from "./notice.ts";
 import { mount, refusal, servedBy, unanswered, type Heard, type Mounted } from "./test-dom.tsx";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
@@ -345,6 +346,19 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     await server.say(welcome);
     await server.say({ type: "ended", reason: "receiverGone" });
     expect(onLeave).toHaveBeenCalledOnce();
+    expect(currentNotice()).toBeUndefined();
+  });
+
+  it("goes home, saying in a pop-up there that the server no longer knows its cast (D386 §2)", async () => {
+    const { server, onLeave } = await receiver();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "gone" });
+    expect(onLeave).toHaveBeenCalledOnce();
+    const notice = currentNotice();
+    expect(notice?.text).toBe("The cast ended: the server no longer knows it.");
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
   });
 
   it("waits ready for the next video at the film's end, the session going on (D364 §5)", async () => {

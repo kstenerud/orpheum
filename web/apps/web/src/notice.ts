@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 
+import type { Navigation } from "./navigation.ts";
+
 /**
  * A word for the person on the page they are taken to, such as why what they were in ended (the
  * owner, 2026-10-29: a signed-in guest whose Watch Together session ended is taken home, "maybe with
@@ -27,6 +29,16 @@ function tellChanged(): void {
 export function showNotice(text: string): void {
   shown = { text };
   tellChanged();
+}
+
+/**
+ * Takes the page home, in its place, and shows text there as the notice: home first, so the notice
+ * pops up on the screen it stays on (notice-note.tsx). What ended under the page has nowhere better
+ * to go: a signed-in guest's Watch Together session, a cast the server no longer knows (D386 §2).
+ */
+export function homeTold(navigation: Pick<Navigation, "replace">, text: string): void {
+  navigation.replace({ screen: "home" });
+  showNotice(text);
 }
 
 /** Takes notice away, when it is still the one shown. */

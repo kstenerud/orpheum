@@ -10,7 +10,6 @@ import {
   type PlaybackSound,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import type { TFunction } from "i18next";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,11 +18,11 @@ import { tabStorage } from "./browser-storage.ts";
 import { endCast, listMyCasts, moveCastOn, playInCast } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLive } from "./live.tsx";
+import { homeTold } from "./notice.ts";
 import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SessionRemote, usePositionNow } from "./session-remote.tsx";
-import { clockText } from "./timeline.tsx";
 import { useMembership } from "./together-membership.ts";
 import { useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
@@ -41,8 +40,8 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * controls, which work the receiver. Stop casting, here or in Cast's dialog, brings the film back to
  * the page at the receiver's position (onPlayHere), as control taken back on the receiver and the
  * receiver gone do, the page then playing it from where the receiver last stood, playing or paused as
- * it was (D385 §2, §3); a cast that ends any other way says why and offers to play here from where it
- * stood. Where the cast plays another film than the page's by then, the film comes back on that
+ * it was (D385 §2, §3); a cast the server no longer knows sends the page home, saying so in a pop-up
+ * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
  * film's Play page, in this one's place.
  */
 export function CastRemote(props: {
@@ -110,7 +109,7 @@ function usePlaysHere(
  * clock between. With a video playing: its title, the controls, Up next, "Play on this device
  * instead" (§4) and Stop casting; with none, "Ready on ‹Device›" and Stop casting. Stopped, its
  * control taken back on the receiver, or the receiver gone, the film plays here again at once (D384
- * §2, D385 §2, §3); ended any other way, it says why and offers to play here.
+ * §2, D385 §2, §3); lost, the server knowing it no more, the page goes home (D386 §2).
  */
 function Remote(props: {
   readonly sent: CastSending;
@@ -124,11 +123,9 @@ function Remote(props: {
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
   useTakesTheFilmOver(over, stoodRef, playHere);
-  if (over !== undefined && isTakenOver(over.reason)) {
-    return null; // the film plays here again at once
-  }
+  useGoesHomeAsTheCastIsLost(over);
   if (over !== undefined) {
-    return <CastOver sent={sent} positionMs={over.positionMs} onPlayHere={playHere} />;
+    return null; // the film plays here again at once, or the page goes home
   }
   return (
     <>
@@ -156,6 +153,26 @@ const takenOverAt: ReadonlySet<string> = new Set(["stopped", "takenBack", "recei
 /** Whether a cast that ended for reason has its film played here again at once (takenOverAt). */
 function isTakenOver(reason: string): boolean {
   return takenOverAt.has(reason);
+}
+
+/**
+ * Sends the page home, once, as its cast ends any way but takenOverAt: the server knows the cast no
+ * more ("gone": not among the device's casts, or its session's credential refused), as after a
+ * restart, saying so in a pop-up there (the shared notice, notice-note.tsx). The owner: "For extreme
+ * edge cases like this, it's usually best to just go home" (D386 §2).
+ */
+function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
+  const { t } = useTranslation();
+  const { navigation } = useServices();
+  const isLost = over !== undefined && !isTakenOver(over.reason);
+  const hasGoneRef = useRef(false);
+  useEffect(() => {
+    if (!isLost || hasGoneRef.current) {
+      return;
+    }
+    hasGoneRef.current = true;
+    homeTold(navigation, t("cast.over.lost"));
+  }, [isLost, navigation, t]);
 }
 
 /**
@@ -500,40 +517,4 @@ function RemoteUpNext(props: { readonly sent: CastSending }): JSX.Element | null
       {t("upNext.offer", { place, name: episode.name ?? "" })}
     </button>
   );
-}
-
-/**
- * The remote once its cast is over: why, in the person's words, and, for a video that was playing,
- * Play here from where it stood (D364 §10), which the Play page starts from.
- */
-function CastOver(props: {
-  readonly sent: CastSending;
-  readonly positionMs: number;
-  readonly onPlayHere: (atMs: number) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { sent, positionMs } = props;
-  return (
-    <>
-      <output id="cast-remote-heading">{overText(t)}</output>
-      <button
-        type="button"
-        onClick={() => {
-          props.onPlayHere(positionMs);
-        }}
-      >
-        {sent.fileId === 0
-          ? t("cast.playHereInstead")
-          : t("cast.playHere", { at: clockText(positionMs) })}
-      </button>
-    </>
-  );
-}
-
-/**
- * Why a cast is over, in the person's words, for an end the page does not take the film over from
- * (takenOverAt): the server knows the cast no more; no other device takes a receiver (D386 §1).
- */
-function overText(t: TFunction): string {
-  return t("cast.over.gone");
 }

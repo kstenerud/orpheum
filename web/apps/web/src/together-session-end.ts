@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { showNotice } from "./notice.ts";
+import { homeTold } from "./notice.ts";
 import { useServices } from "./services.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 import {
@@ -41,11 +41,6 @@ export function useSessionEnd(
     !isSignedIn && secret === undefined && isEndedHere(tabStorage()) ? "gone" : undefined,
   );
   const over = useMemo(() => {
-    const homeTold = (text: string): void => {
-      // Home first, so the notice pops up there, the screen it stays on (notice-note.tsx).
-      navigation.replace({ screen: "home" });
-      showNotice(text);
-    };
     return {
       end: (reason: TogetherEndReason) => {
         if (reason === "uploadFull") {
@@ -54,14 +49,14 @@ export function useSessionEnd(
         }
         forgetMembership(browserStorage(), "viewer");
         if (isSignedIn) {
-          homeTold(t(`together.overNotice.${reason}`));
+          homeTold(navigation, t(`together.overNotice.${reason}`));
           return;
         }
         noteEndedHere(tabStorage());
         setEndReason(reason);
       },
       goneFromUnder: () => {
-        homeTold(t("together.overNotice.notThere"));
+        homeTold(navigation, t("together.overNotice.notThere"));
       },
       again: () => {
         forgetEndedHere(tabStorage());
