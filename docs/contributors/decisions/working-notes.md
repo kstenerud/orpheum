@@ -24847,3 +24847,19 @@ and decided so: a cast that is only being asked about (no Use yet) makes its rec
 too, until it is answered or given up on; a receiver's page loaded again whose cast is not handed
 again goes home silently as before (D384 §1), since the cast may have ended in the usual way while
 it loaded. Device check: VQ142.
+
+## D387 — A paused player's ask for a chunk where a seek took it moves where it wants from
+
+**Decided** (2026-10-30), by the lead as a fix the owner was told of, amending D355 §2's last sentence
+(a paused player's asks move nothing). In Watch Together the group paused its players exactly on a
+chunk's start for a jump (859942 ms, chunk 205's start); the run made 205–210, all a paused player keeps
+ahead; hls.js then stepped back and asked for chunk 204 as part of the seek (`isSought=true`), which the
+rule ignored as a paused player's ask, so no run could be planned for it and every ask was answered
+"ask again" for good (the owner's run, staging; VQ191).
+
+1. **A paused player's ask marked as part of a seek moves its wanted position there**; the player
+   stays paused. Its buffer filling after the seek still moves nothing: a player marks its asks as
+   sought only from the seek until it can play.
+
+**Status:** Decided 2026-10-30; its fix is in `internal/core/playback/interest.go` (`wantFetched`), read back
+against it in the next commit.
