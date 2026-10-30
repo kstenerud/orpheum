@@ -249,7 +249,7 @@ function SessionOver(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <ViewerPage className="together-viewer">
+    <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
       <output>{t(`together.over.${props.reason}`)}</output>
       {props.reason === "uploadFull" ? (
         <button type="button" onClick={props.onAgain}>
@@ -306,7 +306,7 @@ function ViewerSession(props: {
     );
   }
   return (
-    <ViewerPage className="together-viewer">
+    <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
       {/* In the shell, its banner shows the logo. */}
       {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
       <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
