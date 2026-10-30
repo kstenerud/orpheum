@@ -24679,7 +24679,8 @@ older client has no title noted, so its Play page reached by Back goes home. Dev
 ## D384 — A cast that ends sends its receiver home, and the page cast from stays the page it was
 
 **Decided** (2026-10-30), by the project owner ("Yes do 1+2 this batch and 3 the next batch", and §3 in
-their own words), amending D364 §10, D383 §2 and the sender's casting page (D337, D364). VQ103's run on
+their own words), amending D364 §10, D383 §2 and the sender's casting page (D337, D364), and, as §2 was
+widened, Watch Together's pages (D364 §13–§15, D372 §9). VQ103's run on
 staging: the S23, a Watch Together guest, cast to the Fire TV. Stop casting left the TV playing the film
 under its own control. A second cast was taken back by the TV 40 ms after its Use (castId 74, 17:42:59;
 again at 17:48:46, `by=historyBack`): the Use dialog's close stepped the history back, and the
@@ -24696,11 +24697,53 @@ we need to fix it in this batch").
 2. **The page cast from stays where it is**: a solo Play page or a Watch Together page keeps its
    place; its video's area says "Playing on ‹device›" and its controls work the receiver; Stop casting
    brings the film back to that same page. The tray's Cast opens a dialog to choose a device or stop,
-   and never navigates. There is no casting page of its own.
+   and never navigates. There is no casting page of its own. **Widened the same day**, by the owner:
+   "Both cast and watch together should be modal dialogs, so this should all be done at once. Watch
+   together keeps track of the shared video being played and offers a way to get back to it, but
+   ultimately there is one playback page that everything goes through." So the tray's Watch Together
+   opens a dialog too, never a page: starting a session, inviting (the links, who joined, removing),
+   the people, voice and the volumes, Stop for everyone, and, while the session plays a film, "Back to
+   the film", to its Play page. The Play page is the one page every film plays on: solo, the group's
+   film for its host or a guest, and while its device casts. An old address of the Watch Together or
+   casting page goes to the Play page of the film the session or cast plays, else home, Watch
+   Together's dialog open where it was its page.
 3. **No device in the same Watch Together session, controller or player, is a cast target** (next
    batch).
 
 Also: a receiver ignores the history steps the app makes itself (a dialog's close): only the person's
 own Back takes control back.
 
-**Status:** Decided 2026-10-30; not built yet.
+**Proven by:**
+- 1: web/apps/web/src/cast-to.test.tsx ("goes to its home page in the page's place as a cast ends there, through a cast that replaced it (D384 §1)", "goes home as casting ends, and Back from there never plays the cast's film (D384 §1, D383 §1)"), web/apps/web/src/cast-receiver.test.tsx ("goes home when the remote stops casting (D384 §1)", "goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)"), web/apps/web/src/cast-ready.test.tsx, web/apps/web/src/cast-uncontrolled.test.tsx, web/apps/web/src/cast-receiving-mark.test.ts, web/e2e/cast.spec.ts; on a device, VQ190
+- 2: web/apps/web/src/cast-to.test.tsx ("a film played on a device that casts"), web/apps/web/src/cast-remote.test.tsx, web/apps/web/src/cast-dialog.test.tsx, web/apps/web/src/status-tray.test.tsx, web/apps/web/src/watch-together.test.tsx, web/apps/web/src/together-guest-play.test.tsx, web/apps/web/src/together-viewer-shell.test.tsx, web/apps/web/src/together-viewer-cast.test.tsx, web/apps/web/src/input-pages.browser.test.tsx, web/e2e/cast.spec.ts, web/e2e/together.spec.ts; on devices, VQ190
+- Also: web/apps/web/src/cast-receiver-steps.test.tsx ("keeps control through the step the Use question's close makes, and leaves at the Back after"), web/apps/web/src/navigation.test.ts ("the person's own steps through the history"); on a device, VQ190
+
+**Status:** Decided 2026-10-30; §1, §2 and the Also built (2026-10-30) in the web client, §3 not built
+(the next batch). The Also in `navigation.ts`: navigation tells the person's own steps through the
+history alone (`onPersonsStep`), never the end of a step the app makes itself off an entry held over
+the page (a dialog's close), a go waiting on it, or Up's way back, nor a Back that only closed what
+was open; the receiver's controlled mode listens there instead of to the window's popstate
+(`cast-receiver.tsx`). Point 1 in `live.tsx`: every end of a received cast but control taken back
+here sends the receiver home in the page's place, out of full screen (`leaveReceiving`), the ready
+page's every end too (`cast-ready.tsx`), and a page loaded again whose cast is not handed again;
+the page before a cast (`cast-return.ts`, `leaveTheCastsEntries`) and the film's page of D383 §2
+(`cast-uncontrolled.ts`) are gone, a mark that the tab receives kept in their place
+(`cast-receiving-mark.ts`). Point 2: the tray's signs open their dialogs (`tray-dialog.ts`,
+`cast-dialog.tsx`, `together-dialog.tsx`, loaded as first opened, `tray-dialog-code.tsx`), each
+closed as the page moves to another address; a Play page whose film goes to a receiver, sent on or
+taken by a cast started over it, shows the cast's remote where its video was (`cast-to.tsx`'s
+`PlayOrSendOn`, `cast-remote.tsx`'s `CastRemote`), and plays the film again from where the receiver
+stood once the cast is stopped; a signed-in guest's Play page of the group's film follows it
+(`together-guest-play.tsx`, `together-viewer.tsx`'s `GroupFilmPage`); `/casting` and
+`/watch-together` go on as old addresses (`old-addresses.tsx`). Left open, and decided so: Cast's
+dialog closes once a cast started from it is taken, the page under it the remote then; it keeps
+"Back to the film" while a cast plays a film other than the page's; Watch Together's dialog holds no
+remote of the group's film, its Play page holding the controls; while Watch Together is hosted, the
+cast's remote on the Play page works the hosted session, the receiver its host's player (D364 §11);
+a cast that moved on to another film comes back on that film's Play page, in the page's place; an
+old `/casting` address goes to the cast's film, never the film it was opened from, so no film starts
+by Back (D383 §1); a signed-in guest's voice, own volume and Leave stay under the group's film on its
+Play page, where their voice already lived, rather than in the dialog, which for them holds the way
+back to the film; a guest by link alone keeps their page of its own, which shows none of the app
+(D246 §3), and is the one page their film plays on; a page of the group's film opened by a press
+asks for no tap to continue. Device check: VQ190.
