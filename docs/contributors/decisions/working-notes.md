@@ -24823,4 +24823,27 @@ and D385's two remaining "Play here from" ends.
    receiver (the owner: "For extreme edge cases like this, it's usually best to just go home"). With
    §1 and D385, "Play here from" has no end left to offer it, and goes.
 
-**Status:** Decided 2026-10-30; not built yet.
+**Proven by:**
+- 1: internal/core/live/registry_test.go (TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds, TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled), internal/core/api/casts_test.go (TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack), web/packages/sdk/src/live-connection.test.ts ("keeps the devices receiving a cast as it is told, which no device may cast to (D386 §1)"), web/apps/web/src/cast-to.test.tsx ("shows a device receiving a cast unavailable, and a cast to one raced is refused with its name (D386 §1)"), web/e2e/cast.spec.ts; on devices, VQ142
+- 2: web/apps/web/src/cast-remote.test.tsx ("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", "goes home, saying so, where the server lists the cast no more"), web/apps/web/src/cast-receiver.test.tsx ("goes home, saying in a pop-up there that the server no longer knows its cast (D386 §2)")
+
+**Status:** Decided 2026-10-30; built (2026-10-30) in the core and the web client. §1 in
+`internal/core/live/registry.go`: `Cast` refuses a cast to a device that holds one, its own
+sender's included, with `ErrReceiving`, which the API answers 409 `receiving_a_cast`; the devices
+message names the person's devices receiving (`receivingDeviceIds`), told as each cast starts and
+ends, and Cast's dialog (`cast-to.tsx`'s `TargetList`) shows such a device "Showing another cast:
+unavailable until it ends", its button disabled, and a cast to one raced "‹Device› is showing
+another cast. Cast to it once that cast ends." The replacing path is gone: the registry's replace
+and its carried-over Use, together's `replaced` end, the SDK's end reason and the receiver's going
+on through it. A sender casting to another device still leaves the one it controlled, ended as
+stopped (D337 §6). §2 in `cast-remote.tsx` (`useGoesHomeAsTheCastIsLost`): every end of the remote's
+cast but stopped, takenBack and receiverGone, which the Play page takes the film over from (D385),
+is a cast the server no longer knows, not among the device's casts or its session's credential
+refused, and sends the page home, the notice "The cast ended: the server no longer knows it." shown
+there in the shared modal (`notice.ts`'s `homeTold`, which Watch Together's session end now uses
+too); the receiver, its session ended `gone`, goes home as at every end and shows the same notice
+(`cast-receiver.tsx`'s `useEndsAsTheCastDoes`). "Play here from" (`CastOver`) is gone. Left open,
+and decided so: a cast that is only being asked about (no Use yet) makes its receiver unavailable
+too, until it is answered or given up on; a receiver's page loaded again whose cast is not handed
+again goes home silently as before (D384 §1), since the cast may have ended in the usual way while
+it loaded. Device check: VQ142.
