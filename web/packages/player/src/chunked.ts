@@ -481,6 +481,12 @@ interface RememberedOffer {
   readonly rememberedLinkKbps?: number | undefined;
   readonly rememberedLinkSpread?: number | undefined;
   readonly rememberedLinkSamples?: number | undefined;
+  /**
+   * Whether its first quality is chosen from that link by the rule every later choice plays by
+   * (D381), not from startAtBps: a playback's own start on its ladder, which the page has not given
+   * a start of its own, as a stalled player's lower quality or a warm-up's settled one.
+   */
+  readonly shouldStartByRememberedLink?: boolean | undefined;
 }
 
 /** The prior an offer's remembered link gives the controller's estimate; undefined for none. */
@@ -515,6 +521,7 @@ export function choosingOptionsOf(
 ): ChoosingOptions {
   return {
     startAtBps: options.startAtBps,
+    shouldStartByRememberedLink: options.shouldStartByRememberedLink === true,
     shareForQuality: shareForQualityOf(options.linkSharePercent),
     startSteadiness: options.startSteadiness,
     rememberedLink: rememberedLinkOf(options),

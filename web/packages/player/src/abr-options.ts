@@ -43,6 +43,13 @@ export interface ChoosingHls {
 export interface ChoosingOptions {
   /** The highest BANDWIDTH it starts within (D247 §6, D260 §3). */
   readonly startAtBps: number;
+  /**
+   * Whether its first quality is chosen, before anything loads, from rememberedLink by the rule its
+   * every later choice plays by (steadyLevel), in place of startAtBps (D381, amending D257 §2): the
+   * server's lower first rung switched to the top as playback began, and the Fire TV's decoder,
+   * reset by the new init, showed black frames. startAtBps stays for a player that remembers nothing.
+   */
+  readonly shouldStartByRememberedLink?: boolean | undefined;
   /** The share of a link a quality may take, as the offer says; linkShareForQuality when absent. */
   readonly shareForQuality?: number | undefined;
   /**

@@ -41,7 +41,7 @@ import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
-import type { PlaybackDecision } from "./watching.ts";
+import { isStartThePages, type PlaybackDecision } from "./watching.ts";
 
 /**
  * What a page knows of the film playing, given to what it composes around the video: the video, the
@@ -444,9 +444,11 @@ function ChunkedFilm(props: {
     [setFailure, t],
   );
   const { tracks } = props;
+  // A playback's own start on its ladder starts by the link its device remembers (D381).
+  const shouldStartByRememberedLink = props.isOnLadder === true && !isStartThePages(offer);
   const { playbackRef, playing, cannotKeepUp, sound, playSound } = useLadderPlayback(
     videoRef,
-    { offer, positionMs, tracks, sound: props.sound },
+    { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink },
     onFailed,
   );
   const height = playing?.height ?? offer.height;
@@ -511,16 +513,21 @@ function useLadderPlayback(
     readonly positionMs: number;
     readonly tracks: PlaybackDecision["tracks"] | undefined;
     readonly sound: PlayingSound | undefined;
+    readonly shouldStartByRememberedLink: boolean;
   },
   onFailed: PlaybackFailed,
 ): ReturnType<typeof useChunkedPlayback> & {
   readonly sound: PlayingSound | undefined;
   readonly playSound: (sound: PlayingSound) => void;
 } {
-  const { offer, positionMs, tracks } = starting;
+  const { offer, positionMs, tracks, shouldStartByRememberedLink } = starting;
   const [sound, setSound] = useState(starting.sound);
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
-  const chunked = useChunkedPlayback(videoRef, { offer, positionMs, startAudioRef }, onFailed);
+  const chunked = useChunkedPlayback(
+    videoRef,
+    { offer, positionMs, startAudioRef, shouldStartByRememberedLink },
+    onFailed,
+  );
   const { playbackRef } = chunked;
   const playSound = useCallback(
     (chosen: PlayingSound) => {
@@ -582,20 +589,28 @@ export function useBufferMeter(
 
 /**
  * The link an offer says its device last measured on its network (D257 §1), with its spread and how
- * many samples it counts as (bandwidth-sampling-2026-10-29.md P2), one object while they stay the
- * same, so a playback is not started again for a new offer that says the same.
+ * many samples it counts as (bandwidth-sampling-2026-10-29.md P2), and whether the player starts by
+ * it (D381), one object while they stay the same, so a playback is not started again for a new offer
+ * that says the same.
  */
 function useRememberedLink(
   offer: Pick<LadderOffer, "rememberedLinkKbps" | "rememberedLinkSpread" | "rememberedLinkSamples">,
+  shouldStartByRememberedLink: boolean | undefined,
 ): {
   readonly rememberedLinkKbps: number | undefined;
   readonly rememberedLinkSpread: number | undefined;
   readonly rememberedLinkSamples: number | undefined;
+  readonly shouldStartByRememberedLink: boolean | undefined;
 } {
   const { rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples } = offer;
   return useMemo(
-    () => ({ rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples }),
-    [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples],
+    () => ({
+      rememberedLinkKbps,
+      rememberedLinkSpread,
+      rememberedLinkSamples,
+      shouldStartByRememberedLink,
+    }),
+    [rememberedLinkKbps, rememberedLinkSpread, rememberedLinkSamples, shouldStartByRememberedLink],
   );
 }
 
@@ -637,6 +652,8 @@ export function useChunkedPlayback(
     readonly offer: LadderOffer;
     readonly positionMs: number;
     readonly startAudioRef?: RefObject<number | undefined>;
+    /** Whether it chooses its first quality from the link its device remembers (D381). */
+    readonly shouldStartByRememberedLink?: boolean;
   },
   onFailed: PlaybackFailed,
 ): {
@@ -646,7 +663,7 @@ export function useChunkedPlayback(
 } {
   const { positionMs, startAudioRef } = starting;
   const { url, startAtBps, linkSharePercent, steadiness } = starting.offer;
-  const remembered = useRememberedLink(starting.offer);
+  const remembered = useRememberedLink(starting.offer, starting.shouldStartByRememberedLink);
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);

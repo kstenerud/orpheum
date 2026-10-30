@@ -14,6 +14,7 @@ import {
 } from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
 import {
+  isStartThePages,
   startOnFilmsPictureKey,
   Watching,
   warmUpKeptMs,
@@ -306,6 +307,24 @@ describe("the film being watched (D258)", () => {
     expect(decisionTimesOf(decision.mediaToken)?.preloadSteps).toBe(
       "level 4; frag 4/0 loaded; level 1",
     );
+  });
+
+  // The player starts a playback's own offer by the link its device remembers, never a start the
+  // page chose itself, a warm-up's settled quality or the ladder's top (D381).
+  it("keeps a start the page chose as the page's, and the server's as none of the page's", async () => {
+    const preloads = standInPreloads();
+    const { watching } = watchingServed([], preloads);
+    watching.warmUp(7, playableFormats);
+    await settled([]);
+    preloads.settledAtBps = 1_896_000;
+    const settledOn = (await watching.decide(7, playableFormats)).onLadder;
+    expect(settledOn !== undefined && isStartThePages(settledOn)).toBe(true);
+    const unsettled = standInPreloads();
+    const served = watchingServed([], unsettled);
+    served.watching.warmUp(7, playableFormats);
+    await settled([]);
+    const asServed = (await served.watching.decide(7, playableFormats)).onLadder;
+    expect(asServed !== undefined && isStartThePages(asServed)).toBe(false);
   });
 
   it("starts on the film's own picture with no preload, where this browser is set to (a debugging aid)", async () => {
