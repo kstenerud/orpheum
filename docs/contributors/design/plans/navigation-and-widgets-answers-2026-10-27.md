@@ -534,3 +534,6 @@ had leaned on.
   the slice headers), so the remux re-times frames by it; to settle at design: whether FFmpeg gives
   the order without decoding (its parser) or one decoding pass at scan is needed, and whether the
   table is kept with the file's probe or worked out per chunk.
+- **Sign out asks first (the owner, 2026-10-30).** "Selecting 'sign out' should open a confirmation":
+  the menu's Sign out opens a dialog (the standard modal, `modal-dialog.tsx`) asking to confirm, Sign
+  out and Cancel, before the session is signed out (`app-shell.tsx` `MenuPlaces`' onSignOut).
