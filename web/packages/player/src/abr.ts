@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
-  arrivalMs,
+  afterFirstPiece,
   measuresTheLink,
   paceAboveQuality,
   reportsLinkFromSamples,
@@ -203,19 +203,24 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** Whether a loaded chunk of picture measures the link, to be counted in the estimate (D265 §7). */
   measures(chunk: Chunk): boolean {
     const { loading, loaded } = chunk.stats;
+    // Its bytes after its first piece, over the time after it (D382 §2).
+    const measured = afterFirstPiece(
+      { bytes: loaded, fromMs: loading.first, toMs: loading.end },
+      this.#options.firstPieceOf?.(chunk.url),
+    );
     const isCounted = measuresTheLink({
       loadMs: loading.end - loading.start,
-      arrivingMs: arrivalMs(loading),
-      bytes: loaded,
+      arrivingMs: measured.ms,
+      bytes: measured.bytes,
       paceBps: this.#paces.get(chunk),
       isFromCache: this.#options.fromCache(chunk.url),
     });
     if (isCounted) {
       this.#ceiling.sample({
         level: chunk.level,
-        bytes: loaded,
+        bytes: measured.bytes,
         firstByteMs: Math.max(0, loading.first - loading.start),
-        arrivedMs: arrivalMs(loading),
+        arrivedMs: measured.ms,
       });
       this.#ceiling.endStartingWhenDone(this.#played.playedMs());
     }

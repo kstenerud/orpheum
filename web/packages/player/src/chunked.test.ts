@@ -28,6 +28,7 @@ import {
   tellStalls,
   unplayableOf,
 } from "./chunked.ts";
+import { FirstPieces } from "./first-piece.ts";
 import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
@@ -141,6 +142,19 @@ describe("asking the server to pace a download (D262 §2)", () => {
     pace = undefined;
     void config.xhrSetup?.(xhr, "/c/q1200k480p/00002.m4s", loaderContext);
     expect(headers).toEqual([[paceHeader, "1863"]]);
+  });
+});
+
+describe("a chunk's first piece (D382 §2)", () => {
+  it("is followed on each request, for the bitrate controller to measure nothing of", () => {
+    const xhr = Object.assign(new EventTarget(), {
+      setRequestHeader: () => undefined,
+    }) as unknown as XMLHttpRequest;
+    const firstPieces = new FirstPieces(() => 487);
+    const config = chunkedHlsConfig({ startPositionS: 0, firstPieces });
+    void config.xhrSetup?.(xhr, "/c/4.m4s", {} as unknown as LoaderContext);
+    xhr.dispatchEvent(Object.assign(new Event("progress"), { loaded: 131_072 }));
+    expect(firstPieces.of("/c/4.m4s")).toEqual({ atMs: 487, bytes: 131_072 });
   });
 });
 

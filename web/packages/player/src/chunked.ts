@@ -13,6 +13,7 @@ import {
 } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
+import { FirstPieces } from "./first-piece.ts";
 import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import {
   noRoomToMakeStatus,
@@ -292,13 +293,16 @@ export function chunkedHlsConfig(options: {
    * the lab's cast receiver, handed its sender's sign-in (plans/tv-device-tests.md); none elsewhere.
    */
   readonly authorization?: string | undefined;
+  /** Each load's first piece, followed on its request for the bitrate controller (D382 §2). */
+  readonly firstPieces?: FirstPieces;
 }): Partial<HlsConfig> {
   const aheadAtStartS = Math.min(
     loadsAheadBelowTopS,
     options.loadsAheadAtMostS ?? Number.POSITIVE_INFINITY,
   );
   return {
-    xhrSetup: (xhr) => {
+    xhrSetup: (xhr, url) => {
+      options.firstPieces?.follow(xhr, url);
       xhr.addEventListener("load", () => {
         if (xhr.status === httpOk) {
           options.onCeiling?.(ceilingOf(xhr.getResponseHeader(ceilingHeader)));
@@ -615,13 +619,15 @@ export function playChunked(
   if (withoutHlsJs !== undefined) {
     return withoutHlsJs;
   }
-  const abr = orpheumAbr(choosingOptionsOf(video, options));
+  const firstPieces = new FirstPieces(() => performance.now()); // hls.js's clock for its loads
+  const abr = orpheumAbr({ ...choosingOptionsOf(video, options), firstPieceOf: firstPieces.of });
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
   const hls = new Hls({
     fLoader: chunkLoader(soundShift),
     ...chunkedHlsConfig({
       ...options,
+      firstPieces,
       paceKbps: () => abr.choosing()?.paceKbps(),
       isSought: seeks.isSought,
       onCeiling: (kbps) => {

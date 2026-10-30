@@ -7,7 +7,15 @@
  * which says whether it was arriving or stuck (bandwidth-sampling-2026-10-29.md P3).
  */
 
-import { asksAgainWaitMs, givenUpText, isStuck, isToAskAgain } from "./abr-choice.ts";
+import {
+  afterFirstPiece,
+  asksAgainWaitMs,
+  givenUpText,
+  isStuck,
+  isToAskAgain,
+  type AfterFirstPiece,
+  type FirstPiece,
+} from "./abr-choice.ts";
 import type { FollowedChunk } from "./abr-options.ts";
 
 /** A chunk on its way as a look judges it. */
@@ -25,6 +33,11 @@ export interface JudgedChunk<Chunk extends FollowedChunk> {
   readonly sinceArrivedMs: number;
   /** Whether the core answered it, its head come, rather than its ask still waiting. */
   readonly isAnswered: boolean;
+  /**
+   * What of it measures the link, its bytes after its first piece (D382 §2); undefined while none
+   * of it has arrived, or where its first piece is not known.
+   */
+  readonly afterFirstPiece: AfterFirstPiece | undefined;
 }
 
 /** The playback asking again: after how long, and which time in a row since a chunk loaded, from 1. */
@@ -175,9 +188,12 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
    * The chunk on its way as a look at nowMs judges it, its bytes' growth noted; undefined with none,
    * one hls.js aborted, or one the core is making with nothing of it arrived, which is waited for: a
    * lower quality would be made too, and slower, and an encoder that cannot keep up moves its
-   * players down itself (D286 §4, D323 §4).
+   * players down itself (D286 §4, D323 §4). firstPieceOf says its load's first progress, where known.
    */
-  look(nowMs: number): JudgedChunk<Chunk> | undefined {
+  look(
+    nowMs: number,
+    firstPieceOf?: (url: string) => FirstPiece | undefined,
+  ): JudgedChunk<Chunk> | undefined {
     const following = this.#following;
     if (following === undefined || following.chunk.stats.aborted) {
       return undefined;
@@ -200,8 +216,30 @@ export class ChunkOnItsWay<Chunk extends FollowedChunk> {
       loadedBytes: loaded,
       sinceArrivedMs: nowMs - arrived.atMs,
       isAnswered: loading.first > 0,
+      afterFirstPiece: isArriving
+        ? measuredAfterFirstPiece(chunk, { answeredBytes, nowMs }, firstPieceOf?.(chunk.url))
+        : undefined,
     };
   }
+}
+
+/**
+ * What of chunk on its way at nowMs measures the link, its bytes after its first piece, the core's
+ * 425 answers' none of them (D382 §2); undefined where its first piece is not known or is an
+ * earlier load's.
+ */
+function measuredAfterFirstPiece(
+  chunk: FollowedChunk,
+  at: { readonly answeredBytes: number; readonly nowMs: number },
+  piece: FirstPiece | undefined,
+): AfterFirstPiece | undefined {
+  const { loading, loaded } = chunk.stats;
+  return piece === undefined || piece.atMs < loading.first
+    ? undefined
+    : afterFirstPiece(
+        { bytes: loaded - at.answeredBytes, fromMs: loading.first, toMs: at.nowMs },
+        piece,
+      );
 }
 
 /** Whether any of chunk has arrived: only bytes past the core's 425 answers, answeredBytes, are it. */

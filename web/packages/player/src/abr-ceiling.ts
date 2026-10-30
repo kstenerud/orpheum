@@ -296,7 +296,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
 
   /** Looks at the chunk of picture on its way, judging whether to give it up (#onItsWay.look). */
   lookAtChunk(): void {
-    const judged = this.#onItsWay.look(this.#options.monotonicMs());
+    const judged = this.#onItsWay.look(this.#options.monotonicMs(), this.#options.firstPieceOf);
     if (judged === undefined) {
       return;
     }

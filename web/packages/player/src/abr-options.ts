@@ -2,7 +2,7 @@
 
 import type { HlsProgressivePerformanceTiming, LoaderStats } from "hls.js";
 
-import type { ChoiceLevel } from "./abr-choice.ts";
+import type { ChoiceLevel, FirstPiece } from "./abr-choice.ts";
 import type { RememberedLink } from "./link-estimate.ts";
 
 /**
@@ -74,6 +74,11 @@ export interface ChoosingOptions {
   readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */
   readonly fromCache: (url: string) => boolean | undefined;
+  /**
+   * The first piece of the load of url now, its first progress, which measures nothing of the link
+   * (D382 §2); undefined where it is not known, and a chunk is measured from its first byte.
+   */
+  readonly firstPieceOf?: ((url: string) => FirstPiece | undefined) | undefined;
   /**
    * Told each change of the ceiling it chooses under, and why, for the diagnosis's steps: a player
    * that dropped from the twin to 360p after a jump on a 77 Mb/s link said nothing of why (the owner's
