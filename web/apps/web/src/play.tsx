@@ -48,7 +48,7 @@ import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
-import { PlayOrSendOn } from "./cast-to.tsx";
+import { PlayOrSendOn, type PlayedHereFrom } from "./cast-to.tsx";
 import { WhoseFilm } from "./together-guest-play.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
 import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
@@ -572,6 +572,8 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
 export function Play(props: {
   readonly fileId: number;
   readonly atMs?: number | undefined;
+  /** Whether the film waits paused at atMs, as a cast's receiver had it (D385 §2). */
+  readonly isPaused?: boolean | undefined;
   readonly shouldPlayHere?: boolean | undefined;
 }): ReactNode {
   return (
@@ -581,23 +583,21 @@ export function Play(props: {
         <PlayOrSendOn
           fileId={props.fileId}
           atMs={props.atMs}
+          isPaused={props.isPaused}
           shouldPlayHere={props.shouldPlayHere === true}
-          playHere={(from) => <PlayHere key={from.round} fileId={props.fileId} atMs={from.atMs} />}
+          playHere={(from) => <PlayHere key={from.round} fileId={props.fileId} from={from} />}
         />
       }
     />
   );
 }
 
-/** The Play page playing its film on this device. */
-function PlayHere(props: {
-  readonly fileId: number;
-  readonly atMs: number | undefined;
-}): JSX.Element {
+/** The Play page playing its film on this device, from where it is given to (from). */
+function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFrom }): JSX.Element {
   const { t } = useTranslation();
   const receiving = useReceiving(props.fileId);
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
-    useOpenedPlayback(props.fileId, firstAskOf(receiving, props.atMs));
+    useOpenedPlayback(props.fileId, firstAskOf(receiving, props.from));
   const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
     <PlayView
       key={decision.mediaToken}
@@ -629,24 +629,25 @@ function PlayHere(props: {
 
 /**
  * Where the Play page's first playback starts in place of the resume position, and why it is asked
- * for: a cast received, from where its sender stood; a remote's Play here from, from where its
- * receiver stood (a Play here mid-film played from 0:00, staging 2026-10-27); else nowhere given.
+ * for: a cast received, from where its sender stood; a cast's film played here again, from where its
+ * receiver stood (a Play here mid-film played from 0:00, staging 2026-10-27), paused there where the
+ * receiver had it paused (D385 §2); else nowhere given.
  */
-function firstAskOf(
-  receiving: Receiving | undefined,
-  atMs: number | undefined,
-): FirstAsk | undefined {
+function firstAskOf(receiving: Receiving | undefined, from: PlayedHereFrom): FirstAsk | undefined {
   if (receiving !== undefined) {
     const { positionMs } = receiving.cast;
     return positionMs === undefined ? undefined : { cause: "playPage", atMs: positionMs };
   }
-  return atMs === undefined ? undefined : { cause: "castOver", atMs };
+  const { atMs, isPaused } = from;
+  return atMs === undefined ? undefined : { cause: "castOver", atMs, isPaused: isPaused === true };
 }
 
 /** Where the Play page's first playback starts, and why it is asked for. */
 interface FirstAsk {
   readonly cause: StartCause;
   readonly atMs: number;
+  /** Whether it waits paused there (Opened's isStartPaused). */
+  readonly isPaused?: boolean;
 }
 
 /** What the Play page shows: its decision, or, while the next is asked for, the one held. */
@@ -732,7 +733,7 @@ function useOpenedPlayback(
   // where the video stood when it did, for the next to start from, when it said.
   const nextCauseRef = useRef<StartCause>(first?.cause ?? "playPage");
   const nextAtRef = useRef<ReopenAt | undefined>(
-    first === undefined ? undefined : { positionMs: first.atMs, isPaused: false },
+    first === undefined ? undefined : { positionMs: first.atMs, isPaused: first.isPaused === true },
   );
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
   // is: the server lost it, or its player gave the film's own picture up; and when the last lost one

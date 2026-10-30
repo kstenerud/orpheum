@@ -51,10 +51,7 @@ export const enCast = {
     playHereInstead: "Play on this device instead",
     sendingOn: "Sending it to the device you cast to…",
     over: {
-      takenBack: "{{name}} took control back.",
       replaced: "Another of your devices now controls {{name}}.",
-      stopped: "Casting stopped.",
-      receiverGone: "{{name}} was gone for two minutes, so casting stopped.",
       gone: "The cast is over.",
     },
   },

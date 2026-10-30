@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
-import { CastRemote } from "./cast-remote.tsx";
+import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
   castAnswerGraceMs,
   castAnswerWithinMs,
@@ -233,9 +233,13 @@ export function otherDevicesOpen(
  */
 export const sendingKnownWithinMs = 3000;
 
-/** Where the Play page's film plays here from: atMs, or where the person left it where undefined. */
+/**
+ * Where the Play page's film plays here from: atMs, or where the person left it where undefined;
+ * paused there where isPaused, as a cast's receiver had it as its sender took the film over (D385 §2).
+ */
 export interface PlayedHereFrom {
   readonly atMs: number | undefined;
+  readonly isPaused?: boolean;
   /** Which time the page plays it here, so playing it again here starts its playback afresh. */
   readonly round: number;
 }
@@ -252,6 +256,8 @@ export interface PlayedHereFrom {
 export function PlayOrSendOn(props: {
   readonly fileId: number;
   readonly atMs?: number | undefined;
+  /** Whether the film played here waits paused at atMs (PlayedHereFrom). */
+  readonly isPaused?: boolean | undefined;
   readonly shouldPlayHere: boolean;
   readonly playHere: (from: PlayedHereFrom) => ReactNode;
 }): ReactNode {
@@ -293,17 +299,18 @@ type PlaysWhere =
  */
 function useWhereItPlays(props: {
   readonly atMs?: number | undefined;
+  readonly isPaused?: boolean | undefined;
   readonly fileId: number;
   readonly shouldPlayHere: boolean;
 }): {
   readonly where: PlaysWhere;
-  readonly playHereFrom: (atMs: number | undefined) => void;
+  readonly playHereFrom: PlaysHereFrom;
   /** The film went on to the cast castId's receiver: the page is its remote. */
   readonly sentTo: (castId: number) => void;
 } {
   const { sending, isSendingKnown } = useLive();
   const [where, setWhere] = useState<PlaysWhere>(() =>
-    props.shouldPlayHere ? hereFrom(props.atMs, 0) : { kind: "unknown" },
+    props.shouldPlayHere ? hereFrom(props.atMs, 0, props.isPaused) : { kind: "unknown" },
   );
   const isTimedOut = useTimesOut(where.kind === "unknown" && !isSendingKnown);
   const taken = sending?.isAccepted === true ? sending : undefined;
@@ -312,9 +319,9 @@ function useWhereItPlays(props: {
   } else if (isTakenOn(where, taken, props.fileId)) {
     setWhere({ kind: "remote", castId: taken.castId }); // a cast that took this film on
   }
-  const playHereFrom = useCallback((atMs: number | undefined) => {
+  const playHereFrom = useCallback((atMs: number | undefined, isPaused?: boolean) => {
     setWhere((now) => ({
-      ...hereFrom(atMs, now.kind === "here" ? now.from.round + 1 : 1),
+      ...hereFrom(atMs, now.kind === "here" ? now.from.round + 1 : 1, isPaused),
       ...(now.kind === "remote" || now.kind === "sending" ? { leftCastId: now.castId } : {}),
     }));
   }, []);
@@ -336,18 +343,22 @@ function isTakenOn(
   return where.kind === "here" && taken?.fileId === fileId && taken.castId !== where.leftCastId;
 }
 
-/** Playing here from atMs, the round-th time. */
-function hereFrom(atMs: number | undefined, round: number): PlaysWhere {
-  return { kind: "here", from: { atMs, round } };
+/** Playing here from atMs, the round-th time, paused there where isPaused. */
+function hereFrom(atMs: number | undefined, round: number, isPaused?: boolean): PlaysWhere {
+  return { kind: "here", from: { atMs, round, ...(isPaused === true ? { isPaused } : {}) } };
 }
 
 /** Where the page's film plays first, given the cast taken, if any, its receiver having said Use. */
 function firstWhere(
   taken: CastSending | undefined,
-  page: { readonly atMs?: number | undefined; readonly fileId: number },
+  page: {
+    readonly atMs?: number | undefined;
+    readonly isPaused?: boolean | undefined;
+    readonly fileId: number;
+  },
 ): PlaysWhere {
   if (taken === undefined) {
-    return hereFrom(page.atMs, 0);
+    return hereFrom(page.atMs, 0, page.isPaused);
   }
   return taken.fileId === page.fileId
     ? { kind: "remote", castId: taken.castId }
