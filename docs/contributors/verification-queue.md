@@ -1,6 +1,6 @@
 > **ABOUTME:** Checks that only a person with the hardware can do — a film on a television, a
 > voice call across two houses. A fix that no automated test can turn red names its item here
-> in a `Verified-By: VQ<n>` trailer, and the revert-red gate accepts it only once it is ticked.
+> in a `Verified-By: VQ<n>` trailer; until it is ticked it is owed, which revert-red lists (D378).
 
 # Verification queue
 
@@ -8,7 +8,8 @@
 requires every behaviour change to be able to turn a test red when reverted. A few cannot: the
 symptom shows only on a device, a network or a room. For those, the change adds an item here,
 someone does it, ticks it, and the commit carries `Verified-By: VQ<n>`.
-`scripts/check_revert_red.py` refuses the trailer if the item is missing or unticked. yoloAI's
+`scripts/check_revert_red.py` refuses the trailer if the item is missing, and lists an unticked one as
+owed, not a failure: the owner decides when a batch goes out with checks owed (D378). yoloAI's
 free-text trailer was never used, because nothing checked it.
 
 **Format**, one line per item, IDs never reused:

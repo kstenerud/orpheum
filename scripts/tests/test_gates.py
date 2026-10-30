@@ -476,15 +476,16 @@ class RevertRed(unittest.TestCase):
         self.assertFalse(tier[0].compile_only)
         self.assertEqual(rr.browser_tier("internal/core/api/x.go"), [])
 
-    def test_verified_by_needs_a_ticked_queue_item(self):
+    def test_verified_by_needs_a_queue_item_and_an_unticked_one_is_owed_not_refused(self):
         root = Path(tempfile.mkdtemp())
         queue = root / rr.VQ_FILE
         queue.parent.mkdir(parents=True)
         queue.write_text("- [x] **VQ1** — film plays on her TV\n- [ ] **VQ2** — not yet\n")
         self.assertEqual(rr.verification_queue_problem("VQ1", str(root)), "")
-        self.assertIn("not ticked", rr.verification_queue_problem("VQ2", str(root)))
+        self.assertEqual(rr.verification_queue_problem("VQ2", str(root)), "", "an unticked item is owed (D378)")
         self.assertIn("is not in", rr.verification_queue_problem("VQ3", str(root)))
         self.assertIn("names no VQ", rr.verification_queue_problem("ran it by hand", str(root)))
+        self.assertEqual(rr.unticked_items("VQ1; VQ2, VQ2", str(root)), ["VQ2"])
 
 
     def test_the_worktree_gets_the_installed_web_packages_and_its_own_workspace_links(self):

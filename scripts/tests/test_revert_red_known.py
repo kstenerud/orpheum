@@ -105,6 +105,40 @@ class GoReads(unittest.TestCase):
             self.assertIsNone(known.known(root, imported, key))
 
 
+class WebReads(unittest.TestCase):
+    """A web red is kept by the modules of the tests it failed, not the whole web client (the owner,
+    2026-10-30: every web commit threw every web red away)."""
+
+    def test_a_web_red_outlives_a_change_elsewhere_in_the_client_and_not_one_its_test_imports(self):
+        src = "web/apps/web/src"
+        repo = Repo({f"{src}/a.ts": "export const a = 1;\n", f"{src}/a.test.ts": 'import { a } from "./a.ts";\na;\n',
+                     f"{src}/b.ts": "export const b = 1;\n", f"{src}/c.ts": "export const c = 1;\n"})
+        base = repo.commit("base")
+        head = repo.commit("change a", {f"{src}/a.ts": "export const a = 2;\n"})
+        root = str(repo.root)
+        key = known.revert_key(root, base, head, [f"{src}/a.ts"])
+        with repo.cwd():
+            known.remember(root, head, key, ["npx", "--prefix", "web", "vitest", "related", "a.ts"], "RED_TEST",
+                           "a test fails", output=" FAIL  apps/web/src/a.test.ts > a > is two\n")
+            elsewhere = repo.commit("change b", {f"{src}/b.ts": "export const b = 2;\n"})
+            self.assertEqual(known.known(root, elsewhere, key)["verdict"], "RED_TEST")
+            weakened = repo.commit("weaken", {f"{src}/a.test.ts": 'import { a } from "./a.ts";\n'})
+            self.assertIsNone(known.known(root, weakened, key))
+
+    def test_a_web_red_whose_output_names_no_test_keeps_the_whole_client(self):
+        src = "web/apps/web/src"
+        repo = Repo({f"{src}/a.ts": "export const a = 1;\n", f"{src}/b.ts": "export const b = 1;\n"})
+        base = repo.commit("base")
+        head = repo.commit("change a", {f"{src}/a.ts": "export const a = 2;\n"})
+        root = str(repo.root)
+        key = known.revert_key(root, base, head, [f"{src}/a.ts"])
+        with repo.cwd():
+            known.remember(root, head, key, ["npx", "--prefix", "web", "vitest", "related", "a.ts"], "RED_TEST",
+                           "a test fails", output="Error: something\n")
+            elsewhere = repo.commit("change b", {f"{src}/b.ts": "export const b = 2;\n"})
+            self.assertIsNone(known.known(root, elsewhere, key))
+
+
 GO_OUTPUT = """--- FAIL: TestPlayback_Stalls (0.20s)
     --- FAIL: TestPlayback_Stalls/sub (0.10s)
 --- FAIL: TestPlayback_Starts (0.10s)

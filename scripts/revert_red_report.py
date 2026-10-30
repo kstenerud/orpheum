@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: How revert-red (check_revert_red.py) tells a run's outcomes: each file under the
-# ABOUTME: heading of its verdict, and what to do about the files that failed.
+# ABOUTME: heading of its verdict, the device checks still owed, and what to do about the files that failed.
 """What revert-red prints: the outcomes by verdict, and the advice for those that failed."""
 
 from __future__ import annotations
@@ -25,8 +25,8 @@ def report(outcomes: list[Outcome]) -> str:
         ("BROWSER_OWED", "Left to the browser tier: no cheap run noticed these reverted, and their browser "
                          "runs come in check-pr's last tier (make check-revert-red-browser)"),
         ("RED_TEST", "Covered — a test fails when these are reverted"),
-        ("CLAIMED", "On the author's word (Verified-By: a ticked VQ item; Refactor-Only: no behaviour "
-                    "changed in this file) — review this"),
+        ("CLAIMED", "On the author's word (Verified-By: a VQ item, ticked or owed; Refactor-Only: no "
+                    "behaviour changed in this file) — review this"),
         ("COSMETIC", "No behaviour changed, so nothing could cover it"),
         ("UNREACHABLE", "Only removed code nothing reached, so reverting restores dead code"),
         ("UNCHECKED", "Not checked by this gate: a feat/fix/perf commit changed these, and no probe "
@@ -37,7 +37,28 @@ def report(outcomes: list[Outcome]) -> str:
             continue
         lines.append(f"\n{heading}:")
         lines.extend(f"  {o.path}  — {o.detail}" for o in rows)
+    lines.extend(owed_report(outcomes))
     return "\n".join(lines)
+
+
+# How a claimed outcome's detail names the VQ items still owed (check_revert_red.claimed).
+OWED = " — owed: "
+
+
+def owed_report(outcomes: list[Outcome]) -> list[str]:
+    """The VQ items still unticked that files of the branch rest on, each with its files: what the
+    owner checks on a device before or after the batch goes out (D378), not a failure."""
+    files: dict[str, list[str]] = {}
+    for outcome in outcomes:
+        if outcome.verdict == "CLAIMED" and OWED in outcome.detail:
+            for item in outcome.detail.split(OWED, 1)[1].split(", "):
+                files.setdefault(item, []).append(outcome.path)
+    if not files:
+        return []
+    lines = ["\nOwed device checks — unticked VQ items these files rest on (not a failure; D378):"]
+    for item in sorted(files, key=lambda name: int(name.removeprefix("VQ"))):
+        lines.append(f"  {item}: {', '.join(files[item])}")
+    return lines
 
 
 def failure_advice(failures: list[Outcome]) -> str:
@@ -67,8 +88,9 @@ def failure_advice(failures: list[Outcome]) -> str:
         "    keep the next refactor in a commit of its own;\n"
         "  - it genuinely cannot go red in this suite — a lab-only symptom, a\n"
         "    device-only symptom. Then add a VQ<n> item to\n"
-        "    docs/contributors/verification-queue.md, do it, tick it, and name it in a\n"
-        "    `Verified-By: VQ<n>` trailer. That is a claim on the record, not a bypass.\n\n"
+        "    docs/contributors/verification-queue.md and name it in a\n"
+        "    `Verified-By: VQ<n>` trailer. That is a claim on the record, not a bypass;\n"
+        "    the item is owed until the owner ticks it (D378).\n\n"
         "Red-on-revert is necessary and not sufficient (D190): it proves a\n"
         "test is wired to the code, never that the code is wired to the program."
     )

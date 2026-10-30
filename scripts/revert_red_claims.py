@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: What a branch's trailers claim of a file whose revert turned nothing red: a Verified-By
-# ABOUTME: naming a ticked verification-queue item, or a Refactor-Only naming the file (D190).
+# ABOUTME: naming a verification-queue item, ticked or owed (D378), or a Refactor-Only naming the file (D190).
 """The claims revert-red consults after a probe turned nothing red (check_revert_red.claimed)."""
 
 from __future__ import annotations
@@ -59,17 +59,25 @@ def refactor_only(base: str, head: str, path: str) -> str:
 
 
 def verification_queue_problem(claim: str, tree: str) -> str:
-    """Why a Verified-By claim does not count, or '' when it names a ticked VQ item (D190)."""
+    """Why a Verified-By claim does not count, or '' when it names VQ items in the queue (D190, D378).
+    An item still unticked counts: the queue is the record of what is owed, and the owner alone
+    decides when a batch goes out with it owed (unticked_items says which)."""
     refs = VQ_REF.findall(claim)
     if not refs:
         return f"names no VQ<n> item in {VQ_FILE}"
-    queue = Path(tree) / VQ_FILE
-    text = queue.read_text() if queue.exists() else ""
-    known = set(VQ_ANY.findall(text))
-    ticked = set(VQ_TICKED.findall(text))
+    known = set(VQ_ANY.findall(_queue(tree)))
     for n in refs:
         if n not in known:
             return f"VQ{n} is not in {VQ_FILE}"
-        if n not in ticked:
-            return f"VQ{n} is not ticked — the verification has not been done"
     return ""
+
+
+def unticked_items(claim: str, tree: str) -> list[str]:
+    """The VQ items a Verified-By claim names that are not ticked yet: VQ<n>, in the claim's order."""
+    ticked = set(VQ_TICKED.findall(_queue(tree)))
+    return [f"VQ{n}" for n in dict.fromkeys(VQ_REF.findall(claim)) if n not in ticked]
+
+
+def _queue(tree: str) -> str:
+    queue = Path(tree) / VQ_FILE
+    return queue.read_text() if queue.exists() else ""
