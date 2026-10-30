@@ -10,8 +10,8 @@ import "slices"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "skip", "join", "command", "undone", "closed", "silent", "shown", "back", "video",
-		"audio", "direct", "udp", "tcp", "tls":
+	case "", "catchUp", "hold", "skip", "join", "command", "undone", "closed", "silent", "shown", "back", "left",
+		"video", "audio", "direct", "udp", "tcp", "tls":
 		return true
 	}
 	return false

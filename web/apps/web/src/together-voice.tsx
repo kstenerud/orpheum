@@ -90,6 +90,8 @@ export function useVoice(
         fetchIceServers: () => iceServersFor(api, { sessionId, credential }),
         devices,
         page: document,
+        // Left, its socket closes at once; back from the back/forward cache, it connects again.
+        leftPage: window,
       }),
     [api, sessionId, credential, sessionToken, openTogetherSocket, devices],
   );

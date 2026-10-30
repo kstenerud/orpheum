@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { ShownCheck } from "./shown-check.ts";
-import { whenShownOrBack } from "./shown-page.ts";
+import { whenPageChanges } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
 import { stateFlagsOf, type PlayerNote, type PlayerState } from "./together-notes.ts";
 import {
@@ -137,12 +137,12 @@ export interface TellsStanding {
 }
 
 /**
- * How a socket was lost, and since when: it closed, nothing was heard on it for its pings, or
- * nothing within shownAnswerWithinMs of its page shown again.
+ * How a socket was lost, and since when: it closed, nothing was heard on it for its pings, nothing
+ * within shownAnswerWithinMs of its page shown again, or its page was left.
  */
 interface Lost {
   readonly atMs: number;
-  readonly why: "closed" | "silent" | "shown" | "back";
+  readonly why: "closed" | "silent" | "shown" | "back" | "left";
 }
 
 class SessionConnection
@@ -181,8 +181,10 @@ class SessionConnection
       this.#dropDeadSocket({ atMs, why });
     },
   });
-  /** Ends hearing the page hidden and shown, and the path back; undefined while closed. */
+  /** Ends hearing the page hidden and shown, left and returned, and the path back; undefined while closed. */
   #stopHearingPage: (() => void) | undefined;
+  /** Whether its page was left, its socket given up, until it returns from the back/forward cache. */
+  #isLeft = false;
 
   constructor(options: TogetherConnectionOptions) {
     this.#options = options;
@@ -274,9 +276,18 @@ class SessionConnection
     this.#change(startingSnapshot);
     this.#attempt = 0;
     this.#lost = undefined; // a fresh connection, not one connecting again
+    this.#isLeft = false;
     this.#stopHearingPage?.();
-    this.#stopHearingPage = whenShownOrBack(this.#options.page, this.#options.pathBack, (why) => {
-      this.#shownAgain(why);
+    this.#stopHearingPage = whenPageChanges(this.#options, {
+      shownAgain: (why) => {
+        this.#shownAgain(why);
+      },
+      left: () => {
+        this.#leftPage();
+      },
+      returned: () => {
+        this.#returned();
+      },
     });
     this.#connect();
   };
@@ -381,6 +392,9 @@ class SessionConnection
    * (#dropDeadSocket), sooner than its pings would.
    */
   #shownAgain(why: "shown" | "back"): void {
+    if (this.#isLeft) {
+      return; // its return from the back/forward cache connects it
+    }
     if (this.#snapshot.status === "reconnecting" && this.#reconnectTimer !== undefined) {
       this.#cancelReconnect();
       this.#connect();
@@ -389,6 +403,35 @@ class SessionConnection
     if (this.#snapshot.status === "connected") {
       this.#shownCheck.start(why);
     }
+  }
+
+  /**
+   * The page was left, perhaps into the back/forward cache, where its socket would stay open and the
+   * core count the device present, leading, until its silence limit: the socket is closed at once, as
+   * closing the tab closes it, so the lead passes (D372 §5), and nothing connects until it returns.
+   */
+  #leftPage(): void {
+    if (this.#snapshot.status === "ended" || this.#isLeft) {
+      return;
+    }
+    this.#isLeft = true;
+    this.#generation += 1; // its close, whenever it comes, is not heard
+    this.#cancelReconnect();
+    this.#stopTimers();
+    this.#socket?.close();
+    this.#socket = undefined;
+    this.#lost ??= { atMs: this.#now(), why: "left" };
+    this.#change({ ...this.#snapshot, status: "reconnecting" });
+  }
+
+  /** The page came back from the back/forward cache: it connects again at once, if it was left. */
+  #returned(): void {
+    if (!this.#isLeft) {
+      return;
+    }
+    this.#isLeft = false;
+    this.#attempt = 0;
+    this.#connect();
   }
 
   #stopTimers(): void {

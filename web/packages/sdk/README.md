@@ -124,7 +124,12 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   and one waiting to connect again connects then: an S23 unlocked sat 20 s on a socket that heard
   nothing (the owner's VQ105, 2026-10-29). The video device's and the voice device's connections are
   given the page; the page's live connection (`src/live-connection.ts`) keeps its own pings and is not.
-  `src/together-connection.test.ts`.
+  `src/together-connection.test.ts`. **Its page left** (`pagehide`: navigated away, perhaps into the
+  back/forward cache, where its socket stayed open and the core counted it present, leading, until
+  its silence limit), **it closes its socket at once**, as closing the tab does, so the lead passes,
+  and connects nothing until the page comes back from that cache (`pageshow`, persisted), when it
+  connects at once and notes `reconnected` `why=left` (the owner, 2026-10-29).
+  `src/together-connection-shown.test.ts`; in a browser, VQ170.
 - **A follower whose page is shown again is put where its group is at once** (`apply`, as each change
   of its group puts it), not left paused where it was hidden; a refusal of any kind of its play
   before it plays again, while it still follows a playing group, is noted (`playRefused`) and answered

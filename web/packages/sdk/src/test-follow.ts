@@ -65,6 +65,46 @@ export class FakePage {
   }
 }
 
+/** A stand-in window: left and shown again as a test says, telling its listeners as it is. */
+export class FakeLeftPage {
+  readonly #listeners = new Map<
+    string,
+    Set<(event: Pick<PageTransitionEvent, "persisted">) => void>
+  >();
+
+  addEventListener(
+    type: "pagehide" | "pageshow",
+    listener: (event: Pick<PageTransitionEvent, "persisted">) => void,
+  ): void {
+    const listeners = this.#listeners.get(type) ?? new Set();
+    listeners.add(listener);
+    this.#listeners.set(type, listeners);
+  }
+
+  removeEventListener(
+    type: "pagehide" | "pageshow",
+    listener: (event: Pick<PageTransitionEvent, "persisted">) => void,
+  ): void {
+    this.#listeners.get(type)?.delete(listener);
+  }
+
+  /** The page is left, kept in the back/forward cache when persisted. */
+  leave(isPersisted = true): void {
+    this.#tell("pagehide", isPersisted);
+  }
+
+  /** The page is shown: back from the back/forward cache when persisted, else loaded. */
+  show(isPersisted = true): void {
+    this.#tell("pageshow", isPersisted);
+  }
+
+  #tell(type: "pagehide" | "pageshow", isPersisted: boolean): void {
+    for (const listener of [...(this.#listeners.get(type) ?? [])]) {
+      listener({ persisted: isPersisted });
+    }
+  }
+}
+
 /** A stand-in video element: its position, play state and events, as a test sets them. */
 export class FakeMedia {
   currentTime = 0;

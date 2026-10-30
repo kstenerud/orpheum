@@ -62,6 +62,9 @@ export function useTogether(device: TogetherDevice): {
             page: document,
             // The way to the core back, it connects again at once: its media plays on meanwhile.
             pathBack: onPathBack,
+            // Left, perhaps for the back/forward cache, its socket closes at once and the lead passes,
+            // as closing the tab does; back from that cache, it connects again (the owner, 2026-10-29).
+            leftPage: window,
           }),
     [credential, sessionToken, role, openTogetherSocket, onPathBack],
   );

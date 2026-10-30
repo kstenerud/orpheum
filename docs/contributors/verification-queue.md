@@ -1716,3 +1716,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   replaced=1 accepted=true`; play a film on Chrome: it plays on the TV, Chrome's sign staying on.
   Before this change Chrome waited on a Use the TV never asked for, and its Play stayed in Chrome (the
   owner, staging, 2026-10-29). (`internal/core/live/registry.go`)
+- [ ] **VQ170** — a Watch Together Play page navigated away gives up the lead at once, on staging.
+  On the Mac, Chrome hosting a session on its Play page, Firefox a guest, the film playing, Chrome
+  leading. In Chrome go to google.com. Passes when the core's log has Chrome's video device detached
+  closed (`goneBecause=closed`, not `silent`) within a second or two and Firefox's `leaderChanged`
+  right after it, not 45 s later; then press Back: Chrome's page connects again at once (its note
+  `kind=reconnected … why=left`), catches up and takes the lead back in step (`why=hostInStep`). On
+  the S23, a guest's Play page sent to another site and back the same way.
+  (`web/packages/sdk/src/together-connection.ts`, `shown-page.ts`)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { ShownPage } from "./shown-page.ts";
+import type { LeftPage, ShownPage } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
 import {
   noRight,
@@ -103,6 +103,13 @@ export interface TogetherConnectionOptions {
    * Chrome otherwise played on out of step for 28 s after its media came back (VQ130).
    */
   readonly pathBack?: ((listener: () => void) => () => void) | undefined;
+  /**
+   * The page's window, whose pagehide gives the socket up at once and whose pageshow from the
+   * back/forward cache connects again: a Play page navigated away sat there with its socket open,
+   * leading, until the core's silence limit (the owner, 2026-10-29). Absent, only closing the tab
+   * gives it up.
+   */
+  readonly leftPage?: LeftPage | undefined;
 }
 
 /** The snapshot of a connection not yet opened. */
