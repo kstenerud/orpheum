@@ -84,17 +84,6 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     expect(heard).not.toHaveBeenCalled();
   });
 
-  it("leaves at a Fire TV's Back, a step back from the entry it keeps", async () => {
-    const services = testServices("token", "/play/3");
-    const pushed = vi.spyOn(services.navigation, "go");
-    const { onLeave } = await controlled(services);
-    expect(pushed).toHaveBeenCalledWith({ screen: "play", fileId: 3 });
-    act(() => {
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    expect(onLeave).toHaveBeenCalledOnce();
-  });
-
   it("leaves at OK pressed twice within the window, and leaves one OK to the player", async () => {
     vi.useFakeTimers({ toFake: ["performance"] });
     const { onLeave } = await controlled();

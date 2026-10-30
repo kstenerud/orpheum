@@ -161,7 +161,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
-  history step too, and full screen left by the browser, not the page, told to the log), or OK or a
+  history step too, the person's alone: never a step the app makes itself, as the Use question's
+  close, navigation's `onPersonsStep`, D384, `src/cast-receiver-steps.test.tsx`; and full screen left by the browser, not the page, told to the log), or OK or a
   click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, ending the session: a film plays on here, the
   ready page goes home. Stopped by the sender it goes back to the page it was on before the session; either way back through the history where that page is behind, the pages the session added left ahead, so Back never steps into a film the cast played (`leaveTheCastsEntries`).
   **A cast no one controls is left for the film's page** (D383 §2): a page loaded again while its tab
