@@ -384,7 +384,7 @@ describe("App", () => {
     );
     const mounted = await mount(withServices(<App />, services));
     const sign = (): Element | null =>
-      mounted.container.querySelector(".status-tray a[href='/watch-together']");
+      mounted.container.querySelector(".status-tray button[aria-label^='Watch Together']");
     expect(
       mounted.container.querySelector(".app-shell__watching a[href='/watch-together']"),
     ).toBeNull();

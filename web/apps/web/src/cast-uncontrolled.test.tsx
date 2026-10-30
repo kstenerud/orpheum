@@ -67,9 +67,7 @@ describe("a page loaded again while its tab received a cast (D383 §2, D384 §1)
       withServices(
         <LiveProvider>
           <Receiving />
-          <PlayOrSendOn fileId={7} shouldPlayHere={false}>
-            <p>the film plays</p>
-          </PlayOrSendOn>
+          <PlayOrSendOn fileId={7} shouldPlayHere={false} playHere={() => <p>the film plays</p>} />
         </LiveProvider>,
         { ...services, openTogetherSocket: sockets.openSocket },
       ),

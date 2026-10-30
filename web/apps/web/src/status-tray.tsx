@@ -3,24 +3,28 @@
 import "./status-tray.css";
 
 import type { CastSending } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { Icon } from "./icon.tsx";
+import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
-import type { Route } from "./router.ts";
-import { useRoute, useServices } from "./services.tsx";
+import { routeHref } from "./router.ts";
+import { useServices } from "./services.tsx";
+import { closeTrayDialog, openTrayDialog, useTrayDialog } from "./tray-dialog.ts";
 import { useMembership } from "./together-membership.ts";
+import { CastDialog, TogetherDialog } from "./tray-dialog-code.tsx";
+import { LaterScreen } from "./screen-load.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
 import { usePrefetchedHostedDetails } from "./hosted-details.ts";
 
 /**
  * The status tray at the banner's end (D280), on every screen. Watch Together's and Cast's icons are
- * always in it, the entry points to both, white while their function is off and blue, pulsing
+ * always in it, the entry points to both, each opening its dialog over the page (D384 §2), white while their function is off and blue, pulsing
  * gently, while it is on (D364 §12, §13); Watch Together's is shown to a person who may host it, and
  * to a signed-in guest in a session (§14). For an admin, the warning sign leads to what needs them,
  * when anything does; it alone is yellow (D278).
@@ -31,34 +35,52 @@ export function StatusTray(props: {
   readonly canHostWatchTogether: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
-  // The route shown now: Cast's sign on a film's Play page takes that film with it (D364 §1).
-  const route = useRoute();
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending } = useLive();
+  useClosesTheDialogAsThePageMoves();
   return (
     <section className="status-tray icon-tray" aria-label={t("status.tray")}>
       {props.isAdmin ? <NeedsAttentionSign /> : null}
       {props.canHostWatchTogether || isHosting || isViewing ? (
         <TogetherSign isHosting={isHosting} isViewing={isViewing} />
       ) : null}
-      <CastSign sending={sending} isHosting={isHosting} route={route} />
+      <CastSign sending={sending} />
     </section>
   );
+}
+
+/**
+ * Closes the tray's dialog as the page moves to another address, as by its own way back to a film:
+ * the dialog belongs to the page it opened over. A step of the history that leaves the address as it
+ * was, as a dialog opened from it closing, leaves it open.
+ */
+function useClosesTheDialogAsThePageMoves(): void {
+  const { navigation } = useServices();
+  useEffect(() => {
+    let shown = routeHref(navigation.route());
+    return navigation.subscribe(() => {
+      const now = routeHref(navigation.route());
+      if (now !== shown) {
+        shown = now;
+        closeTrayDialog();
+      }
+    });
+  }, [navigation]);
 }
 
 /** A sign's class: the tray's button, white while its function is off, blue while it is on. */
 function signClass(isOn: boolean): string {
   return isOn
-    ? "icon-button status-tray__button status-tray__button--on"
-    : "icon-button status-tray__button status-tray__button--off";
+    ? "status-tray__button status-tray__button--on"
+    : "status-tray__button status-tray__button--off";
 }
 
 /**
- * Watch Together's sign (D364 §13): while its session is on, the session's page, the host's or a
- * signed-in guest's, where its controls are, Stop casting with them while a cast is on too; while it
- * is off, the page that starts one. The hosted session's details are fetched as it shows, so its
- * page shows them at once (hosted-details.ts).
+ * Watch Together's sign (D364 §13, D384 §2): it opens Watch Together's dialog over the page, to start
+ * a session or run it, or, for a signed-in guest, to go back to the group's film, and never moves the
+ * page; blue while a session is on. The hosted session's details are fetched as it shows, so its
+ * dialog shows them at once (hosted-details.ts).
  */
 function TogetherSign(props: {
   readonly isHosting: boolean;
@@ -67,32 +89,32 @@ function TogetherSign(props: {
   const { t } = useTranslation();
   usePrefetchedHostedDetails();
   const isOn = props.isHosting || props.isViewing;
-  const to: Route =
-    props.isViewing && !props.isHosting ? { screen: "together" } : { screen: "watch-together" };
   return (
-    <Link
-      to={to}
-      className={signClass(isOn)}
-      label={t(isOn ? "status.togetherOn" : "status.together")}
-    >
-      <TogetherIcon />
-    </Link>
+    <>
+      <IconButton
+        label={t(isOn ? "status.togetherOn" : "status.together")}
+        icon={<TogetherIcon />}
+        className={signClass(isOn)}
+        onClick={() => {
+          openTrayDialog("together");
+        }}
+      />
+      {useTrayDialog() === "together" ? (
+        <LaterScreen resetKey="together-dialog">
+          <TogetherDialog onClose={closeTrayDialog} />
+        </LaterScreen>
+      ) : null}
+    </>
   );
 }
 
 /**
- * Cast's sign (D364 §13): while a cast is on, its remote, the casting page, or Watch Together's page
- * while that is on too, which holds the controls of both; while none is, the devices to cast to,
- * taking the film this device plays, if any, with it (§1).
+ * Cast's sign (D364 §13, D384 §2): it opens Cast's dialog over the page, to choose a device or stop,
+ * and never moves the page; blue while a cast is on, named by its receiver and what plays.
  */
-function CastSign(props: {
-  readonly sending: CastSending | undefined;
-  readonly isHosting: boolean;
-  readonly route: Route;
-}): JSX.Element {
+function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Element {
   const { t } = useTranslation();
-  const { sending, isHosting, route } = props;
-  const to = castSignRoute(sending !== undefined, isHosting, route);
+  const { sending } = props;
   const label =
     sending === undefined
       ? t("status.cast")
@@ -101,24 +123,22 @@ function CastSign(props: {
           film: sending.titleName,
         });
   return (
-    <Link to={to} className={signClass(sending !== undefined)} label={label}>
-      <CastIcon />
-    </Link>
+    <>
+      <IconButton
+        label={label}
+        icon={<CastIcon />}
+        className={signClass(sending !== undefined)}
+        onClick={() => {
+          openTrayDialog("cast");
+        }}
+      />
+      {useTrayDialog() === "cast" ? (
+        <LaterScreen resetKey="cast-dialog">
+          <CastDialog onClose={closeTrayDialog} />
+        </LaterScreen>
+      ) : null}
+    </>
   );
-}
-
-/**
- * Where Cast's sign leads, by the owner's table (D364 §13): with a cast and Watch Together both on,
- * Watch Together's page; else the casting page, with the film shown now, from its Play page, for a
- * cast to start with.
- */
-function castSignRoute(isCasting: boolean, isHosting: boolean, route: Route): Route {
-  if (isCasting && isHosting) {
-    return { screen: "watch-together" };
-  }
-  return !isCasting && route.screen === "play"
-    ? { screen: "casting", fileId: route.fileId }
-    : { screen: "casting" };
 }
 
 /**

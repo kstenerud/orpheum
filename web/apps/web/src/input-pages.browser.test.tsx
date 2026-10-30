@@ -17,6 +17,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { chooseOk, okChoice } from "./controller-choice.ts";
 import { focusTargetsIn } from "./focus-engine.ts";
+import { closeTrayDialog } from "./tray-dialog.ts";
 import { createNavigation } from "./navigation.ts";
 import { createSession } from "./session.ts";
 import { fakePlace } from "./test-services.tsx";
@@ -143,13 +144,21 @@ async function drawn(selector: string): Promise<void> {
  */
 async function unreachedInMain(): Promise<string[]> {
   await press("{ArrowDown}");
+  return await unreachedIn("main");
+}
+
+/**
+ * The controls in what selector finds that the arrows never reach from what has focus there, as
+ * their markup's start; one entry saying so where focus is not in it.
+ */
+async function unreachedIn(selector: string): Promise<string[]> {
   const first = document.activeElement;
-  const main = document.querySelector("main");
-  if (!(first instanceof HTMLElement) || main?.contains(first) !== true) {
-    return ["the first arrow reached nothing in the page"];
+  const within = document.querySelector(selector);
+  if (!(first instanceof HTMLElement) || within?.contains(first) !== true) {
+    return [`the first arrow reached nothing in ${selector}`];
   }
   const reached = await reachedFrom(first, press);
-  return focusTargetsIn(main)
+  return focusTargetsIn(within)
     .filter((control) => !reached.has(control))
     .map((control) => control.outerHTML.slice(0, 80));
 }
@@ -535,7 +544,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(document.activeElement?.getAttribute("type")).toBe("password");
   });
 
-  it("starts Watch Together by OK, reaches every control of its session, and Back closes its invitation", async () => {
+  it("starts Watch Together by OK in its dialog, opened over home from its old address, reaches every control of its session, and Back closes its invitation (D384 §2)", async () => {
     window.sessionStorage.clear();
     await page.viewport(width, height);
     walking = await mountApp(
@@ -554,27 +563,29 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         "/watch-together",
       ),
     );
-    // Its code loads as the screen is first shown (later-screens.tsx).
-    await drawn(".watch-together");
+    // Its code loads as the dialog is first shown (later-screens.tsx).
+    await drawn("dialog.together-dialog[open]");
+    expect(walking.services.navigation.route()).toEqual({ screen: "home" });
     try {
-      await press("{ArrowDown}");
       expect(await pressUntil("{ArrowDown}", () => focusedName() === "Start a session")).toBe(true);
       await press("{Enter}");
       await expect.poll(() => document.body.textContent).toContain("Grandma");
-      expect(await unreachedInMain()).toEqual([]);
-      const invite = [...document.querySelectorAll<HTMLElement>("main button")].find(
-        (button) => button.textContent === "Invite someone",
-      );
+      await press("{ArrowDown}");
+      expect(await unreachedIn("dialog.together-dialog")).toEqual([]);
+      const invite = [
+        ...document.querySelectorAll<HTMLElement>("dialog.together-dialog button"),
+      ].find((button) => button.textContent === "Invite someone");
       invite?.focus();
       await press("{Enter}");
-      await drawn("dialog[open]");
+      await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(2);
       await press("{ArrowDown}{ArrowDown}");
-      expect(isFocusIn("dialog[open]")).toBe(true);
+      expect(isFocusIn(".watch-together__dialog")).toBe(true);
       await press("{Escape}");
-      await expect.poll(() => isDrawn("dialog[open]")).toBe(false);
-      expect(walking.services.navigation.route()).toEqual({ screen: "watch-together" });
+      await expect.poll(() => document.querySelectorAll("dialog[open]").length).toBe(1);
+      expect(walking.services.navigation.route()).toEqual({ screen: "home" });
     } finally {
       window.sessionStorage.clear();
+      closeTrayDialog(); // the next test's app opens with none
     }
   });
 });

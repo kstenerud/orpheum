@@ -31,10 +31,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
   both always in the tray, Cast's to everyone and Watch Together's to a person who may host or a
   signed-in guest in a session, white while their function is off and blue, pulsing gently unless
-  less motion is asked for or a film's player is on the page, while it is on; each leads by the owner's table: Watch Together's to its
-  setup or the session's page (a signed-in guest's `/together`), Cast's to the devices to cast to,
-  taking the film of the Play page it is pressed on, or the cast's remote, or Watch Together's page
-  while both are on. `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
+  less motion is asked for or a film's player is on the page, while it is on. **Each opens its dialog
+  over the page, which never moves** (D384 §2; `src/tray-dialog.ts`, one open at a time, closed as
+  the page moves to another address): Watch Together's (`src/together-dialog.tsx`) starts a session
+  or runs it, what plays with the way back to its film's Play page and Stop for everyone, voice and
+  the volumes, the people and Invite, and ending it, or, for a signed-in guest, the way back to the
+  group's film; Cast's (`src/cast-dialog.tsx`) the devices to cast to, taking the film of the Play
+  page it is pressed on, or, with a cast on, what plays where, the way back to its film's page and
+  Stop casting; it closes once a cast started from it is taken. There is no Watch Together page nor
+  casting page: an old `/watch-together` address goes to the Play page of the group's film, else
+  home with the dialog open, and `/casting` to the Play page of the cast's film, else home
+  (`src/old-addresses.tsx`). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
 - **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
   2026-10-29): a control or readout for testing is wrapped in `DebugTool` (`src/debug-tools.tsx`),
@@ -114,11 +121,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A Watch Together viewer needs no sign-in and, by link alone, sees none of the app** (D246 §3, §5,
   §6): their page is only the host's playback, black while nothing plays, with nothing asked of their
   speakers (D336 §4), voice, their own volume and Leave; the link's secret leaves
-  the address once used. **A signed-in guest's page is a screen in the shell** (D372 §9): the banner,
-  the tray, the menu and Your account stay theirs, in its one main landmark, its own logo left to the
-  banner's (`ViewerPage`); they may go anywhere in the app, even play another film only they see,
-  still a member, and come back by the tray's Watch Together sign, connecting again by the membership
-  their browser keeps and catching up. A member with no device on the session's page is said away, in
+  the address once used. **A signed-in guest's film is the group's on its Play page, the one page
+  every film plays on** (D372 §9, D384 §2; `src/together-guest-play.tsx`): a Play page whose film
+  their session plays shows it followed, as a screen in the shell, with who is here, voice, their own
+  volume and Leave (`GroupFilmPage`, `ViewerPage`), moving to the Play page of each next film the group
+  plays; another film plays as their own, still a member; they come back by the tray's Watch
+  Together dialog's way back to the film, connecting again by the membership their browser keeps and
+  catching up. Their way in, `/together`, goes to that Play page once joined. A member with no device on the session's page is said away, in
   who is here and on the host's list of people. A guest by link alone comes back by the same link in
   the same browser (D267 §1). `src/together-viewer-shell.test.tsx`; on devices, VQ172. Their session ended, a guest by link alone is told so on that page; a
   signed-in guest is taken home and told why there, in the shell's one notice (`src/notice.ts`, a
@@ -134,10 +143,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Casting is a session with a device: whatever the person plays goes there while it lasts, and
   the receiver keeps a television's controls** (D364, revising D337, D338 and D358;
   plans/cast-to-device.md): every signed-in page holds a live connection (`src/live.tsx`) that says
-  whether its tab is in front and is told the cast its device sends. The casting page (`/casting`,
-  the tray's Cast) lists the person's other devices open now, by name and last use, saying of one
-  with no Orpheum tab in front that one must be brought to the front; one chosen starts a session,
-  moving the film the person came from at its position (`/casting?file=‹id›`, `src/playing-here.ts`).
+  whether its tab is in front and is told the cast its device sends. Cast's dialog (the tray's Cast)
+  lists the person's other devices open now, by name and last use, saying of one with no Orpheum tab
+  in front that one must be brought to the front; one chosen starts a session, moving the film of
+  the Play page under it at its position (`src/playing-here.ts`). There is no casting page (D384 §2):
+  an old `/casting` address goes to the Play page of the film the cast plays, else home
+  (`src/old-addresses.tsx`).
   The receiver asks once, "‹Device› wants to use this device for playback" (`src/cast-asked.tsx`),
   Use focused for a remote's OK: Use's press asks for the page full screen, tells the server, and
   lets every video of the session play with sound; Not now, or a minute's silence, ends the session,
@@ -172,11 +183,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   connection's `isReceiveKnown`, the tab's mark in `src/cast-receiving-mark.ts`), and, handed none
   or one not taken, goes home too. `src/cast-uncontrolled.test.tsx`, `src/cast-receiver.test.tsx`,
   `src/cast-ready.test.tsx`, `src/cast-to.test.tsx`; on a device, VQ189 and VQ190.
-  The remote holds no player: with a film playing, its controls (`src/session-remote.tsx`), Up next,
-  *Play on this device instead* (`/play/‹id›?at=‹ms›&here=1`, the receiver waiting ready) and Stop
-  casting; with none, *Ready on ‹Device›* and Stop casting; with Watch Together on too, a way to its
-  page, which holds the controls; once over it says why with *Play here from*, asked for with cause
-  castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
+  **The page cast from stays where it is** (D384 §2): a Play page whose film goes to the receiver,
+  sent on or taken by a cast started over it, shows in its video's place the cast's remote
+  (`src/cast-remote.tsx`), which holds no player: with a film playing, *Playing on ‹Device›*, its
+  controls (`src/session-remote.tsx`), working the session the tab hosts while Watch Together is on
+  too, Up next, *Play on this device instead* (the receiver waiting ready) and Stop casting; with
+  none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, the film plays on
+  the same page again from where the receiver stood, asked for with cause castOver and that start;
+  ended any other way it says why with *Play here from*; a film's warm-up is let go of while the page
+  is a remote. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
   `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
@@ -188,8 +203,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The host's player leads their session while this tab hosts one, and is as before without
   one**: the film goes on for everyone, the host's player playing as it would alone and the guests
   catching up to it (D371 §1, §6), and goes on as the host leaves the player (D364 §15, D246
-  §5's stop on leaving withdrawn); the session's page holds its remote, the way back to the film and
-  Stop for everyone, and Stop casting while the host casts too. `src/watch-together.test.tsx`.
+  §5's stop on leaving withdrawn); Watch Together's dialog holds the way back to the film, whose Play
+  page holds its controls, and Stop for everyone, and Stop casting while the host casts too.
+  `src/watch-together.test.tsx`.
 - **On a discovery's origin the page reaches its core through the discovery** (webrtc-transport.md
   W4c): the discovery names its client API in the page (`<meta name="orpheum-discovery-client-api">`;
   the client reads no environment, D204); a link is spent by its click, never the page's loading; the
@@ -560,7 +576,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
-  screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
+  controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
   their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
   connection), `together-voice.tsx` (voice's controls), `volume-range.tsx` (every volume slider, which a touch anywhere moves), `together-storage.ts` (the memberships this tab keeps),

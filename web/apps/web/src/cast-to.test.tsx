@@ -22,7 +22,7 @@ import {
 } from "./test-dom.tsx";
 import { createNavigation } from "./navigation.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
-import { fakeTogetherServer, liveAndSession } from "./test-together.ts";
+import { fakeTogetherServer, liveAndSession, type FakeTogetherServer } from "./test-together.ts";
 
 /** A cast's session of one welcoming a device, nothing on yet. */
 const castWelcome = {
@@ -519,48 +519,99 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
   });
 });
 
-describe("a film played on a device that casts (D364 §3, §4)", () => {
+describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
   });
 
-  /** The Play page's film 8, from 30 s, on a device whose live connection says what it sends. */
+  /** The cast this device sends, as GET /me/casts lists it, its session's credential the remote's. */
+  const listed = {
+    castId: 9,
+    isSender: true,
+    fileId: 8,
+    titleId: 2,
+    titleName: "Metropolis",
+    durationMs: 600_000,
+    senderDeviceId: 1,
+    senderName: "Pixel",
+    receiverDeviceId: 2,
+    receiverName: "Fire TV",
+    membershipCredential: "remote",
+  };
+
+  /**
+   * The Play page's film 8, from 30 s, on a device whose live connection says what it sends; the page
+   * shows where its film plays here from.
+   */
   async function playOn(
     heard: Heard[],
     sending: Readonly<Record<string, unknown>> | undefined,
     shouldPlayHere = false,
-  ): Promise<ReturnType<typeof servedBy>> {
+  ): Promise<
+    ReturnType<typeof servedBy> & { readonly sockets: ReturnType<typeof liveAndSession> }
+  > {
     const services = servedBy(
-      { "POST /me/casts/9/play": [200, { castId: 9, isSender: true }] },
+      {
+        "POST /me/casts/9/play": [200, { castId: 9, isSender: true }],
+        "GET /me/casts": [200, { casts: [listed] }],
+        "GET /files/8/up-next": [200, {}],
+        "GET /files/4/up-next": [200, {}],
+      },
       heard,
       "token",
     );
-    const server = fakeTogetherServer();
+    const sockets = liveAndSession();
     mounted = await mount(
       withServices(
         <LiveProvider>
-          <PlayOrSendOn fileId={8} atMs={30_000} shouldPlayHere={shouldPlayHere}>
-            <p>playing here</p>
-          </PlayOrSendOn>
+          <PlayOrSendOn
+            fileId={8}
+            atMs={30_000}
+            shouldPlayHere={shouldPlayHere}
+            playHere={(from) => <p>{`playing here from ${String(from.atMs)}`}</p>}
+          />
         </LiveProvider>,
-        { ...services, openTogetherSocket: server.openSocket },
+        { ...services, openTogetherSocket: sockets.openSocket },
       ),
     );
-    await server.accept();
-    await server.say(sending === undefined ? { type: "sending" } : { type: "sending", sending });
-    return services;
+    await sockets.live.accept();
+    await sockets.live.say(
+      sending === undefined ? { type: "sending" } : { type: "sending", sending },
+    );
+    return { ...services, sockets };
   }
 
-  it("goes on to the receiver, from where it was to start, the device staying its remote", async () => {
+  /** The cast's session as its remote joins it: the receiver's film paused at 61 s. */
+  async function remoteJoined(session: FakeTogetherServer): Promise<void> {
+    await session.accept();
+    await session.say({
+      type: "welcome",
+      seq: 3,
+      sessionId: 9,
+      memberId: 2,
+      deviceId: 5,
+      isHost: true,
+      rights: { canPlayPause: true, canSeek: true },
+      group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 8 },
+      roster: [],
+    });
+  }
+
+  it("goes on to the receiver, from where it was to start, the page staying where it is as the cast's remote", async () => {
     const heard: Heard[] = [];
     const services = await playOn(heard, { ...sendingToTheTv, isAccepted: true });
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({
       fileId: 8,
       positionMs: 30_000,
     });
-    expect(services.navigation.route()).toEqual({ screen: "casting" });
+    await services.sockets.live.say({
+      type: "sending",
+      sending: { ...sendingToTheTv, fileId: 8, isAccepted: true },
+    });
+    expect(services.navigation.route()).toEqual({ screen: "films" });
+    expect(mounted?.container.textContent).toContain("Playing on Fire TV");
     expect(mounted?.container.textContent).not.toContain("playing here");
   });
 
@@ -572,11 +623,29 @@ describe("a film played on a device that casts (D364 §3, §4)", () => {
     ] as const) {
       const heard: Heard[] = [];
       await playOn(heard, sending, shouldPlayHere);
-      expect(mounted?.container.textContent).toContain("playing here");
+      expect(mounted?.container.textContent).toContain("playing here from 30000");
       expect(heard).toEqual([]);
       mounted?.unmount();
       mounted = undefined;
     }
+  });
+
+  // The owner's S23, 2026-10-30: a cast left the page cast from for a casting page of its own.
+  it("becomes the cast's remote as a cast started over the page takes its film, and plays it here again from where the receiver stood as the cast is stopped", async () => {
+    const heard: Heard[] = [];
+    const { sockets } = await playOn(heard, undefined);
+    expect(mounted?.container.textContent).toContain("playing here from 30000");
+    await sockets.live.say({
+      type: "sending",
+      sending: { ...sendingToTheTv, fileId: 8, isAccepted: true },
+    });
+    await remoteJoined(sockets.session);
+    expect(mounted?.container.textContent).toContain("Playing on Fire TV");
+    expect(mounted?.container.textContent).not.toContain("playing here");
+    expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/play")).toBe(false);
+    await sockets.session.say({ type: "ended", reason: "stopped" });
+    await sockets.live.say({ type: "sending" });
+    expect(mounted?.container.textContent).toContain("playing here from 61000");
   });
 
   it("plays here once the server has not said what the device sends within a few seconds", async () => {
@@ -586,9 +655,7 @@ describe("a film played on a device that casts (D364 §3, §4)", () => {
       mounted = await mount(
         withServices(
           <LiveProvider>
-            <PlayOrSendOn fileId={8} shouldPlayHere={false}>
-              <p>playing here</p>
-            </PlayOrSendOn>
+            <PlayOrSendOn fileId={8} shouldPlayHere={false} playHere={() => <p>playing here</p>} />
           </LiveProvider>,
           { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket },
         ),

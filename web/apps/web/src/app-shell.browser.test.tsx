@@ -115,13 +115,16 @@ describe("the shell, laid out by a real browser", () => {
         await userEvent.hover(element);
         return element;
       };
-      const sign = await hovered(
-        container.querySelector(".app-shell__end .status-tray__button--off"),
+      // A place's icon is a link, whose ground shows at once; the tray's signs, buttons since they
+      // open their dialogs (D384 §2), fade theirs in as the menu's does.
+      const place = await hovered(
+        container.querySelector(".app-shell__watching a.app-shell__place-icon"),
       );
-      const raised = getComputedStyle(sign).backgroundColor;
+      const raised = getComputedStyle(place).backgroundColor;
       expect(raised).not.toBe("rgba(0, 0, 0, 0)");
       const icons = [
         ...container.querySelectorAll(".app-shell__watching a.app-shell__place-icon"),
+        container.querySelector(".app-shell__end .status-tray__button--off"),
         container.querySelector(".app-shell__end .app-shell__menu-button"),
       ];
       expect(icons.length).toBeGreaterThan(1);

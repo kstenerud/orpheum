@@ -26,9 +26,9 @@ export interface KeptVideo {
  * same tap readies the voices (playWaitingAtTaps): one tap gives a guest both, whichever starts first
  * (the owner, 2026-10-13). A video made per film needed a tap of its own on an iPhone.
  */
-export function useKeptVideo(): KeptVideo {
+export function useKeptVideo(hasHadATapAlready = false): KeptVideo {
   const [video] = useState(() => document.createElement("video"));
-  const [hasHadATap, setHasHadATap] = useState(false);
+  const [hasHadATap, setHasHadATap] = useState(hasHadATapAlready);
   const tapped = useCallback(() => {
     readyForSoundAtTap(video);
     setHasHadATap(true);
@@ -40,6 +40,20 @@ export function useKeptVideo(): KeptVideo {
     };
   }, [tapped]);
   return { video, hasHadATap, tapped };
+}
+
+/**
+ * Whether the page has had a press since it loaded (the browser's sticky activation), which lets a
+ * film play with sound: a page reached by one, as a signed-in guest's Play page from the tray's
+ * dialog, asks for no tap to continue.
+ */
+export function hasBeenPressed(): boolean {
+  const activation: unknown = Reflect.get(navigator, "userActivation");
+  return (
+    typeof activation === "object" &&
+    activation !== null &&
+    Reflect.get(activation, "hasBeenActive") === true
+  );
 }
 
 /**

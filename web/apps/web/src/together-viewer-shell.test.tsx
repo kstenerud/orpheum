@@ -4,7 +4,6 @@
 import "./i18n.ts";
 
 import type { RosterMember, TogetherSnapshot } from "@orpheum/sdk";
-import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./app.tsx";
@@ -46,6 +45,8 @@ function signedInGuest(address: string): {
           "GET /client-settings": [200, {}],
           "GET /together/mine": [200, { sessions: [] }],
           "GET /libraries": [200, { libraries: [] }],
+          "GET /home": [200, { continueWatching: [] }],
+          "GET /titles": [200, { titles: [], nextCursor: "" }],
         },
         [],
         "token",
@@ -62,55 +63,55 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-describe("a signed-in guest's Watch Together page (D372 §9; the owner, 2026-10-29)", () => {
-  it("is a screen in the shell: the banner, its menu with Your account, and the tray's Watch Together sign leading back to it, in one main landmark", async () => {
+describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", () => {
+  it("goes from the session's old page home, in the shell, Watch Together's dialog open over it, while the group plays nothing (D384 §2)", async () => {
     const { services, sockets } = signedInGuest("/together");
     const mounted = await mount(withServices(<App />, services));
-    await settleUntil(() => mounted.container.textContent.includes("Tap to continue"));
-    await click(buttonWithText(mounted.container, "Tap to continue"));
     await sockets.live.accept();
+    await settleUntil(() => sockets.session.openedCount() > 0);
+    await sockets.session.acceptEach();
+    await sockets.session.say(welcome);
+    await settleUntil(() => services.navigation.route().screen === "home");
+    await settleUntil(() => sockets.session.openedCount() > 1); // the dialog's, its code loaded
     await sockets.session.acceptEach();
     await sockets.session.say(welcome);
     const { container } = mounted;
     expect(container.querySelector("header nav")).not.toBeNull();
     expect(container.querySelectorAll("main")).toHaveLength(1);
-    expect(container.querySelector("main")?.textContent).toContain("Watching together");
-    await click(container.querySelector('button[aria-label="Menu"]'));
-    expect(container.textContent).toContain("Your account");
-    const sign = container.querySelector(
-      '.status-tray a[aria-label="Watch Together is on: its controls"]',
+    expect(container.querySelector("dialog.together-dialog")?.textContent).toContain(
+      "Nothing is playing",
     );
-    expect(sign?.getAttribute("href")).toBe("/together");
-    // The banner's logo is the page's one: the guest's page draws none of its own in the shell.
-    expect(container.querySelector("main .together-viewer__logo")).toBeNull();
+    const hellos = sockets.session.heard.filter((each) => each["type"] === "hello");
+    expect(hellos.at(-1)).toMatchObject({ credential: "viewer-credential", role: "panel" });
     mounted.unmount();
   });
 
-  it("goes elsewhere in the app a member still, and comes back by the tray's sign to the session, connecting again by the same membership", async () => {
-    const { services, sockets } = signedInGuest("/together");
+  it("goes elsewhere in the app a member still, and comes back by the tray's dialog to the Play page of the group's film (D384 §2)", async () => {
+    const { services, sockets } = signedInGuest("/about");
     const mounted = await mount(withServices(<App />, services));
-    await settleUntil(() => mounted.container.textContent.includes("Tap to continue"));
-    await click(buttonWithText(mounted.container, "Tap to continue"));
     await sockets.live.accept();
-    await sockets.session.acceptEach();
-    await sockets.session.say(welcome);
-    const openedBefore = sockets.session.openedCount();
-    await act(async () => {
-      services.navigation.go({ screen: "about" });
-      await Promise.resolve();
-    });
-    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
-    expect(mounted.container.querySelector(".together-viewer")).toBeNull();
-    const sign = mounted.container.querySelector<HTMLAnchorElement>(
-      '.status-tray a[aria-label="Watch Together is on: its controls"]',
+    await settleUntil(
+      () =>
+        mounted.container.querySelector(
+          '.status-tray button[aria-label="Watch Together is on: its controls"]',
+        ) !== null,
     );
-    expect(sign).not.toBeNull();
-    await click(sign);
+    await click(
+      mounted.container.querySelector(
+        '.status-tray button[aria-label="Watch Together is on: its controls"]',
+      ),
+    );
+    await settleUntil(() => sockets.session.openedCount() > 0);
     await sockets.session.acceptEach();
-    expect(services.navigation.route()).toEqual({ screen: "together" });
-    expect(sockets.session.openedCount()).toBeGreaterThan(openedBefore);
-    const hellos = sockets.session.heard.filter((each) => each["type"] === "hello");
-    expect(hellos.at(-1)).toMatchObject({ credential: "viewer-credential" });
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    expect(services.navigation.route()).toEqual({ screen: "about" });
+    await click(buttonWithText(mounted.container, "Back to the film"));
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
+    expect(mounted.container.querySelector("dialog[open]")).toBeNull();
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
     mounted.unmount();
   });
 

@@ -7,6 +7,8 @@ import { createRoot } from "react-dom/client";
 import { resetLazyScreensForTests } from "./later-screens.tsx";
 import type { Services } from "./services.tsx";
 import { testServices } from "./test-services.tsx";
+import { closeTrayDialog } from "./tray-dialog.ts";
+import { resetTrayDialogsForTests } from "./tray-dialog-code.tsx";
 
 /**
  * Requests a stand-in server made by `servedBy` had no answer for, or that reached outside the
@@ -199,10 +201,14 @@ export interface Mounted {
 /**
  * Renders a tree into the document, and lets its first requests answer. Each mount meets the
  * screens of later-screens.tsx cold (resetLazyScreensForTests), so a test never passes only
- * because an earlier one in its file already warmed the same lazy-loaded screen.
+ * because an earlier one in its file already warmed the same lazy-loaded screen or tray dialog
+ * (tray-dialog-code.tsx), and with no tray dialog open, as an earlier one may have left one
+ * (tray-dialog.ts).
  */
 export async function mount(tree: ReactNode): Promise<Mounted> {
   resetLazyScreensForTests();
+  resetTrayDialogsForTests();
+  closeTrayDialog();
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);

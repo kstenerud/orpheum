@@ -10,17 +10,14 @@ import {
   type PlaybackSound,
 } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
-import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { CastTargets } from "./cast-to.tsx";
+import { tabStorage } from "./browser-storage.ts";
 import { endCast, listMyCasts, moveCastOn, playInCast } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
-import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
-import { positionPlayedHere } from "./playing-here.ts";
 import { rateText } from "./rate-text.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SessionRemote, usePositionNow } from "./session-remote.tsx";
@@ -31,70 +28,123 @@ import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 
 /**
- * The casting page, where the tray's Cast leads (D364 §8, §13): with no cast, the devices to cast to,
- * a cast started there moving fileId, the film this device was playing as the person came, to the
- * receiver at its position (§1); with one, its remote, which the person returns to from anywhere, the
- * video playing on as they browse. Reached from anywhere, it has no Up; Back returns to where the
- * person was (D367). A cast that ends while shown stays shown, ended, until another starts.
+ * The Play page's video area while its device casts (D384 §2, D364 §8): the page keeps its place, and
+ * where its video was it shows the remote of the cast castId, "Playing on ‹device›" with its
+ * controls, which work the receiver. Stop casting, here or in Cast's dialog, brings the film back to
+ * the page at the receiver's position (onPlayHere); a cast that ends any other way says why and
+ * offers to play here from where it stood. Where the cast plays another film than the page's by
+ * then, the film comes back on that film's Play page, in this one's place.
  */
-export function Casting(props: { readonly fileId?: number | undefined }): JSX.Element {
-  const { t } = useTranslation();
-  const { sending, isSendingKnown } = useLive();
-  const shown = useShownCast(sending);
-  const { fileId } = props;
-  const film = (): { fileId: number; positionMs: number | undefined } | undefined =>
-    fileId === undefined ? undefined : { fileId, positionMs: positionPlayedHere(fileId) };
+export function CastRemote(props: {
+  readonly castId: number;
+  /** The film of the Play page the remote shows on. */
+  readonly fileId: number;
+  /** Plays the page's film here again, from atMs, or where the person left it where undefined. */
+  readonly onPlayHere: (atMs: number | undefined) => void;
+}): JSX.Element | null {
+  const sent = useHeldCast(props.castId);
+  if (sent === undefined) {
+    return null;
+  }
   return (
-    <section className="cast-remote" aria-labelledby="casting-heading">
-      <h1 id="casting-heading">{t("cast.page")}</h1>
-      {!isSendingKnown && shown === undefined ? <p>{t("common.loading")}</p> : null}
-      {isSendingKnown && shown === undefined ? <CastTargets film={film} /> : null}
-      {shown === undefined ? null : <Remote key={shown.castId} sent={shown} />}
+    <section className="cast-remote" aria-labelledby="cast-remote-heading">
+      <Remote sent={sent} pageFileId={props.fileId} onPlayHere={props.onPlayHere} />
     </section>
   );
 }
 
 /**
- * The cast the page shows: the one this device sends, once its receiver said Use, and after it
- * ends, the last one, so its end is said, until another is taken.
+ * The cast castId as the live connection says it, and after it ends, as it was last said, so its
+ * end is said; undefined until it is said.
  */
-function useShownCast(sending: CastSending | undefined): CastSending | undefined {
-  const taken = sending?.isAccepted === true ? sending : undefined;
-  const [held, setHeld] = useState<CastSending | undefined>(taken);
-  if (taken !== undefined && taken !== held) {
-    setHeld(taken); // kept as it renders, so it is there once the cast ends
+function useHeldCast(castId: number): CastSending | undefined {
+  const { sending } = useLive();
+  const now = sending?.castId === castId ? sending : undefined;
+  const [held, setHeld] = useState<CastSending | undefined>(now);
+  if (now !== undefined && now !== held) {
+    setHeld(now); // kept as it renders, so it is there once the cast ends
   }
-  return taken ?? held;
+  return now ?? held;
+}
+
+/**
+ * Plays the film of the cast's last word here again, from atMs: on the page shown where it is the
+ * page's film, or nothing played on the receiver (onPlayHere); else on that film's Play page, in
+ * this one's place.
+ */
+function usePlaysHere(
+  sent: CastSending,
+  pageFileId: number,
+  onPlayHere: (atMs: number | undefined) => void,
+): (atMs: number) => void {
+  const { navigation } = useServices();
+  return (atMs) => {
+    if (sent.fileId === 0) {
+      onPlayHere(undefined);
+    } else if (sent.fileId === pageFileId) {
+      onPlayHere(atMs);
+    } else {
+      navigation.replace({ screen: "play", fileId: sent.fileId, atMs, shouldPlayHere: true });
+    }
+  };
 }
 
 /**
  * The remote of one cast (D364 §8): it holds no player and loads no film; what it shows is what the
  * live connection says plays on the receiver, and where, as the cast's session says, moved on by the
  * clock between. With a video playing: its title, the controls, Up next, "Play on this device
- * instead" (§4) and Stop casting; with none, "Ready on ‹Device›" and Stop casting; while Watch
- * Together is on too, the controls are its page's, which this one leads to (§11, §13). Once the cast
- * ends it says why, offers to play here from where it stood (§10), and the devices to cast to again.
+ * instead" (§4) and Stop casting; with none, "Ready on ‹Device›" and Stop casting. Stopped, the film
+ * plays here again at once (D384 §2); ended any other way, it says why and offers to play here.
  */
-function Remote(props: { readonly sent: CastSending }): JSX.Element {
+function Remote(props: {
+  readonly sent: CastSending;
+  readonly pageFileId: number;
+  readonly onPlayHere: (atMs: number | undefined) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { sent } = props;
   const { connection, snapshot, positionMs, over, stop } = useCastSession(sent.castId);
+  const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
+  useStoppedPlaysHere(over, playHere);
   if (over !== undefined) {
     return (
-      <>
-        <CastOver sent={sent} reason={over.reason} positionMs={over.positionMs} />
-        <CastTargets film={() => undefined} />
-      </>
+      <CastOver
+        sent={sent}
+        reason={over.reason}
+        positionMs={over.positionMs}
+        onPlayHere={playHere}
+      />
     );
   }
   return (
     <>
-      <RemoteOf sent={sent} snapshot={snapshot} connection={connection} positionMs={positionMs} />
+      <RemoteOf
+        sent={sent}
+        snapshot={snapshot}
+        connection={connection}
+        positionMs={positionMs}
+        onPlayHere={playHere}
+      />
       <button type="button" onClick={stop}>
         {t("cast.stop")}
       </button>
     </>
   );
+}
+
+/** Plays the film here again, once, as its cast is stopped, here or elsewhere (D384 §2). */
+function useStoppedPlaysHere(over: CastEnd | undefined, playHere: (atMs: number) => void): void {
+  const playHereRef = useRef(playHere);
+  useEffect(() => {
+    playHereRef.current = playHere;
+  });
+  const isStopped = over?.reason === "stopped";
+  const atMs = over?.positionMs ?? 0;
+  useEffect(() => {
+    if (isStopped) {
+      playHereRef.current(atMs);
+    }
+  }, [isStopped, atMs]);
 }
 
 /** How a cast ended, as its remote says it: why, and where its video stood. */
@@ -169,50 +219,40 @@ function endOf(cast: {
 }
 
 /**
- * What the remote shows of what plays on the receiver: Watch Together's page holding the controls
- * while it is on too (D364 §11), the receiver ready with nothing playing (§5), or the film and its
- * controls.
+ * What the remote shows of what plays on the receiver: the receiver ready with nothing playing (§5),
+ * or the film and its controls, which, while the person hosts Watch Together, work that session, the
+ * receiver its host's player (D364 §11), the cast's own playing nothing.
  */
 function RemoteOf(props: {
   readonly sent: CastSending;
   readonly snapshot: Parameters<typeof SessionRemote>[0]["snapshot"];
   readonly connection: ReturnType<typeof useTogether>["connection"];
   readonly positionMs: number | undefined;
+  readonly onPlayHere: (atMs: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api, navigation } = useServices();
-  const isHosting = useMembership(tabStorage, "host") !== undefined;
-  const isGuest = useMembership(browserStorage, "viewer") !== undefined;
+  const { api } = useServices();
   const { sent } = props;
-  if (isHosting || (isGuest && sent.fileId === 0)) {
-    // A guest's cast with nothing of its own follows their session: its page holds the controls.
-    return (
-      <>
-        <p>{t("cast.withTogether", { name: sent.receiverName })}</p>
-        <Link to={{ screen: isHosting ? "watch-together" : "together" }}>
-          {t("cast.toTogether")}
-        </Link>
-      </>
-    );
-  }
+  const hosted = useHostedPanel();
   if (sent.fileId === 0) {
-    return <p>{t("cast.readyOn", { name: sent.receiverName })}</p>;
+    return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
   }
   const playHereInstead = (): void => {
     const atMs = props.positionMs ?? 0;
     playInCast(api, sent.castId, undefined).catch(() => undefined); // the receiver waits ready
-    navigation.go({ screen: "play", fileId: sent.fileId, atMs, shouldPlayHere: true });
+    props.onPlayHere(atMs);
   };
+  const worked = hosted ?? { snapshot: props.snapshot, connection: props.connection };
   const playback = props.snapshot === undefined ? undefined : leaderOf(props.snapshot)?.playback;
   return (
     <>
-      <h2>{sent.titleName === "" ? t("cast.aFilm") : sent.titleName}</h2>
+      <h2 id="cast-remote-heading">{sent.titleName === "" ? t("cast.aFilm") : sent.titleName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
       <ReceiverSound sound={playback?.sound} connection={props.connection} />
       <SessionRemote
-        snapshot={props.snapshot}
-        connection={props.connection}
+        snapshot={worked.snapshot}
+        connection={worked.connection}
         durationMs={sent.durationMs}
       />
       <RemoteUpNext sent={sent} />
@@ -221,6 +261,22 @@ function RemoteOf(props: {
       </button>
     </>
   );
+}
+
+/**
+ * The Watch Together session this tab hosts, joined as a panel, whose controls the cast's remote
+ * works while it is on (D364 §11); undefined while this tab hosts none.
+ */
+function useHostedPanel():
+  Pick<ReturnType<typeof useTogether>, "snapshot" | "connection"> | undefined {
+  const token = useToken();
+  const hosting = useMembership(tabStorage, "host");
+  const hosted = useTogether({
+    credential: hosting?.credential,
+    sessionToken: token,
+    role: "panel",
+  });
+  return hosting === undefined ? undefined : hosted;
 }
 
 /**
@@ -380,23 +436,23 @@ function CastOver(props: {
   readonly sent: CastSending;
   readonly reason: string;
   readonly positionMs: number;
+  readonly onPlayHere: (atMs: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { navigation } = useServices();
-  const { sent, reason } = props;
+  const { sent, reason, positionMs } = props;
   return (
     <>
-      <output>{overText(t, reason, sent.receiverName)}</output>
-      {sent.fileId === 0 ? null : (
-        <button
-          type="button"
-          onClick={() => {
-            navigation.go({ screen: "play", fileId: sent.fileId, atMs: props.positionMs });
-          }}
-        >
-          {t("cast.playHere", { at: clockText(props.positionMs) })}
-        </button>
-      )}
+      <output id="cast-remote-heading">{overText(t, reason, sent.receiverName)}</output>
+      <button
+        type="button"
+        onClick={() => {
+          props.onPlayHere(positionMs);
+        }}
+      >
+        {sent.fileId === 0
+          ? t("cast.playHereInstead")
+          : t("cast.playHere", { at: clockText(positionMs) })}
+      </button>
     </>
   );
 }
