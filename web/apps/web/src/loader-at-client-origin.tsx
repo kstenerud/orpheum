@@ -357,11 +357,9 @@ async function tellCoreLog(send: FetchRequest, session: Session, text: string): 
 /** Says the core's client did not load, by the address of its script that did not. */
 function showClientFailed(at: AtClientOrigin, coreId: string, address: string): void {
   reportFailure(new Error(`the server's client did not load: ${address}`));
-  const text = clientFailedText(
-    { coreId, address, isControlled: navigator.serviceWorker.controller !== null },
-    navigator.userAgent,
-  );
-  at.showFailure(<ClientFailedPage text={text} />);
+  const isControlled = navigator.serviceWorker.controller !== null;
+  const text = clientFailedText({ coreId, address, isControlled }, navigator.userAgent);
+  at.showFailure(<ClientFailedPage text={text} isControlled={isControlled} />);
 }
 
 /**
