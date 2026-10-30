@@ -2,7 +2,8 @@
 
 /**
  * The tab's debug link (D380): a cap on its download rate, applied in the player's chunk fetch so
- * every carrier is capped alike (`shapeChunkLoads`, @orpheum/player), and a drop of its connection
+ * every carrier is capped alike (`shapeChunkLoads`, @orpheum/player, which the film player hands
+ * this link), and a drop of its connection
  * for a while, which closes the tab's sockets, refuses its requests, sockets and chunk loads until it
  * ends, then lets them reconnect as after a real network loss, the browser's `online` said. Chrome's
  * DevTools throttling never reached the WebRTC carrier (VQ128's run), so a slow or lost link could be
@@ -11,10 +12,7 @@
  * cost an afternoon (agent-failures A51).
  */
 
-import { shapeChunkLoads } from "@orpheum/player";
 import type { OpenTogetherSocket } from "@orpheum/sdk";
-
-import type { Reaches } from "./client-reaches.ts";
 
 /** Where the tab keeps its cap, kbit/s, in its session storage. */
 export const linkCapKey = "orpheum.debug.linkCapKbps";
@@ -24,6 +22,12 @@ export const linkCapChoicesKbps: readonly number[] = [500, 1000, 2000, 5000];
 
 /** How long a drop may last, in seconds (D380 §1). */
 export const dropChoicesS: readonly number[] = [10, 30, 60];
+
+/** How the tab reaches its core, as far as the debug link shapes it: its requests and its sockets. */
+interface Reaching {
+  readonly fetch: (request: Request) => Promise<Response>;
+  readonly openTogetherSocket: OpenTogetherSocket;
+}
 
 /** A socket the tab opened, as its opener gives it. */
 type TogetherSocket = ReturnType<OpenTogetherSocket>;
@@ -116,10 +120,10 @@ export class LinkDebug {
 
   /**
    * reaches, its requests and sockets refused while the tab is dropped, and its sockets closed as a
-   * drop begins; and the player's chunk loads shaped by the cap and the drop.
+   * drop begins. The player's chunk loads the film player has shaped by the same link (film-player.tsx),
+   * so the home page loads no player for it.
    */
-  shape(reaches: Reaches): Reaches {
-    shapeChunkLoads({ capKbps: this.capKbps, isDropped: this.isDropped });
+  shape<Reaches extends Reaching>(reaches: Reaches): Reaches {
     return {
       ...reaches,
       fetch: this.#fetchOf(reaches),
@@ -127,7 +131,7 @@ export class LinkDebug {
     };
   }
 
-  #fetchOf(reaches: Reaches): Reaches["fetch"] {
+  #fetchOf(reaches: Reaching): Reaching["fetch"] {
     return async (request) => {
       if (this.isDropped()) {
         throw new TypeError("Failed to fetch: the connection is dropped (a debug tool, D380)");
@@ -136,7 +140,7 @@ export class LinkDebug {
     };
   }
 
-  #socketsOf(reaches: Reaches): OpenTogetherSocket {
+  #socketsOf(reaches: Reaching): OpenTogetherSocket {
     return (listeners) => {
       if (this.isDropped()) {
         // Refused as a lost network refuses it: the socket closes without opening.
