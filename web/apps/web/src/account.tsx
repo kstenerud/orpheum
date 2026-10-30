@@ -20,7 +20,7 @@ import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";
 
 /**
@@ -41,9 +41,7 @@ export function Account(): JSX.Element {
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      {me.state === "loaded" ? (
-        <p className="account__who">{t("account.signedInAs", { name: me.value.name })}</p>
-      ) : null}
+      <SignedInAs me={me} />
       {canManage ? <ActivateHere onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       {canManage ? <YourLink /> : null}
@@ -81,6 +79,16 @@ function ActivateHere(props: { readonly onActivated: () => void }): JSX.Element 
       }}
     />
   );
+}
+
+/** Who is signed in, by me, the page's GET /me, said once it is read. */
+function SignedInAs(props: {
+  readonly me: Resource<{ readonly name: string }>;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  return props.me.state === "loaded" ? (
+    <p className="account__who">{t("account.signedInAs", { name: props.me.value.name })}</p>
+  ) : null;
 }
 
 /** What a device a code activated cannot do here, said once the page knows it is one. */
