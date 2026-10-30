@@ -52,8 +52,9 @@ describe("AppShell", () => {
     );
     // No Watch Together or Cast in the top bar: their signs in the status tray (D364 §12).
     expect(markup).not.toContain('<a href="/watch-together">Watch Together</a>');
-    expect(markup).toContain('href="/watch-together" class="status-tray__button');
-    expect(markup).toContain('href="/casting" class="status-tray__button');
+    // Each an icon button in an icon tray, as a listing's tools are (the owner, 2026-10-30).
+    expect(markup).toContain('href="/watch-together" class="icon-button status-tray__button');
+    expect(markup).toContain('href="/casting" class="icon-button status-tray__button');
     expect(open).not.toContain("/libraries");
     expect(open).not.toContain("/jobs");
     expect(open).toContain("partner on Firefox on Mac");
@@ -205,7 +206,7 @@ describe("AppShell", () => {
     expect(markup.match(/class="app-shell__menu-button"/gu)).toHaveLength(1);
     // The status tray sits just before it, the two together at the banner's end at every width.
     expect(markup).toMatch(
-      /<div class="app-shell__end"><section class="status-tray".*?<\/section><div class="app-shell__menu/u,
+      /<div class="app-shell__end"><section class="status-tray icon-tray".*?<\/section><div class="app-shell__menu/u,
     );
     // The chooser's drop-down, its button the menu's icon alone, with no chevron (the owner,
     // 2026-10-28: "the only real difference being that there's no extra visual indicator that it's

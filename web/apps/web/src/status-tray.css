@@ -4,30 +4,11 @@
    while their function is off and the status blue, pulsing gently, while it is on (D364 §12); the
    warning, yellow. */
 
-.status-tray {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-/* Each sign the size of every icon button (D369 §1: the owner, 2026-10-27, "Let's try sizing them
-   the same as the others and see how that feels"; they were a narrower 2.25rem, from 2026-10-11).
-   The warning sign is a link to its page, sized here as IconButton sizes the rest. */
+/* Each sign an icon button (icon-button.css), in an icon tray, as a listing's tools are (the owner,
+   2026-10-30: "Icon trays should ideally share the same code"); here only its colour: the status
+   blue, but where it says otherwise below. */
 .status-tray__button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--size-control);
-  min-height: var(--size-control);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: none;
   color: var(--color-status);
-}
-
-.status-tray__button:hover:not(:disabled) {
-  background: var(--color-surface-raised);
 }
 
 /* Off: the banner's own white, an entry point like any other of its places. */
