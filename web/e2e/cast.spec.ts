@@ -168,7 +168,7 @@ test(
 );
 
 test(
-  "a receiver waits ready between videos, is no other device's target, and goes home when the remote stops casting, the remote's page staying where it is",
+  "a receiver is no other device's target, and goes home when the remote stops casting, its one way to bring the film back, the remote's page staying where it is",
   { tag: oneBrowserTag },
   async ({ browser }) => {
     const thirdContext = await browser.newContext();
@@ -184,25 +184,19 @@ test(
         await expect(receiving).toHaveCount(1, { timeout: 10_000 });
         await expect(receiving.getByRole("button")).toBeDisabled();
 
-        // Played here instead, the receiver waits full screen and ready for the next (D364 §4, §5).
-        await sender.getByRole("button", { name: "Play on this device instead" }).click();
-        await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
-        await expect(receiver.getByText(/^Ready, controlled from /u)).toBeVisible({
-          timeout: 10_000,
-        });
-        await expect(receiver.locator("video")).toHaveCount(0);
+        // The remote brings the film back by Stop casting alone (D388).
+        const remote = sender.locator(".cast-remote");
+        await expect(remote.getByRole("button", { name: "Stop casting" })).toBeVisible();
+        await expect(
+          sender.getByRole("button", { name: "Play on this device instead" }),
+        ).toHaveCount(0);
         const playAddress = sender.url();
-        await castSign(sender).click();
-        const dialog = sender.locator(".cast-dialog");
-        await expect(dialog.getByText(/^Ready on /u)).toBeVisible({ timeout: 10_000 });
-        await dialog.getByRole("button", { name: "Stop casting" }).click();
+        await remote.getByRole("button", { name: "Stop casting" }).click();
         await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, {
           timeout: 10_000,
         });
-        await expect(receiver.getByText(/^Ready, controlled from /u)).toHaveCount(0, {
-          timeout: 10_000,
-        });
         await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
+        await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
         expect(sender.url()).toBe(playAddress);
         // Its cast over, the receiver is a target again (D386 §1).
         await expect(receiving).toHaveCount(0, { timeout: 10_000 });

@@ -262,15 +262,15 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
   });
 
-  it("plays here instead, on the page it shows on, from where the receiver stood, the receiver waiting ready (D364 §4, D384 §2)", async () => {
+  it("offers Stop casting alone to bring the film back, never playing here while the cast goes on (D388)", async () => {
     const heard: Heard[] = [];
-    const { services, onPlayHere } = await casting(
-      { "POST /me/casts/9/play": [200, { ...cast, fileId: 0 }] },
-      heard,
-    );
-    await click(buttonWithText(mounted!.container, "Play on this device instead"));
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({});
-    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
+    const { services, onPlayHere } = await casting({}, heard);
+    const page = mounted!.container;
+    expect(page.textContent).toContain("Playing on Fire TV");
+    expect(buttonWithText(page, "Stop casting")).toBeDefined();
+    expect(page.textContent).not.toContain("Play on this device instead");
+    expect(heard.map((each) => each.methodAndPath)).not.toContain("POST /me/casts/9/play");
+    expect(onPlayHere).not.toHaveBeenCalled();
     expect(services.navigation.route()).toEqual({ screen: "films" });
   });
 

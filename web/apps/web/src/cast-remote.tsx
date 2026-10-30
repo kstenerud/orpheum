@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
-import { endCast, listMyCasts, moveCastOn, playInCast } from "./cast.ts";
+import { endCast, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
@@ -106,8 +106,8 @@ function usePlaysHere(
 /**
  * The remote of one cast (D364 §8): it holds no player and loads no film; what it shows is what the
  * live connection says plays on the receiver, and where, as the cast's session says, moved on by the
- * clock between. With a video playing: its title, the controls, Up next, "Play on this device
- * instead" (§4) and Stop casting; with none, "Ready on ‹Device›" and Stop casting. Stopped, its
+ * clock between. With a video playing: its title, the controls, Up next and Stop casting, the one
+ * way to bring the film back here (D388); with none, "Ready on ‹Device›" and Stop casting. Stopped, its
  * control taken back on the receiver, or the receiver gone, the film plays here again at once (D384
  * §2, D385 §2, §3); lost, the server knowing it no more, the page goes home (D386 §2).
  */
@@ -118,7 +118,7 @@ function Remote(props: {
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { sent } = props;
-  const { connection, snapshot, positionMs, over, stop } = useCastSession(sent.castId);
+  const { connection, snapshot, over, stop } = useCastSession(sent.castId);
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
@@ -129,13 +129,7 @@ function Remote(props: {
   }
   return (
     <>
-      <RemoteOf
-        sent={sent}
-        cast={{ snapshot, connection }}
-        hosted={hosted}
-        positionMs={positionMs}
-        onPlayHere={playHere}
-      />
+      <RemoteOf sent={sent} cast={{ snapshot, connection }} hosted={hosted} />
       <button type="button" onClick={stop}>
         {t("cast.stop")}
       </button>
@@ -236,13 +230,12 @@ interface CastEnd extends ReopenAt {
 
 /**
  * The cast castId's session, joined as this device's remote by a credential read from the server for
- * it: what it says, where its video stands now, how it ended once it has (stopped here, ended
- * elsewhere, or no longer the server's), and Stop casting, which ends it.
+ * it: what it says, how it ended once it has (stopped here, ended elsewhere, or no longer the
+ * server's), and Stop casting, which ends it.
  */
 function useCastSession(castId: number): {
   readonly connection: ReturnType<typeof useTogether>["connection"];
   readonly snapshot: ReturnType<typeof useTogether>["snapshot"];
-  readonly positionMs: number | undefined;
   readonly over: CastEnd | undefined;
   readonly stop: () => void;
 } {
@@ -276,7 +269,6 @@ function useCastSession(castId: number): {
   return {
     connection,
     snapshot,
-    positionMs,
     over: endOf({
       stoppedAtMs,
       endReason,
@@ -319,21 +311,13 @@ function RemoteOf(props: {
   readonly sent: CastSending;
   readonly cast: WorkedSession;
   readonly hosted: WorkedSession | undefined;
-  readonly positionMs: number | undefined;
-  readonly onPlayHere: (atMs: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const { sent, hosted } = props;
   const { snapshot, connection } = props.cast;
   if (sent.fileId === 0) {
     return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
   }
-  const playHereInstead = (): void => {
-    const atMs = props.positionMs ?? 0;
-    playInCast(api, sent.castId, undefined).catch(() => undefined); // the receiver waits ready
-    props.onPlayHere(atMs);
-  };
   const worked = hosted ?? props.cast;
   const playback = snapshot === undefined ? undefined : leaderOf(snapshot)?.playback;
   return (
@@ -348,9 +332,6 @@ function RemoteOf(props: {
         durationMs={sent.durationMs}
       />
       <RemoteUpNext sent={sent} />
-      <button type="button" onClick={playHereInstead}>
-        {t("cast.playHereInstead")}
-      </button>
     </>
   );
 }
