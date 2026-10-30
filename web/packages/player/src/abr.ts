@@ -2,24 +2,9 @@
 
 import {
   arrivalMs,
-  giveUpFor,
-  givenUpSample,
-  givenUpText,
-  highestWithin,
-  linkShare,
-  keptOwnPicture,
-  ownPictureLevel,
-  commonStartForMs,
-  commonStartLevel,
   measuresTheLink,
   paceAboveQuality,
   reportsLinkFromSamples,
-  startingLevel,
-  startingPlayedMs,
-  startingSamples,
-  steadyLevel,
-  underCeiling,
-  voiceCeiling,
 } from "./abr-choice.ts";
 import type {
   ChoiceWhy,
@@ -28,20 +13,13 @@ import type {
   ChoosingOptions,
   FollowedChunk,
 } from "./abr-options.ts";
-import {
-  estimateText,
-  LinkEstimate,
-  lastSampleNote,
-  priorNoteText,
-  samplesText,
-  type LinkSample,
-} from "./link-estimate.ts";
-import { ChunkOnItsWay, type AskingAgain, type JudgedChunk } from "./abr-on-its-way.ts";
+import { LinkEstimate, priorNoteText } from "./link-estimate.ts";
+import { ChunkOnItsWay, type AskingAgain } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
-import { resumePositionOf } from "./resume-position.ts";
 import { Steadiness } from "./steadiness.ts";
-import { nextCap, stepUpBufferMs, StepUpShown } from "./step-up.ts";
+import { StepUpShown } from "./step-up.ts";
+import { bufferAheadS, QualityCeiling } from "./abr-ceiling.ts";
 
 /** How often the controller looks at a chunk on its way (D265 §3). */
 export const lookAtChunkEveryMs = 500;
@@ -56,17 +34,7 @@ export {
   startingSamples,
 } from "./abr-choice.ts";
 
-/**
- * How much loaded ahead holds the quality loading, in seconds: while at least this much is loaded,
- * no reading of the link lowers it, neither the next chunk's choice nor the ceiling, at starting's
- * end or after; the link decides again once less is loaded, on the evidence then. A step down exists
- * so the player does not run dry, and with this much loaded it is not about to: a Fire TV with
- * 37.3 s loaded fell from its top quality to its second lowest on one slow sample, and the change
- * of sound with it threw its loaded sound away and stalled it (staging, Nosferatu, 2026-10-28). The
- * step-up's own (stepUpBufferMs): what is enough to climb on is enough to stay on, and a climb that
- * does not hold is followed down once the buffer it spent falls under it.
- */
-export const holdsQualityAheadS = stepUpBufferMs / 1000;
+export { holdsQualityAheadS } from "./abr-ceiling.ts";
 
 export type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "./abr-options.ts";
 
@@ -81,10 +49,6 @@ export type { ChoosingHls, ChoosingLink, ChoosingOptions, FollowedChunk } from "
 export class Choosing<Chunk extends FollowedChunk> {
   readonly #hls: ChoosingHls;
   readonly #options: ChoosingOptions;
-  readonly #link: ChoosingLink<Chunk>;
-  /** The highest quality it may choose: the start, lowered by each step down, raised by the step-up. */
-  #ceiling: number | undefined;
-  #changedAtMs: number;
   /** The chunk of picture on its way, followed to judge whether to give it up. */
   readonly #onItsWay = new ChunkOnItsWay<Chunk>();
   readonly isAwaitingTheCore = (): boolean => this.#onItsWay.isAwaitingTheCore();
@@ -95,13 +59,6 @@ export class Choosing<Chunk extends FollowedChunk> {
   };
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
-  /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
-  #forced: number | undefined;
-  #lastChosen = -1;
-  /** Why each quality was last chosen, by level, for the switch to it (whyChose). */
-  readonly #whyChosen = new Map<number, ChoiceWhy>();
-  /** Why the ceiling stands where it does: "first" until it changes, then its last change's reason. */
-  #ceilingWhy = "first";
   /**
    * The link as its last chunks measured it, which every choice reads (D352 §2): hls.js's estimate,
    * weighted by each chunk's seconds, held one slow first sample of 1008 kb/s for minutes on a
@@ -110,56 +67,51 @@ export class Choosing<Chunk extends FollowedChunk> {
   readonly #estimate: LinkEstimate;
   /** How steady the link has been, which sets the step-up's hold and headroom (D352 §3–§4). */
   readonly #steadiness: Steadiness;
-  /**
-   * Whether the playback is starting: until it played startingPlayedMs and its samples settle the
-   * ceiling or startingSamples measured the link, a choice below the ceiling does not lower it
-   * (D352 §1, P5).
-   */
-  #isStarting = true;
-  /** Whether the hold of the quality loading (holdsQualityAheadS) was noted since it began. */
-  #isHoldNoted = false;
   /** How long the video has played. */
   readonly #played = new PlayedTime();
   /** Where the video, asked to play, has stood still, and what came meanwhile. */
   readonly #still = new StandingStill();
-  /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
-  #commonUntilMs = 0;
-  /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
-  #unplayableFrom: number | undefined;
-  /** The highest rate the server lets it load, in kbit/s, with each chunk's answer (D286 §5); undefined for none. */
-  #serverCeilingKbps: number | undefined;
-  readonly #stepUpShown: StepUpShown;
+  /** The ceiling and choice state this playback's quality is decided from (abr-ceiling.ts). */
+  readonly #ceiling: QualityCeiling<Chunk>;
   readonly #timers: ReturnType<typeof setInterval>[];
 
   constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
     this.#hls = hls;
     this.#options = options;
-    this.#link = link;
-    this.#changedAtMs = options.monotonicMs();
     this.#estimate = new LinkEstimate(options.rememberedLink);
     const prior = this.#estimate.prior();
     if (prior !== undefined) {
       options.noteLink?.(priorNoteText(prior));
     }
     this.#steadiness = new Steadiness(options.monotonicMs(), options.startSteadiness);
-    this.#stepUpShown = new StepUpShown((note) => options.noteLink?.(note));
+    const stepUpShown = new StepUpShown((note) => options.noteLink?.(note));
     options.noteSteadiness?.(this.#steadiness.level());
+    this.#ceiling = new QualityCeiling({
+      hls,
+      options,
+      link,
+      estimate: this.#estimate,
+      steadiness: this.#steadiness,
+      stepUpShown,
+      onItsWay: this.#onItsWay,
+      still: this.#still,
+    });
     this.#timers = [
       setInterval(() => {
-        this.#lookAtChunk();
-        this.#lookAtPlaying();
+        this.#ceiling.lookAtChunk();
+        this.#ceiling.lookAtPlaying();
         this.#played.look(this.#hls.media, this.#options.monotonicMs());
-        this.#endStartingWhenDone();
+        this.#ceiling.endStartingWhenDone(this.#played.playedMs());
       }, lookAtChunkEveryMs),
       setInterval(() => {
-        this.#lookForStepUp();
+        this.#ceiling.lookForStepUp();
       }, lookForStepUpEveryMs),
     ];
   }
 
   /** The quality the first chunk is of. */
   firstLevel(): number {
-    return this.#choose(this.#clamped(this.#ceilingNow()), () => this.#ceilingWhy);
+    return this.#ceiling.firstLevel();
   }
 
   /**
@@ -167,54 +119,12 @@ export class Choosing<Chunk extends FollowedChunk> {
    * undefined for a level never chosen.
    */
   whyChose(level: number): ChoiceWhy | undefined {
-    return this.#whyChosen.get(level);
+    return this.#ceiling.whyChose(level);
   }
 
   /** The quality the next chunk is of: a forced one, else the steady choice, under voice's ceiling. */
   nextLevel(): number {
-    if (this.#forced !== undefined) {
-      return this.#choose(this.#forced, () => "forced by hls.js");
-    }
-    const linkBps = this.#linkBps();
-    const inTheGroup = this.#groupsChoice(linkBps);
-    if (inTheGroup !== undefined) {
-      return this.#choose(this.#clamped(inTheGroup.level), () => inTheGroup.why);
-    }
-    const ceiling = this.#ceilingNow();
-    const carried = steadyLevel({
-      levels: this.#hls.levels,
-      ceiling,
-      linkBps,
-      bufferAheadS: this.#bufferAheadS(),
-      shareForQuality: this.#options.shareForQuality,
-    });
-    const held = this.#heldAbove(carried, ceiling);
-    if (held !== undefined) {
-      this.#noteHeldOnce(
-        () => `ceiling ${String(ceiling)} held at ${String(held)}: link carries ${String(carried)}`,
-      );
-    } else if (!this.#isStarting && this.#lower(carried, () => `link; ${this.#stateText()}`)) {
-      // While starting, a choice below the ceiling is the next chunk's alone (D352 §1).
-      this.#noteSteadiness(this.#steadiness.steppedDown(this.#options.monotonicMs()));
-    }
-    const steady = held ?? carried;
-    const level = this.#options.isVoiceLive()
-      ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
-      : steady;
-    const clamped = this.#clamped(level);
-    return this.#choose(clamped, () => {
-      const ceilingNow = this.#ceilingNow();
-      let why = this.#ceilingWhy;
-      if (held !== undefined) {
-        why = `held at ${String(held)}: link carries ${String(carried)}, ${this.#holdText()}`;
-      } else if (carried < ceilingNow) {
-        why = `link carries ${String(carried)} under ceiling ${String(ceilingNow)}; ${this.#stateText()}`;
-      }
-      if (level < steady) {
-        why = `voice live, ${String(steady)} to ${String(level)}; ${why}`;
-      }
-      return clamped === level ? why : `${why}; clamped from ${String(level)}`;
-    });
+    return this.#ceiling.nextLevel();
   }
 
   /**
@@ -222,32 +132,12 @@ export class Choosing<Chunk extends FollowedChunk> {
    * commonStartForMs, then settles higher or lower as it would (D286 §3).
    */
   groupJumped(): void {
-    this.#commonUntilMs = this.#options.monotonicMs() + commonStartForMs;
-  }
-
-  /**
-   * The quality its group has it play, if any: the film's own picture while its link carries it
-   * (D286 §2), or, for a while after a jump, the common quality (§3); never one found unplayable.
-   */
-  #groupsChoice(
-    linkBps: number | undefined,
-  ): { readonly level: number; readonly why: string } | undefined {
-    const unplayableFrom = this.#unplayableFrom ?? Number.POSITIVE_INFINITY;
-    const kept =
-      this.#options.isInAGroup?.() === true ? keptOwnPicture(this.#hls.levels, linkBps) : undefined;
-    if (kept !== undefined && kept < unplayableFrom) {
-      return { level: kept, why: "its group's: the film's own picture, its link carrying it" };
-    }
-    const common = commonStartLevel(this.#hls.levels);
-    const isCommon = this.#options.monotonicMs() < this.#commonUntilMs && common >= 0;
-    return isCommon && common < unplayableFrom
-      ? { level: common, why: "its group's: the common quality after its group jumped" }
-      : undefined;
+    this.#ceiling.groupJumped();
   }
 
   /** The quality hls.js forced, or -1. */
   forcedLevel(): number {
-    return this.#forced ?? -1;
+    return this.#ceiling.forcedLevel();
   }
 
   /**
@@ -255,16 +145,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * force, a switch down after a load error, obeyed until a chunk of it loads (D265 §8).
    */
   setLevel(level: number): void {
-    const clamped = this.#clamped(level);
-    if (
-      level < 0 ||
-      clamped === this.#lastChosen ||
-      clamped >= (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)
-    ) {
-      return;
-    }
-    this.#forced = clamped;
-    this.#lower(clamped, () => "forced by hls.js");
+    this.#ceiling.setLevel(level);
   }
 
   /** A chunk of picture began loading, at the pace asked while voice is live. */
@@ -293,16 +174,20 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** A chunk of picture's load failed or timed out, the core's 425 aside (ChunkOnItsWay.failed). */
   failed(chunk: Chunk, details: string): void {
     this.#still.linkFailed(`a chunk failed (${details})`);
-    this.#options.noteLink?.(this.#onItsWay.failed(chunk, details, this.#carrierText(chunk)));
+    this.#options.noteLink?.(
+      this.#onItsWay.failed(
+        chunk,
+        details,
+        `carried ${this.#options.carrierOf?.(chunk.url) ?? "unknown"}`,
+      ),
+    );
   }
 
   /** A chunk of picture loaded. */
   loaded(chunk: Chunk): void {
     this.#still.chunkLoaded();
     this.#onItsWay.loaded(chunk);
-    if (this.#forced === chunk.level) {
-      this.#forced = undefined;
-    }
+    this.#ceiling.forcedLoaded(chunk.level);
   }
 
   /**
@@ -326,13 +211,13 @@ export class Choosing<Chunk extends FollowedChunk> {
       isFromCache: this.#options.fromCache(chunk.url),
     });
     if (isCounted) {
-      this.#sample({
+      this.#ceiling.sample({
         level: chunk.level,
         bytes: loaded,
         firstByteMs: Math.max(0, loading.first - loading.start),
         arrivedMs: arrivalMs(loading),
       });
-      this.#endStartingWhenDone();
+      this.#ceiling.endStartingWhenDone(this.#played.playedMs());
     }
     return isCounted;
   }
@@ -343,14 +228,12 @@ export class Choosing<Chunk extends FollowedChunk> {
    * what the link's estimate now chooses (§1).
    */
   stalled(): void {
-    this.#lower(this.#carriedNow(), () => `a stall; ${this.#stateText()}`);
-    this.#noteSteadiness(this.#steadiness.dropped(this.#options.monotonicMs()));
+    this.#ceiling.stalled();
   }
 
   /** The quality playing changed: the step-up holds from now, and a step up shown is noted (StepUpShown). */
   switched(): void {
-    this.#changedAtMs = this.#options.monotonicMs();
-    this.#stepUpShown.switched(this.#changedAtMs, this.#hls.currentLevel);
+    this.#ceiling.switched();
   }
 
   /**
@@ -384,7 +267,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * sample, and the wait its first byte is expected to take; undefined with neither (P5).
    */
   nextChunkLink(): NextChunkLink | undefined {
-    const bps = this.#estimate.nextChunkBps(this.#bufferAheadS());
+    const bps = this.#estimate.nextChunkBps(bufferAheadS(this.#hls));
     return bps === undefined
       ? undefined
       : {
@@ -401,126 +284,17 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** Whether the playback is still starting (D352 §1). */
   isStarting(): boolean {
-    return this.#isStarting;
+    return this.#ceiling.isStarting();
   }
 
   /** The highest quality it may ever load: the top, below any unplayable here (D266); no ceiling of the moment. */
   topLevel(): number {
-    return Math.min(this.#hls.maxAutoLevel, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
+    return this.#ceiling.topLevel();
   }
 
   stop(): void {
     for (const timer of this.#timers) {
       clearInterval(timer);
-    }
-  }
-
-  #lookAtChunk(): void {
-    const judged = this.#onItsWay.look(this.#options.monotonicMs());
-    if (judged === undefined) {
-      return;
-    }
-    const { chunk } = judged;
-    const chosen = giveUpFor({
-      shareForQuality: this.#options.shareForQuality,
-      levels: this.#hls.levels,
-      loadingLevel: chunk.level,
-      lowestLevel: this.#hls.minAutoLevel,
-      durationS: chunk.duration,
-      loadingMs: judged.loadingMs,
-      firstByteMs: judged.firstByteMs,
-      loadedBytes: judged.firstByteMs === undefined ? 0 : judged.loadedBytes,
-      totalBytes: chunk.stats.total,
-      linkBps: this.#linkBps(),
-      bufferAheadS: this.#bufferAheadS(),
-    });
-    if (chosen !== undefined) {
-      this.#giveUp(judged, chosen);
-      return;
-    }
-    // Not given up, as one of the lowest quality: stuck, noted with what carried it, and asked for
-    // again, aborted for hls.js to load it again, no sample and lowering nothing (P3).
-    const stuck = this.#onItsWay.stuck(judged, () => this.#carrierText(chunk));
-    if (stuck !== undefined) {
-      this.#still.linkFailed("a chunk stuck on its way");
-      this.#options.noteLink?.(stuck.note);
-    }
-    if (stuck?.isAskedAgain === true) {
-      this.#link.giveUp(chunk);
-    }
-  }
-
-  /** What carries chunk's load, for a note of it given up or stuck (the owner, 2026-10-29). */
-  #carrierText(chunk: Chunk): string {
-    return `carried ${this.#options.carrierOf?.(chunk.url) ?? "unknown"}`;
-  }
-
-  /**
-   * Gives up a chunk on its way for chosen (D265 §3), a drop (D352 §4). One that was arriving is a
-   * sample of the link, hls.js's estimator fed it too, and lowers the ceiling to chosen; one stuck is
-   * no sample, and lowers the ceiling while starting only as far as the estimate then carries, as a
-   * stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport is not a slow link, and a
-   * lower quality's chunk travels it no better.
-   */
-  #giveUp(judged: JudgedChunk<Chunk>, chosen: number): void {
-    const { chunk } = judged;
-    const carried = this.#carrierText(chunk); // before it is aborted
-    this.#onItsWay.ended(chunk);
-    this.#still.linkFailed("a chunk given up");
-    const nowMs = this.#options.monotonicMs();
-    const sample = givenUpSample({ ...judged, level: chunk.level });
-    if (sample !== undefined) {
-      this.#link.measureGivenUp(sample.firstByteMs + sample.arrivedMs, sample.bytes);
-      this.#sample(sample);
-    }
-    const why = `gave up a chunk of ${String(chunk.level)}, ${givenUpText({
-      ...judged,
-      isSample: sample !== undefined,
-    })}; ${this.#stateText()}`;
-    const isStuckStarting = sample === undefined && this.#isStarting;
-    if (!this.#lower(isStuckStarting ? Math.max(chosen, this.#carriedNow()) : chosen, () => why)) {
-      this.#options.noteStep?.(why); // a give-up is always told, the ceiling lowered or not
-    }
-    this.#options.noteLink?.(
-      `gave up a chunk of ${String(chunk.level)}, ${givenUpText({ ...judged, isSample: sample !== undefined })}; ${carried}`,
-    );
-    this.#noteSteadiness(this.#steadiness.dropped(nowMs));
-    this.#choose(chosen, () => why);
-    this.#link.giveUp(chunk);
-  }
-
-  /** The quality the link's estimate carries now, under the ceiling, by D265 §4's share; the ceiling with no estimate. */
-  #carriedNow(): number {
-    return steadyLevel({
-      levels: this.#hls.levels,
-      ceiling: this.#ceilingNow(),
-      linkBps: this.#linkBps(),
-      bufferAheadS: this.#bufferAheadS(),
-      shareForQuality: this.#options.shareForQuality,
-    });
-  }
-
-  /**
-   * Gives up the quality loading as unplayable here when the video, waiting to play, stands still
-   * while its chunks arrive (D266; StandingStill.judge, which counts no standing still the link's):
-   * every quality from it up is dropped, what is loaded with it, and the video loads again from where
-   * it resumes at the quality chosen next. Notes why it judged a quality unplayable, or why not.
-   */
-  #lookAtPlaying(): void {
-    const nowMs = this.#options.monotonicMs();
-    if (this.#options.isOffline?.() === true) {
-      this.#still.linkFailed("the browser offline");
-    }
-    const level = this.#hls.loadLevel;
-    if (this.#still.look(this.#hls.media, nowMs) === undefined || level <= this.#hls.minAutoLevel) {
-      return;
-    }
-    const judged = this.#still.judge(nowMs, this.#bufferAheadS());
-    if (judged.note !== undefined) {
-      this.#options.noteLink?.(`quality ${String(level)} ${judged.note}`);
-    }
-    if (judged.isUnplayable) {
-      this.#giveUpUnplayable(level, resumePositionOf(this.#hls));
     }
   }
 
@@ -531,253 +305,12 @@ export class Choosing<Chunk extends FollowedChunk> {
    * and finding the playhead still, gave the playback up (the owner's group test, 2026-10-13).
    */
   canGiveUpAtAHole(): boolean {
-    return this.#hls.loadLevel > this.#hls.minAutoLevel;
+    return this.#ceiling.canGiveUpAtAHole();
   }
 
   /** Gives the quality loading up as unplayable here, at a hole it could not pass at positionS. */
   giveUpAtAHole(positionS: number): void {
-    if (this.canGiveUpAtAHole()) {
-      this.#giveUpUnplayable(this.#hls.loadLevel, positionS);
-    }
-  }
-
-  /** Gives level up, with every quality above it, and loads again from positionS below it (D266). */
-  #giveUpUnplayable(level: number, positionS: number): void {
-    this.#unplayableFrom = Math.min(level, this.#unplayableFrom ?? level);
-    if (this.#forced !== undefined && this.#forced >= this.#unplayableFrom) {
-      this.#forced = undefined; // obeyed, it would load the quality given up
-    }
-    this.#still.forget();
-    this.#onItsWay.forget();
-    this.#lower(level - 1, () => "unplayable here");
-    this.#lastChosen = -1;
-    this.#options.onUnplayable?.({
-      qualityKbps: Math.round((this.#hls.levels[level]?.bitrate ?? 0) / 1000),
-      positionMs: Math.round(positionS * 1000),
-      isFilmsOwnPicture: level === ownPictureLevel(this.#hls.levels),
-    });
-    this.#link.loadAgain(positionS);
-  }
-
-  /**
-   * Relaxes the steadiness, then, once starting is over, steps the ceiling up as far as the
-   * confident estimate carries, at the steadiness's hold and headroom (D352 §2–§3); never to a
-   * quality found unplayable.
-   */
-  #lookForStepUp(): void {
-    const nowMs = this.#options.monotonicMs();
-    this.#noteSteadiness(this.#steadiness.relax(nowMs));
-    const ceiling = this.#ceiling;
-    const confidentBps = this.#estimate.confidentBps(this.#bufferAheadS());
-    if (ceiling === undefined || this.#isStarting || confidentBps === undefined) {
-      return;
-    }
-    const raised = nextCap({
-      levels: this.#hls.levels,
-      cap: ceiling,
-      playing: this.#hls.currentLevel,
-      estimateBps: confidentBps,
-      bufferedAheadMs: this.#bufferAheadS() * 1000,
-      sinceChangeMs: nowMs - this.#changedAtMs,
-      holdMs: this.#steadiness.holdMs(),
-      headroom: this.#steadiness.headroom(),
-      isOneAtATime: this.#steadiness.climbsOneAtATime() || !this.#estimate.agrees(),
-    });
-    const allowed = Math.min(raised, (this.#unplayableFrom ?? Number.POSITIVE_INFINITY) - 1);
-    if (allowed > ceiling) {
-      this.#ceilingWhy = `stepped up; ${this.#stateText()}`;
-      this.#options.noteStep?.(
-        `ceiling ${String(ceiling)} to ${String(allowed)}: ${this.#ceilingWhy}`,
-      );
-      this.#ceiling = allowed;
-      this.#changedAtMs = nowMs;
-      this.#steadiness.steppedUp(nowMs);
-      this.#stepUpShown.steppedUp(nowMs, this.#hls.currentLevel, this.#bufferAheadS());
-    }
-  }
-
-  /**
-   * Takes a chunk's measure of the link into the estimate, and tells the page its samples, and, once
-   * the link is reported, its spread.
-   */
-  #sample(sample: LinkSample): void {
-    this.#estimate.add(sample, this.#bufferAheadS());
-    this.#options.noteSamples?.(samplesText(this.#estimate.samples()));
-    const taken = lastSampleNote(this.#estimate);
-    if (taken !== undefined) {
-      this.#options.noteLink?.(taken);
-    }
-    if (this.linkKbps() !== undefined) {
-      this.#options.noteLinkSpread?.(this.#estimate.spread());
-    }
-  }
-
-  /**
-   * Ends starting once the video played startingPlayedMs and its samples settle the ceiling or
-   * startingSamples measured the link: the ceiling becomes the highest quality the confident
-   * estimate carries, by D265 §4's share, no higher than it was (D352 §1), and the end is noted with
-   * its samples.
-   */
-  #endStartingWhenDone(): void {
-    if (!this.#isStarting || !this.#hasStarted()) {
-      return;
-    }
-    this.#isStarting = false;
-    const ceiling = this.#ceilingNow();
-    const carried = this.#confidentlyCarried(this.#estimate) ?? ceiling;
-    const held = this.#heldAbove(carried, ceiling);
-    const lowered = held ?? carried;
-    let change =
-      lowered < ceiling
-        ? `ceiling ${String(ceiling)} to ${String(lowered)}`
-        : `ceiling ${String(ceiling)} kept`;
-    if (held !== undefined) {
-      change += `, held at ${String(held)}: link carries ${String(carried)}, ${this.#holdText()}`;
-      this.#isHoldNoted = true;
-    }
-    this.#options.noteStep?.(
-      `started, ${change}; ${this.#stateText()}; ${samplesText(this.#estimate.samples())}`,
-    );
-    if (lowered < ceiling) {
-      this.#ceiling = lowered;
-      this.#ceilingWhy = `started; ${this.#stateText()}`;
-      this.#changedAtMs = this.#options.monotonicMs();
-    }
-  }
-
-  /** Whether the video played startingPlayedMs, and its samples settle the ceiling or startingSamples measured the link. */
-  #hasStarted(): boolean {
-    return (
-      this.#played.playedMs() >= startingPlayedMs &&
-      (this.#estimate.count() >= startingSamples || this.#startingSettles())
-    );
-  }
-
-  /**
-   * Whether the samples settle the ceiling starting's end would set: it is the same with any one of
-   * them left out (P5). Agreeing samples and a prior settle it in two or three; samples that
-   * disagree take more; a lone sample never does, nothing being left without it.
-   */
-  #startingSettles(): boolean {
-    const whole = this.#confidentlyCarried(this.#estimate);
-    return (
-      whole !== undefined &&
-      this.#estimate.withoutEach().every((without) => this.#confidentlyCarried(without) === whole)
-    );
-  }
-
-  /**
-   * The highest quality, no higher than the ceiling, estimate's confident estimate carries by D265
-   * §4's share; undefined before it has one.
-   */
-  #confidentlyCarried(estimate: LinkEstimate): number | undefined {
-    const bps = estimate.confidentBps(this.#bufferAheadS());
-    return bps === undefined
-      ? undefined
-      : highestWithin(
-          this.#hls.levels,
-          this.#ceilingNow(),
-          linkShare(this.#bufferAheadS(), this.#options.shareForQuality) * bps,
-        );
-  }
-
-  /**
-   * The quality held where the link carries only carried, under ceiling: the quality loading, no
-   * higher than ceiling, while holdsQualityAheadS is loaded ahead and carried is below it; undefined
-   * when nothing holds and the link decides.
-   */
-  #heldAbove(carried: number, ceiling: number): number | undefined {
-    const loading = Math.min(this.#lastChosen, ceiling);
-    if (loading <= carried || this.#bufferAheadS() < holdsQualityAheadS) {
-      this.#isHoldNoted = false;
-      return undefined;
-    }
-    return loading;
-  }
-
-  /** Notes a hold after starting, once from when it begins until the link decides again (D352 §5). */
-  #noteHeldOnce(why: () => string): void {
-    if (this.#isStarting || this.#isHoldNoted) {
-      return;
-    }
-    this.#isHoldNoted = true;
-    this.#options.noteStep?.(`${why()}, ${this.#holdText()}; ${this.#stateText()}`);
-  }
-
-  /** Why a quality is held, for its note: what is loaded ahead, and from how much it holds. */
-  #holdText(): string {
-    return (
-      `${this.#bufferAheadS().toFixed(1)} s loaded ahead` +
-      ` (holds from ${String(holdsQualityAheadS)} s)`
-    );
-  }
-
-  /** Notes a change of the steadiness level, if there was one (D352 §5). */
-  #noteSteadiness(change: string | undefined): void {
-    if (change !== undefined) {
-      this.#options.noteStep?.(change);
-      this.#options.noteSteadiness?.(this.#steadiness.level());
-    }
-  }
-
-  /**
-   * What a choice rests on, for its note (D352 §5): the confident estimate and its parts, what is
-   * loaded ahead, the steadiness level and the hold.
-   */
-  #stateText(): string {
-    return (
-      `${estimateText(this.#estimate, this.#bufferAheadS())}, ${this.#bufferAheadS().toFixed(1)} s ahead,` +
-      ` steadiness ${String(this.#steadiness.level())},` +
-      ` hold ${String(this.#steadiness.holdMs() / 1000)} s`
-    );
-  }
-
-  /** The ceiling, the start until the levels are known and it is set from them. */
-  #ceilingNow(): number {
-    if (this.#ceiling === undefined && this.#hls.levels.length > 0) {
-      this.#ceiling = startingLevel(this.#hls.levels, this.#options.startAtBps);
-    }
-    return this.#ceiling ?? 0;
-  }
-
-  /** Lowers the ceiling to level, a step down, saying whether it did; one at or above it changes nothing. */
-  #lower(level: number, why: () => string): boolean {
-    if (level >= this.#ceilingNow()) {
-      return false;
-    }
-    this.#ceilingWhy = why();
-    this.#options.noteStep?.(
-      `ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${this.#ceilingWhy}`,
-    );
-    this.#ceiling = level;
-    this.#changedAtMs = this.#options.monotonicMs();
-    this.#stepUpShown.lowered(level);
-    return true;
-  }
-
-  /**
-   * Chooses level for the next chunk, and keeps why, with the link's samples then, when it is a
-   * change, for the switch to it (whyChose): a switch's line in the core's log said nothing of why
-   * (staging, Nosferatu, 2026-10-28).
-   */
-  #choose(level: number, why: () => string): number {
-    if (level !== this.#lastChosen) {
-      this.#whyChosen.set(level, {
-        why: why(),
-        linkSamples: samplesText(this.#estimate.samples()),
-      });
-    }
-    this.#lastChosen = level;
-    return level;
-  }
-
-  #clamped(level: number): number {
-    const { minAutoLevel, maxAutoLevel, levels } = this.#hls;
-    if (levels.length === 0) {
-      return level;
-    }
-    const highest = Math.min(maxAutoLevel, underCeiling(levels, this.#serverCeilingKbps));
-    return Math.max(Math.min(level, highest), minAutoLevel);
+    this.#ceiling.giveUpAtAHole(positionS);
   }
 
   /**
@@ -786,15 +319,6 @@ export class Choosing<Chunk extends FollowedChunk> {
    * lifts it. The next chunk is of a quality under it, and the step-up stays under it.
    */
   obeyServer(kbps: number | undefined): void {
-    this.#serverCeilingKbps = kbps;
-  }
-
-  /** The link's estimate, every choice's (D352 §2); undefined before a chunk measured it. */
-  #linkBps(): number | undefined {
-    return this.#estimate.estimateBps();
-  }
-
-  #bufferAheadS(): number {
-    return this.#hls.mainForwardBufferInfo?.len ?? 0;
+    this.#ceiling.obeyServer(kbps);
   }
 }
