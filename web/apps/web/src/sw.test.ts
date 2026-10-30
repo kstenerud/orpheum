@@ -5,6 +5,8 @@ import {
   isFetchMessage,
   isPathNoteMessage,
   isPathQueryMessage,
+  workerProbeAnswer,
+  workerProbePath,
   type PortLike,
 } from "@orpheum/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -274,6 +276,18 @@ describe("the service worker under a loader (D308 §6)", () => {
       "the page",
     );
     expect(worker.network).toHaveBeenCalledTimes(2);
+  });
+
+  it("answers the probe itself, never the network, so a page knows its worker is not bypassed (agent-failures A51)", async () => {
+    const worker = await startWorker(
+      stores,
+      [],
+      vi.fn(() => Promise.resolve(answer("the discovery's 404", 404))),
+    );
+    await nameFiles(worker, [{ path: "/assets/client-main.js", sha256 }]);
+    const probed = await load(worker, workerProbePath, { by: "p", mode: "same-origin" });
+    expect(await probed?.text()).toBe(workerProbeAnswer);
+    expect(worker.network).not.toHaveBeenCalled();
   });
 
   it("answers a named file fetched over the page's path when its hash is the signed one, and keeps it by that hash", async () => {

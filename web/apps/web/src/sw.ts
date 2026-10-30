@@ -18,10 +18,12 @@ import {
   askPathOf,
   isClaimMessage,
   isPathMessage,
+  isWorkerProbe,
   loadAfterAsking,
   mediaPathPrefix,
   networkFetch,
   responseFromPort,
+  workerProbeResponse,
   type PathNoteMessage,
 } from "@orpheum/sdk";
 
@@ -134,6 +136,11 @@ if (isWorkerScope(scope)) {
   });
   scope.addEventListener("fetch", (event) => {
     const url = new URL(event.request.url);
+    if (isWorkerProbe(url, scope.location.origin)) {
+      // Answered here alone: a page whose probe the network answers is bypassed (worker-control.ts).
+      event.respondWith(Promise.resolve(workerProbeResponse()));
+      return;
+    }
     if (url.origin === scope.location.origin && answeredUnderALoader(scope, event)) {
       return;
     }

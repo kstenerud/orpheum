@@ -1716,7 +1716,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   replaced=1 accepted=true`; play a film on Chrome: it plays on the TV, Chrome's sign staying on.
   Before this change Chrome waited on a Use the TV never asked for, and its Play stayed in Chrome (the
   owner, staging, 2026-10-29). (`internal/core/live/registry.go`)
-- [ ] **VQ170** — a Watch Together Play page navigated away gives up the lead at once, on staging.
+<<<<<<< HEAD
+- [ ] **VQ174** — a Watch Together Play page navigated away gives up the lead at once, on staging.
   On the Mac, Chrome hosting a session on its Play page, Firefox a guest, the film playing, Chrome
   leading. In Chrome go to google.com. Passes when the core's log has Chrome's video device detached
   closed (`goneBecause=closed`, not `silent`) within a second or two and Firefox's `leaderChanged`
@@ -1725,13 +1726,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the S23, a guest's Play page sent to another site and back the same way. Its live connection too:
   the core's log has the page's live device leaving and coming back.
   (`web/packages/sdk/src/together-connection.ts`, `live-connection.ts`, `shown-page.ts`)
-- [ ] **VQ171** — a phone's live connection is checked at once as its page is shown again, on
+- [ ] **VQ175** — a phone's live connection is checked at once as its page is shown again, on
   staging. On the S23 (Chrome), signed in on any page, lock the phone for 35 s or more, then unlock it.
   Passes when the core's log has its live device connected again (or its socket answering) within a
   couple of seconds of the unlock, not the 20 s it took on 2026-10-29 (VQ126's run), and a cast to the
   S23 from the Mac right after the unlock finds it among the devices. (`web/packages/sdk/src/live-connection.ts`,
   `shown-check.ts`, `shown-page.ts`)
-- [ ] **VQ172** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
+- [ ] **VQ176** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
   (1) Signed in as dan on the Mac's Firefox, join Chrome's session by a link. Passes when the guest's
   page has the banner: the tray (Cast and Watch Together's blue sign), the menu with Your account
   (Show debug tools reachable there, and a cast from the tray, unblocking VQ103). (2) With a film
@@ -1758,3 +1759,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   remote: arrows reach the "…", OK opens it on "Identified incorrectly", OK opens its dialog, the
   arrows reach Enter manually and the works it finds, and Back closes it with focus on the "…".
   (`web/apps/web/src/more-actions.tsx`, `match-correction.tsx`, `modal-dialog.tsx`)
+=======
+- [ ] **VQ174** — a page says when developer tools bypass its service worker, on staging's client
+  origin in Chrome on the Mac. Open the home page with DevTools open, tick Application → Service
+  workers → "Bypass for network" and reload: passes when the page shows "Developer tools are bypassing
+  the service worker; media won't load" above the screen and the core's log has one client report
+  saying "developer tools bypass the page's service worker". **Then untick the box** (it stays ticked
+  across DevTools sessions, agent-failures A51) and reload: the line is gone and the posters load.
+  (`web/apps/web/src/worker-bypassed-note.tsx`)
+>>>>>>> an earlier commit (feat(web): a page says when developer tools bypass its service worker)

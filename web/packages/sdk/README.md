@@ -230,7 +230,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   its core to its client origin's 404 (the owner's Mac, staging, 2026-10-29). Where the worker sent
   a page's media, and why, it tells the page (`PathNoteMessage`), which reports each note once
   (`reportPathNotes`); a page no live worker controls within `controlWaitMs` of asking is refused
-  (`PageNotControlled`). `src/rtc-media.test.ts`, `web/apps/web/src/sw.test.ts`.
+  (`PageNotControlled`). Only the worker answers `workerProbePath`, so a page whose probe the
+  network answers, or nothing does, knows developer tools bypass its worker (`isWorkerBypassed`,
+  agent-failures A51). `src/rtc-media.test.ts`, `src/worker-control.test.ts`,
+  `web/apps/web/src/sw.test.ts`.
 - **A page and its service worker of different releases still carry every load, both ways**:
   `skipWaiting` and `clients.claim` hand a page still open to a newer worker, and a reloaded page is
   controlled by the worker before until the newer one claims it. The page's head says

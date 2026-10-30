@@ -202,9 +202,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   through a page carrying its path, waited for patiently, or is answered 502 saying none does; a
   worker keeps a page's answer on its path, never its silence, and tells the page, which tells the
   core's log, where it sent its media and why; a page no worker controls once it found its core
-  reloads once in its tab. `loader-config.test.ts`, `loader-households.test.ts`,
+  reloads once in its tab. A page a worker controls under a loader asks it, once, for an address
+  only the worker answers (`workerProbePath`); answered by the network, or not at all, developer
+  tools bypass the worker, and the page says so above every screen, "Developer tools are bypassing
+  the service worker; media won't load", and tells the core's log once (`worker-bypassed-note.tsx`;
+  posters 404'd for an afternoon with nothing said, agent-failures A51).
+  `loader-config.test.ts`, `loader-households.test.ts`,
   `loader-pages.test.tsx`, `loader-run-client.test.ts`, `loader-client-failed.test.tsx`,
-  `loader-sweep.test.ts`, `sw.test.ts`, and the SDK's `discovery.test.ts` and `rtc-media.test.ts`.
+  `loader-sweep.test.ts`, `sw.test.ts`, `worker-bypassed-note.test.tsx`, and the SDK's
+  `discovery.test.ts`, `rtc-media.test.ts` and `worker-control.test.ts`.
 - **A TV's code is activated by its QR code with one tap, or typed with a committed check code**
   (D321): the TV shows a QR code of the loader's `/activate` carrying its key's hash; `/activate`
   goes to the one realm's Activate a device, asks which of several, or offers the link to copy or a
