@@ -34,8 +34,9 @@ type Credential func(castID, userID int64) (string, error)
 // TogetherPart mints a credential for the Watch Together session userID is in, for a cast's receiver
 // to take their part in it, and whether it is the host's, which the receiver leads (plans/cast-to-
 // device.md §7; D371 §4), or "" when they are in none: the hub's TogetherPart. Held, where given, is
-// the membership the sender holds as a guest, whose part is taken.
-type TogetherPart func(userID int64, held string) (credential string, isHost bool)
+// the membership the sender holds as a guest, whose part is taken. SessionID is the session the part
+// is in, whose end ends the cast (EndPartIn, D389 §1).
+type TogetherPart func(userID int64, held string) (credential string, isHost bool, sessionID int64)
 
 // ReceiverGoneAfter is how long a cast's receiver may have no connection before its cast ends, the
 // sender told (D364 §6): a television switched off or its page closed, not one loaded again or
@@ -114,6 +115,9 @@ type heldCast struct {
 	heldBy int64
 	// goneSince is when the receiver's last connection closed, zero while it has one (EndGone).
 	goneSince time.Time
+	// partIn is the Watch Together session the receiver was last handed its person's part in, 0 for
+	// none: its end ends the cast (EndPartIn, D389 §1).
+	partIn int64
 }
 
 // NewRegistry is an empty registry, minting a receiver's credentials again by credential, and keeping
@@ -281,8 +285,9 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 			delete(owner.casts, receiverID)
 		}
 	}
-	owner.casts[cast.ReceiverDeviceID] = &heldCast{Cast: cast, heldBy: front.id}
-	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(cast, receiverCredential)})
+	held := &heldCast{Cast: cast, heldBy: front.id}
+	owner.casts[cast.ReceiverDeviceID] = held
+	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held, receiverCredential)})
 	owner.tellSending(cast.SenderDeviceID)
 	owner.tellDevices()
 	return cast, left, nil
@@ -409,11 +414,28 @@ func (registry *Registry) EndGone() []Cast {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	now := registry.clock.Now()
+	return registry.endEvery(func(held *heldCast) bool {
+		return !held.goneSince.IsZero() && now.Sub(held.goneSince) >= ReceiverGoneAfter
+	})
+}
+
+// EndPartIn ends every cast whose receiver was handed its person's part in the Watch Together
+// session sessionID, as that session ends (D389 §1), its sender's pages told, and returns them for
+// their sessions to be ended, each receiver told so.
+func (registry *Registry) EndPartIn(sessionID int64) []Cast {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	return registry.endEvery(func(held *heldCast) bool { return held.partIn == sessionID && sessionID != 0 })
+}
+
+// endEvery ends every cast that isEnded says, each sender's pages told and each person's
+// connections told which devices receive, and returns them by id. The caller holds the mutex.
+func (registry *Registry) endEvery(isEnded func(held *heldCast) bool) []Cast {
 	ended := []Cast{}
 	for userID, owner := range registry.people {
 		endedBefore := len(ended)
 		for receiverID, held := range owner.casts {
-			if held.goneSince.IsZero() || now.Sub(held.goneSince) < ReceiverGoneAfter {
+			if !isEnded(held) {
 				continue
 			}
 			delete(owner.casts, receiverID)
@@ -451,16 +473,22 @@ func (registry *Registry) handOff(held *heldCast, to *connection) {
 		return
 	}
 	held.heldBy = to.id
-	to.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held.Cast, credential)})
+	to.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held, credential)})
 }
 
-// receiveOf is the receive message of cast, by credential, with a credential for the Watch Together
-// session its person is in, if any, and whether the receiver follows it (TakesPartBy).
-func (registry *Registry) receiveOf(cast Cast, credential string) *Receive {
-	partCredential, isHost := "", false
+// receiveOf is the receive message of held, by credential, with a credential for the Watch Together
+// session its person is in, if any, and whether the receiver follows it (TakesPartBy); held notes
+// the session its part is in (partIn).
+func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive {
+	partCredential, isHost, partIn := "", false, int64(0)
 	if registry.togetherPart != nil {
-		partCredential, isHost = registry.togetherPart(cast.UserID, cast.SendersMembership)
+		partCredential, isHost, partIn = registry.togetherPart(held.UserID, held.SendersMembership)
 	}
+	if partCredential == "" {
+		partIn = 0
+	}
+	held.partIn = partIn
+	cast := held.Cast
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,
 		PositionMs: cast.PositionMs, FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,

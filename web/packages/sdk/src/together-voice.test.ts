@@ -416,6 +416,14 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(calls[0]!.steps).toEqual(["offer"]);
   });
 
+  it("says why the session ended, as its connection is told, so a page whose one connection it is leaves it (D389 §1)", async () => {
+    const { voice, server } = await hearing();
+    expect(voice.snapshot().endReason).toBeUndefined();
+    server.tell({ type: "ended", reason: "hostEnded" });
+    await settle();
+    expect(voice.snapshot().endReason).toBe("hostEnded");
+  });
+
   it("makes every call again when welcomed anew after its socket connected again", async () => {
     vi.useFakeTimers();
     const { server, calls, iceAsked } = await talking();

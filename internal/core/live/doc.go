@@ -53,6 +53,10 @@
 //     cast stands, to lead it.
 //     Enforced by TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart and, through
 //     the API, TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt in internal/core/api.
+//   - A cast whose receiver was handed its person's part in a Watch Together session ends as that
+//     session ends (EndPartIn, D389 §1), its sender told, its session ended as sessionEnded (the
+//     assembly's wiring). Enforced by TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt and,
+//     through the API, TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt in internal/core/api.
 //   - A device removed (D218 §4) is told its sign-in ended on each of its connections, and no other
 //     device is, so its page goes to sign in at once. Enforced by
 //     TestRegistry_ARemovedDeviceIsToldItsSignInEnded and, through the socket,
@@ -65,7 +69,8 @@
 //
 //   - D364: casting is a session with a device, ended only by Stop, take-back, its sender casting
 //     elsewhere or the receiver gone; it revises D337, D338 and D358. D386 §1: no cast takes a
-//     receiving device over.
+//     receiving device over. D389 §1: the end of the Watch Together session it takes a part in
+//     ends it too.
 //   - D337: casting to one's own signed-in devices, and its §9 answers (plans/cast-to-device.md);
 //     D338, the owner's changes after the first build: the tab in front receives.
 //     at a film's end, the next episode as the sender would play it (plans/up-next.md).

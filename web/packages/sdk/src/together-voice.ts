@@ -23,7 +23,12 @@ import {
   type TogetherConnectionOptions,
   type VoiceCallStep,
 } from "./together-connection.ts";
-import { startingTuning, type SyncTuning, type VoiceSignal } from "./together.ts";
+import {
+  startingTuning,
+  type SyncTuning,
+  type TogetherEndReason,
+  type VoiceSignal,
+} from "./together.ts";
 
 /**
  * Whether this person talks: not, opening the microphone, talking, or stopped by a failure (the
@@ -55,6 +60,11 @@ export interface VoiceSnapshot {
   readonly partners: readonly VoicePartner[];
   /** How the session says the microphone is processed, as its welcome said (D250 §1). */
   readonly tuning: SyncTuning;
+  /**
+   * Why the session ended, as its connection was told, once it has: the voice device's connection is
+   * a page's one connection to the session while it plays nothing (D389 §1).
+   */
+  readonly endReason?: TogetherEndReason | undefined;
 }
 
 /** A person's voice in their Watch Together session (watch-together.md, Voice). */
@@ -386,6 +396,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       isConnected,
       partners: this.#partners(),
       tuning: session.tuning,
+      endReason: session.status === "ended" ? session.endReason : undefined,
     });
   }
 

@@ -503,6 +503,49 @@ func TestCast_AReceiverTakesTheGuestsPartTheSendingPageHolds(t *testing.T) {
 	}
 }
 
+// A Watch Together session's end ends every cast whose receiver takes a part in it (D389 §1): a
+// guest's cast of the group's film, its receiver following in the guest's part, ends as its host ends
+// the session, the receiver's cast session told sessionEnded, so it goes home; the remote is told
+// too, the person's devices that it receives no more, and the sender lists no cast. The owner's
+// staging, 2026-10-30: the S23, a guest casting to the Fire TV, went home as the host ended the
+// session, and the TV played on under a cast no page controlled (VQ193).
+func TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	hosted := harness.openTogether(t, phoneToken)
+	guest := harness.joinByLink(t, phoneToken, hosted.Body.SessionID, "my phone", "Phone")
+	cast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{
+		"toDeviceId": tv, "togetherCredential": guest.Body.MembershipCredential,
+	}))
+	handed := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
+	receiver := harness.dialCast(t, handed.Credential, together.RoleVideo)
+	receiver.awaitWelcome()
+	remote := harness.dialCast(t, cast.MembershipCredential, together.RolePanel)
+	remote.awaitWelcome()
+	path := fmt.Sprintf("/together/%d", hosted.Body.SessionID)
+	if ended := harness.do(t, http.MethodDelete, path, phoneToken, nil); ended.status != http.StatusNoContent {
+		t.Fatalf("DELETE %s = %d %s", path, ended.status, ended.body)
+	}
+	if reason := receiver.awaitEnded(); reason != together.CastSessionEnded {
+		t.Errorf("the TV's cast was told %q, want %q", reason, together.CastSessionEnded)
+	}
+	if reason := remote.awaitEnded(); reason != together.CastSessionEnded {
+		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastSessionEnded)
+	}
+	tvSocket.await(live.MessageDevices, func(message live.Outbound) bool {
+		return len(message.ReceivingDeviceIDs) == 0
+	})
+	if listed := harness.do(t, http.MethodGet, "/me/casts", phoneToken, nil); !strings.Contains(listed.body,
+		`"casts":[]`) {
+		t.Errorf("GET /me/casts = %d %s; want no cast", listed.status, listed.body)
+	}
+}
+
 // A host who starts Watch Together while they cast has one session, not two (D364 §11, D372 §8): the
 // receiver is handed the cast again with the host's part in the new session and the film from where
 // the cast stands, takes it, leading it, and a guest who joins finds that film on and the receiver

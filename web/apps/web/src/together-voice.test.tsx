@@ -13,8 +13,9 @@ import {
   type VoiceMicrophone,
 } from "@orpheum/sdk";
 import { act, type JSX } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { currentNotice, dismissNotice } from "./notice.ts";
 import { buttonWithText, click, enter, mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -428,5 +429,69 @@ describe("voice on an iPhone without headphones", () => {
       Reflect.deleteProperty(navigator, "audioSession");
       Reflect.deleteProperty(navigator, "maxTouchPoints");
     }
+  });
+});
+
+describe("the host's page as the session it hosts ends (D389 §1)", () => {
+  const hostMembership = { sessionId: 1, credential: "host-credential" };
+  let shown: { readonly unmount: () => void } | undefined;
+
+  afterEach(() => {
+    shown?.unmount();
+    shown = undefined;
+  });
+
+  /** The host's tab on a film's Play page, hosting session 1, its voice its one connection to it. */
+  async function hostingOnAPlayPage(): Promise<{
+    readonly services: ReturnType<typeof servedBy>;
+    readonly server: FakeTogetherServer;
+  }> {
+    window.sessionStorage.setItem("orpheum.together.host", JSON.stringify(hostMembership));
+    const { services, server } = voiceServices(fakeDevices());
+    services.navigation.go({ screen: "play", fileId: 9 });
+    shown = await mount(
+      withServices(
+        <HostVoiceProvider membership={hostMembership}>
+          <p>the page</p>
+        </HostVoiceProvider>,
+        services,
+      ),
+    );
+    await server.accept();
+    return { services, server };
+  }
+
+  /** The notice shown now, taken away. */
+  function noticeShown(): string | undefined {
+    const notice = currentNotice();
+    if (notice !== undefined) {
+      dismissNotice(notice);
+    }
+    return notice?.text;
+  }
+
+  it("goes home, told, as the session is ended on another of the host's devices", async () => {
+    const { services, server } = await hostingOnAPlayPage();
+    await server.say({ type: "ended", reason: "hostEnded" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+    expect(noticeShown()).toBe("The Watch Together session was ended on another of your devices.");
+  });
+
+  it("goes home, told, as the server no longer knows the session", async () => {
+    const { services, server } = await hostingOnAPlayPage();
+    await server.refuse();
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+    expect(noticeShown()).toBe("The Watch Together session is over.");
+  });
+
+  it("goes home, told, as the server ends the session idle", async () => {
+    const { services, server } = await hostingOnAPlayPage();
+    await server.say({ type: "ended", reason: "idle" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(noticeShown()).toBe(
+      "The Watch Together session was closed because nothing had happened in it for hours.",
+    );
   });
 });

@@ -187,15 +187,70 @@ func TestCast_AHostsReceiverHasACredentialForTheirSession(t *testing.T) {
 	if _, err := stage.hub.OpenCast(Person{UserID: 77, Name: "Caster"}); err != nil {
 		t.Fatal(err)
 	}
-	if credential, _ := stage.hub.TogetherPart(77, ""); credential != "" {
+	if credential, _, _ := stage.hub.TogetherPart(77, ""); credential != "" {
 		t.Errorf("a person with only a cast was given %q; want none", credential)
 	}
-	credential, isHost := stage.hub.TogetherPart(stage.owner.UserID, "")
+	credential, isHost, _ := stage.hub.TogetherPart(stage.owner.UserID, "")
 	sessionID, memberID, isMember := stage.hub.MemberOf(credential)
 	if !isMember || !isHost || sessionID != stage.opened.SessionID ||
 		stage.hub.hostOf(sessionID) != stage.owner.UserID {
 		t.Fatalf("the host's credential is of session %d, member %d (%v, host %v); want the party's host",
 			sessionID, memberID, isMember, isHost)
+	}
+}
+
+// Every way a Watch Together session ends is told, once the hub's lock is let go, with the session
+// the casts that take a part in it end with (D389 §1): its host starting another, its host joining
+// another, its host's end and its idle end. A cast's own end is no Watch Together session's.
+func TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	var told []int64
+	stage.hub.OnSessionEnded(func(sessionID int64) {
+		if _, err := stage.hub.Mine(stage.owner.UserID); err != nil { // the lock is let go, or this waits
+			t.Error(err)
+		}
+		told = append(told, sessionID)
+	})
+	_, _, partIn := stage.hub.TogetherPart(stage.owner.UserID, "")
+	if partIn != stage.opened.SessionID {
+		t.Fatalf("the host's part is in session %d; want %d", partIn, stage.opened.SessionID)
+	}
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = stage.hub.EndCast(cast.SessionID, stage.owner.UserID, CastStopped); err != nil {
+		t.Fatal(err)
+	}
+	again, err := stage.hub.Open(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	friend := Person{UserID: 2, Name: "friend"}
+	friends, err := stage.hub.Open(friend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	made, err := stage.hub.AddLink(friends.SessionID, friend.UserID, "the owner", Rights{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = stage.hub.Join(made.Secret, "owner", &stage.owner, Leaving{ShouldLeave: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err = stage.hub.End(friends.SessionID, friend.UserID); err != nil {
+		t.Fatal(err)
+	}
+	idle, err := stage.hub.Open(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage.clock.Advance(StartingIdleEnd)
+	stage.hub.EndStale(Lifetimes{Link: StartingLinkLifetime, Idle: StartingIdleEnd})
+	want := []int64{stage.opened.SessionID, again.SessionID, friends.SessionID, idle.SessionID}
+	if !reflect.DeepEqual(told, want) {
+		t.Errorf("the sessions told ended = %v; want %v", told, want)
 	}
 }
 
@@ -215,7 +270,7 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, isHost := stage.hub.TogetherPart(guestPerson.UserID, "")
+	credential, isHost, _ := stage.hub.TogetherPart(guestPerson.UserID, "")
 	if sessionID, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost ||
 		sessionID != stage.opened.SessionID || memberID != joined.MemberID {
 		t.Fatalf("the guest's receiver was given session %d, member %d (%v, host %v); want the guest's own part",
@@ -253,12 +308,12 @@ func TestCast_AHostsGuestDeviceCastsAsTheirGuest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, isHost := stage.hub.TogetherPart(owner.UserID, joined.MembershipCredential)
+	credential, isHost, _ := stage.hub.TogetherPart(owner.UserID, joined.MembershipCredential)
 	if _, memberID, isMember := stage.hub.MemberOf(credential); !isMember || isHost || memberID != joined.MemberID {
 		t.Fatalf("the guest's device's receiver was given member %d (%v, host %v); want the guest's part %d",
 			memberID, isMember, isHost, joined.MemberID)
 	}
-	if _, isHost := stage.hub.TogetherPart(owner.UserID, ""); !isHost {
+	if _, isHost, _ := stage.hub.TogetherPart(owner.UserID, ""); !isHost {
 		t.Error("a cast from a page holding no guest's membership took a guest's part; want the host's")
 	}
 }

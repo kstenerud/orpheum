@@ -40,7 +40,7 @@ func startingLifetimes() Lifetimes {
 func (hub *Hub) EndStale(lifetimes Lifetimes) []int64 {
 	now := hub.clock.Now()
 	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
+	defer hub.unlockTellingEnds()
 	hub.lifetimes = lifetimes
 	var ended []int64
 	for id, each := range hub.sessions {
@@ -54,8 +54,7 @@ func (hub *Hub) EndStale(lifetimes Lifetimes) []int64 {
 		}
 		if idle := now.Sub(each.lastActiveAt); idle >= lifetimes.Idle {
 			each.logger.Info("watch together: a session ended, idle", sessionIDAttribute, id, "idleFor", idle.String())
-			each.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "idle"})
-			delete(hub.sessions, id)
+			hub.endSession(each, "idle")
 			ended = append(ended, id)
 		}
 	}

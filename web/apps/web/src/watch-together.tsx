@@ -23,7 +23,8 @@ import {
   type Issued,
   type SessionDetails,
 } from "./together-people.tsx";
-import { forgetMembership, keepMembership, type Membership } from "./together-storage.ts";
+import { noteEndingHere, useHostsSessionOver } from "./together-session-end.ts";
+import { keepMembership, type Membership } from "./together-storage.ts";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useTogether } from "./use-together.ts";
@@ -49,9 +50,7 @@ export function WatchTogetherControls(props: { readonly onEnded: () => void }): 
     setIsOver(false);
     keepMembership(tabStorage(), "host", started);
   };
-  const forget = (): void => {
-    forgetMembership(tabStorage(), "host");
-  };
+  const over = useHostsSessionOver();
   return (
     <>
       {membership === undefined ? (
@@ -65,10 +64,10 @@ export function WatchTogetherControls(props: { readonly onEnded: () => void }): 
           membership={membership}
           onOver={() => {
             setIsOver(true);
-            forget();
+            over(membership.sessionId, "gone");
           }}
           onEnded={() => {
-            forget();
+            over(membership.sessionId, "hostEnded");
             props.onEnded();
           }}
         />
@@ -219,7 +218,13 @@ function EndSession(props: {
         confirmLabel={t("watchTogether.endConfirm")}
         onConfirm={() => {
           props.run(async () => {
-            throwIfRefused(await api.DELETE("/together/{id}", { params: { path: { id } } }));
+            noteEndingHere(id, true);
+            try {
+              throwIfRefused(await api.DELETE("/together/{id}", { params: { path: { id } } }));
+            } catch (cause) {
+              noteEndingHere(id, false);
+              throw cause;
+            }
             props.onEnded();
           });
         }}

@@ -9,6 +9,7 @@ import { afterEach, expect, it } from "vitest";
 import { knownDetailsOf } from "./hosted-details.ts";
 import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
+import { currentNotice } from "./notice.ts";
 import { StatusTray } from "./status-tray.tsx";
 import {
   buttonNamed,
@@ -157,8 +158,9 @@ it("turns Watch Together's sign blue for the host and for a signed-in guest, a b
   window.localStorage.clear();
 });
 
-// The owner, 2026-10-30: the session ended from its dialog, Watch Together's dialog showed again.
-it("closes Watch Together's dialog as the session is ended from it, nothing opening it again, the page where it was (D385's Also)", async () => {
+// The owner, 2026-10-30: the session ended from its dialog, Watch Together's dialog showed again; and
+// the host's film played on alone (D389 §1).
+it("closes Watch Together's dialog as the session is ended from it, nothing opening it again, and goes home with no word (D385's Also, D389 §1)", async () => {
   window.sessionStorage.setItem(
     "orpheum.together.host",
     JSON.stringify({ sessionId: 7, credential: "host-credential" }),
@@ -183,7 +185,8 @@ it("closes Watch Together's dialog as the session is ended from it, nothing open
   expect(document.querySelector("dialog[open]")).toBeNull();
   expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
   expect(sign("Watch Together")).toEqual({ isOn: false, href: null });
-  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+  expect(services.navigation.route()).toEqual({ screen: "home" });
+  expect(currentNotice()).toBeUndefined();
 });
 
 it("has the hosted session's details at hand as the sign shows, so its page shows them at once (the owner, 2026-10-12)", async () => {

@@ -103,8 +103,7 @@ func (hub *Hub) leavePlace(held place) {
 	hub.logger.Info("watch together: a person left a session for another",
 		sessionIDAttribute, held.in.id, "memberId", held.as.id, "wasHost", held.as.isHost)
 	if held.as.isHost {
-		held.in.broadcast(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "hostEnded"})
-		delete(hub.sessions, held.in.id)
+		hub.endSession(held.in, "hostEnded")
 		return
 	}
 	held.in.remove(now, held.as, "left")

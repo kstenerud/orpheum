@@ -144,6 +144,13 @@
 //     TestHub_StartingASessionEndsTheOneThePersonHostsAndLeavesTheOneTheyJoined,
 //     TestHub_JoiningAnotherSessionIsRefusedUntilThePersonSaysToLeaveTheirs and, through the API,
 //     TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn.
+//   - Every way a Watch Together session ends, its host's end, its host starting or joining another,
+//     or its idle end, goes through one (endSession): each device told why, and whoever registered
+//     (OnSessionEnded) told the session once the hub's lock is let go, so the casts whose receiver
+//     takes a part in it end with it, as sessionEnded (D389 §1); TogetherPart says which session a
+//     part is in. A cast's own end is no Watch Together session's. Enforced by
+//     TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith and, through the API,
+//     TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt in internal/core/api.
 //   - A Watch Together invitation is short-term (D346): a link admits its person for its lifetime
 //     from when it was made, then no one, and leaves the host's list and the discovery's links; a
 //     session idle for its idle end, neither played to a player nor acted in by a member, is ended

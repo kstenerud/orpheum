@@ -36,7 +36,7 @@ func TestHub_ACastingSenderNeverLeadsAndItsReceiverDoes(t *testing.T) {
 		fmt.Sprintf("passedOver=%d:noFilm", sender.DeviceID)) {
 		t.Errorf("the sender's passing logged as %q; want it gone and passed over, its player having no film", line)
 	}
-	credential, isHost := stage.hub.TogetherPart(stage.owner.UserID, "")
+	credential, isHost, _ := stage.hub.TogetherPart(stage.owner.UserID, "")
 	if !isHost {
 		t.Fatal("the host's receiver was not given the host's part")
 	}
