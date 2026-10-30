@@ -44,6 +44,7 @@ import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
+import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { PlayOrSendOn } from "./cast-to.tsx";
@@ -106,6 +107,8 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   // Whether the film's own file plays in the bare player, nothing drawn over it (bare-player.tsx),
   // offered where the film plays its own file.
   const [isBare, setIsBare] = useState(false);
+  // The sound controls under the film, as one panel a cast's remote shows and works.
+  const [soundPanel] = useState(newSoundPanel);
   const { decision } = props;
   const isOwnFile = decision.delivery === "direct" && decision.onLadder === undefined;
   if (isBare && isOwnFile) {
@@ -123,7 +126,11 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   const onBare = (): void => {
     setIsBare(true);
   };
-  return <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />;
+  return (
+    <SoundPanelContext value={soundPanel}>
+      <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />
+    </SoundPanelContext>
+  );
 }
 
 /** PlayView's player, and the bare player's button where onBare is given. */

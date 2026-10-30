@@ -116,8 +116,13 @@
 //     leads (D371). Enforced by TestHub_LogsEachFollowersCatchUpAndHowFarBehindItsLeader and
 //     TestHub_LogsEachChangeOfTheGroupAndWhoLeadsIt.
 //   - Each player's state may say how it plays the film, its delivery, quality and link, which the
-//     roster shows everyone, a cast's remote among them (D371 §4). Enforced by
-//     TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm.
+//     roster shows everyone, a cast's remote among them (D371 §4), and how its film sounds, the
+//     dialogue boost, levelling and the audio track among the file's own. Enforced by
+//     TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm and TestHub_TheRosterSaysHowEachPlayersFilmSounds.
+//   - A member's choice of their film's sound made on a device of theirs (MessageSound), a cast's
+//     remote, is relayed to their own other devices that play it, which carry it out as their own
+//     press, and to no one else's; one no remote may make is refused. The server keeps nothing of
+//     it. Enforced by TestCast_TheRemoteChoosesTheReceiversSound.
 //   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
 //     stopping it and its rate are the host's alone; each link starts with the last one's rights
 //     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed

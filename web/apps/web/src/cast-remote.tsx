@@ -2,11 +2,18 @@
 
 import "./cast.css";
 
-import { leaderOf, type CastSending, type PlaybackReport } from "@orpheum/sdk";
+import {
+  leaderOf,
+  type CarriesSoundChoices,
+  type CastSending,
+  type PlaybackReport,
+  type PlaybackSound,
+} from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { audioTrackLabel } from "./audio-tracks.tsx";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { CastTargets } from "./cast-to.tsx";
 import { endCast, listMyCasts, moveCastOn, playInCast } from "./cast.ts";
@@ -169,7 +176,7 @@ function endOf(cast: {
 function RemoteOf(props: {
   readonly sent: CastSending;
   readonly snapshot: Parameters<typeof SessionRemote>[0]["snapshot"];
-  readonly connection: Parameters<typeof SessionRemote>[0]["connection"];
+  readonly connection: ReturnType<typeof useTogether>["connection"];
   readonly positionMs: number | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -196,13 +203,13 @@ function RemoteOf(props: {
     playInCast(api, sent.castId, undefined).catch(() => undefined); // the receiver waits ready
     navigation.go({ screen: "play", fileId: sent.fileId, atMs, shouldPlayHere: true });
   };
+  const playback = props.snapshot === undefined ? undefined : leaderOf(props.snapshot)?.playback;
   return (
     <>
       <h2>{sent.titleName === "" ? t("cast.aFilm") : sent.titleName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
-      <ReceiverPlayback
-        playback={props.snapshot === undefined ? undefined : leaderOf(props.snapshot)?.playback}
-      />
+      <ReceiverPlayback playback={playback} />
+      <ReceiverSound sound={playback?.sound} connection={props.connection} />
       <SessionRemote
         snapshot={props.snapshot}
         connection={props.connection}
@@ -243,6 +250,98 @@ function ReceiverPlayback(props: {
         .filter((each) => each !== undefined)
         .join(" · ")}
     </p>
+  );
+}
+
+/**
+ * The receiver's sound, as it says it, and the remote's way to change it: the dialogue boost where
+ * its film has a boosted mix, levelling, and the audio track where the file has more than one, each
+ * choice sent to the receiver, which carries it out as its own press and says how it sounds after.
+ * A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed
+ * after taking control back (the owner, VQ116's run). Nothing while the receiver has said nothing.
+ */
+function ReceiverSound(props: {
+  readonly sound: PlaybackSound | undefined;
+  readonly connection: CarriesSoundChoices | undefined;
+}): JSX.Element | null {
+  const { t, i18n } = useTranslation();
+  const { sound, connection } = props;
+  if (sound === undefined || connection === undefined) {
+    return null;
+  }
+  const words = {
+    unknownLanguage: t("play.audio.unknownLanguage"),
+    commentary: t("play.audio.commentary"),
+    described: t("play.audio.described"),
+  };
+  return (
+    <div className="cast-remote__sound">
+      {sound.isBoostOn === undefined ? null : (
+        <RemoteSwitch
+          key={`boost-${String(sound.isBoostOn)}`}
+          label={t("play.boost")}
+          isOn={sound.isBoostOn}
+          onSwitched={(isOn) => {
+            connection.chooseSound({ kind: "boost", isOn });
+          }}
+        />
+      )}
+      <RemoteSwitch
+        key={`levelling-${String(sound.isLevellingOn)}`}
+        label={t("play.level.switch")}
+        isOn={sound.isLevellingOn}
+        onSwitched={(isOn) => {
+          connection.chooseSound({ kind: "levelling", isOn });
+        }}
+      />
+      {sound.audioTracks.length < 2 ? null : (
+        <label className="audio-tracks">
+          {t("play.audio.label")}{" "}
+          <select
+            key={`audio-${String(sound.audioStreamId)}`}
+            defaultValue={sound.audioStreamId ?? ""}
+            onChange={(event) => {
+              connection.chooseSound({
+                kind: "audioTrack",
+                streamId: Number(event.currentTarget.value),
+              });
+            }}
+          >
+            {sound.audioTracks.map((track) => (
+              <option key={track.streamId} value={track.streamId}>
+                {audioTrackLabel(track, i18n.language, words)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One of the receiver's switches on the remote: as the receiver said it stands, and as pressed here
+ * until the receiver says again (its key changes with what it says).
+ */
+function RemoteSwitch(props: {
+  readonly label: string;
+  readonly isOn: boolean;
+  readonly onSwitched: (isOn: boolean) => void;
+}): JSX.Element {
+  const [isOn, setIsOn] = useState(props.isOn);
+  return (
+    <label className="sound__switch">
+      <input
+        type="checkbox"
+        checked={isOn}
+        onChange={(event) => {
+          const isNowOn = event.currentTarget.checked;
+          setIsOn(isNowOn);
+          props.onSwitched(isNowOn);
+        }}
+      />
+      {props.label}
+    </label>
   );
 }
 

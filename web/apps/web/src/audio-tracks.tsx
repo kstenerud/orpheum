@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { Api, components, SoundTrack } from "@orpheum/sdk";
+import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useSoundPart } from "./sound-panel.ts";
 
 /** The server's decision on how a file plays, as play.tsx names it. */
 type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
@@ -34,9 +35,43 @@ export function startingAudioTrack(decision: PlaybackDecision): AudioTrack | und
   );
 }
 
+/**
+ * Has a cast's remote show the file's tracks and the one chosen, and choose among them, a choice
+ * there made by choose as one here is (sound-panel.ts).
+ */
+function useTracksWorkedByARemote(
+  tracks: readonly AudioTrack[],
+  chosenStreamId: number | undefined,
+  choose: (track: AudioTrack) => void,
+): void {
+  const shownTracks = useMemo(() => tracks.map(soundTrackOf), [tracks]);
+  useSoundPart({ kind: "audioTrack", streamId: chosenStreamId, tracks: shownTracks }, (choice) => {
+    const track = tracks.find(
+      (each) => choice.kind === "audioTrack" && each.streamId === choice.streamId,
+    );
+    if (track !== undefined && track.streamId !== chosenStreamId) {
+      choose(track);
+    }
+  });
+}
+
+/** A track as a remote names it, its stream and what labels it (audioTrackLabel). */
+function soundTrackOf(track: AudioTrack): SoundTrack {
+  return {
+    streamId: track.streamId,
+    language: track.language,
+    ...(track.containerTitle === undefined ? {} : { containerTitle: track.containerTitle }),
+    kind: track.kind,
+  };
+}
+
 /** A track's name in the menu: its language, its container's title, and its kind when not plain. */
 export function audioTrackLabel(
-  track: AudioTrack,
+  track: {
+    readonly language: string;
+    readonly containerTitle?: string | undefined;
+    readonly kind: AudioTrack["kind"];
+  },
   viewerLanguage: string,
   words: { unknownLanguage: string; commentary: string; described: string },
 ): string {
@@ -67,15 +102,7 @@ export function AudioMenu(props: {
   const { api } = useServices();
   const [chosenStreamId, setChosenStreamId] = useState(props.decision.startingAudioStreamId);
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const tracks = props.decision.audioTracks ?? [];
-  if (tracks.length < 2) {
-    return null;
-  }
-  const words = {
-    unknownLanguage: t("play.audio.unknownLanguage"),
-    commentary: t("play.audio.commentary"),
-    described: t("play.audio.described"),
-  };
+  const tracks = useMemo(() => props.decision.audioTracks ?? [], [props.decision.audioTracks]);
   const choose = (track: AudioTrack): void => {
     setProblem(undefined);
     setChosenStreamId(track.streamId);
@@ -87,6 +114,15 @@ export function AudioMenu(props: {
         setProblem(problemText(t, cause));
       },
     );
+  };
+  useTracksWorkedByARemote(tracks, chosenStreamId, choose);
+  if (tracks.length < 2) {
+    return null;
+  }
+  const words = {
+    unknownLanguage: t("play.audio.unknownLanguage"),
+    commentary: t("play.audio.commentary"),
+    described: t("play.audio.described"),
   };
   return (
     <>

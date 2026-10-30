@@ -2,7 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
+import type { PlaybackSound, SoundChoice } from "./playback-sound.ts";
 import { createTogetherConnection } from "./together-connection.ts";
+import { PlaybackTold } from "./together-leader.ts";
 import { isLeaderOf, leaderOf } from "./together-roster.ts";
 import type { TogetherSocketListeners } from "./together.ts";
 
@@ -148,5 +150,97 @@ describe("a session's leader, as its roster says (D371 §1)", () => {
       }),
     );
     expect(connection.snapshot().group?.positionMs).toBe(600_000);
+  });
+});
+
+// A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed
+// after taking control back (the owner, VQ116's run): its remote shows and changes it.
+describe("a film's sound between a player and its remote", () => {
+  const sound: PlaybackSound = {
+    isBoostOn: false,
+    isLevellingOn: true,
+    audioStreamId: 2,
+    audioTracks: [
+      { streamId: 1, language: "en", kind: "plain" },
+      { streamId: 2, language: "de", containerTitle: "Director", kind: "commentary" },
+    ],
+  };
+
+  it("reads how each player says its film sounds, and tells the session its own", () => {
+    const { connection, socket } = welcomed([
+      {
+        id: 7,
+        name: "Karl",
+        devices: [
+          { id: 12, role: "video", isLeader: true, playback: { delivery: "converted", sound } },
+          {
+            id: 13,
+            role: "video",
+            playback: { delivery: "direct", sound: { audioTracks: [{ streamId: 4, kind: "x" }] } },
+          },
+        ],
+      },
+    ]);
+    expect(leaderOf(connection.snapshot())?.playback?.sound).toEqual(sound);
+    expect(connection.snapshot().roster[0]?.devices[1]?.playback?.sound).toEqual({
+      isBoostOn: undefined,
+      isLevellingOn: false,
+      audioStreamId: undefined,
+      audioTracks: [{ streamId: 4, language: "", kind: "plain" }],
+    });
+    connection.setPlayer(() => ({
+      fileId: 7,
+      positionMs: 10_000,
+      isPlaying: true,
+      isBuffering: false,
+      playback: { delivery: "converted", sound: { ...sound, isBoostOn: undefined } },
+    }));
+    connection.reportState();
+    const told = socket.sent.at(-1)?.["playback"] as { sound?: Record<string, unknown> };
+    expect(told.sound).toEqual({
+      isLevellingOn: true,
+      audioStreamId: 2,
+      audioTracks: sound.audioTracks,
+    });
+  });
+
+  it("sends a remote's choice, and hands a choice made on another device to its listeners", () => {
+    const { connection, socket } = welcomed([]);
+    const heard: SoundChoice[] = [];
+    const unsubscribe = connection.subscribeToSoundChoices((choice) => {
+      heard.push(choice);
+    });
+    connection.chooseSound({ kind: "boost", isOn: true });
+    connection.chooseSound({ kind: "audioTrack", streamId: 2 });
+    expect(socket.sent.filter((each) => each["type"] === "sound")).toEqual([
+      { v: 2, type: "sound", sound: { kind: "boost", isOn: true } },
+      { v: 2, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
+    ]);
+    const before = connection.snapshot();
+    const hear = (sent: unknown): void => {
+      socket
+        .listeners()
+        .onMessage(JSON.stringify({ v: 2, type: "sound", fromDeviceId: 3, sound: sent }));
+    };
+    hear({ kind: "levelling" });
+    hear({ kind: "audioTrack", streamId: 5 });
+    hear({ kind: "louder" });
+    hear({ kind: "audioTrack" });
+    expect(heard).toEqual([
+      { kind: "levelling", isOn: false },
+      { kind: "audioTrack", streamId: 5 },
+    ]);
+    expect(connection.snapshot()).toBe(before);
+    unsubscribe();
+    hear({ kind: "boost", isOn: false });
+    expect(heard).toHaveLength(2);
+  });
+
+  it("tells its film's sound with how it plays it, as its page reads it", () => {
+    let now: PlaybackSound | undefined = sound;
+    const told = new PlaybackTold("converted", () => now);
+    expect(told.report()).toEqual({ delivery: "converted", sound });
+    now = undefined;
+    expect(told.report()).toEqual({ delivery: "converted" });
   });
 });

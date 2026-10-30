@@ -7,6 +7,7 @@ import {
   soundOnAtTap,
   type CannotKeepUp,
   type PlaybackReport,
+  type PlaybackSound,
   type TogetherConnection,
 } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
@@ -78,6 +79,8 @@ interface LeadingPlayer {
   readonly putOnAtMs?: number | undefined;
   /** How the film is given to the player, which the session is told (D371 §4). */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
+  /** How the film sounds now, which the session is told for a cast's remote (sound-panel.ts). */
+  readonly readSound?: (() => PlaybackSound | undefined) | undefined;
 }
 
 /**
@@ -88,7 +91,8 @@ interface LeadingPlayer {
  * the film plays at the tab's volume (D281 §5).
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
-  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
+  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery, readSound } =
+    leading;
   // The session it put its film on for: each it comes to lead, once (a cast's receiver taking its
   // host's part in a Watch Together session started while it played, D364 §11).
   const putOnForRef = useRef<TogetherConnection | undefined>(undefined);
@@ -112,8 +116,9 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
             monotonicMs,
             page: pageThatPausesWhenHidden(),
             delivery,
+            readSound,
           }),
-    [connection, fileId, video, delivery],
+    [connection, fileId, video, delivery, readSound],
   );
   useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
 }
