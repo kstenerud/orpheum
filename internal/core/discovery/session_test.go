@@ -11,10 +11,12 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -186,9 +188,9 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 	}
 }
 
-// A signalling connection that answers no ping is closed after two missed, a ping's interval apart,
-// and dialled again: a proxy that dropped it, or a discovery gone, is found within a minute or so
-// (the protocol's §2.5; C11).
+// A signalling connection that answers no ping is closed after two missed, each given pongWait, the
+// second sent as the first is missed, and dialled again: a proxy that dropped it, or a discovery gone,
+// is found within about a ping's interval and two pong waits (the protocol's §2.5; C11).
 func TestSignal_AConnectionThatAnswersNoPingIsDialledAgain(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
@@ -196,8 +198,43 @@ func TestSignal_AConnectionThatAnswersNoPingIsDialledAgain(t *testing.T) {
 	defer stop()
 	first := testutil.Receive(t, dials, "the first dial")
 	second := testutil.Receive(t, dials, "the dial after two pings went unanswered")
-	if gap := second.Sub(first); gap < 2*pingEvery*91/100 || gap > 4*pingEvery {
-		t.Errorf("the connection was dialled again %s after it opened; want after two missed pings", gap)
+	soonest := pingEvery*91/100 + pingsMissedAt*pongWait
+	latest := pingEvery*109/100 + pingsMissedAt*pongWait + 2*time.Second
+	if gap := second.Sub(first); gap < soonest || gap > latest {
+		t.Errorf("the connection was dialled again %s after it opened; want after two missed pings, %s to %s",
+			gap, soonest, latest)
+	}
+}
+
+// A discovery restarted behind its tunnel leaves the core's link open and answering nothing: the
+// core finds it dead by its pings within about a minute, dials again, logs that it is open again and
+// how long it was lost, and answers the offers the restarted discovery passes on (the owner,
+// 2026-10-29: "It should be able to figure itself out either way").
+func TestSignal_ADiscoveryRestartedBehindALinkLeftOpenIsFoundAgainAndAnswered(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	logged := &testutil.Log{}
+	built.service.parts.Logger = slog.New(slog.NewTextHandler(logged, nil))
+	built.service.parts.OfferKey = offerKeys
+	built.fake.mutex.Lock()
+	built.fake.silentDials, built.fake.passesAtOnce = 1, true
+	built.fake.mutex.Unlock()
+	dials, stop := signalOverTime(t, built, false)
+	defer stop()
+	first := testutil.Receive(t, dials, "the dial to the discovery before its restart")
+	second := testutil.Receive(t, dials, "the dial to the restarted discovery")
+	if gap := second.Sub(first); gap > pingEvery*109/100+pingsMissedAt*pongWait+2*time.Second {
+		t.Errorf("the restarted discovery was dialled %s after the dead link opened; want within about a minute", gap)
+	}
+	built.fake.signals <- provenOffer("after-restart", "an offer\r\na=fingerprint:sha-256 AB:CD")
+	if answered := testutil.Receive(t, built.fake.replies, "the core's answer"); answered.Type !=
+		discoveryproto.SignalAnswer || answered.OfferID != "after-restart" {
+		t.Errorf("the restarted discovery's offer was answered %+v; want its answer", answered)
+	}
+	if text := logged.String(); !strings.Contains(text, `msg="discovery: the signalling connection is open again"`) ||
+		!strings.Contains(text, "lostMs=") || !strings.Contains(text, "dials=1") {
+		t.Errorf("the log says\n%s\nwant the connection open again, how long it was lost and after how many dials",
+			text)
 	}
 }
 

@@ -26,12 +26,17 @@ const signalCheckEvery = 10 * time.Second
 
 // pingEvery is how often the core pings its signalling connection, jittered by pingJitter either
 // way, so a proxy on the way never finds it idle (Cloudflare closes a WebSocket idle for 100 s) and a
-// dead connection is found: a ping not answered by the next one's time is missed, and two missed in
-// a row end the connection, which is dialled again (the protocol's §2.5; C11, D292 §9).
+// dead connection is found: a ping not answered within pongWait is missed, the next is sent at once,
+// and two missed in a row end the connection, which is dialled again (the protocol's §2.5; C11,
+// D292 §9). The wait, pongWait, is the discovery's own for a core's ping (connect's PingWait, D293
+// §1): a busy NAS answers well within it. A discovery restarted behind its tunnel left the core's link open
+// and answering nothing (staging, 2026-10-29); it is now found within about pingEvery and two
+// pongWaits, where waiting a ping's interval for each answer took up to 82 s.
 const (
 	pingEvery     = 27500 * time.Millisecond
 	pingJitter    = 0.09
 	pingsMissedAt = 2
+	pongWait      = 10 * time.Second
 )
 
 // maxSignalBytes bounds one signalling message: an SDP with its candidates is a few kilobytes.
@@ -44,16 +49,18 @@ const maxSignalBytes = 64 << 10
 // (the protocol's §2.5; D292 §9), so a restarted discovery has its cores back within seconds.
 func (service *Service) signal(ctx context.Context) {
 	var failures int64
+	lost := &lostSignalling{}
 	for ctx.Err() == nil {
 		wait, isClaimed := signalCheckEvery, false
 		if status := service.Status(); service.parts.Answerer != nil &&
 			(status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace) {
-			wasOpen, err := service.holdSignalling(ctx, status.BaseURL)
+			wasOpen, err := service.holdSignalling(ctx, status.BaseURL, lost)
 			if ctx.Err() != nil {
 				return
 			}
 			if wasOpen {
 				failures = 0
+				lost.since, lost.dials = service.parts.Clock.Now(), 0
 			}
 			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection ended; dialling again",
 				"err", err)
@@ -96,9 +103,18 @@ func (service *Service) wakeSignallingIfClaimed(was, now discoveryproto.State) {
 	}
 }
 
+// lostSignalling is when the signalling connection last ended, zero before it first opened, and how
+// many dials have been made since: what the log says of a connection open again.
+type lostSignalling struct {
+	since time.Time
+	dials int
+}
+
 // holdSignalling dials the signalling connection and answers its offers until it ends, saying
 // whether it opened. A token the discovery refuses is renewed at once, and dialled with once more.
-func (service *Service) holdSignalling(ctx context.Context, baseURL string) (bool, error) {
+// A connection open again after one ended says so, how long it was lost and after how many dials.
+func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost *lostSignalling) (bool, error) {
+	lost.dials++
 	token, err := service.session(ctx)
 	if err != nil {
 		return false, err
@@ -116,7 +132,12 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) (boo
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // closing what may be closed
 	connection.SetReadLimit(maxSignalBytes)
-	service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
+	if lost.since.IsZero() {
+		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
+	} else {
+		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open again",
+			"lostMs", service.parts.Clock.Now().Sub(lost.since).Milliseconds(), "dials", lost.dials)
+	}
 	pinging, stopPinging := context.WithCancel(ctx)
 	defer stopPinging()
 	go service.keepAlive(pinging, connection)
@@ -164,48 +185,77 @@ func (service *Service) answerSignal(
 	}
 }
 
-// keepAlive pings connection every pingEvery, jittered, until ctx ends, and closes it once
-// pingsMissedAt pings in a row went unanswered by the next one's time.
+// keepAlive pings connection every pingEvery, jittered, until ctx ends: a ping not answered within
+// pongWait is missed and the next is sent at once, and once pingsMissedAt in a row are missed it
+// closes the connection.
 func (service *Service) keepAlive(ctx context.Context, connection *websocket.Conn) {
-	answered := make(chan error, 1)
-	isWaiting, missed := false, 0
+	missed := 0
 	for {
 		every, err := backoff.Jittered(service.parts.Random, pingEvery, pingEvery*2, pingJitter)
 		if err != nil {
 			every = pingEvery
 		}
-		timer := service.parts.Clock.NewTimer(every)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
+		if missed > 0 {
+			every = 0
+		}
+		if every > 0 && !service.waitToPing(ctx, every) {
 			return
-		case <-timer.C():
 		}
-		if isWaiting {
-			select {
-			case err := <-answered:
-				isWaiting, missed = false, 0
-				if err != nil {
-					missed = 1
-				}
-			default:
-				missed++
-			}
+		isAnswered, isEnded := service.pingAnswered(ctx, connection)
+		switch {
+		case isEnded:
+			return
+		case isAnswered:
+			missed = 0
+			continue
 		}
+		missed++
 		if missed >= pingsMissedAt {
 			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection answered no ping; closing it",
-				"missed", missed)
+				"missed", missed, "pongWaitMs", pongWait.Milliseconds())
 			_ = connection.CloseNow() //nolint:errcheck // dead, and the reader ends with it
 			return
 		}
-		if !isWaiting {
-			isWaiting = true
-			service.pingsUnanswered.Add(1)
-			go func() {
-				err := connection.Ping(ctx)
-				service.pingsUnanswered.Add(-1)
-				answered <- err
-			}()
+	}
+}
+
+// waitToPing waits every on a timer, saying false when ctx ends first.
+func (service *Service) waitToPing(ctx context.Context, every time.Duration) bool {
+	timer := service.parts.Clock.NewTimer(every)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C():
+		return true
+	}
+}
+
+// pingAnswered pings connection and says whether it answered within pongWait, or that ctx ended
+// first. An answer that came as the wait ran out counts.
+func (service *Service) pingAnswered(ctx context.Context, connection *websocket.Conn) (isAnswered, isEnded bool) {
+	pinging, stop := context.WithCancel(ctx)
+	defer stop()
+	answered := make(chan error, 1)
+	service.pingsUnanswered.Add(1)
+	go func() {
+		err := connection.Ping(pinging)
+		answered <- err
+		service.pingsUnanswered.Add(-1)
+	}()
+	timer := service.parts.Clock.NewTimer(pongWait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false, true
+	case err := <-answered:
+		return err == nil, false
+	case <-timer.C():
+		select {
+		case err := <-answered:
+			return err == nil, false
+		default:
+			return false, false
 		}
 	}
 }
