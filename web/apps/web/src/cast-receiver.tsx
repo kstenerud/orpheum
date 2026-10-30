@@ -52,7 +52,7 @@ export const castNoteShownMs = 5000;
 
 /** The cast this device receives of fileId, while it does, and how it ends here (D337). */
 export function useReceiving(fileId: number): Receiving | undefined {
-  const { receiving, answer, endReceiving, leaveReceiving } = useLive();
+  const { receiving, answer, leaveReceiving } = useLive();
   return useMemo(() => {
     if (receiving?.fileId !== fileId) {
       return undefined;
@@ -60,11 +60,10 @@ export function useReceiving(fileId: number): Receiving | undefined {
     const its = answer?.castId === receiving.castId ? answer : undefined;
     return {
       cast: receiving,
-      onOver: endReceiving,
       onLeave: leaveReceiving,
       ...(its === undefined ? {} : { answer: its }),
     };
-  }, [receiving, answer, fileId, endReceiving, leaveReceiving]);
+  }, [receiving, answer, fileId, leaveReceiving]);
 }
 
 /**
@@ -116,11 +115,9 @@ export function readyForTheNext(api: Api, receiving: Receiving): void {
 /** What the Play page is given while this device receives a cast. */
 export interface Receiving {
   readonly cast: CastToReceive;
-  /** Told that receiving is over here, the film playing on as the device's own: control taken back. */
-  readonly onOver: () => void;
   /**
-   * Told that receiving is over and the device goes to its home page: the cast ended other than by
-   * control taken back here, as by Stop casting (D384 §1).
+   * Told that receiving is over and the device goes to its home page: the cast ended, however it
+   * ended, control taken back here among them (D384 §1, D385 §1).
    */
   readonly onLeave: () => void;
   /**
@@ -137,8 +134,9 @@ export interface Receiving {
  * controls and media keys go on working, and every change of theirs reaches the remote as the
  * session's. While its person hosts Watch Together, its video leads that session instead, as their
  * player, so what they play plays for the group, the cast's session told only how it ends (D364 §11).
- * Back, or OK twice, leaves controlled mode, the film playing on here (D364 §9, D338 §6). The cast
- * ended any other way, stopped by the remote among them, sends it home (D384 §1); at the film's end it
+ * Back, or OK twice, takes control back, which ends the cast as every other end does: the receiver
+ * goes home, and the sender plays the film on from where it stood (D385 §1, §2, amending D338 §6).
+ * Every end, stopped by the remote among them, sends it home (D384 §1); at the film's end it
  * plays the next episode as the sender would (Up next, plans/up-next.md), and where none plays next
  * it waits ready for the next video (D364 §5).
  */
@@ -153,7 +151,7 @@ export function CastReceiver(props: {
   readonly delivery?: PlaybackReport["delivery"] | undefined;
 }): JSX.Element {
   const { api } = useServices();
-  const { cast, onOver, onLeave } = props.receiving;
+  const { cast, onLeave } = props.receiving;
   const { video, fileId } = props;
   // The page's sound controls, which the remote shows and works (sound-panel.ts).
   const soundPanel = use(SoundPanelContext);
@@ -171,10 +169,7 @@ export function CastReceiver(props: {
   useSoundWorkedByTheRemote(connection, soundPanel);
   useFillsTheWindow(video);
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
-  useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
-    onOver,
-    onLeave,
-  });
+  useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, onLeave);
   const hasNext = props.hasNext === true;
   const { receiving } = props;
   useEffect(() => {
@@ -189,10 +184,7 @@ export function CastReceiver(props: {
       video?.removeEventListener("ended", atTheEnd);
     };
   }, [api, receiving, video, hasNext]);
-  const takeBack = useCallback(() => {
-    endCast(api, cast.castId, "takenBack").catch(() => undefined);
-    onOver();
-  }, [api, cast.castId, onOver]);
+  const takeBack = useTakingBackEnds(cast.castId, onLeave);
   return (
     <>
       <SoundAtAnyPress video={video} connection={connection} />
@@ -257,26 +249,45 @@ function useReceiversSessions(cast: CastToReceive): {
 }
 
 /**
- * Ends receiving as the cast ends: its control taken back here leaves what shows as it is, an
- * ordinary player (onOver, D364 §9); a cast replacing it is received already; any other end, Stop
- * casting on the sender, its session's end or its controller gone (as its receiver was gone too long
- * or the server restarted), sends the receiver home (onLeave, D384 §1).
+ * Ends receiving as the cast ends, sending the receiver home (onLeave, D384 §1): control taken back
+ * here (D385 §1), Stop casting on the sender, its session's end or its controller gone (as its
+ * receiver was gone too long or the server restarted). A cast replacing it is received already.
  */
 export function useEndsAsTheCastDoes(
   endReason: TogetherEndReason | undefined,
-  ways: Pick<Receiving, "onOver" | "onLeave">,
+  onLeave: () => void,
 ): void {
-  const { onOver, onLeave } = ways;
   useEffect(() => {
-    if (endReason === undefined || endReason === "replaced") {
-      return;
-    }
-    if (endReason === "takenBack") {
-      onOver();
-    } else {
+    if (endReason !== undefined && endReason !== "replaced") {
       onLeave();
     }
-  }, [endReason, onOver, onLeave]);
+  }, [endReason, onLeave]);
+}
+
+/**
+ * Taking control back on the receiver: the cast ended as takenBack, and the receiver home once the
+ * server has answered (D385 §1), or as its session says the cast ended, whichever comes first. The
+ * film plays on here until then, untouched: its sender takes over from where it stood, playing or
+ * paused as it was (D385 §2), so nothing here may change how it stands, and the session holds it as
+ * the receiver left it until the end has reached its sender.
+ */
+function useTakingBackEnds(castId: number, onLeave: () => void): () => void {
+  const { api } = useServices();
+  const isShownRef = useRef(true);
+  useEffect(() => {
+    isShownRef.current = true;
+    return () => {
+      isShownRef.current = false; // gone home already, its session having said the cast ended
+    };
+  }, []);
+  return useCallback(() => {
+    const leave = (): void => {
+      if (isShownRef.current) {
+        onLeave();
+      }
+    };
+    endCast(api, castId, "takenBack").then(leave, leave);
+  }, [api, castId, onLeave]);
 }
 
 /** Has the video's stage fill the window while it receives, by layout, as no press asked (§4). */
@@ -719,7 +730,7 @@ function pauseOrPlayAtAClick(event: MouseEvent): HTMLVideoElement | undefined {
 
 /**
  * Undoes the pause or play a double click's first click made (pauseOrPlayAtAClick), so the double
- * click that takes control back leaves the film as it was, playing on here (D338 §6).
+ * click that takes control back leaves the film as it was, for its sender to take over so (D385 §2).
  */
 function undoPauseOrPlay(video: HTMLVideoElement | undefined): void {
   if (video !== undefined) {

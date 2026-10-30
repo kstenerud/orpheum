@@ -17,7 +17,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
-import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, refusal, servedBy, unanswered, type Heard, type Mounted } from "./test-dom.tsx";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -215,7 +215,6 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     readonly video: HTMLVideoElement;
     readonly heard: Heard[];
     readonly services: ReturnType<typeof servedBy>;
-    readonly onOver: ReturnType<typeof vi.fn>;
     readonly onLeave: ReturnType<typeof vi.fn>;
   }> {
     const heard: Heard[] = [];
@@ -223,12 +222,11 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     const server = fakeTogetherServer();
     const video = document.createElement("video");
     document.body.append(video);
-    const onOver = vi.fn();
     const onLeave = vi.fn();
     mounted = await mount(
       withServices(
         <CastReceiver
-          receiving={{ cast, onOver, onLeave }}
+          receiving={{ cast, onLeave }}
           fileId={4}
           video={video}
           startPositionMs={0}
@@ -239,7 +237,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
       ),
     );
     await server.accept();
-    return { server, video, heard, services, onOver, onLeave };
+    return { server, video, heard, services, onLeave };
   }
 
   it("leads its session of one from where the sender stood", async () => {
@@ -314,17 +312,19 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
   });
 
   it("goes home when the remote stops casting (D384 §1)", async () => {
-    const { server, onOver, onLeave } = await receiver();
+    const { server, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "stopped" });
     expect(onLeave).toHaveBeenCalledOnce();
-    expect(onOver).not.toHaveBeenCalled();
   });
 
-  it("plays on here, the remote told, when its control is taken back here (D338 §6)", async () => {
-    const { server, heard, onOver, onLeave } = await receiver({
-      "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: true }],
+  // The owner, staging, 2026-10-30: a Fire TV that took control back played on, and the sender's
+  // "Play here from" rose on its own whatever the TV then did.
+  it("ends the cast as its control is taken back here, and goes home once it has ended, the film as it stood until then (D385 §1)", async () => {
+    const { server, video, heard, onLeave } = await receiver({
+      "POST /me/casts/9/end": [unanswered],
     });
+    const isPaused = playingVideo(video, 61);
     await server.say(welcome);
     press("Escape");
     await act(async () => {
@@ -333,28 +333,29 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "takenBack",
     });
-    expect(onOver).toHaveBeenCalledOnce();
+    // Until the end reaches the sender, which takes the film over from where it stands (D385 §2).
     expect(onLeave).not.toHaveBeenCalled();
+    expect(isPaused()).toBe(false);
+    await server.say({ type: "ended", reason: "takenBack" });
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 
   it("goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)", async () => {
-    const { server, onOver, onLeave } = await receiver();
+    const { server, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "receiverGone" });
     expect(onLeave).toHaveBeenCalledOnce();
-    expect(onOver).not.toHaveBeenCalled();
   });
 
   it("goes on receiving when another cast replaces this one", async () => {
-    const { server, onOver, onLeave } = await receiver();
+    const { server, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "replaced" });
-    expect(onOver).not.toHaveBeenCalled();
     expect(onLeave).not.toHaveBeenCalled();
   });
 
   it("waits ready for the next video at the film's end, the session going on (D364 §5)", async () => {
-    const { server, video, heard, onOver, onLeave } = await receiver({
+    const { server, video, heard, onLeave } = await receiver({
       "POST /me/casts/9/play": [200, { castId: 9, fileId: 0 }],
     });
     await server.say(welcome);
@@ -365,7 +366,6 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/play")?.body).toEqual({});
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
     expect(onLeave).not.toHaveBeenCalled();
-    expect(onOver).not.toHaveBeenCalled();
   });
 
   it("leads its person's Watch Together session as their player while they host one, hearing the cast's end on its own (D364 §11)", async () => {
@@ -381,7 +381,6 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
         <CastReceiver
           receiving={{
             cast: { ...cast, togetherCredential: "hosted" },
-            onOver: vi.fn(),
             onLeave,
           }}
           fileId={4}
@@ -413,14 +412,13 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
   });
 
   it("leaves its film's end to Up next where an episode plays next (plans/up-next.md)", async () => {
-    const { server, video, heard, onOver, onLeave } = await receiver({}, true);
+    const { server, video, heard, onLeave } = await receiver({}, true);
     await server.say(welcome);
     await act(async () => {
       video.dispatchEvent(new Event("ended"));
       await Promise.resolve();
     });
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
-    expect(onOver).not.toHaveBeenCalled();
     expect(onLeave).not.toHaveBeenCalled();
   });
 });
@@ -431,7 +429,7 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
     const services = servedBy({ "POST /me/casts/9/next": [200, { castId: 9, fileId: 5 }] }, heard);
     const onLeave = vi.fn();
     await act(async () => {
-      moveOnOrReady(services.api, { cast, onOver: vi.fn(), onLeave });
+      moveOnOrReady(services.api, { cast, onLeave });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /me/casts/9/next"]);
@@ -450,7 +448,7 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
       );
       const onLeave = vi.fn();
       await act(async () => {
-        moveOnOrReady(services.api, { cast, onOver: vi.fn(), onLeave });
+        moveOnOrReady(services.api, { cast, onLeave });
         for (let turn = 0; turn < 5; turn += 1) {
           await new Promise((resolve) => setTimeout(resolve, 0));
         }
@@ -478,7 +476,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     readonly server: FakeTogetherServer;
     readonly video: HTMLVideoElement;
     readonly stage: HTMLElement;
-    readonly onOver: ReturnType<typeof vi.fn>;
+    readonly onLeave: ReturnType<typeof vi.fn>;
   }> {
     const services = servedBy(
       { "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: true }] },
@@ -491,11 +489,10 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     const video = document.createElement("video");
     stage.append(video);
     document.body.append(stage);
-    const onOver = vi.fn();
+    const onLeave = vi.fn();
     const receiving = {
       cast,
-      onOver,
-      onLeave: vi.fn(),
+      onLeave,
       ...(answer === undefined ? {} : { answer }),
     };
     mounted = await mount(
@@ -506,7 +503,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     );
     await server.accept();
     await server.say(welcome);
-    return { server, video, stage, onOver };
+    return { server, video, stage, onLeave };
   }
 
   /** The browser refusing the film's sound: it plays muted, and says so (playOrPlayMuted). */
@@ -530,7 +527,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
 
   it("says over the film that a press turns the sound on, and turns it on at a key, which does nothing else", async () => {
     vi.useFakeTimers({ toFake: ["performance"] });
-    const { server, video, stage, onOver } = await started();
+    const { server, video, stage, onLeave } = await started();
     refuseSound(video);
     expect(stage.querySelector(".cast-receiver__sound-on")?.textContent).toBe(
       "Click to turn the sound on",
@@ -547,7 +544,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     vi.advanceTimersByTime(doublePressWithinMs - 1);
     press("Enter"); // the first OK of a double: the one that turned the sound on is not counted
     stop();
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
     expect(heard).toHaveBeenCalledOnce();
   });
 
@@ -583,13 +580,13 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
   });
 
   it("leaves Back to leave controlled mode, the sound still off", async () => {
-    const { video, onOver } = await started();
+    const { video, onLeave } = await started();
     refuseSound(video);
     press("Escape");
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).toHaveBeenCalledOnce();
     expect(video.muted).toBe(true);
   });
 
@@ -630,7 +627,6 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
   async function receiving(): Promise<{
     readonly server: FakeTogetherServer;
     readonly heard: Heard[];
-    readonly onOver: ReturnType<typeof vi.fn>;
     readonly onLeave: ReturnType<typeof vi.fn>;
   }> {
     const heard: Heard[] = [];
@@ -642,22 +638,16 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     const server = fakeTogetherServer();
     const video = document.createElement("video");
     document.body.append(video);
-    const onOver = vi.fn();
     const onLeave = vi.fn();
     mounted = await mount(
       withServices(
-        <CastReceiver
-          receiving={{ cast, onOver, onLeave }}
-          fileId={4}
-          video={video}
-          startPositionMs={0}
-        />,
+        <CastReceiver receiving={{ cast, onLeave }} fileId={4} video={video} startPositionMs={0} />,
         { ...services, openTogetherSocket: server.openSocket },
       ),
     );
     await server.accept();
     await server.say(welcome);
-    return { server, heard, onOver, onLeave };
+    return { server, heard, onLeave };
   }
 
   /** The page full screen, or not, as the browser says it (fullscreenElement). */
@@ -690,11 +680,10 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
   it("takes control back at once when a Fire TV's Back or Escape leaves full screen, telling the log", async () => {
     // In full screen a Fire TV's first Back only left full screen; a second took control back (the
     // owner, 2026-10-27).
-    const { server, heard, onOver, onLeave } = await receiving();
+    const { server, heard, onLeave } = await receiving();
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onOver).toHaveBeenCalledOnce();
-    expect(onLeave).not.toHaveBeenCalled();
+    expect(onLeave).toHaveBeenCalledOnce();
     expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([
       { methodAndPath: "POST /me/casts/9/end", body: { reason: "takenBack" } },
     ]);
@@ -702,11 +691,11 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
   });
 
   it("takes control back once where Escape reaches the page as well as leaving full screen", async () => {
-    const { heard, onOver } = await receiving();
+    const { heard, onLeave } = await receiving();
     press("Escape");
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).toHaveBeenCalledOnce();
     expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toHaveLength(1);
   });
 
@@ -714,16 +703,16 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     const stage = document.createElement("div");
     document.body.append(stage);
     Object.defineProperty(document, "fullscreenElement", { value: stage, configurable: true });
-    const { server, onOver } = await receiving();
+    const { server, onLeave } = await receiving();
     stage.remove(); // the last film's Play page, its stage full screen, gone for the next
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
     expect(fullScreenNotes(server)).toEqual([]);
   });
 
   it("keeps control where the page itself left full screen, as Stop casting and the film's end do", async () => {
-    const { server, onOver } = await receiving();
+    const { server, onLeave } = await receiving();
     isFullScreen(true);
     Object.defineProperty(document, "exitFullscreen", {
       value: () => Promise.resolve(),
@@ -732,14 +721,14 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     leaveFullScreen(document);
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
     expect(fullScreenNotes(server)).toEqual([]);
     // Only that one leaving was the page's.
     isFullScreen(true);
     await fullScreenChanged();
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 });

@@ -48,11 +48,10 @@ export interface Live {
   readonly isSendingKnown: boolean;
   /** The press that answered Play to the cast received, and its full screen (D358 §2). */
   readonly answer: CastAnswer | undefined;
-  /** Ends receiving here, the film playing on as this device's own: control taken back here. */
-  readonly endReceiving: () => void;
   /**
-   * Ends receiving here and sends the device to its home page: the cast ended other than by control
-   * taken back here (D384 §1), as by Stop casting, its session's end or its controller gone.
+   * Ends receiving here and sends the device to its home page: the cast ended, however it ended
+   * (D384 §1), as by Stop casting, its session's end, its controller gone or control taken back here
+   * (D385 §1).
    */
   readonly leaveReceiving: () => void;
   /**
@@ -70,7 +69,6 @@ const nothingLive: Live = {
   sending: undefined,
   isSendingKnown: true,
   answer: undefined,
-  endReceiving: () => undefined,
   leaveReceiving: () => undefined,
   isReceivingInDoubt: false,
 };
@@ -158,7 +156,7 @@ function useLiveOf(
   received: Received,
   isReceivingInDoubt: boolean,
 ): Live {
-  const { receiving, answer, endReceiving, leaveReceiving } = received;
+  const { receiving, answer, leaveReceiving } = received;
   return useMemo(
     (): Live => ({
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
@@ -167,7 +165,6 @@ function useLiveOf(
       sending: snapshot?.sending,
       isSendingKnown: snapshot?.isSendingKnown ?? true,
       answer,
-      endReceiving,
       leaveReceiving,
       isReceivingInDoubt,
     }),
@@ -178,7 +175,6 @@ function useLiveOf(
       snapshot?.isSendingKnown,
       receiving,
       answer,
-      endReceiving,
       leaveReceiving,
       isReceivingInDoubt,
     ],
@@ -252,7 +248,7 @@ function useTellsWhereTheTabIs(connection: LiveConnection | undefined): void {
 }
 
 /** What useReceiving gives the provider: Live's part, and the cast it asks about and its answer. */
-interface Received extends Pick<Live, "receiving" | "answer" | "endReceiving" | "leaveReceiving"> {
+interface Received extends Pick<Live, "receiving" | "answer" | "leaveReceiving"> {
   /** The cast arrived and asked about, until it is answered (D358 §1). */
   readonly asked: CastToReceive | undefined;
   /** Told the answer to asked: Play's, which receives it, or undefined for none (Not now, silence). */
@@ -295,17 +291,14 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
     [navigation],
   );
   const { asked, answer, onAnswered } = useAsking(connection, isReceivingRef, receive);
-  const endReceiving = useCallback(() => {
+  const leaveReceiving = useCallback(() => {
     isReceivingRef.current = false;
     receivedRef.current = undefined;
     forgetReceiving(tabStorage());
     setReceiving(undefined);
-  }, []);
-  const leaveReceiving = useCallback(() => {
-    endReceiving();
     sendHome(navigation);
-  }, [endReceiving, navigation]);
-  return { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving };
+  }, [navigation]);
+  return { receiving, answer, asked, onAnswered, leaveReceiving };
 }
 
 /**
