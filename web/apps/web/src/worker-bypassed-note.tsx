@@ -7,19 +7,43 @@ import { useTranslation } from "react-i18next";
 import { pageWorkerOf, type PageWorker } from "./screen-load.tsx";
 
 /**
- * The page's one probe of its worker, made once it is first asked for: a page under a discovery's
- * loader that a worker controls asks it for an address only the worker answers
- * (isPageWorkerBypassed); answered by the network, or not at all, the worker is bypassed, as DevTools'
- * "Bypass for network" does, and the core's log is told, once. Elsewhere there is nothing to ask: at a
- * core's own origin media goes to the network anyway, and a page no worker controls has none to
- * bypass (screen-load.tsx says so).
+ * The page's probe of its worker: a page under a discovery's loader that a worker controls asks it
+ * for an address only the worker answers (isPageWorkerBypassed); answered by the network, or not at
+ * all, the worker is bypassed, as DevTools' "Bypass for network" does, and the core's log is told,
+ * once. It probes as the note is first shown, and again each time the page's art fails to load
+ * (suspectWorker): a box ticked after the page loaded found nothing at the first probe, and its
+ * posters 404'd with nothing said (agent-failures A51; the owner, 2026-10-30). Elsewhere there is
+ * nothing to ask: at a core's own origin media goes to the network anyway, and a page no worker
+ * controls has none to bypass (screen-load.tsx says so).
  */
-let probed: Promise<boolean> | undefined;
+let probing: Promise<boolean> | undefined;
+let isReported = false;
+const suspicionListeners = new Set<() => void>();
 
-/** Whether this page's worker is bypassed, probed once for the page's life. */
+/** Whether this page's worker is bypassed: one probe at a time, its answer shared by every ask. */
 export function isThisPageWorkerBypassed(): Promise<boolean> {
-  probed ??= probeWorker(pageWorkerOf(window), isPageWorkerBypassed);
-  return probed;
+  probing ??= probeWorker(pageWorkerOf(window), isPageWorkerBypassed).finally(() => {
+    probing = undefined;
+  });
+  return probing;
+}
+
+/**
+ * Says the page's art failed to load, so the note probes its worker again: the many posters of a page
+ * failing at once share the one probe made for the first.
+ */
+export function suspectWorker(): void {
+  for (const listener of suspicionListeners) {
+    listener();
+  }
+}
+
+/** Calls listener each time the page's art fails to load, until the returned stop. */
+export function onWorkerSuspected(listener: () => void): () => void {
+  suspicionListeners.add(listener);
+  return () => {
+    suspicionListeners.delete(listener);
+  };
 }
 
 /**
@@ -34,7 +58,8 @@ export async function probeWorker(
     return false;
   }
   const isWorkerBypassedNow = await isBypassed();
-  if (isWorkerBypassedNow) {
+  if (isWorkerBypassedNow && !isReported) {
+    isReported = true;
     reportFailure(
       new Error(
         "developer tools bypass the page's service worker: its probe was answered by the network, or not at all, so its posters and films do not load (DevTools' Bypass for network)",
@@ -45,8 +70,8 @@ export async function probeWorker(
 }
 
 /**
- * The line above every screen while developer tools bypass the page's worker: posters and films 404
- * at a client origin with nothing said, and an afternoon went on the worker before the box was found
+ * The line above every screen while developer tools bypass the page's worker, asked again each time
+ * the page's art fails to load: posters and films 404 at a client origin with nothing said, and an afternoon went on the worker before the box was found
  * ticked (idiosyncrasies.md, the Bypass entry; agent-failures A51). probe is the page's own unless a
  * test gives one.
  */
@@ -58,16 +83,21 @@ export function WorkerBypassedNote(props: {
   const probe = props.probe ?? isThisPageWorkerBypassed;
   useEffect(() => {
     let isShown = true;
-    probe().then(
-      (isWorkerBypassedNow) => {
-        if (isShown) {
-          setIsBypassed(isWorkerBypassedNow);
-        }
-      },
-      () => undefined, // a probe that cannot run says nothing: the page goes on as it was
-    );
+    const ask = (): void => {
+      probe().then(
+        (isWorkerBypassedNow) => {
+          if (isShown) {
+            setIsBypassed(isWorkerBypassedNow);
+          }
+        },
+        () => undefined, // a probe that cannot run says nothing: the page goes on as it was
+      );
+    };
+    ask();
+    const stop = onWorkerSuspected(ask);
     return () => {
       isShown = false;
+      stop();
     };
   }, [probe]);
   return isBypassed ? (

@@ -7,7 +7,7 @@ import { sendFailuresTo } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mount, settleAnswers, type Mounted } from "./test-dom.tsx";
-import { probeWorker, WorkerBypassedNote } from "./worker-bypassed-note.tsx";
+import { probeWorker, suspectWorker, WorkerBypassedNote } from "./worker-bypassed-note.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -21,6 +21,19 @@ afterEach(() => {
 describe("WorkerBypassedNote", () => {
   it("says developer tools bypass the worker when its probe says so", async () => {
     mounted = await mount(<WorkerBypassedNote probe={() => Promise.resolve(true)} />);
+    await settleAnswers();
+    expect(mounted.container.textContent).toBe(
+      "Developer tools are bypassing the service worker; media won't load.",
+    );
+  });
+
+  it("asks again when the page's art fails, saying so once the box is ticked after the page loaded (A51)", async () => {
+    let isBypassed = false;
+    mounted = await mount(<WorkerBypassedNote probe={() => Promise.resolve(isBypassed)} />);
+    await settleAnswers();
+    expect(mounted.container.textContent).toBe("");
+    isBypassed = true;
+    suspectWorker();
     await settleAnswers();
     expect(mounted.container.textContent).toBe(
       "Developer tools are bypassing the service worker; media won't load.",
@@ -45,6 +58,11 @@ describe("probeWorker", () => {
       Promise.resolve(true),
     );
     expect(isBypassed).toBe(true);
+    expect(sent.filter((each) => each.includes("bypass the page's service worker"))).toHaveLength(
+      1,
+    );
+    // Asked again as more art fails, the core's log is not told again.
+    await probeWorker({ isUnderLoader: true, isControlled: true }, () => Promise.resolve(true));
     expect(sent.filter((each) => each.includes("bypass the page's service worker"))).toHaveLength(
       1,
     );

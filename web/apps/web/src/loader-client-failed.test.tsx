@@ -25,8 +25,16 @@ it("says the client did not load, with what happened to copy: the server, the fi
   expect(text).toContain("Service worker controlling the page: yes");
   expect(text).toContain("Browser: Mozilla/5.0 Chrome/156");
 
-  mounted = await mount(<ClientFailedPage text={text} />);
+  expect(text).toContain('untick "Bypass for network" under Application → Service workers');
+
+  mounted = await mount(<ClientFailedPage text={text} isControlled={true} />);
   expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain("did not load");
+  expect(mounted.container.textContent).toContain("untick “Bypass for network”");
   expect(buttonWithText(mounted.container, "Copy what happened")).toBeDefined();
   expect(mounted.container.querySelector(".what-happened pre")?.textContent).toBe(text);
+});
+
+it("says nothing of developer tools where no worker controls the page", async () => {
+  mounted = await mount(<ClientFailedPage text="" isControlled={false} />);
+  expect(mounted.container.textContent).not.toContain("Bypass for network");
 });

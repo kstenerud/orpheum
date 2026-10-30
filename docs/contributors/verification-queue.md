@@ -1759,12 +1759,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   arrows reach Enter manually and the works it finds, and Back closes it with focus on the "…".
   (`web/apps/web/src/more-actions.tsx`, `match-correction.tsx`, `modal-dialog.tsx`)
 - [ ] **VQ174** — a page says when developer tools bypass its service worker, on staging's client
-  origin in Chrome on the Mac. Open the home page with DevTools open, tick Application → Service
-  workers → "Bypass for network" and reload: passes when the page shows "Developer tools are bypassing
-  the service worker; media won't load" above the screen and the core's log has one client report
-  saying "developer tools bypass the page's service worker". **Then untick the box** (it stays ticked
-  across DevTools sessions, agent-failures A51) and reload: the line is gone and the posters load.
-  (`web/apps/web/src/worker-bypassed-note.tsx`)
+  origin in Chrome on the Mac. (1) Open the home page with DevTools open and the posters shown; tick
+  Application → Service workers → "Bypass for network" **without reloading**, then go to All Series:
+  passes when the page shows "Developer tools are bypassing the service worker; media won't load"
+  above the screen and the core's log has one client report saying "developer tools bypass the page's
+  service worker". (2) Reload with the box still ticked: the client cannot load, and the loader's page
+  says so with a line to untick "Bypass for network", then reload. (3) **Untick the box** (it stays
+  ticked across DevTools sessions, agent-failures A51) and reload: the line is gone and the posters
+  load. A reload with the box ticked never reaches the client, so the note shows only for a box ticked
+  after the page loaded (the owner, 2026-10-30). (`web/apps/web/src/worker-bypassed-note.tsx`,
+  `loader-client-failed.tsx`, `poster.tsx`)
 - [ ] **VQ175** — a cast's remote works the receiver's sound, on staging: cast a film with more than
   one audio track and a 5.1 track (so it has a boosted mix) from Chrome on the Mac to the Fire TV, Use
   on the TV. Passes when the casting page shows Dialogue boost, Level loudness and the Audio menu as

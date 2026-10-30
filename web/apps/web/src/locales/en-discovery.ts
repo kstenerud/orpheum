@@ -132,6 +132,8 @@ export const enDiscovery = {
     },
     clientFailed:
       "Your server was reached, but its page did not load. Reload to try again; if it goes on, copy what happened and send it to whoever runs your server.",
+    clientFailedBypass:
+      "If this browser's developer tools are open, they may be bypassing the service worker that loads it: untick “Bypass for network” under Application → Service workers, then reload.",
     refused:
       "This server's client needs version {{needs}} of the page that reaches it, which serves version {{has}}. Ask the person who runs your server to update it.",
   },

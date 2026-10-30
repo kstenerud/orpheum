@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "./icon.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
+import { suspectWorker } from "./worker-bypassed-note.tsx";
 
 /**
  * A poster, or a named blank where there is none, or where its image does not load: one not yet
@@ -149,6 +150,7 @@ function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown 
     url: againUrl(sourceSha256, size, current.again),
     onError: () => {
       setState({ sha256: sourceSha256, isFailed: true, again: current.again });
+      suspectWorker(); // a bypassed worker 404s every image, and the page says so (A51)
     },
   };
 }
