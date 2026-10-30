@@ -517,3 +517,9 @@ had leaned on.
   the TV with the device lab's remote probe (`lab-remote.tsx`), log the OK's events on a form, then
   fix. Also seen: clearing Silk's site data sends it to bing.com, so VQ160 (the local-network note
   on a fresh visit) needed the address typed by the remote; it passed so (no note shown).
+- **No way to mark a guessed film "identified correctly" (the owner, 2026-10-30).** A guessed match
+  (D301, D307) can be corrected ("Identified incorrectly") but not confirmed. The store already has
+  the step, `ConfirmTitleMatch` (`internal/store/queries/identify.sql`: "A person confirmed the match:
+  permanent, and never moved by a later pass", D172), but no API or page calls it. Owed: an
+  "Identified correctly" beside "Identified incorrectly" under a guessed title's "…" (D379's menu),
+  confirming the match through an endpoint, and the guessed mark gone once confirmed.
