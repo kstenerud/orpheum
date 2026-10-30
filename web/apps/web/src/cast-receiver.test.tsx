@@ -17,7 +17,7 @@ import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { onCommand } from "./input-commands.ts";
-import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, refusal, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -345,6 +345,19 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
       reason: "takenBack",
     });
     expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).not.toHaveBeenCalled();
+  });
+
+  it("goes to the film's page, its receiving over, when its cast ended unseen with no one controlling it (D383 §2)", async () => {
+    const { server, services, onOver, onLeave } = await receiver({ "GET /items/10": [200, {}] });
+    act(() => {
+      services.navigation.go({ screen: "play", fileId: 4 });
+      services.navigation.noteInPlace({ screen: "title", itemId: 10 });
+    });
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "receiverGone" });
+    await settleUntil(() => onOver.mock.calls.length > 0);
+    expect(services.navigation.route()).toEqual({ screen: "title", itemId: 10 });
     expect(onLeave).not.toHaveBeenCalled();
   });
 

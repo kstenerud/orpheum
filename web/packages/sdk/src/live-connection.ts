@@ -70,6 +70,13 @@ export interface LiveSnapshot {
   /** Whether the server has said, since the page loaded, what this device sends: none, or a cast. */
   readonly isSendingKnown: boolean;
   /**
+   * Whether the server has said, since the page loaded, whether it hands this device a cast as it
+   * connects: a cast handed, or the answer to the ping sent once it told the devices, which the server
+   * answers only after anything it hands a connection on connecting, a receiver loaded again among
+   * them (D383 §2). In front, a tab still receiving is handed its cast before this.
+   */
+  readonly isReceiveKnown: boolean;
+  /**
    * Whether the server refused the sign-in, or said it ended (the device removed from another),
    * after which it connects no more.
    */
@@ -117,6 +124,7 @@ const startingSnapshot: LiveSnapshot = {
   receive: undefined,
   sending: undefined,
   isSendingKnown: false,
+  isReceiveKnown: false,
   isRefused: false,
 };
 
@@ -259,6 +267,8 @@ class PageLiveConnection implements LiveConnection {
   #isClosed = true;
   /** Whether the current socket has said hello, after which a move of the tab is said on it. */
   #isGreeted = false;
+  /** The tMono of the ping whose answer says nothing was handed on connecting (isReceiveKnown). */
+  #receiveKnownPing: number | undefined;
   /** Whether its page was left, its socket given up, until it returns from the back/forward cache. */
   #isLeft = false;
   /** Ends hearing its page; undefined while closed. */
@@ -418,20 +428,37 @@ class PageLiveConnection implements LiveConnection {
           deviceIds: message.deviceIds,
           inFrontDeviceIds: message.inFrontDeviceIds,
         });
+        this.#askWhetherHanded();
         return;
       case "receive":
-        this.#change({ ...this.#snapshot, receive: message.receive });
+        this.#change({ ...this.#snapshot, receive: message.receive, isReceiveKnown: true });
         return;
       case "sending":
         this.#change({ ...this.#snapshot, sending: message.sending, isSendingKnown: true });
         return;
       case "pong":
         this.#shownCheck.heardPong(message.tMono);
+        if (message.tMono === this.#receiveKnownPing && !this.#snapshot.isReceiveKnown) {
+          this.#change({ ...this.#snapshot, isReceiveKnown: true });
+        }
         return;
       case "signedOut":
         this.#refused();
         return;
     }
+  }
+
+  /**
+   * Once the server has told a socket the devices, pings it, once per socket until isReceiveKnown: the
+   * server reads the ping only after its connecting is done, so its answer follows any cast it handed.
+   */
+  #askWhetherHanded(): void {
+    if (this.#snapshot.isReceiveKnown || this.#receiveKnownPing !== undefined) {
+      return;
+    }
+    const tMono = Math.max(1, Math.round(this.#options.monotonicMs()));
+    this.#receiveKnownPing = tMono;
+    this.#send({ type: "ping", tMono });
   }
 
   /** Stops for good: the server refused the sign-in, or said it ended. */
@@ -472,6 +499,7 @@ class PageLiveConnection implements LiveConnection {
   #connect(): void {
     this.#generation += 1;
     this.#isGreeted = false;
+    this.#receiveKnownPing = undefined; // a socket given up before its answer asks again on the next
     this.#unansweredPings = 0;
     clearInterval(this.#pinger);
     this.#shownCheck.stop();

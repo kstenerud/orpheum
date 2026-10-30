@@ -164,6 +164,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   history step too, and full screen left by the browser, not the page, told to the log), or OK or a
   click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, ending the session: a film plays on here, the
   ready page goes home. Stopped by the sender it goes back to the page it was on before the session; either way back through the history where that page is behind, the pages the session added left ahead, so Back never steps into a film the cast played (`leaveTheCastsEntries`).
+  **A cast no one controls is left for the film's page** (D383 §2): a page loaded again while its tab
+  received a cast (a reload, a deploy) holds its film until the server says whether it hands the cast
+  again (the live connection's `isReceiveKnown`), and, handed none or one not taken, goes in its
+  place to the film's page its Play page noted, or home where none was noted, on the ready page, or
+  where the person may not see it (403, 404); a received cast's session that ends with no one
+  controlling it (gone, its receiver gone too long) does the same (`src/cast-uncontrolled.ts`).
+  `src/cast-uncontrolled.test.tsx`, `src/cast-receiver.test.tsx`; on a device, VQ189.
   The remote holds no player: with a film playing, its controls (`src/session-remote.tsx`), Up next,
   *Play on this device instead* (`/play/‹id›?at=‹ms›&here=1`, the receiver waiting ready) and Stop
   casting; with none, *Ready on ‹Device›* and Stop casting; with Watch Together on too, a way to its
