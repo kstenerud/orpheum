@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { apiPrefix } from "./client.ts";
+import type { PlaybackSound, SoundChoice, SoundTrack } from "./playback-sound.ts";
 
 /** The version of the session WebSocket's messages, every message's v (cut-a §5.1). */
 export const togetherProtocolVersion = 2;
@@ -108,6 +109,8 @@ export interface PlaybackReport {
   readonly delivery: "direct" | "converted";
   readonly qualityKbps?: number | undefined;
   readonly linkKbps?: number | undefined;
+  /** How its film sounds and what of it may be chosen; undefined where it does not say. */
+  readonly sound?: PlaybackSound | undefined;
 }
 
 /** One device of a member in the roster, and its health. */
@@ -258,7 +261,8 @@ export type TogetherServerMessage =
       readonly group: GroupView | undefined;
     }
   | { readonly type: "ended"; readonly reason: TogetherEndReason }
-  | { readonly type: "rtc"; readonly fromDeviceId: number; readonly signal: VoiceSignal };
+  | { readonly type: "rtc"; readonly fromDeviceId: number; readonly signal: VoiceSignal }
+  | { readonly type: "sound"; readonly fromDeviceId: number; readonly choice: SoundChoice };
 
 /**
  * One piece of voice signalling between two devices, which the server relays without reading
@@ -375,7 +379,73 @@ function playbackIn(value: unknown): PlaybackReport | undefined {
     const each = fields[key];
     return typeof each === "number" && each > 0 ? each : undefined;
   };
-  return { delivery, qualityKbps: kbps("qualityKbps"), linkKbps: kbps("linkKbps") };
+  return {
+    delivery,
+    qualityKbps: kbps("qualityKbps"),
+    linkKbps: kbps("linkKbps"),
+    sound: playbackSoundIn(fields["sound"]),
+  };
+}
+
+const trackKinds: readonly SoundTrack["kind"][] = ["plain", "commentary", "described"];
+
+/** A track as a roster says it, or undefined where it names no stream. */
+function soundTrackIn(value: unknown): SoundTrack | undefined {
+  const fields = recordOf(value);
+  const streamId = fields?.["streamId"];
+  if (fields === undefined || typeof streamId !== "number") {
+    return undefined;
+  }
+  const language = fields["language"];
+  const title = fields["containerTitle"];
+  return {
+    streamId,
+    language: typeof language === "string" ? language : "",
+    ...(typeof title === "string" && title !== "" ? { containerTitle: title } : {}),
+    kind: trackKinds.find((kind) => kind === fields["kind"]) ?? "plain",
+  };
+}
+
+/** A roster device's sound, or undefined where it says none. */
+function playbackSoundIn(value: unknown): PlaybackSound | undefined {
+  const fields = recordOf(value);
+  if (fields === undefined) {
+    return undefined;
+  }
+  const boost = fields["isBoostOn"];
+  const streamId = fields["audioStreamId"];
+  const tracks = Array.isArray(fields["audioTracks"]) ? fields["audioTracks"] : [];
+  return {
+    isBoostOn: typeof boost === "boolean" ? boost : undefined,
+    isLevellingOn: fields["isLevellingOn"] === true,
+    audioStreamId: typeof streamId === "number" && streamId > 0 ? streamId : undefined,
+    audioTracks: tracks.flatMap((each: unknown) => {
+      const track = soundTrackIn(each);
+      return track === undefined ? [] : [track];
+    }),
+  };
+}
+
+/** A sound message's choice, or undefined where it is none a player carries out. */
+function soundChoiceIn(value: unknown): SoundChoice | undefined {
+  const fields = recordOf(value);
+  if (fields === undefined) {
+    return undefined;
+  }
+  switch (fields["kind"]) {
+    case "boost":
+      return { kind: "boost", isOn: fields["isOn"] === true };
+    case "levelling":
+      return { kind: "levelling", isOn: fields["isOn"] === true };
+    case "audioTrack": {
+      const streamId = fields["streamId"];
+      return typeof streamId === "number" && streamId > 0
+        ? { kind: "audioTrack", streamId }
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
 }
 
 /** A roster device's cannotKeepUp, or undefined when it has none or it is not its shape. */
@@ -496,6 +566,21 @@ function parseRtc(record: Readonly<Record<string, unknown>>): TogetherServerMess
     : { type: "rtc", fromDeviceId, signal };
 }
 
+/** An ended message's reason, "gone" for one this client does not know. */
+function endReasonIn(value: unknown): TogetherEndReason {
+  return endReasons.find((each) => each === value) ?? "gone";
+}
+
+/** A sound message: a choice made on another of the person's devices, for this one's player. */
+function parseSoundChosen(
+  record: Readonly<Record<string, unknown>>,
+): TogetherServerMessage | undefined {
+  const choice = soundChoiceIn(record["sound"]);
+  return choice === undefined
+    ? undefined
+    : { type: "sound", fromDeviceId: numberIn(record, "fromDeviceId"), choice };
+}
+
 /** One message the server sent, as text, parsed; undefined for one not understood or not used. */
 export function parseTogetherMessage(text: string): TogetherServerMessage | undefined {
   let parsed: unknown;
@@ -517,12 +602,12 @@ export function parseTogetherMessage(text: string): TogetherServerMessage | unde
       };
     case "pong":
       return { type: "pong", tMono: numberIn(record, "tMono"), group: parseGroup(record["group"]) };
-    case "ended": {
-      const reason = endReasons.find((each) => each === record["reason"]) ?? "gone";
-      return { type: "ended", reason };
-    }
+    case "ended":
+      return { type: "ended", reason: endReasonIn(record["reason"]) };
     case "rtc":
       return parseRtc(record);
+    case "sound":
+      return parseSoundChosen(record);
     default:
       return parseFollowed(record, parseGroup(record["group"]));
   }

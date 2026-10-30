@@ -12,6 +12,7 @@ import {
   bodyField,
   buttonNamed,
   buttonWithText,
+  choose,
   click,
   mount,
   playbackCauses,
@@ -161,6 +162,73 @@ describe("the casting page (D364 §8, §13)", () => {
     expect(page.querySelector(".cast-remote__playback")?.textContent).toBe(
       "Plays the file as it is",
     );
+  });
+
+  // A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed
+  // after taking control back (the owner, VQ116's run).
+  it("shows the receiver's sound as it says it, and sends the person's choices of it to the receiver", async () => {
+    const { sockets } = await casting({});
+    const page = mounted!.container;
+    const server = sockets.session;
+    const labelled = (text: string): HTMLInputElement | null | undefined =>
+      [...page.querySelectorAll("label")]
+        .find((label) => label.textContent === text)
+        ?.querySelector("input");
+    expect(page.querySelector(".cast-remote__sound")).toBeNull();
+    const sound = {
+      isBoostOn: false,
+      isLevellingOn: true,
+      audioStreamId: 1,
+      audioTracks: [
+        { streamId: 1, language: "en", kind: "plain" },
+        { streamId: 2, language: "en", containerTitle: "Director", kind: "commentary" },
+      ],
+    };
+    const roster = (said: Readonly<Record<string, unknown>>): Record<string, unknown> => ({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [
+            { id: 5, role: "panel" },
+            {
+              id: 7,
+              role: "video",
+              isLeader: true,
+              playback: { delivery: "converted", sound: said },
+            },
+          ],
+        },
+      ],
+    });
+    await server.say(roster(sound));
+    expect(labelled("Dialogue boost")?.checked).toBe(false);
+    expect(labelled("Level loudness")?.checked).toBe(true);
+    const select = page.querySelector<HTMLSelectElement>(".cast-remote__sound select");
+    expect([...(select?.options ?? [])].map((option) => option.textContent)).toEqual([
+      "English",
+      "English · Director · commentary",
+    ]);
+    expect(select?.value).toBe("1");
+
+    await click(labelled("Dialogue boost"));
+    await click(labelled("Level loudness"));
+    await choose(select, "2");
+    expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
+      { v: 2, type: "sound", sound: { kind: "boost", isOn: true } },
+      { v: 2, type: "sound", sound: { kind: "levelling", isOn: false } },
+      { v: 2, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
+    ]);
+
+    // The receiver says how it sounds after; a film with no boosted mix offers no boost.
+    await server.say(
+      roster({ ...sound, isBoostOn: undefined, isLevellingOn: false, audioStreamId: 2 }),
+    );
+    expect(labelled("Dialogue boost")).toBeUndefined();
+    expect(labelled("Level loudness")?.checked).toBe(false);
+    expect(page.querySelector<HTMLSelectElement>(".cast-remote__sound select")?.value).toBe("2");
   });
 
   it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {

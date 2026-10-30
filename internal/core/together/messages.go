@@ -24,6 +24,11 @@ const (
 	// MessageStanding is what a device's page waits on before its film can play (Standing): shown
 	// to everyone in the roster, it changes nothing of whom the group waits for (D246 §6).
 	MessageStanding MessageType = "standing"
+	// MessageSound is a person's choice of how their film sounds, its dialogue boost, its levelling
+	// or its audio track, made on a device of theirs with no player, a cast's remote, for their
+	// devices that play it to carry out as their own press (SoundChoice); the server relays it to
+	// those devices, under the same name, and keeps nothing of it.
+	MessageSound MessageType = "sound"
 )
 
 // The messages the server sends.
@@ -448,6 +453,8 @@ type Inbound struct {
 	Reason     SuspendReason `json:"reason,omitempty"`
 	// Note is a note's: one thing the device's player did, for the server's log.
 	Note *PlayerNote `json:"note,omitempty"`
+	// Sound is a sound message's choice.
+	Sound *SoundChoice `json:"sound,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
 	// member's device.
 	ToDeviceID int64  `json:"toDeviceId,omitempty"`
@@ -485,6 +492,8 @@ type Outbound struct {
 	Candidate    string `json:"candidate,omitempty"`
 	// Ended's reason.
 	Reason string `json:"reason,omitempty"`
+	// Sound is a sound message's choice, relayed from FromDeviceID.
+	Sound *SoundChoice `json:"sound,omitempty"`
 	// Tuning is welcome's: how the device follows the group, from the settings (D250 §1).
 	Tuning *Tuning `json:"tuning,omitempty"`
 	// encoded is a broadcast's JSON, made by the first device's writer and shared by the rest: a

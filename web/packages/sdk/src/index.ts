@@ -209,7 +209,9 @@ export type {
   LiveConnection,
   LiveSnapshot,
 } from "./live-connection.ts";
+export type { PlaybackSound, SoundChoice, SoundTrack } from "./playback-sound.ts";
 export type {
+  CarriesSoundChoices,
   ConnectionStatus,
   GroupCommand,
   PlayerNote,

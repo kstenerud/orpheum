@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { wireSound } from "./playback-sound.ts";
 import type { LeftPage, ShownPage } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
 import {
@@ -166,11 +167,12 @@ export function expectedGroupPositionMs(
 
 /** A playback in whole numbers, as the server reads them. */
 export function wholePlayback(playback: PlaybackReport): PlaybackReport {
-  const { qualityKbps, linkKbps } = playback;
+  const { qualityKbps, linkKbps, sound } = playback;
   return {
     delivery: playback.delivery,
     ...(qualityKbps === undefined ? {} : { qualityKbps: Math.round(qualityKbps) }),
     ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+    ...(sound === undefined ? {} : { sound: wireSound(sound) }),
   };
 }
 
@@ -286,7 +288,8 @@ export function afterMessage(
     case "ended":
       return { ...current, status: "ended", endReason: message.reason };
     case "rtc":
-      return current; // voice signalling goes to its listeners, and changes nothing here
+    case "sound":
+      return current; // voice signalling and sound choices go to their listeners, changing nothing here
   }
 }
 

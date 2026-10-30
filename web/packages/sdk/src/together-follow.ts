@@ -145,7 +145,7 @@ export class GroupFollower {
       },
       startGate,
     });
-    this.#playback = new PlaybackTold(options.delivery);
+    this.#playback = new PlaybackTold(options.delivery, options.readSound);
   }
 
   /** Whether this device leads its session, as its roster says (D371 §1). */

@@ -239,8 +239,8 @@ func (each *device) takeState(message Inbound) {
 		each.suspended = message.Reason
 	case MessageResume:
 		each.suspended = ""
-	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageStanding, MessageWelcome,
-		MessagePong, MessageGroup,
+	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageStanding, MessageSound,
+		MessageWelcome, MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
 }
@@ -557,6 +557,8 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.logNote(ctx, now, sender, from, message.Note)
 	case MessageStanding:
 		handled.takeStanding(ctx, sender, from, message.Standing)
+	case MessageSound:
+		handled.relaySound(ctx, sender, from, message.Sound)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
@@ -605,6 +607,24 @@ func (current *session) relay(from *device, message Inbound) {
 				SDP: message.SDP, Candidate: message.Candidate,
 			})
 			return
+		}
+	}
+}
+
+// relaySound passes a member's choice of their film's sound to their own other devices that play
+// it, a cast's receiver from its remote, which carry it out as their own press; another member's
+// devices are never told, and a choice no remote may make is refused.
+func (current *session) relaySound(ctx context.Context, who *member, from *device, choice *SoundChoice) {
+	if !choice.isKnown() {
+		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+		return
+	}
+	current.logger.InfoContext(ctx, "watch together: a remote chose its film's sound",
+		append(current.deviceAttributes(who, from),
+			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID)...)
+	for _, each := range who.devices {
+		if each.id != from.id && each.role.plays() {
+			each.send(Outbound{V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice})
 		}
 	}
 }

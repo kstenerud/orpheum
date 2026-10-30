@@ -53,8 +53,12 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   nudged or sought forward to the group, telling its state each second, and leads again from there
   once in step, the group never stepping back for it (D374, `LeaderCatchUp`); and it tells its
   session how it plays the film, its delivery, the quality it began and the link it chose it on, for
-  a cast's remote to show (D371 §4). Its person's own moves are commands, as any player's. A follower
-  whose session another device leads follows the group as above. `src/together-leader.test.ts`.
+  a cast's remote to show (D371 §4), and, where its page reads it (`readSound`), how its film sounds:
+  the dialogue boost, levelling and the audio track among the file's own (`PlaybackSound`), which the
+  remote changes by `chooseSound`, the server relaying each choice to the person's own devices that
+  play (`subscribeToSoundChoices`). Its person's own moves are commands, as any player's. A follower
+  whose session another device leads follows the group as above. `src/together-leader.test.ts`,
+  `src/together-connection-leader.test.ts`.
 - **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
   holds it `Paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock

@@ -141,7 +141,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (D371 §1, §5); while its person is a signed-in guest in a session, the ready page follows that
   session's film in their part, just another follower, and the guest's own page leaves the film to it,
   holding the group's controls its rights give (D371 §4). The remote shows how the receiver plays
-  the film: the file as it is or converted, its quality and its link (D371 §4). It fills the window and
+  the film: the file as it is or converted, its quality and its link (D371 §4); and its sound, the
+  dialogue boost where the film has a boosted mix, levelling and the audio track, each choice sent to
+  the receiver, whose own switch or menu carries it out as its press would, kept for the person, the
+  remote showing what the receiver says after (`src/sound-panel.ts`; a Fire TV's controls are hidden
+  while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
+  run). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
@@ -153,7 +158,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   casting; with none, *Ready on ‹Device›* and Stop casting; with Watch Together on too, a way to its
   page, which holds the controls; once over it says why with *Play here from*, asked for with cause
   castOver and that start, a film page's warm-up let go of. `src/cast-to.test.tsx`,
-  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-ready.test.tsx`,
+  `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
+  `src/cast-ready.test.tsx`,
   `src/cast-return.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.

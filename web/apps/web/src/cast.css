@@ -39,6 +39,14 @@
   max-width: 40rem;
 }
 
+/* The receiver's sound on its remote (cast-remote.tsx): its switches and its track, in a row. */
+.cast-remote__sound {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
 /* The list of devices to cast to (cast-to.tsx). */
 .cast-to__devices {
   display: grid;

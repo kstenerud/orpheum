@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useSoundPart } from "./sound-panel.ts";
 
 /**
  * A choice of the person's own, which holds in every file they play: its name in PUT /me/preferences,
@@ -49,6 +50,28 @@ export function OwnChoiceSwitch(props: {
   const { api } = useServices();
   const [isOn, setIsOn] = useState(props.isInitiallyOn);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const switchTo = (isNowOn: boolean): void => {
+    setIsOn(isNowOn);
+    props.onSwitched(isNowOn);
+    keepOwnChoice(api, props.choice, isNowOn).then(
+      () => {
+        setProblem(undefined);
+        props.onKept?.(isNowOn);
+      },
+      (cause: unknown) => {
+        setProblem(problemText(t, cause));
+      },
+    );
+  };
+  // A cast's remote shows the switch and works it, as a press here would (sound-panel.ts).
+  useSoundPart(
+    { kind: props.choice === "isDialogueBoostOn" ? "boost" : "levelling", isOn },
+    (choice) => {
+      if ("isOn" in choice && choice.isOn !== isOn) {
+        switchTo(choice.isOn);
+      }
+    },
+  );
   return (
     <>
       <label className="sound__switch">
@@ -56,18 +79,7 @@ export function OwnChoiceSwitch(props: {
           type="checkbox"
           checked={isOn}
           onChange={(event) => {
-            const isNowOn = event.currentTarget.checked;
-            setIsOn(isNowOn);
-            props.onSwitched(isNowOn);
-            keepOwnChoice(api, props.choice, isNowOn).then(
-              () => {
-                setProblem(undefined);
-                props.onKept?.(isNowOn);
-              },
-              (cause: unknown) => {
-                setProblem(problemText(t, cause));
-              },
-            );
+            switchTo(event.currentTarget.checked);
           }}
         />
         {props.label}

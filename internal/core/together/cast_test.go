@@ -4,6 +4,7 @@ package together
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -234,5 +235,93 @@ func TestCast_AGuestsReceiverTakesTheirPartAsAFollower(t *testing.T) {
 	}
 	if hostBox.last(MessageGroup).Seq != seq {
 		t.Errorf("the guest's receiver loading changed the group: %+v", hostBox.last(MessageGroup).Group)
+	}
+}
+
+// A remote's choice of its film's sound, the dialogue boost, levelling or the audio track, reaches the
+// person's own devices that play the film, a cast's receiver, which carries it out as its own press;
+// it reaches no other member's, nor the remote itself, and a choice no remote may make is refused. A
+// Fire TV's own controls are hidden while it is controlled, so its sound could only be changed after
+// taking control back (the owner, VQ116's run).
+func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	_, playerBox := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
+	remote, remoteBox := stage.attach(t, stage.opened.MembershipCredential, RolePanel)
+	guest := stage.join(t)
+	_, guestBox := stage.attach(t, guest.MembershipCredential, RoleVideo)
+	for _, choice := range []SoundChoice{
+		{Kind: SoundBoost, IsOn: true},
+		{Kind: SoundLevelling},
+		{Kind: SoundAudioTrack, StreamID: 3},
+	} {
+		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: &choice})
+		relayed := playerBox.last(MessageSound)
+		if relayed.Sound == nil || *relayed.Sound != choice || relayed.FromDeviceID != remote.DeviceID {
+			t.Errorf("the player was relayed %+v (%+v); want %+v from the remote", relayed, relayed.Sound, choice)
+		}
+	}
+	if count := guestBox.count(MessageSound); count != 0 {
+		t.Errorf("another member's player was told %d sound choices; want none", count)
+	}
+	if count := remoteBox.count(MessageSound); count != 0 {
+		t.Errorf("the remote was told %d of its own choices; want none", count)
+	}
+	for _, refused := range []*SoundChoice{nil, {Kind: "louder"}, {Kind: SoundAudioTrack}} {
+		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: refused})
+	}
+	if count := playerBox.count(MessageSound); count != 3 {
+		t.Errorf("the player was told %d sound choices; want the 3 a remote may make", count)
+	}
+	if count := remoteBox.count(MessageRejected); count != 3 {
+		t.Errorf("the remote's unknown choices were refused %d times; want 3", count)
+	}
+}
+
+// A player's state may say how its film sounds, which the roster shows its remote; a sound past the
+// bounds, or of a kind no player says, is not taken, the last known kept.
+func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, _ := stage.attach(t, cast.ReceiverCredential, RoleVideo)
+	_, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	soundInRoster := func() *PlaybackSound {
+		for _, each := range remoteBox.last(MessageRoster).Roster {
+			for _, attached := range each.Devices {
+				if attached.ID == receiver.DeviceID && attached.Playback != nil {
+					return attached.Playback.Sound
+				}
+			}
+		}
+		return nil
+	}
+	isOn := true
+	sound := PlaybackSound{
+		IsBoostOn: &isOn, IsLevellingOn: true, AudioStreamID: 2,
+		AudioTracks: []SoundTrack{
+			{StreamID: 1, Language: "en", Kind: "plain"},
+			{StreamID: 2, Language: "de", ContainerTitle: "Director", Kind: "commentary"},
+		},
+	}
+	stage.command(t, receiver, CommandChangeItem, 12)
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageState, Playing: true, FileID: 12,
+		Playback: &Playback{Delivery: DeliveryConverted, Sound: &sound},
+	})
+	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
+		t.Fatalf("the remote's roster says the receiver sounds %+v; want %+v", got, sound)
+	}
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageState, Playing: true, FileID: 12,
+		Playback: &Playback{Delivery: DeliveryConverted, Sound: &PlaybackSound{
+			AudioTracks: []SoundTrack{{StreamID: 1, Kind: "whispered"}},
+		}},
+	})
+	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
+		t.Errorf("after a track of a kind no player says, the receiver sounds %+v; want the last known", got)
 	}
 }

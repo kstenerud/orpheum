@@ -5,6 +5,7 @@
  * follows by. Kept apart from the follower (together-follow.ts), which reads them.
  */
 
+import type { PlaybackSound } from "./playback-sound.ts";
 import type { PlaybackReport, PlaybackRights } from "./together.ts";
 import type { ShownPage } from "./shown-page.ts";
 
@@ -62,6 +63,11 @@ export interface FollowOptions {
    * §4): the file as it is, or converted, its ladder; absent where nothing is to be said.
    */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
+  /**
+   * How the player's film sounds now, for the same roster, a cast's remote showing it and changing
+   * it (playback-sound.ts); absent where nothing is to be said.
+   */
+  readonly readSound?: (() => PlaybackSound | undefined) | undefined;
 }
 
 /** The events a following player tells the group of, and is moved by. */

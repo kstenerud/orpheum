@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { SoundChoice } from "./playback-sound.ts";
 import { ShownCheck } from "./shown-check.ts";
 import { whenPageChanges } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
@@ -114,6 +115,18 @@ export interface RelaysVoiceSignals {
 }
 
 /**
+ * A connection that carries a person's choices of their film's sound from a device of theirs with no
+ * player, a cast's remote, to their devices that play it, which carry each out as their own press
+ * (playback-sound.ts); the server relays them to the person's own devices alone.
+ */
+export interface CarriesSoundChoices {
+  /** Sends choice to the person's devices that play the film; dropped while not connected. */
+  readonly chooseSound: (choice: SoundChoice) => void;
+  /** Calls listener with each choice made on another of the person's devices; returns the unsubscribing. */
+  readonly subscribeToSoundChoices: (listener: (choice: SoundChoice) => void) => () => void;
+}
+
+/**
  * A connection that can tell the group its player cannot keep up (D247 §8): apart from
  * TogetherConnection, which a group's follower needs, as only the page that plays the chunked
  * quality knows.
@@ -146,11 +159,17 @@ interface Lost {
 }
 
 class SessionConnection
-  implements TogetherConnection, TellsCannotKeepUp, TellsStanding, RelaysVoiceSignals
+  implements
+    TogetherConnection,
+    TellsCannotKeepUp,
+    TellsStanding,
+    RelaysVoiceSignals,
+    CarriesSoundChoices
 {
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
   readonly #voiceSignalListeners = new Set<(fromDeviceId: number, signal: VoiceSignal) => void>();
+  readonly #soundChoiceListeners = new Set<(choice: SoundChoice) => void>();
   #snapshot = startingSnapshot;
   #seq = 0;
   #attempt = 0;
@@ -260,6 +279,15 @@ class SessionConnection
 
   readonly sendVoiceSignal = (toDeviceId: number, signal: VoiceSignal): void => {
     this.#send({ type: "rtc", toDeviceId, ...signal });
+  };
+
+  readonly chooseSound = (choice: SoundChoice): void => {
+    this.#send({ type: "sound", sound: choice });
+  };
+
+  readonly subscribeToSoundChoices = (listener: (choice: SoundChoice) => void): (() => void) => {
+    this.#soundChoiceListeners.add(listener);
+    return () => this.#soundChoiceListeners.delete(listener);
   };
 
   readonly subscribeToVoiceSignals = (
@@ -475,10 +503,7 @@ class SessionConnection
     if (message === undefined || this.#snapshot.status === "ended") {
       return;
     }
-    if (message.type === "rtc") {
-      for (const listener of this.#voiceSignalListeners) {
-        listener(message.fromDeviceId, message.signal);
-      }
+    if (this.#handedOn(message)) {
       return;
     }
     if (message.type === "pong") {
@@ -495,6 +520,26 @@ class SessionConnection
       this.#stopTimers();
       this.#socket?.close();
     }
+  }
+
+  /**
+   * Hands a message relayed from another device to its listeners, voice signalling or a sound choice,
+   * which change nothing of the session; whether it was one.
+   */
+  #handedOn(message: TogetherServerMessage): boolean {
+    if (message.type === "rtc") {
+      for (const listener of this.#voiceSignalListeners) {
+        listener(message.fromDeviceId, message.signal);
+      }
+      return true;
+    }
+    if (message.type === "sound") {
+      for (const listener of this.#soundChoiceListeners) {
+        listener(message.choice);
+      }
+      return true;
+    }
+    return false;
   }
 
   /** The socket closed: the session is gone, or the device connects again after a wait. */
@@ -563,6 +608,10 @@ class SessionConnection
  */
 export function createTogetherConnection(
   options: TogetherConnectionOptions,
-): TogetherConnection & TellsCannotKeepUp & TellsStanding & RelaysVoiceSignals {
+): TogetherConnection &
+  TellsCannotKeepUp &
+  TellsStanding &
+  RelaysVoiceSignals &
+  CarriesSoundChoices {
   return new SessionConnection(options);
 }
