@@ -440,6 +440,15 @@ describe("the link a chunked playback's estimate starts from (bandwidth-sampling
   });
 });
 
+describe("a chunked playback's quality steps (D382 §4)", () => {
+  it("reach the core's log among its link's notes, each marked a step", () => {
+    const video = new EventTarget() as HTMLVideoElement;
+    const options = choosingOptionsOf(video, { startAtBps: 1_992_000, monotonicMs: () => 0 });
+    options.noteStep?.("ceiling 4 to 3: gave up a chunk of 4");
+    expect(takeLinkNotes(video)).toEqual(["step: ceiling 4 to 3: gave up a chunk of 4"]);
+  });
+});
+
 describe("a chunked playback's word that the browser is offline (D266)", () => {
   it("is the browser's navigator.onLine, and never offline where the browser says nothing", () => {
     const options = choosingOptionsOf(new EventTarget() as HTMLVideoElement, {

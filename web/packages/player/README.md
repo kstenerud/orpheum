@@ -95,7 +95,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   estimate before it expected and its next-chunk bound's, "below" when slower than the bound, so the
   bound's calibration can be read from the log, and each chunk given up or stuck with the transport
   and WebRTC connection that carried it and how long since that connection last delivered bytes
-  (P6; the owner, 2026-10-29). A quality whose video, asked to play, stands still while its chunks arrive is
+  (P6; the owner, 2026-10-29), and each of its quality steps, as `step: …`, so a solo play's steps
+  reach the core's log as a Watch Together player's do (D382 §4). A quality whose video, asked to play, stands still while its chunks arrive is
   given up as one the device cannot play, with every quality above it, and reported (D266); its
   standing still counts only while the video holds `standsWithAheadAtLeastS` (1 s) of what it plays
   ahead, picture and sound, by its own buffered ranges, never hls.js's picture alone, and while its

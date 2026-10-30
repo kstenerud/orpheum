@@ -509,6 +509,20 @@ function isBrowserOffline(): boolean {
 }
 
 /**
+ * What keeps each of video's quality steps: among its diagnosis's steps, sent beside a stall or a
+ * seek, and, as "step: ceiling 4 to 0: ...", among its link's notes, which reach the core's log with
+ * every play report, so a solo play's every step is there as a Watch Together player's are (D382 §4).
+ */
+function stepAndLinkNoter(video: HTMLVideoElement): (step: string) => void {
+  const noteStep = stepNoter(video);
+  const noteLink = linkNoter(video);
+  return (step) => {
+    noteStep(step);
+    noteLink(`step: ${step}`);
+  };
+}
+
+/**
  * What the bitrate controller of video's chunked playback chooses by (D265): starting within
  * startAtBps at the steadiness level its offer says (D352 Q2), giving way to live voice and to its
  * group, telling the page of a quality unplayable here (D266), and keeping each of its choices, with
@@ -537,7 +551,7 @@ export function choosingOptionsOf(
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     longTasks: longTasksOf(globalThis),
     onUnplayable: sendUnplayable(video),
-    noteStep: stepNoter(video),
+    noteStep: stepAndLinkNoter(video),
     noteSamples: samplesNoter(video),
     noteSteadiness: steadinessNoter(video),
     noteLinkSpread: linkSpreadNoter(video),
