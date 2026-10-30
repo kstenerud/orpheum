@@ -1758,7 +1758,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   remote: arrows reach the "…", OK opens it on "Identified incorrectly", OK opens its dialog, the
   arrows reach Enter manually and the works it finds, and Back closes it with focus on the "…".
   (`web/apps/web/src/more-actions.tsx`, `match-correction.tsx`, `modal-dialog.tsx`)
-- [ ] **VQ174** — a page says when developer tools bypass its service worker, on staging's client
+- [x] **VQ174** — a page says when developer tools bypass its service worker, on staging's client
   origin in Chrome on the Mac. (1) Open the home page with DevTools open and the posters shown; tick
   Application → Service workers → "Bypass for network" **without reloading**, then go to All Series:
   passes when the page shows "Developer tools are bypassing the service worker; media won't load"
@@ -1811,7 +1811,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   walks the libraries, the list scrolling within its height where they are more than the screen
   holds; Back closes it, as do Left and Right, focus back on the icon, the page unchanged.
   (`web/apps/web/src/app-shell.tsx`, `library-browse.tsx`)
-- [ ] **VQ185** — a series' seasons show their real posters (D379 §1), on staging after its deploy,
+- [x] **VQ185** — a series' seasons show their real posters (D379 §1), on staging after its deploy,
   which migrates to step 0064. (1) Before deploying, note a TMDB series already matched on staging
   (Copper Kettle, or any with several seasons and specials), whose season cards show stills. Deploy and
   wait for the library's next pass (the start's sweep, or Scan library): the core's log shows
@@ -1822,7 +1822,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   FROM artwork WHERE item_id = <series id> AND removed_at IS NULL"` lists one row per season with a
   poster, and one with NULL, the series' own. (`internal/core/artwork/images.go`,
   `internal/core/library/art.go`)
-- [ ] **VQ186** — a season with no poster of its own, on staging. On the Mac's Chrome, a series
+- [x] **VQ186** — a season with no poster of its own, on staging. On the Mac's Chrome, a series
   whose TMDB record has a season with no poster (a new season, or a series TMDB lacks posters for) or
   one in a library that does not follow TMDB: passes when that season's card shows its first
   episode's still in its poster's place with no "No poster" caption, a season with neither its own

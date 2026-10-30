@@ -452,3 +452,14 @@ had leaned on.
   film played as its own file (the browser loads it) nor the film page's warm-up before a Play page has
   mounted in the tab; and its drop leaves the loader's WebRTC connection open (refusing what is sent),
   as closing it needs the loader's interface.
+
+## From the owner's device round (2026-10-30), next batch
+
+- **Who am I signed in as: folded into the 2026-10-30 batch at the owner's word ("so that it's
+  easier for me to test").** "There's nothing anywhere to tell me who I'm logged in as. We should at
+  least have this on the account page" (the owner, Mac Firefox as dan, VQ181). The account page now
+  says "Signed in as ‹name›" under its heading. The menu's top line already holds the bare name, in
+  small grey type, and went unnoticed; whether it should say "Signed in as" too is the owner's.
+- **VQ181's one-library case has no account to show it.** Every staging person (dan, s23,
+  lead-tests) has four libraries and admin five, so "the icon goes straight to its page" was
+  checked by its tests only; a device check needs a role with one library.

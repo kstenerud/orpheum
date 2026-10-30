@@ -205,6 +205,7 @@ export const en = {
   },
   account: {
     heading: "Your account",
+    signedInAs: "Signed in as {{name}}",
     yourLink: "Your link",
     yourLinkText:
       "Open this link on another phone or computer, or scan the code with its camera, to find this server again. It signs no one in.",

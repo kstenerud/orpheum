@@ -24,7 +24,8 @@ import { useResource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";
 
 /**
- * A person's own account: at the top, activating a device by the code it shows (D288); their
+ * A person's own account: under its heading, who is signed in (the owner, 2026-10-30: "nothing
+ * anywhere to tell me who I'm logged in as"); then activating a device by the code it shows (D288); their
  * devices, the link they registered by, the server's home address (D292 §6), their password
  * (D218, D221), how their episodes play on (plans/up-next.md), and, last, whether their pages show
  * debug tools. A device activated joins the list. A session that may not
@@ -40,6 +41,9 @@ export function Account(): JSX.Element {
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
+      {me.state === "loaded" ? (
+        <p className="account__who">{t("account.signedInAs", { name: me.value.name })}</p>
+      ) : null}
       {canManage ? <ActivateHere onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       {canManage ? <YourLink /> : null}
