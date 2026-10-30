@@ -280,20 +280,8 @@ func TestChunks_APlayerSayingASeekTookItThereIsTakenAtItsWord(t *testing.T) {
 	harness.shelveFilms(t)
 	base := api.Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
-		harness.httpServer.URL+base+"q700k432p/00001.m4s", http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("Authorization", "Bearer "+user)
-	request.Header.Set("Orpheum-Sought", "true")
-	answer, err := harness.httpServer.Client().Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = answer.Body.Close() //nolint:errcheck // its status is all that is read
-	if answer.StatusCode != http.StatusTooEarly {
-		t.Errorf("a chunk not made yet, asked for after a seek: %d, want 425", answer.StatusCode)
+	if status := harness.getSought(t, base+"q700k432p/00001.m4s", user); status != http.StatusTooEarly {
+		t.Errorf("a chunk not made yet, asked for after a seek: %d, want 425", status)
 	}
 	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`, `"isSought":true,`)
 }
@@ -313,20 +301,8 @@ func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
 		http.StatusTooEarly {
 		t.Fatalf("the sound's chunk, before the jump: %d %s; want 425", early.status, early.body)
 	}
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
-		harness.httpServer.URL+base+"q700k432p/00001.m4s", http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("Authorization", "Bearer "+user)
-	request.Header.Set("Orpheum-Sought", "true")
-	answer, err := harness.httpServer.Client().Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = answer.Body.Close() //nolint:errcheck // its status is all that is read
-	if answer.StatusCode != http.StatusTooEarly {
-		t.Errorf("the jump's picture, not made yet: %d, want 425", answer.StatusCode)
+	if status := harness.getSought(t, base+"q700k432p/00001.m4s", user); status != http.StatusTooEarly {
+		t.Errorf("the jump's picture, not made yet: %d, want 425", status)
 	}
 	harness.logs.AwaitLine(t, `"msg":"queued a run of chunks"`, `"storeDir":"1/chunks-sound0-96k/`,
 		`"wantedChunk":1,`)
