@@ -8,7 +8,7 @@ import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
-import { noteDecisionTimes } from "./play-state.ts";
+import { noteDecisionTimes } from "./play-state-video-events.ts";
 import { directDecision } from "./test-fixtures.ts";
 import { mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";

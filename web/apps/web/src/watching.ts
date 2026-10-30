@@ -5,7 +5,7 @@ import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
-import { noteDecisionTimes } from "./play-state.ts";
+import { noteDecisionTimes } from "./play-state-video-events.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { monotonicMs } from "./use-together.ts";
