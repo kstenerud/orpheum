@@ -41,6 +41,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Symptom | Entry |
 |---|---|
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
+| A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
 | A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
@@ -1064,6 +1065,31 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Web platform, all browsers
+
+### A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error
+
+- **Technology:** `new Response(stream)` and its `json()`, `text()`, `arrayBuffer()`, `blob()`
+  (measured in Playwright's Chromium and Firefox, 2026-10-30).
+- **Symptom:** a Play page whose playback's answer came over WebRTC with its head and never its body
+  said "The server could not be reached. Check the connection and try again." after 40 s, while the
+  core was there; its report said only `TypeError: Failed to fetch`, though the SDK had failed the
+  body with a `SilentRequestError` (the owner's Mac Chrome, back on the Play page from the Watch
+  Together page, staging, 2026-10-30).
+- **Cause:** the Fetch standard's body reading rejects with a `TypeError` of its own when the
+  stream errors, not with the stream's error: Chromium says "TypeError: Failed to fetch", though
+  nothing was fetched; Firefox says "AbortError: The operation was aborted." Only a reader taken from
+  `response.body` sees the stream's own error.
+- **What we do:** the SDK's response over a channel (`ChannelResponse` in
+  `web/packages/sdk/src/rtc-request.ts`) reads its body with the browser's methods and, when they
+  fail, throws the body's own failure, so a request the core answered nothing for is asked again
+  (`web/apps/web/src/reopen.ts`'s `askWhileUnanswered`) and is not taken for the network.
+  `web/packages/sdk/src/rtc-request-silence.browser.test.ts`, in both browsers.
+- **Evidence:** the staging core's log, 2026-10-30 17:12:22 UTC (`attempt 1: 40026 ms (TypeError:
+  Failed to fetch)`); a probe in Chromium and Firefox of `new Response(erroringStream).json()`.
+  **[web]** "Errors that originate in ReadableStreamDefaultReader.read() do not propagate to Promise
+  rejections for Response stream reader … Instead, TypeError: Failed to fetch is propagated"
+  ([whatwg/fetch issue 676](https://github.com/whatwg/fetch/issues/676)); Chromium's
+  [41233886](https://issues.chromium.org/issues/41233886) on the misleading message.
 
 
 ### A dynamic import that failed fails again without a request

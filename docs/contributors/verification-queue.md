@@ -1837,3 +1837,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   its top or next rung throughout the first minute, and the core's log shows any give-up excused as
   stuck or busy, never `level 0`; each step as `step:` in its link notes.
   (`web/packages/player/src/abr-ceiling.ts`, `first-piece.ts`, `abr-busy.ts`, `chunked.ts`)
+- [ ] **VQ188** — a Watch Together host's Play page never dead-ends on a playback answer lost over
+  WebRTC, on staging. On the Mac, Chrome hosting a Watch Together session on its Play page: open the
+  Watch Together page, then go back to the film by its button, ten times. Passes when it plays each
+  time within a few seconds, never "The server could not be reached", and any lost answer shows in
+  the core's log as a retried request: the page's `a page reported a failure … SilentRequestError:
+  nothing came for /api/v1/playback` (or the playback report's `nothing came for 40000 ms on stream
+  <n>`), a second `a playback started` after it, and the core's `rtcapi: a response's channel stayed
+  open long after the core's last byte for it … stream=<n>`, whose `bufferedAtClose`,
+  `isHandedOverWhole` and `streamClosedBeforeMs` say where its bytes stopped: copy that line into
+  the result. Needs a staging connect rebuilt from this commit, as its loader carries the client's
+  requests. (`web/packages/sdk/src/rtc-request.ts`, `web/apps/web/src/reopen.ts`,
+  `internal/core/rtcapi/answer_watch.go`)

@@ -162,7 +162,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   (one with a body once all of it has left the browser, its buffered amount drained: a Play page's
   playback, a POST, otherwise said "Loading…" for good), for the end of a response with no body, or
   while its reader waits for its body fails with a `SilentRequestError`, its channel closed; a
-  reader that does not read, or a body still on its way, waits unbounded. Requests go
+  reader that does not read, or a body still on its way, waits unbounded. A body read whole
+  (`json()`, `text()`, `arrayBuffer()`, `blob()`) fails with the body's own failure, not the
+  browser's: Chromium said "TypeError: Failed to fetch" and Firefox an AbortError of a playback whose
+  head came and whose body never did, which was not asked again (the owner's Mac Chrome, staging,
+  2026-10-30; idiosyncrasies.md). `src/rtc-request-silence.browser.test.ts`, in both browsers. Requests go
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.

@@ -98,7 +98,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   each silence told to the core's log: the page draws its player, and with it a host's Watch
   Together player and its session connection, only once its playback is answered, and one answer lost
   over WebRTC left the host's page on "Loading…" for good, its player never attached (the owner's
-  Chrome back from another site, staging, 2026-10-29). `src/play-unanswered.test.tsx`; VQ138. Every
+  Chrome back from another site, staging, 2026-10-29). The silence is known by its name too, as one
+  under a discovery's loader fails in the loader's own copy of the SDK, of another build across a
+  deploy (`isUnanswered`); a body that never came fails with it too, which the browser had read as
+  "TypeError: Failed to fetch", and the page said "The server could not be reached" (the owner's Mac
+  Chrome back from the Watch Together page, staging, 2026-10-30). `src/play-unanswered.test.tsx`,
+  `src/reopen.test.ts`; VQ138, VQ188. Every
   attempt of the decision (`watching.ts`'s `decide`, `reopen.ts`'s `askUntilAnswered` and
   `askWhileUnanswered`) is timed from the first ask (`play-start-timing.ts`'s `openPlayback`), and
   once the total reaches `playbackStartSlowAfterMs` (3 s), opened or not, the core's log is told
