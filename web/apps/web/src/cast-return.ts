@@ -72,6 +72,14 @@ export function takeReturn(storage: StringStorage): Route {
   return parseRoute(url.pathname, url.search);
 }
 
+/**
+ * Whether a page to go back to is noted: the tab was receiving a cast, which ends only by taking or
+ * forgetting it, so a page loaded again with one noted was receiving as it unloaded (D383 §2).
+ */
+export function wasReceiving(storage: StringStorage): boolean {
+  return keptIn(storage) !== undefined;
+}
+
 /** Forgets the page to go back to: the receiver keeps playing here, its control taken back. */
 export function forgetReturn(storage: StringStorage): void {
   storage.removeItem(castReturnKey);

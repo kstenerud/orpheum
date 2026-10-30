@@ -25,7 +25,8 @@ import {
 import { ownScriptOf } from "./app-update.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
-import { forgetReturn, noteReturn, takeReturn } from "./cast-return.ts";
+import { forgetReturn, noteReturn, takeReturn, wasReceiving } from "./cast-return.ts";
+import { leaveUncontrolledCast } from "./cast-uncontrolled.ts";
 import type { Navigation } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -55,6 +56,12 @@ export interface Live {
    * or its film over with nothing after it (D338 §1).
    */
   readonly leaveReceiving: () => void;
+  /**
+   * Whether this page, loaded again while its tab received a cast (a reload, a deploy), does not know
+   * yet whether that cast goes on, while which a Play page holds its film (PlayOrSendOn): one that does
+   * not is left for its film's page (D383 §2, useLeavesACastNoOneControls).
+   */
+  readonly isReceivingInDoubt: boolean;
 }
 
 const nothingLive: Live = {
@@ -66,6 +73,7 @@ const nothingLive: Live = {
   answer: undefined,
   endReceiving: () => undefined,
   leaveReceiving: () => undefined,
+  isReceivingInDoubt: false,
 };
 
 const LiveContext = createContext<Live>(nothingLive);
@@ -86,7 +94,8 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
   const { connection, snapshot } = usePageLiveConnection();
   useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
   const received = useReceiving(connection, navigation);
-  const live = useLiveOf(snapshot, received);
+  const isInDoubt = useLeavesACastNoOneControls(snapshot?.isReceiveKnown === true, received);
+  const live = useLiveOf(snapshot, received, isInDoubt);
   const { asked, onAnswered } = received;
   return (
     <LiveContext value={live}>
@@ -141,8 +150,15 @@ function usePageLiveConnection(): {
   return { connection, snapshot };
 }
 
-/** What every signed-in screen knows of the live connection, from its snapshot and what it received. */
-function useLiveOf(snapshot: LiveSnapshot | undefined, received: Received): Live {
+/**
+ * What every signed-in screen knows of the live connection, from its snapshot, what it received, and
+ * whether a cast received before the page loaded again is in doubt.
+ */
+function useLiveOf(
+  snapshot: LiveSnapshot | undefined,
+  received: Received,
+  isReceivingInDoubt: boolean,
+): Live {
   const { receiving, answer, endReceiving, leaveReceiving } = received;
   return useMemo(
     (): Live => ({
@@ -154,6 +170,7 @@ function useLiveOf(snapshot: LiveSnapshot | undefined, received: Received): Live
       answer,
       endReceiving,
       leaveReceiving,
+      isReceivingInDoubt,
     }),
     [
       snapshot?.deviceIds,
@@ -164,8 +181,42 @@ function useLiveOf(snapshot: LiveSnapshot | undefined, received: Received): Live
       answer,
       endReceiving,
       leaveReceiving,
+      isReceivingInDoubt,
     ],
   );
+}
+
+/**
+ * Leaves a cast no one controls (D383 §2): this page loaded again while its tab received a cast (a
+ * reload, a deploy), and once the server has said whether it hands the device a cast as it connects
+ * (the snapshot's isReceiveKnown), it handed none, or one the person did not take (Not now), so the
+ * cast is over unseen; a cast's page, its film's Play page or the ready page, goes to the film's page
+ * or home (leaveUncontrolledCast), and the page it would have gone back to is forgotten. Whether the
+ * cast is still in doubt: until then, and while it leaves.
+ */
+function useLeavesACastNoOneControls(isReceiveKnown: boolean, received: Received): boolean {
+  const { api, navigation } = useServices();
+  const [isInDoubt, setIsInDoubt] = useState(() => wasReceiving(tabStorage()));
+  if (isInDoubt && received.receiving !== undefined) {
+    setIsInDoubt(false); // handed again and taken: the cast goes on
+  }
+  const isOver =
+    isInDoubt && isReceiveKnown && received.receiving === undefined && received.asked === undefined;
+  useEffect(() => {
+    if (!isOver) {
+      return;
+    }
+    forgetReturn(tabStorage());
+    const { screen } = navigation.route();
+    const leaving =
+      screen === "play" || screen === "cast-ready"
+        ? leaveUncontrolledCast(api, navigation)
+        : Promise.resolve();
+    void leaving.finally(() => {
+      setIsInDoubt(false);
+    });
+  }, [isOver, api, navigation]);
+  return isInDoubt;
 }
 
 /**

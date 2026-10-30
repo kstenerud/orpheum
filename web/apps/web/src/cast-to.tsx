@@ -237,7 +237,8 @@ export const sendingKnownWithinMs = 3000;
  * where the person left it, the device staying its remote on the casting page; one played here on
  * purpose (shouldPlayHere, the remote's "Play on this device instead", §4), or once the server says the
  * device casts nothing, or not within sendingKnownWithinMs, plays here, as children. It decides once:
- * a cast started or ended after leaves the film where it is.
+ * a cast started or ended after leaves the film where it is. Nothing plays while a cast the tab
+ * received before the page loaded again is in doubt (Live's isReceivingInDoubt, D383 §2).
  */
 export function PlayOrSendOn(props: {
   readonly fileId: number;
@@ -248,6 +249,10 @@ export function PlayOrSendOn(props: {
   const { t } = useTranslation();
   const where = useWhereItPlays(props.shouldPlayHere);
   useSendsOn(where, props.fileId, props.atMs);
+  const { isReceivingInDoubt } = useLive();
+  if (isReceivingInDoubt) {
+    return null; // a cast this tab received before it loaded again, which may be over (D383 §2)
+  }
   if (where.kind === "here") {
     return props.children;
   }

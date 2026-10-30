@@ -120,7 +120,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   the session token in the hello alone; the hello says whether the tab is in front, and the page
   says it again as that changes (D338 §2); it keeps the person's devices connected now, those with a
   tab in front, and the cast handed to it until taken, pings, and connects again with a growing wait, but not after the server
-  refused the sign-in. `src/live-connection.test.ts`. **It hears its page as the session connection
+  refused the sign-in. Once told the devices it pings once, and knows by the answer, which the server
+  sends only after anything it hands a connection as it connects, that no cast was handed
+  (`isReceiveKnown`, D383 §2). `src/live-connection.test.ts`. **It hears its page as the session connection
   does, by the same mechanism** (`whenPageChanges`, `src/shown-page.ts`; `ShownCheck`): shown again,
   or the way to the core back, it pings at once and drops a socket that does not answer within
   `shownAnswerWithinMs`, and one waiting to connect again connects then; its own pings waited out

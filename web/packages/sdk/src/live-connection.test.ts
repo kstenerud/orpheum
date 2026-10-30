@@ -146,6 +146,46 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().receive).toBeUndefined();
   });
 
+  it("knows nothing was handed on connecting once the ping after the devices is answered (D383 §2)", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(sockets.sent).toHaveLength(1); // the hello alone, before the server has spoken
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3] }));
+    expect(connection.snapshot().isReceiveKnown).toBe(false);
+    expect(sockets.sent.at(-1)).toEqual({ type: "ping", tMono: 1000 });
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3, 4] }));
+    expect(sockets.sent).toHaveLength(2); // asked once
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "pong", tMono: 999 }));
+    expect(connection.snapshot().isReceiveKnown).toBe(false);
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "pong", tMono: 1000 }));
+    expect(connection.snapshot()).toMatchObject({ isReceiveKnown: true, receive: undefined });
+  });
+
+  it("knows a cast was handed on connecting as it is handed", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3] }));
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({
+        type: "receive",
+        receive: { castId: 7, membershipCredential: "cast", fileId: 3, fromDeviceId: 2 },
+      }),
+    );
+    expect(connection.snapshot()).toMatchObject({ isReceiveKnown: true, receive: { castId: 7 } });
+  });
+
   it("says whether its tab is in front, in the hello and as it moves, and keeps the devices in front (D338 §2)", () => {
     const sockets = fakeSockets();
     let isInFront = false;
