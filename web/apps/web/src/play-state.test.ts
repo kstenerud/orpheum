@@ -16,14 +16,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Play, PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { stepsOf } from "./steps-of.ts";
+import { sendReport, tellUnplayable, whenOwnPictureGivenUp } from "./play-state.ts";
 import {
   decisionTimesKept,
   decisionTimesOf,
   noteDecisionTimes,
-  sendReport,
-  tellUnplayable,
-  whenOwnPictureGivenUp,
-} from "./play-state.ts";
+} from "./play-state-video-events.ts";
 import { ApiProblem } from "./problem.ts";
 import { reopenWaitsMs } from "./reopen.ts";
 import {
