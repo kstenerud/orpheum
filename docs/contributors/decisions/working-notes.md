@@ -24920,3 +24920,17 @@ film ends. Device check: VQ192.
 
 **Proven by:**
 - 1: web/apps/web/src/cast-remote.test.tsx ("offers Stop casting alone to bring the film back, never playing here while the cast goes on (D388)", "stops casting at Stop, the film playing here again at once from where the receiver stood (D384 §2)", "says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)"), web/e2e/cast.spec.ts; on a device, VQ192
+
+## D389 — A Watch Together session's end ends its members' casts: each receiver goes home
+
+**Decided** (2026-10-30), by the project owner, amending D364 §11 and D384 §1. On staging the host ended
+the session while the S23, a guest, cast the group's film to the Fire TV: the S23 went home, told the
+session had ended, but the TV played on under a cast no page controlled: "since the watch together
+guest is being forced back home, the cast session should also end, and the cast target also go home.
+Otherwise we get these weird edge cases."
+
+1. **When a Watch Together session ends, every cast of it ends with it**: a member's cast carrying the
+   group's film (its receiver the member's player in the session), the host's included. Each receiver
+   goes home (D384 §1); the sending pages end the session as they do (home, told, for a guest).
+
+**Status:** Decided 2026-10-30; not built yet.

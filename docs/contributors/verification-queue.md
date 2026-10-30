@@ -1857,7 +1857,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   page (or redeploy staging): passes when the TV goes to the film's page within a few seconds, not a
   Play page playing with no controller; Back from it never starts the film.
   (`web/apps/web/src/navigation.ts`, `play-up.tsx`, `live.tsx`, `cast-receiver.tsx`)
-- [ ] **VQ190** — a cast that ends sends its receiver home, and the page cast from stays where it is
+- [x] **VQ190** — a cast that ends sends its receiver home, and the page cast from stays where it is
   (D384, D385), on staging. (1) The Fire TV receiving a cast from the Mac's Chrome, Use pressed on the
   TV with one OK: passes when the cast holds, never taken back by the OK that said Use (the core's log
   shows no `a cast ended … reason=takenBack` after the `a receiver said Use`); Stop casting on Chrome
