@@ -24558,6 +24558,12 @@ WebRTC peer connection itself, which the client has no handle on, stays open: ev
 sends over it is refused instead. §4: the cap is kept in the tab's session storage, and `LinkCapBadge`
 says it above every screen while it is on; `link-debug-tools.test.tsx`. On devices: VQ177.
 
+
+**Accepted gaps** (the owner, 2026-10-30: "agreed"): §3's drop leaves the loader's WebRTC connection
+open, refusing what the page sends over it, as closing it needs the loader's interface; §2's cap does
+not reach a film played as its own file, which the browser loads itself, nor the film page's warm-up
+until a Play page has mounted in the tab. The last two are filed for later
+(navigation-and-widgets-answers-2026-10-27.md).
 ---
 
 ## D381 — The player chooses the quality it starts on, by the rule it plays by

@@ -448,3 +448,7 @@ had leaned on.
   finds a dead connection within about 48 s, but the staging fault's cause was not seen; if
   a proxy answered the core's pings for connectd, only a ping connectd itself answers would find it: a
   `discovery/single` protocol change, with connect's re-pin and a deploy order.
+- **Later (the owner agreed 2026-10-30): D380's cap, everywhere.** The debug link cap does not reach a
+  film played as its own file (the browser loads it) nor the film page's warm-up before a Play page has
+  mounted in the tab; and its drop leaves the loader's WebRTC connection open (refusing what is sent),
+  as closing it needs the loader's interface.
