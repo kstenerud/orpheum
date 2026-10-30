@@ -56,6 +56,7 @@ User-Agent (D263; the User-Agent is logged only).
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
+| After a jump onto a chunk's very start, the players asked for the chunk before it, which no run made, for good. | [hls.js steps back to the chunk before the one a seek landed on](#hlsjs-steps-back-to-the-chunk-before-the-one-a-seek-landed-on) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
 | As the quality stepped down, a Fire TV kept 2.5 s of sound against 38.6 s of picture and stalled on the new sound's chunks. | [On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec](#on-a-level-in-another-audio-group-hlsjs-throws-all-the-sound-loaded-away-when-the-new-sound-differs-in-channels-or-codec) |
@@ -1770,6 +1771,24 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `internal/core/playback/chunks.go` (`SoundOf`).
 - **Evidence:** [owner] 2026-10-12, the core's log: the sound's run queued 7.4 s after the picture's;
   `/yoloai/cache/seek-research/hls.js` (v1.7.3-24-gc407464).
+
+### hls.js steps back to the chunk before the one a seek landed on
+
+- **Technology:** hls.js 1.7.3, `stream-controller.ts` (`couldBacktrack`, `backtrackFragment`).
+- **Symptom:** a Watch Together jump never played: the group sought to exactly the start of a chunk, its
+  run made that chunk and the five after it, and every player then asked for the chunk before, sought,
+  every half second for good (staging, 2026-10-30, a cast receiver leading).
+- **Cause:** once a fragment's picture starts on a keyframe that is not its discontinuity's first, hls.js
+  marks that it could backtrack, and its next load of a fragment not yet buffered loads the one before
+  instead (`stream-controller.ts:334-348`); a fragment with dropped frames before its first keyframe sets a
+  fragment to step back to as well (`:1319-1330`). A player sought onto a chunk's start, its loaded picture
+  beginning a moment after it, then asks for the chunk before [source; which of the two paths it took, not
+  known, the core's log showing only the asks].
+- **What we do:** a chunk asked for where a seek took a player moves what it wants there, paused or not, so
+  the chunk before is made: the core had held a paused player's want at its pause and judged that chunk
+  behind it. `internal/core/playback/interest.go` (`wantFetched`).
+- **Evidence:** [owner] 2026-10-30, the core's log: `wantedChunk=204 isSought=true`, `planned no run of chunks:
+  no player wants one from there` with each player `stopped at` chunk 205's start.
 
 ### hls.js reports a fragment the browser held nothing of, then does nothing about it
 

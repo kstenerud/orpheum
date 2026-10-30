@@ -164,7 +164,13 @@ func askedFileOf(file chunks.StoreFile) askedFile {
 // is paused, is where that stream, and only that one, is now wanted from (D355 §1); a picture's chunk
 // asked for where a seek took the player moves its sound there too, as a seek moves both (§2): hls.js
 // asks for the seek's sound only once the picture's first chunk has come, and the sound's run is made
-// alongside the picture from there (chunks.Service.WantAlongside). An init says nothing of where the
+// alongside the picture from there (chunks.Service.WantAlongside). A chunk asked for where a seek took
+// a paused player moves it as it would a playing one, and it stays paused: hls.js, sought onto a
+// chunk's very start, steps back to the chunk before when what it loaded starts a moment after, and a
+// Watch Together group waiting on the jump, its players paused on that start, wanted nothing behind
+// it, planned no run for the chunk every player asked for, and never played (staging, 2026-10-30).
+// Its buffer filled after the seek is not sought (the player's markSeeks), and moves nothing, as
+// before. An init says nothing of where the
 // player is: its run is made from where the playback last reported, the film's start for a guest
 // that has reported nothing (the owner's VQ38 run, 2026-10-12). A player that asks after it left, as
 // a player page that takes over its film page's token does, plays again. Locked by its caller.
@@ -175,10 +181,12 @@ func (playback *tokenPlayback) wantFetched(asked askedFile) {
 	} else {
 		interest.picture, interest.pictureDir = asked.stream, asked.dir
 	}
-	if interest.disposition == Paused {
+	if interest.disposition == Paused && (!asked.isChunk || !asked.isSought) {
 		return
 	}
-	interest.disposition = Playing
+	if interest.disposition != Paused {
+		interest.disposition = Playing
+	}
 	switch {
 	case !asked.isChunk:
 	case asked.isSound:

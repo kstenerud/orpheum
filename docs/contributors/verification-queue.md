@@ -1877,3 +1877,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   itself from about where the TV was, and the TV, once back on its network, is on its home page.
   (`web/apps/web/src/navigation.ts`, `cast-receiver.tsx`, `cast-remote.tsx`, `live.tsx`, `play.tsx`,
   `status-tray.tsx`, `watch-together.tsx`)
+- [ ] **VQ191** — a jump in Watch Together plays, on staging. A Watch Together session on a film,
+  the S23's guest casting to the Fire TV, which leads, and the Mac's Chrome as host: from Chrome,
+  jump far ahead into film not made yet. Passes when every player plays from there within a few
+  seconds, and the core's log has a `queued a run of chunks` whose `firstChunk` is the chunk each
+  player asked for after the jump (`waited for a chunk not made yet … isSought=true`), with no
+  `planned no run of chunks: no player wants one from there` repeating for it. Repeat it a few
+  times, as the jump that hung landed exactly on a chunk's start.
+  (`internal/core/playback/interest.go`)

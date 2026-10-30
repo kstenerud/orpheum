@@ -88,7 +88,8 @@ func TestInterestsIn_AreWhatEachPlayerLastAskedFor(t *testing.T) {
 
 // Each stream is wanted from where its own asks put it, and a picture loaded ahead of a late sound
 // leaves the sound where it is (D355 §1); the start, a seek's picture, asked for where the seek took
-// the player, and its word move both, though not a picture asked for while it is paused (§2); and
+// the player, and its word move both, a paused player's seek's picture too, though not a picture it
+// loads ahead while paused (§2); and
 // none of them moves where the playback reported it plays, its resume position (§5). One position,
 // moved by each stream's asks, jumped back and forth between them, and the sound's run was judged from
 // where the picture was.
@@ -134,10 +135,18 @@ func TestInterestsIn_EachStreamIsWhereItsOwnAsksPutItAndASeekMovesBoth(t *testin
 	if got := positions(); got != [2]int64{120_000, 120_000} {
 		t.Errorf("the player's word, paused at 120 s: %v; want both moved there", got)
 	}
-	sought.startMs = 600_000
-	playing.wantFetched(sought)
+	playing.wantFetched(startingAt(picture, 150_000))
 	if got := positions(); got != [2]int64{120_000, 120_000} {
-		t.Errorf("a seek's picture asked for while paused: %v; want both where it paused", got)
+		t.Errorf("a picture loaded ahead while paused: %v; want both where it paused", got)
+	}
+	sought.startMs = 110_000
+	playing.wantFetched(sought)
+	if got := positions(); got != [2]int64{110_000, 110_000} {
+		t.Errorf("a seek's picture asked for while paused, the chunk before where it paused: %v; want both there",
+			got)
+	}
+	if got := service.InterestsIn(1); !got[0].IsStopped || !got[1].IsStopped {
+		t.Errorf("after a seek's picture asked for while paused: %+v; want it still stopped", got)
 	}
 	if playing.positionMs != 25_000 {
 		t.Errorf("the reported position = %d ms; want the 25 s its player reported, moved by no ask",
