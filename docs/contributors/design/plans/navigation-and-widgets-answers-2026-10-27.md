@@ -507,3 +507,5 @@ had leaned on.
   of the original's (the server knows both), or the controller judges a rung by its average with the
   buffer ahead (D265 §4's share), so the original is reached wherever a rung of the same average is.
   Sits beside D382's sequel (the decoder's limit, a simpler codec at the same quality).
+  **The owner chose the second (2026-10-30): the controller judges a rung by its average, deferred to
+  a later batch** ("It works well enough for an edge case for now").
