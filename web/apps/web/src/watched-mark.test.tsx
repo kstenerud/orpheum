@@ -14,6 +14,7 @@ import {
   click,
   mount,
   servedBy,
+  settleUntil,
   type Answers,
   type Heard,
   type Mounted,
@@ -102,13 +103,16 @@ describe("the watched check on rows (D370 §2, §3)", () => {
         }),
       ),
     );
-    // A season's row is its choice in the series' season picker (D367 §9).
-    await click(shown.container.querySelector(".route-chooser__button"));
-    const rows = [...shown.container.querySelectorAll(".route-chooser__panel li")];
+    // A season's row is its poster in the series' row of seasons (D379 §1).
+    const { container } = shown;
+    await settleUntil(() => container.querySelector(".series__seasons") !== null);
+    const rows = [...container.querySelectorAll(".series__seasons > li")];
     expect(rows).toHaveLength(2);
     expect(rows[0]?.querySelector(".watched-icon")).not.toBeNull();
     expect(rows[1]?.querySelector(".watched-icon")).toBeNull();
     expect(rows[0]?.className).toBe(rows[1]?.className);
+    const links = rows.map((row) => row.querySelector("a")?.className);
+    expect(links[0]).toBe(links[1]);
   });
 });
 

@@ -288,13 +288,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A series is one page; its season, a sort, a view and a search are views of a page, not steps**
   (D367 §9): choosing one replaces the history's entry (`Link`'s `isReplacing`, `RouteChooser`'s
   `isAView`); a series' page shows the season chosen, else that of the person's next episode, else
-  the first, by a picker; returned to after one of its episodes' page or playing
+  the first, chosen from a row of its seasons' posters above the episodes (D379, `SeasonRow`, one
+  focus row a remote moves along by Left and Right and leaves by Down into the episodes); returned
+  to after one of its episodes' page or playing
   (`src/episode-reached.ts`), it shows that episode's season with the episode focused; opened by a
   step forward, as from a list, it shows from its top, every episode reached let go at each step
   forward, and any page a step forward opens starts at its top (`src/input-layer.tsx`; the owner's
   Fire TV, 2026-10-29). A list Back returns to (Films, Series, a library's) loads its pages until the
   entry it was left from is drawn, which then takes focus in view (`useListLoadsToFocusNoted`).
   `src/series-page.test.tsx`, `src/input-layer.test.tsx`, `src/input-walk.browser.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
+  `src/input-rows.browser.test.tsx`,
   `src/input-player.browser.test.tsx`.
 - **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else

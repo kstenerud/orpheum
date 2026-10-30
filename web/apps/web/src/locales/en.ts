@@ -340,8 +340,8 @@ export const en = {
   title: {
     runtime: "{{minutes}} min",
     season: "Season {{season}}",
-    seasonChoice: "Season",
-    seasonWithCount: "{{season}} · episodes: {{count}}",
+    seasons: "Seasons",
+    seasonEpisodeCount: "episodes: {{count}}",
     placeBetween: " · ",
     placeSeason: "season {{season}}",
     placeEpisode: ", episode {{number}}",

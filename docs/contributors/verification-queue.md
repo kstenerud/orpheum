@@ -1789,3 +1789,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   sockets closed and not back for 30 s, the film plays on what it had loaded and waits after, and
   within a few seconds of the end the sockets are back and the film plays on, with nothing reloaded.
   (`web/apps/web/src/link-debug.ts`, `web/packages/player/src/link-shaping.ts`)
+- [ ] **VQ180** — a series' seasons as a row of posters (D379), on staging. (1) On the Mac's Chrome,
+  a series of several seasons with specials (Copper Kettle, or any with a season 0): above the episodes a
+  row of season posters, the specials last, the season shown marked; no season choice box. Each
+  season shows its still in its poster's place, or the series' poster where it has none. Choosing a
+  poster shows that season's episodes below; the browser's Back then leaves the series, not the
+  season. Open an episode of season 2 and come back: season 2 is shown with that episode focused.
+  (2) On the Fire TV (Silk), by the remote: Down reaches the row, Left and Right move along it (the row
+  scrolling sideways where it is wider than the screen), OK shows the season, and Down from the row
+  lands on the season's first episode, not on its Mark as watched. (`web/apps/web/src/series.tsx`)

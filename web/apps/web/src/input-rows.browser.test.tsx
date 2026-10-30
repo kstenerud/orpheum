@@ -79,6 +79,34 @@ const aSeason: WalkAnswers = {
   "GET /items/303": filmDetail(303, "Episode 3"),
 };
 
+/**
+ * A series of three seasons, the specials last, its first of four episodes (D379): another series
+ * than aSeason's, whose episode an earlier walk reached, and which its page would focus on showing.
+ */
+const withThreeSeasons: WalkAnswers = {
+  "GET /me": viewer,
+  "GET /client-settings": {},
+  "GET /collections/21/seasons/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
+  "GET /collections/21": {
+    id: 21,
+    kind: "series",
+    name: "Glass Tide",
+    libraryId: 1,
+    art: {},
+    seasons: [
+      { seasonNumber: 1, episodeCount: 4 },
+      { seasonNumber: 2, episodeCount: 1, isWatched: true },
+      { seasonNumber: 0, episodeCount: 1 },
+    ],
+  },
+};
+
+/** The season in the series' row of seasons that has focus, by its name; "" for none. */
+function focusedSeason(): string {
+  const card = document.activeElement?.closest(".series__seasons .poster-card");
+  return card?.querySelector(".poster-card__name")?.textContent ?? "";
+}
+
 /** Presses key until isThere, at most times times; whether it got there. */
 async function pressUntil(key: string, isThere: () => boolean, times = 8): Promise<boolean> {
   for (let pressed = 0; pressed < times && !isThere(); pressed += 1) {
@@ -170,6 +198,25 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => isDrawn(".series__episode")).toBe(true);
     await expect.poll(focusedEpisode).toBe("Episode 3");
+  });
+
+  // D379 §3: the seasons' posters are one focus row, Left and Right along it, Down into the episodes.
+  it("moves along the seasons' row by Left and Right, and down from it into the season's episodes", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(withThreeSeasons, "/series/21?season=1"));
+    await expect.poll(() => isDrawn(".series__episode")).toBe(true);
+    document.querySelector<HTMLElement>('.series__seasons a[href="/series/21?season=1"]')?.focus();
+    expect(focusedSeason()).toBe("Season 1");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedSeason()).toBe("Season 2");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedSeason()).toBe("Specials");
+    // Right at the row's end goes nowhere else on the page.
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedSeason()).toBe("Specials");
+    expect(await pressUntil("{ArrowLeft}", () => focusedSeason() === "Season 1")).toBe(true);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(focusedEpisode()).toBe("Episode 1");
   });
 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {

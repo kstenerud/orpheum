@@ -24513,7 +24513,20 @@ lead's recommendation ("follow your recommendations on those").
 4. Not chosen: Jellyfin's own shape, a grid of season posters whose each season is a page of its own,
    which costs an extra page and an extra Back for every episode chosen.
 
-**Status:** Decided 2026-10-30.
+**Status:** Decided 2026-10-30. Built 2026-10-30, in `web/apps/web/src/series.tsx`: §1 is
+`SeasonRow`, a `poster-row` of `PosterCard`s between the series' head and the season shown (the
+choice box, `SeasonPicker` over `route-chooser.tsx`, removed), in the server's order, whose aired
+order already puts the specials last (`internal/core/api/browse.go`, `browse_test.go`); each card
+names its season and its episode count, carries the watched check over its poster (D370 §3) and is
+marked `aria-current` while shown. The server stores no season poster (a season is no item, and
+artwork rows belong to items; TMDB's season `poster_path` is in the stored record but never
+fetched), so every season shows its still, in its poster's place as D362 §2 draws one, else the
+series' poster; a season's own poster, when the server fetches one, goes first. §2 is the card's
+`Link` with `isReplacing` (`PosterCard`'s `isReplacing`), and the return to the season and episode
+left is D367 §9's `useSeasonReturnedTo` over `episode-reached.ts`, unchanged. §3 is the row's
+`data-focus-container`, the season's Mark as watched set at its heading's far end
+(`series__season-head`) so Down from the row lands in the episodes. Tests: `series.test.tsx`,
+`series-page.test.tsx`, `input-rows.browser.test.tsx`; on a TV, VQ180.
 
 ---
 
