@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Runs the gate before a commit is recorded, so a human commit meets the same bar as an agent's.
+# Runs the spot check before a commit is recorded, so a human commit meets the same bar as an agent's.
 # Installed by `make setup` (git config core.hooksPath .githooks).
 set -euo pipefail
 # The gate's formatters run on what is staged first, staging it again, so a formatting slip costs no
@@ -13,9 +13,12 @@ if python3 scripts/check_stamp.py fresh; then
   echo "make check: already passed on this exact tree"
   exit 0
 fi
-# A commit of documentation alone runs the documentation gate, no test of the code
-# (scripts/documentation_only.py; the owner, 2026-10-08).
-target=check
+# A commit runs the spot check, the tests of what changed and of what imports it (about 30 s), not
+# the whole gate: make check ran at every commit, three to ten minutes each with the Go area or the
+# web suites in it, and runs instead at the end of the turn (the Stop hook), as check-pr runs once a
+# batch (the owner, 2026-10-30: "yes"). A commit of documentation alone runs the documentation gate,
+# no test of the code (scripts/documentation_only.py; the owner, 2026-10-08).
+target=spot
 if python3 scripts/documentation_only.py --staged; then
   target=check-documentation
 fi

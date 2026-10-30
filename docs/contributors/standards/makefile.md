@@ -77,8 +77,9 @@ runs it.
 
 ## 4. The `make check` contract
 
-`make check` is the fast gate. The Stop hook, the pre-commit hook and CI all run it; the
-pre-commit hook skips a commit of exactly the tree the gate last passed on
+`make check` is the fast gate. The Stop hook and CI run it. The pre-commit hook runs `make spot`
+instead, the tests of what changed and its importers (the owner, 2026-10-30: a full gate at each
+commit cost three to ten minutes), and skips a commit of exactly the tree the gate last passed on
 (`scripts/check_stamp.py`), since the Stop hook has just run it. Within it, the web tests, the
 web dependency rules and the gate scripts' tests run again only when what each reads changed
 since it last passed (`scripts/area_stamp.py`): a Go-only turn does not re-run the web suite. A
