@@ -24861,5 +24861,8 @@ rule ignored as a paused player's ask, so no run could be planned for it and eve
    stays paused. Its buffer filling after the seek still moves nothing: a player marks its asks as
    sought only from the seek until it can play.
 
-**Status:** Decided 2026-10-30; its fix is in `internal/core/playback/interest.go` (`wantFetched`), read back
-against it in the next commit.
+**Status:** Built 2026-10-30 in `internal/core/playback/interest.go` (`wantFetched`): a paused
+player's fetch marked sought moves its wanted position; one not marked moves nothing, as before.
+
+**Proven by:**
+- 1: internal/core/playback/interest_test.go (`TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere`); on a device, VQ191
