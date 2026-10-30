@@ -4,11 +4,12 @@ import "./cast.css";
 
 import type { CastSending, TogetherEndReason } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
+import { CastRemote } from "./cast-remote.tsx";
 import {
   castAnswerGraceMs,
   castAnswerWithinMs,
@@ -232,55 +233,130 @@ export function otherDevicesOpen(
  */
 export const sendingKnownWithinMs = 3000;
 
+/** Where the Play page's film plays here from: atMs, or where the person left it where undefined. */
+export interface PlayedHereFrom {
+  readonly atMs: number | undefined;
+  /** Which time the page plays it here, so playing it again here starts its playback afresh. */
+  readonly round: number;
+}
+
 /**
- * A film played on a device that casts goes on to its receiver (D364 §3), from atMs or, undefined,
- * where the person left it, the device staying its remote on the casting page; one played here on
- * purpose (shouldPlayHere, the remote's "Play on this device instead", §4), or once the server says the
- * device casts nothing, or not within sendingKnownWithinMs, plays here, as children. It decides once:
- * a cast started or ended after leaves the film where it is. Nothing plays while a cast the tab
- * received before the page loaded again is in doubt (Live's isReceivingInDoubt, D383 §2).
+ * Where a Play page's film plays, the page keeping its place throughout (D364 §3, D384 §2): on a
+ * device that casts, it goes on to the receiver, from atMs or, undefined, where the person left it,
+ * and the page's video area becomes the cast's remote (CastRemote); a cast started from Cast's dialog
+ * over the page, moving its film, does the same. One played here on purpose (shouldPlayHere), once the
+ * server says the device casts nothing, or not within sendingKnownWithinMs, plays here (playHere), as
+ * it does again once the cast is stopped, from where the receiver stood. Nothing plays while a cast
+ * the tab received before the page loaded again is in doubt (Live's isReceivingInDoubt, D383 §2).
  */
 export function PlayOrSendOn(props: {
   readonly fileId: number;
   readonly atMs?: number | undefined;
   readonly shouldPlayHere: boolean;
-  readonly children: ReactNode;
+  readonly playHere: (from: PlayedHereFrom) => ReactNode;
 }): ReactNode {
   const { t } = useTranslation();
-  const where = useWhereItPlays(props.shouldPlayHere);
-  useSendsOn(where, props.fileId, props.atMs);
+  const { where, playHereFrom, sentTo } = useWhereItPlays(props);
+  useSendsOn(where, props, { onSent: sentTo, onFailed: playHereFrom });
   const { isReceivingInDoubt } = useLive();
   if (isReceivingInDoubt) {
     return null; // a cast this tab received before it loaded again, which may be over (D383 §2)
   }
-  if (where.kind === "here") {
-    return props.children;
+  switch (where.kind) {
+    case "here":
+      return props.playHere(where.from);
+    case "sending":
+      return <p>{t("cast.sendingOn")}</p>;
+    case "remote":
+      return <CastRemote castId={where.castId} fileId={props.fileId} onPlayHere={playHereFrom} />;
+    case "unknown":
+      return null;
   }
-  return where.kind === "sending" ? <p>{t("cast.sendingOn")}</p> : null;
 }
 
-/** Where a Play page's film plays: here, sent on to the cast castId's receiver, or not known yet. */
+/**
+ * Where a Play page's film plays: here; being sent on to the cast castId's receiver; sent, the page
+ * its remote; or not known yet.
+ */
 type PlaysWhere =
-  | { readonly kind: "here" }
-  | { readonly kind: "sending"; readonly castId: number; readonly onFailed: () => void }
+  | { readonly kind: "here"; readonly from: PlayedHereFrom; readonly leftCastId?: number }
+  | { readonly kind: "sending"; readonly castId: number }
+  | { readonly kind: "remote"; readonly castId: number }
   | { readonly kind: "unknown" };
 
 /**
- * Decides once where a Play page's film plays (PlayOrSendOn): here when shouldPlayHere, when the
- * device sends no cast its receiver said Use to, or when the server has not said within
- * sendingKnownWithinMs; else sent on to that cast's receiver, here again should sending fail.
+ * Where a Play page's film plays (PlayOrSendOn), first decided once the server says what the device
+ * sends, or after sendingKnownWithinMs: here when shouldPlayHere or the device sends no cast its
+ * receiver said Use to; the remote at once where that cast plays this film already; else sent on.
+ * Playing here, a cast that takes this film on (started from Cast's dialog) makes the page its
+ * remote; playHereFrom plays it here again, as the cast ends.
  */
-function useWhereItPlays(shouldPlayHere: boolean): PlaysWhere {
+function useWhereItPlays(props: {
+  readonly atMs?: number | undefined;
+  readonly fileId: number;
+  readonly shouldPlayHere: boolean;
+}): {
+  readonly where: PlaysWhere;
+  readonly playHereFrom: (atMs: number | undefined) => void;
+  /** The film went on to the cast castId's receiver: the page is its remote. */
+  readonly sentTo: (castId: number) => void;
+} {
   const { sending, isSendingKnown } = useLive();
-  const [decided, setDecided] = useState<{ readonly castId: number } | "here" | undefined>(
-    shouldPlayHere ? "here" : undefined,
+  const [where, setWhere] = useState<PlaysWhere>(() =>
+    props.shouldPlayHere ? hereFrom(props.atMs, 0) : { kind: "unknown" },
   );
-  const [isTimedOut, setIsTimedOut] = useState(false);
-  if (decided === undefined && (isSendingKnown || isTimedOut)) {
-    // Decided as it renders, once: a cast started or ended later leaves the film where it is.
-    setDecided(sentTo(isSendingKnown ? sending : undefined));
+  const isTimedOut = useTimesOut(where.kind === "unknown" && !isSendingKnown);
+  const taken = sending?.isAccepted === true ? sending : undefined;
+  if (where.kind === "unknown" && (isSendingKnown || isTimedOut)) {
+    setWhere(firstWhere(isSendingKnown ? taken : undefined, props));
+  } else if (isTakenOn(where, taken, props.fileId)) {
+    setWhere({ kind: "remote", castId: taken.castId }); // a cast that took this film on
   }
-  const isWaiting = decided === undefined && !isSendingKnown;
+  const playHereFrom = useCallback((atMs: number | undefined) => {
+    setWhere((now) => ({
+      ...hereFrom(atMs, now.kind === "here" ? now.from.round + 1 : 1),
+      ...(now.kind === "remote" || now.kind === "sending" ? { leftCastId: now.castId } : {}),
+    }));
+  }, []);
+  const sentTo = useCallback((castId: number) => {
+    setWhere({ kind: "remote", castId });
+  }, []);
+  return { where, playHereFrom, sentTo };
+}
+
+/**
+ * Whether taken, a cast its receiver said Use to, took on the page's film fileId while it played here:
+ * one started from Cast's dialog over the page, not one the page played here from.
+ */
+function isTakenOn(
+  where: PlaysWhere,
+  taken: CastSending | undefined,
+  fileId: number,
+): taken is CastSending {
+  return where.kind === "here" && taken?.fileId === fileId && taken.castId !== where.leftCastId;
+}
+
+/** Playing here from atMs, the round-th time. */
+function hereFrom(atMs: number | undefined, round: number): PlaysWhere {
+  return { kind: "here", from: { atMs, round } };
+}
+
+/** Where the page's film plays first, given the cast taken, if any, its receiver having said Use. */
+function firstWhere(
+  taken: CastSending | undefined,
+  page: { readonly atMs?: number | undefined; readonly fileId: number },
+): PlaysWhere {
+  if (taken === undefined) {
+    return hereFrom(page.atMs, 0);
+  }
+  return taken.fileId === page.fileId
+    ? { kind: "remote", castId: taken.castId }
+    : { kind: "sending", castId: taken.castId };
+}
+
+/** Whether sendingKnownWithinMs has gone by while isWaiting. */
+function useTimesOut(isWaiting: boolean): boolean {
+  const [isTimedOut, setIsTimedOut] = useState(false);
   useEffect(() => {
     if (!isWaiting) {
       return undefined;
@@ -292,36 +368,29 @@ function useWhereItPlays(shouldPlayHere: boolean): PlaysWhere {
       clearTimeout(timer);
     };
   }, [isWaiting]);
-  if (decided === undefined) {
-    return { kind: "unknown" };
-  }
-  return decided === "here"
-    ? { kind: "here" }
-    : {
-        kind: "sending",
-        castId: decided.castId,
-        onFailed: () => {
-          setDecided("here");
-        },
-      };
-}
-
-/** Where a film played now goes: on to sending's receiver, once it said Use, else here. */
-function sentTo(sending: CastSending | undefined): { readonly castId: number } | "here" {
-  return sending?.isAccepted === true ? { castId: sending.castId } : "here";
+  return isTimedOut;
 }
 
 /**
- * Sends the film on to the cast's receiver, from atMs, once where says it is sent: the casting page,
- * the remote, then shows in the Play page's place; a send that fails plays it here.
+ * Sends the film on to the cast's receiver, from atMs, once where says it is sent, telling onSent, the
+ * page then its remote; a send that fails plays it here (onFailed). The film's warm-up, preload and
+ * playback here are let go of while the page is a remote (watching.ts's sentAway).
  */
-function useSendsOn(where: PlaysWhere, fileId: number, atMs: number | undefined): void {
-  const { api, navigation } = useServices();
+function useSendsOn(
+  where: PlaysWhere,
+  film: { readonly fileId: number; readonly atMs?: number | undefined },
+  ways: {
+    readonly onSent: (castId: number) => void;
+    readonly onFailed: (atMs: number | undefined) => void;
+  },
+): void {
+  const { api } = useServices();
+  const { fileId, atMs } = film;
   const castId = where.kind === "sending" ? where.castId : undefined;
   const sentRef = useRef<number | undefined>(undefined);
-  const failedRef = useRef(where.kind === "sending" ? where.onFailed : undefined);
+  const waysRef = useRef(ways);
   useEffect(() => {
-    failedRef.current = where.kind === "sending" ? where.onFailed : undefined;
+    waysRef.current = ways;
   });
   useEffect(() => {
     if (castId === undefined || sentRef.current === castId) {
@@ -330,12 +399,17 @@ function useSendsOn(where: PlaysWhere, fileId: number, atMs: number | undefined)
     sentRef.current = castId;
     playInCast(api, castId, { fileId, positionMs: atMs }).then(
       () => {
-        watchingOf(api).sentAway(fileId);
-        navigation.replace({ screen: "casting" });
+        waysRef.current.onSent(castId);
       },
       () => {
-        failedRef.current?.();
+        waysRef.current.onFailed(atMs);
       },
     );
-  }, [api, navigation, castId, fileId, atMs]);
+  }, [api, castId, fileId, atMs]);
+  const isRemote = where.kind === "remote";
+  useEffect(() => {
+    if (isRemote) {
+      watchingOf(api).sentAway(fileId);
+    }
+  }, [api, isRemote, fileId]);
 }

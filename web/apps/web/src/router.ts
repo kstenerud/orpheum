@@ -86,11 +86,10 @@ export type Route =
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
   /**
-   * The casting page (D364 §8, §13): the devices to cast to, or the remote of the cast this device
-   * sends. With fileId, the film this device was playing as the person came to it, which a cast they
-   * start then moves to the receiver (§1).
+   * An address of the casting page D384 §2 took away, as a history entry may hold one: shown as the
+   * Play page of the film the cast plays, else home (old-addresses.tsx).
    */
-  | { readonly screen: "casting"; readonly fileId?: number }
+  | { readonly screen: "casting" }
   /** A cast's receiver between videos: full screen, ready, controlled from the sender (D364 §5). */
   | { readonly screen: "cast-ready" }
   /**
@@ -157,7 +156,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
-  { pattern: /^\/casting\/?$/u, toRoute: (_, search) => castingRoute(search) },
+  { pattern: /^\/casting\/?$/u, toRoute: () => ({ screen: "casting" }) },
   { pattern: /^\/cast-ready\/?$/u, toRoute: () => ({ screen: "cast-ready" }) },
   { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
   { pattern: /^\/lab\/?$/u, toRoute: () => ({ screen: "lab" }) },
@@ -180,14 +179,6 @@ function playRoute(fileId: number, search: URLSearchParams): Route {
     ...(/^\d{1,12}$/u.test(at) ? { atMs: Number(at) } : {}),
     ...(search.get("here") === "1" ? { shouldPlayHere: true } : {}),
   };
-}
-
-/** The casting page's route, with the film playing as the person came to it (`file`), if any. */
-function castingRoute(search: URLSearchParams): Route {
-  const file = search.get("file") ?? "";
-  return /^[1-9]\d{0,15}$/u.test(file)
-    ? { screen: "casting", fileId: Number(file) }
-    : { screen: "casting" };
 }
 
 /** A library id from the address: a positive whole number, else undefined (not a library). */
@@ -265,9 +256,6 @@ function queryRouteHref(route: Route): string | undefined {
     }
     const asString = query.toString();
     return `/play/${String(route.fileId)}${asString === "" ? "" : `?${asString}`}`;
-  }
-  if (route.screen === "casting" && route.fileId !== undefined) {
-    return `/casting?file=${String(route.fileId)}`;
   }
   return undefined;
 }

@@ -33,25 +33,9 @@ import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherPlays } from "./together-plays.tsx";
 
 /**
- * The host's Watch Together screen (D246 §3, §5), where the tray's Watch Together leads (D364 §13):
- * start a session, or have back the one this tab started; what plays for the group and its controls
- * (§15); make a link for each person with a note of who it is for, which only the host sees;
- * withdraw a link, remove a member, end the session. While it is on, what the host plays plays
- * for everyone in it. Reached from anywhere, it has no Up; Back returns to where the host was (D367).
- */
-export function WatchTogether(): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <section className="watch-together" aria-labelledby="watch-together-heading">
-      <h1 id="watch-together-heading">{t("watchTogether.heading")}</h1>
-      <WatchTogetherControls />
-    </section>
-  );
-}
-
-/**
- * What the host does with their session, on its own screen: start one, or have back the one this tab
- * started, and run it. Leaving the film for it stops nothing (D364 §15).
+ * What the host does with their session, in Watch Together's dialog (together-dialog.tsx, D384 §2):
+ * start one, or have back the one this tab started, and run it. Opening it over the film stops
+ * nothing (D364 §15).
  */
 export function WatchTogetherControls(): JSX.Element {
   const { t } = useTranslation();
@@ -299,9 +283,9 @@ function usePanelConnection(membership: Membership): ReturnType<typeof useTogeth
 }
 
 /**
- * A session as its host runs it, on its own screen (D281 §5, D364 §15): what plays and its controls,
- * voice and each person's volume, the film's volume, the people with a dialog each, Invite, which
- * opens a dialog of its own, and ending it.
+ * A session as its host runs it, in Watch Together's dialog (D281 §5, D364 §15, D384 §2): what plays,
+ * the way back to it and Stop for everyone, voice and each person's volume, the film's volume, the
+ * people with a dialog each, Invite, which opens a dialog of its own, and ending it.
  */
 function SessionView(props: {
   readonly membership: Membership;

@@ -49,6 +49,7 @@ import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { PlayOrSendOn } from "./cast-to.tsx";
+import { WhoseFilm } from "./together-guest-play.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
 import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -562,9 +563,11 @@ export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: numb
  * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
  * or paused as it was, while the server answers within about a minute (askUntilAnswered); one lost
  * again within reopenAtMostEveryMs is told. On a device that casts, the film goes on to its receiver
- * instead (D364 §3), unless shouldPlayHere: the remote's "Play on this device instead" (§4). Given atMs,
- * it starts there in place of where the person last left the file: a cast's remote playing here from
- * where its receiver stood.
+ * instead (D364 §3), unless shouldPlayHere, the page staying where it is, its video's area the
+ * cast's remote, until the cast is stopped and the film plays here again (D384 §2). Given atMs, it
+ * starts there in place of where the person last left the file: a cast's film played here from where
+ * its receiver stood. For a signed-in guest in a Watch Together session that plays the film, the page
+ * is the group's film, followed (WhoseFilm): the one page every film plays on (D384 §2).
  */
 export function Play(props: {
   readonly fileId: number;
@@ -572,13 +575,17 @@ export function Play(props: {
   readonly shouldPlayHere?: boolean | undefined;
 }): ReactNode {
   return (
-    <PlayOrSendOn
+    <WhoseFilm
       fileId={props.fileId}
-      atMs={props.atMs}
-      shouldPlayHere={props.shouldPlayHere === true}
-    >
-      <PlayHere fileId={props.fileId} atMs={props.atMs} />
-    </PlayOrSendOn>
+      own={
+        <PlayOrSendOn
+          fileId={props.fileId}
+          atMs={props.atMs}
+          shouldPlayHere={props.shouldPlayHere === true}
+          playHere={(from) => <PlayHere key={from.round} fileId={props.fileId} atMs={from.atMs} />}
+        />
+      }
+    />
   );
 }
 

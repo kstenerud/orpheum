@@ -20,7 +20,6 @@ import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import {
-  Casting,
   CastReady,
   Lab,
   LabExtendPlayer,
@@ -30,7 +29,6 @@ import {
   Title,
   TogetherViewer,
   UiGallery,
-  WatchTogether,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { CreateLibraryPage } from "./create-library.tsx";
@@ -48,6 +46,7 @@ import {
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
+import { CastingLeft, TogetherLeft } from "./old-addresses.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
@@ -325,7 +324,8 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
     return <ThisDevice />;
   }
   if (route.screen === "watch-together") {
-    return <WatchTogether />;
+    // Watch Together is a dialog (D384 §2): its old address goes to the group's film, or home.
+    return <TogetherLeft />;
   }
   if (route.screen === "together") {
     // A signed-in guest's page, in the shell: the tray, the menu and Your account stay theirs while
@@ -346,10 +346,13 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   return route.screen === "about" ? <About /> : undefined;
 }
 
-/** Casting's screens: the casting page (D364 §8), and a receiver's ready page (§5). */
+/**
+ * Casting's screens: a receiver's ready page (D364 §5), and an old address of the casting page, which
+ * D384 §2 took away, sent to the film's page.
+ */
 function castingScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "casting") {
-    return <Casting key={route.fileId ?? 0} fileId={route.fileId} />;
+    return <CastingLeft />;
   }
   return route.screen === "cast-ready" ? <CastReady /> : undefined;
 }

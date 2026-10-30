@@ -50,7 +50,9 @@ import { Loaded } from "./loaded.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
+import { TogetherLeft } from "./old-addresses.tsx";
 import {
+  hasBeenPressed,
   TapToContinue,
   useIsInShell,
   useKeptVideo,
@@ -131,6 +133,10 @@ export function TogetherViewer(): JSX.Element {
       />
     );
   }
+  if (isSignedIn) {
+    // A signed-in guest's film plays on its Play page, the one page every film plays on (D384 §2).
+    return <TogetherLeft onEnded={over.end} />;
+  }
   return (
     <ViewerSession
       membership={membership}
@@ -138,6 +144,42 @@ export function TogetherViewer(): JSX.Element {
       kept={keptVideo}
       devices={devices}
       onOver={over.end}
+    />
+  );
+}
+
+/**
+ * The group's film on its Play page, for a signed-in guest in a session that plays it (D384 §2): the
+ * one page every film plays on, here as a guest's, the film following the group, with who is here,
+ * voice, their own volume and Leave; it moves to the Play page of the next film the group plays. Ended,
+ * they are taken home and told why (useSessionEnd); sent away for the host's connection, the page says
+ * so, with Join again. A page shown by a press needs no tap to continue: the press was it.
+ */
+export function GroupFilmPage(props: { readonly membership: Membership }): JSX.Element {
+  const { navigation } = useServices();
+  const { endReason, over } = useSessionEnd(true, undefined);
+  const keptVideo = useKeptVideo(hasBeenPressed());
+  const devices = useViewerVoiceDevices();
+  const toFilm = useCallback(
+    (fileId: number) => {
+      const shown = navigation.route();
+      if (shown.screen === "play" && shown.fileId !== fileId) {
+        navigation.replace({ screen: "play", fileId });
+      }
+    },
+    [navigation],
+  );
+  if (endReason !== undefined) {
+    return <SessionOver reason={endReason} onAgain={over.again} />;
+  }
+  return (
+    <ViewerSession
+      membership={props.membership}
+      hasJoinedHere={false}
+      kept={keptVideo}
+      devices={devices}
+      onOver={over.end}
+      onGroupFilm={toFilm}
     />
   );
 }
@@ -211,6 +253,8 @@ function ViewerSession(props: {
   readonly kept: KeptVideo;
   readonly devices: BrowserVoiceDevices;
   readonly onOver: (reason: TogetherEndReason) => void;
+  /** Told each film the group plays, on a page that follows it to that film's Play page. */
+  readonly onGroupFilm?: ((fileId: number) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const isInShell = useIsInShell();
@@ -225,6 +269,7 @@ function ViewerSession(props: {
     devices: props.devices,
   });
   useOverWhenEnded(snapshot, onOver);
+  useFollowsTheGroupsFilm(snapshot, props.onGroupFilm);
   useToldStanding(isConnected ? connection : undefined, standingOf(kept));
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
@@ -257,6 +302,19 @@ function ViewerSession(props: {
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </ViewerPage>
   );
+}
+
+/** Tells onGroupFilm, where given, each film the group plays, never nothing playing. */
+function useFollowsTheGroupsFilm(
+  snapshot: TogetherSnapshot | undefined,
+  onGroupFilm: ((fileId: number) => void) | undefined,
+): void {
+  const fileId = snapshot?.group?.fileId ?? 0;
+  useEffect(() => {
+    if (fileId !== 0) {
+      onGroupFilm?.(fileId);
+    }
+  }, [fileId, onGroupFilm]);
 }
 
 /** Ends the viewer's session as the server ends it, with its reason. */

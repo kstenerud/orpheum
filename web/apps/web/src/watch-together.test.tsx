@@ -3,7 +3,7 @@
 
 import { i18n } from "./i18n.ts";
 
-import { act } from "react";
+import { act, type JSX } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { timeText } from "./date-time-text.ts";
@@ -25,7 +25,12 @@ import { tabStorage } from "./browser-storage.ts";
 import { keepMembership } from "./together-storage.ts";
 import { filmVolume, setFilmVolume } from "./film-volume.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
-import { WatchTogether } from "./watch-together.tsx";
+import { TogetherDialog } from "./together-dialog.tsx";
+
+/** Watch Together's dialog, open over the page, as the tray's sign opens it (D384 §2). */
+function WatchTogether(): JSX.Element {
+  return <TogetherDialog onClose={() => undefined} />;
+}
 
 const karl = { id: 1, name: "Karl", isHost: true };
 /** A link's rights, every one (D271 §4). */
@@ -52,7 +57,7 @@ function rowStarting(container: Element, words: string): Element | undefined {
   );
 }
 
-describe("the host's Watch Together screen (D246 §3, §5)", () => {
+describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
   it("starts a session, makes a link with a note, and shows it to pass on", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
@@ -421,12 +426,12 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "update to iOS 17.1 or later",
     );
-    expect(mounted.container.querySelector("button")).toBeNull();
+    expect(buttonWithText(mounted.container, "Start a session")).toBeUndefined();
     mounted.unmount();
   });
 });
 
-describe("what plays, on the host's session page (D364 §13, §15)", () => {
+describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384 §2)", () => {
   /**
    * The session page of the host of session sessionId, whose film 4, Metropolis, plays for the group; a
    * session of its own for each test, whose details no earlier one has read, so the live connection
@@ -489,15 +494,15 @@ describe("what plays, on the host's session page (D364 §13, §15)", () => {
     return { mounted, services, sockets };
   }
 
-  it("holds the group's controls as a remote, the way back to the film, and Stop for everyone", async () => {
+  // The owner, 2026-10-30: "ultimately there is one playback page that everything goes through".
+  it("holds the way back to the film, whose Play page holds its controls, and Stop for everyone (D384 §2)", async () => {
     const { mounted, sockets } = await sessionPage([], 31);
     const remote = sockets.session;
     expect(remote.heard[0]).toMatchObject({ credential: "host-credential", role: "panel" });
     expect(mounted.container.querySelector("video")).toBeNull();
     expect(mounted.container.textContent).toContain("Metropolis");
-    expect(mounted.container.textContent).toContain("1:01 / 10:00");
-    await click(mounted.container.querySelector('button[aria-label="Play"]'));
-    expect(remote.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
+    expect(mounted.container.textContent).not.toContain("1:01 / 10:00");
+    expect(mounted.container.querySelector('button[aria-label="Play"]')).toBeNull();
     expect(mounted.container.querySelector('a[href="/play/4"]')?.textContent).toBe(
       "Back to the film",
     );

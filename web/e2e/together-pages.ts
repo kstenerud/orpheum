@@ -14,9 +14,19 @@ import { openFilm, serverUrl } from "./pages.ts";
 const voiceOneWayAtMostMs = 300;
 const voiceConcealedAtMostShare = 0.02;
 
-/** The host's session, started on the Watch Together screen, with one link made for Anna. */
+/**
+ * Opens Watch Together's dialog over the host's home page by the tray's sign (D384 §2), which is
+ * where its session is started and run.
+ */
+export async function openTogether(host: Page): Promise<void> {
+  await host.goto(`${serverUrl()}/`);
+  await host.locator(".status-tray button[aria-label^='Watch Together']").click();
+  await expect(host.locator("dialog.together-dialog")).toBeVisible();
+}
+
+/** The host's session, started in Watch Together's dialog, with one link made for Anna. */
 export async function startSessionWithLink(host: Page): Promise<string> {
-  await host.goto(`${serverUrl()}/watch-together`);
+  await openTogether(host);
   // A session an earlier test left open, one failing before it ended it, is the host's on every
   // device signed in (D267 §2): the screen shows it, not Start. It is ended first.
   const start = host.getByRole("button", { name: "Start a session" });
@@ -38,7 +48,7 @@ export async function startSessionWithLink(host: Page): Promise<string> {
 
 /** Ends the host's session, so the next test, or the next browser's run, starts with none. */
 export async function endSession(host: Page): Promise<void> {
-  await host.goto(`${serverUrl()}/watch-together`);
+  await openTogether(host);
   await host.getByRole("button", { name: "End the session" }).click();
   await host.getByRole("button", { name: "End it" }).click();
   await expect(host.getByRole("button", { name: "Start a session" })).toBeVisible();

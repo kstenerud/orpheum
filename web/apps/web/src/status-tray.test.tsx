@@ -6,15 +6,21 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, expect, it } from "vitest";
 
-import { tabStorage } from "./browser-storage.ts";
 import { knownDetailsOf } from "./hosted-details.ts";
 import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { StatusTray } from "./status-tray.tsx";
-import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
-import { forgetMembership, keepMembership } from "./together-storage.ts";
 
 let mounted: Mounted | undefined;
 
@@ -40,9 +46,14 @@ const hostedSession = {
   members: [{ id: 1, name: "Karl", isHost: true, devices: [] }],
 };
 
-/** The tray's sign named label: a link, white (off) or blue (on), and where it leads. */
+/**
+ * The tray's sign named label: white (off) or blue (on), and where it leads, a link's address, or null
+ * for a button, which opens its dialog over the page (D384 §2).
+ */
 function sign(label: string): { readonly isOn: boolean; readonly href: string | null } | undefined {
-  const found = mounted?.container.querySelector(`.status-tray a[aria-label="${label}"]`);
+  const found = mounted?.container.querySelector(
+    `.status-tray a[aria-label="${label}"], .status-tray button[aria-label="${label}"]`,
+  );
   return found === null || found === undefined
     ? undefined
     : {
@@ -51,43 +62,86 @@ function sign(label: string): { readonly isOn: boolean; readonly href: string | 
       };
 }
 
-it("always shows Cast's sign, white, leading to the devices to cast to, and Watch Together's to one who may host (D364 §12, §13)", async () => {
+it("always shows Cast's sign, white, a button that opens its dialog, and Watch Together's to one who may host (D364 §12, §13; D384 §2)", async () => {
   mounted = await mount(
     withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, servedBy({})),
   );
-  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting" });
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: null });
   expect(sign("Watch Together")).toBeUndefined();
   mounted.unmount();
   mounted = await mount(
     withServices(<StatusTray isAdmin={false} canHostWatchTogether />, servedBy({})),
   );
-  expect(sign("Watch Together")).toEqual({ isOn: false, href: "/watch-together" });
+  expect(sign("Watch Together")).toEqual({ isOn: false, href: null });
 });
 
-it("has Cast's sign on a film's Play page take the film to the casting page, for a cast to start with (D364 §1)", async () => {
-  const services = servedBy({});
+/** Presses the tray's sign named label and waits for its dialog's code to load and open. */
+async function openDialogOf(label: string): Promise<HTMLDialogElement> {
+  const button = mounted?.container.querySelector<HTMLButtonElement>(
+    `.status-tray button[aria-label="${label}"]`,
+  );
+  await act(async () => {
+    button?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => document.querySelector("dialog[open]") !== null);
+  const dialog = document.querySelector<HTMLDialogElement>("dialog[open]");
+  if (dialog === null) {
+    throw new Error(`no dialog opened by ${label}`);
+  }
+  return dialog;
+}
+
+// The owner's S23, 2026-10-30: Cast left the Watch Together page for a casting page of its own.
+it("has Cast's sign open its dialog over the page, which stays where it is, offering the devices to cast its film to (D384 §2, D364 §1)", async () => {
+  const server = fakeTogetherServer();
+  const services = {
+    ...servedBy({ "GET /me/devices": [200, { devices: [] }] }, [], "token"),
+    openTogetherSocket: server.openSocket,
+  };
   services.navigation.go({ screen: "play", fileId: 9 });
   mounted = await mount(
-    withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, services),
+    withServices(
+      <LiveProvider>
+        <StatusTray isAdmin={false} canHostWatchTogether={false} />
+      </LiveProvider>,
+      services,
+    ),
   );
-  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting?file=9" });
+  await server.accept();
+  await server.say({ type: "sending" });
+  const dialog = await openDialogOf("Cast to a device");
+  await settleUntil(() => dialog.textContent.includes("None of your other devices"));
+  expect(dialog.textContent).toContain("Cast to");
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+  await act(async () => {
+    buttonNamed(dialog, "Close")?.click();
+    await Promise.resolve();
+  });
+  expect(document.querySelector("dialog[open]")).toBeNull();
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
 });
 
-it("turns Watch Together's sign blue for the host, leading to the session's page, and for a signed-in guest, to theirs (D364 §13, §14)", async () => {
+it("turns Watch Together's sign blue for the host and for a signed-in guest, a button that opens its dialog over the page (D364 §13, §14; D384 §2)", async () => {
   window.sessionStorage.setItem(
     "orpheum.together.host",
     JSON.stringify({ sessionId: 7, credential: "host-credential" }),
   );
+  const services = servedBy({ "GET /together/7": [200, hostedSession] });
+  services.navigation.go({ screen: "play", fileId: 9 });
   mounted = await mount(
-    withServices(
-      <StatusTray isAdmin={false} canHostWatchTogether />,
-      servedBy({ "GET /together/7": [200, hostedSession] }),
-    ),
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether />, services),
   );
-  expect(sign("Watch Together is on: its controls")).toEqual({
-    isOn: true,
-    href: "/watch-together",
+  expect(sign("Watch Together is on: its controls")).toEqual({ isOn: true, href: null });
+  const dialog = await openDialogOf("Watch Together is on: its controls");
+  expect(dialog.textContent).toContain("Your session is on.");
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+  // Its way back to the film moves the page, and the dialog closes with it.
+  await act(async () => {
+    services.navigation.go({ screen: "play", fileId: 4 });
+    await Promise.resolve();
   });
+  expect(document.querySelector("dialog[open]")).toBeNull();
   mounted.unmount();
   window.sessionStorage.clear();
   window.localStorage.setItem(
@@ -98,7 +152,7 @@ it("turns Watch Together's sign blue for the host, leading to the session's page
   mounted = await mount(
     withServices(<StatusTray isAdmin={false} canHostWatchTogether={false} />, servedBy({})),
   );
-  expect(sign("Watch Together is on: its controls")).toEqual({ isOn: true, href: "/together" });
+  expect(sign("Watch Together is on: its controls")).toEqual({ isOn: true, href: null });
   window.localStorage.clear();
 });
 
@@ -119,9 +173,17 @@ it("has the hosted session's details at hand as the sign shows, so its page show
   window.sessionStorage.clear();
 });
 
-it("turns Cast's sign blue while this device casts, naming the receiver and what plays, and leads to Watch Together's page while that is on too (D364 §7, §13)", async () => {
+it("turns Cast's sign blue while this device casts, naming the receiver and what plays, its dialog saying so, with the way back to the film and Stop casting (D364 §7; D384 §2)", async () => {
   const server = fakeTogetherServer();
-  const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+  const heard: Heard[] = [];
+  const services = {
+    ...servedBy(
+      { "POST /me/casts/5/end": [200, { positionMs: 0, isPlaying: false }] },
+      heard,
+      "token",
+    ),
+    openTogetherSocket: server.openSocket,
+  };
   mounted = await mount(
     withServices(
       <LiveProvider>
@@ -140,21 +202,29 @@ it("turns Cast's sign blue while this device casts, naming the receiver and what
     durationMs: 0,
     isAccepted: true,
   };
-  await server.say({ type: "sending", sending: casting });
-  expect(sign("Casting Metropolis to Fire TV: its remote")).toEqual({ isOn: true, href: "/casting" });
   await server.say({ type: "sending", sending: { ...casting, fileId: 0, titleName: "" } });
-  expect(sign("Casting to Fire TV, ready: its remote")).toEqual({ isOn: true, href: "/casting" });
+  expect(sign("Casting to Fire TV, ready")).toEqual({ isOn: true, href: null });
+  await server.say({ type: "sending", sending: casting });
+  expect(sign("Casting Metropolis to Fire TV")).toEqual({ isOn: true, href: null });
+  const dialog = await openDialogOf("Casting Metropolis to Fire TV");
+  expect(dialog.textContent).toContain("Playing Metropolis on Fire TV");
   await act(async () => {
-    keepMembership(tabStorage(), "host", { sessionId: 7, credential: "host-credential" });
+    buttonWithText(dialog, "Back to the film")?.click();
     await Promise.resolve();
   });
-  expect(sign("Casting to Fire TV, ready: its remote")?.href).toBe("/watch-together");
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
+  const again = await openDialogOf("Casting Metropolis to Fire TV");
+  expect(buttonWithText(again, "Back to the film")).toBeUndefined(); // on its page already
   await act(async () => {
-    forgetMembership(tabStorage(), "host");
+    buttonWithText(again, "Stop casting")?.click();
     await Promise.resolve();
+  });
+  await settleUntil(() => heard.some((each) => each.methodAndPath === "POST /me/casts/5/end"));
+  expect(heard.find((each) => each.methodAndPath === "POST /me/casts/5/end")?.body).toEqual({
+    reason: "stopped",
   });
   await server.say({ type: "sending" });
-  expect(sign("Cast to a device")).toEqual({ isOn: false, href: "/casting" });
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: null });
 });
 
 it("shows an admin the yellow sign when something needs them, leading to the page of it, and not otherwise", async () => {

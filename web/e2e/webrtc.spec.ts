@@ -67,7 +67,8 @@ test(
     const sockets: string[] = [];
     host.on("websocket", (socket) => sockets.push(socket.url()));
 
-    await host.getByRole("link", { name: "Watch Together", exact: true }).click();
+    // Watch Together's sign opens its dialog over the page (D384 §2).
+    await host.getByRole("button", { name: "Watch Together", exact: true }).click();
     const start = host.getByRole("button", { name: "Start a session" });
     const end = host.getByRole("button", { name: "End the session" });
     await expect(start.or(end)).toBeVisible();
@@ -85,6 +86,7 @@ test(
     const link = (await shown.textContent()) ?? "";
     // The link's dialog is modal (D281 §5): it is closed before the page is used again.
     await host.locator(".watch-together__dialog").getByRole("button", { name: "Close" }).click();
+    await host.locator("dialog.together-dialog > .modal-dialog__close").click();
 
     const guest = await (await browser.newContext()).newPage();
     await guest.goto(link);

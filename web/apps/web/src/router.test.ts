@@ -37,7 +37,6 @@ describe("parseRoute and routeHref", () => {
       { screen: "together" },
       { screen: "watch-together" },
       { screen: "casting" },
-      { screen: "casting", fileId: 9 },
       { screen: "cast-ready" },
       { screen: "lab" },
       { screen: "lab", probe: "device" },

@@ -20,7 +20,10 @@ import {
 import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
-import { TogetherViewer } from "./together-viewer.tsx";
+import { GroupFilmPage, TogetherViewer } from "./together-viewer.tsx";
+
+/** The guest's membership of session 1, as their browser keeps it. */
+const viewer = { membership: { sessionId: 1, credential: "viewer-credential" } };
 
 const welcome = {
   type: "welcome",
@@ -45,8 +48,8 @@ beforeEach(() => {
 });
 
 /**
- * A guest's page, signed in by token or by link alone, back in their session, which the server
- * then ends for reason.
+ * A guest's page back in their session, which the server then ends for reason: signed in by token,
+ * the Play page of the group's film (D384 §2); by link alone, their own page.
  */
 async function endedFor(
   reason: TogetherEndReason,
@@ -59,10 +62,15 @@ async function endedFor(
   const server = fakeTogetherServer();
   const services = {
     ...servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], token),
-    navigation: createNavigation(fakePlace("/together")),
+    navigation: createNavigation(fakePlace(token === undefined ? "/together" : "/play/5")),
     openTogetherSocket: server.openSocket,
   };
-  const mounted = await mount(withServices(<TogetherViewer />, services));
+  const mounted = await mount(
+    withServices(
+      token === undefined ? <TogetherViewer /> : <GroupFilmPage {...viewer} />,
+      services,
+    ),
+  );
   // A guest back in the session taps through its first page (TapToContinue).
   await click(buttonWithText(mounted.container, "Tap to continue"));
   await server.accept();
@@ -113,10 +121,10 @@ describe("a Watch Together guest's page as their session ends", () => {
         [],
         "signed-in-token",
       ),
-      navigation: createNavigation(fakePlace("/together")),
+      navigation: createNavigation(fakePlace("/play/5")),
       openTogetherSocket: server.openSocket,
     };
-    const mounted = await mount(withServices(<TogetherViewer />, services));
+    const mounted = await mount(withServices(<GroupFilmPage {...viewer} />, services));
     await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
@@ -129,7 +137,7 @@ describe("a Watch Together guest's page as their session ends", () => {
 
   it("keeps a signed-in guest sent away for the host's connection on the page, with Join again (D286 §5)", async () => {
     const { mounted, services } = await endedFor("uploadFull", "signed-in-token");
-    expect(services.navigation.route()).toEqual({ screen: "together" });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 5 });
     expect(currentNotice()).toBeUndefined();
     expect(buttonWithText(mounted.container, "Join again")).toBeDefined();
     expect(window.localStorage.getItem("orpheum.together.viewer")).not.toBeNull();

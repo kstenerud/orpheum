@@ -53,8 +53,12 @@ describe("AppShell", () => {
     // No Watch Together or Cast in the top bar: their signs in the status tray (D364 §12).
     expect(markup).not.toContain('<a href="/watch-together">Watch Together</a>');
     // Each an icon button in an icon tray, as a listing's tools are (the owner, 2026-10-30).
-    expect(markup).toContain('href="/watch-together" class="icon-button status-tray__button');
-    expect(markup).toContain('href="/casting" class="icon-button status-tray__button');
+    expect(markup).toContain(
+      '<button type="button" class="icon-button status-tray__button status-tray__button--off" aria-label="Watch Together"',
+    );
+    expect(markup).toContain(
+      '<button type="button" class="icon-button status-tray__button status-tray__button--off" aria-label="Cast to a device"',
+    );
     expect(open).not.toContain("/libraries");
     expect(open).not.toContain("/jobs");
     expect(open).toContain("partner on Firefox on Mac");

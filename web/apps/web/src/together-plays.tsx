@@ -7,17 +7,15 @@ import { endCast } from "./cast.ts";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
 import { useServices } from "./services.tsx";
-import { SessionRemote } from "./session-remote.tsx";
 import type { SessionDetails } from "./together-people.tsx";
 import type { useTogether } from "./use-together.ts";
 
 /**
- * What plays for the group, on the host's session page, with its controls (D364 §15): the remote of
- * the group's film (SessionRemote, the cast's own), the way back to the film, and Stop, which ends it
+ * What plays for the group, in Watch Together's dialog (D364 §15, D384 §2): the group's film, the way
+ * back to its Play page, the one page that plays it and holds its controls, and Stop, which ends it
  * for everyone, as the host playing another film does; leaving the film does not (D246 §5's stop on
- * leaving withdrawn). While this device casts too, the page holds the cast's controls as well, and
- * Stop casting (D364 §11, §13). The host's device here plays nothing: it is a panel of the session,
- * whose connection the page holds (session).
+ * leaving withdrawn). While this device casts too, Stop casting with it (D364 §11, §13). The dialog
+ * plays nothing: it is a panel of the session, whose connection it holds (session).
  */
 export function TogetherPlays(props: {
   readonly session: ReturnType<typeof useTogether>;
@@ -39,30 +37,24 @@ export function TogetherPlays(props: {
       {fileId === 0 ? (
         <h2 id="together-plays-heading">{t("watchTogether.nothingPlays")}</h2>
       ) : (
-        <FilmPlaying fileId={fileId} details={details} {...session} />
+        <FilmPlaying fileId={fileId} details={details} connection={session.connection} />
       )}
       <StopCasting />
     </section>
   );
 }
 
-/** The group's film: its name, its remote, the way back to it, and Stop for everyone. */
+/** The group's film: its name, the way back to it, and Stop for everyone. */
 function FilmPlaying(props: {
   readonly fileId: number;
   readonly details: SessionDetails;
   readonly connection: ReturnType<typeof useTogether>["connection"];
-  readonly snapshot: ReturnType<typeof useTogether>["snapshot"];
 }): JSX.Element {
   const { t } = useTranslation();
   const { connection, details } = props;
   return (
     <>
       <h2 id="together-plays-heading">{details.titleName ?? t("cast.aFilm")}</h2>
-      <SessionRemote
-        snapshot={props.snapshot}
-        connection={connection}
-        durationMs={details.durationMs ?? 0}
-      />
       <div className="together-plays__buttons">
         {/* The page's one primary action, styled as the title page's Play: the host and guests come
             back to watching here by it (the owner missed it as a plain link, 2026-10-29). */}
