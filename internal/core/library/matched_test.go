@@ -62,6 +62,9 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 	if page := list(ListQuery{Sort: SortAdded, Limit: 10}); len(page.Entries) != 3 {
 		t.Errorf("heat newest first = %v; want the three that match", entryNames(page))
 	}
+	if page := list(ListQuery{Sort: SortReleased, Limit: 10}); len(page.Entries) != 3 {
+		t.Errorf("heat by release = %v; want the three that match, undated as they are", entryNames(page))
+	}
 	if page := list(ListQuery{Sort: SortName, From: "Heath", Limit: 10}); !slices.Equal(entryNames(page),
 		[]string{"Larkspurs"}) {
 		t.Errorf("heat from Heath = %v; want Larkspurs, from where From starts", entryNames(page))
