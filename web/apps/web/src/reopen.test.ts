@@ -8,6 +8,7 @@ import {
   askUntilAnswered,
   askWhileUnanswered,
   isPlaybackGone,
+  isUnanswered,
   mayPass,
   reopenWaitsMs,
   type AskAttempt,
@@ -115,6 +116,22 @@ describe("opening a lost playback again", () => {
       { ms: 1200, outcome: `SilentRequestError: ${silent.message}` },
       { ms: 1200, outcome: "ok" },
     ]);
+  });
+
+  it("knows a request the core answered nothing for from the loader's own copy of the SDK, by its name, named by a path or not", () => {
+    // The loader's class, of another build than this client's: not this copy's SilentRequestError.
+    class LoadersSilentRequestError extends Error {
+      constructor() {
+        super("nothing came for /api/v1/playback in 40000 ms");
+        this.name = "SilentRequestError";
+      }
+    }
+    const loaders = new LoadersSilentRequestError();
+    expect(isUnanswered(loaders)).toBe(true);
+    expect(isUnanswered(new Error(`${loaders.message} (over WebRTC)`, { cause: loaders }))).toBe(
+      true,
+    );
+    expect(isUnanswered(new TypeError("Failed to fetch"))).toBe(false);
   });
 
   it("knows a lost playback, and the failures that pass, by the server's code", () => {

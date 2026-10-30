@@ -281,6 +281,11 @@ class BodyQueue {
     this.wake();
   }
 
+  /** Why the body failed, once it has; undefined while it has not. */
+  get failedWith(): Error | undefined {
+    return this.failure;
+  }
+
   /** The body as a stream its reader pulls from, each message only when asked for. */
   stream(onCancel: () => void): ReadableStream<Uint8Array> {
     return new ReadableStream<Uint8Array>(
@@ -444,7 +449,55 @@ function responseOf(
     : body.stream(() => {
         end();
       });
-  return new Response(stream, { status: answered.status, headers: toHeaders(answered.headers) });
+  return new ChannelResponse(
+    stream,
+    { status: answered.status, headers: toHeaders(answered.headers) },
+    () => body.failedWith,
+  );
+}
+
+/**
+ * A response over a channel whose body, read whole, fails with why its body failed: a
+ * SilentRequestError, or its channel closing first. The browser's own reading says neither:
+ * Chromium reads a body whose stream failed as a bare "TypeError: Failed to fetch", and Firefox as an
+ * AbortError. A Play page whose playback's head came and whose body never did was told "TypeError:
+ * Failed to fetch" after 40 s, which is not asked again as a request the core answered nothing for,
+ * and it said "The server could not be reached" while the core was there (the owner's Mac Chrome
+ * back from the Watch Together page, staging, 2026-10-30; idiosyncrasies.md).
+ */
+class ChannelResponse extends Response {
+  constructor(
+    body: ReadableStream<Uint8Array> | null,
+    init: ResponseInit,
+    private readonly bodyFailure: () => Error | undefined,
+  ) {
+    super(body, init);
+  }
+
+  override async arrayBuffer(): Promise<ArrayBuffer> {
+    return await this.read(() => super.arrayBuffer());
+  }
+
+  override async blob(): Promise<Blob> {
+    return await this.read(() => super.blob());
+  }
+
+  override async json(): Promise<unknown> {
+    return await this.read(() => super.json());
+  }
+
+  override async text(): Promise<string> {
+    return await this.read(() => super.text());
+  }
+
+  /** What reading gives, its failure the body's own when the body failed. */
+  private async read<T>(reading: () => Promise<T>): Promise<T> {
+    try {
+      return await reading();
+    } catch (problem: unknown) {
+      throw this.bodyFailure() ?? problem;
+    }
+  }
 }
 
 /** A response head as the core sent it, or an error for one that is not. */

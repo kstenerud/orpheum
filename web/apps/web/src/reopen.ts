@@ -39,14 +39,20 @@ export function mayPass(cause: unknown): boolean {
   return cause instanceof TypeError; // fetch's own failure: no answer at all
 }
 
+/** The name a SilentRequestError of any copy of the SDK carries. */
+const silentRequestErrorName = new SilentRequestError("").name;
+
 /**
  * Whether a request failed for hearing nothing from the core for silentAtMostMs over WebRTC
  * (SilentRequestError), the failure itself or what a path's naming of it wraps: its connection is
- * replaced then, so asked again it goes on a new one.
+ * replaced then, so asked again it goes on a new one. Known by its name too: under a discovery's
+ * loader the request is carried, and fails, in the loader's own copy of the SDK, whose class is not
+ * this copy's where the two are of different builds, as a client origin's loader and its core's
+ * client are across a deploy of either.
  */
 export function isUnanswered(cause: unknown): boolean {
   for (let each: unknown = cause; each instanceof Error; each = each.cause) {
-    if (each instanceof SilentRequestError) {
+    if (each instanceof SilentRequestError || each.name === silentRequestErrorName) {
       return true;
     }
   }
