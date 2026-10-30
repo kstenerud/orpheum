@@ -364,7 +364,7 @@ function DropDownList(props: {
     .filter(Boolean)
     .join(" ");
   return (
-    <ModalDialog className={classes} label={props.label} onClose={onClose}>
+    <ModalDialog className={classes} label={props.label} onClose={onClose} hasOwnClose>
       <div ref={contentRef} className="drop-down__content">
         {/* Its Close, a cross at the top-right that stays put, its places scrolling under it (the
             owner, 2026-10-28: "a static close button in the top-right corner that the scrollable

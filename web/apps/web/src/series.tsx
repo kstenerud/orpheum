@@ -167,9 +167,6 @@ function OrderingDialog(props: {
           props.onChosen?.();
         }}
       />
-      <button type="button" onClick={props.onClose}>
-        {t("moreActions.close")}
-      </button>
     </ModalDialog>
   );
 }

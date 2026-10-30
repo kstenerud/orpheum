@@ -399,7 +399,9 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       '.watch-together__dialog[aria-label="Gran"]',
     );
     expect(dialog?.textContent).toContain("Gran's voice");
-    await click(buttonWithText(dialog ?? mounted.container, "Close"));
+    await click(
+      (dialog ?? mounted.container).querySelector<HTMLButtonElement>(".modal-dialog__close"),
+    );
     expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
     setFilmVolume(1);
     mounted.unmount();

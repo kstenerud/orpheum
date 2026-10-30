@@ -3,8 +3,11 @@
 import "./modal-dialog.css";
 
 import { use, useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 
 import { scrollIntoViewGently } from "./focus-navigation.ts";
+import { IconButton } from "./icon-button.tsx";
+import { CloseIcon } from "./player-icons.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { ServicesContext } from "./services.tsx";
 
@@ -107,16 +110,8 @@ function useHistoryBackCloses(toldRef: RefObject<{ readonly onClose: () => void 
 const firstFieldSelector =
   'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea';
 
-/**
- * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
- * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
- * press, with focus held inside it until it closes, the arrows moving among its own controls alone
- * (focus-navigation.ts), and given back to what had it before once it closes, or, where that went
- * with a drop-down whose place opened it, to the drop-down's button. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
- * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx), and the
- * browser's own Back, which takes an entry held in the history while it is open (D367 §10).
- */
-export function ModalDialog(props: {
+/** What a modal dialog is told. */
+interface ModalDialogProps {
   /** Its name for a screen reader: its heading, or its message where it has none. */
   readonly label: string;
   readonly onClose: () => void;
@@ -135,9 +130,26 @@ export function ModalDialog(props: {
    * point is typing, as an invitation's who-it-is-for (the owner, 2026-10-12).
    */
   readonly shouldFocusFirstField?: boolean;
+  /**
+   * Whether it draws its own Close, as a drop-down's list does, its places scrolling under it; every
+   * other dialog has the standard one, a cross at its top-right (the owner, 2026-10-30: "This should
+   * be a standard widget so they all behave the same").
+   */
+  readonly hasOwnClose?: boolean;
   readonly className?: string;
   readonly children: ReactNode;
-}): JSX.Element {
+}
+
+/**
+ * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
+ * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
+ * press, with focus held inside it until it closes, the arrows moving among its own controls alone
+ * (focus-navigation.ts), and given back to what had it before once it closes, or, where that went
+ * with a drop-down whose place opened it, to the drop-down's button. Escape closes it, told to onClose, and goes no further, so a menu or pop-up
+ * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx), and the
+ * browser's own Back, which takes an entry held in the history while it is open (D367 §10).
+ */
+export function ModalDialog(props: ModalDialogProps): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
   // The latest of what it is told, read as it closes: a page passes a new onClose at each render,
   // and opening the dialog again at each would reset its focus.
@@ -189,6 +201,25 @@ export function ModalDialog(props: {
   return (
     <dialog ref={ref} className={classes} role={props.role} aria-label={props.label}>
       {props.children}
+      {/* After what it holds, so opening focuses that first; drawn at the top-right. */}
+      {props.hasOwnClose === true ? null : <StandardClose toldRef={toldRef} />}
     </dialog>
+  );
+}
+
+/** Every dialog's Close but a drop-down's: a cross at its top-right, which closes it. */
+function StandardClose(props: {
+  readonly toldRef: RefObject<{ readonly onClose: () => void }>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <IconButton
+      label={t("dropDown.close")}
+      icon={<CloseIcon />}
+      onClick={() => {
+        props.toldRef.current.onClose();
+      }}
+      className="modal-dialog__close"
+    />
   );
 }

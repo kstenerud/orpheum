@@ -69,7 +69,6 @@ export function ActionDialog(props: {
   readonly shouldFocusFirstField?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
-  const { t } = useTranslation();
   return (
     <ModalDialog
       className="watch-together__dialog"
@@ -81,9 +80,6 @@ export function ActionDialog(props: {
     >
       <div className="watch-together__dialog-head">
         <h2>{props.heading}</h2>
-        <button type="button" onClick={props.onClose}>
-          {t("status.close")}
-        </button>
       </div>
       {props.children}
     </ModalDialog>
