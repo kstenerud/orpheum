@@ -46,10 +46,10 @@ func TestWebClient_KeepsToTheCoresBounds(t *testing.T) {
 	if got := webClientConstant(t, "rtc-request.ts", "maxMessageBytes"); got != MaxMessageBytes {
 		t.Errorf("the client's messages hold %d bytes, the core's %d; want the same", got, MaxMessageBytes)
 	}
-	if got := webClientConstant(t, "rtc-transport.ts", "clientConnections"); got != ClientConnections {
+	if got := webClientConstant(t, "rtc-transport-link.ts", "clientConnections"); got != ClientConnections {
 		t.Errorf("the client opens %d connections, the core expects %d; want the same", got, ClientConnections)
 	}
-	if got := webClientConstant(t, "rtc-transport.ts", "requestsPerConnection"); got >= channelLimit {
+	if got := webClientConstant(t, "rtc-transport-link.ts", "requestsPerConnection"); got >= channelLimit {
 		t.Errorf("the client sends %d requests a connection, the core serves %d; want fewer, a Watch "+
 			"Together socket holding one", got, channelLimit)
 	}
