@@ -7,6 +7,8 @@ import type { TFunction } from "i18next";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { IconButton } from "./icon-button.tsx";
+import { GearIcon } from "./listing-tools.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -37,15 +39,14 @@ export function LibraryConfigure(props: { readonly library: LibraryBody }): JSX.
   }, []);
   return (
     <>
-      <button
-        type="button"
-        aria-haspopup="dialog"
+      <IconButton
+        label={t("libraryConfigure.open")}
+        icon={<GearIcon />}
+        isExpanded={isOpen}
         onClick={() => {
           setIsOpen(true);
         }}
-      >
-        {t("libraryConfigure.open")}
-      </button>
+      />
       {isOpen ? (
         <ModalDialog
           className="library-configure"
@@ -53,9 +54,6 @@ export function LibraryConfigure(props: { readonly library: LibraryBody }): JSX.
           onClose={close}
         >
           <LibraryChoices library={props.library} />
-          <button type="button" onClick={close}>
-            {t("libraryConfigure.close")}
-          </button>
         </ModalDialog>
       ) : null}
     </>

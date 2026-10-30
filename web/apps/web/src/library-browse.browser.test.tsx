@@ -26,7 +26,8 @@ describe("the Libraries page's bar in a real browser", () => {
   it("centres a chooser's name on its button, a gap between them", async () => {
     await page.viewport(1440, 1000);
     walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
-    await expect.poll(() => isDrawn(".route-chooser__field")).toBe(true);
+    // The view chooser's name shows; the sort's is for a screen reader alone (the owner, 2026-10-30).
+    await expect.poll(() => isDrawn(".route-chooser__button")).toBe(true);
     for (const chooser of document.querySelectorAll(".route-chooser")) {
       const field = chooser.querySelector(".route-chooser__field");
       const button = chooser.querySelector(".route-chooser__button");
@@ -45,9 +46,11 @@ describe("the Libraries page's bar in a real browser", () => {
   // to know that it would bring up a choice list".
   it("marks each chooser by a chevron at its button's end, drawn inside it, after its choice", async () => {
     await page.viewport(1440, 1000);
-    walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
+    // An other library's page, whose view chooser shows its choice; its sort is an icon.
+    walking = await mountApp(walkServices(oneOtherLibrary, "/browse?library=1"));
     await expect.poll(() => isDrawn(".route-chooser__button")).toBe(true);
-    const buttons = [...document.querySelectorAll(".route-chooser__button")];
+    // A chooser that opens from an icon, the sort (the owner, 2026-10-30), shows no chevron.
+    const buttons = [...document.querySelectorAll(".route-chooser__button:not(.icon-button)")];
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
       const chevron = button.querySelector("svg.route-chooser__chevron");
@@ -97,4 +100,14 @@ const oneLibrary = {
     nextCursor: "",
   },
   "GET /titles/letters": { letters: [] },
+};
+
+/** The same server, its library one of other videos, whose page offers a view by folders. */
+const oneOtherLibrary = {
+  ...oneLibrary,
+  "GET /libraries": {
+    libraries: [
+      { ...oneLibrary["GET /libraries"].libraries[0], name: "Home videos", kind: "other" },
+    ],
+  },
 };

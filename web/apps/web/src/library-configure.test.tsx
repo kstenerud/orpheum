@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { LibraryConfigure } from "./library-configure.tsx";
 import {
-  buttonWithText,
   click,
   fire,
   mount,
@@ -64,7 +63,7 @@ async function configured(of: LibraryBody, heard: Heard[] = []): Promise<HTMLEle
       ),
     ),
   );
-  await click(buttonWithText(mounted.container, "Configure"));
+  await click(mounted.container.querySelector<HTMLButtonElement>('button[aria-label="Configure"]'));
   await settleUntil(
     () => mounted?.container.querySelector('dialog input[type="checkbox"]') !== null,
   );
@@ -133,7 +132,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     expect(puts(heard)).toEqual([{ leftOutOfHomeLibraryIds: [3, 1] }]);
   });
 
-  it("closes on a remote's Back, and by its Close", async () => {
+  it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {
     const page = await configured(library(1, "Films", "movies"));
     const box = page.querySelector<HTMLInputElement>('dialog input[type="checkbox"]');
     box?.focus();
@@ -145,9 +144,9 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     });
     await fire(box, back);
     expect(page.querySelector("dialog")).toBeNull();
-    await click(buttonWithText(page, "Configure"));
+    await click(page.querySelector<HTMLButtonElement>('button[aria-label="Configure"]'));
     await settleUntil(() => page.querySelector("dialog") !== null);
-    await click(buttonWithText(page, "Close"));
+    await click(page.querySelector<HTMLButtonElement>("dialog .modal-dialog__close"));
     expect(page.querySelector("dialog")).toBeNull();
   });
 });

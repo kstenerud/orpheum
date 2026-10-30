@@ -51,16 +51,19 @@ export function SearchResults(props: {
 export function QueryResults(props: {
   readonly query: string;
   readonly library?: number | undefined;
+  /** Only hits of this kind: All Films' search finds films, All Series' series. */
+  readonly kind?: SearchHit["kind"] | undefined;
 }): JSX.Element {
   const { api } = useServices();
-  const { query, library } = props;
-  const [hits] = useResource(`search/${String(library)}/${query}`, async () => {
+  const { query, library, kind } = props;
+  const [hits] = useResource(`search/${String(library)}/${String(kind)}/${query}`, async () => {
     const searchBody = dataOrThrow(
       await api.GET("/search", {
         params: { query: { query, limit: 100, ...(library === undefined ? {} : { library }) } },
       }),
     );
-    return searchBody.results ?? [];
+    const results = searchBody.results ?? [];
+    return kind === undefined ? results : results.filter((hit) => hit.kind === kind);
   });
   return (
     <Loaded resource={hits} render={(value) => <SearchResults query={query} hits={value} />} />

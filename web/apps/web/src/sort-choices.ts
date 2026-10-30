@@ -33,15 +33,15 @@ export function orderQuery(choice: SortChoice): { readonly order?: SortOrder } {
   return choice.order === defaultOrderOf(choice.sort) ? {} : { order: choice.order };
 }
 
-/** Every way each sort runs, its own way first and then the other, as the chooser offers them. */
+/**
+ * Every way each sort runs, as the chooser offers them: each field ascending, then descending, the
+ * same for every field (the owner, 2026-10-30: "up arrow, then down arrow for each sort field").
+ */
 export function sortChoicesOf(sorts: readonly LibrarySort[]): SortChoice[] {
-  return sorts.flatMap((sort) => {
-    const own = defaultOrderOf(sort);
-    return [
-      { sort, order: own },
-      { sort, order: own === "ascending" ? "descending" : "ascending" },
-    ];
-  });
+  return sorts.flatMap((sort): SortChoice[] => [
+    { sort, order: "ascending" },
+    { sort, order: "descending" },
+  ]);
 }
 
 /** Whether two choices are the same sort run the same way. */
@@ -85,5 +85,21 @@ function descendingLabel(t: TFunction, sort: LibrarySort): string {
       return t("browse.byRecordedNewest");
     case "released":
       return t("browse.byReleasedNewest");
+  }
+}
+
+/** A sort's field in the person's words, without its way: "Name", "Released", "Added". */
+export function sortFieldLabel(t: TFunction, sort: LibrarySort): string {
+  switch (sort) {
+    case "name":
+      return t("browse.fieldName");
+    case "file_name":
+      return t("browse.fieldFileName");
+    case "added":
+      return t("browse.fieldAdded");
+    case "recorded":
+      return t("browse.fieldRecorded");
+    case "released":
+      return t("browse.fieldReleased");
   }
 }

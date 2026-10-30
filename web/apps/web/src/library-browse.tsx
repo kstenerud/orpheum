@@ -4,7 +4,7 @@ import "./library-browse.css";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -30,6 +30,7 @@ import { LibraryConfigure } from "./library-configure.tsx";
 import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
 import { QueryResults } from "./search.tsx";
+import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
 import { useServices } from "./services.tsx";
 import {
   isByName,
@@ -38,6 +39,7 @@ import {
   orderQuery,
   sortChoiceLabel,
   sortChoicesOf,
+  sortFieldLabel,
   type SortChoice,
 } from "./sort-choices.ts";
 import { usePages, type Page } from "./use-pages.ts";
@@ -243,7 +245,6 @@ function LibraryBrowseLayout(props: {
 }): JSX.Element {
   const { navigation } = useServices();
   const { state, resolved } = props;
-  const [typedQuery, setTypedQuery] = useState(state.query);
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
   useResetJumpOnChange(`${String(state.library)}/${resolved.sort}/${resolved.order}`, clearJump);
@@ -255,10 +256,8 @@ function LibraryBrowseLayout(props: {
           state={state}
           libraryOptions={props.libraryOptions}
           resolved={resolved}
-          typedQuery={typedQuery}
-          onTypedQueryChange={setTypedQuery}
-          onSubmitSearch={() => {
-            navigation.replace(routeFor(state, { query: typedQuery.trim() }));
+          onSearch={(query) => {
+            navigation.replace(routeFor(state, { query }));
           }}
         />
         <LibraryBrowseBody
@@ -288,7 +287,9 @@ function LibraryBrowseLayout(props: {
 function sortChoicesOfPage(state: BrowseState, resolved: ResolvedBrowse, t: TFunction): Choice[] {
   return sortChoicesOf(resolved.sortOptions).map((choice) => ({
     key: `${choice.sort}/${choice.order}`,
-    label: sortChoiceLabel(t, choice),
+    label: sortFieldLabel(t, choice.sort),
+    mark: <SortArrowIcon isAscending={choice.order === "ascending"} />,
+    spoken: sortChoiceLabel(t, choice),
     to: routeFor(state, { sort: choice.sort, order: orderQuery(choice).order }),
     isCurrent: isSameChoice(choice, resolved),
   }));
@@ -313,17 +314,16 @@ function viewChoicesOf(state: BrowseState, resolved: ResolvedBrowse, t: TFunctio
 }
 
 /**
- * The page's top row: the library's name, its view where it offers one, the sort, and a search
- * field. Another library is the banner's Libraries menu's to choose (app-shell.tsx; the owner,
- * 2026-10-28), so the page has no library chooser of its own.
+ * The page's top row: the library's name at the left, and at the right (the owner, 2026-10-30), read
+ * right to left, its sort, its search and, on one library's page, its configure, with its view
+ * before them where it offers one. Another library is the banner's Libraries menu's to choose
+ * (app-shell.tsx; the owner, 2026-10-28), so the page has no library chooser of its own.
  */
 function LibraryBrowseBar(props: {
   readonly state: BrowseState;
   readonly libraryOptions: readonly LibraryBody[];
   readonly resolved: ResolvedBrowse;
-  readonly typedQuery: string;
-  readonly onTypedQueryChange: (query: string) => void;
-  readonly onSubmitSearch: () => void;
+  readonly onSearch: (query: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { state, resolved } = props;
@@ -331,41 +331,25 @@ function LibraryBrowseBar(props: {
   return (
     <div className="browse__bar" data-focus-container="">
       <h1 id="browse-heading">{resolved.currentLabel}</h1>
-      {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
-      {resolved.showsFolders ? (
+      <ListingTools>
+        {resolved.showsFolders ? (
+          <RouteChooser
+            fieldLabel={t("browse.view")}
+            current={resolved.view === "folders" ? t("browse.viewFolders") : t("browse.viewAll")}
+            options={viewChoicesOf(state, resolved, t)}
+            isAView
+          />
+        ) : null}
+        {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
+        <SearchButton query={state.query} onSearch={props.onSearch} />
         <RouteChooser
-          fieldLabel={t("browse.view")}
-          current={resolved.view === "folders" ? t("browse.viewFolders") : t("browse.viewAll")}
-          options={viewChoicesOf(state, resolved, t)}
+          fieldLabel={t("browse.sort")}
+          openerIcon={<SortIcon />}
+          current={sortChoiceLabel(t, resolved)}
+          options={sortChoicesOfPage(state, resolved, t)}
           isAView
         />
-      ) : null}
-      <RouteChooser
-        fieldLabel={t("browse.sort")}
-        current={sortChoiceLabel(t, resolved)}
-        options={sortChoicesOfPage(state, resolved, t)}
-        isAView
-      />
-      <form
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          props.onSubmitSearch();
-        }}
-      >
-        <label>
-          <input
-            type="search"
-            aria-label={t("browse.searchLabel")}
-            placeholder={t("browse.searchSubmit")}
-            value={props.typedQuery}
-            onChange={(event) => {
-              props.onTypedQueryChange(event.target.value);
-            }}
-          />
-        </label>
-        <button type="submit">{t("browse.searchSubmit")}</button>
-      </form>
+      </ListingTools>
     </div>
   );
 }

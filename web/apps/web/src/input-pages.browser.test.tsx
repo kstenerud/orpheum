@@ -98,10 +98,11 @@ const manyLibraries: WalkAnswers = {
 
 /** A library's page's sort chooser: its button, found by the field it chooses. */
 function sortChooser(): HTMLElement | undefined {
-  const chooser = [...document.querySelectorAll("main .route-chooser")].find(
-    (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
+  // The sort shows its field and an arrow, its name for a screen reader alone (the owner, 2026-10-30).
+  return (
+    document.querySelector<HTMLElement>('main .route-chooser__button[aria-label^="Sort:"]') ??
+    undefined
   );
-  return chooser?.querySelector<HTMLElement>(".route-chooser__button") ?? undefined;
 }
 
 /** Whether element holds more than it shows, scrolling within its own height. */
@@ -335,8 +336,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     walking = await mountApp({ ...walkServices(aLibrary), navigation });
     await drawn(".poster-grid a");
     const picker = sortChooser();
-    // The chooser shows its chevron, the menu none (the owner, 2026-10-28).
-    expect(picker?.querySelector(".route-chooser__chevron")).not.toBeNull();
+    // The sort is an icon, no chevron, as the menu has none (the owner, 2026-10-30).
+    expect(picker?.querySelector(".route-chooser__chevron")).toBeNull();
     expect(document.querySelector(".app-shell__menu-button .route-chooser__chevron")).toBeNull();
     picker?.focus();
     await press("{Enter}");
@@ -457,17 +458,20 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         "/browse?library=1",
       ),
     );
-    await drawn("input[type=search]");
+    // The search is the bar's magnifying glass, its field in the dialog it opens (the owner, 2026-10-30).
+    await drawn('main button[aria-label="Search"]');
     await press("{ArrowDown}");
     const first = document.activeElement;
     expect(first).toBeInstanceOf(HTMLElement);
     const reached: Set<Element> =
       first instanceof HTMLElement ? await reachedFrom(first, press) : new Set();
-    const isSearchInput = (control: Element): control is HTMLInputElement =>
-      control instanceof HTMLInputElement && control.type === "search";
-    const searchInput = [...reached].find(isSearchInput);
-    expect(searchInput).toBeDefined();
-    searchInput?.focus();
+    const isSearchButton = (control: Element): control is HTMLButtonElement =>
+      control instanceof HTMLButtonElement && control.getAttribute("aria-label") === "Search";
+    const searchButton = [...reached].find(isSearchButton);
+    expect(searchButton).toBeDefined();
+    searchButton?.focus();
+    await press("{Enter}");
+    await drawn("dialog input[type=search]");
     await press("heat{Enter}");
     await drawn('main a[href="/titles/102"]');
     expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/102"))).toBe(true);

@@ -34,3 +34,22 @@
 .route-chooser__field {
   color: var(--color-muted);
 }
+
+/* A chooser that opens from an icon, a listing's sort (the owner, 2026-10-30): drawn as the icons
+   beside it are, no box and no ground, its list as any chooser's. */
+.route-chooser__button.icon-button {
+  display: inline-grid;
+  place-items: center;
+  gap: 0;
+  width: var(--size-control);
+  height: var(--size-control);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+@media (hover: hover) {
+  .route-chooser__button.icon-button:hover {
+    background: var(--color-surface-raised);
+  }
+}
