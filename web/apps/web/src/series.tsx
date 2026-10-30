@@ -159,7 +159,7 @@ function OrderingDialog(props: {
   const { t } = useTranslation();
   const heading = t("ordering.label");
   return (
-    <ModalDialog label={heading} onClose={props.onClose} shouldCloseOnOutsidePress>
+    <ModalDialog label={heading} onClose={props.onClose}>
       <h2>{heading}</h2>
       <OrderingChoice
         series={props.series}

@@ -123,11 +123,13 @@ export function ModalDialog(props: {
   /** "alertdialog" for a notice that asks only to be read. */
   readonly role?: "dialog" | "alertdialog";
   /**
-   * Whether a press outside it closes it: a drop-down's, which the page behind it waits on and
-   * takes no press from, so a control under it half hidden is never pressed by mistake (the owner,
-   * 2026-10-11).
+   * Whether a press outside it leaves it open. A press outside closes every other: a menu, a picker,
+   * a notice, a dialog whose choices are kept as they are made (the owner, 2026-10-30: "a single
+   * click outside of any modal view dismisses"), the page behind taking no press, so a control under
+   * it half hidden is never pressed by mistake (2026-10-11). One stays open where closing would
+   * answer for the person: a question whose closing declines, as a cast's "play here?".
    */
-  readonly shouldCloseOnOutsidePress?: boolean;
+  readonly shouldStayOpenOnOutsidePress?: boolean;
   /**
    * Whether it opens with its first field to type in focused, not its first control: a form whose
    * point is typing, as an invitation's who-it-is-for (the owner, 2026-10-12).
@@ -163,7 +165,7 @@ export function ModalDialog(props: {
     // A press on the backdrop reaches the dialog itself, outside its box.
     const pressOutside = (event: MouseEvent): void => {
       if (
-        toldRef.current.shouldCloseOnOutsidePress === true &&
+        toldRef.current.shouldStayOpenOnOutsidePress !== true &&
         event.target === dialog &&
         isOutside(dialog, event)
       ) {

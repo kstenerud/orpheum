@@ -34,13 +34,7 @@ export function NoticeNote(): JSX.Element | null {
     dismissNotice(notice);
   };
   return (
-    <ModalDialog
-      className="notice-note"
-      role="alertdialog"
-      label={notice.text}
-      onClose={close}
-      shouldCloseOnOutsidePress
-    >
+    <ModalDialog className="notice-note" role="alertdialog" label={notice.text} onClose={close}>
       <p>{notice.text}</p>
       <button type="button" onClick={close}>
         {t("notice.ok")}
