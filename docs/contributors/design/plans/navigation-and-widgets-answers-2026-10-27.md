@@ -498,3 +498,12 @@ had leaned on.
   them try to fill out the form uselessly first."
 - **D384 §3: no device in the same Watch Together session is a cast target** (the owner, 2026-10-30,
   after casting from the S23 to the Mac hosting the session ended the cast).
+- **A ladder's H.264 rung as costly as its HEVC original (the owner, 2026-10-30, VQ177's run).**
+  "When stepping back up, it eventually hit 2.0 Mb/s h264, even though the original HEVC was also at
+  the same bitrate." File 5664's ladder as Chrome read it: level 3 (H.264) 3096 kb/s peak, 2096 average;
+  level 4 (the HEVC original) 15635 peak, 2224 average. On average the rung costs the link what the
+  original does and looks worse; it is chosen because the controller weighs the original by its peak.
+  Options for the owner: the ladder leaves out a transcoded rung whose average comes within a margin
+  of the original's (the server knows both), or the controller judges a rung by its average with the
+  buffer ahead (D265 §4's share), so the original is reached wherever a rung of the same average is.
+  Sits beside D382's sequel (the decoder's limit, a simpler codec at the same quality).
