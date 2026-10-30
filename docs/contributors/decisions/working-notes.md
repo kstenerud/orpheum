@@ -24633,4 +24633,10 @@ The decoder's own limit (a rung that drops frames, MediaCapabilities, Compute Pr
 codec at the same quality where the link can carry it, the owner's addition) is next batch's design,
 after a probe on the Fire TV (navigation-and-widgets-answers-2026-10-27.md).
 
-**Status:** Decided 2026-10-30; not built yet.
+**Status:** Decided 2026-10-30; built 2026-10-30 in the web player, not yet on staging (VQ187): §1 in `abr-ceiling.ts` (`#givenUpLevel`), §2 in `first-piece.ts`, `abr-choice.ts` (`afterFirstPiece`) and `abr-on-its-way.ts`, §3 in `abr-busy.ts`, wired through `ChoosingOptions.longTasks`, §4 in `chunked.ts` (`stepAndLinkNoter`), all under `web/packages/player/src/`.
+
+**Proven by:**
+- 1: web/packages/player/src/abr-given-up.test.ts ("lowers a slow chunk's quality only as far as the estimate carries, …"); VQ187
+- 2: web/packages/player/src/abr-first-piece.test.ts ("gives up a chunk that brought only its first piece as stuck, …", "measures a loaded chunk by its bytes after its first piece, …"); VQ187
+- 3: web/packages/player/src/abr-busy.test.ts ("does not give up a chunk whose arrival a long task overlapped, …", "takes no sample of a loaded chunk whose arrival a long task overlapped"); VQ187
+- 4: web/packages/player/src/chunked.test.ts ("reach the core's log among its link's notes, each marked a step"); VQ187
