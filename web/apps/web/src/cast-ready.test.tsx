@@ -116,10 +116,10 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     expect(services.navigation.route()).toEqual({ screen: "home" });
   });
 
-  it("goes back to the page it was on before the session as the sender stops casting (D364 §10)", async () => {
+  it("goes to its home page as the sender stops casting (D384 §1)", async () => {
     const { services, sockets } = await readyPage([]);
     await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(services.navigation.route()).toEqual({ screen: "films" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
   });
 
   it("says it is not being cast to without a cast waiting ready", async () => {

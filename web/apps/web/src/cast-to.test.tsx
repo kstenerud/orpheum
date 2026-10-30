@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
 import { castAnswerGraceMs, castAnswerWithinMs } from "./cast.ts";
-import { castReturnKey } from "./cast-return.ts";
+import { castReceivingKey } from "./cast-receiving-mark.ts";
 import { CastTargets, PlayOrSendOn, sendingKnownWithinMs } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import {
@@ -392,7 +392,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(mounted.container.textContent).toContain("receiving file 0");
   });
 
-  it("goes back to the page a cast took it over from as casting ends there, through a cast that replaced it (D338 §1)", async () => {
+  it("goes to its home page in the page's place as a cast ends there, through a cast that replaced it (D384 §1)", async () => {
     const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const before = services.navigation.route();
     expect(before.screen).not.toBe("play");
@@ -414,9 +414,10 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(buttonWithText(mounted.container, "Use")).toBeUndefined();
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
     await click(buttonWithText(mounted.container, "leave"));
-    expect(services.navigation.route()).toEqual(before);
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(services.navigation.behind().at(-1)).toEqual({ screen: "play", fileId: 7 });
     expect(mounted.container.textContent).not.toContain("receiving");
-    expect(tabStorage().getItem(castReturnKey)).toBeNull();
+    expect(tabStorage().getItem(castReceivingKey)).toBeNull();
   });
 
   // The owner's staging, 2026-10-29: casting Back to the Lantern, the person started Watch Together;
@@ -463,9 +464,8 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     await click(buttonWithText(mounted.container, "take back"));
   });
 
-  // The owner's Fire TV, 2026-10-29: playing The Kid as its own, cast Back to the Lantern,
-  // the cast stopped and the TV back on The Kid; its Back then played Back to the Lantern.
-  it("leaves the cast's entries ahead as casting ends, so Back from the page returned to never goes into its film", async () => {
+  // The owner's Fire TV, 2026-10-29: a cast stopped, the TV's Back then played the cast's film.
+  it("goes home as casting ends, and Back from there never plays the cast's film (D384 §1, D383 §1)", async () => {
     const place = fakePlace("/titles/3");
     const navigation = createNavigation(place, false);
     navigation.go({ screen: "play", fileId: 4 });
@@ -491,14 +491,14 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
       navigation.go(navigation.route());
     });
     await click(buttonWithText(mounted.container, "leave"));
-    expect(navigation.route()).toEqual({ screen: "play", fileId: 4 });
+    expect(navigation.route()).toEqual({ screen: "home" });
     act(() => {
       place.history.back();
     });
-    expect(navigation.route()).toEqual({ screen: "title", itemId: 3 });
+    expect(navigation.route().screen).not.toBe("play");
   });
 
-  it("stays on the film, forgetting the page before, as its control is taken back here (D338 §6)", async () => {
+  it("stays on the film, forgetting it received, as its control is taken back here (D338 §6)", async () => {
     const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
     const sockets = liveAndSession();
     const server = sockets.live;
@@ -515,7 +515,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     await pressUse(mounted.container);
     await click(buttonWithText(mounted.container, "take back"));
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
-    expect(tabStorage().getItem(castReturnKey)).toBeNull();
+    expect(tabStorage().getItem(castReceivingKey)).toBeNull();
   });
 });
 

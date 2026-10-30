@@ -43,8 +43,8 @@ const clientKeys = new Set([
   "orpheum.controller.ok",
   // Whether the tab sends a cast, so a film it plays goes on to its receiver (cast.ts).
   "orpheum.cast.sending",
-  // The page a cast took the tab over from, which it goes back to as casting ends (cast-return.ts).
-  "orpheum.cast.returnTo",
+  // That the tab receives a cast, for its page loaded again (cast-receiving-mark.ts).
+  "orpheum.cast.receiving",
   // The latency of this device's sound through Web Audio, as last measured (sound-latency.ts).
   "orpheum.sound.latencyMs",
   // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).

@@ -25,10 +25,9 @@ import {
 import { ownScriptOf } from "./app-update.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { CastAsked, leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
-import { forgetReturn, noteReturn, takeReturn, wasReceiving } from "./cast-return.ts";
-import { leaveUncontrolledCast } from "./cast-uncontrolled.ts";
+import { forgetReceiving, markReceiving, wasReceiving } from "./cast-receiving-mark.ts";
 import type { Navigation } from "./navigation.ts";
-import { routeHref, type Route } from "./router.ts";
+import type { Route } from "./router.ts";
 import { useServices, useToken } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
 
@@ -52,14 +51,14 @@ export interface Live {
   /** Ends receiving here, the film playing on as this device's own: control taken back here. */
   readonly endReceiving: () => void;
   /**
-   * Ends receiving here and goes back to the page the cast took the tab over from: casting stopped,
-   * or its film over with nothing after it (D338 §1).
+   * Ends receiving here and sends the device to its home page: the cast ended other than by control
+   * taken back here (D384 §1), as by Stop casting, its session's end or its controller gone.
    */
   readonly leaveReceiving: () => void;
   /**
    * Whether this page, loaded again while its tab received a cast (a reload, a deploy), does not know
    * yet whether that cast goes on, while which a Play page holds its film (PlayOrSendOn): one that does
-   * not is left for its film's page (D383 §2, useLeavesACastNoOneControls).
+   * not is left for home (D384 §1, useLeavesACastNoOneControls).
    */
   readonly isReceivingInDoubt: boolean;
 }
@@ -187,36 +186,34 @@ function useLiveOf(
 }
 
 /**
- * Leaves a cast no one controls (D383 §2): this page loaded again while its tab received a cast (a
- * reload, a deploy), and once the server has said whether it hands the device a cast as it connects
- * (the snapshot's isReceiveKnown), it handed none, or one the person did not take (Not now), so the
- * cast is over unseen; a cast's page, its film's Play page or the ready page, goes to the film's page
- * or home (leaveUncontrolledCast), and the page it would have gone back to is forgotten. Whether the
- * cast is still in doubt: until then, and while it leaves.
+ * Leaves a cast no one controls (D383 §2, D384 §1): this page loaded again while its tab received a
+ * cast (a reload, a deploy), and once the server has said whether it hands the device a cast as it
+ * connects (the snapshot's isReceiveKnown), it handed none, or one the person did not take (Not now),
+ * so the cast is over unseen; a cast's page, its film's Play page or the ready page, goes home in its
+ * place, and the mark that the tab received is forgotten. Whether the cast is still in doubt: until
+ * then.
  */
 function useLeavesACastNoOneControls(isReceiveKnown: boolean, received: Received): boolean {
-  const { api, navigation } = useServices();
-  const [isInDoubt, setIsInDoubt] = useState(() => wasReceiving(tabStorage()));
-  if (isInDoubt && received.receiving !== undefined) {
-    setIsInDoubt(false); // handed again and taken: the cast goes on
+  const { navigation } = useServices();
+  const [doubt, setDoubt] = useState<"inDoubt" | "over" | "settled">(() =>
+    wasReceiving(tabStorage()) ? "inDoubt" : "settled",
+  );
+  if (doubt === "inDoubt" && received.receiving !== undefined) {
+    setDoubt("settled"); // handed again and taken: the cast goes on
+  } else if (doubt === "inDoubt" && isReceiveKnown && received.asked === undefined) {
+    setDoubt("over");
   }
-  const isOver =
-    isInDoubt && isReceiveKnown && received.receiving === undefined && received.asked === undefined;
   useEffect(() => {
-    if (!isOver) {
+    if (doubt !== "over") {
       return;
     }
-    forgetReturn(tabStorage());
+    forgetReceiving(tabStorage());
     const { screen } = navigation.route();
-    const leaving =
-      screen === "play" || screen === "cast-ready"
-        ? leaveUncontrolledCast(api, navigation)
-        : Promise.resolve();
-    void leaving.finally(() => {
-      setIsInDoubt(false);
-    });
-  }, [isOver, api, navigation]);
-  return isInDoubt;
+    if (screen === "play" || screen === "cast-ready") {
+      sendHome(navigation);
+    }
+  }, [doubt, navigation]);
+  return doubt === "inDoubt";
 }
 
 /**
@@ -267,7 +264,7 @@ interface Received extends Pick<Live, "receiving" | "answer" | "endReceiving" | 
  * receives none is asked about first, and received once its Use is pressed (D364 §2, D358 §2); one
  * arriving while it receives one, the same cast handed again or another replacing it, is received
  * at once. A cast received opens its film's Play page, or with nothing playing the full-screen ready
- * page (D364 §5), noting the page it took the tab over from (D338 §1); handed again as the
+ * page (D364 §5), marking the tab as receiving (D383 §2); handed again as the
  * connection came back, it is received already, unless the page left it; handed again with another
  * film, or nothing, the person played another on the sender (D364 §3) or the cast moved on to the
  * next episode (plans/up-next.md), which plays.
@@ -278,11 +275,7 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
   const receivedRef = useRef<CastToReceive | undefined>(undefined);
   const receive = useCallback(
     (handed: CastToReceive) => {
-      noteReturn(tabStorage(), {
-        castId: handed.castId,
-        route: navigation.route(),
-        isReceiving: isReceivingRef.current,
-      });
+      markReceiving(tabStorage(), handed.castId);
       isReceivingRef.current = true;
       const received = receivedRef.current;
       const isSame = received?.castId === handed.castId && received.fileId === handed.fileId;
@@ -305,31 +298,25 @@ function useReceiving(connection: LiveConnection | undefined, navigation: Naviga
   const endReceiving = useCallback(() => {
     isReceivingRef.current = false;
     receivedRef.current = undefined;
-    forgetReturn(tabStorage());
+    forgetReceiving(tabStorage());
     setReceiving(undefined);
   }, []);
   const leaveReceiving = useCallback(() => {
-    isReceivingRef.current = false;
-    receivedRef.current = undefined;
-    const back = takeReturn(tabStorage());
-    setReceiving(undefined);
-    leaveFullScreen(document);
-    leaveTheCastsEntries(navigation, back);
-  }, [navigation]);
+    endReceiving();
+    sendHome(navigation);
+  }, [endReceiving, navigation]);
   return { receiving, answer, asked, onAnswered, endReceiving, leaveReceiving };
 }
 
 /**
- * Goes to to, the page a cast took the tab over from (or home), by going back through the history to
- * the nearest entry showing it, Up's way (Navigation's up), else in the current entry's place: the
- * entries the cast added, its films' Play pages and its ready page, are left ahead, never behind, so
- * Back from the page returned to goes to what came before it. Pushed on top of them, the page's Back
- * stepped into the cast's film, which then played as the device's own (the owner's Fire TV,
- * 2026-10-29).
+ * Sends a receiver whose cast ended to its home page, in the current page's place, out of the full
+ * screen its Use asked for (D384 §1, the owner: "it's probably best from a UX perspective for a castee
+ * to go back to the home page whenever its cast ends"). A Play page of the cast's that Back reaches
+ * later shows its title's page, never playing (D383 §1).
  */
-export function leaveTheCastsEntries(navigation: Navigation, to: Route): void {
-  const href = routeHref(to);
-  navigation.up(to, (route) => routeHref(route) === href);
+function sendHome(navigation: Navigation): void {
+  leaveFullScreen(document);
+  navigation.replace({ screen: "home" });
 }
 
 /**

@@ -32,7 +32,6 @@ import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
 import { endCast, moveCastOn, playInCast } from "./cast.ts";
-import { leaveUncontrolledCast } from "./cast-uncontrolled.ts";
 import { fillsWindowClass, isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
@@ -106,7 +105,7 @@ export function moveOnOrReady(api: Api, receiving: Receiving): void {
  * Has the cast this device receives play nothing, at its film's end with nothing after it: the
  * server hands it again so, and the receiver waits full screen on its ready page for the next video
  * the person plays (D364 §5), the session going on. A cast that cannot is over, and the receiver goes
- * back to the page it was on before it (D338 §1).
+ * home (D384 §1).
  */
 export function readyForTheNext(api: Api, receiving: Receiving): void {
   playInCast(api, receiving.cast.castId, undefined).catch(() => {
@@ -120,8 +119,8 @@ export interface Receiving {
   /** Told that receiving is over here, the film playing on as the device's own: control taken back. */
   readonly onOver: () => void;
   /**
-   * Told that receiving is over and the device goes back to the page it was on before the cast:
-   * casting stopped (D364 §10, D338 §1).
+   * Told that receiving is over and the device goes to its home page: the cast ended other than by
+   * control taken back here, as by Stop casting (D384 §1).
    */
   readonly onLeave: () => void;
   /**
@@ -139,7 +138,7 @@ export interface Receiving {
  * session's. While its person hosts Watch Together, its video leads that session instead, as their
  * player, so what they play plays for the group, the cast's session told only how it ends (D364 §11).
  * Back, or OK twice, leaves controlled mode, the film playing on here (D364 §9, D338 §6). The cast
- * stopped by the remote sends it back to the page it was on before (D364 §10); at the film's end it
+ * ended any other way, stopped by the remote among them, sends it home (D384 §1); at the film's end it
  * plays the next episode as the sender would (Up next, plans/up-next.md), and where none plays next
  * it waits ready for the next video (D364 §5).
  */
@@ -175,7 +174,6 @@ export function CastReceiver(props: {
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, {
     onOver,
     onLeave,
-    onNoController: useLeavesForTheFilmsPage(onOver),
   });
   const hasNext = props.hasNext === true;
   const { receiving } = props;
@@ -259,41 +257,26 @@ function useReceiversSessions(cast: CastToReceive): {
 }
 
 /**
- * What a receiver's Play page does as its cast is gone with no one controlling it (D383 §2): it goes
- * to the film's page, or home (leaveUncontrolledCast), then ends receiving here (onOver), so the film
- * never plays on as the device's own with no one having asked it to.
- */
-function useLeavesForTheFilmsPage(onOver: () => void): () => void {
-  const { api, navigation } = useServices();
-  return useCallback(() => {
-    void leaveUncontrolledCast(api, navigation).finally(onOver);
-  }, [api, navigation, onOver]);
-}
-
-/**
- * Ends receiving as the cast ends: stopped on the sender, the receiver goes back to the page it was on
- * before the session (D364 §10, D338 §1); a cast replacing it is received already; its control taken
- * back here leaves what shows as it is, an ordinary player (onOver, D364 §9); any other end, the cast
- * gone with no one controlling it (a session that ended unseen, as its receiver was gone too long or
- * the server restarted), goes by onNoController where given (D383 §2), else as taken back.
+ * Ends receiving as the cast ends: its control taken back here leaves what shows as it is, an
+ * ordinary player (onOver, D364 §9); a cast replacing it is received already; any other end, Stop
+ * casting on the sender, its session's end or its controller gone (as its receiver was gone too long
+ * or the server restarted), sends the receiver home (onLeave, D384 §1).
  */
 export function useEndsAsTheCastDoes(
   endReason: TogetherEndReason | undefined,
-  ways: Pick<Receiving, "onOver" | "onLeave"> & { readonly onNoController?: () => void },
+  ways: Pick<Receiving, "onOver" | "onLeave">,
 ): void {
-  const { onOver, onLeave, onNoController } = ways;
+  const { onOver, onLeave } = ways;
   useEffect(() => {
     if (endReason === undefined || endReason === "replaced") {
       return;
     }
-    if (endReason === "stopped") {
-      onLeave();
-    } else if (endReason === "takenBack" || onNoController === undefined) {
+    if (endReason === "takenBack") {
       onOver();
     } else {
-      onNoController();
+      onLeave();
     }
-  }, [endReason, onOver, onLeave, onNoController]);
+  }, [endReason, onOver, onLeave]);
 }
 
 /** Has the video's stage fill the window while it receives, by layout, as no press asked (§4). */
