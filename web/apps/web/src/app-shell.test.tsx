@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { act, type JSX } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
@@ -559,6 +559,45 @@ describe("AppShell", () => {
       again.unmount();
     } finally {
       localStorage.removeItem(localNetworkNoteDismissedKey);
+    }
+  });
+
+  // The owner's Fire TV, 2026-10-28: "I get a message 'Your browser is asking to reach devices on
+  // your network', but the browser doesn't surface anything asking for permissions."
+  it("says nothing of the local network's prompt on a Fire TV, whose Silk never shows one", async () => {
+    const asking = "Your browser is asking to reach devices on your network.";
+    localStorage.removeItem(localNetworkNoteDismissedKey);
+    const userAgent = vi
+      .spyOn(Navigator.prototype, "userAgent", "get")
+      .mockReturnValue(
+        "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36",
+      );
+    try {
+      const shown = await mount(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={undefined}
+          >
+            <p>screen</p>
+          </AppShell>,
+          {
+            ...testServices(),
+            onLocalNetworkAsking: (listener: (isAsking: boolean) => void) => {
+              listener(true);
+              return () => undefined;
+            },
+          },
+        ),
+      );
+      await settleUntil(() => shown.container.textContent.includes("screen"));
+      expect(shown.container.textContent).not.toContain(asking);
+      shown.unmount();
+    } finally {
+      userAgent.mockRestore();
     }
   });
 });

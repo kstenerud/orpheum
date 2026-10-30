@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
+| On a Fire TV in Silk, the page said the browser was asking to reach devices on the network, and nothing asked. | [Silk on Fire TV leaves the local-network permission still to ask, and never asks](#silk-on-fire-tv-leaves-the-local-network-permission-still-to-ask-and-never-asks) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
@@ -805,6 +806,20 @@ User-Agent (D263; the User-Agent is logged only).
   The rest of the input layer still trusts `repeat`, where a lost key up would otherwise make every
   later press a repeat.
 - **Evidence:** the core's log of VQ122's run, 2026-10-29.
+
+### Silk on Fire TV leaves the local-network permission still to ask, and never asks
+
+- **Symptom:** on the owner's Fire TV (Silk 138), the page's note "Your browser is asking to reach
+  devices on your network" showed at every first visit and every reload, and Silk showed no prompt
+  to answer; the note stayed until dismissed (the owner, 2026-10-28 and 2026-10-29).
+- **Cause:** unverified. The page shows the note while the permission reads as still to ask
+  (`prompt`) and a request to the LAN name waits on it (`web/apps/web/src/local-network.ts`); in
+  Silk it reads so for good, and Silk has no prompt to show. No report of Silk's Local Network
+  Access handling was found online.
+- **What we do:** the note is never shown on a Fire TV (`isFireTv` in
+  `web/apps/web/src/tv-device.ts`, used by `web/apps/web/src/local-network-note.tsx`); the page
+  races its paths as before.
+- **Evidence:** the owner's Fire TV, staging, 2026-10-28 and 2026-10-29.
 
 ### Silk on Fire TV takes a held Up for its own address bar and menu
 
