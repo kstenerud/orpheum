@@ -46,6 +46,26 @@ class PlaywrightPin(unittest.TestCase):
         self.assertIn("'swr' names @tanstack/react-query", problems[0].message)
 
 
+class InstallScripts(unittest.TestCase):
+    LOCK = {"packages": {"": {}, "node_modules/fsevents": {"hasInstallScript": True},
+                         "node_modules/a/node_modules/@x/evil": {"hasInstallScript": True},
+                         "node_modules/react": {}}}
+
+    def test_a_package_with_an_install_script_must_be_named_with_a_reason(self):
+        problems, unused = cdeps.install_script_problems(
+            self.LOCK, {"fsevents": "macOS", "gone": "once"}, ["bare"], "deps/x.allow")
+        self.assertEqual([p.message.split(" runs")[0] for p in problems[:1]], ["'@x/evil'"])
+        self.assertIn("'bare' is listed without a reason", problems[1].message)
+        self.assertEqual(len(problems), 2)
+        self.assertEqual(unused, ["deps/x.allow: 'gone' is allowed but no locked package has an install "
+                                  "script by that name"])
+
+    def test_the_repositorys_lockfile_and_list_agree(self):
+        lock = json.loads((REPO / "web/package-lock.json").read_text())
+        allowed, bare = cdeps.parse_allowlist((REPO / "deps/npm-install-scripts.allow").read_text())
+        self.assertEqual(cdeps.install_script_problems(lock, allowed, bare, "x"), ([], []))
+
+
 class RetiredNames(unittest.TestCase):
     LIST = ("| Retired | Now | By |\n| --- | --- | --- |\n"
             "| `serve_debug_pprof` | `should_serve_debug_pprof` | D227 §6 |\n| `afterSeq` | `afterCommandSeq` | D227 |\n")

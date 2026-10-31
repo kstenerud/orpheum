@@ -24,6 +24,11 @@ Two checks keep what the tooling says about dependencies true:
 * **The Makefile's Playwright pin is the lockfile's.** `make browsers` installs the browsers for
   `PLAYWRIGHT_VERSION`; Playwright fetches the browsers of its own version, so a pin that
   drifted from `@playwright/test` would refuse every browser-tier run.
+* **A package that runs a script as npm installs it is one the owner chose to.** `web/.npmrc` sets
+  `ignore-scripts=true` (the week's security report §4, the owner 2026-10-31: that week's malicious
+  packages acted through `postinstall`), so none runs; still, a lockfile that gains a package with
+  an install script fails until `deps/npm-install-scripts.allow` names it with a reason, as a new
+  dependency would, since a later `ignore-scripts` slip would run it.
 * **eslint's "use X instead" names an installed package.** Each banned library's message is the
   fix, and a fix naming a scoped package nothing installs (it named `@tanstack/react-query` when
   the app's `useResource` does the job) sends the reader to add a dependency.
@@ -150,6 +155,28 @@ def playwright_pin_problems(makefile: str, lockfile: dict[str, object]) -> list[
     return []
 
 
+def install_script_problems(lockfile: dict[str, object], allowed: dict[str, str], bare: list[str],
+                            allow_path: str) -> tuple[list[Problem], list[str]]:
+    """Lockfile packages with an install script that allow_path does not name, and names it lists
+    that no locked package needs any more."""
+    packages = lockfile.get("packages")
+    scripted = sorted({
+        path.rsplit("node_modules/", 1)[-1]
+        for path, entry in (packages.items() if isinstance(packages, dict) else [])
+        if isinstance(entry, dict) and entry.get("hasInstallScript") is True
+    })
+    problems = [
+        Problem("web/package-lock.json", f"{name!r} runs a script as npm installs it, and {allow_path} "
+                                         "does not name it: say why it may, or find another package")
+        for name in scripted
+        if name not in allowed
+    ]
+    problems += [Problem(allow_path, f"{name!r} is listed without a reason") for name in bare]
+    unused = [f"{allow_path}: {name!r} is allowed but no locked package has an install script by that name"
+              for name in sorted(allowed) if name not in scripted]
+    return problems, unused
+
+
 def lint_alternative_problems(eslint_config: str, installed: set[str]) -> list[Problem]:
     """eslint messages that tell the reader to use a scoped package nothing installs."""
     return [
@@ -187,6 +214,13 @@ def check(root: Path) -> tuple[list[Problem], list[str]]:
     lockfile, makefile, eslint = root / "web/package-lock.json", root / "Makefile", root / "web/eslint.config.js"
     if lockfile.exists() and makefile.exists():
         problems += playwright_pin_problems(makefile.read_text(), json.loads(lockfile.read_text()))
+    scripts_allow = root / "deps/npm-install-scripts.allow"
+    if lockfile.exists() and scripts_allow.exists():
+        allowed, bare = parse_allowlist(scripts_allow.read_text())
+        p, n = install_script_problems(json.loads(lockfile.read_text()), allowed, bare,
+                                       "deps/npm-install-scripts.allow")
+        problems += p
+        notes += n
     if eslint.exists():
         problems += lint_alternative_problems(eslint.read_text(), set(npm_used) | ours)
     return problems, notes

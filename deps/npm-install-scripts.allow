@@ -1,0 +1,6 @@
+# npm packages in web/package-lock.json that run a script as npm installs them. web/.npmrc sets
+# ignore-scripts=true, so none runs; a package that gains one fails `make check` until it is named
+# here with a reason (the week's security report §4, the owner 2026-10-31).
+# Format: <package name>  # <reason> (<D-ID or standard>)
+fsevents  # a dev dependency of Vite's watcher, macOS only; its build script is not needed with prebuilt binaries (security-week-2026-10-30.md §4)
+lfa-ponyfill  # pulled in by jassub (subtitles); its postinstall refreshes fonts.json from Google Fonts, which ignore-scripts skips: the tarball's own file ships (security-week-2026-10-30.md §4)
