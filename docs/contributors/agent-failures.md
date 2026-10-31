@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A55 — Told the owner the session could not edit gates, without checking its environment (2026-10-31)
+
+- **What happened:** preparing a handoff, the lead deferred the token-use gate patch to the next
+  session, saying hooks and scripts can only be edited in a session started with
+  `ORPHEUM_ALLOW_GATE_EDIT=1`, and gave the owner a relaunch command adding it. The session already
+  had it (`echo` showed `1`). The belief came from memory: a note that yoloai sometimes drops
+  environment variables on restart, read as "it is not set", and an earlier refusal of an edit to
+  `.claude/standing-orders.md`, which is a commit-trailer rule, not the edit hook.
+- **Caught by:** the owner ("You were already started with ORPHEUM_ALLOW_GATE_EDIT=1").
+- **Gate:** none needed for this one: a one-line `echo` settles it. The rule: a claim about the
+  session's own environment or permissions is checked with a command before it is said.
+
 ### A54 — A search for a source file walked the whole disk, the read-only media share with it (2026-10-31)
 
 - **What happened:** an agent building B-frame re-timing looked for FFmpeg's `dts2pts.c` with
