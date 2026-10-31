@@ -20,6 +20,8 @@ export interface Reaches {
   /** The page's own client script, which the core's answers are compared with for an update. */
   readonly ownScript: string | undefined;
   readonly realm?: string | undefined;
+  /** Whether the loader takes a page signed out to the discovery's sign-in (Services'). */
+  readonly leavesWhenSignedOut?: boolean | undefined;
   readonly switchHousehold?: (() => void) | undefined;
   readonly codeAddress?: string | undefined;
   readonly onLocalNetworkAsking?:
@@ -70,6 +72,8 @@ export function reachesUnderLoader(loader: OrpheumLoader, page: Document): Reach
     pathMoves: pathMovesHeardFrom(loader.onPathMove, loader.pathInUse),
     ownScript: builtScriptOf(page),
     realm: loader.core.realm,
+    // An older loader says nothing, and leaves for a core reached through a realm alone.
+    leavesWhenSignedOut: loader.leavesWhenSignedOut ?? loader.core.realm !== undefined,
     switchHousehold: loader.switchHousehold,
     codeAddress: codeAddressOf(page),
     onLocalNetworkAsking: loader.onLocalNetworkAsking,

@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 4;
+export const loaderMinor = 5;
 
 /** The kind of path a loader's requests and media go over: a core's name, or WebRTC. */
 export type LoaderPathKind = "direct" | "webrtc";
@@ -70,6 +70,13 @@ export interface OrpheumLoader {
    * older loader has none, and its client hears the browser back online alone.
    */
   readonly onPathBack?: (listener: () => void) => () => void;
+  /**
+   * Whether the loader takes the page to the discovery's sign-in once its session ends
+   * (loader-at-client-origin.tsx's leavesWhenSignedOut), so the client draws no sign-in of the
+   * core's own meanwhile. Since minor 5: an older loader has none, and leaves for a core reached
+   * through a realm alone.
+   */
+  readonly leavesWhenSignedOut?: boolean;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.

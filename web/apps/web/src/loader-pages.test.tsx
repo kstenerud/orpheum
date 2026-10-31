@@ -345,6 +345,7 @@ describe("signing out at a core's client origin (D308)", () => {
       const went: string[] = [];
       leaveWhenSignedOut(session, {
         core: { coreId: "k7xq2", fingerprint, realm: "nas" },
+        hasRealms: true,
         loaderOrigin: config.loaderOrigin,
         go: (to) => {
           went.push(to);
@@ -409,11 +410,32 @@ describe("signing out at a core's client origin (D308)", () => {
     expect(isMembershipForgotten).toBe(true);
   });
 
-  it("stays at the core's own sign-in for a household reached by a link alone", () => {
+  // The owner, 2026-10-30: signing out lands on "the discovery's sign-in, except where there is no
+  // discovery". The S23, its household reached by a link, landed on the core's own; the Fire TV, its
+  // reached through a realm, on the discovery's.
+  it("goes to the discovery's sign-in for a household reached by a link alone, at a discovery with realms", () => {
     const session = signedIn();
     const went: string[] = [];
     leaveWhenSignedOut(session, {
       core: { coreId: "k7xq2", fingerprint, realm: undefined },
+      hasRealms: true,
+      loaderOrigin: config.loaderOrigin,
+      go: (to) => {
+        went.push(to);
+      },
+    });
+    expect(went).toEqual([]);
+    session.signOut();
+    expect(went).toEqual(["https://app.example/?signedout=k7xq2"]);
+  });
+
+  it("stays at the core's own sign-in for a household reached by a link alone", () => {
+    const session = signedIn();
+    const went: string[] = [];
+    // At a discovery with no realms, whose page has no sign-in of its own.
+    leaveWhenSignedOut(session, {
+      core: { coreId: "k7xq2", fingerprint, realm: undefined },
+      hasRealms: false,
       loaderOrigin: config.loaderOrigin,
       go: (to) => {
         went.push(to);

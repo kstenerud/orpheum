@@ -34,6 +34,12 @@ export interface Services {
    */
   readonly realm?: string | undefined;
   /**
+   * Whether the page, once signed out, is taken by its discovery's loader to the discovery's
+   * sign-in, so it draws none of the server's own meanwhile (D308; the owner, 2026-10-30): undefined
+   * on the core's own origin, where it never is.
+   */
+  readonly leavesWhenSignedOut?: boolean | undefined;
+  /**
    * The moves of the page's requests from one path to another, at a discovery's page: what the core
    * says this session may do depends on the path (an admin administers only from home, D297 §6), so
    * what was read on one path is read again on the next. Undefined where the page never moves.

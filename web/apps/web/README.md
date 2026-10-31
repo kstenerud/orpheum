@@ -270,7 +270,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   single-use code; a client origin is bound to the core its name names and opens nothing for
   another; the core's client runs only once its manifest holds under the key the link, the hand-off
   or this origin named, its version is not one the discovery refuses and its page is the one it
-  signed; and the loader clears every cookie it can see. A client's file comes only over the page's
+  signed; and the loader clears every cookie it can see. A person signed out at a client origin
+  lands on the discovery's sign-in wherever it has realms, however the core was reached, through a
+  realm or by a link, and the client draws none of the core's own meanwhile (the owner, 2026-10-30;
+  `leavesWhenSignedOut`, the loader interface's minor 5). A client's file comes only over the page's
   path, never as the discovery's 404, and a client's script that does not load shows what happened to
   copy, never a black page; a worker reads the list of the client's files again before it takes
   a file for the loader's own. Under a loader a media load never goes to the network: it goes

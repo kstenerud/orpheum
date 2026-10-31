@@ -113,19 +113,19 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
 }
 
 /**
- * Whether this page, signed in through a realm under a discovery's loader, was signed out, which the
- * loader answers by going to the discovery's own sign-in (loader-at-client-origin.tsx's
- * leaveWhenSignedOut): the server's sign-in, drawn meanwhile, showed for a while before the
- * discovery's replaced it (the owner's Fire TV, 2026-10-29: "That would be confusing for a user"). A
- * page that opened signed out shows the server's sign-in as before, the loader going nowhere.
+ * Whether this page, under a discovery's loader that leaves for the discovery's sign-in once signed
+ * out (Services.leavesWhenSignedOut; loader-at-client-origin.tsx's leaveWhenSignedOut), was signed
+ * out: the server's sign-in, drawn meanwhile, showed for a while before the discovery's replaced it
+ * (the owner's Fire TV, 2026-10-29: "That would be confusing for a user"). A page that opened signed
+ * out shows the server's sign-in as before, the loader going nowhere.
  */
 function useIsLeavingForTheDiscovery(token: string | undefined): boolean {
-  const { realm } = useServices();
+  const { realm, leavesWhenSignedOut } = useServices();
   const [wasSignedIn, setWasSignedIn] = useState(token !== undefined);
   if (token !== undefined && !wasSignedIn) {
     setWasSignedIn(true);
   }
-  return realm !== undefined && wasSignedIn && token === undefined;
+  return (leavesWhenSignedOut ?? realm !== undefined) && wasSignedIn && token === undefined;
 }
 
 /** What a page signed out shows while the loader takes it to the discovery's sign-in. */
