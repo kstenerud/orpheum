@@ -60,7 +60,7 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
   it("moves the place shown at each press of a held key without seeking, and seeks once, there, after its release", () => {
     const { ahead, seeks, keys, pass, changes } = aheadOnClock();
     for (let press = 0; press < 5; press += 1) {
-      ahead.step(1, { atMs: 30_000, mostMs: 600_000 }, true);
+      ahead.step(1, { atMs: 30_000, mostMs: 600_000 }, { isKey: true });
       pass(50); // a remote's held key repeats
     }
     expect(ahead.shownMs(30_250)).toBe(30_000 + 5 * seekStepMs);
@@ -76,9 +76,9 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
 
   it("seeks once repeated presses rest, as a controller's that has no release", () => {
     const { ahead, seeks, pass } = aheadOnClock();
-    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, false);
+    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, { isKey: false });
     pass(seekRestMs - 100);
-    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, false);
+    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, { isKey: false });
     pass(seekRestMs - 1);
     expect(seeks).toEqual([]);
     pass(1);
@@ -87,7 +87,7 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
 
   it("seeks anyway when a held key's release is never heard", () => {
     const { ahead, seeks, pass } = aheadOnClock();
-    ahead.step(1, { atMs: 0, mostMs: 600_000 }, true);
+    ahead.step(1, { atMs: 0, mostMs: 600_000 }, { isKey: true });
     pass(heldKeyRestMs);
     expect(seeks).toEqual([seekStepMs]);
   });
@@ -98,23 +98,23 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     ]);
     const { ahead, seeks, pass } = aheadOnClock();
     for (let press = 0; press < 50; press += 1) {
-      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, false);
+      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, { isKey: false });
       pass(100);
     }
     // 20 presses of 10 s, 20 of 30 s, 10 of 60 s, made as one seek.
     pass(seekRestMs);
     expect(seeks).toEqual([20 * 10_000 + 20 * 30_000 + 10 * 60_000]);
-    ahead.step(1, { atMs: seeks[0] ?? 0, mostMs: 3_600_000 }, false);
+    ahead.step(1, { atMs: seeks[0] ?? 0, mostMs: 3_600_000 }, { isKey: false });
     expect(ahead.shownMs(seeks[0] ?? 0)).toBe((seeks[0] ?? 0) + seekStepMs); // a new run starts slow
   });
 
   it("never goes before the start nor past the end", () => {
     const { ahead, pass, seeks } = aheadOnClock();
-    ahead.step(-1, { atMs: 4000, mostMs: 20_000 }, false);
+    ahead.step(-1, { atMs: 4000, mostMs: 20_000 }, { isKey: false });
     expect(ahead.shownMs(4000)).toBe(0);
     pass(seekRestMs);
     ahead.landed();
-    ahead.step(1, { atMs: 15_000, mostMs: 20_000 }, false);
+    ahead.step(1, { atMs: 15_000, mostMs: 20_000 }, { isKey: false });
     expect(ahead.shownMs(15_000)).toBe(20_000);
     pass(seekRestMs);
     expect(seeks).toEqual([0, 20_000]);
@@ -139,7 +139,7 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     ahead.aim(300_000, 0);
     ahead.landed();
     expect(ahead.shownMs(290_000)).toBe(290_000);
-    ahead.step(1, { atMs: 290_000, mostMs: 600_000 }, false);
+    ahead.step(1, { atMs: 290_000, mostMs: 600_000 }, { isKey: false });
     ahead.land();
     expect(seeks).toEqual([300_000, 300_000]);
   });

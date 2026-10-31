@@ -33,9 +33,10 @@ function playOrPause(video: HTMLVideoElement): void {
  * Moves where video's player shows a step towards direction, never before its start nor past its
  * end, and seeks it there once the presses rest (seek-ahead.ts), a key's once it is released: a
  * held key seeked at each of its repeats (the owner, Fire TV, 2026-10-29). The seek says which
- * command asked it, and from where (askedByOf).
+ * command asked it, and from where (askedByOf): a television's overlay steps for Left and Right
+ * itself, so its seek names the arrow pressed, not a seeking command.
  */
-function seekBy(
+export function seekBy(
   video: HTMLVideoElement,
   direction: -1 | 1,
   asked: { readonly command: Command; readonly source: CommandSource | undefined },
@@ -43,7 +44,10 @@ function seekBy(
   const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : Infinity;
   const film = { atMs: video.currentTime * 1000, mostMs: durationMs };
   const { command, source } = asked;
-  seekAheadOf(video).step(direction, film, source === "key", askedByOf(command, source));
+  seekAheadOf(video).step(direction, film, {
+    isKey: source === "key",
+    askedBy: askedByOf(command, source),
+  });
 }
 
 /**
@@ -75,25 +79,22 @@ function leaveFullscreen(): boolean {
 }
 
 /**
- * Each command's answer for a video, by command, told where it came from (none: a click's) and the
- * command pressed where another's answer stands for it (pressed): whether it answered. Up and Down
- * move focus.
+ * Each command's answer for a video, by command, told where it came from (none: a click's): whether
+ * it answered. Up and Down move focus.
  */
 const answers: Readonly<
-  Partial<
-    Record<Command, (video: HTMLVideoElement, source?: CommandSource, pressed?: Command) => boolean>
-  >
+  Partial<Record<Command, (video: HTMLVideoElement, source?: CommandSource) => boolean>>
 > = {
   playPause: (video) => {
     playOrPause(video);
     return true;
   },
-  seekBack: (video, source, pressed) => {
-    seekBy(video, -1, { command: pressed ?? "seekBack", source });
+  seekBack: (video, source) => {
+    seekBy(video, -1, { command: "seekBack", source });
     return true;
   },
-  seekForward: (video, source, pressed) => {
-    seekBy(video, 1, { command: pressed ?? "seekForward", source });
+  seekForward: (video, source) => {
+    seekBy(video, 1, { command: "seekForward", source });
     return true;
   },
   left: (video, source) => {
@@ -122,16 +123,14 @@ const answers: Readonly<
 
 /**
  * Answers command for video, as source gave it (a key's seek waits for the key's release; none is a
- * click's), pressed the command the person pressed where command answers for it (a television's
- * overlay seeks for Left and Right), for the seek's word of what asked it; whether it did.
+ * click's); whether it did.
  */
 export function answerPlayerCommand(
   video: HTMLVideoElement,
   command: Command,
   source?: CommandSource,
-  pressed?: Command,
 ): boolean {
-  return answers[command]?.(video, source, pressed) ?? false;
+  return answers[command]?.(video, source) ?? false;
 }
 
 /**

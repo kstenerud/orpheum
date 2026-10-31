@@ -9,7 +9,7 @@ import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
-import { answerPlayerCommand } from "./player-commands.ts";
+import { seekBy } from "./player-commands.ts";
 import { OverlayUpAndBack } from "./play-up.tsx";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 import { seekStepMs } from "./seek-ahead.ts";
@@ -90,11 +90,6 @@ function seekOfArrow(command: Command): number | undefined {
   return command === "right" ? seekStepMs : undefined;
 }
 
-/** The player's command for a seek of byMs: back where negative, else forward. */
-function seekCommandOf(byMs: number): Command {
-  return byMs < 0 ? "seekBack" : "seekForward";
-}
-
 /**
  * A television's player overlay (tv-device.ts), over the film inside its stage so it stays in full
  * screen: play or pause, the scrub bar, where the film stands and when it ends. The browser's own
@@ -128,7 +123,7 @@ export function TvControls(props: FilmParts): JSX.Element {
       notePress();
       const video = videoRef.current;
       if (answer.seekByMs !== undefined && video !== null) {
-        answerPlayerCommand(video, seekCommandOf(answer.seekByMs), detail.source, detail.command);
+        seekBy(video, answer.seekByMs < 0 ? -1 : 1, detail); // its seek names the arrow pressed
       }
       if (answer.isFocusToPlay === true) {
         requestAnimationFrame(() => playRef.current?.focus());

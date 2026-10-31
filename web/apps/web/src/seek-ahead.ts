@@ -146,15 +146,16 @@ export class SeekAhead {
   /**
    * An arrow's press: moves the place shown, from where the film stands (film.atMs) where none is,
    * by its step (heldStepMs) towards direction, never before 0 nor past film.mostMs; the seek is
-   * made once the presses rest. A key's press (isKey) waits for the key's release, then seekRestMs.
+   * made once the presses rest. A key's press (press.isKey) waits for the key's release, then
+   * seekRestMs; press.askedBy is what asked it (askedByOf), told with the seek.
    */
   step(
     direction: -1 | 1,
     film: { readonly atMs: number; readonly mostMs: number },
-    isKey: boolean,
-    askedBy?: string,
+    press: { readonly isKey: boolean; readonly askedBy?: string | undefined },
   ): void {
     const { atMs: fromMs, mostMs } = film;
+    const { isKey, askedBy } = press;
     const nowMs = this.#now();
     this.#runFromMs ??= nowMs;
     const baseMs = this.shownMs(fromMs);

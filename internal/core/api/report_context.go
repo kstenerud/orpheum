@@ -7,10 +7,11 @@ import "context"
 // EventContextBody is what was true of a player's page as it paused or moved, which says where the
 // pause or the move came from: the page hidden or its window unfocused, the person's own gesture, a
 // media-session action (a media key, the desktop's controls), or hls.js moving the video itself over
-// a hole or a stall, or the page's own command that asked a seek (a key, a controller, a media-session
-// action, a press on the timeline): a cast's receiver on a Fire TV jumped back 10 s twice, a step
-// back no one meant, and nothing said what asked it (staging, 2026-10-29, file 5680). Logged only; nothing reads it. Two players' 0.2 s pauses and one 0.25 s jump
-// forward were heard as hiccups, and the log could say nothing of why (the owner, 2026-10-17). A
+// a hole or a stall, or the page's own command that asked a seek (a key, a controller, a
+// media-session action, a press on the timeline): a cast's receiver on a Fire TV jumped back 10 s
+// twice, a step back no one meant, and nothing said what asked it (staging, 2026-10-29, file
+// 5680). Logged only; nothing reads it. Two players' 0.2 s pauses and one 0.25 s jump forward were
+// heard as hiccups, and the log could say nothing of why (the owner, 2026-10-17). A
 // start says what it played on from, its play, a wait for data or a seek, and how long before: a Fire
 // TV said it started twice 0.6 s apart, and nothing said what came between (staging, 2026-10-28).
 type EventContextBody struct {
