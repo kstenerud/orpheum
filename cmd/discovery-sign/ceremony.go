@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -30,15 +31,16 @@ type guided struct {
 	err  io.Writer
 }
 
-// The guided commands, which read answers and run ssh-keygen, and so are not the flag commands of run.
-// The rotation, suspend, resume, add and remove flows (D394 §4, §5) are added here, each a method of
-// guided that loads the folder with openFolder, signs with signWith, and keeps with accept.
+// The guided commands, which read answers and run ssh-keygen, and so are not the flag commands of run:
+// day one, a key's test, a release's signature, and the changes to a key's standing (guidedchange.go).
 func (guide *guided) commands() map[string]func(arguments []string) error {
-	return map[string]func([]string) error{
+	commands := map[string]func([]string) error{
 		"ceremony":     guide.ceremony,
 		"test-key":     guide.testKey,
 		"sign-release": guide.signRelease,
 	}
+	maps.Copy(commands, guide.changeCommands())
+	return commands
 }
 
 // runGuided runs the guided command arguments name, and says whether it is one.

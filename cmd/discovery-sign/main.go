@@ -36,10 +36,12 @@ func write(writer io.Writer, text string, status int) int {
 const usage = `usage: discovery-sign ceremony [--folder <dir>] [--software <keysdir>]
        discovery-sign test-key [--dir <dir>]
        discovery-sign sign-release --folder <dir> --record <unsigned record file>
+       discovery-sign suspend|resume|add|remove --folder <dir> [--key <name>]
        discovery-sign <what> --ledger <dir> [flags]
 
 ceremony asks plain questions and does day one for both chains (run it again to carry on if stopped);
-test-key says whether a key's signatures carry the user-verified flag; sign-release signs a release.
+test-key says whether a key's signatures carry the user-verified flag; sign-release signs a release;
+suspend, resume, add and remove change a key's standing in both chains, asking which key signs.
 The commands below are what they use, for the cases they do not cover yet.
 
 Each command but check and publish writes a payload to sign, shows it, and says the ssh-keygen command
