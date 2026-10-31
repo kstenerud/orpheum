@@ -144,13 +144,19 @@ func TestCompose_AKernelWithNoMPTCPGetsAComposeFileThatDoesNotNameIt(t *testing.
 				t.Errorf("%s: a sysctls key with nothing under it, at line %d", path.Base(name), index+1)
 			}
 		}
-		if strings.Count(without, "\n") != strings.Count(string(text), "\n")-
-			strings.Count(string(text), multipathTCPSysctl)-strings.Count(string(text), "sysctls:\n      "+multipathTCPSysctl+"\n    ") {
-			t.Errorf("%s: removed more than the MPTCP lines and their emptied sysctls keys", path.Base(name))
+		kept := strings.Join(lines, "\n")
+		for line := range strings.SplitSeq(string(text), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != multipathTCPSysctl && trimmed != "sysctls:" && !strings.Contains(kept, line) {
+				t.Errorf("%s: removed %q, which is not MPTCP's", path.Base(name), line)
+			}
 		}
 	}
-	if text, _ := templates.ReadFile("templates/compose.yaml"); !strings.Contains(
-		string(withoutMultipathTCP(text)), "net.ipv4.ip_unprivileged_port_start") {
+	text, err := templates.ReadFile("templates/compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(withoutMultipathTCP(text)), "net.ipv4.ip_unprivileged_port_start") {
 		t.Error("compose.yaml: the tunnel's other sysctl went with MPTCP's")
 	}
 }
