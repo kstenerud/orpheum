@@ -37,7 +37,8 @@ func TestServed_ServesThePublishedDirectoryAsItIsAndNothingElse(t *testing.T) {
 		}
 		return recorder.Code, string(body)
 	}
-	if status, body := serve(http.MethodGet, "/.well-known/orpheum/root/1"); status != http.StatusOK || body != "orpheum-signed root 1\n" {
+	status, body := serve(http.MethodGet, "/.well-known/orpheum/root/1")
+	if status != http.StatusOK || body != "orpheum-signed root 1\n" {
 		t.Fatalf("the statement: %d %q, want it byte for byte", status, body)
 	}
 	for _, refused := range []struct{ method, path string }{
