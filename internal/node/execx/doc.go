@@ -18,7 +18,8 @@
 //     its group and continued with SIGCONT, and its paused time is neither a stall nor spent deadline
 //     (D240 §6). TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainOnceContinued.
 //   - It is the only shipping package that imports os/exec or calls exec.Command; the test-only
-//     internal/testutil is the other. Enforced by the depguard rule exec-only-in-execx, the
+//     internal/testutil is another, and the owner's signing tool's cmd/discovery-sign/keygen.go,
+//     which runs ssh-keygen on the owner's machine, the last (D394 §5). Enforced by the depguard rule exec-only-in-execx, the
 //     forbidigo rule tagged [exec], and TestArch_OnlyExecxImportsOsExec.
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
