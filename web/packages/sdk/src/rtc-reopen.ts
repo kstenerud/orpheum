@@ -105,10 +105,47 @@ export class RefusedForGood extends Error {
 
 /** Whether problem, or any cause or alternative behind it, is a try no later try mends. */
 export function isRefusedForGood(problem: unknown): boolean {
+  return isOrBehind(problem, RefusedForGood);
+}
+
+/**
+ * How long the transport waits before it tries again after a try whose offer reached no server
+ * (Unreached), however many failed so: a try that reaches nothing loads nothing, and the next one is
+ * how the page hears its network back where the browser does not say so. Firefox on the desktop fires
+ * no `online` event when the network returns, so its transport, its wait grown to replaceMostMs and a
+ * try begun on no network running out its own bounds, came back about 45 s after the Mac's Wi-Fi did
+ * where Chrome, told `online`, came back at once (the owner's VQ139 run, staging, 2026-10-29;
+ * idiosyncrasies.md, Firefox). Short enough that a page is back within a few seconds of its network,
+ * long enough that a page left without one for hours is not making a peer connection every moment.
+ */
+export const unreachedRetryMs = 2000;
+
+/**
+ * A try to connect whose offer reached no server: its signaller's post failed before any answer, as
+ * the browser's fetch fails with no network. The transport tries again after unreachedRetryMs, its
+ * wait not grown, rather than after its growing wait.
+ */
+export class Unreached extends Error {
+  constructor(cause: unknown) {
+    super(
+      `the offer reached no server: ${cause instanceof Error ? cause.message : String(cause)}`,
+      { cause },
+    );
+    this.name = "Unreached";
+  }
+}
+
+/** Whether problem, or any cause or alternative behind it, is a try whose offer reached no server. */
+export function isUnreached(problem: unknown): boolean {
+  return isOrBehind(problem, Unreached);
+}
+
+/** Whether problem, or any cause or alternative behind it, is a kind. */
+function isOrBehind(problem: unknown, kind: new (...given: never[]) => Error): boolean {
   const seen: unknown[] = [problem];
   for (let index = 0; index < seen.length && index < 32; index += 1) {
     const each = seen[index];
-    if (each instanceof RefusedForGood) {
+    if (each instanceof kind) {
       return true;
     }
     if (each instanceof AggregateError) {

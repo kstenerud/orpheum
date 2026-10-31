@@ -15,6 +15,8 @@ import {
   backAfter,
   BackOnline,
   isRefusedForGood,
+  isUnreached,
+  unreachedRetryMs,
   withinOpenTry,
   type Without,
 } from "./rtc-reopen.ts";
@@ -70,8 +72,9 @@ export interface Growth {
  * time, up to its size, and closing one beyond the last once it has carried nothing for
  * idleClosesAfterMs. It takes one that is gone out of use at once and opens another in its place when
  * it is still wanted, retrying each failure, a refusal included, and each try that takes longer than
- * openTryMostMs, after a wait that doubles up to replaceMostMs, and at once when the browser comes
- * back online, a try under way then given up (plans/webrtc-transport.md W2d); a try refused for good
+ * openTryMostMs, after a wait that doubles up to replaceMostMs, one whose offer reached no server
+ * (Unreached) after unreachedRetryMs, and at once when the browser comes back online, a try under
+ * way then given up (plans/webrtc-transport.md W2d); a try refused for good
  * (RefusedForGood) ends the tries, and is told (onRefused). `fetch` is what the API client sends
  * requests with; while no connection is up, a request waits for one, and fails once one is refused
  * for good.
@@ -427,6 +430,12 @@ export class RtcTransport {
       } else if (trying.signal.reason instanceof BackOnline) {
         // The browser came back online: tried anew at once, the wait already started over.
         this.grow();
+      } else if (isUnreached(problem)) {
+        // Its offer reached no server: the network is away, and the next try, soon, is how the page
+        // hears it back where the browser says nothing (Firefox fires no online event); the growing
+        // wait starts over, as on online.
+        this.retryMs = replaceFirstMs;
+        this.retryLater(unreachedRetryMs);
       } else {
         // A connection that could not be made, or the core turned away, is tried after a wait.
         this.retryLater();
@@ -459,13 +468,18 @@ export class RtcTransport {
     }
   }
 
-  /** Looks again whether another connection is wanted after a wait, longer each time up to the most. */
-  private retryLater(): void {
+  /**
+   * Looks again whether another connection is wanted after a wait: the one given, else one longer
+   * each time up to the most.
+   */
+  private retryLater(given?: number): void {
     if (this.isClosed || this.retryTimer !== undefined) {
       return;
     }
-    const wait = this.retryMs;
-    this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
+    const wait = given ?? this.retryMs;
+    if (given === undefined) {
+      this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
+    }
     this.opening += 1;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = undefined;

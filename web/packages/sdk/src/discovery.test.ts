@@ -23,6 +23,7 @@ import {
   KeyRefused,
   locatedOf,
 } from "./discovery.ts";
+import { isUnreached } from "./rtc-reopen.ts";
 
 // Vectors the Go code made: discovery/link and discovery/proof, with an Ed25519 key from the seed
 // 0x00…0x1f, so the client and the core derive each value alike.
@@ -320,6 +321,22 @@ describe("a signaller through a discovery", () => {
       }),
     );
     expect(isKeyRefused(await busy(offer).catch((caught: unknown) => caught))).toBe(false);
+  });
+
+  it("fails an offer whose post reached no server as Unreached, and an aborted one as its abort", async () => {
+    const noNetwork = await signalling(() =>
+      Promise.reject(new TypeError("NetworkError when attempting to fetch resource.")),
+    );
+    const problem: unknown = await noNetwork(offer).catch((caught: unknown) => caught);
+    expect(isUnreached(problem)).toBe(true);
+    expect(isKeyRefused(problem)).toBe(false);
+    const aborted = await signalling(() =>
+      Promise.reject(new DOMException("The operation was aborted.", "AbortError")),
+    );
+    expect(isUnreached(await aborted(offer).catch((caught: unknown) => caught))).toBe(false);
+    // A post that reached the discovery, which answered badly, reached a server.
+    const bad = await signalling(() => Promise.resolve(new Response("", { status: 502 })));
+    expect(isUnreached(await bad(offer).catch((caught: unknown) => caught))).toBe(false);
   });
 });
 
