@@ -93,7 +93,7 @@ writeDeployment() {
 	if [ -d /dev/dri ]; then
 		set -- "$@" --volume /dev/dri:/dev/dri:ro
 	fi
-	docker run "$@" "$image" write-deployment --deployment release --image "$image" --directory "$dir" \
+	docker run "$@" "$pinned" write-deployment --deployment release --image "$pinned" --directory "$dir" \
 		${nvidia:+--nvidia "$nvidia"}
 }
 
@@ -213,9 +213,28 @@ pruneImages() {
 		done
 }
 
+# pinnedImage is the image just pulled named by its digest in its own repository, which no push can
+# move: a tag pushed again names other bytes, which a deployment naming the tag in .env would run at
+# its next pull, unasked. An install with a new tag pins that tag's digest in turn.
+pinnedImage() {
+	repository=${image%%@*}
+	case ${repository##*/} in *:*) repository=${repository%:*} ;; esac
+	digests=$(docker image inspect --format "$(dockerFormat .RepoDigests)" "$image" 2>/dev/null) || return 1
+	for digest in $(printf '%s\n' "$digests" | tr -d '[]'); do
+		case $digest in "$repository@sha256:"*) printf '%s\n' "$digest"; return 0 ;; esac
+	done
+	return 1
+}
+
+# The image the deployment runs: the pulled one by its digest, or one built here as it is named.
+pinned=$image
 if $pull; then
 	say "pulling $image"
 	docker pull --quiet "$image" >/dev/null
+	if ! pinned=$(pinnedImage); then
+		say "$image has no digest of its repository after its pull, so it cannot be pinned to it; nothing was installed"
+		exit 1
+	fi
 fi
 nvidiaAccess
 if $isNew; then

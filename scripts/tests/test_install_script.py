@@ -14,9 +14,22 @@ TEMPLATE = REPO / "internal" / "deployment" / "templates" / "install.sh"
 # A docker that logs each call, begins a values file the first time a write-deployment runs over a
 # directory that has none, failing then as the real one does to say what to fill in, answers
 # setup-code with a code, and hands over NVIDIA's GPUs as FAKE_NVIDIA says. Its images are
-# FAKE_IMAGES' lines, "<id> <repository>:<tag>"; removing one named in FAKE_IN_USE fails.
+# FAKE_IMAGES' lines, "<id> <repository>:<tag>"; removing one named in FAKE_IN_USE fails. A pulled
+# image's digests are its repository's at sha256:$FAKE_DIGEST (pinned unless named), after another
+# repository's with FAKE_OTHER_DIGEST=1, and none with FAKE_NO_DIGEST=1.
 FAKE_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$FAKE_LOG"
+case "$*" in
+"image inspect --format {{.RepoDigests}} "*)
+    eval "name=\\${$#}"
+    [ "$FAKE_NO_DIGEST" = 1 ] && { echo "[]"; exit 0; }
+    repository=${name%%@*}
+    case ${repository##*/} in *:*) repository=${repository%:*} ;; esac
+    other=""
+    [ "$FAKE_OTHER_DIGEST" = 1 ] && other="mirror.example/orpheum@sha256:other "
+    echo "[$other$repository@sha256:${FAKE_DIGEST:-pinned}]"
+    exit 0 ;;
+esac
 case "$1 $2" in
 "image inspect")
     eval "name=\\${$#}"
@@ -140,6 +153,41 @@ class Install(unittest.TestCase):
         self.assertIn("compose up -d", self.logged())
         self.assertIn("abcd-efgh", done.stderr)
         self.assertIn("http://192.168.1.20:8440", done.stderr)
+
+    def written_with(self) -> list[str]:
+        """The image each write-deployment ran from and was given, in turn."""
+        return [line.split(" write-deployment ")[0].rsplit(" ", 1)[1] + " " + line.split("--image ")[1].split()[0]
+                for line in self.logged().splitlines() if " write-deployment " in line]
+
+    def test_the_pulled_image_is_pinned_by_its_repositorys_digest(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_OTHER_DIGEST="1")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        pinned = "ghcr.io/example/orpheum@sha256:pinned"
+        self.assertEqual(self.written_with(), [f"{pinned} {pinned}"] * 2)
+        log = self.logged()
+        self.assertLess(log.index("pull"), log.index("image inspect --format {{.RepoDigests}}"))
+
+    def test_an_image_with_no_digest_of_its_repository_is_refused_and_nothing_installed(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NO_DIGEST="1")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("ghcr.io/example/orpheum:v1.2.3 has no digest of its repository after its pull", done.stderr)
+        self.assertNotIn("write-deployment", self.logged())
+        self.assertNotIn("compose up", self.logged())
+
+    def test_an_update_to_a_new_tag_pulls_it_and_pins_its_digest(self):
+        films = self.root / "films"
+        films.mkdir()
+        self.assertEqual(self.install("--media", str(films), "--dir", str(self.dir), FAKE_DIGEST="one").returncode, 0)
+        self.log.unlink()
+        done = self.install("--dir", str(self.dir), "--image", "ghcr.io/example/orpheum:v1.2.4", FAKE_DIGEST="two")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("pull --quiet ghcr.io/example/orpheum:v1.2.4", self.logged())
+        pinned = "ghcr.io/example/orpheum@sha256:two"
+        self.assertEqual(self.written_with(), [f"{pinned} {pinned}"])
 
     def test_each_media_folder_is_served_and_one_named_again_later_is_added_once(self):
         films, shows, music = self.root / "films", self.root / "shows", self.root / "music"
@@ -380,6 +428,7 @@ class Install(unittest.TestCase):
         done = self.install("--media", str(films), "--dir", str(self.dir), "--no-pull", "--image", "orpheum:v1")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertNotIn("docker pull", self.logged())
+        self.assertEqual(self.written_with(), ["orpheum:v1 orpheum:v1"] * 2)
 
 
 if __name__ == "__main__":
