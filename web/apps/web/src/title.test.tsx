@@ -495,4 +495,71 @@ describe("a film whose match is a guess (D301)", () => {
     await settleUntil(() => !page.textContent.includes("This may be identified incorrectly"));
     forAdmin.unmount();
   });
+
+  it("is confirmed by an admin as it stands, and its mark and the entry go (D301 §4)", async () => {
+    const guessed = { ...heat, id: 13, isGuessed: true };
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/13": [
+          [200, guessed],
+          [200, { ...guessed, isGuessed: false, identificationState: "confirmed" }],
+        ],
+        "POST /items/13/confirm-match": [204, null],
+        "POST /playback": [
+          200,
+          { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+        ],
+        "PUT /interest/13": [204, null],
+        "DELETE /interest/13": [204, null],
+      },
+      heard,
+    );
+    const mounted = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <Title id={13} />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+    const page = mounted.container;
+    await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
+    await click(buttonNamed(page, "More actions"));
+    await click(buttonWithText(page, "Identified correctly"));
+    await click(buttonWithText(page, "Confirm"));
+    await settleUntil(() => !page.textContent.includes("This may be identified incorrectly"));
+    expect(heard.map((request) => request.methodAndPath)).toContain("POST /items/13/confirm-match");
+    expect(page.querySelector("dialog")).toBeNull();
+    await click(buttonNamed(page, "More actions"));
+    expect(page.textContent).toContain("Identified incorrectly");
+    expect(page.textContent).not.toContain("Identified correctly");
+    mounted.unmount();
+  });
+
+  it("offers no Identified correctly where the match is no guess", async () => {
+    const services = servedBy({
+      "GET /items/14": [200, { ...heat, id: 14 }],
+      "POST /playback": [
+        200,
+        { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+      ],
+      "PUT /interest/14": [204, null],
+      "DELETE /interest/14": [204, null],
+    });
+    const mounted = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <Title id={14} />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+    const page = mounted.container;
+    await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
+    await click(buttonNamed(page, "More actions"));
+    expect(page.textContent).toContain("Identified incorrectly");
+    expect(page.textContent).not.toContain("Identified correctly");
+    mounted.unmount();
+  });
 });

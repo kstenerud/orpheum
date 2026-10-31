@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const confirmSeriesMatch = `-- name: ConfirmSeriesMatch :exec
+UPDATE collection SET identification_state = 'confirmed'
+WHERE id = ?1 AND kind = 'series'
+  -- Only when it changes something (D303, DL9).
+  AND identification_state IS NOT 'confirmed'
+`
+
+// A person confirmed a series' match as it stands, as ConfirmTitleMatch a title's (D172).
+func (q *Queries) ConfirmSeriesMatch(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, confirmSeriesMatch, id)
+	return err
+}
+
 const getItemKind = `-- name: GetItemKind :one
 
 SELECT kind FROM item WHERE id = ?1 AND removed_at IS NULL

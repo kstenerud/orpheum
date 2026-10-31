@@ -14,7 +14,7 @@ import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
-import { identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { MoreActions } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
@@ -131,7 +131,8 @@ export function TitleView(props: {
 /**
  * A title's rarely used actions, under its "…": an admin's "Identified incorrectly" (none for an
  * extra, a work of its film's), its match chosen again only for a film, the one kind of title matched
- * itself (D301 §2), and only where the page is told of a correction.
+ * itself (D301 §2), and only where the page is told of a correction; and while its match is a guess,
+ * "Identified correctly", which confirms it (D301 §4).
  */
 function TitleMoreActions(props: {
   readonly title: TitleDetail;
@@ -144,17 +145,12 @@ function TitleMoreActions(props: {
     return null;
   }
   const isWork = title.kind === "movie" && onMatchCorrected !== undefined;
-  return (
-    <MoreActions
-      actions={[
-        identifiedIncorrectlyAction(t, {
-          itemId: title.id,
-          isWork,
-          onCorrected: onMatchCorrected ?? (() => undefined),
-        }),
-      ]}
-    />
-  );
+  const onCorrected = onMatchCorrected ?? (() => undefined);
+  const actions = [identifiedIncorrectlyAction(t, { itemId: title.id, isWork, onCorrected })];
+  if (title.isGuessed === true) {
+    actions.push(identifiedCorrectlyAction(t, { itemId: title.id, onConfirmed: onCorrected }));
+  }
+  return <MoreActions actions={actions} />;
 }
 
 /** A film's poster, or an episode's still. */

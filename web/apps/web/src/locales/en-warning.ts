@@ -21,7 +21,7 @@ export const enWarning = {
     uncertainMatchForViewer:
       "It was identified automatically, and may be another work of the same name.",
     uncertainMatchForAdmin:
-      "Several works have this name, and the likeliest was taken. If it is the wrong one, its page has Identified incorrectly.",
+      "Several works have this name, and the likeliest was taken. Its page's … has Identified incorrectly if it is the wrong one, and Identified correctly if it is right.",
     stillReading: "Still reading",
     stillReadingForViewer:
       "This was just found and is shown from its file's name. It plays once read; playing it reads it first.",

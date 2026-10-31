@@ -11474,6 +11474,50 @@
         ]
       }
     },
+    "/items/{id}/confirm-match": {
+      "post": {
+        "operationId": "postItemConfirmMatch",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (edit_metadata; D301 §4)",
+        "tags": [
+          "Identification"
+        ]
+      }
+    },
     "/items/{id}/filing-report": {
       "post": {
         "operationId": "postFilingReport",
