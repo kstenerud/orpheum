@@ -40,6 +40,22 @@ describe("WorkerBypassedNote", () => {
     );
   });
 
+  // The owner's Mac, Firefox, production, 2026-10-31: the first visit after a deploy loads under the
+  // last release's worker, which does not know the probe; the new one takes over a moment later.
+  it("asks again as a new worker takes the page over, its false bypass gone", async () => {
+    let isBypassed = true;
+    const workers = new EventTarget();
+    mounted = await mount(
+      <WorkerBypassedNote probe={() => Promise.resolve(isBypassed)} workers={workers} />,
+    );
+    await settleAnswers();
+    expect(mounted.container.textContent).not.toBe("");
+    isBypassed = false;
+    workers.dispatchEvent(new Event("controllerchange"));
+    await settleAnswers();
+    expect(mounted.container.textContent).toBe("");
+  });
+
   it("says nothing while the worker answers", async () => {
     mounted = await mount(<WorkerBypassedNote probe={() => Promise.resolve(false)} />);
     await settleAnswers();
