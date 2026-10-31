@@ -1780,11 +1780,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   its own controls then show the same sound choices (corrected after the owner's run, 2026-10-30).
   (`web/apps/web/src/sound-panel.ts`,
   `internal/core/together/hub.go`)
-- [x] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play a Bond
-  film, then another film, from their start, on the Fire TV alone (no cast). Passes when neither
+- [x] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play a film
+  whose ladder has nothing between 2.5 and 12.2 Mb/s, then another film, from their start, on the Fire TV alone (no cast). Passes when neither
   shows black frames as it begins, and the core's log has no quality switch within the first seconds
   of either: its first `qualitySwitched` names the rung its first chunk was of (the 12.2 Mb/s rung for
-  Bond on a link remembered near 12 Mb/s), why "first by the remembered link". Before D381 both showed
+  the first on a link remembered near 12 Mb/s), why "first by the remembered link". Before D381 both showed
   2–3 black frames as a low first rung switched to the top at play (the owner, 2026-10-28).
   (`web/packages/player/src/abr-ceiling.ts`)
 - [x] **VQ177** — the debug link caps and drops the tab's connection, on staging's client origin (over

@@ -24598,7 +24598,7 @@ blip").
 `#startingCeiling`, `web/packages/player/src/abr-ceiling.ts`) is `steadyLevel` of the remembered link
 with nothing loaded ahead, the rule its next-chunk choice plays by, where the playback's own start
 says so (`shouldStartByRememberedLink`): the Play page's own offer on its ladder and the film page's
-warm-up (`film-player.tsx`, `watching.ts`); `abr-start.test.ts` (11.9 Mb/s remembered on Bond's ladder
+warm-up (`film-player.tsx`, `watching.ts`); `abr-start.test.ts` (11.9 Mb/s remembered on the first film's ladder
 starts on the 12.2 Mb/s rung, no switch). §2: a player with no remembered link, a stalled player's
 lower quality (D253) and a start the page chose itself (a warm-up's settled quality, the debug top,
 `isStartThePages`) start at `startAtBps` as before; Safari's native HLS has no controller and keeps its

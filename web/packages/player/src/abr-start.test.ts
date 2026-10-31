@@ -7,7 +7,7 @@ import { choosingFrom, loadAt, scene, useScene } from "./test-choosing.ts";
 useScene({ beforeEach, afterEach, vi });
 
 /**
- * A Bond film's ladder on staging: nothing between 2.5 and 12.2 Mb/s, its top the film's own
+ * A film's ladder on staging: nothing between 2.5 and 12.2 Mb/s, its top the film's own
  * picture, whose peak is capped (BANDWIDTH) far above its average.
  */
 const bondLevels = [
