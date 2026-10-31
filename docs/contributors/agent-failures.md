@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A53 — A stale service worker fixed for the case that cannot happen without a page load (2026-10-31)
+
+- **What happened:** the owner's Firefox on production said developer tools bypassed its worker
+  while media played. The lead named the cause, the last release's worker still in control, and
+  built a fix that probes again on `controllerchange`, as the new worker takes over.
+  But nothing in the client ever asks the browser to update its worker: Firefox checks only on a
+  page load, and one made while connectd restarted for a deploy found nothing. The tab then went on
+  under the old worker through every in-app move, and no new worker ever took over, so the fix never
+  ran. The belief came from the worker's own `skipWaiting` and `clients.claim`, read as "the new
+  worker takes over a moment later" without asking what makes the browser fetch it.
+- **Caught by:** the owner, checking VQ194 after the deploy: the note was still there. The core's log
+  showed the note's report after the deploy, and the client origin's `sw.js` holding the probe.
+- **Gate:** the next fix asks `registration.update()` before the note speaks, tested with a worker
+  that takes over only after an update. The lesson is to trace a fix to the event that starts it.
+
 ### A52 — A missing top bar blamed on full screen before asking what the screen showed (2026-10-29)
 
 - **What happened:** the owner, a guest in Watch Together on the S23, said the view showed none of
