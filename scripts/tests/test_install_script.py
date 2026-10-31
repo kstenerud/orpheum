@@ -75,7 +75,7 @@ case "$1 $2" in
     *" reset-admin "*) cat > "$FAKE_LOG.reset-admin"; echo "$*" >> "$FAKE_LOG.reset-admin"
         [ "$FAKE_PASSWORD_REFUSED" = 1 ] && { echo "the password is too short" >&2; exit 1; }
         exit 0 ;;
-    *" pair "*) cat > "$FAKE_LOG.pair"; echo "paired: realm the-smiths"; exit 0 ;;
+    *" pair "*) cat > "$FAKE_LOG.pair"; printf 'paired: realm the-smiths\nloader: https://discovery.example\n'; exit 0 ;;
     esac
     # As docker compose exec does, it reads standard input, which is the script itself when piped
     # to sh (the amd box, 2026-10-23).
@@ -250,7 +250,8 @@ class Install(unittest.TestCase):
         (self.root / "terminal-out").write_text("")
 
     # D334 §2, §3: the first admin is made at the terminal, and the core paired by the account's key
-    # with the password just given, each only on standard input; then both addresses are named.
+    # with the password just given, each only on standard input; then both addresses are named, and the
+    # loader to sign in at from away, as pair says its discovery names it (D391 §3).
     def test_at_a_terminal_it_makes_the_admin_pairs_the_core_and_names_both_addresses(self):
         films = self.root / "films"
         films.mkdir()
@@ -265,7 +266,7 @@ class Install(unittest.TestCase):
         self.assertNotIn("abcd-efgh-jkmn-pqrs", self.logged())
         self.assertIn("http://192.168.1.20:8440", done.stderr)
         self.assertIn("http://localhost:8441", done.stderr)
-        self.assertIn("realm the-smiths, as karl", done.stderr)
+        self.assertIn("sign in at https://discovery.example with the realm the-smiths, as karl", done.stderr)
         self.assertNotIn("abcd-efgh\n", done.stderr.replace("abcd-efgh-jkmn", ""))
         self.assertNotIn("one-time code", done.stderr)
 
