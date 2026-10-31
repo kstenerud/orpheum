@@ -9,7 +9,11 @@
    **Done 2026-10-31:** the 10-30 batch below, with D382–D389 (casting and Watch Together as dialogs) and
    the library-title scrub: check-pr green, every VQ from 150 up ticked; nas.example runs an earlier commit;
    prod connect eb6c283-e39602fe; MPTCP off (sysctl) on prod-api, the edge, the Proxmox host and LXC 102.
-   **This batch (owner 2026-10-31): the testing and security fixes, closed out; everything else waits
+   **Done 2026-10-31 (the 10-31 batch, below):** check-pr green in 214 s; nas.example runs
+   An earlier commit, MPTCP 0 in its containers; prod connect package connect-production-656e4c4-9a4d70b6.run
+   waits for the owner; VQ194 owed. Next batch: the plan file's queued items, with security updates'
+   Parts A and B and noexec step 1 (the owner, 2026-10-31).
+   **The 10-31 batch (owner 2026-10-31): the testing and security fixes, closed out; everything else waits
    for the batch after.** From the plan file's "The week's security report" and "check-pr's time"
    sections: MPTCP off in every compose service (Orpheum's templates and connect's); the household
    image pinned by digest at install; `release-image.yml` behind the owner's approval; no npm install
