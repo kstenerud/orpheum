@@ -48,16 +48,23 @@ export function onWorkerSuspected(listener: () => void): () => void {
 
 /**
  * Whether worker, the page's, is bypassed, by isBypassed's probe, asked only under a loader of a
- * page a worker controls; the core's log told when it is.
+ * page a worker controls; the core's log told when it is. A probe the network answered first asks
+ * the browser for a newer worker (isNewerWorkerComing): one that is coming is not yet a bypass, as
+ * the worker in control may be a release's before, which does not know the probe, and the note asks
+ * again as the newer one takes over (its controllerchange). Firefox looks for a newer worker only at
+ * a page load, so a page loaded while a deploy restarted the server kept the old one for every move
+ * after, and the note said the worker was bypassed while media played (the owner's Mac, 2026-10-31;
+ * agent-failures A53).
  */
 export async function probeWorker(
   worker: PageWorker,
   isBypassed: () => Promise<boolean>,
+  isNewerWorkerComing: () => Promise<boolean> = isNewerPageWorkerComing,
 ): Promise<boolean> {
   if (!worker.isUnderLoader || !worker.isControlled) {
     return false;
   }
-  const isWorkerBypassedNow = await isBypassed();
+  const isWorkerBypassedNow = (await isBypassed()) && !(await isNewerWorkerComing());
   if (isWorkerBypassedNow && !isReported) {
     isReported = true;
     reportFailure(
@@ -113,6 +120,23 @@ export function WorkerBypassedNote(props: {
       {t("discovery.workerBypassed")}
     </p>
   ) : null;
+}
+
+/**
+ * Whether the browser, asked for a newer worker than the page's (registration.update()), found one
+ * that is installing or waiting to take over; false where it cannot ask, or the asking fails.
+ */
+async function isNewerPageWorkerComing(): Promise<boolean> {
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration === undefined) {
+      return false;
+    }
+    await registration.update();
+    return registration.installing !== null || registration.waiting !== null;
+  } catch {
+    return false;
+  }
 }
 
 /** The page's service worker container, or undefined where the browser has none. */

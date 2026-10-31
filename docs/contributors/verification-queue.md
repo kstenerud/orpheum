@@ -1929,3 +1929,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   a reload: nothing asks the browser to update its worker, so a tab loaded while connectd restarted
   kept the old one (agent-failures A53). The fix, `registration.update()` before the note speaks, is
   next batch's; this item is checked again with it.
+  **Built (11-01 batch):** a probe the network answers first asks `registration.update()`; a newer
+  worker on its way is no bypass, and the note asks again as it takes over. Check again as above,
+  after the deploy that carries it, in a tab left open across the deploy.

@@ -508,7 +508,8 @@ had leaned on.
   page load, and one made during connectd's restart for a deploy (the owner's Mac, 07:32,
   2026-10-31) kept the old worker, which does not know the probe, for every in-app move after; a
   reload cleared it. Fix: a failed probe asks `registration.update()`, and probes again if a newer
-  worker takes over; only the same worker failing again shows the note.
+  worker takes over; only the same worker failing again shows the note. **Built (11-01 batch):**
+  `probeWorker`'s `isNewerWorkerComing`; VQ194 again.
 - **Security updates (the owner, 2026-10-31, yes to the recommendations), next batch:** Parts A and B
   of design/plans/security-updates.md (the release record, written by the release workflow, and the
   admins' banner); Part C, the opted-in timer, once signing exists.

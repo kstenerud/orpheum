@@ -70,18 +70,43 @@ describe("probeWorker", () => {
       sent.push(text);
     });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const isBypassed = await probeWorker({ isUnderLoader: true, isControlled: true }, () =>
-      Promise.resolve(true),
+    const isBypassed = await probeWorker(
+      { isUnderLoader: true, isControlled: true },
+      () => Promise.resolve(true),
+      () => Promise.resolve(false),
     );
     expect(isBypassed).toBe(true);
     expect(sent.filter((each) => each.includes("bypass the page's service worker"))).toHaveLength(
       1,
     );
     // Asked again as more art fails, the core's log is not told again.
-    await probeWorker({ isUnderLoader: true, isControlled: true }, () => Promise.resolve(true));
+    await probeWorker(
+      { isUnderLoader: true, isControlled: true },
+      () => Promise.resolve(true),
+      () => Promise.resolve(false),
+    );
     expect(sent.filter((each) => each.includes("bypass the page's service worker"))).toHaveLength(
       1,
     );
+  });
+
+  // A53, the owner's Mac, 2026-10-31: the release before's worker, kept by Firefox across a deploy,
+  // sends the probe to the network; a newer worker on its way is no bypass.
+  it("asks the browser for a newer worker first, saying nothing while one is coming", async () => {
+    const isComing = vi.fn(() => Promise.resolve(true));
+    const controlled = { isUnderLoader: true, isControlled: true };
+    expect(await probeWorker(controlled, () => Promise.resolve(true), isComing)).toBe(false);
+    expect(isComing).toHaveBeenCalledOnce();
+    expect(
+      await probeWorker(
+        controlled,
+        () => Promise.resolve(true),
+        () => Promise.resolve(false),
+      ),
+    ).toBe(true);
+    const isAnswered = vi.fn(() => Promise.resolve(false));
+    expect(await probeWorker(controlled, () => Promise.resolve(false), isAnswered)).toBe(false);
+    expect(isAnswered).not.toHaveBeenCalled();
   });
 
   it("asks nothing at a core's own origin, nor of a page no worker controls", async () => {
