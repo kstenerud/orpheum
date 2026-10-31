@@ -395,6 +395,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D387](working-notes.md#d387--a-paused-players-ask-for-a-chunk-where-a-seek-took-it-moves-where-it-wants-from) A paused player's ask for a chunk where a seek took it moves where it wants from
 - [D388](working-notes.md#d388--a-device-is-cast-to-or-it-is-not-the-remote-offers-no-play-on-this-device-instead) A device is cast to or it is not: the remote offers no "Play on this device instead"
 - [D389](working-notes.md#d389--a-watch-together-sessions-end-ends-its-members-casts-each-receiver-goes-home) A Watch Together session's end ends its members' casts: each receiver goes home
+- [D390](working-notes.md#d390--the-services-addresses-the-app-and-account-on-orpheumcc-the-api-unmoved-staging-on-orpheumdev-the-website-on-orpheummov) The service's addresses: the app and account on orpheum.cc, the API unmoved, staging on orpheum.dev, the website on orpheum.mov
 
 ## Archived
 

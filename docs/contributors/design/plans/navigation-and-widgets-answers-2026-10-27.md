@@ -656,7 +656,8 @@ had leaned on.
   `orpheum-client.com` stay (no one types them; their separation is the isolation). A TV types
   `orpheum.cc`. Owed: the owner's Cloudflare zones, tunnel hostnames and HSTS preload; connect's
   production configuration, the panel's pages and passkeys' relying party; Orpheum's install
-  template's discovery address and nas.example's core configuration.
+  template's discovery address and nas.example's core configuration. **Superseded by D390** (the outside
+  audit, the owner's yes): the API stays on `orpheum-app.com` and staging moves to `orpheum.dev`.
 - **Built (11-01 batch): Firefox's recovery (5ae59ff9, VQ197)** — desktop Firefox fires no `online`
   (Mozilla bug 654579), and the transport cut its backoff short only on that; an offer that reaches no
   server now retries every 2 s. **Next batch, left open:** a page on a core's direct HTTPS name still
