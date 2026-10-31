@@ -3,41 +3,75 @@
 package discovery
 
 import (
-	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/release"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 )
 
-// aSecurityRelease is a discovery's answer to a core whose version lacks a security fix.
-func aSecurityRelease() *discoveryproto.ReleaseResponse {
-	return &discoveryproto.ReleaseResponse{
-		Latest: "v0.2.1", Digest: "sha256:" + strings.Repeat("d", 64),
-		Security: &discoveryproto.SecurityFix{Summary: "a sign-in could be guessed", FixedIn: "v0.2.0"},
+// aSecurityRelease is a release record by which a core at v0.1.0 lacks a security fix.
+func aSecurityRelease() *release.Record {
+	return &release.Record{
+		IssuedAt: 1, Latest: "v0.2.1", Locations: []string{"registry.example/orpheum"},
+		Releases: map[string]release.Note{
+			"v0.1.0": {
+				Digest: "sha256:" + strings.Repeat("a", 64), Security: true, Summary: "a sign-in could be guessed",
+				FixedIn: "v0.2.0",
+			},
+			"v0.2.0": {Digest: "sha256:" + strings.Repeat("b", 64)},
+			"v0.2.1": {Digest: "sha256:" + strings.Repeat("d", 64)},
+		},
 	}
 }
 
-// releaseAsked is the versions the core asked its discovery about, in turn.
-func (built *world) releaseAsked() []string {
+// releaseAsked is how many times the core read its discovery's release record.
+func (built *world) releaseAsked() []int {
 	built.fake.mutex.Lock()
 	defer built.fake.mutex.Unlock()
-	return slices.Clone(built.fake.releaseAsked)
+	return make([]int, built.fake.releaseFetches)
 }
 
-// setRelease has the fake discovery answer the release call with answer; nil has no such call.
-func (built *world) setRelease(answer *discoveryproto.ReleaseResponse) {
+// setRelease has the fake discovery serve record, signed by its root; nil serves none.
+func (built *world) setRelease(record *release.Record) {
 	built.fake.mutex.Lock()
 	defer built.fake.mutex.Unlock()
-	built.fake.release = answer
+	built.fake.release = record
 }
 
-// setReleaseFailing has the fake discovery fail the release call, or answer it again.
+// setReleaseFailing has the fake discovery fail to serve its record, or serve it again.
 func (built *world) setReleaseFailing(isFailing bool) {
 	built.fake.mutex.Lock()
 	defer built.fake.mutex.Unlock()
-	built.fake.failing["POST /release"] = isFailing
+	built.fake.failing["GET "+release.WellKnownPath] = isFailing
+}
+
+// A record a key outside the discovery's root key set signed is never believed: the core knows
+// nothing from it, and reads again an hour on (D391 §6).
+func TestRelease_ARecordNoRootKeySignedIsNotBelieved(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+		t.Fatal(err)
+	}
+	stranger := trusttest.NewRoot(t)
+	built.fake.mutex.Lock()
+	built.fake.release, built.fake.recordSigner = aSecurityRelease(), stranger.Signer
+	built.fake.mutex.Unlock()
+	built.service.step(ctx)
+	if known := built.service.Release(); known.Security != nil || known.Latest != "" || !known.CheckedAt.IsZero() {
+		t.Errorf("from a forged record the core knows %+v; want nothing", known)
+	}
+	built.fake.mutex.Lock()
+	built.fake.recordSigner = nil
+	built.fake.mutex.Unlock()
+	built.clock.Advance(releaseRetryAfter)
+	built.service.step(ctx)
+	if known := built.service.Release(); known.Security == nil || known.Location != "registry.example/orpheum" {
+		t.Errorf("from the root's own record an hour on the core knows %+v; want the fix and where to pull", known)
+	}
 }
 
 // A core asks its discovery about its own version at its start and then daily, pending as claimed,
@@ -52,8 +86,8 @@ func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
 	built.setRelease(aSecurityRelease())
 	built.service.step(ctx)
 	known := built.service.Release()
-	if asked := built.releaseAsked(); !slices.Equal(asked, []string{"v0.1.0"}) {
-		t.Fatalf("asked about %v; want its own version once, at its start", asked)
+	if asked := built.releaseAsked(); len(asked) != 1 {
+		t.Fatalf("read the record %d times; want once, at its start", len(asked))
 	}
 	if known.Version != "v0.1.0" || known.Latest != "v0.2.1" || known.Security == nil ||
 		known.Security.FixedIn != "v0.2.0" || !known.CheckedAt.Equal(built.clock.Now()) {
@@ -65,7 +99,10 @@ func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
 	if asked := built.releaseAsked(); len(asked) != 1 {
 		t.Errorf("asked %d times within the day; want once", len(asked))
 	}
-	built.setRelease(&discoveryproto.ReleaseResponse{})
+	plain := aSecurityRelease()
+	plain.IssuedAt, plain.Latest = 2, "v0.1.0"
+	plain.Releases = map[string]release.Note{"v0.1.0": {Digest: "sha256:" + strings.Repeat("a", 64)}}
+	built.setRelease(plain)
 	built.clock.Advance(time.Minute)
 	built.service.step(ctx)
 	if asked, known := built.releaseAsked(), built.service.Release(); len(asked) != 2 || known.Security != nil ||
@@ -92,8 +129,8 @@ func TestRelease_ADevelopmentBuildAsksNothing(t *testing.T) {
 	}
 }
 
-// A discovery older than the call knows nothing, which is no failure; a failed asking is no problem
-// for the core's standing, keeps what was known, and is asked again an hour on.
+// A discovery that serves no record knows nothing, which is no failure; a failed reading is no
+// problem for the core's standing, keeps what was known, and is read again an hour on.
 func TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)

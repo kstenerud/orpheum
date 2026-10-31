@@ -43,10 +43,6 @@ const (
 	// PathClaim is where a pending core sends the key its household's account made, which claims it
 	// for the account (the protocol's §2.2; D310 §5, §8).
 	PathClaim = "/claim"
-	// PathRelease is where the core asks what its discovery's release record says of its own version:
-	// whether a newer one is out, and whether it has a security fix pending (security-updates.md
-	// Part A).
-	PathRelease = "/release"
 )
 
 // The purposes a signature is made for: the protocol, the purpose and the nonce are what is signed,
@@ -352,26 +348,5 @@ type LocatorsRequest struct {
 	Hashes []string `json:"hashes"`
 }
 
-// ReleaseRequest asks what the release record says of the core's own version: its tag, "v0.3.1",
-// which the heartbeat tells the discovery already (security-updates.md Part A).
-type ReleaseRequest struct {
-	OrpheumVersion string `json:"orpheumVersion"`
-}
-
-// ReleaseResponse is what the release record says of the version asked about, and of nothing else:
-// the latest version and its image's digest, only when it is newer than the one asked about, and
-// that version's security fix, when one is pending. All empty is nothing known: no record, a version
-// that is the latest, or one the record does not name.
-type ReleaseResponse struct {
-	Latest string `json:"latest,omitempty"`
-	Digest string `json:"digest,omitempty"`
-	// Security is the fix pending for the version asked about; nil when none is.
-	Security *SecurityFix `json:"security,omitempty"`
-}
-
-// SecurityFix is a security fix a version lacks: what it fixes, in a sentence for the admin, and the
-// first version that has it.
-type SecurityFix struct {
-	Summary string `json:"summary"`
-	FixedIn string `json:"fixedIn"`
-}
+// The release record is not asked for under a session: it is public, signed by the discovery's root
+// key, and fetched from its well-known path (discovery/release; D391 §6).

@@ -73,7 +73,12 @@ func updateBody(known discovery.Release, image string) UpdateBody {
 			target = known.Security.FixedIn
 		}
 	}
-	if target != "" && image != "" {
+	switch {
+	case known.Latest != "" && known.Location != "" && known.Digest != "":
+		// From where the signed record says the release may be pulled, by its digest, which the
+		// record signed: the registry is a mirror (D391 §6).
+		body.Command = "docker run --rm " + known.Location + "@" + known.Digest + " install-script | sh"
+	case target != "" && image != "":
 		// The install script of the release's own image, run again over the household's deployment,
 		// updates it and keeps everything (D314; install.sh).
 		body.Command = "docker run --rm " + image + ":" + target + " install-script | sh"

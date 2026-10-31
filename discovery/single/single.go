@@ -88,9 +88,9 @@ type Parts struct {
 	// Wait waits out a duration, or until ctx ends: how a realm sign-in that failed answers no sooner
 	// than one that the core refused (D297 §2). Nil waits by a timer; a test passes its own.
 	Wait func(ctx context.Context, wait time.Duration)
-	// ReleaseRecord is the release record's file in the discovery's deployment, which the release
-	// workflow writes and the core's release call is answered from (security-updates.md Part A); empty,
-	// or a file absent, tells each core nothing.
+	// ReleaseRecord is the signed release record's file in the discovery's deployment (trust.Signed),
+	// which a root key signed and WellKnownHandler serves as it is (security-updates.md Part A; D391
+	// §6); empty, or a file absent, serves none, and tells each core nothing.
 	ReleaseRecord string
 }
 
@@ -144,13 +144,17 @@ func (discovery *Discovery) Handler() http.Handler {
 	return http.HandlerFunc(discovery.serve)
 }
 
-// WellKnownHandler serves the discovery's address document at addressdoc.WellKnownPath, to be
-// mounted at its issuer's root: the operator's signed file as it is, read afresh at each asking, so
-// a newly signed one is served from the moment it is written. With none, it answers not-found.
+// WellKnownHandler serves the discovery's address document at addressdoc.WellKnownPath and the signed
+// release record at release.WellKnownPath, to be mounted at its issuer's root: each the operator's
+// signed file as it is, read afresh at each asking, so a newly signed one is served from the moment
+// it is written. With none, it answers not-found.
 func (discovery *Discovery) WellKnownHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+addressdoc.WellKnownPath, func(writer http.ResponseWriter, request *http.Request) {
 		serveFile(writer, request, discovery.parts.AddressDocument, discovery.parts.Logger)
+	})
+	mux.HandleFunc("GET "+release.WellKnownPath, func(writer http.ResponseWriter, request *http.Request) {
+		serveFile(writer, request, discovery.parts.ReleaseRecord, discovery.parts.Logger)
 	})
 	return mux
 }
@@ -204,14 +208,6 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 		return
 	case http.MethodDelete + " " + discoveryproto.PathCore:
 		discovery.leave(writer, request)
-		return
-	case http.MethodPost + " " + discoveryproto.PathRelease:
-		// A pending core asks too: a security fix matters before its claim as after.
-		var asked discoveryproto.ReleaseRequest
-		if read(writer, request, &asked) {
-			answer(writer, release.File{Path: discovery.parts.ReleaseRecord, Logger: discovery.parts.Logger}.Answer(
-				request.Context(), asked.OrpheumVersion))
-		}
 		return
 	}
 	if held.State != discoveryproto.StateClaimed {

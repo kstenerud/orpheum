@@ -103,6 +103,11 @@ func plannedSubcommands() []subcommand {
 			implementation: commandResetAdmin,
 		},
 		{
+			name: "verify-release", summary: "check that an image's digest is a release's, by the signed release " +
+				"record on standard input (D391 §6)",
+			implementation: commandVerifyRelease,
+		},
+		{
 			name: "pair", summary: "pair the running core with its discovery by the account's key, the admin's " +
 				"password and the key read from standard input (D334 §3)",
 			implementation: commandPair,

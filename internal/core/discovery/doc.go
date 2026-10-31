@@ -66,12 +66,15 @@
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.
 //     TestCall_KeepsTheDeprecationTheDiscoveryNames.
-//   - A release build asks its discovery what the release record says of its own version, at its
-//     start and daily, an hour after a failure, and keeps it for its admins; a development build asks
-//     nothing; a discovery without the call knows nothing, and a failure is never the core's problem
-//     (security-updates.md Part A). TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion,
+//   - A release build reads its discovery's signed release record, at its issuer and its document's
+//     locations, at its start and daily, an hour after a failure, and keeps what it says of its own
+//     version for its admins; a development build reads nothing; a discovery serving none knows
+//     nothing, and a failure is never the core's problem (security-updates.md Part A).
+//     TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion,
 //     TestRelease_ADevelopmentBuildAsksNothing,
 //     TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour.
+//   - A record no root key of the pinned set signed is never believed (D391 §6).
+//     TestRelease_ARecordNoRootKeySignedIsNotBelieved.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
@@ -109,5 +112,6 @@
 //   - discovery.go: connecting and the loop; discovery_call.go: sessions and the signed call they
 //     carry; renewal.go: one session renewal at a time; signal.go: the signalling connection;
 //     document.go: the issuer's address document, opened at enrolment and looked for again hourly;
+//     release.go: the signed release record;
 //     suggested.go: the suggested discovery; house_networks.go: the house's IPv6 networks (D356).
 package discovery
