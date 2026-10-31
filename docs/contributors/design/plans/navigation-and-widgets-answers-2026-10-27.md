@@ -815,6 +815,32 @@ injected every prompt), and file layouts that make parallel agents conflict.
   `scripts/documentation_only.py`. The owner: checks are limited to the kind of change made; a code
   problem is caught by the next code change, or the nightly run.
 
+**The first trial, reviewed (the lead, 2026-10-31, at the owner's request).** The D394 work ran under the
+limits above: a lead and two build agents, one Sonnet sharing the main tree and one Opus in a worktree.
+The ledger (`token_usage.py --since 15:00`) gave 3.3M weighted tokens over 197 model calls: the Sonnet agent
+35% (61 calls, peak context 162k), the lead 34% (peak 155k), the Opus agent 31% (80 tool calls, peak 139k).
+
+- **What worked:** both agents finished well under the 150-call limit (62 and 80); the launch limits held;
+  the worktree agent's work cherry-picked cleanly; the ledger answered in one command.
+- **What did not:** the agent sharing the tree left half-written files, so the Stop hook's `make check`
+  failed on them three times (each failure's output shown twice), followed by about 20 minutes of waiting
+  loops. Agents' contexts still peaked at 139–162k. The lead's context refilled to 143k. Four full gate runs
+  went to fixing line lengths that a lint of the one package would have found in seconds. After `/compact`
+  the prompt hook still reported the context from before it. The ledger weights every model alike, so an Opus
+  call and a Sonnet call look the same.
+
+**Accepted by the owner (2026-10-31: "I agree with your recommendations and accept the gate changes"),**
+each built with a `Gate-Changed:` trailer:
+
+1. **Code-editing agents run in worktrees, and the lead cherry-picks** (`lead.md` §2 already said so, and it
+   was not followed): `pre_agent.py` refuses an editing agent's launch without `isolation: "worktree"`.
+2. **The Stop hook holds back** with one line while a running agent edits the main tree, instead of gating
+   its half-written files.
+3. **`token_usage.py` weights by model price**, so the ledger shows what each session cost.
+4. **The prompt hook reports no context size right after a compaction** (built: An earlier commit).
+5. **`make spot`, which every commit runs, golangci-lints the changed Go packages** (built: b93bb2b8). The
+   owner pointed out that "lint the one package first" was a habit, not a check.
+
 ## D391's Orpheum side, built (2026-10-31)
 
 Built on D391 (and D390 before it), from the domain-assumptions audit's §4–§6. The outside audit of
