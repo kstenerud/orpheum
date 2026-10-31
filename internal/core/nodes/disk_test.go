@@ -75,7 +75,7 @@ func TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswer
 		bench.exchanges.Handle(jobs.KindMakeChunks, assignee)
 		command := nodeproto.Command{Work: nodeproto.Work{
 			Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{
-				Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Wing.mkv")},
+				Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Arkon.mkv")},
 			},
 		}}
 		handed := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindMakeChunks}, command)
@@ -110,18 +110,18 @@ func TestExchange_AStallOnADiskInsideTheRootParksOnThatDisk(t *testing.T) {
 	bench.exchanges.Handle(jobs.KindMakeChunks, assignee)
 	command := nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{
-			Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("disk1/Wing.mkv")},
+			Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("disk1/Arkon.mkv")},
 		},
 	}}
 	handed := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindMakeChunks}, command)
 	jobqueue.HandOver(t.Context(), handed)
 	sent := testutil.Receive(t, bench.sender.sent, "the run's command")
 	stalled := diskStall(sent)
-	stalled.MakeChunks.Stall.WaitingOnPath = "/media/films/disk1/Wing.mkv"
+	stalled.MakeChunks.Stall.WaitingOnPath = "/media/films/disk1/Arkon.mkv"
 	deliver(t, bench.exchanges, 1, stalled)
 	answer := testutil.Receive(t, resolved.answers, "job 7's answer")
 	parking, isParked := jobqueue.ParkingOf(answer)
-	if !slices.Equal(disks.waitingOns, []string{"/media/films/disk1/Wing.mkv"}) || !isParked ||
+	if !slices.Equal(disks.waitingOns, []string{"/media/films/disk1/Arkon.mkv"}) || !isParked ||
 		parking.Destination != jobs.RootDestination(1, "/media/films/disk1") {
 		t.Errorf("waited on %q, answered %v; want the disk's path told, and parked on the disk", disks.waitingOns,
 			answer)
@@ -163,7 +163,7 @@ func TestExchange_AStallOutsideTheRootLeavesTheRootAndIsTheKindsToAnswer(t *test
 	bench.exchanges.Handle(jobs.KindMakeChunks, assignee)
 	command := nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{
-			Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Wing.mkv")},
+			Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Arkon.mkv")},
 		},
 	}}
 	assigned := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindMakeChunks}, command)

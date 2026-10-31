@@ -47,7 +47,7 @@ func TestEncodeKbps_FollowsThePicturesHeightNeverAboveTheOriginal(t *testing.T) 
 }
 
 // The twin's rate is the original's, raised by half for HEVC and twice for AV1, at most its height's:
-// The Big Parade's 696-line HEVC at 2.6 Mb/s takes 3.9 Mb/s in H.264, more than the original, which no
+// 28 Winters Later's 696-line HEVC at 2.6 Mb/s takes 3.9 Mb/s in H.264, more than the original, which no
 // other encode may (D323 §1).
 func TestTwinKbps_RaisesTheOriginalsRateForItsCodecAtMostItsHeights(t *testing.T) {
 	t.Parallel()
@@ -61,7 +61,7 @@ func TestTwinKbps_RaisesTheOriginalsRateForItsCodecAtMostItsHeights(t *testing.T
 		probe nodeproto.Probe
 		kbps  int
 	}{
-		{"The Big Parade's HEVC", coded("hevc", 696, 2600), 3900},
+		{"28 Winters Later's HEVC", coded("hevc", 696, 2600), 3900},
 		{"an AV1 1080p at 3 Mb/s", coded("av1", 1080, 3000), 6000},
 		{"an H.264 1080p at 3 Mb/s", coded("h264", 1080, 3000), 3000},
 		{"an HEVC 720p at 6 Mb/s, past its height's", coded("hevc", 720, 6000), 4500},

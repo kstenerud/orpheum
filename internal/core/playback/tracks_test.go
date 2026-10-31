@@ -12,7 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// scopeFilm is The Big Parade as nas.example holds it: HEVC at 1920×696 and one E-AC-3 5.1 track.
+// scopeFilm is 28 Winters Later as nas.example holds it: HEVC at 1920×696 and one E-AC-3 5.1 track.
 func scopeFilm() nodeproto.Probe {
 	return nodeproto.Probe{
 		Format: nodeproto.ProbeFormat{BitRateBps: 2_600_000},

@@ -39,7 +39,7 @@ func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreO
 		{"Ｆｕｌｌ ｗｉｄｔｈ", "Full Width"},
 		{"十字路", "千と千尋の 神隠し"},
 		{"नमस्ते", "नमस्ते!"},
-		{"Wit & Wilfulness", "Wit.and.Wilfulness", "wit and wilfulness"},
+		{"Grace & Folly", "Grace.And.Folly", "grace and folly"},
 	} {
 		for _, name := range same[1:] {
 			if SameWork(name) != SameWork(same[0]) {
@@ -51,7 +51,7 @@ func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreO
 			t.Errorf("SameWork(%q) is empty; every script's letters are kept", same[0])
 		}
 	}
-	for _, different := range [][2]string{{"Metropolis", "Metropolis 2"}, {"Wing", "Wings"}, {"十字", "千と千"}} {
+	for _, different := range [][2]string{{"Metropolis", "Metropolis 2"}, {"Arkon", "Arkons"}, {"十字", "千と千"}} {
 		if SameWork(different[0]) == SameWork(different[1]) {
 			t.Errorf("%q and %q fold alike; want two works", different[0], different[1])
 		}

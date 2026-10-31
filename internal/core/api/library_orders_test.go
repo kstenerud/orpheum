@@ -14,7 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// shelveDatedFilms adds, after shelve's Metropolis (10, 1995-12-15), four films to library 1: Wing (11,
+// shelveDatedFilms adds, after shelve's Metropolis (10, 1995-12-15), four films to library 1: Arkon (11,
 // 1979-05-25), Greed (12, 1985, its year alone), and The Freshman (13) and Faust (14), with no date; and
 // dates Brass Arena (20) 2008-01-20, beside a series of no date, Tweedcoat (30), with one episode.
 func (harness testHarness) shelveDatedFilms(t *testing.T) {
@@ -24,7 +24,7 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
-	for index, name := range []string{"Wing", "Greed", "The Freshman", "Faust"} {
+	for index, name := range []string{"Arkon", "Greed", "The Freshman", "Faust"} {
 		id := int64(11 + index)
 		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Year: 1980, AddedAt: 3})
 		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 3})
@@ -81,18 +81,18 @@ func TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for path, want := range map[string]string{
-		"/titles?kind=movie&sort=released":                  "[Metropolis Greed Wing The Freshman Faust]",
-		"/titles?kind=movie&sort=released&order=descending": "[Metropolis Greed Wing The Freshman Faust]",
-		"/titles?kind=movie&sort=released&order=ascending":  "[Wing Greed Metropolis The Freshman Faust]",
+		"/titles?kind=movie&sort=released":                  "[Metropolis Greed Arkon The Freshman Faust]",
+		"/titles?kind=movie&sort=released&order=descending": "[Metropolis Greed Arkon The Freshman Faust]",
+		"/titles?kind=movie&sort=released&order=ascending":  "[Arkon Greed Metropolis The Freshman Faust]",
 		"/titles?kind=series&sort=released":                 "[Brass Arena Tweedcoat]",
 		"/titles?kind=series&sort=released&order=ascending": "[Brass Arena Tweedcoat]",
-		"/titles?kind=movie&sort=name":                      "[Wing Greed The Freshman Faust Metropolis]",
-		"/titles?kind=movie&sort=name&order=descending":     "[Metropolis Faust The Freshman Greed Wing]",
+		"/titles?kind=movie&sort=name":                      "[Arkon Greed The Freshman Faust Metropolis]",
+		"/titles?kind=movie&sort=name&order=descending":     "[Metropolis Faust The Freshman Greed Arkon]",
 		"/titles?kind=series&sort=name&order=descending":    "[Tweedcoat Brass Arena]",
-		"/titles?kind=movie&sort=added":                     "[Faust The Freshman Greed Wing Metropolis]",
-		"/titles?kind=movie&sort=added&order=ascending":     "[Metropolis Wing Greed The Freshman Faust]",
+		"/titles?kind=movie&sort=added":                     "[Faust The Freshman Greed Arkon Metropolis]",
+		"/titles?kind=movie&sort=added&order=ascending":     "[Metropolis Arkon Greed The Freshman Faust]",
 		"/titles?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
-		"/titles?kind=any&sort=name&order=descending":       "[Metropolis Faust Tweedcoat The Freshman Brass Arena Greed Wing]",
+		"/titles?kind=any&sort=name&order=descending":       "[Metropolis Faust Tweedcoat The Freshman Brass Arena Greed Arkon]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
