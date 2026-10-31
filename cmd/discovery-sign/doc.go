@@ -2,19 +2,18 @@
 
 // Command discovery-sign is the owner's signing tool (the root key audit's §3.7; D393, D394). Its
 // guided commands ask plain questions and run ssh-keygen themselves, so the owner types no flag:
-// `ceremony` is day one for both chains (keys made on their devices or, with --software, as plain
-// files; each chain's genesis and the address document, each signature checked by the code a core uses
-// before the next step), `sign-release` shows an unsigned release record and signs it once the owner
-// types the digest's start, and `test-key` says whether a key's signatures carry the user-verified flag
-// (whether the Mac may be an everyday key, D394 §7). Beneath them the flag commands build a root
-// statement, an address document or a drill from a typed edit (keys added, removed, suspended or
-// resumed, versions skipped, thresholds and locations changed) and `check` checks a signature by the
-// very code a core uses, keeps payload and signature in the owner's ledger, its expected file the
-// watcher's (cmd/discovery-watch), and writes the files every place serves. keygen.go alone starts a
-// process (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch
-// and PIN there; the lint names that one file), and a test puts a fake in its place. No root key is
-// ever put in an agent (the audit's F16). `bootstrap` writes the install's bootstrap script from the
-// publisher's chain. No household runs it.
+// `ceremony` is day one for both chains (keys made on their devices or, with --software, as plain files; each chain's
+// genesis and the address document, each signature checked by the code a core uses before the next step),
+// `sign-release` shows an unsigned release record and signs it once the owner types the digest's start, `test-key` says
+// whether a key's signatures carry the user-verified flag (whether the Mac may be an everyday key, D394 §7), and
+// `suspend`, `resume`, `add` and `remove` change a key's standing in both chains (D394 §4), offering only the keys
+// allowed to sign each change. Beneath them the flag commands build a root statement, an address document or a drill
+// from a typed edit (keys added, removed, suspended or resumed, versions skipped, thresholds and locations changed) and
+// `check` checks a signature by the very code a core uses, keeps payload and signature in the owner's ledger, its
+// expected file the watcher's (cmd/discovery-watch), and writes the files every place serves. keygen.go alone starts a
+// process (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch and PIN there;
+// the lint names that one file), and a test puts a fake in its place. No root key is ever put in an agent (the audit's
+// F16). `bootstrap` writes the install's bootstrap script from the publisher's chain. No household runs it.
 //
 // docs/users/discovery-signing.md is the owner's guide: the day-one ceremony and each rotation.
 //

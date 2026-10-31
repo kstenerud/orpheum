@@ -114,45 +114,33 @@ func genesis(run signing, flags *flag.FlagSet, arguments []string) (bool, error)
 var errHasGenesis = errors.New("the ledger holds this chain already: a new genesis is a new identity, " +
 	"for when every key is lost")
 
-// nextRoot writes the next root statement from the ledger's chain: keys added and removed, every key
-// removed named removed for good, keys suspended and resumed (D394 §4), thresholds and locations
-// changed, versions skipped (§3.6).
+// nextRoot writes the next root statement from the ledger's chain, with the change its flags name.
 func nextRoot(run signing, flags *flag.FlagSet, arguments []string) (bool, error) {
 	kind := flags.String("chain", "", "discovery or publisher (required)")
-	skip := flags.Int64("skip", 1,
+	var change rootChange
+	flags.Int64Var(&change.skip, "skip", 1,
 		"versions to move on: more than 1 only a recovery key signs, past a thief's statements")
-	var addEveryday, addRecovery, removed, suspended, resumed, thresholds, locations []string
-	flags.Func("add-everyday", "an everyday key's .pub file to add; repeated", appendTo(&addEveryday))
-	flags.Func("add-recovery", "a recovery key's .pub file to add; repeated", appendTo(&addRecovery))
-	flags.Func("remove", "a key's .pub file, or its SHA256: fingerprint, to remove; repeated", appendTo(&removed))
-	flags.Func("suspend", "a key's .pub file, or its SHA256: fingerprint, to suspend; repeated", appendTo(&suspended))
+	flags.Func("add-everyday", "an everyday key's .pub file to add; repeated", appendTo(&change.addEveryday))
+	flags.Func("add-recovery", "a recovery key's .pub file to add; repeated", appendTo(&change.addRecovery))
+	flags.Func("remove", "a key's .pub file, or its SHA256: fingerprint, to remove; repeated",
+		appendTo(&change.removed))
+	flags.Func("suspend", "a key's .pub file, or its SHA256: fingerprint, to suspend; repeated",
+		appendTo(&change.suspended))
 	flags.Func("resume", "a suspended key's .pub file, or its SHA256: fingerprint, to resume; repeated",
-		appendTo(&resumed))
-	flags.Func("threshold", "<role>=<n>; repeated", appendTo(&thresholds))
-	flags.Func("location", "where the chain is served, in place of those it names; repeated", appendTo(&locations))
-	if !parsed(&run, flags, arguments) || !isChain(*kind) || *skip < 1 {
+		appendTo(&change.resumed))
+	flags.Func("threshold", "<role>=<n>; repeated", appendTo(&change.thresholds))
+	flags.Func("location", "where the chain is served, in place of those it names; repeated",
+		appendTo(&change.locations))
+	if !parsed(&run, flags, arguments) || !isChain(*kind) || change.skip < 1 {
 		return true, nil
 	}
 	chain, isHeld, err := run.ledger.chain(trust.ChainKind(*kind))
 	if err != nil || !isHeld {
 		return false, errors.Join(err, errors.New("the ledger holds no such chain: make its genesis first"))
 	}
-	current := chain.Current()
-	next := current
-	next.ID, next.Version, next.Issued = chain.ID(), current.Version+*skip, run.now
-	next.Keys, next.Removed = slices.Clone(current.Keys), slices.Clone(current.Removed)
-	next.Suspended, next.Thresholds = slices.Clone(current.Suspended), maps.Clone(current.Thresholds)
-	isRecovery, err := changeStanding(&next, removed, suspended, resumed)
+	next, isRecovery, err := change.next(chain, run.now)
 	if err != nil {
 		return false, err
-	}
-	isRecovery = isRecovery || *skip > 1 || len(addRecovery) > 0 || len(thresholds) > 0
-	if changeErr := errors.Join(addKeys(&next, trust.RoleRecovery, addRecovery),
-		addKeys(&next, trust.RoleEveryday, addEveryday), setThresholds(&next, thresholds)); changeErr != nil {
-		return false, changeErr
-	}
-	if len(locations) > 0 {
-		next.Locations = locations
 	}
 	payload, err := next.Payload()
 	if err != nil {
@@ -162,9 +150,55 @@ func nextRoot(run signing, flags *flag.FlagSet, arguments []string) (bool, error
 	if isRecovery {
 		signers = "a recovery key of the current set"
 	}
-	before := chain.Statements()[len(chain.Statements())-1].Payload
-	return false, run.pending(fmt.Sprintf("%s-root-%d", *kind, next.Version), current.Chain.RootNamespace(), payload,
-		before, signers+"; if that key leaves the set or is suspended, a key of the new set of the same tier signs too")
+	return false, run.pending(rootName(chain.Kind(), next.Version), chain.Kind().RootNamespace(), payload,
+		currentPayload(chain),
+		signers+"; if that key leaves the set or is suspended, a key of the new set of the same tier signs too")
+}
+
+// rootChange is a change to a chain's keys: keys added and removed, every key removed named removed for
+// good, keys suspended and resumed (D394 §4), thresholds and locations changed, versions skipped (§3.6).
+// Keys are named by .pub file or SHA256: fingerprint.
+type rootChange struct {
+	skip                        int64
+	addEveryday, addRecovery    []string
+	removed, suspended, resumed []string
+	thresholds, locations       []string
+}
+
+// next is the statement after chain's current one with change made, issued at now, and whether only a
+// recovery key may sign it.
+func (change rootChange) next(chain trust.Chain, now time.Time) (trust.Root, bool, error) {
+	skip := max(change.skip, 1)
+	current := chain.Current()
+	next := current
+	next.ID, next.Version, next.Issued = chain.ID(), current.Version+skip, now
+	next.Keys, next.Removed = slices.Clone(current.Keys), slices.Clone(current.Removed)
+	next.Suspended, next.Thresholds = slices.Clone(current.Suspended), maps.Clone(current.Thresholds)
+	isRecovery, err := changeStanding(&next, change.removed, change.suspended, change.resumed)
+	if err != nil {
+		return trust.Root{}, false, err
+	}
+	isRecovery = isRecovery || skip > 1 || len(change.addRecovery) > 0 || len(change.thresholds) > 0
+	if changeErr := errors.Join(addKeys(&next, trust.RoleRecovery, change.addRecovery),
+		addKeys(&next, trust.RoleEveryday, change.addEveryday),
+		setThresholds(&next, change.thresholds)); changeErr != nil {
+		return trust.Root{}, false, changeErr
+	}
+	if len(change.locations) > 0 {
+		next.Locations = change.locations
+	}
+	return next, isRecovery, nil
+}
+
+// rootName is the ledger's name for chain's statement at version.
+func rootName(chain trust.ChainKind, version int64) string {
+	return fmt.Sprintf("%s-root-%d", chain, version)
+}
+
+// currentPayload is the payload of chain's current statement.
+func currentPayload(chain trust.Chain) string {
+	statements := chain.Statements()
+	return statements[len(statements)-1].Payload
 }
 
 // address writes the next address document, under the discovery chain's version, its sequence one
@@ -435,7 +469,7 @@ func publish(run signing, flags *flag.FlagSet, arguments []string) (bool, error)
 // before, and says the command that signs it, and by whom.
 func (run signing) pending(name, namespace string, payload []byte, before, signers string) error {
 	path := run.ledger.path("pending", name)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { //nolint:gosec // the owner's own ledger
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("write the payload: %w", err)
 	}
 	if err := os.WriteFile(path, payload, 0o600); err != nil { //nolint:gosec // the owner's own ledger
