@@ -48,17 +48,30 @@ func composeServices(text string) map[string]*composeService {
 		case current == nil:
 		case indent == 4:
 			key = trimmed
-			if mode, isMode := strings.CutPrefix(trimmed, "network_mode:"); isMode {
-				current.networkMode = strings.Trim(strings.TrimSpace(mode), `"'`)
-			}
-			current.isReadOnly = current.isReadOnly || trimmed == "read_only: true"
-		case key == "sysctls:" && trimmed == `net.mptcp.enabled: "0"`:
-			current.isMPTCPOff = true
-		case key == "tmpfs:" && strings.HasPrefix(trimmed, "- "):
-			current.tmpfs = append(current.tmpfs, strings.Trim(strings.TrimPrefix(trimmed, "- "), `"'`))
+			current.readKey(trimmed)
+		default:
+			current.readUnder(key, trimmed)
 		}
 	}
 	return services
+}
+
+// readKey reads one of a service's keys, its line trimmed.
+func (service *composeService) readKey(trimmed string) {
+	if mode, isMode := strings.CutPrefix(trimmed, "network_mode:"); isMode {
+		service.networkMode = strings.Trim(strings.TrimSpace(mode), `"'`)
+	}
+	service.isReadOnly = service.isReadOnly || trimmed == "read_only: true"
+}
+
+// readUnder reads a line under one of a service's keys, its line trimmed: a sysctl or a tmpfs.
+func (service *composeService) readUnder(key, trimmed string) {
+	switch {
+	case key == "sysctls:" && trimmed == `net.mptcp.enabled: "0"`:
+		service.isMPTCPOff = true
+	case key == "tmpfs:" && strings.HasPrefix(trimmed, "- "):
+		service.tmpfs = append(service.tmpfs, strings.Trim(strings.TrimPrefix(trimmed, "- "), `"'`))
+	}
 }
 
 // sharesANetwork reports whether a network_mode puts a service in a network not its own: another
