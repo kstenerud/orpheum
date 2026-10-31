@@ -19,7 +19,9 @@
    **PAUSED (owner 2026-10-31, quota at 91%):** no new agents. The three running (D393 key rework, the
    cast fixes, damaged-chunk checks) finish and are merged; then stop. Not started: connect's side of
    D391/D393, the release-workflow and install-default gate edits, check-pr, deploy. Next: token use,
-   looked at by the lead alone (plan file, "Token use").
+   looked at by the lead alone (plan file, "Token use"): measured and agreed 2026-10-31; lead.md and
+   the memory move done; owed: the gate patch (prompt hook, context meter, agent guard, ledger), then
+   the Stop hook's docs-only fallback.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
