@@ -362,6 +362,28 @@ describe("App", () => {
     mounted.unmount();
   });
 
+  // The owner, 2026-10-30: one place to land, the discovery's sign-in, however the household was
+  // reached; a page reached by a link knows no realm, and its loader says it leaves all the same.
+  it("signed out under a loader that leaves for the discovery's sign-in, draws no server's sign-in, realm or none", async () => {
+    const services = servedBy(
+      {
+        ...backgroundAnswers,
+        "GET /me": [200, { id: 1, name: "owner", role: "viewer", isAdmin: false }],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "DELETE /session": [204, undefined],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<App />, { ...services, leavesWhenSignedOut: true }));
+    await signOutByMenu(mounted.container);
+    await settleUntil(() => services.session.token() === undefined);
+    expect(mounted.container.querySelector(".credentials-form")).toBeNull();
+    expect(mounted.container.textContent).toContain("Signed out. Taking you to sign in");
+    mounted.unmount();
+  });
+
   it("turns Watch Together's sign blue, on every screen, while this tab hosts a session, with no top-bar item (D364 §12)", async () => {
     window.sessionStorage.clear();
     const services = servedBy(

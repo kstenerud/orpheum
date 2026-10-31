@@ -127,23 +127,37 @@ function goBy(address: string): void {
 }
 
 /**
+ * Whether a person signed out at this client origin goes to the discovery's sign-in: wherever the
+ * discovery has one, its realms' (D297), however the core was reached, through a realm or by a link
+ * alone (the owner, 2026-10-30: one place to land, "the discovery's sign-in, except where there is no
+ * discovery"). A link's page knows no realm, so a page reached by one, as over the core's LAN name
+ * from the owner's S23, signed out to the core's own sign-in while a page reached through a realm, as
+ * the Fire TV's over WebRTC, went to the discovery's. Only at a discovery with no realms, whose page
+ * has no sign-in to land on, does the core's own stay.
+ */
+export function leavesWhenSignedOut(core: KeptCore, hasRealms: boolean): boolean {
+  return hasRealms || core.realm !== undefined;
+}
+
+/**
  * Goes, by go, to the discovery's page once the session at this origin ends, signed out here or by
- * its device's removal, for a core reached through a realm, whose person signs in at the discovery
- * (D297): there the household is no longer gone to and the discovery's sign-in is offered. Left
- * here, the page showed the core's own sign-in, a stranger's to a person who never met it (the
- * owner's Fire TV, 2026-10-27). A core reached by a link alone keeps its own sign-in, the only one
- * its person has. Returns what stops the watch.
+ * its device's removal, where leavesWhenSignedOut says its person signs in at the discovery: there
+ * the household is no longer gone to and the discovery's sign-in is offered. Left here, the page
+ * showed the core's own sign-in, a stranger's to a person who never met it (the owner's Fire TV,
+ * 2026-10-27). Returns what stops the watch.
  */
 export function leaveWhenSignedOut(
   session: Session,
   to: {
     readonly core: KeptCore;
+    /** Whether the discovery has realms, and so a sign-in of its own (LoaderConfig.hasRealms). */
+    readonly hasRealms: boolean;
     readonly loaderOrigin: string;
     readonly go: (address: string) => void;
   },
 ): () => void {
   const { core, loaderOrigin, go } = to;
-  if (core.realm === undefined) {
+  if (!leavesWhenSignedOut(core, to.hasRealms)) {
     return () => undefined;
   }
   return whenSignedOut(session, () => {
@@ -251,6 +265,7 @@ export function loaderOver(
     mediaCarrierOf: kept.mediaCarrierOf,
     onPathBack: kept.onPathBack,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
+    leavesWhenSignedOut: leavesWhenSignedOut(core, at.config.hasRealms),
     session,
     setMediaCredentials: kept.setMediaCredentials,
     switchHousehold: () => {
@@ -424,7 +439,12 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           tellWorker: at.tellWorker,
         });
         at.unmount();
-        leaveWhenSignedOut(session, { core, loaderOrigin: at.loaderOrigin, go: goBy });
+        leaveWhenSignedOut(session, {
+          core,
+          hasRealms: at.config.hasRealms,
+          loaderOrigin: at.loaderOrigin,
+          go: goBy,
+        });
         showWhenPathRefused(kept, { at, core });
         run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {

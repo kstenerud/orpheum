@@ -108,6 +108,7 @@ function mountApp(session: Session, given: Reaches, mountedOn: Root): Api {
     voiceDevices: browserVoiceDevices,
     fetchMedia: browserFetch,
     realm: reaches.realm,
+    leavesWhenSignedOut: reaches.leavesWhenSignedOut,
     pathMoves: reaches.pathMoves,
     switchHousehold: reaches.switchHousehold,
     codeAddress: reaches.codeAddress,

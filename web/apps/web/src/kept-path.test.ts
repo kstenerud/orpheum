@@ -287,12 +287,21 @@ describe("the kept path", () => {
     const session = createSession(undefined);
     const kept = keepPath(reaching, session);
     kept.carried.catch(() => undefined);
-    const loader = loaderOver({ loaderOrigin: "https://app.orpheum-app.com" } as AtClientOrigin, {
-      core: { coreId: "k7xq2", fingerprint: "a-fingerprint", realm: undefined },
-      session,
-      kept,
-      reaching,
-    });
+    const loader = loaderOver(
+      {
+        loaderOrigin: "https://app.orpheum-app.com",
+        config: { hasRealms: true },
+      } as AtClientOrigin,
+      {
+        core: { coreId: "k7xq2", fingerprint: "a-fingerprint", realm: undefined },
+        session,
+        kept,
+        reaching,
+      },
+    );
+    // A household reached by a link alone signs out to the discovery's sign-in where it has one (the
+    // owner, 2026-10-30), and the client is told so.
+    expect(loader.leavesWhenSignedOut).toBe(true);
     expect(loader.pathInUse?.()).toBe("webrtc");
     // Its media is carried in the loader's copy of the SDK, so the client asks the loader what
     // carries a load (the Fire TV on staging, 2026-10-29: the client's own copy said "http").
