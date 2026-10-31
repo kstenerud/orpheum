@@ -14,6 +14,10 @@
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx, the forbidigo rules tagged [exec] and [execve], and
 //     TestArch_OnlyExecxImportsOsExec.
+//   - FFmpeg writes only in the store a run names, inside the node's prepared directory: the one
+//     directory its confinement may write, and every path its arguments name. A store named any
+//     other way, absolute, climbing or not of a store's shape, is refused before anything is made.
+//     TestMake_FFmpegWritesOnlyInItsStoreInsideThePreparedDirectory.
 //   - Removes, renames and truncates nothing itself: the store, its files and the raw files are
 //     the prepared directory's keeper's (prepared.Shelf). Enforced by the forbidigo rule tagged
 //     [delete].

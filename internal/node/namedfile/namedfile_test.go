@@ -121,3 +121,64 @@ func TestOpenNamed_FindsTheRootByItsPathAndRefusesABadName(t *testing.T) {
 		}
 	}
 }
+
+// A command names a file under one of the node's roots, and nothing it names reaches past that
+// root, or past the library folder it names inside one: not by climbing, not by an absolute path,
+// not through a link that leaves the root, nor one followed by a climb. Each place outside holds a
+// file whose payload hash is the one named, so only where it is refuses it.
+func TestOpenNamed_NothingANameCarriesReachesPastItsRootOrFolder(t *testing.T) {
+	t.Parallel()
+	parent := t.TempDir()
+	directory, outside := filepath.Join(parent, "media"), filepath.Join(parent, "elsewhere")
+	for _, folder := range []string{filepath.Join(directory, "films"), filepath.Join(outside, "deep", "er")} {
+		if err := os.MkdirAll(folder, 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, path := range []string{
+		filepath.Join(directory, "film.mkv"), filepath.Join(outside, "secret.mkv"),
+		filepath.Join(outside, "deep", "secret.mkv"),
+	} {
+		if err := os.WriteFile(path, []byte("a film"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	links := map[string]string{
+		"escape": filepath.Join(outside, "secret.mkv"), "away": filepath.Join(outside, "deep", "er"),
+	}
+	for name, target := range links {
+		if err := os.Symlink(target, filepath.Join(directory, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	root := nodetest.OpenMediaRoot(t, directory)
+	roots := map[string]*confine.MediaRoot{root.Path(): root}
+	payloadHash := nodetest.PayloadHashHex(t, "a film")
+	named := func(rootPath, path string) nodeproto.BytesFile {
+		return nodeproto.BytesFile{RootPath: rootPath, Path: []byte(path), PayloadHash: payloadHash}
+	}
+	file, _, err := namedfile.OpenNamed(roots, named(root.Path(), "film.mkv"))
+	if err != nil {
+		t.Fatalf("the file inside the root: %v", err)
+	}
+	_ = file.Close() //nolint:errcheck // read-only
+
+	films := filepath.Join(root.Path(), "films")
+	for name, outsider := range map[string]nodeproto.BytesFile{
+		"a climb out of the root":                  named(root.Path(), "../elsewhere/secret.mkv"),
+		"a climb from inside":                      named(root.Path(), "films/../../elsewhere/secret.mkv"),
+		"an absolute path":                         named(root.Path(), filepath.Join(outside, "secret.mkv")),
+		"a link out of the root":                   named(root.Path(), "escape"),
+		"a climb after a link out of the root":     named(root.Path(), "away/../secret.mkv"),
+		"a root path that climbs out":              named(root.Path()+"/..", "elsewhere/secret.mkv"),
+		"a root path through the link":             named(filepath.Join(root.Path(), "away"), "../secret.mkv"),
+		"a climb out of a library folder":          named(films, "../film.mkv"),
+		"an absolute path from a library folder":   named(films, filepath.Join(outside, "secret.mkv")),
+		"a library folder's climb out of the root": named(films, "../../elsewhere/secret.mkv"),
+	} {
+		if file, _, err := namedfile.NewHashes().OpenNamed(roots, outsider); err == nil {
+			_ = file.Close() //nolint:errcheck // read-only
+			t.Errorf("%s (%s under %s): opened, want it refused", name, outsider.Path, outsider.RootPath)
+		}
+	}
+}

@@ -327,6 +327,50 @@ func TestMake_AFailedRunKeepsWhatItFinished(t *testing.T) {
 	}
 }
 
+// FFmpeg writes only in the store the command names, inside the node's prepared directory: the one
+// directory its confinement may write and every path its arguments name are there. A store the core
+// names any other way, absolute, climbing, or not of a store's shape, is refused before anything is
+// made or run, so no request steers where FFmpeg writes, as Plex2Shell's transcoder let one
+// (security-week-2026-10-30 §5).
+func TestMake_FFmpegWritesOnlyInItsStoreInsideThePreparedDirectory(t *testing.T) {
+	t.Parallel()
+	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
+	command.PictureSeekMs = 0
+	fake := &fakeFFmpeg{}
+	maker, _, directory := makerOver(t, fake)
+	if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil {
+		t.Fatal(err)
+	}
+	store := filepath.Join(directory, command.StoreDir)
+	if !slices.Equal(fake.ran.Access.Write, []string{store}) {
+		t.Errorf("FFmpeg may write %q, want only its store %s", fake.ran.Access.Write, store)
+	}
+	for _, argument := range fake.ran.Arguments {
+		if filepath.IsAbs(argument) && !strings.HasPrefix(argument, store+string(filepath.Separator)) {
+			t.Errorf("FFmpeg was told to write %s, outside its store %s", argument, store)
+		}
+	}
+
+	for _, storeDir := range []string{
+		"/etc/0123456789abcdef", "../7/chunks-x/0123456789abcdef", "7/chunks-x/../0123456789abcdef",
+		"7/chunks-x/0123456789abcdef/..", "7/chunks-x/0123456789abcdef/../../../../etc",
+		"./7/chunks-x/0123456789abcdef", "7//chunks-x/0123456789abcdef", "7/chunks-x/0123456789abcdef/",
+		"7/chunks-x/0123456789abcdef\n", "7/chunks-x/0123456789abcdef\x00/../..", `7\..\..\chunks-x\0123456789abcdef`,
+		"7/chunks-../0123456789abcdef", "",
+	} {
+		hostile := command
+		hostile.StoreDir = storeDir
+		fake := &fakeFFmpeg{}
+		maker, _, directory := makerOver(t, fake)
+		if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, hostile, nil); !errors.Is(err, ErrBadRun) {
+			t.Errorf("the store %q: %v, want it refused", storeDir, err)
+		}
+		if entries, err := os.ReadDir(directory); err != nil || len(entries) != 0 || fake.ran.Arguments != nil {
+			t.Errorf("the store %q: something was made or run", storeDir)
+		}
+	}
+}
+
 // A run not of a run's shape is refused before anything is made.
 func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	t.Parallel()

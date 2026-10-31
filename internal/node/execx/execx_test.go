@@ -58,6 +58,50 @@ func TestRun_PassesHardenedArgumentsAndAnEmptyEnvironment(t *testing.T) {
 	}
 }
 
+// The variables that steer where a process loads its libraries and its hardware drivers from,
+// which Plex2Shell's transcoder took from a request (security-week-2026-10-30 §5), never reach a
+// tool from the node's own environment, plain or watched: what a tool loads is the system's, never
+// a directory someone named. Not parallel: it sets the process's environment.
+func TestRun_NoLibraryOrDriverPathInTheNodesEnvironmentReachesTheTool(t *testing.T) {
+	steering := map[string]string{
+		"LD_LIBRARY_PATH": t.TempDir(), "LD_PRELOAD": filepath.Join(t.TempDir(), "evil.so"),
+		"LIBVA_DRIVERS_PATH": t.TempDir(), "LIBVA_DRIVER_NAME": "evil", "GBM_BACKENDS_PATH": t.TempDir(),
+		"VK_ICD_FILENAMES": t.TempDir(), "__EGL_VENDOR_LIBRARY_DIRS": t.TempDir(),
+		"FFREPORT": "file=" + filepath.Join(t.TempDir(), "report.log"),
+	}
+	for name, value := range steering {
+		t.Setenv(name, value)
+	}
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{})
+	runner := newRunner(t, fake)
+	if _, err := runner.Run(t.Context(), FFmpeg, confine.Access{}, []string{"-version"}, 1024); err != nil {
+		t.Fatal(err)
+	}
+	_, err := runner.RunWatched(t.Context(), WatchedRun{
+		Arguments: []string{"-f", "null", "-"},
+		Watch:     Watch{StartGrace: time.Hour, StallWindow: time.Hour, Deadline: time.Hour},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := fake.Calls(t)
+	if len(calls) != 2 {
+		t.Fatalf("%d runs recorded, want the plain one and the watched one", len(calls))
+	}
+	for _, call := range calls {
+		// The fake's own /bin/sh adds PWD; nothing else may be there.
+		if !slices.Equal(call.Environment, []string{"PWD=/"}) {
+			leaked := slices.DeleteFunc(slices.Clone(call.Environment), func(variable string) bool {
+				name, _, _ := strings.Cut(variable, "=")
+				_, isSteering := steering[name]
+				return !isSteering
+			})
+			t.Errorf("ffmpeg %q ran with %d variables, these among them: %q; want only the shell's PWD=/",
+				call.Arguments, len(call.Environment), leaked)
+		}
+	}
+}
+
 func TestRun_AFailureCarriesTheStatusAndTheTailOfStderr(t *testing.T) {
 	t.Parallel()
 	noise := strings.Repeat("frame=1 fps=0.0 q=0.0\n", 400)
