@@ -186,11 +186,11 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 
 ## A black blip at the start of a film on the Fire TV (the owner, 2026-10-28)
 
-- **Next batch (the owner: "something I can live with, but I'd rather it not be there"):** a Bond
-  film and another film showed 2–3 black frames near their start on the Fire TV (Silk). Both
+- **Next batch (the owner: "something I can live with, but I'd rather it not be there"):** a film
+  and another film showed 2–3 black frames near their start on the Fire TV (Silk). Both
   switched to their top quality at the moment playback began (12205 kb/s at +0.02 s; 15635 kb/s at
   0 s), from a low first rung the server chose at 70% of the remembered link (startsOnLadderKbps 2489
-  and 2000, rememberedLinkKbps 11923 and 9281: the Bond film's ladder has nothing between 2.5 and 12.2 Mb/s).
+  and 2000, rememberedLinkKbps 11923 and 9281: the first film's ladder has nothing between 2.5 and 12.2 Mb/s).
   Films whose switch came before playback began (file 5908 −0.75 s, file 5670 −1 s) showed none: a new
   init segment resets Silk's decoder. Fix: the player, which now receives `rememberedLinkKbps`,
   chooses its first rung itself before loading anything (D257's start choice moved or matched on the
