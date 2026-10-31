@@ -131,27 +131,56 @@ function whileHoldingMedia(video: HTMLVideoElement): (listener: () => void) => (
 /** What a start played on from: the video's play, a wait for data, or a seek. */
 type StartedAfter = NonNullable<PlayEventContext["startedAfter"]>;
 
+/** What moved a video, as the seek it starts says (seekMovers). */
+interface SeekMovers {
+  readonly skippedBy?: SkippedBy | undefined;
+  readonly soughtBy?: string | undefined;
+}
+
+/**
+ * What the next seek of video was moved by, heard before its seeking: what hls.js said it moved the
+ * video over, and what on the page asked it (seek-ahead.ts), a step back of a cast's receiver no one
+ * meant having said nothing of what asked it (staging, 2026-10-29, file 5680). take() gives them
+ * and clears them, for the seek that heard them alone.
+ */
+function seekMovers(video: HTMLVideoElement): {
+  readonly take: () => SeekMovers;
+  readonly stop: () => void;
+} {
+  let movers: SeekMovers = {};
+  const onMovedItself = (event: Event): void => {
+    movers = { ...movers, skippedBy: skippedByOf(event) };
+  };
+  const onSeekAsked = (event: Event): void => {
+    movers = { ...movers, soughtBy: soughtByOf(event) };
+  };
+  video.addEventListener(playerMovedItselfEvent, onMovedItself);
+  video.addEventListener(seekAskedEvent, onSeekAsked);
+  return {
+    take: () => {
+      const taken = movers;
+      movers = {};
+      return taken;
+    },
+    stop: () => {
+      video.removeEventListener(playerMovedItselfEvent, onMovedItself);
+      video.removeEventListener(seekAskedEvent, onSeekAsked);
+    },
+  };
+}
+
 /**
  * What a pause or a seek of video says of where it came from (event-context.ts): the page, the last
- * media-session action, and what hls.js said it moved the video over, which the seek its move starts
- * takes and clears; and what a start played on from, its play, a wait for data or a seek, and how
- * long before. A Fire TV said it started twice 0.6 s apart with 9 s loaded, and nothing said what
- * came between (staging, 2026-10-28). A wait a seek brings is the seek's.
+ * media-session action, and what moved it, which the seek it starts takes and clears (seekMovers);
+ * and what a start played on from, its play, a wait for data or a seek, and how long before. A Fire
+ * TV said it started twice 0.6 s apart with 9 s loaded, and nothing said what came between (staging,
+ * 2026-10-28). A wait a seek brings is the seek's.
  */
 function eventContexts(
   video: HTMLVideoElement,
   lastSessionAction: () => MediaSessionAction | undefined,
 ): EventContexts & { readonly stop: () => void } {
-  let skippedBy: SkippedBy | undefined;
-  const onMovedItself = (event: Event): void => {
-    skippedBy = skippedByOf(event);
-  };
-  // What on the page asked the seek its next seeking makes (seek-ahead.ts): a step back of a cast's
-  // receiver no one meant said nothing of what asked it (staging, 2026-10-29, file 5680).
-  let soughtBy: string | undefined;
-  const onSeekAsked = (event: Event): void => {
-    soughtBy = soughtByOf(event);
-  };
+  const movers = seekMovers(video);
   let playedOnFrom: { readonly startedAfter: StartedAfter; readonly atMs: number } | undefined;
   const heard = (startedAfter: StartedAfter) => (): void => {
     if (startedAfter !== "waiting" || playedOnFrom?.startedAfter !== "seeking") {
@@ -163,15 +192,10 @@ function eventContexts(
     waiting: heard("waiting"),
     seeking: heard("seeking"),
   };
-  video.addEventListener(playerMovedItselfEvent, onMovedItself);
-  video.addEventListener(seekAskedEvent, onSeekAsked);
   for (const [event, listener] of Object.entries(before)) {
     video.addEventListener(event, listener);
   }
-  const now = (known: {
-    readonly skippedBy?: SkippedBy | undefined;
-    readonly soughtBy?: string | undefined;
-  }): PlayEventContext =>
+  const now = (known: SeekMovers): PlayEventContext =>
     eventContextOf(video, document, {
       isUserActive: "userActivation" in navigator ? navigator.userActivation.isActive : undefined,
       mediaSessionAction: lastSessionAction(),
@@ -179,12 +203,7 @@ function eventContexts(
     });
   return {
     paused: () => now({}),
-    seeked: () => {
-      const context = now({ skippedBy, soughtBy });
-      skippedBy = undefined;
-      soughtBy = undefined;
-      return context;
-    },
+    seeked: () => now(movers.take()),
     started: () => {
       const from = playedOnFrom;
       playedOnFrom = undefined;
@@ -199,8 +218,7 @@ function eventContexts(
       };
     },
     stop: () => {
-      video.removeEventListener(playerMovedItselfEvent, onMovedItself);
-      video.removeEventListener(seekAskedEvent, onSeekAsked);
+      movers.stop();
       for (const [event, listener] of Object.entries(before)) {
         video.removeEventListener(event, listener);
       }
