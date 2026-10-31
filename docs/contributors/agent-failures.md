@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A57 — Called revert-red's kept green stale after re-running it against the wrong base (2026-10-31)
+
+- **What happened:** check-pr said reverting `install.sh` turned no test red, from a green kept since
+  An earlier commit. The agent re-ran revert-red on the file with `BASE=` set to the merge base with
+  `origin/main` (858 commits back), saw it red, and told the owner the cache was stale and a gate
+  defect. check-pr's base was `refs/orpheum/checked`, 92 commits back, after the digest pinning;
+  reverted only to there, the file loses just the discovery's loader line, which no test checks.
+  The kept green was right, and the file did need a test. The belief came from taking "the batch's
+  base" to be the remote's, never reading the base check-pr's own log prints on its first line.
+- **Caught by:** the owner asking the agent to look into the "stale cache".
+- **Gate:** none yet. A targeted re-run (`make check-revert-red ONLY=…`) could default its base to
+  check-pr's, as the background probe does (`scripts/background_probe.py`'s `base()`), and refuse
+  a different `BASE=` without saying it differs.
+
 ### A56 — Said a self-hoster's discovery chain protects nothing, without asking what the one-core discovery is for (2026-10-31)
 
 - **What happened:** asked what a self-hoster's chain is for, the lead answered that a discovery
