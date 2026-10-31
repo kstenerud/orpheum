@@ -19,10 +19,10 @@ const bondLevels = [
 /** The server's start: the highest BANDWIDTH within 70% of the remembered link (D257 §2). */
 const serversStartBps = 2_696_000;
 
-/** The link the Fire TV remembered on its network as A View to a Kill began, kbit/s. */
+/** The link the Fire TV remembered on its network as A Road to a Storm began, kbit/s. */
 const rememberedKbps = 11_923;
 
-// On the Fire TV, A View to a Kill and The Kid showed black frames at their start: the
+// On the Fire TV, A Road to a Storm and A Harbour Carol showed black frames at their start: the
 // server's low first rung switched to the top as playback began, and Silk's decoder, reset by the new
 // init, blinked (D381, amending D257 §2).
 describe("the quality a chunked playback starts on (D381)", () => {

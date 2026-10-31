@@ -31,15 +31,15 @@ import {
 
 useScene({ beforeEach, afterEach, vi });
 
-/** A ladder like Nosferatu's on staging: its own picture at 9018 kb/s on top, q700k432p second. */
-const nosferatu = [
+/** A ladder like Aegis's on staging: its own picture at 9018 kb/s on top, q700k432p second. */
+const aegis = [
   { bitrate: 600_000, averageBitrate: 450_000 },
   { bitrate: 1_000_000, averageBitrate: 800_000 },
   { bitrate: 3_000_000, averageBitrate: 2_200_000 },
   { bitrate: 30_000_000, averageBitrate: 9_018_000 },
 ];
 
-/** The Fire TV's five samples of Nosferatu as its stall report gave them, bytes and ms to arrive (staging, 2026-10-28). */
+/** The Fire TV's five samples of Aegis as its stall report gave them, bytes and ms to arrive (staging, 2026-10-28). */
 const fireTvSamples = [
   [191_842, 159],
   [895_044, 393],
@@ -91,12 +91,12 @@ describe("a playback's first seconds, which latch nothing (D352 §1)", () => {
     expect(choosing.nextLevel()).toBe(0); // the step-up's to raise again
   });
 
-  it("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Nosferatu, P3)", () => {
-    // A Fire TV's Nosferatu: picture chunks at 14–18 Mb/s, then one that delivered a few kilobytes and
+  it("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Aegis, P3)", () => {
+    // A Fire TV's Aegis: picture chunks at 14–18 Mb/s, then one that delivered a few kilobytes and
     // nothing more, counted as a speed of 14 kb/s; the estimate read 69 kb/s and the TV played its
     // lowest quality for 75 s (staging, 2026-10-28; bandwidth-sampling-2026-10-29.md §1.1).
     const { hls, choosing, givenUp } = choosingFrom(40_000_000);
-    hls.levels = nosferatu;
+    hls.levels = aegis;
     expect(choosing.firstLevel()).toBe(3);
     for (const mbps of [14, 18, 15, 16]) {
       loadAt(choosing, 3, { mbps });
@@ -264,7 +264,7 @@ describe("the step-up (D352 §2)", () => {
 describe("a playback with plenty loaded ahead, which holds its quality (the owner, 2026-10-28)", () => {
   it("keeps its quality at starting's end with 37.3 s loaded, and decides once less is loaded", () => {
     const { hls, choosing } = choosingFrom(40_000_000);
-    hls.levels = nosferatu;
+    hls.levels = aegis;
     expect(choosing.firstLevel()).toBe(3);
     hls.mainForwardBufferInfo = { len: 37.3 };
     // A link slower than the top, as most of its samples say.
@@ -287,10 +287,10 @@ describe("a playback with plenty loaded ahead, which holds its quality (the owne
 
   it("keeps the top at starting's end with 10 s loaded through one slow sample of five (failure 3, P4)", () => {
     // The Fire TV's five samples cut its ceiling from the top to the second lowest: the divisor of
-    // one plus its largest error read 1.3 Mb/s (staging, Nosferatu, 2026-10-28). A top of 6 Mb/s, above
+    // one plus its largest error read 1.3 Mb/s (staging, Aegis, 2026-10-28). A top of 6 Mb/s, above
     // what 70% of that divisor's reading carries over this estimate, 5.1, and within its bound's 6.6.
     const { hls, choosing } = choosingFrom(40_000_000);
-    hls.levels = [...nosferatu.slice(0, 3), { bitrate: 30_000_000, averageBitrate: 6_000_000 }];
+    hls.levels = [...aegis.slice(0, 3), { bitrate: 30_000_000, averageBitrate: 6_000_000 }];
     expect(choosing.firstLevel()).toBe(3);
     hls.mainForwardBufferInfo = { len: 10 };
     for (const [bytes, arrivedMs] of fireTvSamples) {

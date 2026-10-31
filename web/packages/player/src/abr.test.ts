@@ -170,7 +170,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
     );
   });
 
-  it("tells each switch of quality why it was chosen: first, then a chunk given up, its bytes, its wait and the estimate after (staging, Nosferatu, 2026-10-28)", () => {
+  it("tells each switch of quality why it was chosen: first, then a chunk given up, its bytes, its wait and the estimate after (staging, Aegis, 2026-10-28)", () => {
     const { hls, choosing } = choosingFrom(40_000_000);
     const listeners = new Map<string, (event: unknown, data: unknown) => void>();
     const told: QualitySwitched[] = [];
@@ -264,7 +264,7 @@ describe("choosing a chunked playback's quality (D265)", () => {
 
   it("notes each sample against its 90% bound, whatever is loaded, so its calibration can be read (P6)", () => {
     // With 20 s or more loaded a choice reads the link at its centre, which half the samples fall
-    // below: 98 of 241 noted "below" on a Fire TV's Nosferatu (staging, 2026-10-29).
+    // below: 98 of 241 noted "below" on a Fire TV's Aegis (staging, 2026-10-29).
     const { choosing, hls } = choosingFrom(40_000_000);
     hls.mainForwardBufferInfo = { len: 30 };
     for (let index = 0; index < linkSamplesKept; index += 1) {
