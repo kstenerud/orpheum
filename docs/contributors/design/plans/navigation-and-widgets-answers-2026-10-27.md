@@ -794,6 +794,27 @@ injected every prompt), and file layouts that make parallel agents conflict.
 6. **MEMORY.md pruned** to the live entries (old "READ FIRST" handoffs folded into one), about a third
    of its size.
 
+**Agreed with the owner (2026-10-31):**
+
+- **Environment, set by the owner through yoloai** (everything in the sandbox but the work
+  directories is ephemeral): `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`, `CLAUDE_CODE_SUBAGENT_MODEL=sonnet`,
+  `ENABLE_CLAUDEAI_MCP_SERVERS=false`, `BASH_MAX_OUTPUT_LENGTH=10000`,
+  `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=10000`. The first session after checks each takes effect.
+- **Memory moves to the repos.** Operating rules go to `docs/contributors/lead.md` (or the standards
+  where they belong), machines and access to `orpheum-ops`, platform quirks to `idiosyncrasies.md`;
+  stale handoffs are dropped (the standing orders and this plan carry the state). `MEMORY.md` keeps
+  pointers and sandbox-only facts. Always-loaded files hold pointers, never the rules themselves;
+  nothing is added to `AGENTS.md`.
+- **Enforced, not remembered** (gate edits, drafted by the lead as one patch for the owner): the
+  standing orders injected only when they change; a context meter in the prompt hook (above 120k:
+  write the handoff, ask for a restart); an agent past about 150 tool calls told to commit, report and
+  stop; an agent launch refused without a model or as a fourth running agent; `scripts/token_usage.py`
+  (the measurement above) run at each batch's end.
+- **After the token work:** the Stop hook's fallback (a tree changed by a shell commit) runs the full
+  `make check` without looking at what changed; it should classify the diff since the last pass with
+  `scripts/documentation_only.py`. The owner: checks are limited to the kind of change made; a code
+  problem is caught by the next code change, or the nightly run.
+
 ## D391's Orpheum side, built (2026-10-31)
 
 Built on D391 (and D390 before it), from the domain-assumptions audit's §4–§6. The outside audit of
