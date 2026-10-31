@@ -491,4 +491,40 @@ describe("the shell, laid out by a real browser", () => {
       await page.viewport(1280, 720);
     }
   });
+
+  // The owner, 2026-10-30: "Selecting 'sign out' should open a confirmation." A remote answers it as
+  // any other modal: focus in the question, OK on its Sign out, and Back (Escape) declining it.
+  it("asks before it signs out, focus in the question, Escape keeping the person in", async () => {
+    let signedOut = 0;
+    await drawn(
+      <AppShell
+        isAdmin={false}
+        canHostWatchTogether={false}
+        currentScreen="films"
+        onSignOut={() => {
+          signedOut += 1;
+        }}
+        signedInAs={{ name: "owner", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>,
+      async (mounted) => {
+        const asked = (): Element | null =>
+          mounted.container.querySelector(".app-shell__sign-out-asked");
+        await userEvent.click(page.getByRole("button", { name: "Menu" }));
+        await userEvent.click(page.getByRole("button", { name: "Sign out" }));
+        await expect.poll(asked).not.toBeNull();
+        expect(asked()?.contains(document.activeElement)).toBe(true);
+        await userEvent.keyboard("{Escape}");
+        await expect.poll(asked).toBeNull();
+        expect(signedOut).toBe(0);
+        await userEvent.click(page.getByRole("button", { name: "Menu" }));
+        await userEvent.click(page.getByRole("button", { name: "Sign out" }));
+        await expect.poll(asked).not.toBeNull();
+        expect(document.activeElement?.textContent).toBe("Sign out");
+        await userEvent.keyboard("{Enter}");
+        expect(signedOut).toBe(1);
+      },
+    );
+  });
 });

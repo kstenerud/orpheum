@@ -62,6 +62,8 @@ export const en = {
     account: "Your account",
     about: "About",
     signOut: "Sign out",
+    signOutAsked: "Sign out of this device?",
+    signOutCancel: "Cancel",
     switchHousehold: "Switch household",
     manage: "Manage",
     develop: "Development",

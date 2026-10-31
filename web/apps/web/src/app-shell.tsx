@@ -2,7 +2,15 @@
 
 import "./app-shell.css";
 
-import { createContext, useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useEffect,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
@@ -10,6 +18,7 @@ import { DropDown } from "./drop-down.tsx";
 import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { sortedLibraries, useLibrariesReached } from "./libraries-reached.ts";
 import { FilmsIcon, LibrariesIcon, SeriesIcon } from "./place-icons.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
@@ -515,6 +524,7 @@ function MainMenu(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const label = t("nav.menu");
+  const [isSignOutAsked, setIsSignOutAsked] = useState(false);
   return (
     <div
       className={props.isCurrent ? "app-shell__menu app-shell__menu--current" : "app-shell__menu"}
@@ -530,13 +540,50 @@ function MainMenu(props: {
         <MenuPlaces
           signedInAs={props.signedInAs}
           realm={props.realm}
-          onSignOut={props.onSignOut}
+          onSignOut={() => {
+            setIsSignOutAsked(true);
+          }}
           onSwitchHousehold={props.onSwitchHousehold}
         >
           {props.children}
         </MenuPlaces>
       </DropDown>
+      {isSignOutAsked ? (
+        <SignOutAsked
+          onSignOut={props.onSignOut}
+          onCancel={() => {
+            setIsSignOutAsked(false);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The question the menu's Sign out asks first (the owner, 2026-10-30: "Selecting 'sign out' should
+ * open a confirmation"): the shared modal dialog, in the menu's place, with Sign out and Cancel, a
+ * remote's arrows reaching both; only Sign out signs out, and Cancel, Escape, Back or a press outside
+ * it leaves the person signed in.
+ */
+function SignOutAsked(props: {
+  readonly onSignOut: () => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const question = t("nav.signOutAsked");
+  return (
+    <ModalDialog label={question} onClose={props.onCancel} className="app-shell__sign-out-asked">
+      <p>{question}</p>
+      <div className="app-shell__sign-out-buttons">
+        <button type="button" onClick={props.onSignOut}>
+          {t("nav.signOut")}
+        </button>
+        <button type="button" onClick={props.onCancel}>
+          {t("nav.signOutCancel")}
+        </button>
+      </div>
+    </ModalDialog>
   );
 }
 
