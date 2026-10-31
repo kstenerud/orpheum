@@ -44,8 +44,9 @@ cache reads were 85% of the bill, agents 77% of it.
   says: end at `make spot` (the lead runs `make check` once at the merge), no polling, never walk
   `/` (`find / -path /tank -prune -o …`), regenerate generated files rather than edit them, classify
   each value it adds (setting, config key, constant: §7).
-- **Build agents get `isolation: "worktree"`** (2026-10-26: five agents in one tree starved commits
-  for 90 minutes). The lead rebases each finished branch onto main and fast-forwards. Each agent
+- **Every agent that can edit gets `isolation: "worktree"`**; read-only work goes to Explore
+  (2026-10-26: five agents in one tree starved commits for 90 minutes; 2026-10-31: one sharing the
+  tree failed the Stop hook three times, so `pre_agent.py` now refuses the launch). The lead rebases each finished branch onto main and fast-forwards. Each agent
   gets its own D-number range, with "Reserved" entries committed on main first (check-docs fails a
   numbering gap), and its own block of VQ numbers.
 - **In a worktree, install web dependencies for real** (`npm --prefix web ci`); a symlinked
