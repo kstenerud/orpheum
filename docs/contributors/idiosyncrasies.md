@@ -192,6 +192,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie" | [Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie"](#go-regexps-w-d-s-and-b-are-ascii-only-and-fail-silently-on-names-like-amélie) |
 | `x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087) | [`x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087)](#xtextcollate-is-stuck-at-unicode-62-and-sorts-korean-by-code-point-golanggo19087) |
 | govet's shadow check suddenly flags every `fixture := newFixture(t)` in a package's tests. | [govet's shadow check flags every `x := …` once a later file mentions a type named `x`](#govets-shadow-check-flags-every-x---once-a-later-file-mentions-a-type-named-x) |
+| `//nolint:gosec` on `os.MkdirAll` is needed by one `make check` and called unused (nolintlint) by the next. | [gosec's G703 flags the same line in one run and not the next](#gosecs-g703-flags-the-same-line-in-one-run-and-not-the-next) |
 | "parallel golangci-lint is running". | [golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout](#golangci-lint-refuses-to-start-beside-another-run-exit-3-and-prints-nothing-on-stdout) |
 | A copy of git's index takes a file edited to the same size in the same second for unchanged | [A copy of git's index with a new time hides a file changed in the second the index was written](#a-copy-of-gits-index-with-a-new-time-hides-a-file-changed-in-the-second-the-index-was-written) |
 | The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local` | [The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local`](#the-default-http-transport-reads-https_proxy-and-go-downloads-another-toolchain-unless-gotoolchainlocal) |
@@ -3276,6 +3277,23 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   Korean sorts after Latin.
   [`collate/tables.go`](https://raw.githubusercontent.com/golang/text/master/collate/tables.go) on master
   still says `UnicodeVersion = "6.2.0"`, `CLDRVersion = "23"`.
+
+
+### gosec's G703 flags the same line in one run and not the next
+
+- **Technology:** golangci-lint 2.13.2's gosec, its taint check G703 (path traversal).
+- **Symptom:** `//nolint:gosec` on `os.MkdirAll` in `cmd/discovery-sign/commands.go` (`pending`):
+  removed, `make check` failed on G703; restored, the next `make check` failed with "directive
+  `//nolint:gosec …` is unused for linter "gosec" (nolintlint)", on the same tree; run by hand
+  straight after, both of `make go-lint`'s runs reported nothing either way (2026-10-31).
+- **Cause [I]:** the taint check follows a whole-program call graph and gosec runs its analyzers in
+  parallel, so what reaches the line may differ between runs; not confirmed.
+- **What we do:** `//nolint:gosec,nolintlint` on that line, with a comment pointing here, so either
+  answer passes. A suppression is still specific and explained (`require-specific`,
+  `require-explanation`).
+- **Evidence:** observed here, 2026-10-31 (an earlier commit). **[web]** gosec's changelog
+  lists G703 false-positive fixes (2.24.0, #1522, #1543) and a taint-analysis hang on packages with many
+  call graph edges (2.26.1, #1608); no report of it being nondeterministic found (searched, 2026-10-31).
 
 
 ### golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout
