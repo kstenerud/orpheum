@@ -141,17 +141,17 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Metropolis.mkv", "heat"), observedRecord("Wing.mkv", "alien"),
+		observedRecord("Metropolis.mkv", "heat"), observedRecord("Arkon.mkv", "arkon"),
 		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
 	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 
-	world.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien"), observedRecord("Nosferatu.mkv", "ronin")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon"), observedRecord("Nosferatu.mkv", "ronin")}, true)
 	if _, live := world.liveFilesByPath()[root+"/Metropolis.mkv"]; live {
 		t.Fatal("the deleted film is still live; the test proves nothing")
 	}
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing.mkv", "alien"), observedRecord("Restored/Metropolis (1995).mkv", "heat"),
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Restored/Metropolis (1995).mkv", "heat"),
 		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
 	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
@@ -164,11 +164,11 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 func TestScenario_AFilmPutBackElsewhereWhileItsOldPathIsTakenRevivesItsTombstone(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat"), observedRecord("Wing.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat"), observedRecord("Arkon.mkv", "arkon")}, true)
 	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
-	world.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing.mkv", "alien"), observedRecord("Metropolis.mkv", "another"),
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "another"),
 		observedRecord("Restored/Metropolis (1995).mkv", "heat"),
 	}, true)
 	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {

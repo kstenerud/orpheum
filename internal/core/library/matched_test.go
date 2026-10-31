@@ -20,7 +20,7 @@ func searchedShelf(t *testing.T) *shelf {
 		observedRecord("o.mkv", "o"),
 	}, true)
 	world.fileAsFilm("Metropolis", "h1.mkv")
-	world.fileAsFilm("Larkspurs", "h2.mkv")
+	world.fileAsFilm("Metropolises", "h2.mkv")
 	world.fileAsFilm("Metropolis Wave", "h3.mkv")
 	world.fileAsFilm("Up", "u.mkv")
 	world.fileAsFilm("十字路", "s1.mkv")
@@ -51,12 +51,12 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 			entryNames(first), first.NextCursor)
 	}
 	rest := list(ListQuery{Sort: SortName, Limit: 2, Cursor: first.NextCursor})
-	if !slices.Equal(entryNames(rest), []string{"Larkspurs"}) || rest.NextCursor != "" {
-		t.Errorf("the next page = %v (cursor %q); want Larkspurs alone, and the last: Up and Ordet are not "+
+	if !slices.Equal(entryNames(rest), []string{"Metropolises"}) || rest.NextCursor != "" {
+		t.Errorf("the next page = %v (cursor %q); want Metropolises alone, and the last: Up and Ordet are not "+
 			"Metropolis's", entryNames(rest), rest.NextCursor)
 	}
 	if page := list(ListQuery{Sort: SortName, Order: OrderDescending, Limit: 10}); !slices.Equal(entryNames(page),
-		[]string{"Larkspurs", "Metropolis Wave", "Metropolis"}) {
+		[]string{"Metropolises", "Metropolis Wave", "Metropolis"}) {
 		t.Errorf("heat by name, Z to A = %v; want the three, the other way", entryNames(page))
 	}
 	if page := list(ListQuery{Sort: SortAdded, Limit: 10}); len(page.Entries) != 3 {
@@ -66,8 +66,8 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 		t.Errorf("heat by release = %v; want the three that match, undated as they are", entryNames(page))
 	}
 	if page := list(ListQuery{Sort: SortName, From: "Heath", Limit: 10}); !slices.Equal(entryNames(page),
-		[]string{"Larkspurs"}) {
-		t.Errorf("heat from Heath = %v; want Larkspurs, from where From starts", entryNames(page))
+		[]string{"Metropolises"}) {
+		t.Errorf("heat from Heath = %v; want Metropolises, from where From starts", entryNames(page))
 	}
 }
 
