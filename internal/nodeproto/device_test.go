@@ -13,7 +13,7 @@ func TestDevicesKeyOf_IsTheDeviceOfTheLongestMountPathAPathIsUnder(t *testing.T)
 		{Key: "disk:sdb", MountPaths: []string{"/media/films/Extra"}},
 	}
 	for path, want := range map[string]string{
-		"/media/films/Wing/Wing.mkv":  "zfs:tank",
+		"/media/films/Arkon/Arkon.mkv":  "zfs:tank",
 		"/media/films/Extra/Big.mkv":    "disk:sdb",
 		"/media/films/Extras/Small.mkv": "zfs:tank",
 		"/media/shows/Show/S01E01.mkv":  "zfs:tank",

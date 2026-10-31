@@ -86,7 +86,7 @@ func TestServe_AConfirmedFilmCopiedElsewhereAndDeletedKeepsItsTitleAndNoOther(t 
 }
 
 // Opening the page of a film still being read has the server read it before what else waits, so
-// Play works by the time it is pressed, with no play asked (the owner, 2026-10-17: Nosferatu's page said
+// Play works by the time it is pressed, with no play asked (the owner, 2026-10-17: Aegis's page said
 // still reading, and could not be played). The server wires the page to the scans (D304 §4).
 func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
 	t.Parallel()
