@@ -65,6 +65,10 @@ type Runtime struct {
 	// Directory is the deployment's directory on the machine, which the install script names, or
 	// empty when it is not known: what tells two deployments on one machine apart (OutsideIPv6Subnet).
 	Directory string
+	// KernelLacksMultipathTCP says the machine's kernel has no MPTCP (no net.mptcp.enabled), so the
+	// compose file sets no net.mptcp.enabled, which Docker would refuse to start a container with;
+	// such a kernel has no MPTCP listener for CVE-2026-98432 to reach.
+	KernelLacksMultipathTCP bool
 }
 
 // defaultOutsideIPv6Subnet is the outside network's IPv6 subnet for a deployment whose directory
@@ -156,6 +160,9 @@ func Write(dir string, values Values, runtime Runtime) error {
 	if err != nil {
 		return fmt.Errorf("read the compose file's template: %w", err)
 	}
+	if runtime.KernelLacksMultipathTCP {
+		compose = withoutMultipathTCP(compose)
+	}
 	for _, file := range files {
 		text, renderErr := render(file.template, data)
 		if renderErr != nil {
@@ -185,6 +192,33 @@ func Write(dir string, values Values, runtime Runtime) error {
 // install-script` prints it, so it comes from the image it installs.
 func InstallScript(image string) (string, error) {
 	return render("install.sh", struct{ Image string }{image})
+}
+
+// multipathTCPSysctl is the compose files' line turning MPTCP off in a service's network.
+const multipathTCPSysctl = `net.mptcp.enabled: "0"`
+
+// withoutMultipathTCP is compose with no service setting net.mptcp.enabled, and no sysctls key left
+// with nothing under it, for a kernel that has no such setting.
+func withoutMultipathTCP(compose []byte) []byte {
+	lines := strings.Split(string(compose), "\n")
+	kept := make([]string, 0, len(lines))
+	for index, line := range lines {
+		if strings.TrimSpace(line) == multipathTCPSysctl {
+			continue
+		}
+		if strings.TrimSpace(line) == "sysctls:" && index+1 < len(lines) &&
+			strings.TrimSpace(lines[index+1]) == multipathTCPSysctl &&
+			(index+2 >= len(lines) || indent(lines[index+2]) <= indent(line)) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return []byte(strings.Join(kept, "\n"))
+}
+
+// indent is how many spaces begin line.
+func indent(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
 }
 
 // renderedFile is a file Write renders from a template into the deployment's directory.

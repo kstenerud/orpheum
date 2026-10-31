@@ -5,6 +5,7 @@ package deployment
 import (
 	"io/fs"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -117,6 +118,55 @@ func TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff(t *testing.T) {
 			if owner, ok := services[shared]; !ok || !owner.isMPTCPOff {
 				t.Errorf("%s: %s shares %s's network, which does not turn MPTCP off", path.Base(name), service, shared)
 			}
+		}
+	}
+}
+
+// A kernel with no MPTCP has no net.mptcp.enabled, and Docker refuses to start a container naming a
+// setting its kernel has not; such a kernel has no MPTCP listener for the CVE to reach. Its compose
+// file sets none, and leaves no sysctls key with nothing under it, while a service's other sysctls
+// stay (the agent's report, 2026-10-31).
+func TestCompose_AKernelWithNoMPTCPGetsAComposeFileThatDoesNotNameIt(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"templates/compose.yaml", "templates/compose-direct.yaml"} {
+		text, err := templates.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		without := string(withoutMultipathTCP(text))
+		if strings.Contains(without, "net.mptcp.enabled") {
+			t.Errorf("%s: still names net.mptcp.enabled for a kernel without it", path.Base(name))
+		}
+		lines := strings.Split(without, "\n")
+		for index, line := range lines {
+			if strings.TrimSpace(line) == "sysctls:" &&
+				(index+1 >= len(lines) || indent(lines[index+1]) <= indent(line)) {
+				t.Errorf("%s: a sysctls key with nothing under it, at line %d", path.Base(name), index+1)
+			}
+		}
+		if strings.Count(without, "\n") != strings.Count(string(text), "\n")-
+			strings.Count(string(text), multipathTCPSysctl)-strings.Count(string(text), "sysctls:\n      "+multipathTCPSysctl+"\n    ") {
+			t.Errorf("%s: removed more than the MPTCP lines and their emptied sysctls keys", path.Base(name))
+		}
+	}
+	if text, _ := templates.ReadFile("templates/compose.yaml"); !strings.Contains(
+		string(withoutMultipathTCP(text)), "net.ipv4.ip_unprivileged_port_start") {
+		t.Error("compose.yaml: the tunnel's other sysctl went with MPTCP's")
+	}
+}
+
+// Write asks for MPTCP off on a kernel that has it, and names none on one that has not.
+func TestWrite_TheComposeFileTurnsMPTCPOffWhereTheKernelHasIt(t *testing.T) {
+	t.Parallel()
+	for _, lacks := range []bool{false, true} {
+		dir := begun(t, Release)
+		kernel := runtime
+		kernel.KernelLacksMultipathTCP = lacks
+		if err := Write(dir, filledValues(t, Release), kernel); err != nil {
+			t.Fatal(err)
+		}
+		if names := strings.Contains(readFile(t, filepath.Join(dir, composeFile)), multipathTCPSysctl); names == lacks {
+			t.Errorf("a kernel lacking MPTCP %v: the compose file names it %v", lacks, names)
 		}
 	}
 }

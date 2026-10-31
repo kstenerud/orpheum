@@ -88,8 +88,18 @@ func parseWriteDeployment(arguments []string, stderr io.Writer) (deployment.Kind
 	}
 	return deployment.Kind(*kind), deployment.Runtime{
 		Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
-		Directory: *directory,
+		Directory: *directory, KernelLacksMultipathTCP: !hasSetting(multipathTCPSetting),
 	}, true
+}
+
+// multipathTCPSetting is the kernel's MPTCP switch, which a kernel without MPTCP has not: seen from
+// write-deployment's container, as the deployment's containers will see it.
+const multipathTCPSetting = "/proc/sys/net/mptcp/enabled"
+
+// hasSetting says whether the kernel setting at path exists.
+func hasSetting(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // deploymentMessage is what write-deployment says it did: begun, with what to fill in, or written.
