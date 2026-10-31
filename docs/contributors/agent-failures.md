@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A54 — A search for a source file walked the whole disk, the read-only media share with it (2026-10-31)
+
+- **What happened:** an agent building B-frame re-timing looked for FFmpeg's `dts2pts.c` with
+  `find / -name dts2pts.c`. The walk from `/` reached `/tank/media`, the owner's media share, which
+  the owner's standing rule says never to stat, list or search (a stat of it while the NAS was down
+  once froze a turn). Its brief repeated the rule; the agent read it as "do not search the media",
+  not as "no command may walk into it". It stopped the walk after about two minutes; nothing was
+  printed and nothing froze.
+- **Caught by:** the agent itself, reporting it.
+- **Gate:** none yet. Briefs now say "never run `find`, `du`, `ls -R` or any walk from `/` or any
+  parent of `/tank`; search named directories only". A hook could refuse a shell command naming
+  `/tank` or a walk rooted at `/`; it is a gate change, the owner's to accept.
+
 ### A53 — A stale service worker fixed for the case that cannot happen without a page load (2026-10-31)
 
 - **What happened:** the owner's Firefox on production said developer tools bypassed its worker
