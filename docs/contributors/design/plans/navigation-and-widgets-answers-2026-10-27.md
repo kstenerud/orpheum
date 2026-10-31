@@ -754,3 +754,67 @@ VQ-number clashes between parallel agents and cherry-pick conflicts in verificat
 visible costs. Look at: brief size and what each agent rereads (AGENTS.md, decisions, plan files),
 gate runs per agent, model choice per task, the lead's own context (standing orders and memory
 injected every prompt), and file layouts that make parallel agents conflict.
+
+## D391's Orpheum side, built (2026-10-31)
+
+Built on D391 (and D390 before it), from the domain-assumptions audit's §4–§6. The outside audit of
+the root keys and signed objects runs as this is written: every signature and check is behind
+`discovery/trust` (OpenDocument, OpenRecord, Advance, Sign), so its corrections land there, and the
+root set's rotation rules are left at the plain one until it reports.
+
+- **Root key set and signatures** (`discovery/trust`): SSH signatures (`ssh-keygen -Y sign`, verified
+  with `golang.org/x/crypto/ssh`, a vector from ssh-keygen in the tests), keys `sk-ssh-ed25519`,
+  `sk-ecdsa-sha2-nistp256` or plain `ssh-ed25519`, any one root key signing. A namespace per kind:
+  `orpheum-root-set-v1`, `orpheum-delegation-v1`, `orpheum-address-document-v1`,
+  `orpheum-release-record-v1`. A signed object is `{"payload": "<exact bytes>", "signature":
+  "-----BEGIN SSH SIGNATURE-----…", "delegation": {…}}`, the delegation only on a document an online
+  key signed. A set is `{"version", "issuedAt", "keys": [authorised keys' lines]}`, the first signed
+  by one of its own keys, each later one by a key of the one before, taken in order of version. A
+  delegation is `{"key", "issuer", "notBefore", "notAfter"}` (Unix ms), for documents alone.
+  **Waiting on the audit (the owner's addition):** a removed key never accepted again by that core
+  (sticky), two sets of one version both refused and the admin told; today a removed key signs
+  nothing only because it is not in the current set, and sets at or below the core's version are
+  ignored.
+- **The address document** (`discovery/addressdoc`) at `/.well-known/orpheum-discovery`:
+  `{"document": <signed {issuer, coreApi, clientApi, loaderOrigin, clientOrigins, accountOrigin,
+  homepage, support, locations, issuedAt}>, "rootSets": [<every set's statement from the first>]}`.
+  Taken only for exactly the issuer asked, every address https or on this machine, `{core}` a whole
+  label. `discovery/single` serves the operator's file (`Parts.AddressDocument`); the development
+  discovery signs one with a key of its own at each start.
+- **The core enrols by issuer** (`internal/core/discovery`): `POST /system/discovery {issuer,
+  password}`; for the suggested issuer the compiled set, for any other the set the document shows, at
+  first use, the System page showing its fingerprints; `discovery.json` keeps the issuer, the set and
+  the document, and one with no issuer is no discovery (no adoption). Origins come from the document
+  alone (the status no longer names them); hourly the core reads the issuer and every location and
+  takes the newest document that holds, the last good one kept otherwise. Signatures bind to the
+  issuer (`proof.Message`), so a newer document moves the API.
+- **One default** (`internal/core/discovery/suggested.go`): `https://orpheum.cc`, root keys an empty
+  list the owner fills (enrolment refuses it until then, asking nothing). The System page and `pair`
+  take it from the core; `serviceDiscoveryUrl` is gone. `TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains`
+  scans Go, TypeScript, shell, HTML, YAML and TOML outside tests, the browser tests and docs. The
+  install script prints the loader its discovery named (`pair`'s `loader:` line); the lab placeholder
+  and comments use reserved names.
+- **Signed release records** (`discovery/release`, `cmd/release-record`): `{"issuedAt", "latest",
+  "locations": [repositories], "releases": {"v0.3.2": {"digest", "security", "summary", "fixedIn"}}}`,
+  signed by a root key only, served at `/.well-known/orpheum-release-record` by every discovery; the
+  session's `POST /release` is gone. The core reads it at its issuer and locations, verifies against
+  its pinned set, and the update command pulls `<location>@<digest>`. `orpheum verify-release` checks
+  an image's digest in Go; the install script runs it on `--release-record <file> [--root-keys
+  <file>]`, from the previous image on an update. security-updates.md says so.
+- **The signing helper** (`cmd/discovery-sign`): root-set (add and remove), delegation, document,
+  record, seal, through the ssh-agent (`ssh-add -K` loads a YubiKey's resident key), or `--key-file`.
+  It does not run ssh-keygen: starting a process is `execx`'s alone (forbidigo's exec rule), so a
+  hand-made `ssh-keygen -Y sign` signature goes through `seal`. Guide: docs/users/discovery-signing.md.
+
+**Owed by the owner:** the three YubiKeys' public keys in `suggested.go`; the install script's default
+check (today only with `--release-record`): `scripts/tests/test_install_script.py`'s fake docker
+answering `run … verify-release` (a gate file), then the flag made the default; the release workflow's
+step running `release-record` (a gate file). **Owed by connect** (a separate task), all from the
+public `discovery/` packages: serve `addressdoc.Served` at the issuer's and each location's
+`/.well-known/orpheum-discovery` (`addressdoc.WellKnownPath`), the document signed by an online key
+under a root key's delegation (`trust.Sign`, `trust.Delegation`) or by a root key, built from its
+names file; serve the signed record at `release.WellKnownPath`; verify a core's enrol and session
+signatures with `proof.Verify`/`Nonces.Spend` bound to the issuer (`proof.SignedNonce.Issuer`), not
+the API's URL; stop naming `clientOrigin`/`loaderOrigin` in the status (the fields are gone from
+`discoveryproto.StatusResponse`) and drop `POST /release`; its tests take keys from
+`discovery/trust/trusttest`. VQ210 (staging's core by issuer), VQ211 (signing with a YubiKey).
