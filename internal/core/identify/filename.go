@@ -228,11 +228,25 @@ func lastOfRun(rest string, season, episode int, runs ...*regexp.Regexp) int {
 // "Show/Show.S01/E01/x.mkv", and a specials or extras folder are passed over the same way (the
 // owner's NAS, 2026-10-13: each of a series' episodes, and another series' "E01" to "E12", were
 // series of their own).
+//
+// A folder holding a season's is the series' own, though its name says specials: "Show.Complete.
+// Series.Plus.Christmas.Specials/Series 1/x.mkv" is Show (the owner, 2026-10-28: "If a folder contains
+// a bunch of subfolders that look like seasons, it must be the parent folder of a series"; staging's
+// series 2405 was named "" and matched nothing). And a name never comes out empty while a specials
+// folder above it has one.
 func seriesFromFolders(folder string) (name string, year int) {
-	packPrefix := ""
+	packPrefix, outermostBonus := "", ""
+	isAboveSeason := false
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
 		part = strings.TrimSpace(sitePrefixPattern.ReplaceAllString(part, ""))
-		if part == "" || isSeasonFolder(part) || episodeOnlyPattern.MatchString(part) || isBonusFolder(part) {
+		if part != "" && (isSeasonFolder(part) || seasonPackPattern.MatchString(part)) {
+			isAboveSeason = true
+		}
+		if part != "" && !isAboveSeason && isBonusFolder(part) {
+			outermostBonus = part
+			continue
+		}
+		if part == "" || isSeasonFolder(part) || episodeOnlyPattern.MatchString(part) {
 			continue
 		}
 		if marker, found := findEpisode(part); found {
@@ -249,7 +263,10 @@ func seriesFromFolders(folder string) (name string, year int) {
 		}
 		return cleanTitle(part)
 	}
-	return cleanTitle(packPrefix)
+	if name, year = cleanTitle(packPrefix); name == "" && outermostBonus != "" {
+		return cleanTitle(outermostBonus)
+	}
+	return name, year
 }
 
 // isBonusFolder is a series' folder of specials or extras: "Specials", "Christmas SPECIALS",

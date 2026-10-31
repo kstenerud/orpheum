@@ -131,7 +131,9 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   it shouldn't be subject to the specials naming rule; only its children." The parser reads one path
   at a time, so the path's own evidence is used: a folder holding a season folder ("…/Series 1/…") is
   the series' folder, never its specials; where a scan has the siblings, several season folders under
-  one folder say so the more surely.
+  one folder say so the more surely. **Built (11-01 batch):** `seriesFromFolders` takes a folder above a
+  season folder (or a season pack) for the series' own, and falls back to the outermost specials
+  folder's name rather than ""; series 2405 is named at its next scan.
 - **Next batch (the owner, 2026-10-28, "yes, file it"):** the banner's Libraries icon opens a menu
   listing the person's libraries, rather than going to the Libraries page with one chosen: "make the
   libraries icon a menu that lists the libraries under it". Built on the shared chooser/menu widget of
