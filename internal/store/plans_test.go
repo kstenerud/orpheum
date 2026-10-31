@@ -232,6 +232,7 @@ func wholeReadsAllowed() map[string]string {
 		"GetLiveUserByName":          few + "people; a name is checked when one is made or renamed",
 		"ListLiveUsers":              few + "people; the admin lists them",
 		"ListInvitations":            few + "roles and invitations; the admin lists the invitations",
+		"ListLiveInvitationLinks":    few + "invitations, each one's links by their index; the admin lists the invitations",
 		"ListAllSealedSecrets":       few + "secrets; doctor lists them",
 		"ListSettings":               few + "settings, a fixed registry; the admin lists them",
 		"ListSeriesByIdentification": "the needs-a-match list's series, which are few",

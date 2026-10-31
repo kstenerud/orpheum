@@ -10,19 +10,23 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 )
 
 // InvitationBody is an invitation: its role and the admin's note of who it is for; while it waits,
 // how many of its links still work and when the last ends; once used, the account it made (D311
 // §3, §4; D318).
 type InvitationBody struct {
-	ID        int64            `json:"id"`
-	Role      string           `json:"role"`
-	AdminNote string           `json:"adminNote"`
-	IssuedAt  int64            `doc:"Unix milliseconds" json:"issuedAt"`
-	LiveLinks int              `doc:"Its links that still work; another link leaves them live" json:"liveLinks"`
-	ExpiresAt int64            `doc:"When the last live link ends, Unix milliseconds; 0 with none" json:"expiresAt"`
-	Made      *MadeAccountBody `doc:"The account its use made; absent while it waits" json:"made,omitempty"`
+	ID        int64  `json:"id"`
+	Role      string `json:"role"`
+	AdminNote string `json:"adminNote"`
+	IssuedAt  int64  `doc:"Unix milliseconds" json:"issuedAt"`
+	LiveLinks int    `doc:"Its links that still work; another link leaves them live" json:"liveLinks"`
+	ExpiresAt int64  `doc:"When the last live link ends, Unix milliseconds; 0 with none" json:"expiresAt"`
+	// Links are its live links while it waits, to pass on again until used, withdrawn or ended (D267
+	// §5, as the owner chose for invitations, 2026-10-28).
+	Links []IssuedSecretBody `doc:"Its live links, oldest first, to pass on again; none once used" json:"links"`
+	Made  *MadeAccountBody   `doc:"The account its use made; absent while it waits" json:"made,omitempty"`
 }
 
 // MadeAccountBody is the account an invitation's use made, and when.
@@ -130,10 +134,14 @@ func (server *Server) registerInvitations() {
 	}, server.setAdminNote)
 }
 
-func invitationBody(invitation auth.Invitation) InvitationBody {
+func invitationBody(invitation auth.Invitation, found *discovery.Service) InvitationBody {
 	body := InvitationBody{
 		ID: invitation.ID, Role: string(invitation.Role), AdminNote: invitation.AdminNote,
 		IssuedAt: invitation.IssuedAt.UnixMilli(), LiveLinks: invitation.LiveLinks,
+		Links: make([]IssuedSecretBody, 0, len(invitation.Links)),
+	}
+	for _, link := range invitation.Links {
+		body.Links = append(body.Links, issuedSecretBody(link, found))
 	}
 	if !invitation.ExpiresAt.IsZero() {
 		body.ExpiresAt = invitation.ExpiresAt.UnixMilli()
@@ -201,7 +209,7 @@ func (server *Server) invitationBodies(ctx context.Context, dependencies *Depend
 	}
 	bodies := make([]InvitationBody, 0, len(invitations))
 	for _, invitation := range invitations {
-		bodies = append(bodies, invitationBody(invitation))
+		bodies = append(bodies, invitationBody(invitation, dependencies.Discovery))
 	}
 	return bodies, nil
 }

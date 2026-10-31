@@ -152,7 +152,16 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   keeps each unused invitation link (today only its SHA-256, `invitation_link`), and the people page
   shows it again with a Copy button until it is used or withdrawn. A copy of the database can then use
   an unused link; withdrawing or using it ends that. Unused links expire after 7 days (the owner,
-  2026-10-28: "unused invitation links expire after 7 days").
+  2026-10-28: "unused invitation links expire after 7 days"). **Built 2026-10-31**: each link's
+  secret was already kept sealed in its grant (`grant.link_sealed`, secrets.Store's `SealBound`, for
+  the person's own link, discovery-core.md K7), so no migration: `ListLiveInvitationLinks` opens each
+  waiting invitation's live links for `GET /invitations` (`InvitationBody.links`), the people page
+  shows each with Copy (`share.tsx`, so a just-issued link and a Watch Together link have Copy too),
+  and withdrawing, or using one link, forgets the others' sealed secrets in the same write
+  (`RevokeInvitationLinks`). The used link stays sealed as its person's own link (K7), never shown on
+  the invitation. The 7 days were already `registration_invitation_life_days`' default. Tests
+  `TestInvitation_ItsLiveLinksAreShownAgainUntilUsedWithdrawnOrEnded`,
+  `TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed`, `people-invitations.test.tsx`; VQ199.
 - **Later (the owner, 2026-10-28, "Some other issues to deal with later"):**
   - "When I first connect with a fire tv, I get a message 'Your browser is asking to reach devices on
     your network', but the browser doesn't surface anything asking for permissions." The local-network

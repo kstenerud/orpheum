@@ -193,6 +193,55 @@ func (q *Queries) ListInvitations(ctx context.Context, now *int64) ([]ListInvita
 	return items, nil
 }
 
+const listLiveInvitationLinks = `-- name: ListLiveInvitationLinks :many
+SELECT invitation_link.invitation_id, "grant".secret_sha256, "grant".expires_at, "grant".link_sealed
+FROM invitation
+CROSS JOIN invitation_link ON invitation_link.invitation_id = invitation.id
+CROSS JOIN "grant" ON "grant".secret_sha256 = invitation_link.secret_sha256
+WHERE invitation.made_user_id IS NULL AND "grant".kind = 'issued_secret' AND "grant".revoked_at IS NULL
+  AND "grant".expires_at > ?1
+ORDER BY invitation_link.invitation_id, "grant".issued_at, "grant".secret_sha256
+`
+
+type ListLiveInvitationLinksRow struct {
+	InvitationID int64
+	SecretSha256 []byte
+	ExpiresAt    *int64
+	LinkSealed   []byte
+}
+
+// Each live link of every invitation still waiting, oldest first, with its secret sealed, for the
+// admin to pass on again until it is used, withdrawn or ends (D267 section 5, which the owner chose
+// for invitations, 2026-10-28). Invitations are few; each one's links by their index, then each
+// link's grant by its key.
+func (q *Queries) ListLiveInvitationLinks(ctx context.Context, now *int64) ([]ListLiveInvitationLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveInvitationLinks, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveInvitationLinksRow{}
+	for rows.Next() {
+		var i ListLiveInvitationLinksRow
+		if err := rows.Scan(
+			&i.InvitationID,
+			&i.SecretSha256,
+			&i.ExpiresAt,
+			&i.LinkSealed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markInvitationMade = `-- name: MarkInvitationMade :exec
 UPDATE invitation SET made_user_id = ?1, made_at = ?2
 WHERE id = ?3 AND made_user_id IS NULL
@@ -210,7 +259,7 @@ func (q *Queries) MarkInvitationMade(ctx context.Context, arg MarkInvitationMade
 }
 
 const revokeInvitationGrantsOfRole = `-- name: RevokeInvitationGrantsOfRole :exec
-UPDATE "grant" SET revoked_at = ?1
+UPDATE "grant" SET revoked_at = ?1, link_sealed = NULL
 WHERE revoked_at IS NULL AND kind = 'issued_secret'
   AND secret_sha256 IN (SELECT invitation_link.secret_sha256 FROM invitation_link
                         JOIN invitation ON invitation.id = invitation_link.invitation_id
@@ -222,14 +271,14 @@ type RevokeInvitationGrantsOfRoleParams struct {
 	RoleID    int64
 }
 
-// A role deleted withdraws the invitations into it.
+// A role deleted withdraws the invitations into it, their sealed secrets forgotten.
 func (q *Queries) RevokeInvitationGrantsOfRole(ctx context.Context, arg RevokeInvitationGrantsOfRoleParams) error {
 	_, err := q.db.ExecContext(ctx, revokeInvitationGrantsOfRole, arg.RevokedAt, arg.RoleID)
 	return err
 }
 
 const revokeInvitationLinks = `-- name: RevokeInvitationLinks :exec
-UPDATE "grant" SET revoked_at = ?1
+UPDATE "grant" SET revoked_at = ?1, link_sealed = NULL
 WHERE revoked_at IS NULL AND kind = 'issued_secret'
   AND secret_sha256 IN (SELECT secret_sha256 FROM invitation_link WHERE invitation_id = ?2)
 `
@@ -239,8 +288,9 @@ type RevokeInvitationLinksParams struct {
 	InvitationID int64
 }
 
-// Every link of the invitation not yet used (D318 sections 2, 3); a used one is its person's own
-// link by now, kind 'link', and stays.
+// Every link of the invitation not yet used (D318 sections 2, 3), its sealed secret forgotten with
+// it; a used one is its person's own link by now, kind 'link', and stays, sealed (discovery-core.md
+// K7).
 func (q *Queries) RevokeInvitationLinks(ctx context.Context, arg RevokeInvitationLinksParams) error {
 	_, err := q.db.ExecContext(ctx, revokeInvitationLinks, arg.RevokedAt, arg.InvitationID)
 	return err

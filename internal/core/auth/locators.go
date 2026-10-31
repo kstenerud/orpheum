@@ -202,15 +202,23 @@ func (service *Service) OwnLink(ctx context.Context, userID int64) (OwnLink, boo
 	case err != nil:
 		return OwnLink{}, false, fmt.Errorf("read the person's own link: %w", err)
 	}
-	own := OwnLink{ExpiresAt: time.UnixMilli(*row.ExpiresAt)}
-	if service.linkSealer != nil && row.LinkSealed != nil {
-		// A value that does not open shows no link; the person asks for a new one.
-		secret, openErr := service.linkSealer.OpenBound(grantIdentity(row.SecretSha256), row.LinkSealed)
-		if openErr == nil {
-			own.Secret = secret
-		}
+	return OwnLink{
+		ExpiresAt: time.UnixMilli(*row.ExpiresAt), Secret: service.openLink(row.SecretSha256, row.LinkSealed),
+	}, true, nil
+}
+
+// openLink is a link's secret, opened from its grant's sealed copy; empty without a sealer, for a
+// link made before the core kept it, or for one that does not open, as after a restore without
+// secret.key: the link is not shown, and a new one is asked for.
+func (service *Service) openLink(secretHash, sealed []byte) string {
+	if service.linkSealer == nil || sealed == nil {
+		return ""
 	}
-	return own, true, nil
+	secret, err := service.linkSealer.OpenBound(grantIdentity(secretHash), sealed)
+	if err != nil {
+		return ""
+	}
+	return secret
 }
 
 // RevokeOwnLink is the admin ending a person's own link: it locates the core no more, and the

@@ -44,7 +44,8 @@ export interface IssuedInvitation {
 /**
  * The household, for the admin (D218, D246 §2): everyone, with the admin's note of who each is for;
  * an account set up in full, or an invitation for someone to fill in their own, under a role and
- * with that note; the invitations waiting, each sent again or withdrawn, and those used, with the
+ * with that note; the invitations waiting, each with its live links to pass on again (D267 §5, as
+ * the owner chose for invitations, 2026-10-28), sent again or withdrawn, and those used, with the
  * person each made (D311 §3, §4; D318).
  */
 export function People(): JSX.Element {
@@ -336,10 +337,34 @@ function WaitingInvitations(props: {
                 props.onWithdraw(invitation.id);
               }}
             />
+            <InvitationLinks links={invitation.links ?? []} />
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * A waiting invitation's live links, each shown again to pass on, with Copy, until it is used,
+ * withdrawn or ends (D267 §5, as the owner chose for invitations, 2026-10-28); nothing when it has
+ * none.
+ */
+function InvitationLinks(props: {
+  readonly links: readonly components["schemas"]["IssuedSecretBody"][];
+}): JSX.Element | null {
+  const { navigation } = useServices();
+  if (props.links.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="people__links">
+      {props.links.map((link) => (
+        <li key={link.secret}>
+          <Share text={registrationUrl(navigation.origin(), link)} invitation={link} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
