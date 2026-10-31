@@ -66,6 +66,12 @@
 //   - It is the one writer of loudness and video_timeline. Enforced by
 //     TestArch_EachTableHasOneWritingPackage.
 //
+//   - A track's loudness, both its mixes, or a picture's timeline is thrown out once the facts of its
+//     file's probe it was made from changed, in the ingest's write that keeps the new probe
+//     (ForgetLoudness, ForgetTimeline; library.DerivedDroppers), and nothing of another track: the
+//     sweep then finds the bytes lacking it (D392 §3).
+//     TestForget_ThrowsOutOneTracksLoudnessAndOnePicturesTimeline.
+//
 //   - Imports nothing from internal/node, never os/exec, no database/sql: the depguard rules
 //     core-boundary and sql-only-in-store, TestArch_CoreNeverImportsNode and
 //     TestArch_OnlyStoreImportsDatabaseSQL.

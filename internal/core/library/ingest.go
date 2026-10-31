@@ -40,6 +40,8 @@ type Ingester struct {
 	retireVersion VersionRetirer
 	// absences are the places a read found its file not at, which a complete scan of them forgets.
 	absences *Absences
+	// droppers throw out what a file's probe read again no longer supports (SetDerivedDroppers).
+	droppers DerivedDroppers
 }
 
 // Absences are the places a read found its file not at, until a complete scan of them.
@@ -96,6 +98,29 @@ type scanState struct {
 	mounts             map[string]uint64 // mount boundaries this scan crossed, by path, with their device
 	unreadPaths        []string          // paths, as the node reported them, under which nothing may be removed
 	isEverythingUnread bool              // the root itself could not be read, or the scan stopped
+	// isReadingAgain is whether it reads files again changed on disk or not (ReadAgain), a full
+	// rescan's; and its totals of the probes it read again: compared with one kept, found to differ,
+	// and the derived things thrown out (D392 §5).
+	isReadingAgain bool
+	corrections    correctionTotals
+}
+
+// correctionTotals are a scan's probes read again and compared with those kept, those that differed,
+// and the derived things they threw out.
+type correctionTotals struct {
+	comparedCount, correctedCount, droppedCount int
+}
+
+// noteProbeReadAgain counts a probe compared with the one kept, and whether it differed.
+func (scan *scanState) noteProbeReadAgain(correction probeCorrection) {
+	if scan == nil {
+		return
+	}
+	scan.corrections.comparedCount++
+	if len(correction.changes) > 0 {
+		scan.corrections.correctedCount++
+		scan.corrections.droppedCount += len(correction.dropped)
+	}
 }
 
 // rootFacts are the root's filesystem facts as its scan began (D42, D208).
@@ -159,18 +184,20 @@ func (ingester *Ingester) write(ctx context.Context, key scanKey, ingest func(ba
 	nowMs := ingester.clock.Now().UnixMilli()
 	var endedLibraryIDs, newFilesLibraryIDs []int64
 	var foundPaths []string
+	var corrections []probeCorrection
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &ingestBatch{ingester: ingester, queries: queries, key: key, nodeID: key.nodeID, nowMs: nowMs}
 		if err := ingest(batch); err != nil {
 			return err
 		}
 		endedLibraryIDs, foundPaths = batch.endedLibraryIDs, batch.foundPaths
-		newFilesLibraryIDs = batch.newFilesLibraryIDs
+		newFilesLibraryIDs, corrections = batch.newFilesLibraryIDs, batch.corrections
 		return nil
 	})
 	if err != nil {
 		return err
 	}
+	ingester.finishCorrections(ctx, key, corrections)
 	nodeID := key.nodeID
 	for _, found := range foundPaths {
 		ingester.absences.forgetUnder(nodeID, found)
@@ -205,6 +232,8 @@ type ingestBatch struct {
 	// newFilesLibraryIDs are the libraries whose folders a scan that added a file in the batch, or
 	// brought one back from its tombstone, holds, each once.
 	newFilesLibraryIDs []int64
+	// corrections are the probes read again in the batch that differed from those kept (keepProbe).
+	corrections []probeCorrection
 }
 
 // noteNewFile records that the batch added a file under a scan's root, or brought one back: each

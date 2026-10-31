@@ -158,6 +158,18 @@ func (q *Queries) GetFileForSubtitleSearch(ctx context.Context, id int64) (GetFi
 	return i, err
 }
 
+const getFileProbeJSON = `-- name: GetFileProbeJSON :one
+SELECT probe_json FROM file_probe WHERE file_id = ?1
+`
+
+// A file's kept probe, which one read again is compared with (D392 section 2).
+func (q *Queries) GetFileProbeJSON(ctx context.Context, fileID int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getFileProbeJSON, fileID)
+	var probe_json string
+	err := row.Scan(&probe_json)
+	return probe_json, err
+}
+
 const getFileToHashWhole = `-- name: GetFileToHashWhole :one
 SELECT id, node_id, reported_path_raw, payload_hash, size_bytes, modified_at
 FROM file

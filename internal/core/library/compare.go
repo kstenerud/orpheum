@@ -40,10 +40,29 @@ type TakenListing struct {
 func (ingester *Ingester) TakeListing(
 	ctx context.Context, nodeID int64, root, scope string, records []nodeproto.ScanRecord, rules ScanRules,
 ) (TakenListing, error) {
-	taken := TakenListing{Complete: nodeproto.ScanComplete{RootPath: root, IsStoppedByErrors: true}}
-	err := ingester.write(ctx, scanKey{nodeID: nodeID, root: root}, func(batch *ingestBatch) error {
+	return ingester.TakeListingReadingAgain(ctx, ListingScan{NodeID: nodeID, Root: root, Scope: scope}, records,
+		rules)
+}
+
+// ListingScan is the scan a listing is of: its node's root, what it lists of it, and what it reads
+// again.
+type ListingScan struct {
+	NodeID      int64
+	Root, Scope string
+	ReadAgain   ReadAgain
+}
+
+// TakeListingReadingAgain is TakeListing for a scan that reads again what its ReadAgain names, a
+// video, NFO or subtitle stored as listed among them, so its probe is compared with the one kept, and,
+// when it names any, every NFO and subtitle file the listing holds (D392 §2, §4).
+func (ingester *Ingester) TakeListingReadingAgain(
+	ctx context.Context, scan ListingScan, records []nodeproto.ScanRecord, rules ScanRules,
+) (TakenListing, error) {
+	taken := TakenListing{Complete: nodeproto.ScanComplete{RootPath: scan.Root, IsStoppedByErrors: true}}
+	err := ingester.write(ctx, scanKey{nodeID: scan.NodeID, root: scan.Root}, func(batch *ingestBatch) error {
 		listing := &listingComparison{
-			batch: batch, rules: rules, taken: &taken, scope: cleanScope(scope), listedPaths: map[string]bool{},
+			batch: batch, rules: rules, taken: &taken, scope: cleanScope(scan.Scope), listedPaths: map[string]bool{},
+			readAgain: scan.ReadAgain.cleaned(),
 		}
 		for index, record := range records {
 			if err := listing.take(ctx, cleanRecord(record)); err != nil {
@@ -80,6 +99,8 @@ type listingComparison struct {
 	// newVideos are the videos listed at a path nothing is stored at, with a device and an inode:
 	// each is a stored file moved (concludeInodeMoves) or else read.
 	newVideos []listedVideo
+	// readAgain is what the listing has read again though stored as listed (D392 §2).
+	readAgain ReadAgain
 }
 
 // listedVideo is a video a listing found at a path nothing is stored at.
@@ -117,7 +138,7 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 			return err
 		}
 		if scan := batch.ingester.scans[batch.key]; scan != nil {
-			scan.scope = listing.scope
+			scan.scope, scan.isReadingAgain = listing.scope, len(listing.readAgain) > 0
 		}
 		return listing.readStored(ctx)
 	case nodeproto.RecordListed:
@@ -187,7 +208,7 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 	located := resolveReportedPath(scan.root, listed.Path)
 	listing.listedPaths[string(located.reportedBytes)] = true
 	stored, isStored := listing.stored[string(located.reportedBytes)]
-	if isStored && isStoredAsListed(stored, kind, listed) {
+	if isStored && isStoredAsListed(stored, kind, listed) && !listing.readsAgain(kind, relative) {
 		listing.seen = append(listing.seen, stored.ID)
 		return nil
 	}
@@ -196,6 +217,16 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 	}
 	listing.taken.ToExamine = append(listing.taken.ToExamine, nodeproto.ExamineFile{Path: listed.Path, Kind: kind})
 	return nil
+}
+
+// readsAgain is whether a file stored as listed, of kind at relative, is read again all the same: a
+// video the scan reads again, or any NFO or subtitle file of a scan that reads anything again (D392
+// §2, §4).
+func (listing *listingComparison) readsAgain(kind nodeproto.ExamineKind, relative string) bool {
+	if len(listing.readAgain) == 0 {
+		return false
+	}
+	return kind != nodeproto.ExamineVideo || listing.readAgain.covers(relative)
 }
 
 // storeUnread stores a new video as the listing found it, unread: its path, size, modified time,

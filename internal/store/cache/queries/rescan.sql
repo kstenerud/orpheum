@@ -4,8 +4,8 @@
 
 -- name: InsertRescan :one
 -- A rescan of a scope, unless one of that scope is in progress: then nothing, and no id.
-INSERT INTO rescan (library_id, item_id, requested_at)
-VALUES (sqlc.arg(library_id), sqlc.narg(item_id), sqlc.arg(requested_at))
+INSERT INTO rescan (library_id, item_id, requested_at, is_full)
+VALUES (sqlc.arg(library_id), sqlc.narg(item_id), sqlc.arg(requested_at), sqlc.arg(is_full))
 ON CONFLICT (library_id, coalesce(item_id, 0)) DO NOTHING
 RETURNING id;
 
@@ -13,7 +13,7 @@ RETURNING id;
 -- Every rescan in progress, oldest first, with how many of its films and series wait to be matched.
 SELECT rescan.id, rescan.library_id, rescan.item_id, rescan.requested_at, rescan.listed_at, rescan.item_count,
        rescan.changed_count, rescan.unchanged_count, rescan.left_alone_count, rescan.unsettled_count,
-       rescan.failed_count,
+       rescan.failed_count, rescan.is_full,
        CAST((SELECT count(*) FROM rematch WHERE rematch.rescan_id = rescan.id) AS INTEGER) AS waiting_count
 FROM rescan ORDER BY rescan.id;
 
@@ -34,7 +34,10 @@ UPDATE rescan SET listed_at = sqlc.arg(listed_at), item_count = sqlc.arg(item_co
 WHERE id = sqlc.arg(id);
 
 -- name: GetRematch :one
-SELECT item_id, rescan_id, name, year, ids_json FROM rematch WHERE item_id = sqlc.arg(item_id);
+-- A film or series a rescan waits to match again, and whether that rescan is a full one (D392).
+SELECT rematch.item_id, rematch.rescan_id, rematch.name, rematch.year, rematch.ids_json, rescan.is_full
+FROM rematch JOIN rescan ON rescan.id = rematch.rescan_id
+WHERE rematch.item_id = sqlc.arg(item_id);
 
 -- name: ListRematches :many
 -- Every film and series a rescan waits to match again, with its rescan's scope.
@@ -60,7 +63,7 @@ WHERE id = sqlc.arg(id);
 
 -- name: GetRescan :one
 SELECT id, library_id, item_id, requested_at, listed_at, item_count, changed_count, unchanged_count,
-       left_alone_count, unsettled_count, failed_count
+       left_alone_count, unsettled_count, failed_count, is_full
 FROM rescan WHERE id = sqlc.arg(id);
 
 -- name: DeleteRescan :exec

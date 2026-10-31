@@ -135,36 +135,49 @@ function IdentifiedIncorrectlyDialog(props: {
 
 /**
  * Rescan: the item's files scanned, then the item matched again from them, in the background (D357
- * §1, §5); it says whether it started, or one already runs.
+ * §1, §5); and beside it its full rescan, its files read again first (D392 §1). Each says whether it
+ * started, or one already runs.
  */
 function RescanThis(props: { readonly itemId: number }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [note, setNote] = useState("");
   const rescanning = useRequest((cause) => identifyProblemText(t, cause));
+  const rescan = (isFull: boolean): void => {
+    setNote("");
+    rescanning.runRequest(async (idempotencyKey) => {
+      const answer = dataOrThrow(
+        await api.POST("/items/{id}/rescan", {
+          params: { path: { id: props.itemId }, ...(isFull ? { query: { full: true } } : {}) },
+          ...idempotent(idempotencyKey),
+        }),
+      );
+      const started = isFull
+        ? t("libraries.fullRescanThisStarted")
+        : t("libraries.rescanThisStarted");
+      setNote(answer.isStarted ? started : t("libraries.rescanThisRunning"));
+    });
+  };
   return (
     <div>
       <button
         type="button"
         disabled={rescanning.isBusy}
         onClick={() => {
-          setNote("");
-          rescanning.runRequest(async (idempotencyKey) => {
-            const answer = dataOrThrow(
-              await api.POST("/items/{id}/rescan", {
-                params: { path: { id: props.itemId } },
-                ...idempotent(idempotencyKey),
-              }),
-            );
-            setNote(
-              answer.isStarted
-                ? t("libraries.rescanThisStarted")
-                : t("libraries.rescanThisRunning"),
-            );
-          });
+          rescan(false);
         }}
       >
         {t("libraries.rescanThis")}
+      </button>{" "}
+      <button
+        type="button"
+        title={t("libraries.fullRescanHelp")}
+        disabled={rescanning.isBusy}
+        onClick={() => {
+          rescan(true);
+        }}
+      >
+        {t("libraries.fullRescan")}
       </button>
       {note === "" ? null : <output>{note}</output>}
       {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}

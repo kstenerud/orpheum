@@ -39,6 +39,14 @@ export const enLibraries = {
     rescanThisStarted: "Rescanning: its files are scanned, then it is matched again from them.",
     rescanThisRunning: "A rescan of it, or of its library, is already running.",
     rescanMatching: "Rescanning… {{matched}} of {{count}} films and series matched again.",
+    fullRescan: "Full rescan",
+    fullRescanHelp:
+      "Reads every file again, changed on disk or not, throws out only what differs from what was kept, asks again for missing images, then rescans. What a person chose, edited or watched is left alone.",
+    fullRescanEverything: "Full rescan of everything",
+    fullRescanStarted:
+      "Full rescan: every file in it is read again, then each film and series in it is matched again.",
+    fullRescanThisStarted:
+      "Full rescan: its files are read again, then it is matched again from them.",
     files: "What the scanner saw",
     filing: "{{filing}}: {{count}}",
     root: "{{node}}: {{path}}",

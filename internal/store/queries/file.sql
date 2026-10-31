@@ -193,6 +193,10 @@ UPDATE file SET attached_to_file = sqlc.arg(attached_to_file) WHERE id = sqlc.ar
 -- name: GetNFOBody :one
 SELECT file_nfo.body AS nfo_body FROM file LEFT JOIN file_nfo ON file_nfo.file_id = file.id WHERE file.id = ?;
 
+-- name: GetFileProbeJSON :one
+-- A file's kept probe, which one read again is compared with (D392 section 2).
+SELECT probe_json FROM file_probe WHERE file_id = sqlc.arg(file_id);
+
 -- name: UpsertFileProbe :exec
 -- A file's probe, and its duration, written only when they changed (D303, DL9).
 INSERT INTO file_probe (file_id, probe_json, duration_ms)

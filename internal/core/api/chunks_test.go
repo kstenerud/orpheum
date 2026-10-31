@@ -15,11 +15,31 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
+
+// filmOnesStoreKey is the key of film 1's store of the stream named on the grid gridID: the grid's id,
+// then the facts of the film's probe the stream is made from (chunks.StoreKey).
+func (harness testHarness) filmOnesStoreKey(t *testing.T, streamName, gridID string) string {
+	t.Helper()
+	file, err := library.PlayableFile(t.Context(), harness.database.Read(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe, err := library.ProbeOf(file.ProbeJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, isStream := chunks.StreamNamed(streamName)
+	if !isStream {
+		t.Fatalf("no stream %q", streamName)
+	}
+	return chunks.StoreKey(gridID, probe, stream)
+}
 
 // keepFilmOnesTimeline keeps the timeline a read-through of film 1 finds: a keyframe every ten
 // seconds of its thirty, and 300 kB in each second, 2.4 Mb/s.
@@ -211,7 +231,8 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := nodeproto.PathBytesChunks + "1/chunks-q700k432p/" + grid.ID() + "/"
+	storeKey := harness.filmOnesStoreKey(t, "q700k432p", grid.ID())
+	store := nodeproto.PathBytesChunks + "1/chunks-q700k432p/" + storeKey + "/"
 	harness.nodeBytes.mutex.Lock()
 	harness.nodeBytes.files[store+"00001.m4s"] = "chunk one"
 	harness.nodeBytes.asksBeforeFound = map[string]int{store + "00001.m4s": 3}
@@ -228,7 +249,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	// The wait is logged: the chunk, its hold of three quarter-second waits, and the run queued for it,
 	// which had made none of its chunks when asked.
 	waited := `"msg":"waited for a chunk not made yet"`
-	storeDir := `"storeDir":"1/chunks-q700k432p/` + grid.ID() + `"`
+	storeDir := `"storeDir":"1/chunks-q700k432p/` + harness.filmOnesStoreKey(t, "q700k432p", grid.ID()) + `"`
 	harness.logs.AwaitLine(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
 		`"isCovered":true`, `"runFirstChunk":1,`, `"runLastChunk":2,`, `"runMadeThrough":0`)
 	// One no run makes in the time a player waits is too early: the player asks again.
@@ -446,7 +467,8 @@ func (harness testHarness) checkOneRunQueued(t *testing.T, gridID string) {
 			"play priority", runs, args)
 	}
 	if store, err := harness.cache.Read().GetChunkStore(t.Context(), *runs[0].ChunkStoreID); err != nil ||
-		store.SourceFile != 1 || store.Stream != "q700k432p" || store.GridID != gridID {
+		store.SourceFile != 1 || store.Stream != "q700k432p" ||
+		store.StoreKey != harness.filmOnesStoreKey(t, "q700k432p", gridID) {
 		t.Errorf("the run's store = %+v, %v; want film 1's q700k432p on its grid", store, err)
 	}
 }

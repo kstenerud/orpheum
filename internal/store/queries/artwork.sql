@@ -282,3 +282,15 @@ WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(sqlc.arg(serie
 -- name: GetTitleKind :one
 -- A title's kind: which pictures of it a frame still stands in for, D362.
 SELECT kind FROM title WHERE id = sqlc.arg(id);
+
+-- name: RetireFrameStillsOfFile :execrows
+-- The frame stills taken from a file, retired once the facts of its probe they were taken by changed:
+-- the next pass takes one again where it is still wanted (D362, D392 section 3). A person's choice
+-- stays.
+UPDATE artwork SET removed_at = sqlc.arg(removed_at)
+WHERE item_id IN (
+    SELECT version.title_id FROM file_filing JOIN version ON version.id = file_filing.version_id
+    WHERE file_filing.file_id = sqlc.arg(file_id)
+  )
+  AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0
+  AND source_ref GLOB 'file:' || CAST(sqlc.arg(file_id) AS INTEGER) || ':*';

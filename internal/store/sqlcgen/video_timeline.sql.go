@@ -9,6 +9,26 @@ import (
 	"context"
 )
 
+const deleteVideoTimeline = `-- name: DeleteVideoTimeline :execrows
+DELETE FROM video_timeline
+WHERE payload_hash = ?1 AND video_stream_index = ?2
+`
+
+type DeleteVideoTimelineParams struct {
+	PayloadHash      []byte
+	VideoStreamIndex int64
+}
+
+// A picture's timeline thrown out once the picture's facts it was read by changed in its file's probe:
+// the sweep reads it again (D392 section 3).
+func (q *Queries) DeleteVideoTimeline(ctx context.Context, arg DeleteVideoTimelineParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteVideoTimeline, arg.PayloadHash, arg.VideoStreamIndex)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteVideoTimelineFailedBefore = `-- name: DeleteVideoTimelineFailedBefore :execrows
 DELETE FROM video_timeline
 WHERE payload_hash = ?1 AND video_stream_index = ?2

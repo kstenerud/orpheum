@@ -332,6 +332,13 @@
 //     that settled it, and each rescan's totals when it ends (D357 §6).
 //     TestRescan_LogsEachChangedMatchAndTheRunsTotals.
 //
+//   - A full rescan (FullRescan), of the same three scopes, has its scan read every file in its scope
+//     again, changed on disk or not, which throws out what the differences touch
+//     (internal/core/library), asks again for the images each film and series it lists is missing or
+//     was refused, which the pass at its end queues, and matches each again as a rescan does; it is
+//     its scope's one rescan, so a press of either while it runs adds nothing (D392 §1, §2, §4, §6).
+//     TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages.
+//
 //   - A film is dated by its source's release date, a series by its first air date (an NFO's
 //     premiered or aired, a provider's), the year alone where no day is known or the resolved year,
 //     a person's included, is another; one with no year has no date (D366 §1).
@@ -354,6 +361,7 @@
 //   - D231 §3, §4: work derived from persistent.db by sweeps; an item's own failure and a person's
 //     refresh are facts, not job rows.
 //   - D357: an admin's rescan, which matches again what a person did not set.
+//   - D392: its full rescan, every file read again first.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.
 //

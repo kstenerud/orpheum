@@ -126,7 +126,7 @@ func (service *Service) startLower(
 	}
 	chosen, isBelowTheLowest := chooseQuality(lower, linkKbps, sharePercent)
 	below := chosen + 1
-	if below < len(lower) && service.runs.isCovered(StoreDir(playback.FileID, lower[below], film.grid.ID()), chunk) {
+	if below < len(lower) && service.runs.isCovered(film.storeDir(lower[below]), chunk) {
 		chosen++ // another's, already on its way, and near enough (D247 §7)
 	}
 	return service.startAt(ctx, playback, lowering.film, lowering.offered,
@@ -154,7 +154,7 @@ func (service *Service) startAt(
 ) (Offer, error) {
 	picture, chunk := chosen.stream, chosen.chunk
 	// A stall asks for its quality again, a new try, though a run of it was evicted (D250 §6).
-	service.runs.unevict(StoreDir(playback.FileID, picture, film.grid.ID()))
+	service.runs.unevict(film.storeDir(picture))
 	if err := service.Ensure(ctx, playback.FileID, film.kind, picture, chunk); err != nil {
 		return Offer{}, err
 	}
@@ -174,7 +174,7 @@ func (service *Service) startAt(
 	if playback.HasStartingAudio {
 		sound := offered.playingSoundOf(playback, picture)
 		offer.SoundStreamName = sound.Name()
-		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
+		service.runs.unevict(film.storeDir(sound))
 		if err := service.Ensure(ctx, playback.FileID, film.kind, sound, chunk); err != nil {
 			return Offer{}, err
 		}

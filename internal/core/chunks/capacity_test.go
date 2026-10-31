@@ -42,8 +42,8 @@ func newCapacityStage(t *testing.T) capacityStage {
 	gridID := mustGrid(t, service).ID()
 	stage := capacityStage{
 		service: service, queue: queue, clock: fakeClock,
-		older: StoreDir(1, quality(1200, 480), gridID),
-		newer: StoreDir(1, quality(700, 432), gridID),
+		older: testStoreDir(t, service, quality(1200, 480), gridID),
+		newer: testStoreDir(t, service, quality(700, 432), gridID),
 	}
 	service.runs.begin(stage.older, 0, 29, 11, 1, fakeClock.Now())
 	fakeClock.Advance(time.Second)

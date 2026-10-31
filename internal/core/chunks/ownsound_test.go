@@ -156,7 +156,8 @@ func TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes(t 
 	t.Parallel()
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
-	copyDir := StoreDir(1, Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: 0}, mustGrid(t, service).ID())
+	copyDir := testStoreDir(t, service, Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: 0},
+		mustGrid(t, service).ID())
 	for range runFailuresToGiveUp {
 		service.runs.failed(copyDir, 0, "raw 00000.mp4 holds 0 to 12267 ms of the run")
 	}

@@ -126,19 +126,30 @@ func (scans *Scans) requestBringingBack(ctx context.Context, nodeID int64, root 
 // button, a library or folder added, a rescan (D357), a watcher's notice, a file a person asked to
 // play. A root has one scan in progress, which an ask joins or follows (joinOrAgain).
 func (scans *Scans) RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error {
-	scans.mutex.Lock()
-	defer scans.mutex.Unlock()
-	return scans.request(ctx, scanAsk{nodeID: nodeID, root: root, scope: cleanScope(scope), priority: priority})
+	return scans.RequestReadingAgain(ctx, nodeID, root, scope, nil, priority)
 }
 
-// scanAsk is a scan asked for: of what under which node's root, at what priority, and whether by the
-// node's hello.
+// RequestReadingAgain is RequestUnder's ask for a scan that also reads again what readAgain names,
+// changed on disk or not, and compares each probe with the one kept: a full rescan's (D392 §2).
+func (scans *Scans) RequestReadingAgain(
+	ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	return scans.request(ctx, scanAsk{
+		nodeID: nodeID, root: root, scope: cleanScope(scope), priority: priority, readAgain: readAgain.cleaned(),
+	})
+}
+
+// scanAsk is a scan asked for: of what under which node's root, at what priority, whether by the
+// node's hello, and what it reads again changed on disk or not.
 type scanAsk struct {
 	nodeID       int64
 	root         string
 	scope        string
 	priority     int64
 	isNodesHello bool
+	readAgain    ReadAgain
 }
 
 // request is RequestUnder, the mutex held. The folder asked for is scanned within the outermost live
@@ -152,14 +163,19 @@ func (scans *Scans) request(ctx context.Context, ask scanAsk) error {
 	if root, scope := scanRootOf(ask.root, ask.scope, folders); root != ask.root {
 		scans.logger.DebugContext(ctx, "a folder inside another library folder is scanned within it",
 			"nodeId", ask.nodeID, "folder", ask.root, "askedScopePath", ask.scope, "rootPath", root, "scopePath", scope)
+		ask.readAgain = ask.readAgain.rebasedOn(ask.root, folders)
 		ask.root, ask.scope = root, scope
+	}
+	readAgain, err := ask.readAgain.encoded()
+	if err != nil {
+		return err
 	}
 	var scanID int64
 	var joined *cachegen.Scan
 	err = scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, insertErr := store.OrNotFound(queries.InsertScan(ctx, cachegen.InsertScanParams{
 			NodeID: ask.nodeID, RootPath: ask.root, Priority: ask.priority, StartedAt: scans.clock.Now().UnixMilli(),
-			ScopePath: ask.scope,
+			ScopePath: ask.scope, ReadAgainJSON: readAgain,
 		}))
 		if !errors.Is(insertErr, store.ErrNotFound) {
 			scanID = id
@@ -190,9 +206,10 @@ func (scans *Scans) request(ctx context.Context, ask scanAsk) error {
 // joinOrAgain takes an ask for a scan of a root whose scan is in progress, and returns that scan as
 // the ask joined it, or nil when one more is to run after it (D236 §3). The ask joins it while its
 // listing is not with the node, since the node will list what is there when it is: its scope widened
-// to cover both, at the higher priority. A node's hello's ask also joins a listing with the node, of
-// a scope covering it (RequestOnHello). Otherwise the listing may have passed what the ask is about,
-// so one more scan follows, of a scope covering every ask made meanwhile.
+// to cover both, at the higher priority, reading again what either reads again. A node's hello's ask
+// also joins a listing with the node, of a scope covering it (RequestOnHello). Otherwise the listing
+// may have passed what the ask is about, so one more scan follows, of a scope covering every ask made
+// meanwhile, reading again what any of them reads again.
 func joinOrAgain(
 	ctx context.Context, queries *cachegen.Queries, inProgress cachegen.Scan, ask scanAsk,
 ) (*cachegen.Scan, error) {
@@ -200,22 +217,42 @@ func joinOrAgain(
 		isWithNode := inProgress.ListingSentAt != nil
 		covering := widerScope(inProgress.ScopePath, ask.scope)
 		if !isWithNode || (ask.isNodesHello && covering == cleanScope(inProgress.ScopePath)) {
+			readAgain, err := joinedReadAgain(inProgress.ReadAgainJSON, ask.readAgain)
+			if err != nil {
+				return nil, err
+			}
 			joined := inProgress
 			joined.ScopePath, joined.Priority = covering, max(inProgress.Priority, ask.priority)
-			err := queries.JoinScan(ctx, cachegen.JoinScanParams{
-				ScopePath: joined.ScopePath, Priority: joined.Priority, ID: inProgress.ID,
+			joined.ReadAgainJSON = readAgain
+			err = queries.JoinScan(ctx, cachegen.JoinScanParams{
+				ScopePath: joined.ScopePath, Priority: joined.Priority, ReadAgainJSON: readAgain, ID: inProgress.ID,
 			})
 			return &joined, err
 		}
 	}
-	again := ask.scope
+	again, alreadyAgain := ask.scope, (*string)(nil)
 	if inProgress.IsAnotherScanQueued != 0 {
-		again = widerScope(ptr.ValueOrZero(inProgress.AgainScopePath), ask.scope)
+		again, alreadyAgain = widerScope(ptr.ValueOrZero(inProgress.AgainScopePath), ask.scope),
+			inProgress.AgainReadAgainJSON
 	}
-	_, err := queries.SetScanAgain(ctx, cachegen.SetScanAgainParams{
-		NodeID: ask.nodeID, RootPath: ask.root, AgainScopePath: &again,
+	readAgain, err := joinedReadAgain(alreadyAgain, ask.readAgain)
+	if err != nil {
+		return nil, err
+	}
+	_, err = queries.SetScanAgain(ctx, cachegen.SetScanAgainParams{
+		NodeID: ask.nodeID, RootPath: ask.root, AgainScopePath: &again, AgainReadAgainJSON: readAgain,
 	})
 	return nil, err
+}
+
+// joinedReadAgain is what a scan whose row says stored reads again and what an ask reads again,
+// together, as the row keeps it.
+func joinedReadAgain(stored *string, asked ReadAgain) (*string, error) {
+	kept, err := decodeReadAgain(stored)
+	if err != nil {
+		return nil, err
+	}
+	return kept.with(asked).encoded()
 }
 
 // raiseJoined raises the listing of a scan an ask joined to the scan's priority, as a request merging
@@ -226,7 +263,7 @@ func (scans *Scans) raiseJoined(ctx context.Context, scan cachegen.Scan, ask sca
 	scans.logger.DebugContext(ctx, "a scan asked for joins the one in progress of its root", "nodeId", scan.NodeID,
 		"rootPath", scan.RootPath, "askedScopePath", ask.scope, "scopePath", scan.ScopePath,
 		"askedPriority", ask.priority, "priority", scan.Priority, "isNodesHello", ask.isNodesHello,
-		"isListingWithNode", isWithNode)
+		"isListingWithNode", isWithNode, "readAgain", ptr.ValueOrZero(scan.ReadAgainJSON))
 	if isWithNode {
 		return nil
 	}
@@ -342,8 +379,12 @@ func (scans *Scans) Resume(ctx context.Context) error {
 		if err := scans.end(ctx, row); err != nil {
 			return err
 		}
-		err := scans.request(ctx, scanAsk{
-			nodeID: row.NodeID, root: row.RootPath, scope: row.ScopePath, priority: row.Priority,
+		readAgain, err := decodeReadAgain(row.ReadAgainJSON)
+		if err != nil {
+			return err
+		}
+		err = scans.request(ctx, scanAsk{
+			nodeID: row.NodeID, root: row.RootPath, scope: row.ScopePath, priority: row.Priority, readAgain: readAgain,
 		})
 		if err != nil {
 			return err
@@ -427,7 +468,7 @@ func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {
 	// not in the log (staging, 2026-10-21).
 	scans.logger.InfoContext(ctx, "a scan's listing goes to its node", "nodeId", scan.NodeID, "rootPath",
 		scan.RootPath, "scopePath", scan.ScopePath, "jobId", job.ID, "attempt", job.AttemptNumber,
-		"waitedMs", scans.clock.Now().UnixMilli()-scan.StartedAt)
+		"waitedMs", scans.clock.Now().UnixMilli()-scan.StartedAt, "readAgain", ptr.ValueOrZero(scan.ReadAgainJSON))
 	return scans.assigner.Assign(ctx, scan.NodeID, job, nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandList, List: &nodeproto.List{
 			RootPath: scan.RootPath, Path: scan.ScopePath, ErrorLimit: int(errorLimit),

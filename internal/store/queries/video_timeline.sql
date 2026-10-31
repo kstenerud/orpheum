@@ -44,3 +44,9 @@ WHERE (video_timeline.keyframes_ms_json, video_timeline.bytes_in_each_second_jso
 DELETE FROM video_timeline
 WHERE payload_hash = sqlc.arg(payload_hash) AND video_stream_index = sqlc.arg(video_stream_index)
   AND failure IS NOT NULL AND made_at < sqlc.arg(before);
+
+-- name: DeleteVideoTimeline :execrows
+-- A picture's timeline thrown out once the picture's facts it was read by changed in its file's probe:
+-- the sweep reads it again (D392 section 3).
+DELETE FROM video_timeline
+WHERE payload_hash = sqlc.arg(payload_hash) AND video_stream_index = sqlc.arg(video_stream_index);

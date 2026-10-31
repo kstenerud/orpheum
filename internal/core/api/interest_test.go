@@ -73,7 +73,8 @@ func TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere(t *t
 	}
 	// Chunk 2, where the seek landed, is made, and the player loaded it.
 	harness.nodeBytes.mutex.Lock()
-	harness.nodeBytes.files[nodeproto.PathBytesChunks+"1/chunks-q700k432p/"+grid.ID()+"/00002.m4s"] = "chunk two"
+	storeKey := harness.filmOnesStoreKey(t, "q700k432p", grid.ID())
+	harness.nodeBytes.files[nodeproto.PathBytesChunks+"1/chunks-q700k432p/"+storeKey+"/00002.m4s"] = "chunk two"
 	harness.nodeBytes.mutex.Unlock()
 	base := api.Prefix + "/bytes/media/chunks/" + token + "/q700k432p/"
 	if made := harness.getSought(t, base+"00002.m4s", user); made != http.StatusOK {

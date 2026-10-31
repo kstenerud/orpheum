@@ -36,6 +36,8 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 	// scanned are the roots whose scan was asked for.
 	scanned []string
+	// readAgain are what the scans asked for read again, as root:path.
+	readAgain []string
 	// scanning are the scans in progress.
 	scanning map[library.ScanRoot]library.ScanProgress
 	// confinement is what the connected node said about its FFmpeg's confinement.
@@ -283,6 +285,17 @@ func (nodes *fakeNodes) Request(_ context.Context, _ int64, root string, _ int64
 func (nodes *fakeNodes) RequestUnder(_ context.Context, _ int64, root, scope string, _ int64) error {
 	nodes.scanned = append(nodes.scanned, root+":"+scope)
 	return nil
+}
+
+// RequestReadingAgain keeps a folder whose scan was asked for as RequestUnder does, and what it reads
+// again, as root:path, each path its own.
+func (nodes *fakeNodes) RequestReadingAgain(
+	ctx context.Context, nodeID int64, root, scope string, readAgain library.ReadAgain, priority int64,
+) error {
+	for _, path := range readAgain {
+		nodes.readAgain = append(nodes.readAgain, root+":"+path)
+	}
+	return nodes.RequestUnder(ctx, nodeID, root, scope, priority)
 }
 
 // commandWait bounds a test's wait for the node's next command: long past any honest wait on a

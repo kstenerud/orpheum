@@ -683,6 +683,32 @@ func (q *Queries) RetireArtworkRow(ctx context.Context, arg RetireArtworkRowPara
 	return err
 }
 
+const retireFrameStillsOfFile = `-- name: RetireFrameStillsOfFile :execrows
+UPDATE artwork SET removed_at = ?1
+WHERE item_id IN (
+    SELECT version.title_id FROM file_filing JOIN version ON version.id = file_filing.version_id
+    WHERE file_filing.file_id = ?2
+  )
+  AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0
+  AND source_ref GLOB 'file:' || CAST(?2 AS INTEGER) || ':*'
+`
+
+type RetireFrameStillsOfFileParams struct {
+	RemovedAt *int64
+	FileID    int64
+}
+
+// The frame stills taken from a file, retired once the facts of its probe they were taken by changed:
+// the next pass takes one again where it is still wanted (D362, D392 section 3). A person's choice
+// stays.
+func (q *Queries) RetireFrameStillsOfFile(ctx context.Context, arg RetireFrameStillsOfFileParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, retireFrameStillsOfFile, arg.RemovedAt, arg.FileID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
 UPDATE artwork SET removed_at = ?1
 WHERE item_id = ?2 AND kind = ?3 AND season_number IS ?4

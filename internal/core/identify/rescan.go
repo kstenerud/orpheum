@@ -33,11 +33,28 @@ var (
 type RescanScans interface {
 	// Scan asks for a scan of every root of a library.
 	Scan(ctx context.Context, libraryID int64) (int, error)
-	// ScanWork asks for a scan of the folders that hold a film's or series' files in a library.
-	ScanWork(ctx context.Context, libraryID, itemID int64) (int, error)
+	// ScanReadingAgain asks for a scan of every root of a library that reads every file again,
+	// changed on disk or not (D392 §2).
+	ScanReadingAgain(ctx context.Context, libraryID int64) (int, error)
+	// ScanWork asks for a scan of the folders that hold a film's or series' files in a library, one
+	// that reads its files again when isReadingAgain.
+	ScanWork(ctx context.Context, libraryID, itemID int64, isReadingAgain bool) (int, error)
 	// IsScanning is whether a scan of any root of a library is in progress.
 	IsScanning(ctx context.Context, libraryID int64) (bool, error)
 }
+
+// RescanKind is how deep a rescan looks.
+type RescanKind int
+
+const (
+	// Rescan scans its scope as a manual scan does, then matches each film and series in it again
+	// (D357).
+	Rescan RescanKind = iota
+	// FullRescan reads every file in its scope again, changed on disk or not, throws out what the
+	// differences from what was kept touch, asks again for the images its films and series are
+	// missing, then matches each again as a rescan does (D392).
+	FullRescan
+)
 
 // Rescans are an admin's rescans (D357): of every library of films or series, of one, or of one
 // film or series. A rescan is a scan, then a match again of every film and series in its scope,
@@ -64,14 +81,14 @@ func (rescans *Rescans) OnRequested(ask func()) { rescans.onRequested = ask }
 
 // RescanEverything rescans every live library of films or of series (D357 §1), and says how many
 // rescans it started: a library already being rescanned starts none.
-func (rescans *Rescans) RescanEverything(ctx context.Context) (int, error) {
+func (rescans *Rescans) RescanEverything(ctx context.Context, kind RescanKind) (int, error) {
 	libraryIDs, err := rescans.matcher.database.Read().ListLiveLibraryIDs(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list the libraries: %w", err)
 	}
 	started := 0
 	for _, libraryID := range libraryIDs {
-		isStarted, err := rescans.RescanLibrary(ctx, libraryID)
+		isStarted, err := rescans.RescanLibrary(ctx, libraryID, kind)
 		if errors.Is(err, ErrNotRescannable) {
 			continue
 		}
@@ -86,8 +103,8 @@ func (rescans *Rescans) RescanEverything(ctx context.Context) (int, error) {
 }
 
 // RescanLibrary rescans a library of films or of series, and says whether it started one: a second
-// press while one runs adds nothing (D357 §5).
-func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (bool, error) {
+// press while one runs adds nothing (D357 §5, D392 §6).
+func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, kind RescanKind) (bool, error) {
 	found, err := store.OrNotFound(rescans.matcher.database.Read().GetLibraryForIdentify(ctx, libraryID))
 	if errors.Is(err, store.ErrNotFound) {
 		return false, fmt.Errorf("library %d: %w", libraryID, library.ErrNoLibrary)
@@ -98,11 +115,15 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (boo
 	if found.Kind != library.LibraryKindMovies && found.Kind != library.LibraryKindShows {
 		return false, fmt.Errorf("library %d, of %s: %w", libraryID, found.Kind, ErrNotRescannable)
 	}
-	isStarted, err := rescans.start(ctx, libraryID, nil)
+	isStarted, err := rescans.start(ctx, libraryID, nil, kind)
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if _, err := rescans.scans.Scan(ctx, libraryID); err != nil {
+	scan := rescans.scans.Scan
+	if kind == FullRescan {
+		scan = rescans.scans.ScanReadingAgain
+	}
+	if _, err := scan(ctx, libraryID); err != nil {
 		return true, fmt.Errorf("scan library %d to rescan it: %w", libraryID, err)
 	}
 	rescans.askForTheSweep()
@@ -110,8 +131,8 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64) (boo
 }
 
 // RescanItem rescans one film or series, and says whether it started one: none while its own
-// rescan or its library's runs (D357 §5).
-func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64) (bool, error) {
+// rescan or its library's runs (D357 §5, D392 §6).
+func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64, kind RescanKind) (bool, error) {
 	item, err := rescans.matcher.readWork(ctx, itemID)
 	if err != nil {
 		return false, err
@@ -126,11 +147,11 @@ func (rescans *Rescans) RescanItem(ctx context.Context, itemID int64) (bool, err
 		running > 0 {
 		return false, rematchErr
 	}
-	isStarted, err := rescans.start(ctx, libraryID, &itemID)
+	isStarted, err := rescans.start(ctx, libraryID, &itemID, kind)
 	if err != nil || !isStarted {
 		return false, err
 	}
-	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID); err != nil {
+	if _, err := rescans.scans.ScanWork(ctx, libraryID, itemID, kind == FullRescan); err != nil {
 		return true, fmt.Errorf("scan item %d's folders to rescan it: %w", itemID, err)
 	}
 	rescans.askForTheSweep()
@@ -154,11 +175,12 @@ func (matcher *Matcher) readWork(ctx context.Context, itemID int64) (target, err
 
 // start records a rescan of a scope, a library or one film or series in it, unless one of that
 // scope runs, and says whether it did.
-func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int64) (bool, error) {
+func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int64, kind RescanKind) (bool, error) {
 	isStarted := false
 	err := rescans.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		_, insertErr := store.OrNotFound(queries.InsertRescan(ctx, cachegen.InsertRescanParams{
 			LibraryID: libraryID, ItemID: itemID, RequestedAt: rescans.matcher.clock.Now().UnixMilli(),
+			IsFull: boolInt(kind == FullRescan),
 		}))
 		if errors.Is(insertErr, store.ErrNotFound) {
 			return nil // one of the scope runs
@@ -174,7 +196,7 @@ func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int6
 	}
 	if isStarted {
 		rescans.matcher.logger.InfoContext(ctx, "a rescan was asked for", "libraryId", libraryID,
-			"itemId", ptr.ValueOrZero(itemID))
+			"itemId", ptr.ValueOrZero(itemID), "isFull", kind == FullRescan)
 	}
 	return isStarted, nil
 }
@@ -265,9 +287,40 @@ func (rescans *Rescans) list(ctx context.Context, rescan cachegen.ListRescansRow
 		return fmt.Errorf("list rescan %d's films and series: %w", rescan.ID, err)
 	}
 	rescans.matcher.logger.InfoContext(ctx, "a rescan's scan is over; its films and series are matched again",
-		"libraryId", rescan.LibraryID, "itemId", ptr.ValueOrZero(rescan.ItemID), "itemCount", listed)
+		"libraryId", rescan.LibraryID, "itemId", ptr.ValueOrZero(rescan.ItemID), "itemCount", listed,
+		"isFull", rescan.IsFull != 0)
+	if rescan.IsFull != 0 {
+		if err := rescans.askForMissingImages(ctx, itemIDs, said); err != nil {
+			return err
+		}
+	}
 	if listed == 0 {
 		return rescans.matcher.endRescanIfDone(ctx, rescan.ID)
+	}
+	return nil
+}
+
+// askForMissingImages asks again, for a full rescan, for the images its films and series, a series'
+// episodes with it, are missing or were refused, which the pass at its end queues (D392 §4).
+func (rescans *Rescans) askForMissingImages(ctx context.Context, itemIDs []int64, said map[int64]filesQuery) error {
+	for _, itemID := range itemIDs {
+		if _, isFilmOrSeries := said[itemID]; !isFilmOrSeries {
+			continue
+		}
+		kind, err := store.OrNotFound(rescans.matcher.database.Read().GetItemKind(ctx, itemID))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			continue
+		case err != nil:
+			return fmt.Errorf("read item %d: %w", itemID, err)
+		case kind == itemKindCollection:
+			err = rescans.matcher.retrySeriesImages(ctx, itemID)
+		default:
+			err = rescans.matcher.retryImages(ctx, itemID)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -326,13 +379,13 @@ func (rescans *Rescans) Progress(ctx context.Context) (map[int64]RescanProgress,
 }
 
 // pendingRematch is what an item's files say it is, when a rescan waits to match it again.
-func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cachegen.Rematch, bool, error) {
+func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cachegen.GetRematchRow, bool, error) {
 	row, err := store.OrNotFound(matcher.cache.Read().GetRematch(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
-		return cachegen.Rematch{}, false, nil
+		return cachegen.GetRematchRow{}, false, nil
 	}
 	if err != nil {
-		return cachegen.Rematch{}, false, fmt.Errorf("read item %d's rematch: %w", itemID, err)
+		return cachegen.GetRematchRow{}, false, fmt.Errorf("read item %d's rematch: %w", itemID, err)
 	}
 	return row, true, nil
 }
@@ -340,7 +393,7 @@ func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cache
 // handleRematch is a fetch_metadata job of an item a rescan waits on: it matches the item again
 // from what its files say, logs what changed, and counts it in its rescan. An id its files give that
 // its provider does not have is the item's own failure (RecordFailure), which ends its rematch too.
-func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cachegen.Rematch) error {
+func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cachegen.GetRematchRow) error {
 	said := filesQuery{name: row.Name, year: int(row.Year)}
 	if err := json.Unmarshal([]byte(row.IdsJSON), &said.ids); err != nil {
 		return fmt.Errorf("item %d's rematch: %w", itemID, jobs.MarkPermanent(err))
@@ -437,6 +490,9 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 	}
 	if isEnded {
 		matcher.logger.InfoContext(ctx, "a rescan ended", rescanTotals(ended)...)
+		if ended.IsFull != 0 {
+			matcher.pass.OwePass(ended.LibraryID) // which queues the images asked for again (D392 §4)
+		}
 	}
 	return nil
 }
@@ -448,5 +504,13 @@ func rescanTotals(rescan cachegen.Rescan) []any {
 		slog.Int64("itemCount", rescan.ItemCount), slog.Int64("changedCount", rescan.ChangedCount),
 		slog.Int64("unchangedCount", rescan.UnchangedCount), slog.Int64("leftAloneCount", rescan.LeftAloneCount),
 		slog.Int64("unsettledCount", rescan.UnsettledCount), slog.Int64("failedCount", rescan.FailedCount),
+		slog.Bool("isFull", rescan.IsFull != 0),
 	}
+}
+
+func boolInt(value bool) int64 {
+	if value {
+		return 1
+	}
+	return 0
 }

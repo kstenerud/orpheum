@@ -293,8 +293,8 @@ export function LibraryManagement(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
-  /** Its rescan (D357), offered for a library of films or of series. */
-  readonly onRescan?: () => void;
+  /** Its rescan (D357), or its full rescan (D392), offered for a library of films or of series. */
+  readonly onRescan?: (isFull: boolean) => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
@@ -350,11 +350,14 @@ export function LibraryManagement(props: {
   );
 }
 
-/** A library's files, its scan, and its rescan for a library of films or of series (D357). */
+/**
+ * A library's files, its scan, and for a library of films or of series its rescan (D357) and its full
+ * rescan beside it (D392).
+ */
 function LibraryButtons(props: {
   readonly library: Library;
   readonly onScan: () => void;
-  readonly onRescan?: () => void;
+  readonly onRescan?: (isFull: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -369,8 +372,23 @@ function LibraryButtons(props: {
       {props.onRescan !== undefined && isRescannable(library) ? (
         <>
           {" "}
-          <button type="button" title={t("libraries.rescanHelp")} onClick={props.onRescan}>
+          <button
+            type="button"
+            title={t("libraries.rescanHelp")}
+            onClick={() => {
+              props.onRescan?.(false);
+            }}
+          >
             {t("libraries.rescan")}
+          </button>{" "}
+          <button
+            type="button"
+            title={t("libraries.fullRescanHelp")}
+            onClick={() => {
+              props.onRescan?.(true);
+            }}
+          >
+            {t("libraries.fullRescan")}
           </button>
         </>
       ) : null}
@@ -383,7 +401,7 @@ interface LibraryActions {
   readonly note: string;
   readonly isActing: boolean;
   readonly scan: () => void;
-  readonly rescan: () => void;
+  readonly rescan: (isFull: boolean) => void;
   readonly answerAboutRoot: (root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: () => void;
   readonly repoint: (root: Root, to: Place) => void;
@@ -416,7 +434,7 @@ function useLibraryNote(): {
   return { note, setNote, act, isActing: acting.isBusy };
 }
 
-/** The library's scan and its rescan (D357), each saying what it asked for in the note. */
+/** The library's scan and its rescan (D357) or full rescan (D392), each saying what it asked for in the note. */
 function useScanActions(
   libraryId: number,
   noted: Pick<ReturnType<typeof useLibraryNote>, "act" | "setNote"> & {
@@ -433,15 +451,16 @@ function useScanActions(
         setNote(t("libraries.scanning", { count: askedRootCount }));
       });
     },
-    rescan: () => {
+    rescan: (isFull) => {
       act(async (idempotencyKey) => {
         const answer = dataOrThrow(
           await api.POST("/libraries/{id}/rescan", {
-            params: { path: { id: libraryId } },
+            params: { path: { id: libraryId }, ...(isFull ? { query: { full: true } } : {}) },
             ...idempotent(idempotencyKey),
           }),
         );
-        setNote(answer.isStarted ? t("libraries.rescanStarted") : t("libraries.rescanRunning"));
+        const started = isFull ? t("libraries.fullRescanStarted") : t("libraries.rescanStarted");
+        setNote(answer.isStarted ? started : t("libraries.rescanRunning"));
         reload();
       });
     },

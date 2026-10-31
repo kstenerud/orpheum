@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -87,7 +88,7 @@ func TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade(t *testing.T)
 	}
 	// Once the run has made through chunk 25, the minute from chunk 30 reaches past its last, 32: a
 	// run starts after it.
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	service.runs.madeThrough(dir, 3, 25)
 	ensured(t, service, picture, 30)
 	if runs := queue.runs(t, service); len(runs) != 2 || runs[1].firstChunk != 33 || runs[1].lastChunk != 62 {
@@ -146,7 +147,7 @@ func TestEnsure_ARunQueuedIsLoggedWithItsChunksAndTheChunkThatAskedForIt(t *test
 	line := logs.String()
 	for _, part := range []string{
 		`"level":"INFO"`, `"msg":"queued a run of chunks"`,
-		`"storeDir":"` + StoreDir(1, picture, mustGrid(t, service).ID()) + `"`, `"wantedChunk":3,`,
+		`"storeDir":"` + testStoreDir(t, service, picture, mustGrid(t, service).ID()) + `"`, `"wantedChunk":3,`,
 		`"firstChunk":3,`, `"lastChunk":32,`, `"firstChunkStartMs":30000,`, `"lastChunkEndMs":330000`,
 	} {
 		if !strings.Contains(line, part) {
@@ -173,6 +174,27 @@ func mustGrid(t *testing.T, service *Service) Grid {
 		t.Fatalf("film 1's grid = %+v, %t, %v", grid, isCut, err)
 	}
 	return grid
+}
+
+// testStoreKey is the key of film 1's store of stream on the grid gridID: the grid's id, then the
+// facts of the film's probe the stream is made from (StoreKey).
+func testStoreKey(t *testing.T, service *Service, stream Stream, gridID string) string {
+	t.Helper()
+	file, err := library.PlayableFile(t.Context(), service.database.Read(), 1)
+	if err != nil {
+		t.Fatalf("film 1: %v", err)
+	}
+	probe, err := library.ProbeOf(file.ProbeJSON)
+	if err != nil {
+		t.Fatalf("film 1's probe: %v", err)
+	}
+	return StoreKey(gridID, probe, stream)
+}
+
+// testStoreDir is the directory of film 1's store of stream on the grid gridID (testStoreKey).
+func testStoreDir(t *testing.T, service *Service, stream Stream, gridID string) string {
+	t.Helper()
+	return StoreDir(1, stream, testStoreKey(t, service, stream, gridID))
 }
 
 // jobsQueue is the job queue as the server has it, over its own cache.db.
@@ -231,7 +253,7 @@ func TestWant_AStoresInitStartsAndCutsNothingWhileARunOfItIsOnItsWay(t *testing.
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	ensured(t, service, picture, 20)
 	before := queue.runs(t, service)
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	initFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 0}
 	for range 2 {
 		if err := service.Want(t.Context(), initFile); err != nil {
@@ -257,8 +279,9 @@ func TestWantAlongside_APicturesInitMovesNoSound(t *testing.T) {
 	before := queue.runs(t, service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	pictureInit := StoreFile{
-		fileID: 1, kind: OnKeyframes, stream: picture, storeDir: StoreDir(1, picture, mustGrid(t, service).ID()),
-		isInit: true, runFrom: 0, isSought: true,
+		fileID: 1, kind: OnKeyframes, stream: picture,
+		storeDir: testStoreDir(t, service, picture, mustGrid(t, service).ID()),
+		isInit:   true, runFrom: 0, isSought: true,
 	}
 	soundFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: sound}
 	for range 2 {
@@ -282,7 +305,7 @@ func TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReach
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	ensured(t, service, picture, 3)
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	service.runs.madeThrough(dir, 3, 32)
 	service.runs.forget(dir, 3) // the run ended, every chunk made
 	served := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, chunk: 28}

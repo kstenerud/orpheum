@@ -65,6 +65,11 @@
 //     is spent (D224 §5). TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen,
 //     TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere (internal/core/api).
 //
+//   - The text of a video's own subtitle track is thrown out once the facts of its probe it was made
+//     from changed, in the ingest's write that keeps the new probe (ForgetText;
+//     library.DerivedDroppers), and no other track's: the next play makes it again (D392 §3).
+//     TestForgetText_ThrowsOutOneTracksText.
+//
 //   - Imports nothing from internal/node, never os/exec, no database/sql: the depguard rules
 //     core-boundary and sql-only-in-store, TestArch_CoreNeverImportsNode and
 //     TestArch_OnlyStoreImportsDatabaseSQL.

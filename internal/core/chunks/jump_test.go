@@ -40,7 +40,7 @@ func newJumpStage(t *testing.T, isGiven bool) jumpStage {
 		service: service, queue: queue, clock: fakeClock, wanted: wantedBy(service), picture: picture,
 		grid: mustGrid(t, service).ID(),
 	}
-	stage.dir = StoreDir(1, picture, stage.grid)
+	stage.dir = testStoreDir(t, service, picture, stage.grid)
 	stage.wanted.say(playingAt(picture, 1))
 	askedFor(t, service, picture, 1)
 	stage.start(1, 21, isGiven)
@@ -65,9 +65,11 @@ func (stage jumpStage) makes(first, n int, after time.Duration) {
 }
 
 // chunkOf is chunk n of film 1's stream on its keyframe grid gridID, as a player asks for it.
-func chunkOf(stream Stream, gridID string, n int) StoreFile {
+func chunkOf(t *testing.T, service *Service, stream Stream, gridID string, n int) StoreFile {
+	t.Helper()
 	return StoreFile{
-		fileID: 1, kind: OnKeyframes, stream: stream, storeDir: StoreDir(1, stream, gridID), runFrom: n, chunk: n,
+		fileID: 1, kind: OnKeyframes, stream: stream, storeDir: testStoreDir(t, service, stream, gridID), runFrom: n,
+		chunk: n,
 	}
 }
 
@@ -75,7 +77,8 @@ func chunkOf(stream Stream, gridID string, n int) StoreFile {
 func (stage jumpStage) jumpsTo(t *testing.T, n int) {
 	t.Helper()
 	stage.wanted.say(playingAt(stage.picture, n))
-	if err := stage.service.Want(t.Context(), chunkOf(stage.picture, stage.grid, n).AsSought()); err != nil {
+	sought := chunkOf(t, stage.service, stage.picture, stage.grid, n).AsSought()
+	if err := stage.service.Want(t.Context(), sought); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -177,7 +180,7 @@ func TestStopUnwanted_ARunItsOwnStreamWaitsOnGoesOnWhereverTheOtherStreamIs(t *t
 	grid := mustGrid(t, service).ID()
 	ask := func(stream Stream, n int, interests ...Interest) {
 		wanted.say(interests...)
-		if err := service.Want(t.Context(), chunkOf(stream, grid, n)); err != nil {
+		if err := service.Want(t.Context(), chunkOf(t, service, stream, grid, n)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -222,12 +225,12 @@ func TestWantAlongside_ASoughtPicturesSoundStopsTheSoundsRunWhereThePlayerWas(t 
 	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
 	grid := mustGrid(t, service).ID()
 	wanted.say(playingAt(picture, 1), playingAt(sound, 1))
-	if err := service.Want(t.Context(), chunkOf(sound, grid, 1)); err != nil {
+	if err := service.Want(t.Context(), chunkOf(t, service, sound, grid, 1)); err != nil {
 		t.Fatal(err)
 	}
 	wanted.say(playingAt(picture, 9), playingAt(sound, 9))
-	sought := chunkOf(picture, grid, 9).AsSought()
-	if err := service.WantAlongside(t.Context(), sought, chunkOf(sound, grid, 1)); err != nil {
+	sought := chunkOf(t, service, picture, grid, 9).AsSought()
+	if err := service.WantAlongside(t.Context(), sought, chunkOf(t, service, sound, grid, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Want(t.Context(), sought); err != nil {
@@ -249,7 +252,7 @@ func TestStopUnwanted_AWordOfASeekStopsTheRunItLeftThoughTheStoresLastAskWasNear
 	stage.makes(1, 1, 5*time.Second)
 	stage.makes(1, 2, time.Second)
 	stage.wanted.say(playingAt(stage.picture, 3))
-	if err := stage.service.Want(t.Context(), chunkOf(stage.picture, stage.grid, 3)); err != nil {
+	if err := stage.service.Want(t.Context(), chunkOf(t, stage.service, stage.picture, stage.grid, 3)); err != nil {
 		t.Fatal(err)
 	}
 	stage.wanted.say(playingAt(stage.picture, 9))

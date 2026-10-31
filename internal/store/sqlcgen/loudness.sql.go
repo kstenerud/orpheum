@@ -9,6 +9,25 @@ import (
 	"context"
 )
 
+const deleteLoudnessOfSound = `-- name: DeleteLoudnessOfSound :execrows
+DELETE FROM loudness WHERE payload_hash = ?1 AND stream_index = ?2
+`
+
+type DeleteLoudnessOfSoundParams struct {
+	PayloadHash []byte
+	StreamIndex int64
+}
+
+// What was measured of one track of a file's bytes, both mixes, thrown out once the track's facts in
+// its probe changed: the sweep measures it again (D392 section 3).
+func (q *Queries) DeleteLoudnessOfSound(ctx context.Context, arg DeleteLoudnessOfSoundParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteLoudnessOfSound, arg.PayloadHash, arg.StreamIndex)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const listLoudnessOfPayload = `-- name: ListLoudnessOfPayload :many
 
 SELECT payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure, measured_at

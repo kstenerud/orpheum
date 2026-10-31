@@ -270,3 +270,19 @@ func (service *Service) keepStill(
 	}
 	return service.keep(ctx, want, made.SourceSha256, made)
 }
+
+// RetireFrameStills retires the frame stills taken from a file, once the facts of its probe they were
+// taken by changed (library.DerivedDroppers, D392 §3), in the ingest's write that keeps the new
+// probe: the pass after the scan takes one again where its item still shows no other picture. A
+// person's choice stays. It says whether there was any.
+func (service *Service) RetireFrameStills(
+	ctx context.Context, queries *sqlcgen.Queries, of library.DerivedOf,
+) (bool, error) {
+	retired, err := queries.RetireFrameStillsOfFile(ctx, sqlcgen.RetireFrameStillsOfFileParams{
+		RemovedAt: new(service.parts.Clock.Now().UnixMilli()), FileID: of.FileID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("retire the frame stills of file %d: %w", of.FileID, err)
+	}
+	return retired > 0, nil
+}

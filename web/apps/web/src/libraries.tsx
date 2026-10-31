@@ -132,13 +132,27 @@ export function LibraryRow(props: { readonly library: Library }): JSX.Element {
 
 /**
  * "Rescan everything": every library of films or of series scanned, then each film and series in it
- * matched again from its files, in the background (D357 §1); it says how many started.
+ * matched again from its files, in the background (D357 §1); beside it, its full rescan, every file
+ * read again first (D392 §1). Each says how many started.
  */
 export function RescanEverything(props: { readonly onStarted: () => void }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [note, setNote] = useState("");
   const rescanning = useRequest((cause) => problemText(t, cause));
+  const rescan = (isFull: boolean): void => {
+    setNote("");
+    rescanning.runRequest(async (idempotencyKey) => {
+      const answer = dataOrThrow(
+        await api.POST("/libraries/rescan", {
+          ...(isFull ? { params: { query: { full: true } } } : {}),
+          ...idempotent(idempotencyKey),
+        }),
+      );
+      setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
+      props.onStarted();
+    });
+  };
   return (
     <>
       <button
@@ -146,17 +160,20 @@ export function RescanEverything(props: { readonly onStarted: () => void }): JSX
         title={t("libraries.rescanHelp")}
         disabled={rescanning.isBusy}
         onClick={() => {
-          setNote("");
-          rescanning.runRequest(async (idempotencyKey) => {
-            const answer = dataOrThrow(
-              await api.POST("/libraries/rescan", { ...idempotent(idempotencyKey) }),
-            );
-            setNote(t("libraries.rescanEverythingStarted", { count: answer.startedCount }));
-            props.onStarted();
-          });
+          rescan(false);
         }}
       >
         {t("libraries.rescanEverything")}
+      </button>{" "}
+      <button
+        type="button"
+        title={t("libraries.fullRescanHelp")}
+        disabled={rescanning.isBusy}
+        onClick={() => {
+          rescan(true);
+        }}
+      >
+        {t("libraries.fullRescanEverything")}
       </button>
       {note === "" ? null : <output>{note}</output>}
       {rescanning.problem === undefined ? null : <output>{rescanning.problem}</output>}
