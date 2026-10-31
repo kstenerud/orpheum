@@ -453,6 +453,40 @@ had leaned on.
   mounted in the tab; and its drop leaves the loader's WebRTC connection open (refusing what is sent),
   as closing it needs the loader's interface.
 
+## The week's security report (research/security-week-2026-10-30.md), next batch (the owner agreed 2026-10-31)
+
+- **Done (the owner, 2026-10-31):** `net.mptcp.enabled=0` in `/etc/sysctl.d/` on prod-api, the edge,
+  nas.example's Proxmox host and LXC 102, all rebooted; the connect package with connect's own
+  `godebug multipathtcp=0` (`connect-production-eb6c283-e39602fe.run`) on prod-api.
+- **MPTCP off in every container (report §1).** `sysctls: {net.mptcp.enabled: "0"}` on every service
+  of `internal/deployment/templates/compose*.yaml` and connect's compose files, with a test that the
+  rendered compose carries it: the setting is per network namespace, and a household's kernel is not
+  ours to patch.
+- **The SSH keys a sandbox holds work only from the sandbox VM (report §2a), the owner's:**
+  `from="192.168.1.199"` on the nas.example and gpuhost keys' `authorized_keys` lines. A hook refusing
+  commands that print keys (§2b) is not wanted: the keys' reach is the defence.
+- **Claude Code is not pinned (the owner, 2026-10-31):** new versions bring better models and are taken
+  as they come.
+- **The household image by digest (report §3).** The install script resolves its tag to a digest once
+  and writes `repo@sha256:…` to `.env`; `release-image.yml` runs in an `environment: release` the owner
+  approves, and a ruleset leaves `v*` tags to the owner alone.
+- **No npm install scripts (report §4).** `ignore-scripts=true` in `web/.npmrc` (lfa-ponyfill then keeps
+  the `fonts.json` of its tarball, not one fetched at install), the Mac dev loop checked without
+  fsevents' script, and a check that fails when the lockfile gains an install-script package not on a
+  short list.
+- **Plex2Shell's lessons as tests (report §5).** an architecture test that home and this
+  machine's port are conditions on a session, never one; a test that FFmpeg's library and output
+  paths are set by the node alone, never from a request; every token check validates the token, not
+  its presence; `noexec` on the node's writable mounts, to look into.
+- **Before the public beta: a security update reaches households (report §7).** The discovery publishes
+  the latest version with a security flag, a core's admin sees a banner, and security updates may be
+  installed automatically by the admin's choice. Design first.
+- **A false "developer tools bypass" note after a deploy (the owner's Mac, Firefox, prod, 2026-10-31).**
+  The page probes its worker as it loads; the worker still in control is the previous release's, which
+  does not know the probe, so it goes to the network, 404s, and the note says the worker is bypassed
+  while media plays. The new worker takes over a moment later (skipWaiting, clients.claim), but the
+  page asks again only when a poster fails. Fix: probe again on `controllerchange`.
+
 ## From the owner's device round (2026-10-30), next batch
 
 - **Who am I signed in as: folded into the 2026-10-30 batch at the owner's word ("so that it's
