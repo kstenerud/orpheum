@@ -45,7 +45,8 @@ func TestSuspend_ASuspendedKeysSignaturesCountForNothing(t *testing.T) {
 		trusttest.Sign(t, trust.NamespaceDiscoveryAddress, payload, set.e2)); err != nil {
 		t.Errorf("an address document e2 signed: %v", err)
 	}
-	if _, err := core.VerifyAny(trust.NamespaceDrill, trusttest.Sign(t, trust.NamespaceDrill, payload, set.e1)); err == nil {
+	drill := trusttest.Sign(t, trust.NamespaceDrill, payload, set.e1)
+	if _, err := core.VerifyAny(trust.NamespaceDrill, drill); err == nil {
 		t.Error("a drill the suspended key signed holds")
 	}
 	added := trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "x")}}
