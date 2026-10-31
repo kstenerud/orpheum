@@ -95,8 +95,9 @@ from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_cl
 from revert_red_changes import (GO_GENERATED_QUERIES, GO_TEST_SUPPORT, SHELL_SOURCE, STORE_SCHEMA,  # noqa: F401 (tests reach them here)
                                 Change, changed_sources, claims_behavior_change, commit_type, is_probed_kind,
                                 is_python, is_test_file, types_touching)
-from revert_red_dependents import (git_run as _git, go_dependents, go_module, python_tests_naming,  # noqa: F401 (tests reach rev_exists here)
-                                   python_tests_reaching, rev_exists, toplevel, web_source_readers)
+from revert_red_dependents import (GO_SHIPPED_SOURCE_READERS, git_run as _git, go_dependents, go_module,  # noqa: F401 (tests reach rev_exists here)
+                                   python_tests_naming, python_tests_reaching, rev_exists, toplevel,
+                                   web_source_readers)
 from revert_red_locales import LOCALE_SOURCE, locale_runs
 from revert_red_naming import naming_runs
 from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach other_builds here)
@@ -212,6 +213,8 @@ def wide_scope(path: str) -> list[str] | None:
 
 
 VITEST_RUN = vitest("run")
+# The label of a run of the Go tests that read every shipped source (GO_SHIPPED_SOURCE_READERS).
+SHIPPED_SOURCE_LABEL = ", found by the Go test that reads every shipped source"
 # The wide run's label (wide_scope), which a claimed file's cheap probe leaves out.
 WIDE_LABEL = ", found by the tests its revert can reach"
 
@@ -250,6 +253,10 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
         # red in 30 s (the test-regime audit of 2026-10-31, R3). An added file's first run is already
         # the tests importing it (added_file_scope).
         attempts = [*direct_then_types(toplevel(), change.path), *attempts]
+    if TS_SOURCE.search(change.path) or SHELL_SOURCE.search(change.path):
+        # The Go tests that read every shipped source as text, a few seconds, before the wide run.
+        attempts.extend(Attempt(go_test(package, tests=[test]), SHIPPED_SOURCE_LABEL)
+                        for package, test in GO_SHIPPED_SOURCE_READERS)
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, WIDE_LABEL))
