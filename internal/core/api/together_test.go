@@ -630,6 +630,39 @@ func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) 
 		map[string]any{"secret": made.Body.Secret, "name": "Kim"}), http.StatusNotFound, api.CodeNotFound)
 }
 
+// A link's holder learns whether it would admit them before its join's form: one waiting answers
+// 204, and once used, as in another browser, or for a secret no link has, it is refused as the join
+// would be, 404 not_found, with nothing of the session (the owner, 2026-10-30, VQ172(3)).
+func TestTogether_ALinkSaysWhetherItAdmitsBeforeItsForm(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", opened.Body.SessionID), admin,
+		map[string]string{"hostNote": "a cousin"})
+	var link api.TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	check := func() response {
+		return harness.do(t, http.MethodPost, "/together/join/check", "", map[string]string{"secret": link.Body.Secret})
+	}
+	if answer := check(); answer.status != http.StatusNoContent {
+		t.Fatalf("a waiting link's check = %d %s; want 204", answer.status, answer.body)
+	}
+	if joined := harness.do(t, http.MethodPost, "/together/join", "",
+		map[string]any{"secret": link.Body.Secret, "name": "Kim"}); joined.status != http.StatusOK {
+		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
+	}
+	used := check()
+	wantError(t, used, http.StatusNotFound, api.CodeNotFound)
+	if strings.Contains(used.body, "Kim") || strings.Contains(used.body, "cousin") {
+		t.Errorf("a used link's check says something of its session: %s", used.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/together/join/check", "",
+		map[string]string{"secret": "no-such-link"}), http.StatusNotFound, api.CodeNotFound)
+}
+
 // Joining another session while in one is refused, in_another_session, its detail whose the other
 // is, until the join says to leave it: then the person leaves it and joins (D372 §8).
 func TestTogether_JoiningAnotherSessionAsksToLeaveTheOneYouAreIn(t *testing.T) {

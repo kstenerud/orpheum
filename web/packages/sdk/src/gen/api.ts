@@ -2159,6 +2159,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/join/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Whether your link would admit you now, asked before its join's form; refused as the join would be, and saying nothing of its session (VQ172) */
+        post: operations["checkTogetherLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/leave": {
         parameters: {
             query?: never;
@@ -2574,6 +2591,9 @@ export interface components {
         ChangePasswordInputBody: {
             currentPassword: string;
             newPassword: string;
+        };
+        CheckTogetherLinkInputBody: {
+            secret: string;
         };
         ClaimDiscoveryInputBody: {
             /** @description The key from the household's account: 16 letters and digits, as typed */
@@ -10441,6 +10461,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["JoinTogetherOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkTogetherLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckTogetherLinkInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

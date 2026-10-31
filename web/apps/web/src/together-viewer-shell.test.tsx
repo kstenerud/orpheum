@@ -120,7 +120,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
 
   it("lands on the Play page of the group's film from the join, no dialog opened (VQ193)", async () => {
     const { services, sockets } = signedInGuest("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [
         200,
         { sessionId: 1, memberId: 2, membershipCredential: "viewer-credential", locator: "" },
@@ -246,7 +246,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     );
     const sockets = liveAndSession(1);
     const services = {
-      ...servedBy({ "GET /health": [200, { status: "ready", reasons: [] }] }),
+      ...servedBy({ "POST /together/join/check": [204, undefined] }),
       navigation: createNavigation(fakePlace("/together")),
       openTogetherSocket: sockets.openSocket,
     };

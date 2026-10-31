@@ -577,6 +577,20 @@
         ],
         "type": "object"
       },
+      "CheckTogetherLinkInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "type": "object"
+      },
       "ClaimDiscoveryInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -16154,6 +16168,40 @@
           }
         },
         "summary": "Join a session by your link, with the name the others see; no account needed (D246 §3)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/join/check": {
+      "post": {
+        "operationId": "checkTogetherLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckTogetherLinkInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether your link would admit you now, asked before its join's form; refused as the join would be, and saying nothing of its session (VQ172)",
         "tags": [
           "Watch Together"
         ]

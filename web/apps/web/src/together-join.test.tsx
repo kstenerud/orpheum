@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { JoinForm } from "./together-join.tsx";
@@ -22,7 +23,7 @@ describe("joining by a link", () => {
   it("tells a guest whose link no longer works that invitations are short-lived and to ask for another (D346)", async () => {
     const services = servedBy(
       {
-        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join/check": [204, undefined],
         "POST /together/join": refusal(404, "not_found"),
       },
       [],
@@ -44,12 +45,50 @@ describe("joining by a link", () => {
   });
 });
 
+describe("a link refused before its form (VQ172(3))", () => {
+  // The owner, 2026-10-30, a link used already opened in another browser: "ideally it should tell
+  // them right off the bat rather than letting them try to fill out the form uselessly first."
+  it("says a link the server would refuse in the form's place, asking only whether it admits", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /together/join/check": refusal(404, "not_found") }, heard);
+    const mounted = await mount(
+      withServices(
+        <JoinForm secret="used-secret" onSubmitted={() => undefined} onJoined={() => undefined} />,
+        services,
+      ),
+    );
+    expect(mounted.container.querySelector("form")).toBeNull();
+    expect(mounted.container.querySelector("input")).toBeNull();
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "invitations are short-lived, and this one has expired, was used already",
+    );
+    expect(heard).toEqual([
+      { methodAndPath: "POST /together/join/check", body: { secret: "used-secret" } },
+    ]);
+    mounted.unmount();
+  });
+
+  it("shows the form once the server says the link admits, and while it is asked shows none", async () => {
+    const services = servedBy({ "POST /together/join/check": [204, undefined] }, []);
+    const tree = withServices(
+      <JoinForm secret="new-secret" onSubmitted={() => undefined} onJoined={() => undefined} />,
+      services,
+    );
+    expect(renderToStaticMarkup(tree)).toContain("Checking your invitation");
+    expect(renderToStaticMarkup(tree)).not.toContain("<form");
+    const mounted = await mount(tree);
+    expect(mounted.container.querySelector("form input")).not.toBeNull();
+    expect(buttonWithText(mounted.container, "Join")).toBeDefined();
+    mounted.unmount();
+  });
+});
+
 describe("joining by a link while in another session (D372 §8)", () => {
   it("asks first whether to leave the other, and joins, leaving it, only when told to", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join/check": [204, undefined],
         "POST /together/join": [
           [
             409,
@@ -103,7 +142,7 @@ describe("joining by a link while in another session (D372 §8)", () => {
   it("asks a host whether to leave their own session, which ends for everyone, and asks nothing more on Don't join", async () => {
     const services = servedBy(
       {
-        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join/check": [204, undefined],
         "POST /together/join": [
           409,
           {

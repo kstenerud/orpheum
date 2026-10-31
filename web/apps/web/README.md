@@ -415,7 +415,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   for everyone. `src/up-next.test.tsx`, `src/watch-together.test.tsx`; on devices, VQ69 and VQ70.
 - **A Watch Together invitation is short-term** (D346): the host's list says until when each
   waiting link admits; a guest whose link no longer works is told invitations are short-lived and
-  to ask for another, and one whose session the server closed as idle is told so.
+  to ask for another, and one whose session the server closed as idle is told so. The join's form
+  asks first whether its link admits (`POST /together/join/check`, which tells the link's holder
+  nothing a join's refusal would not), and one refused, as a link used already in another browser,
+  is said in the form's place (the owner, 2026-10-30, VQ172(3)).
   `src/watch-together.test.tsx`, `src/together-join.test.tsx`, `src/together-viewer.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.

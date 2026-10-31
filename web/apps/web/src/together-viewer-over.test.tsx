@@ -165,7 +165,7 @@ describe("a Watch Together guest's page as their session ends", () => {
     mounted.unmount();
     const again = await mount(
       withServices(<TogetherViewer />, {
-        ...servedBy({ "GET /health": [200, { status: "ready", reasons: [] }] }, [], undefined),
+        ...servedBy({ "POST /together/join/check": [204, undefined] }, [], undefined),
         navigation: createNavigation(fakePlace("/together#another-secret")),
         openTogetherSocket: fakeTogetherServer().openSocket,
       }),

@@ -56,13 +56,24 @@ export function JoinForm(props: {
   const { canFollowAGroup } = useServices();
   const [name, setTypedName] = useJoinName();
   const canFollow = canFollowAGroup();
-  useAsksWhetherOutdated(canFollow);
+  const linkState = useLinkState(props.secret, canFollow);
   const join = useJoin(props);
   if (!canFollow) {
     // Told before joining, so no one waits for a device that could never keep up (D250 §7).
     return (
       <CredentialsNotice heading={t("together.joinHeading")}>
         <p role="alert">{t("together.cannotFollow")}</p>
+      </CredentialsNotice>
+    );
+  }
+  if (linkState !== "admits") {
+    return (
+      <CredentialsNotice heading={t("together.joinHeading")}>
+        {linkState === "refused" ? (
+          <p role="alert">{t("together.badLink")}</p>
+        ) : (
+          <p>{t("together.checkingLink")}</p>
+        )}
       </CredentialsNotice>
     );
   }
@@ -218,20 +229,48 @@ function membershipOf(joined: {
   };
 }
 
+/** What the server says of a link before its form shows: whether it admits, or "asking" meanwhile. */
+type LinkState = "asking" | "admits" | "refused";
+
 /**
- * Asks the server something as the Join shows, so a page older than the server's client learns it
- * from the answer and reloads before its person types (ReloadWhenOutdated), not after the Join, whose
- * tap the reload loses: an iPhone that opened a new link in a tab of the last build joined, loaded
- * again and asked to Tap to continue (the owner's test, 2026-10-13, navigation=reload
- * joinedHere=false).
+ * Whether the link of secret would admit its holder now, asked before its form shows where it may
+ * (isJoinShown): one refused, as a link used already in another browser, says so in the form's place
+ * rather than once its person filled the form in (the owner, 2026-10-30: "ideally it should tell
+ * them right off the bat"; VQ172(3)). An asking that fails otherwise shows the form, whose Join says
+ * what is wrong. Its answer also tells a page older than the server's client so as the form shows, and
+ * it reloads before its person types (ReloadWhenOutdated), not after the Join, whose tap the reload
+ * loses: an iPhone that opened a new link in a tab of the last build joined, loaded again and asked
+ * to Tap to continue (the owner's test, 2026-10-13, navigation=reload joinedHere=false).
  */
-function useAsksWhetherOutdated(isJoinShown: boolean): void {
+function useLinkState(secret: string, isJoinShown: boolean): LinkState {
   const { api } = useServices();
+  const [state, setState] = useState<{ readonly secret: string; readonly state: LinkState }>({
+    secret,
+    state: "asking",
+  });
   useEffect(() => {
-    if (isJoinShown) {
-      void api.GET("/health").catch(() => undefined);
+    if (!isJoinShown) {
+      return undefined;
     }
-  }, [api, isJoinShown]);
+    let isCurrent = true;
+    const tell = (told: LinkState): void => {
+      if (isCurrent) {
+        setState({ secret, state: told });
+      }
+    };
+    api.POST("/together/join/check", { body: { secret } }).then(
+      ({ response }) => {
+        tell(response.status === 404 ? "refused" : "admits");
+      },
+      () => {
+        tell("admits");
+      },
+    );
+    return () => {
+      isCurrent = false;
+    };
+  }, [api, secret, isJoinShown]);
+  return state.secret === secret ? state.state : "asking";
 }
 
 /**
