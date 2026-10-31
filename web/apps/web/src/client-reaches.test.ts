@@ -46,13 +46,15 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
   it("takes the loader's word on whether it leaves for the discovery's sign-in once signed out, and a realm's from an older loader (the owner, 2026-10-30)", () => {
     const linkAlone = { coreId: "k7xq2", fingerprint: "a-fingerprint", realm: undefined };
     expect(
-      reachesUnderLoader({ ...loaderWith(), core: linkAlone, leavesWhenSignedOut: true }, document)
-        .leavesWhenSignedOut,
+      reachesUnderLoader(
+        { ...loaderWith(), core: linkAlone, willLeaveWhenSignedOut: true },
+        document,
+      ).willLeaveWhenSignedOut,
     ).toBe(true);
     expect(
-      reachesUnderLoader({ ...loaderWith(), core: linkAlone }, document).leavesWhenSignedOut,
+      reachesUnderLoader({ ...loaderWith(), core: linkAlone }, document).willLeaveWhenSignedOut,
     ).toBe(false);
-    expect(reachesUnderLoader(loaderWith(), document).leavesWhenSignedOut).toBe(true);
+    expect(reachesUnderLoader(loaderWith(), document).willLeaveWhenSignedOut).toBe(true);
   });
 
   it("takes the loader's word on whether its media go over WebRTC, and HTTP from an older loader (the efficiency audit, finding 1)", () => {

@@ -376,7 +376,9 @@ describe("App", () => {
       [],
       "token",
     );
-    const mounted = await mount(withServices(<App />, { ...services, leavesWhenSignedOut: true }));
+    const mounted = await mount(
+      withServices(<App />, { ...services, willLeaveWhenSignedOut: true }),
+    );
     await signOutByMenu(mounted.container);
     await settleUntil(() => services.session.token() === undefined);
     expect(mounted.container.querySelector(".credentials-form")).toBeNull();
