@@ -84,6 +84,11 @@ type MakeChunks struct {
 	// lands in, so the node seeks further before the run, and not at all from the film's start
 	// (docs/contributors/idiosyncrasies.md).
 	IsSoundInterleaved bool `json:"isSoundInterleaved,omitempty"`
+	// NeedsPictureRetiming says a run of the picture, copied or encoded, rebuilds its display times
+	// from the bitstream's picture order, as its probe says it must (ProbeVideo.NeedsRetiming), and
+	// reads a little past its end, so the frames before its last bound are re-timed from the ones
+	// after. False for sounds.
+	NeedsPictureRetiming bool `json:"needsPictureRetiming,omitempty"`
 }
 
 // MakeChunksReport is the node's word on how a run ended.

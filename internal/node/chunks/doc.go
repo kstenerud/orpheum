@@ -73,6 +73,15 @@
 //     super-block a seek lands in (idiosyncrasies.md). Enforced by
 //     TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart and, with the pinned
 //     FFmpeg, TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun.
+//   - A run of a picture marked to be re-timed, its B-frames carrying no display times, rebuilds them
+//     with FFmpeg's dts2pts, a copy on its output and an encode on its picture's input, moved back so
+//     its first keyframe is shown at its bound, and reads a second past its end, an encode keyframed
+//     there too, so the frames before its end are timed from those after it and what is past it is cut
+//     off; no other run is (design/plans/audio-switch-and-retiming-2026-11-01.md, Part 2). Enforced by
+//     TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes; with the pinned FFmpeg, two runs'
+//     chunks of a flattened H.264 and HEVC clip have the clip's own composition offsets, but its last
+//     few pictures', and an encode of it every picture once, by
+//     TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked (integration tier).
 //   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
 //     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
 //     finished; the refusal says where the run read from and first cut. Enforced by

@@ -268,3 +268,23 @@ put back in order.
    and the core stores what it says), or in a column of its own beside the timeline.
 5. *Implementation:* a run's margin past its end: a fixed 0.5 s (recommended, measured enough for
    three B-frames), or computed from the stream's reorder depth and frame rate.
+
+### 2.10 As built (2026-10-31), and what the build found
+
+Built as answered (the mark `ProbeVideo.NeedsRetiming`, the run's `NeedsPictureRetiming`, node
+protocol 55), with three findings for the owner (idiosyncrasies.md, "`dts2pts` guesses an H.264
+IDR's time"):
+
+- **The margin is a second, not half.** A run ends at a keyframe, and `dts2pts` timed an H.264 IDR
+  right only once it had read about 0.65 s past it; at 0.5 s it was timed three pictures early, the
+  muxer did not cut there, and the run's last chunk took in the next one's first half second. HEVC
+  was right at 0.5 s. Still a fixed margin, as answered; the value changed.
+- **An encode's input is moved back as well as re-timed** (`dts2pts,setts=pts=PTS-STARTPTS+STARTDTS`):
+  `dts2pts` shows a run's first keyframe as late as the B-frames reorder, which put an encode's forced
+  keyframes after its bounds and its cuts were missed. On the flattened 12 s clips the encode then
+  has every picture but the film's last one or two; without the filter it had one picture too many.
+  The design's measured loss at the film's start did not show on these clips.
+- **A rescan does not mark a file already scanned:** a file unchanged on disk is not probed again
+  (D357 §2). File 5667 is marked only when
+  examined afresh. Whether to re-probe the H.264 and HEVC files already stored, and how, is the
+  owner's question.

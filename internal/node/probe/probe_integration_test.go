@@ -48,3 +48,42 @@ func TestProbe_AFileThePinnedFFmpegMade(t *testing.T) {
 		t.Errorf("duration %d ms, want about a second", record.Format.DurationMs)
 	}
 }
+
+// TestProbe_MarksAPictureWhoseBFramesCarryNoDisplayTimes probes, with the pinned ffprobe, clips made
+// like file 5667: H.264 and HEVC with B-frames, then copied with each picture shown at its decode time.
+// Those are marked for re-timing; the clips they were copied from, their B-frames timed, are not
+// (design/plans/audio-switch-and-retiming-2026-11-01.md §2.4).
+func TestProbe_MarksAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prober := NewProber(runner, time.Minute)
+	for _, codec := range []string{"h264", "hevc"} {
+		original := filepath.Join(t.TempDir(), "a "+codec+" film (2020).mp4")
+		encoder := []string{"-c:v", "libx264", "-preset", "ultrafast", "-bf", "3"}
+		if codec == "hevc" {
+			encoder = []string{"-c:v", "libx265", "-tag:v", "hev1", "-x265-params", "bframes=3:log-level=error"}
+		}
+		testutil.GenerateMedia(t, original, append([]string{
+			"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=4",
+			"-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-c:a", "aac",
+		}, encoder...)...)
+		flattened := filepath.Join(t.TempDir(), "a flattened "+codec+" film (2020).mp4")
+		testutil.GenerateMedia(t, flattened, "-i", "file:"+original, "-map", "0", "-c", "copy",
+			"-bsf:v", "setts=dts=DTS-STARTDTS:pts=DTS-STARTDTS")
+		for path, want := range map[string]bool{original: false, flattened: true} {
+			record, err := prober.Probe(t.Context(), execx.Film{Path: path})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(record.Streams) != 2 || record.Streams[0].Codec != codec {
+				t.Fatalf("%s: record = %+v, want its %s picture and its sound", filepath.Base(path), record, codec)
+			}
+			if got := record.Streams[0].Video.NeedsRetiming; got != want {
+				t.Errorf("%s: the picture needs re-timing: %v, want %v", filepath.Base(path), got, want)
+			}
+		}
+	}
+}

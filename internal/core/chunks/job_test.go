@@ -275,6 +275,38 @@ func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testi
 	}
 }
 
+// A film whose picture's B-frames carry no display times, as its probe says, has every run of its
+// picture, copied or encoded, say it is to be re-timed, and its sound's not; an ordinary film's
+// picture is not re-timed (design/plans/audio-switch-and-retiming-2026-11-01.md §2.4; file 5667).
+func TestHandleMakeChunks_APictureWhoseBFramesCarryNoDisplayTimesIsReTimed(t *testing.T) {
+	t.Parallel()
+	ordinary := runsOnAFakeNode(t)
+	ordinary.start(t, 10, testRun{"picture", mustGrid(t, ordinary.service).ID(), runArgs{FirstChunk: 2, LastChunk: 3}})
+	if sent := testutil.Receive(t, ordinary.node.sent, "the run's command").MakeChunks; sent == nil ||
+		sent.NeedsPictureRetiming {
+		t.Errorf("an ordinary film's picture run was sent %+v; want it not re-timed", sent)
+	}
+
+	fixture := runsOnAFakeNode(t)
+	librarytest.Probe(t, fixture.service.database, librarytest.ProbeSpec{
+		FileID: 1, DurationMs: filmMinutes * 60_000,
+		ProbeJSON: `{"format":{"formatNames":["mov","mp4"],"durationMs":1200000,"bitRateBps":4000000},"streams":[` +
+			`{"kind":"video","codec":"hevc","video":{"width":1920,"height":1080,"needsRetiming":true}},` +
+			`{"streamIndex":1,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`,
+	})
+	gridID := mustGrid(t, fixture.service).ID()
+	for index, test := range []struct {
+		stream string
+		want   bool
+	}{{"picture", true}, {"q1200k480p", true}, {"sound0-96k-raw", false}} {
+		fixture.start(t, int64(11+index), testRun{test.stream, gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
+		sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
+		if sent == nil || sent.NeedsPictureRetiming != test.want {
+			t.Errorf("a %s run was sent %+v; want it said re-timed: %v", test.stream, sent, test.want)
+		}
+	}
+}
+
 // A store whose runs FFmpeg failed at the same chunk twice is not asked of its node again: the
 // player asking is told the film cannot be made, and why is logged once; a single failure is tried
 // again. A sound whose every run failed alike was queued again every 4.4 s for as long as its player

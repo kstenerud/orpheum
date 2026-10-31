@@ -152,20 +152,66 @@ func copiedSoundTimes() []string {
 }
 
 // keyframeTimes are where an encode puts its keyframes, relative to the run's start: at each of
-// its chunks' starts, so its chunks cut where the copied picture's do.
+// its chunks' starts, so its chunks cut where the copied picture's do, and, for a run that reads past
+// its end (readEndMs), at its end too, so what it reads past is cut off into a raw file of its own.
 func keyframeTimes(command nodeproto.MakeChunks) string {
 	start := runStartMs(command)
-	times := make([]string, 0, len(command.BoundsMs)-1)
-	for _, bound := range command.BoundsMs[:len(command.BoundsMs)-1] {
+	bounds := command.BoundsMs[:len(command.BoundsMs)-1]
+	if isRetimed(command) {
+		bounds = command.BoundsMs
+	}
+	times := make([]string, 0, len(bounds))
+	for _, bound := range bounds {
 		times = append(times, seconds(bound-start))
 	}
 	return strings.Join(times, ",")
 }
 
+// retimingReadPastMs is how far past its last chunk's end a re-timed run reads (isRetimed): FFmpeg's
+// dts2pts filter gives each frame the time of the one at its place in the picture order, which for
+// the frames before the run's end are among the frames after it; read to the end alone, it guesses
+// their times (design/plans/audio-switch-and-retiming-2026-11-01.md §2.2). What is read past the end
+// is cut off and dropped. A second, not the half the design chose: the run's end is a keyframe, and
+// the pinned dts2pts times an H.264 IDR right only once it has read about 0.65 s past it (sixteen
+// pictures at 24 a second); at half a second it guessed the keyframe three pictures early, the muxer
+// did not cut there, and the run's last chunk held the next one's first half second as well
+// (TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked). HEVC needed less.
+const retimingReadPastMs = 1000
+
+// isRetimed is whether a run rebuilds its picture's display times from the bitstream's picture
+// order (nodeproto.MakeChunks.NeedsPictureRetiming): the picture, copied or encoded, of a film whose
+// probe said its B-frames carry none.
+func isRetimed(command nodeproto.MakeChunks) bool {
+	return command.NeedsPictureRetiming &&
+		(command.Stream.Kind == nodeproto.StreamPicture || command.Stream.Kind == nodeproto.StreamQuality)
+}
+
+// readEndMs is where FFmpeg stops reading the film: the run's last chunk's end, or retimingReadPastMs
+// past it for a re-timed run.
+func readEndMs(command nodeproto.MakeChunks) int64 {
+	end := command.BoundsMs[len(command.BoundsMs)-1]
+	if isRetimed(command) {
+		end += retimingReadPastMs
+	}
+	return end
+}
+
+// retimingFilter is FFmpeg's bitstream filter that rebuilds an H.264 or HEVC picture's display times
+// from its slice headers' picture order count, without decoding it.
+const retimingFilter = "dts2pts"
+
+// encodeRetimingFilters are an encode's bitstream filters on its input, before it is decoded: the
+// decoder reorders by the picture order itself, but times its frames by their packets'. The dts2pts
+// filter shows the run's first keyframe as long after its decode time as the B-frames' reordering,
+// which would time every picture of the encode that much late, its forced keyframes a picture or two
+// after its chunks' bounds and the muxer's cuts missed; setts moves them all back, so the keyframe is
+// shown at its decode time, the time the film's grid lists it at, as a copied chunk's keyframe is
+// shown at its bound.
+const encodeRetimingFilters = retimingFilter + ",setts=pts=PTS-STARTPTS+STARTDTS"
+
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
 // run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
-	end := command.BoundsMs[len(command.BoundsMs)-1]
 	arguments := []string{"-v", "error", "-nostats"}
 	if command.Stream.Kind == nodeproto.StreamSoundCopied {
 		arguments = append(arguments, "-copyts", "-start_at_zero")
@@ -173,7 +219,11 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 	if isSeeking(command) {
 		arguments = append(arguments, "-ss", seconds(seekMs(command)))
 	}
-	arguments = append(arguments, "-to", seconds(end))
+	arguments = append(arguments, "-to", seconds(readEndMs(command)))
+	if isRetimed(command) && command.Stream.Kind == nodeproto.StreamQuality {
+		// The picture's stream alone, by its index: a cover picture beside it is no H.264 or HEVC.
+		arguments = append(arguments, "-bsf:"+strconv.Itoa(command.VideoStreamIndex), encodeRetimingFilters)
+	}
 	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
@@ -185,6 +235,9 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 			"-avoid_negative_ts", "make_zero")
 		if command.VideoCodec == "hevc" {
 			arguments = append(arguments, "-tag:v", "hvc1")
+		}
+		if isRetimed(command) {
+			arguments = append(arguments, "-bsf:v", retimingFilter)
 		}
 	case nodeproto.StreamQuality:
 		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))

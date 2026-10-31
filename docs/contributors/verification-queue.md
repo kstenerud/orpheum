@@ -2015,3 +2015,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   is offered plays the track chosen, not the first. On Chrome the same choice moves the film onto its
   ladder once, as before. (`web/packages/player/src/own-tracks.ts`, `web/apps/web/src/play.tsx`
   `DirectUnder`)
+- [ ] **VQ207** — file 5667 (MP4, HEVC `hev1`, B-frames with every pts equal to its dts) plays at its
+  own frame rate at the top of the ladder in Chrome, on staging (design/plans/
+  audio-switch-and-retiming-2026-11-01.md, Part 2; the owner's answers of 2026-10-31). Deploy core and
+  node together (node protocol 55), then have file 5667 examined again: a rescan does not probe a file
+  unchanged on disk, so it needs a fresh examining (a new library over its folder on staging). First,
+  its stored probe record's picture says `"needsRetiming":true`. Then on the Mac's Chrome, play it at
+  the top quality for a minute, then jump to its middle and play another minute. Passes when motion is
+  smooth throughout, `chrome://media-internals` shows no run of dropped frames, and its decoder is not
+  in low-delay mode; and the core's log shows its picture's runs made, none refused. Also the qualities
+  below the top play smoothly, with no frame stepped twice at chunk joins.
+  (`internal/node/probe/parse.go`, `internal/node/chunks/arguments.go`, `internal/core/chunks/job.go`)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -28,12 +29,19 @@ func NewProber(runner *execx.Runner, timeout time.Duration) *Prober {
 	return &Prober{runner: runner, timeout: timeout}
 }
 
-// arguments are ffprobe's, for film, read as its Input names it.
+// packetsRead is how many of the file's first packets, of every stream together, ffprobe lists, by
+// which the node judges whether a picture's display times need rebuilding (needsRetiming). They are
+// read already, as ffprobe finds the file's streams, so listing them costs no further read.
+const packetsRead = 200
+
+// arguments are ffprobe's, for film, read as its Input names it: the container, its streams and
+// chapters, and the times of its first packetsRead packets.
 func arguments(film execx.Film) []string {
 	return append([]string{
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format", "-show_streams", "-show_chapters",
+		"-show_entries", "packet=stream_index,pts,dts", "-read_intervals", "%+#" + strconv.Itoa(packetsRead),
 	}, film.Input()...)
 }
 

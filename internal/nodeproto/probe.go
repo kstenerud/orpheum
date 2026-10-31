@@ -73,6 +73,12 @@ type ProbeVideo struct {
 	FrameRate      string `json:"frameRate"`
 	ColorTransfer  string `json:"colorTransfer"`
 	ColorPrimaries string `json:"colorPrimaries"`
+	// NeedsRetiming is whether the picture's display times must be rebuilt before a browser plays it:
+	// an H.264 or HEVC picture that says it reorders its frames (has_b_frames), whose every packet
+	// among the file's first the probe reads is shown at its decode time (pts = dts), so a copy
+	// carries no composition offsets and a browser drops the reordered frames. Each FFmpeg run of
+	// it re-times it from the bitstream's picture order (dts2pts; MakeChunks.NeedsPictureRetiming).
+	NeedsRetiming bool `json:"needsRetiming,omitempty"`
 }
 
 // ProbeAudio holds an audio stream's sound facts; zero for other kinds.

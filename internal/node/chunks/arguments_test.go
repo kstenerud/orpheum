@@ -132,6 +132,62 @@ func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 	}
 }
 
+// A picture whose B-frames carry no display times, copied or encoded, is re-timed by dts2pts, a
+// copy's on the output and an encode's on its input, and read a second past its end, an
+// encode keyframed at that end too so what is read past it is cut off; an ordinary picture is not,
+// and a sound of a film whose picture is re-timed is read as any sound
+// (design/plans/audio-switch-and-retiming-2026-11-01.md §2.4).
+func TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
+	t.Parallel()
+	// A copy's filter is on its one output stream; an encode's on the picture's input stream, by its
+	// index, moved back by setts so its first keyframe is shown at its bound.
+	for _, test := range []struct {
+		kind nodeproto.ChunkStreamKind
+		want [2]string
+	}{
+		{nodeproto.StreamPicture, [2]string{"-bsf:v", "dts2pts"}},
+		{nodeproto.StreamQuality, [2]string{"-bsf:2", "dts2pts,setts=pts=PTS-STARTPTS+STARTDTS"}},
+	} {
+		kind, want := test.kind, test.want
+		marked := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
+		marked.NeedsPictureRetiming, marked.VideoStreamIndex = true, 2
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", marked, encode.EncoderX264)
+		filter, input := slices.Index(arguments, want[0]), slices.Index(arguments, "-i")
+		if filter < 0 || valueOf(arguments, want[0]) != want[1] {
+			t.Errorf("a marked %s run is %q; want it re-timed by %s %s", kind, arguments, want[0], want[1])
+		}
+		if isOnInput := filter < input; isOnInput != (kind == nodeproto.StreamQuality) {
+			t.Errorf("a marked %s run filters its %s; want an encode's input and a copy's output", kind,
+				map[bool]string{true: "input", false: "output"}[isOnInput])
+		}
+		if end := valueOf(arguments, "-to"); end != "123.581" {
+			t.Errorf("a marked %s run reads to %s, want 123.581, a second past its end", kind, end)
+		}
+		if cuts := valueOf(arguments, "-segment_times"); !strings.HasSuffix(cuts, ",23.682") {
+			t.Errorf("a marked %s run is cut at %s; want it still cut at its end, 23.682", kind, cuts)
+		}
+
+		ordinary := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
+		unmarked := Arguments(execx.Film{Path: "/a"}, "/r", ordinary, encode.EncoderX264)
+		if strings.Contains(strings.Join(unmarked, " "), "dts2pts") || valueOf(unmarked, "-to") != "122.581" {
+			t.Errorf("an ordinary %s run is %q; want it neither re-timed nor read past its end", kind, unmarked)
+		}
+	}
+	quality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480})
+	quality.NeedsPictureRetiming = true
+	keyframes := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", quality, encode.EncoderX264), "-force_key_frames")
+	if keyframes != "0.000,10.010,13.764,23.732" {
+		t.Errorf("a marked encode's keyframes are at %s, want 0.000,10.010,13.764,23.732: its chunks' starts "+
+			"and its end", keyframes)
+	}
+	sound := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{}, SoundKbps: 96})
+	sound.NeedsPictureRetiming = true
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
+	if strings.Contains(strings.Join(arguments, " "), "dts2pts") || valueOf(arguments, "-to") != "122.581" {
+		t.Errorf("a sound run is %q; want it neither re-timed nor read past its end", arguments)
+	}
+}
+
 // A sound past the film's first chunk starts a chunk early, at its lead-in, whose raw file is the
 // one before the run's first; its cuts are at the bounds, where the next frame starts (slow-links.md
 // §10).
