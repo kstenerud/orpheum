@@ -143,7 +143,7 @@ The choice is in the address (`/films?library=3`), so Back, a bookmark and a rel
  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐                                  #
  │    │ │    │ │    │ │    │ │    │ │    │                                  A
  └────┘ └────┘ └────┘ └────┘ └────┘ └────┘                                  B
- Wing   Fièvre  ...                                                         C
+ Arrival Amélie  ...                                                         C
                                                                              …
 ```
 

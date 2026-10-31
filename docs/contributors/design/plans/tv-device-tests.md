@@ -390,7 +390,7 @@ As [controller-input-2026-10-25.md](../research/controller-input-2026-10-25.md) 
 
 From the 2026-10-24 report (the TV's sound about 0.5 s late in TV Bro).
 
-- **Open:** staging's library 4 *Sync tests*: **Sync Fig (2026)** and **Sync Elder**, in TV Bro.
+- **Open:** staging's library 4 *Sync tests*: its two synthetic clips, in TV Bro.
 - **Steps:** set the sound offset to **0** (This device) and **levelling off** (since an earlier commit a
   playback with levelling off takes the unlevelled sound and no Web Audio). Play each for a minute
   from the start and after a seek; film the screen with sound. Then set the offset to **−500 ms**

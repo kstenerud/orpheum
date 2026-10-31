@@ -143,7 +143,7 @@ care.
 **The word is "member", not "episode", and that is the whole generalisation**
 ([D160](../../decisions/working-notes.md)). A sequence is what *any* Collection produces, so
 the same query drives a season, an eleven-film franchise run, and a composed
-*Gruelstone → Lockfast*. Every incumbent has two systems here — a series with Next Up and
+*series → Lockfast*. Every incumbent has two systems here — a series with Next Up and
 continue-watching, and a collection that is a static grid of posters — which is why nobody can
 binge a franchise. We have one.
 
@@ -197,7 +197,7 @@ exception — the parts of one Version are **concatenated**, declared by that Ve
 ordering, and nothing claims a correspondence between them.
 
 **And this is what makes an uncertain Edition harmless.** A library holding four unidentified
-cuts of *Glass Runner* has four Files, each with its own position, before and after anyone
+cuts of a film has four Files, each with its own position, before and after anyone
 labels anything. Getting the Edition wrong costs a misleading group in the UI and nothing
 else; relabelling writes one column and moves no state.
 

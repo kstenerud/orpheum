@@ -25,8 +25,8 @@ FFmpeg 8.1.2 from the runtime image, 8 CPUs, staging idle; the 720p rung's own a
 
 | Source, CPUs | First frame after `-ss` | 2 s veryfast | 10 s veryfast | 10 s superfast | 10 s ultrafast | 2 s ultrafast |
 |---|---|---|---|---|---|---|
-| Star Wren II (H.264), 8 | 0.8 s | 2.4 s | 5.7 s | 4.5 s | 3.4 s | 1.5 s |
-| Star Wren II, 3 CPUs | 1.3 s | 2.8 s | 6.7 s | 4.8 s | 3.9 s | 1.9 s |
+| Movie X (H.264), 8 | 0.8 s | 2.4 s | 5.7 s | 4.5 s | 3.4 s | 1.5 s |
+| Movie X, 3 CPUs | 1.3 s | 2.8 s | 6.7 s | 4.8 s | 3.9 s | 1.9 s |
 | Conan (AV1), 3 CPUs | 0.3 s | 1.35 s | 6.8 s | 5.1 s | 4.1 s | 0.95 s |
 
 - A run costs ~0.3–1.3 s to start, then ~0.5–0.65 s per second of film. `-tune zerolatency` saves
@@ -37,7 +37,7 @@ FFmpeg 8.1.2 from the runtime image, 8 CPUs, staging idle; the 720p rung's own a
 **What a shorter keyframe interval costs**, 120 s of each film at 720p, veryfast, CRF 23, file size
 as the proxy:
 
-| Keyframe every | Star Wren II (grainy) | Copperfield (2019) | Bram |
+| Keyframe every | Movie X (grainy) | Copperfield (2019) | Conan |
 |---|---|---|---|
 | 6 s | +4.1% | +1.7% | +1.7% |
 | 4 s | +8.6% | +4.4% | +3.7% |

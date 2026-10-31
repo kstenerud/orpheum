@@ -81,7 +81,7 @@ and spread in log space with a 2σ clip; blend in the remembered link as two pse
 count a given-up chunk with no progress as a speed; let the start gate and the ceiling read a lower
 quantile of that estimate whose depth is set by what is loaded ahead; and log each chunk's predicted
 time beside its actual one, so the estimator's calibration can be judged from staging's logs. Worked
-through on the three failures, this keeps Nosferatu's estimate near 14 Mb/s where it read 69 kb/s,
+through on the three failures, this keeps file 5671's estimate near 14 Mb/s where it read 69 kb/s,
 reads one slow sample of five as 11.5 Mb/s where the old divisor read 1.3, and lets a remembered
 17 Mb/s survive one bad early sample while two consistent slow ones still override it (§1, §6.7).
 
@@ -89,7 +89,7 @@ reads one slow sample of five as 11.5 Mb/s where the old divisor read 1.3, and l
 
 ## 1. The three failures, explained
 
-### 1.1 Nosferatu, 9018 → 696 kb/s on an estimate of 69 kb/s, for 75 s
+### 1.1 File 5671, 9018 → 696 kb/s on an estimate of 69 kb/s, for 75 s
 
 The Fire TV's picture chunks had just loaded at 14–18 Mb/s. 2.3 s into play the estimate was
 69 kb/s. The estimate is the harmonic mean of the last five samples (`link-estimate.ts`). The

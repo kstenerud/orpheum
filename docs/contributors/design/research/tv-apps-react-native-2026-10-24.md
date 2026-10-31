@@ -382,7 +382,7 @@ native app would (same, §4.2) [S there].
 
 **What is not known** [I]:
 - Whether the element's own path keeps time on this TV. The only clip that measured without
-  aliasing (Sync Elder) went through Web Audio.
+  aliasing (the clip beeping every four seconds) went through Web Audio.
 - **If that path keeps time, the web client is fixed by keeping the sound off Web Audio**:
   afcfe540 does this without levelling, and 2d3545ea counts the context's latency with it. A
   native app then buys nothing for sync.
@@ -609,14 +609,14 @@ compares only focus and screens, and can be small.
 
 Each step names what it must show. Steps 0a, 0b and 1 need the owner's TCL.
 
-- **Step 0a: the web without Web Audio** (minutes, on the next TV visit). Play Sync Fig or
-  Sync Elder in TV Bro: offset 0, levelling off, in the bare player and on the ladder after afcfe540.
+- **Step 0a: the web without Web Audio** (minutes, on the next TV visit). Play either
+  sync-test clip in TV Bro: offset 0, levelling off, in the bare player and on the ladder after afcfe540.
   - This is the test of
     [youtube-tv-browser-av-sync-2026-10-24.md](youtube-tv-browser-av-sync-2026-10-24.md) §6.3.
   - **In time:** the web is fixed in the web, and the rest of this plan is about an app's other
     merits.
 - **Step 0b: zero code: does native play in time on this TV?** (one evening)
-  - Play "Sync Fig (2026).mp4" and the same title's ladder (`master.m3u8` over plain HTTP at
+  - Play "the sync-test clip (2026).mp4" and the same title's ladder (`master.m3u8` over plain HTTP at
     home) in an ExoPlayer-based app on the TCL. Candidates, all unverified: the Media3 demo app
     built from the `media3` clone, opened with
     `adb shell am start -a androidx.media3.demo.main.action.VIEW -d <url>`; or Jellyfin for
@@ -630,7 +630,7 @@ Each step names what it must show. Steps 0a, 0b and 1 need the owner's TCL.
   - An Expo SDK 58 app with `EXPO_TV=1`, sideloaded by `adb`. Sign in with a token pasted in,
     then play the ladder from nas.example.
   - Check: separate audio renditions and the `-raw` sound are chosen; video steps through the
-    ladder; A/V offset on Sync Fig; and [tv-client.md](../plans/tv-client.md)'s number, D-pad
+    ladder; A/V offset on the sync-test clip; and [tv-client.md](../plans/tv-client.md)'s number, D-pad
     press to selection moved, on a poster grid on the TCL and on the oldest Fire TV stick
     running Fire OS.
   - Try `setTunnelingEnabled` through the `onInstanceCreated` handle as a variant (unverified

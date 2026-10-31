@@ -456,7 +456,7 @@ counted:
 - **Planned:** D83 designed loudness measurement and a playback gain; D178 §4 left it out of Cut
   A, and cut-a §1 listed "loudness measurement" under Out. The dialogue boost was Cut A's only
   answer to quiet sound.
-- **What happened:** with a real library on the dev loop, the owner found *Wing* too quiet to
+- **What happened:** with a real library on the dev loop, the owner found a film too quiet to
   hear with the speakers at maximum. It measured -35.7 LUFS, about 12 dB under the owner's
   typical films, and it is stereo, so the boost, which acts on a downmix, could not touch it. The
   owner brought levelling into Cut A (D226).

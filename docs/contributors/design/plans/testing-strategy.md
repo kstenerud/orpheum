@@ -473,7 +473,7 @@ speech fraction, asserted.
   ([D159](../../decisions/working-notes.md)).
 - **Next Up works over a Collection whose members are films**, and over one whose members are
   **other Collections** ([D160](../../decisions/working-notes.md)). Fixtures: a franchise run,
-  and *Gruelstone → Lockfast*, where finishing the last episode of the first series must
+  and *a series → Lockfast*, where finishing the last episode of the first series must
   yield the first episode of the second.
 - **A nested Collection uses the viewer's own ordering preference for the inner series**
   ([D24](../../decisions/working-notes.md), [D159](../../decisions/working-notes.md)) — the

@@ -15,7 +15,7 @@ developer's reply. A claim marked *(inferred)* is our reading, not a source's wo
 ## 0. What happened, and what the research changes
 
 The owner hosted from a MacBook running Firefox, tethered to a phone on mobile data, reaching the
-server through Tailscale. The film was *The Big Parade*, a 2.4 Mbps H.264 file, served as the
+server through Tailscale. The film was a 2.4 Mbps H.264 file, served as the
 `remux` prepared rendition because its sound needed converting. Played alone, it paused often.
 In Watch Together, the group played one frame and froze, over and over.
 
@@ -339,7 +339,7 @@ Stalls cost far more than a softer picture.
 
 ## 10. Measured here: chunks made on request (2026-10-05)
 
-Measured in the sandbox with the node's own FFmpeg (`8.1.2-Jellyfin`), on *12 Marrow Larks*
+Measured in the sandbox with the node's own FFmpeg (`8.1.2-Jellyfin`), on a film
 (1080p H.264 in MP4, AAC sound), and played by hls.js in Playwright's Chromium and Firefox. The
 recipe D247 §10 is built from:
 
