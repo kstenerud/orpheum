@@ -208,6 +208,10 @@
 //     is ever compressed beside text a request chose (BREACH, D342).
 //     TestCompress_AListIsGzippedToAClientThatAcceptsIt, TestCompress_ASignInIsNeverGzipped and
 //     TestArch_NoCompressedOperationAnswersWithACredential.
+//   - Every operation answers a wrong credential, in its header, its media or viewer cookie or its
+//     viewer header, no better than none: a token no one was given, one off a live one, a signed-out,
+//     lapsed or removed person's session, or a device secret.
+//     TestCredentials_EveryOperationAnswersAWrongCredentialNoBetterThanNone.
 //
 // # Read before changing
 //

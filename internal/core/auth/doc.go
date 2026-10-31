@@ -200,6 +200,11 @@
 //   - An offer's key is its live session's hash, by its locator, or its live link's offer key; an
 //     ended one has none. TestOfferKey_IsALiveSessionsHashByItsLocatorOrALiveLinksKeyByItsHash.
 //
+//   - Every credential is checked for what it is, never for being there: a session, an invitation
+//     link, a paired device's secret and a hand-off's code each refuse one empty, well formed but
+//     no one's, one character off a live one, or of another kind the service issues.
+//     TestCredentials_EachCheckRefusesAWrongOneOfItsShapeAndEveryOtherKind.
+//
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.

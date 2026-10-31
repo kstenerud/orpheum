@@ -201,6 +201,11 @@
 //     TestLiveLinks_AreTheUnusedLinksAndEachMembershipDeviceIsFoundByItsLocator,
 //     TestLiveLocators_GoWithAMemberWhoLeaves, TestLiveLocators_EndWithTheSessionAndEachDeviceHasItsOwn
 //     and, through the wiring, TestLinksOf_TheDiscoveryFindsTheCoreByWatchTogethersLinksAndLocators.
+//   - A credential admits by what it is, never by being there: no membership is found, viewed,
+//     attached to, left or joined by one empty, no one's, one character off, of the other kind (a
+//     link's for a membership's and back), an ejected member's or an ended session's; a session and
+//     a cast are managed by their host alone, by ID. TestHub_NoCredentialButTheLiveOneItIsAdmitsAnyone,
+//     TestHub_OnlyItsHostManagesASessionByItsID, TestCast_OnlyItsSenderHasACredentialForItOrEndsIt.
 //
 // # Read before changing
 //
