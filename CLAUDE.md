@@ -34,7 +34,7 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   `scripts/gate_paths.py`.
 - **On cost** (docs/contributors/lead.md §1–2): the prompt hook shows the standing orders only when they
   changed or a compaction dropped them, and says when the context passes 120k; `pre_agent.py` refuses an
-  agent launch naming no model, or a fourth running; `on_tool_done.py` tells an agent past 150 tool calls
+  agent launch naming no model, a fourth running, or one that can edit without a worktree; `on_tool_done.py` tells an agent past 150 tool calls
   to commit, report and stop. `scripts/token_usage.py` is the ledger, read at a batch's end.
 - **Before a shell command**, `.claude/hooks/pre_bash.py` refuses commands that add a
   dependency, `--no-verify` or repointing `core.hooksPath`, force-pushes, and shell writes whose

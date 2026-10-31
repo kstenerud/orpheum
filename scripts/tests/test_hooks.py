@@ -250,6 +250,7 @@ class AgentLimits(unittest.TestCase):
         return directory
 
     def launch(self, records: Path, **tool_input: str) -> str:
+        tool_input = {"isolation": "worktree", **tool_input}
         return decision(run_hook("pre_agent.py", {"tool_name": "Agent", "tool_input": {"prompt": "x", **tool_input}},
                                  ORPHEUM_AGENTS_STATE_DIR=str(records)))
 
@@ -258,6 +259,14 @@ class AgentLimits(unittest.TestCase):
         self.assertEqual(self.launch(records), "deny")
         self.assertEqual(self.launch(records, model="sonnet"), "")
         self.assertEqual(self.launch(records, subagent_type="fork"), "")
+
+    def test_an_agent_that_can_edit_gets_a_worktree_and_a_reader_need_not(self):
+        records = self.records()
+        self.assertEqual(self.launch(records, model="sonnet", isolation=""), "deny")
+        self.assertEqual(self.launch(records, model="sonnet", subagent_type="general-purpose", isolation=""), "deny")
+        self.assertEqual(self.launch(records, subagent_type="fork", isolation=""), "deny")
+        self.assertEqual(self.launch(records, model="haiku", subagent_type="Explore", isolation=""), "")
+        self.assertEqual(self.launch(records, model="sonnet", isolation="worktree"), "")
 
     def test_a_fourth_agent_waits_for_one_of_three_running(self):
         import time
