@@ -25171,3 +25171,53 @@ have to order another yubikey. The system should allow adding and removing keys 
    every signature it did not expect; the install verifies before it runs anything; cores report their
    pinned root version in their heartbeat; a yearly drill exercises every key.
 9. **The online delegated key is not built** (F15); the format reserves its place.
+
+## D394 — Keys fit the threat: the paid service's by ceremony, a self-hoster's and staging's by software; keys suspend and resume; a guided tool runs the ceremony
+
+**Decided** (2026-10-31), by the project owner, amending D391 §8 and D393 §1 and §3, on the owner's
+reading of the signing guide ("the commands are complicated, and the steps assume knowledge I don't
+have") and the lead's proposals ("yes that sounds good"; "suspend/resume: yes, I want this"; "OK,
+agreed to your recommendations").
+
+1. **The threat sets the keys.** The paid service holds its users' credentials and directs every
+   player to a core, so its discovery and the publisher root keep D393 in full: hardware keys,
+   user-verified, a ceremony. A self-hoster's discovery protects much less; in the owner's words, a
+   taken VPS can redirect a household's players, "but it's just a video player", and reaching the core
+   is serious only through a shell-escalating kernel flaw. Its keys are software keys, listed without
+   `uv` (D393 §3 applies to the paid service's root and the publisher's alone).
+2. **A self-hoster's discovery is signed by the home core** (amends D391 §8). An own discovery exists
+   so a self-hoster can give their core a public face on a cheap VPS; a LAN-only household needs
+   none. The core makes the discovery's key at setup, signs its genesis and address documents itself
+   and sends the signed files to the VPS, which serves them and holds no key, as connect serves the
+   owner's. No ceremony and no YubiKey; a hardware recovery key may be added later. The self-hoster's
+   guide says what the chain does not protect: browsers and TVs do not check it, so a taken VPS can
+   still show a false sign-in page or go dark. How the core sends the files is designed when this is
+   built (not in the 11-01 batch).
+3. **Staging has its own software chain, for good.** Staging's discovery (`orpheum.dev`, D390) is a
+   discovery like a self-hoster's: its keys are files made by the tool, kept out of every repository,
+   and its cores enrol with its identity as any core does. Production builds trust only the compiled
+   publisher root and production cores only the discovery they enrolled with, so a leaked staging key
+   reaches staging alone. It is the guided tool's first real run.
+4. **A key can be suspended and resumed** (amends D393 §1). A root statement may mark a key
+   suspended: its signatures count for nothing until a later statement resumes it, and the set
+   without it must still sign as D393 §1 asks of a key leaving. An everyday key may suspend an
+   everyday key; a recovery key may suspend any key; **only a recovery key resumes one**, so a thief
+   holding a carried key and its PIN cannot undo its suspension, nor suspend the recovery keys that
+   would. A lost key that is found is resumed rather than replaced (a YubiKey locks after eight wrong
+   PINs). Removal stays for good.
+5. **A guided tool runs every ceremony.** `discovery-sign ceremony` (and its siblings for rotation,
+   suspension, resumption and signing a release) asks plain questions, runs `ssh-keygen` itself, names
+   and files everything, and checks each step with the code a core uses before the next. The owner
+   types no flag. `cmd/discovery-sign` alone may start `ssh-keygen` (a forbidigo exclusion). The
+   signing guide is rewritten in plain language around the tool, each step saying what it protects
+   against.
+6. **The owner's signing records live in their own private repository** (`orpheum-security`): the
+   ledger, the public keys and the attestations. Nothing in it is secret; what matters is that it is
+   neither lost nor changed. It starts in the sandbox's shared files, and the owner moves it out.
+7. **The Mac may be an everyday key** through its Secure Enclave (`sk-ecdsa`, Touch ID), if a test on
+   the Mac shows its signatures carry the user-verified flag; otherwise a YubiKey takes its place.
+8. **The release workflow writes the record; the owner signs it.** After the owner approves a
+   release, the workflow adds it to the current record with the digest of the image it built, marks
+   it a security fix when the tag message has a `Security: <what it fixes>` line, and attaches the
+   unsigned record to the run. The owner signs it on the Mac with the guided tool, which checks it and
+   writes the files to publish. The step does nothing until a publisher root exists.

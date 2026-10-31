@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A56 — Said a self-hoster's discovery chain protects nothing, without asking what the one-core discovery is for (2026-10-31)
+
+- **What happened:** asked what a self-hoster's chain is for, the lead answered that a discovery
+  inside the core checks its own signature, so a chain protects nothing, and proposed dropping it.
+  The one-core discovery exists for the opposite case: a public face on a cheap VPS, the exposed
+  machine, where a chain held by the home core is exactly what protects the core. The lead had
+  assumed the deployment instead of reading D391 §8's purpose or asking.
+- **Caught by:** the owner ("The idea behind the one-core discovery is so that users can host their
+  own public internet interface to their core").
+- **Gate:** none possible; D394 §2 now states the purpose. The lesson: before judging a design's
+  worth, state where it runs and what it is for, and ask when that is not written down.
+
 ### A55 — Told the owner the session could not edit gates, without checking its environment (2026-10-31)
 
 - **What happened:** preparing a handoff, the lead deferred the token-use gate patch to the next
