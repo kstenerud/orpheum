@@ -5,16 +5,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
+import { playbackFailureText } from "./film-player.tsx";
 import {
   ladderAudioRenditionIndex,
+  ladderSoundLevel,
   ladderStartingAudio,
-  playbackFailureText,
   soundChoiceCause,
-} from "./film-player.tsx";
-import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
+} from "./ladder-sound.ts";
+import { PlayView, positionToMoveFrom } from "./play.tsx";
 import { playUp, playUpward } from "./play-up.tsx";
 import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
-import { directDecision } from "./test-fixtures.ts";
+import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
 import { testServices, withServices } from "./test-services.tsx";
 
@@ -176,7 +177,13 @@ describe("playing a file", () => {
   });
 
   it("plays a ladder's sound by its place among the ladder's sounds, each track's standard mix then its boosted one", () => {
-    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const converted = {
+      codec: "aac",
+      channelCount: 2,
+      kbps: 128,
+      isOriginal: false,
+      ...unmeasuredSound,
+    };
     const { tracks } = directDecision({
       tracks: {
         ...directDecision().tracks,

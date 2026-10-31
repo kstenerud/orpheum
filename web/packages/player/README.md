@@ -150,7 +150,15 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   making it, and the new one is heard from that chunk once it has loaded, each choice noted with its
   cause and again as it is heard; a boost turned on at the top of a film's ladder, the sound loaded
   thrown away, froze it 2.2 s (staging, 2026-10-29) (`keepAudioRendition`, `src/hls.ts`; D368's
-  revision of 2026-10-28; idiosyncrasies.md). `hls.test.ts`.
+  revision of 2026-10-28; idiosyncrasies.md). Another audio track chosen goes the same way, and a
+  choice's `onHeard` is told only once its sound switched in, so a gain of its own is applied then,
+  never to the old sound still playing; the element's own HLS says it cannot switch in place
+  (`canSwitchSoundInPlace`), and the page asks again (audio-switch-and-retiming-2026-11-01.md §1.2).
+  `hls.test.ts`.
+- **A file played as it is switches its own track in place only where the element lists its
+  tracks** (`audioTracks`, Safari's; Chrome and Firefox keep it behind a flag), found by the
+  feature, never the browser's name (`switchOwnTrack`, `src/own-tracks.ts`; the owner's answers of
+  2026-10-31). `own-tracks.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and
   plays on after a seek, only once what it loaded ahead, picture and sound both, outlasts its next
   chunk's expected load by `ready_ahead_of_next_chunk_percent` (150 to start)** (the owner,

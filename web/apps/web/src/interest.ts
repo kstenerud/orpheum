@@ -10,6 +10,11 @@ import type { Api } from "@orpheum/sdk";
 export interface SaidInterest {
   readonly positionMs: number;
   readonly isPaused: boolean;
+  /**
+   * The sound it plays, by the stream its tracks name it: said by a player off the ladder that
+   * switched its file's track in place, whose stall's offer then starts that sound.
+   */
+  readonly soundStream?: string;
 }
 
 /**

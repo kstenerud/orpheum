@@ -34,7 +34,7 @@ func TestTracks_OnTheLadderAreTheFilmsOwnPictureAndConvertedQualitiesAndSounds(t
 			{Kind: nodeproto.StreamPicture},
 			{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 2000, Height: 540}},
 		},
-		SoundKbps: 96, OwnPictureKbps: 2205,
+		SoundKbps: 96, OwnPictureKbps: 2205, Sounds: ladderSounds(),
 	}}
 	service := &Service{offers: fake}
 	tracks, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(), Started{OnLadder: &chunks.Offer{}})
@@ -45,9 +45,16 @@ func TestTracks_OnTheLadderAreTheFilmsOwnPictureAndConvertedQualitiesAndSounds(t
 		{Stream: "picture", Codec: "hevc", Width: 1920, Height: 696, Kbps: 2205, IsOriginal: true},
 		{Stream: "q2000k540p", Codec: "h264", Width: 1490, Height: 540, Kbps: 2000},
 	}
+	levelled := decide.Levelling{IsMeasured: true, GainDB: -3.5}
 	wantSounds := []SoundTrack{
-		{AudioTrackIndex: 0, Codec: "aac", ChannelCount: 2, Kbps: 96},
-		{AudioTrackIndex: 0, IsBoosted: true, Codec: "aac", ChannelCount: 2, Kbps: 96},
+		{
+			AudioTrackIndex: 0, Codec: "aac", ChannelCount: 2, Kbps: 96, Stream: "sound0-96k",
+			Levelling: levelled, CarriedGainDB: -3.5,
+		},
+		{
+			AudioTrackIndex: 0, IsBoosted: true, Codec: "aac", ChannelCount: 2, Kbps: 96, Stream: "sound0-boost-96k",
+			Levelling: levelled, CarriedGainDB: -3.5,
+		},
 	}
 	if !reflect.DeepEqual(tracks.Pictures, wantPictures) || !reflect.DeepEqual(tracks.Sounds, wantSounds) {
 		t.Errorf("tracks on the ladder = %+v, %+v; want %+v, %+v",
@@ -70,7 +77,14 @@ func TestTracks_TheTopNamesTheFilmsOwnSoundItPlaysCopied(t *testing.T) {
 			{Kind: nodeproto.StreamPicture},
 			{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 2000, Height: 540}},
 		},
-		SoundKbps: 96, OwnPictureKbps: 2205, CopiedTracks: []int{0},
+		SoundKbps: 96, OwnPictureKbps: 2205, CopiedTracks: []int{0}, Sounds: ladderSounds(),
+		TopSounds: []chunks.OfferedSound{
+			{
+				Stream: chunks.Stream{Kind: nodeproto.StreamSoundCopied},
+				Level:  chunks.SoundLevel{Levelling: decide.Levelling{IsMeasured: true, GainDB: -6}},
+			},
+			ladderSounds()[1],
+		},
 	}}
 	service := &Service{offers: fake}
 	tracks, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(), Started{OnLadder: &chunks.Offer{}})
@@ -78,8 +92,14 @@ func TestTracks_TheTopNamesTheFilmsOwnSoundItPlaysCopied(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantTop := []SoundTrack{
-		{AudioTrackIndex: 0, Codec: "eac3", ChannelCount: 6, IsOriginal: true},
-		{AudioTrackIndex: 0, IsBoosted: true, Codec: "aac", ChannelCount: 2, Kbps: 96},
+		{
+			AudioTrackIndex: 0, Codec: "eac3", ChannelCount: 6, IsOriginal: true, Stream: "sound0-own",
+			Levelling: decide.Levelling{IsMeasured: true, GainDB: -6},
+		},
+		{
+			AudioTrackIndex: 0, IsBoosted: true, Codec: "aac", ChannelCount: 2, Kbps: 96, Stream: "sound0-boost-96k",
+			Levelling: decide.Levelling{IsMeasured: true, GainDB: -3.5}, CarriedGainDB: -3.5,
+		},
 	}
 	if len(tracks.Pictures) != 2 || !reflect.DeepEqual(tracks.Pictures[0].Sounds, wantTop) ||
 		tracks.Pictures[1].Sounds != nil || len(tracks.Sounds) != 2 || tracks.Sounds[0].IsOriginal {
@@ -107,7 +127,75 @@ func TestTracks_OffTheLadderAreTheFilesOwn(t *testing.T) {
 	}
 	if !reflect.DeepEqual(direct.Pictures, []PictureTrack{
 		{Codec: "hevc", Width: 1920, Height: 696, Kbps: 2600, IsOriginal: true},
-	}) || !reflect.DeepEqual(direct.Sounds, []SoundTrack{{Codec: "eac3", ChannelCount: 6, IsOriginal: true}}) {
+	}) || !reflect.DeepEqual(direct.Sounds, []SoundTrack{
+		{Codec: "eac3", ChannelCount: 6, IsOriginal: true, Stream: "sound0-own"},
+	}) {
 		t.Errorf("tracks played as they are = %+v, %+v", direct.Pictures, direct.Sounds)
+	}
+}
+
+// ladderSounds are scopeFilm's sounds on its ladder, its 5.1 track's standard mix and boosted one,
+// made levelled, carrying the stereo mix's -3.5 dB.
+func ladderSounds() []chunks.OfferedSound {
+	level := chunks.SoundLevel{Levelling: decide.Levelling{IsMeasured: true, GainDB: -3.5}, CarriedGainDB: -3.5}
+	return []chunks.OfferedSound{
+		{Stream: chunks.Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}, Level: level},
+		{Stream: chunks.Stream{Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96}, Level: level},
+	}
+}
+
+// twoTrackFilm is a film of two audio tracks, a 5.1 one first, the main, and a stereo one, each
+// measured: the first louder as it is than the second by 4 dB.
+func twoTrackFilm() (nodeproto.Probe, decide.Levels) {
+	probe := scopeFilm()
+	stereo := nodeproto.ProbeAudio{ChannelCount: 2}
+	probe.Streams = append(probe.Streams,
+		nodeproto.ProbeStream{StreamIndex: 2, Kind: "audio", Codec: "aac", Audio: stereo})
+	return probe, decide.Levels{
+		{StreamIndex: 1, Mix: decide.MixMultichannel}: {IsMeasured: true, GainDB: -6},
+		{StreamIndex: 1, Mix: decide.MixStereo}:       {IsMeasured: true, GainDB: -3.5},
+		{StreamIndex: 2, Mix: decide.MixStereo}:       {IsMeasured: true, GainDB: -2},
+	}
+}
+
+// A playback starting on a track other than the main one is levelled by that track's own gain, as it
+// is, never the main track's, wrong by the difference between the two tracks' loudness; one naming
+// no track, by the main one's (audio-switch-and-retiming-2026-11-01.md §1.1).
+func TestStartingLevelling_IsTheStartingTracksOwnNotTheMainTracks(t *testing.T) {
+	t.Parallel()
+	probe, levels := twoTrackFilm()
+	second := &AudioTrack{AudioTrackIndex: 1, StreamIndex: 2}
+	if got := startingLevelling(levels, probe, second); got != (decide.Levelling{IsMeasured: true, GainDB: -2}) {
+		t.Errorf("starting on the second track: %+v; want its own -2 dB, not the main track's -6", got)
+	}
+	if got := startingLevelling(levels, probe, nil); got != (decide.Levelling{IsMeasured: true, GainDB: -6}) {
+		t.Errorf("starting on no track named: %+v; want the main 5.1 track's -6 dB as it is", got)
+	}
+}
+
+// Off the ladder, each of the file's own tracks says its stream, as its sound copied is named, and its
+// own levelling as it is, so a track switched to in place by the element is levelled by its own
+// (audio-switch-and-retiming-2026-11-01.md §1.2, the owner's answers of 2026-10-31).
+func TestTracks_OffTheLadderEachTrackIsLevelledByItsOwn(t *testing.T) {
+	t.Parallel()
+	probe, levels := twoTrackFilm()
+	service := &Service{}
+	direct, err := service.tracksOf(t.Context(), tokenPlayback{}, probe,
+		Started{Decision: decide.Decision{Delivery: decide.Direct}, levels: levels})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []SoundTrack{
+		{
+			Codec: "eac3", ChannelCount: 6, IsOriginal: true, Stream: "sound0-own",
+			Levelling: decide.Levelling{IsMeasured: true, GainDB: -6},
+		},
+		{
+			AudioTrackIndex: 1, Codec: "aac", ChannelCount: 2, IsOriginal: true, Stream: "sound1-own",
+			Levelling: decide.Levelling{IsMeasured: true, GainDB: -2},
+		},
+	}
+	if !reflect.DeepEqual(direct.Sounds, want) {
+		t.Errorf("the file's own tracks = %+v; want each levelled by its own", direct.Sounds)
 	}
 }

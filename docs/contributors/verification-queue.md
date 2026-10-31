@@ -1988,3 +1988,30 @@ An item is ticked only by the person who did it, and only with what they saw.
   used and no link of it shows. Withdraw another invitation: it and its links are gone. Then on the
   S23's Chrome, Copy on a waiting invitation copies its link too. (`web/apps/web/src/people.tsx`,
   `share.tsx`; `internal/core/auth/invitations.go`)
+- [ ] **VQ204** — another audio track chosen mid-film switches without stopping the picture, on
+  staging, on the Mac's Chrome and on the Fire TV. A film of two or more audio tracks on its ladder
+  (the tracks note says "transcoded" or names the top's own sound), playing a minute in. Choose the
+  other track in the audio menu, then the first again; on the Fire TV, choose it from its cast's
+  remote as well. Passes when the picture never stops or goes black, the old language plays on for
+  about one to three seconds and the new one cuts in, the URL and the position stay as they were (no
+  reload: the core's log has no second `POST /playback` with cause `audioChosen`), and the player's
+  notes say `sound N chosen (trackChosen)` then `sound N heard (trackChosen)`. Note whether the cut
+  between a copied 5.1 track and a made stereo mix, or AC-3 and AAC, is clean on each device. In a
+  Watch Together session, the leader's choice leaves the guests' films playing undisturbed.
+  (`web/apps/web/src/play.tsx`, `film-player.tsx`; `web/packages/player/src/hls.ts`)
+- [ ] **VQ205** — a film started on a track other than its main one plays at that track's own
+  loudness, on staging. A file whose second track is much quieter or louder than its first, measured
+  (its levelling note gives a number): choose the second track, then reopen the film so it starts on
+  it. Passes when the levelling note under the film names the second track's gain, not the first's
+  (the core's playback answer's `tracks.sounds[*].levelling` differs by track), and switching to the
+  first track in place changes the note, and the loudness, only once the first track is heard.
+  (`internal/core/playback/playback.go` `startingLevelling`, `internal/core/chunks/ownsound.go`
+  `soundLevelOf`)
+- [ ] **VQ206** — Safari switches a file played as it is between its own tracks in place, on the
+  Mac's Safari. A file of two audio tracks Safari plays as it is (the tracks note says "original"),
+  chosen to play as the original. Choose the other track. Passes when the picture plays on and the new
+  track is heard at once, the page does not reload (no second `POST /playback`), and the core's log
+  has the interest's sound `sound1-own`; then throttle the link until it stalls: the lower quality it
+  is offered plays the track chosen, not the first. On Chrome the same choice moves the film onto its
+  ladder once, as before. (`web/packages/player/src/own-tracks.ts`, `web/apps/web/src/play.tsx`
+  `DirectUnder`)

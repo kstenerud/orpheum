@@ -76,6 +76,18 @@ func DirectLevelling(levels Levels, probe nodeproto.Probe) Levelling {
 	return asItIs(levels, main)
 }
 
+// AsItIsLevelling is the levelling of a file's audio track, by its place among its audio tracks,
+// played as it is: what a track copied, or a mix made as loud as it (D368 §1), is brought to by its
+// player; none for a place it lacks. A playback that starts on a track other than the main one is
+// levelled by that track's own, never the main track's (audio-switch-and-retiming-2026-11-01.md §1.2).
+func AsItIsLevelling(levels Levels, probe nodeproto.Probe, audioTrackIndex int) Levelling {
+	tracks := AudioStreams(probe)
+	if audioTrackIndex < 0 || audioTrackIndex >= len(tracks) {
+		return Levelling{}
+	}
+	return asItIs(levels, tracks[audioTrackIndex])
+}
+
 // asItIs is the levelling of an audio track played as it is: as its multichannel sound when it has
 // more than two channels, which the device mixes down itself, else as stereo.
 func asItIs(levels Levels, track nodeproto.ProbeStream) Levelling {

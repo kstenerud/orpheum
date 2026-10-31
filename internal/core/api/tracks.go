@@ -35,6 +35,12 @@ type SoundTrackBody struct {
 	ChannelCount    int    `json:"channelCount"`
 	Kbps            int64  `doc:"Its rate; 0 when not known, as a file's own is not" json:"kbps"`
 	IsOriginal      bool   `doc:"Whether it is the file's own, played as it is" json:"isOriginal"`
+	//nolint:lll // one struct tag
+	Stream string `doc:"Its stream, as the master playlist names it; off the ladder, the file's own track as its sound copied is named, which a player switching to it in place says it plays" json:"stream"`
+	//nolint:lll // one struct tag
+	Levelling LevellingBody `doc:"What brings it to the level, its own track's (D226): a sound switched to in place is levelled by its own" json:"levelling"`
+	//nolint:lll // one struct tag
+	CarriedGainDB float64 `doc:"The levelling gain its chunks carry already, which its player does not add again (D226 §4)" json:"carriedGainDb"`
 }
 
 // FilePictureBody is the file's own picture.
@@ -59,6 +65,7 @@ func soundTrackBodies(sounds []playback.SoundTrack) []SoundTrackBody {
 		bodies = append(bodies, SoundTrackBody{
 			AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted, Codec: sound.Codec,
 			ChannelCount: sound.ChannelCount, Kbps: sound.Kbps, IsOriginal: sound.IsOriginal,
+			Stream: sound.Stream, Levelling: levellingBody(sound.Levelling), CarriedGainDB: sound.CarriedGainDB,
 		})
 	}
 	return bodies

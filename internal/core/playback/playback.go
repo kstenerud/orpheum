@@ -174,8 +174,8 @@ type Started struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative; 0 for none, and for a viewer with no device.
 	SoundOffsetMs int64
-	// Levelling is what brings the main sound, played as it is, to the level (D226); a sound on the
-	// ladder carries its own gain (chunks.Offer.SoundCarriedGainDB).
+	// Levelling is what brings the starting track's sound, played as it is, to the level (D226); each
+	// of its sounds says its own beside it (Tracks), which a player levels the sound it hears by.
 	Levelling decide.Levelling
 	// FileBitRateBps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when the probe has none.
@@ -199,6 +199,8 @@ type Started struct {
 	RememberedLink RememberedLink
 	// Tracks are what the playback may play and what the file holds, which its player names.
 	Tracks Tracks
+	// levels are the film's measured loudness, which each of its sounds is levelled by (Tracks).
+	levels decide.Levels
 }
 
 // RememberedLink is the link a player last measured on a network, as its next playback there starts
@@ -367,7 +369,7 @@ func (service *Service) issueToken(playback tokenPlayback, idle time.Duration) (
 }
 
 // startingPoint is where a playback of file starts, in started, its resume position and the
-// levelling of the sound played as it is.
+// levelling of its starting track played as it is.
 func (service *Service) startingPoint(
 	ctx context.Context, userID int64, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, started *Started,
 ) error {
@@ -380,8 +382,20 @@ func (service *Service) startingPoint(
 	if err != nil {
 		return err
 	}
-	started.Levelling = decide.DirectLevelling(levels, probe)
+	started.levels = levels
+	started.Levelling = startingLevelling(levels, probe, started.StartingAudio)
 	return nil
+}
+
+// startingLevelling is the levelling of the sound a playback starts with, played as it is: its
+// starting track's own, the main track's where it names none. A playback starting on another track
+// was levelled by the main track's gain, wrong by the difference between the two tracks' loudness
+// (audio-switch-and-retiming-2026-11-01.md §1.1).
+func startingLevelling(levels decide.Levels, probe nodeproto.Probe, starting *AudioTrack) decide.Levelling {
+	if starting == nil {
+		return decide.DirectLevelling(levels, probe)
+	}
+	return decide.AsItIsLevelling(levels, probe, starting.AudioTrackIndex)
 }
 
 // ladderLookEvery is how often a playback of a film not cut yet looks again for its keyframes,

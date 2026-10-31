@@ -4711,6 +4711,11 @@ export interface components {
         SoundTrackBody: {
             /** Format: int64 */
             audioTrackIndex: number;
+            /**
+             * Format: double
+             * @description The levelling gain its chunks carry already, which its player does not add again (D226 §4)
+             */
+            carriedGainDb: number;
             /** Format: int64 */
             channelCount: number;
             /** @description ffprobe's name for it: aac, eac3, opus ... */
@@ -4724,6 +4729,10 @@ export interface components {
              * @description Its rate; 0 when not known, as a file's own is not
              */
             kbps: number;
+            /** @description What brings it to the level, its own track's (D226): a sound switched to in place is levelled by its own */
+            levelling: components["schemas"]["LevellingBody"];
+            /** @description Its stream, as the master playlist names it; off the ladder, the file's own track as its sound copied is named, which a player switching to it in place says it plays */
+            stream: string;
         };
         SpanBody: {
             /** Format: int64 */

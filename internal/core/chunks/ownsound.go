@@ -66,10 +66,75 @@ func (offered offer) soundOf(picture Stream, sound Sound) Stream {
 	return offered.madeSound(sound)
 }
 
-// startingSoundOf is the stream of the sound the playback starts with on picture: its starting
-// track's standard sound, as picture plays it (soundOf).
-func (offered offer) startingSoundOf(playback Playback, picture Stream) Stream {
+// playingSoundOf is the stream of the sound the playback plays on picture, as picture plays it
+// (soundOf): the sound its player last asked for or said it plays (Playback.PlayingSound), where it
+// is one the offer has; else its starting track's standard sound. A track chosen as the film plays
+// is switched in place, so a stall's offer, and the master playlist a player moving to it reads,
+// start the sound playing, not the one the playback started with
+// (audio-switch-and-retiming-2026-11-01.md §1.2).
+func (offered offer) playingSoundOf(playback Playback, picture Stream) Stream {
+	if stream, isStream := StreamNamed(playback.PlayingSound); isStream {
+		playing := Sound{AudioTrackIndex: stream.AudioTrackIndex, IsBoosted: stream.IsBoosted}
+		isSound := stream.Kind == nodeproto.StreamSound || stream.Kind == nodeproto.StreamSoundCopied
+		if isSound && slices.ContainsFunc(offered.sounds, func(sound Sound) bool {
+			return sound.AudioTrackIndex == playing.AudioTrackIndex && sound.IsBoosted == playing.IsBoosted
+		}) {
+			return offered.soundOf(picture, playing)
+		}
+	}
 	return offered.soundOf(picture, Sound{AudioTrackIndex: playback.StartingAudioTrackIndex})
+}
+
+// isPlayingTrack is whether sound is the standard sound of the track the playback plays now
+// (playingSoundOf), its master playlist's default.
+func (offered offer) isPlayingTrack(playback Playback, sound Sound) bool {
+	if sound.IsBoosted || !playback.HasStartingAudio {
+		return false
+	}
+	playing := offered.playingSoundOf(playback, Stream{Kind: nodeproto.StreamQuality})
+	return playing.AudioTrackIndex == sound.AudioTrackIndex
+}
+
+// SoundLevel is what levels one of a playback's sounds as its player plays it (D226 §4): the
+// levelling its player wants for it, and the gain its chunks carry already, which the player does not
+// add again.
+type SoundLevel struct {
+	Levelling     decide.Levelling
+	CarriedGainDB float64
+}
+
+// OfferedSound is one of the sounds a playback is offered in an audio group: its stream, and what
+// levels it.
+type OfferedSound struct {
+	Stream Stream
+	Level  SoundLevel
+}
+
+// soundLevelOf is what levels a sound stream of the film (SoundLevel): a track copied, or a mix made
+// as loud as it, wants the track's own levelling and carries none (D368 §1); a mix made unlevelled
+// wants its stereo levelling and carries none; a mix made levelled carries its stereo levelling
+// (D226 §4). Each sound its own track's, never the main track's, so a track switched to in place plays
+// at its own level.
+func soundLevelOf(levels decide.Levels, probe nodeproto.Probe, stream Stream) SoundLevel {
+	switch {
+	case stream.Kind == nodeproto.StreamSoundCopied || stream.IsAtOwnLevel:
+		return SoundLevel{Levelling: decide.AsItIsLevelling(levels, probe, stream.AudioTrackIndex)}
+	case stream.IsUnlevelled:
+		return SoundLevel{Levelling: decide.StereoLevelling(levels, probe, stream.AudioTrackIndex)}
+	default:
+		stereo := decide.StereoLevelling(levels, probe, stream.AudioTrackIndex)
+		return SoundLevel{Levelling: stereo, CarriedGainDB: stereo.GainDB}
+	}
+}
+
+// offeredSoundsOn are the film's sounds picture plays, in SoundsOf's order, each with what levels it.
+func (offered offer) offeredSoundsOn(levels decide.Levels, probe nodeproto.Probe, picture Stream) []OfferedSound {
+	sounds := make([]OfferedSound, 0, len(offered.sounds))
+	for _, sound := range offered.sounds {
+		stream := offered.soundOf(picture, sound)
+		sounds = append(sounds, OfferedSound{Stream: stream, Level: soundLevelOf(levels, probe, stream)})
+	}
+	return sounds
 }
 
 // hasPicturesOwnGroup is whether picture plays sounds of its own, the top playing a track copied,
@@ -95,13 +160,13 @@ func (film cutFilm) soundKbpsOf(stream Stream) int {
 	return unknownOwnSoundKbpsPerChannel * max(1, track.Audio.ChannelCount)
 }
 
-// soundKbpsWith is the rate of the sound picture starts with, the default of its audio group, which
+// soundKbpsWith is the rate of the sound picture plays, the default of its audio group, which
 // its master playlist adds to its own: chunk_sound_kbps for a film with no sound, as for any made.
 func (film cutFilm) soundKbpsWith(offered offer, playback Playback, picture Stream) int {
 	if !playback.HasStartingAudio {
 		return offered.soundKbps
 	}
-	return film.soundKbpsOf(offered.startingSoundOf(playback, picture))
+	return film.soundKbpsOf(offered.playingSoundOf(playback, picture))
 }
 
 // channelsOf is how many channels a sound stream plays: a copied track's own, a made mix's two.

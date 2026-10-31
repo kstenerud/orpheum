@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { unmeasuredSound } from "./test-fixtures.ts";
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,6 +29,7 @@ const scopeFilm = {
       channelCount: 2,
       kbps: 96,
       isOriginal: false,
+      ...unmeasuredSound,
     },
     {
       audioTrackIndex: 0,
@@ -36,6 +38,7 @@ const scopeFilm = {
       channelCount: 2,
       kbps: 96,
       isOriginal: false,
+      ...unmeasuredSound,
     },
   ],
   filePicture: { codec: "hevc", width: 1920, height: 696 },
@@ -74,6 +77,7 @@ describe("the tracks a film plays (the owner, 2026-10-20)", () => {
       channelCount: 6,
       kbps: 0,
       isOriginal: true,
+      ...unmeasuredSound,
     };
     const tracks = {
       ...scopeFilm,
@@ -115,6 +119,7 @@ describe("the tracks a film plays (the owner, 2026-10-20)", () => {
               channelCount: 2,
               kbps: 0,
               isOriginal: true,
+              ...unmeasuredSound,
             },
           ],
           filePicture: { codec: "h264", width: 1280, height: 720 },

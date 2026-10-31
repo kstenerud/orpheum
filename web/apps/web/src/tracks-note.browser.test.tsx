@@ -6,6 +6,7 @@
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx), and the player's rules.
+import { unmeasuredSound } from "./test-fixtures.ts";
 import "./tokens.css";
 import "./base.css";
 import "./play.css";
@@ -28,6 +29,7 @@ const filmAsItIs = {
       channelCount: 2,
       kbps: 0,
       isOriginal: true,
+      ...unmeasuredSound,
     },
   ],
   filePicture: { codec: "h264", width: 1920, height: 1036 },

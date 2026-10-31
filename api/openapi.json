@@ -6849,6 +6849,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "carriedGainDb": {
+            "description": "The levelling gain its chunks carry already, which its player does not add again (D226 §4)",
+            "format": "double",
+            "type": "number"
+          },
           "channelCount": {
             "format": "int64",
             "type": "integer"
@@ -6869,6 +6874,14 @@
             "description": "Its rate; 0 when not known, as a file's own is not",
             "format": "int64",
             "type": "integer"
+          },
+          "levelling": {
+            "$ref": "#/components/schemas/LevellingBody",
+            "description": "What brings it to the level, its own track's (D226): a sound switched to in place is levelled by its own"
+          },
+          "stream": {
+            "description": "Its stream, as the master playlist names it; off the ladder, the file's own track as its sound copied is named, which a player switching to it in place says it plays",
+            "type": "string"
           }
         },
         "required": [
@@ -6877,7 +6890,10 @@
           "codec",
           "channelCount",
           "kbps",
-          "isOriginal"
+          "isOriginal",
+          "stream",
+          "levelling",
+          "carriedGainDb"
         ],
         "type": "object"
       },

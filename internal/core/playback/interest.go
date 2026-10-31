@@ -114,8 +114,7 @@ func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	var interests []chunks.Interest
 	for _, playback := range service.tokens.playbackByToken {
 		interest := playback.interest
-		isLapsed := interest.disposition == Playing && now.Sub(playback.lastUsedAt) > lapsesAfter
-		if playback.fileID != fileID || interest.disposition == Replaced || isLapsed {
+		if !playback.wantsChunksOf(fileID, now, lapsesAfter) {
 			continue
 		}
 		isStopped := interest.disposition != Playing
@@ -327,4 +326,21 @@ func (times keeping) tierOf(disposition Disposition, silentFor time.Duration) no
 		return nodeproto.KeepMaybe
 	}
 	return nodeproto.KeepUnlikely
+}
+
+// wantsChunksOf is whether the playback wants any of fileID's chunks at now: not gone to another
+// film, nor silent while playing for lapsesAfter (D309 §3), nor playing the file as it is, having
+// asked for none of its chunks, whose sound said, a track switched to in place, is the one a stall's
+// offer starts (chunks' playingSoundOf).
+func (playback *tokenPlayback) wantsChunksOf(fileID int64, now time.Time, lapsesAfter time.Duration) bool {
+	disposition := playback.interest.disposition
+	isLapsed := disposition == Playing && now.Sub(playback.lastUsedAt) > lapsesAfter
+	return playback.fileID == fileID && disposition != Replaced && !isLapsed && !playback.playsTheFileAsItIs()
+}
+
+// playsTheFileAsItIs is whether the playback plays its file as it is: not on its film's ladder, offered
+// no lower quality, and its player has asked for none of its chunks.
+func (playback *tokenPlayback) playsTheFileAsItIs() bool {
+	return !playback.isOnLadder && playback.offer == nil && playback.interest.pictureDir == "" &&
+		playback.interest.soundDir == ""
 }
