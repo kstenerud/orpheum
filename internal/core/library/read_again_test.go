@@ -325,3 +325,48 @@ func TestDerivedFromProbe_EachThingDeclaresItsFactsAndOneWayToThrowItOut(t *test
 		t.Errorf("an ingest given every dropper is without %v; want none", unwired)
 	}
 }
+
+// A full rescan has its node check every chunk of the stores of each video it reads again against its
+// record, and counts what the node dropped in its totals, logging at warn each file whose chunks were
+// missing or damaged; an ordinary scan, even of a file changed on disk, checks nothing (D392 §4, §5).
+func TestScans_AFullRescanHasItsNodeCheckTheChunksOfEachVideoItReadsAgain(t *testing.T) {
+	t.Parallel()
+	bench, _, logged := fullScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{probedRecord("clip.mp4", "clip", filmProbe())}, true)
+	fileID := bench.liveFilesByPath()[root+"/clip.mp4"].ID
+	bench.requestUnder(wholeRoot)
+	bench.list(listedFile("clip.mp4", int64(len("clip")), 2))
+	if _, files := bench.examine(); len(files) != 1 || files[0].ChecksChunksOf != 0 {
+		t.Errorf("an ordinary scan of a file changed on disk reads %+v; want it read, its chunks not checked", files)
+	}
+	bench.examineAs(probedRecord("clip.mp4", "clip", filmProbe()))
+	err := bench.scans.RequestReadingAgain(t.Context(), bench.nodeID, root, wholeRoot, readEverythingAgain(),
+		jobs.PriorityPersonsRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bench.list(listedFile("clip.mp4", int64(len("clip")), 2))
+	if _, files := bench.examine(); len(files) != 1 || files[0].ChecksChunksOf != fileID {
+		t.Fatalf("a full rescan reads %+v; want clip.mp4 read and file %d's chunks checked", files, fileID)
+	}
+	logged.Reset()
+	bench.examineAs(probedRecord("clip.mp4", "clip", filmProbe()), nodeproto.ScanRecord{
+		Type: nodeproto.RecordChunksChecked, ChunksChecked: &nodeproto.ChunksChecked{
+			FileID: fileID, CheckedCount: 40, Dropped: []nodeproto.DroppedChunk{
+				{StoreDir: "1/chunks-picture/0123456789abcdef", Name: "00003.m4s", FileCount: 1, Why: "truncated"},
+				{StoreDir: "1/chunks-sound1/0123456789abcdef", FileCount: 12, Why: "made before"},
+			},
+		},
+	})
+	lines := logged.String()
+	for _, said := range []string{
+		`"level":"WARN"`, `"msg":"chunks of a file read again were missing or damaged; they are dropped and made ` +
+			`again when asked for"`, `"droppedCount":13`, `1/chunks-picture/0123456789abcdef/00003.m4s: truncated`,
+		`"msg":"a scan compared the files it read again with what was kept"`, `"chunksCheckedCount":40`,
+		`"chunksDroppedCount":13`,
+	} {
+		if !strings.Contains(lines, said) {
+			t.Errorf("the log does not say %s:\n%s", said, lines)
+		}
+	}
+}

@@ -127,6 +127,10 @@ func (evictingShelf) EvictUnfinished() ([]string, error) { return nil, nil }
 
 func (evictingShelf) SetStoreTiers(map[string]nodeproto.KeepTier) {}
 
+func (evictingShelf) CheckStoresOf(_ context.Context, fileID int64) nodeproto.ChunksChecked {
+	return nodeproto.ChunksChecked{FileID: fileID}
+}
+
 // A run adds to the prepared directory, so once it ends the directory is brought back within its
 // budget then, not only when the next run makes room (D217 §5).
 func TestAgent_AFinishedRunKeepsThePreparedDirectoryWithinItsBudget(t *testing.T) {

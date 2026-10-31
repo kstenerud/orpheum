@@ -33,6 +33,10 @@
 //     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
 //   - Each hello evicts the makings in the prepared directory that never finished, and what a
 //     whole-film prepare left (D238 §2, D344 §1). TestAgent_EachHelloEvictsTheMakingsThatNeverFinished.
+//   - An examining checks, after reading its files, the stores of chunks of each video a full rescan
+//     names (ExamineFile.ChecksChunksOf) against their records, through the prepared shelf, which drops
+//     what is missing or damaged, and adds a chunks_checked record for each; no other's (D392 §4).
+//     TestAgent_AnExaminingChecksTheChunksOfTheVideosAFullRescanNames.
 //   - A root is listed or examined only if the node was configured with it, whatever the
 //     core asks (D107). TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
 //     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor. A library folder inside a root is listed

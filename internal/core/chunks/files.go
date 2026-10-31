@@ -103,11 +103,11 @@ func (file StoreFile) StreamName() string { return file.stream.Name() }
 // IsSound is whether the file is of a sound, made or copied, rather than a picture.
 func (file StoreFile) IsSound() bool { return file.stream.Kind.IsSound() }
 
-// Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
-// or, for the init, from the chunk the playback is at. The film's runs no player wants stop first
-// (StopUnwanted, D309 §2): its player's interest in the chunk's stream moved as it asked (D355). A
-// run the server starts for a player, as it starts or stalls, stops nothing: its interest is
-// recorded once the run is on its way.
+// Want makes sure a file of a store its node does not have will be made (Ensure): from its chunk, or,
+// for the init, from the chunk the playback is at, made again if it was known made (unmade). The
+// film's runs no player wants stop first (StopUnwanted, D309 §2): its player's interest in the
+// chunk's stream moved as it asked (D355). A run the server starts for a player, as it starts or
+// stalls, stops nothing: its interest is recorded once the run is on its way.
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// A store's init is made by any run of it: one on its way makes it, and an init asked for from
 	// where a playback last reported, the film's start for a guest who has reported nothing, cut the
@@ -116,6 +116,10 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	if file.isInit && service.runs.hasRun(file.storeDir) {
 		return nil
 	}
+	// The node does not have it, though the core may know it made: dropped, missing or damaged against
+	// its record (D392 §4), or evicted. It is made again as one never made; an init with the chunk it
+	// is asked from, as a run makes its store's init with its first chunk.
+	service.runs.unmade(file.storeDir, file.runFrom)
 	if err := service.StopUnwanted(ctx, file.fileID); err != nil {
 		return err
 	}

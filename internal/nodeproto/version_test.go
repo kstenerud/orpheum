@@ -124,6 +124,10 @@ var wireShapeByVersion = map[int]string{
 	// of it say so, NeedsPictureRetiming: a node of 54 would copy it unretimed, and a browser would drop
 	// its reordered frames (design/plans/audio-switch-and-retiming-2026-11-01.md, Part 2).
 	55: "3c518f934671b8ffbae2ae078965117b3314fca2bde68b2b991aad0cc41e76bc",
+	// 56 has an examining check a full rescan's videos' stores of chunks against their records,
+	// ExamineFile.ChecksChunksOf, and say what it dropped in a chunks_checked record (D392 §4): a node of
+	// 55 would check nothing.
+	56: "c1a5e0605233776b201e412e2bc62b187d35f4b7083fc3d960dc6172fdea52a8",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -143,6 +143,9 @@ type PreparedShelf interface {
 	EvictUnfinished() (evicted []string, err error)
 	// SetStoreTiers keeps how strongly the core's players want each chunk store kept (D309 §8).
 	SetStoreTiers(tiers map[string]nodeproto.KeepTier)
+	// CheckStoresOf checks every file of a film's file's stores of chunks against its record, dropping
+	// what is missing, damaged or unrecorded, for a full rescan (D392 §4).
+	CheckStoresOf(ctx context.Context, fileID int64) nodeproto.ChunksChecked
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for

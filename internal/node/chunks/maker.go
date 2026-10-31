@@ -59,7 +59,7 @@ type Keeper interface {
 	MarkWriting(dir string) (finishWriting func())
 	// OpenStore makes the store, if it is not there, with its manifest, and a raw directory of its
 	// own for this run's FFmpeg; it returns the raw directory's absolute path.
-	OpenStore(manifest nodeproto.StoreManifest) (rawPath string, err error)
+	OpenStore(ctx context.Context, manifest nodeproto.StoreManifest) (rawPath string, err error)
 	// PutFile writes name into the store whole, so no reader sees part of it.
 	PutFile(storeDir, name string, contents []byte) error
 	// DiscardRaw removes one of a run's raw files once it is made into a chunk, or dropped.
@@ -149,7 +149,7 @@ func (maker *Maker) Make(
 	}
 	finishWriting := maker.keeper.MarkWriting(command.StoreDir)
 	defer finishWriting()
-	rawPath, err := maker.keeper.OpenStore(nodeproto.StoreManifest{
+	rawPath, err := maker.keeper.OpenStore(ctx, nodeproto.StoreManifest{
 		StoreDir: command.StoreDir, Video: command.Video, Stream: command.Stream,
 	})
 	if err != nil {

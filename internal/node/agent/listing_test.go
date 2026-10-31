@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -55,6 +56,67 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 		examined.Examined.Records[0].Observed == nil {
 		t.Errorf("job 2's answer = %+v, want Arkon.mkv observed", examined)
 	}
+}
+
+// A full rescan's examining checks the stores of chunks of each video it names to check against
+// their records after reading it, and says what it found in a chunks_checked record: the files checked
+// and each dropped; a video not named to check has its stores left alone (D392 §4).
+func TestAgent_AnExaminingChecksTheChunksOfTheVideosAFullRescanNames(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	shelf, otherChunk := shelfWithADamagedChunkOfFiles7And8(t)
+	root, _ := startAgentWithShelf(t, socket, shelf)
+	for _, name := range []string{"Arkon.mkv", "Brisk.mkv"} {
+		if err := os.WriteFile(filepath.Join(root.Path(), name), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	files := []nodeproto.ExamineFile{
+		{Path: nodeproto.Path{Text: "Arkon.mkv"}, Kind: nodeproto.ExamineVideo, ChecksChunksOf: 7},
+		{Path: nodeproto.Path{Text: "Brisk.mkv"}, Kind: nodeproto.ExamineVideo},
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
+		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{RootPath: root.Path(), Files: files},
+	}}
+	examined := testutil.Receive(t, core.scans, "the examining")
+	if examined.Examined == nil || len(examined.Examined.Records) != 3 {
+		t.Fatalf("the examining = %+v, want both videos observed and file 7's chunks checked", examined.Examined)
+	}
+	checked := examined.Examined.Records[2]
+	if checked.Type != nodeproto.RecordChunksChecked || checked.ChunksChecked == nil ||
+		checked.ChunksChecked.FileID != 7 || checked.ChunksChecked.CheckedCount != 2 ||
+		len(checked.ChunksChecked.Dropped) != 1 || checked.ChunksChecked.Dropped[0].Name != "00000.m4s" {
+		t.Errorf("the chunks checked = %+v (%+v), want file 7's two files checked and chunk 0 dropped", checked,
+			checked.ChunksChecked)
+	}
+	if _, err := os.Stat(otherChunk); err != nil {
+		t.Errorf("a video not named to check had its chunk dropped: %v", err)
+	}
+}
+
+// shelfWithADamagedChunkOfFiles7And8 is a prepared shelf with a store of file 7 and one of file 8,
+// each its init and chunk 0, the chunk then cut short; and the path of file 8's chunk.
+func shelfWithADamagedChunkOfFiles7And8(t *testing.T) (*prepared.Shelf, string) {
+	t.Helper()
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	var chunk string
+	for _, storeDir := range []string{"7/chunks-picture/0123456789abcdef", "8/chunks-picture/0123456789abcdef"} {
+		if _, err := shelf.OpenStore(t.Context(), nodeproto.StoreManifest{StoreDir: storeDir}); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"init.mp4", "00000.m4s"} {
+			if err := shelf.PutFile(storeDir, name, []byte("the bytes of "+name)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		chunk = filepath.Join(directory, filepath.FromSlash(storeDir), "00000.m4s")
+		if err := os.WriteFile(chunk, []byte("the"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return shelf, chunk
 }
 
 // A library folder inside a root is listed and examined as a root of its own: its scan begins at its

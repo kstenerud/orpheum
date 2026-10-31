@@ -17,15 +17,16 @@ const RecordListed RecordType = "listed"
 // ScanRecord is one record of a listing or an examining: Type says which one field is set. It is a
 // report's Record without the stream's sequence and status, which name no scan.
 type ScanRecord struct {
-	Type         RecordType    `json:"type"`
-	ScanBegin    *ScanBegin    `json:"scanBegin,omitempty"`
-	Listed       *Listed       `json:"listed,omitempty"`
-	Observed     *Observed     `json:"observed,omitempty"`
-	Sidecar      *Sidecar      `json:"sidecar,omitempty"`
-	Mount        *Mount        `json:"mount,omitempty"`
-	Skip         *Skip         `json:"skip,omitempty"`
-	Error        *ScanError    `json:"error,omitempty"`
-	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
+	Type          RecordType     `json:"type"`
+	ScanBegin     *ScanBegin     `json:"scanBegin,omitempty"`
+	Listed        *Listed        `json:"listed,omitempty"`
+	Observed      *Observed      `json:"observed,omitempty"`
+	Sidecar       *Sidecar       `json:"sidecar,omitempty"`
+	Mount         *Mount         `json:"mount,omitempty"`
+	Skip          *Skip          `json:"skip,omitempty"`
+	Error         *ScanError     `json:"error,omitempty"`
+	ScanComplete  *ScanComplete  `json:"scanComplete,omitempty"`
+	ChunksChecked *ChunksChecked `json:"chunksChecked,omitempty"`
 }
 
 // List asks the node to list what is under Path, relative to RootPath, one of its roots, to Depth
@@ -92,10 +93,34 @@ type Examine struct {
 type ExamineFile struct {
 	Path Path        `json:"path"`
 	Kind ExamineKind `json:"kind"`
+	// ChecksChunksOf is, for a video a full rescan reads again, the core's id of its file: the node
+	// checks every file of its stores of chunks against its record after examining it, drops what is
+	// missing or damaged, and says so in a chunks_checked record (D392 §4). Zero checks nothing.
+	ChecksChunksOf int64 `json:"checksChunksOf,omitempty"`
+}
+
+// ChunksChecked is what the node found checking a file's stores of chunks against their records: how
+// many of their files, inits and chunks, it checked, and each it dropped, missing, damaged or
+// unrecorded, which is made again when a player asks for it (D392 §4).
+type ChunksChecked struct {
+	FileID       int64          `json:"fileId"`
+	CheckedCount int            `json:"checkedCount"`
+	Dropped      []DroppedChunk `json:"dropped,omitempty"`
+}
+
+// DroppedChunk is a file of a store dropped because it was not what its record says: Name, its init or
+// a chunk, in the store at StoreDir; or, with Name empty, the whole store, made before its chunks were
+// recorded. FileCount is how many files went, and Why what differed.
+type DroppedChunk struct {
+	StoreDir  string `json:"storeDir"`
+	Name      string `json:"name,omitempty"`
+	FileCount int    `json:"fileCount"`
+	Why       string `json:"why"`
 }
 
 // Examined is an examining's answer: for each file in turn, observed for a video, sidecar for an
-// NFO or subtitle, or error for one it could not read.
+// NFO or subtitle, or error for one it could not read; then a chunks_checked record for each video
+// whose stores it was asked to check (ExamineFile.ChecksChunksOf).
 type Examined struct {
 	Records []ScanRecord `json:"records"`
 	// Refusal says why the node examined nothing: a root it was not given (D107).

@@ -47,6 +47,14 @@
 //     TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter,
 //     TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot.
 //
+//   - Each video a full rescan reads again, already stored, is examined with its file's id to check
+//     (nodeproto.ExamineFile.ChecksChunksOf): its node checks every chunk of the file's stores against
+//     its record and drops what is missing or damaged, and the scan counts what it checked and dropped
+//     in its totals and logs at warn each file it dropped chunks of; an ordinary scan checks nothing,
+//     a file changed on disk among them (D392 §4, §5). The core keeps nothing of a chunk dropped: the
+//     node answers it not made, and it is made again when asked for (chunks.Service.Want).
+//     TestScans_AFullRescanHasItsNodeCheckTheChunksOfEachVideoItReadsAgain.
+//
 //   - What is kept that was made from a file's probe, and from which of its facts, is said in one
 //     place, derivedFromProbe (derived.go), so a new derived thing declares its facts there and the
 //     server's wiring how it is thrown out (DerivedDroppers, wired whole:

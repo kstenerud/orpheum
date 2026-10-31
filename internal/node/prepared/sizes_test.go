@@ -85,14 +85,16 @@ func TestStore_ItsSizeFollowsWhatIsPutInItAndItsOpenRunsRawFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(rawPath, "raw00004.m4s"), make([]byte, 70), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if used := usedBytes(t, shelf); used != before+400+70 {
-		t.Errorf("the store holds %d bytes; want %d: the manifest, the chunk as last put, and the raw file",
-			used, before+400+70)
+	// The chunk as last put comes with its record (D392 §4).
+	chunkBytes := int64(400 + len(recordOf(make([]byte, 400)).encoded()))
+	if used := usedBytes(t, shelf); used != before+chunkBytes+70 {
+		t.Errorf("the store holds %d bytes; want %d: the manifest, the chunk as last put with its record, and the "+
+			"raw file", used, before+chunkBytes+70)
 	}
 	if err := shelf.CloseRun(rawPath); err != nil {
 		t.Fatal(err)
 	}
-	if used := usedBytes(t, shelf); used != before+400 {
-		t.Errorf("once its run closed, the store holds %d bytes; want %d, the raw file gone", used, before+400)
+	if used := usedBytes(t, shelf); used != before+chunkBytes {
+		t.Errorf("once its run closed, the store holds %d bytes; want %d, the raw file gone", used, before+chunkBytes)
 	}
 }

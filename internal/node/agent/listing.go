@@ -115,7 +115,29 @@ func (agent *Agent) examineWork(
 			if err != nil && jobCtx.Err() == nil {
 				agent.logger.WarnContext(ctx, "an examining ended early", "rootPath", root.Path(), "err", err)
 			}
+			if err == nil {
+				records = append(records, agent.checkChunksOf(jobCtx, command.Files)...)
+			}
 			return nodeproto.Result{Examined: &nodeproto.Examined{Records: records}}, ""
 		},
 	})
+}
+
+// checkChunksOf checks the stores of chunks of each file examined that a full rescan asked it to
+// (nodeproto.ExamineFile.ChecksChunksOf) against their records, dropping what is missing, damaged or
+// unrecorded, and says what it found of each in a chunks_checked record (D392 §4). A node with no
+// prepared directory checks nothing.
+func (agent *Agent) checkChunksOf(ctx context.Context, files []nodeproto.ExamineFile) []nodeproto.ScanRecord {
+	if agent.workers.PreparedShelf == nil {
+		return nil
+	}
+	var records []nodeproto.ScanRecord
+	for _, file := range files {
+		if file.ChecksChunksOf == 0 || ctx.Err() != nil {
+			continue
+		}
+		checked := agent.workers.PreparedShelf.CheckStoresOf(ctx, file.ChecksChunksOf)
+		records = append(records, nodeproto.ScanRecord{Type: nodeproto.RecordChunksChecked, ChunksChecked: &checked})
+	}
+	return records
 }

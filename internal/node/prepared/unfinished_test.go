@@ -25,7 +25,7 @@ func TestEvictUnfinished_EvictsAllButTheStoresWithTheirManifestsAndOnesBeingWrit
 			"2/remux/bbbbbbbbbbbbbbbb":            {100, time.Minute}, // a prepare's, from before D344
 			"4/chunks-q400k360p/dddddddddddddddd": {100, time.Minute}, // being written
 		})
-	if _, err := shelf.OpenStore(nodeproto.StoreManifest{
+	if _, err := shelf.OpenStore(t.Context(), nodeproto.StoreManifest{
 		StoreDir: testStore, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 	}); err != nil {
 		t.Fatal(err)

@@ -26,9 +26,9 @@ import (
 // Server answers the node's byte socket.
 type Server struct {
 	roots map[string]*confine.MediaRoot
-	// prepared is the node's prepared directory, read as a media root is: read-only, and nothing
-	// outside it. Nil on a node that has none.
-	prepared *confine.MediaRoot
+	// stores are the node's stores of chunks, whose files it opens checked against their records
+	// (D392 §4); nil on a node that has none.
+	stores Stores
 	// storeServedHook is told each store a file was served from, by its directory, as its last use
 	// (D217 §5).
 	storeServedHook func(storeDir string)
@@ -82,13 +82,14 @@ func (server *Server) SharingHashes(hashes *namedfile.Hashes) *Server {
 	return server
 }
 
-// New returns a server over the node's roots and its prepared directory, which may be nil.
-func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
+// New returns a server over the node's roots; it serves no store's file until it is given the stores
+// (ServingStores).
+func New(roots []*confine.MediaRoot) *Server {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	server := &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
+	server := &Server{roots: byPath, payloadHashes: namedfile.NewHashes()}
 	server.openFile = server.payloadHashes.OpenNamed
 	server.placeFacts = (*confine.MediaRoot).FactsOf
 	server.subfolders = (*confine.MediaRoot).Subfolders
@@ -104,6 +105,20 @@ type Results interface {
 // ServingResults has the server serve the results the node holds (nodeproto.PathBytesResult).
 func (server *Server) ServingResults(results Results) *Server {
 	server.results = results
+	return server
+}
+
+// Stores are the node's stores of chunks in its prepared directory: prepared.Shelf.
+type Stores interface {
+	// OpenChecked opens a store's init or chunk once its size and bytes are what its record says, and
+	// false when it is not made: never made, or found missing, damaged or unrecorded, and dropped, so
+	// it is made again when asked for (D392 §4). The caller closes what it opened.
+	OpenChecked(ctx context.Context, storeDir, name string) (*os.File, fs.FileInfo, bool)
+}
+
+// ServingStores has the server serve the files of the node's stores of chunks, each checked first.
+func (server *Server) ServingStores(stores Stores) *Server {
+	server.stores = stores
 	return server
 }
 
@@ -221,29 +236,26 @@ var storeNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/chunks-[a-z0-9-]{1,40}
 
 // serveStoreFile serves a store's init or one of its chunks, from the prepared directory, counting it
 // a use of its store, <file_id>/chunks-<stream>/<grid_id>, which eviction reads (D217 §5). A name
-// that is not a store's is refused before anything is opened; a chunk not made yet is a 404, which
-// the core waits on while a run makes it.
+// that is not a store's is refused before anything is opened; a file is served only once its size and
+// every byte are what its record says, and one that is not, dropped, is as one not made yet (D392 §4):
+// a 404, which the core waits on while a run makes it.
 func (server *Server) serveStoreFile(writer http.ResponseWriter, request *http.Request) {
 	const notFound = "no such chunk"
 	name := request.PathValue("name")
-	if server.prepared == nil || !storeNamePattern.MatchString(name) {
+	if server.stores == nil || !storeNamePattern.MatchString(name) {
 		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
-	file, err := server.prepared.Open(name)
-	if err != nil {
+	parts := strings.SplitN(name, "/", 4)
+	storeDir := strings.Join(parts[:3], "/")
+	file, info, isMade := server.stores.OpenChecked(request.Context(), storeDir, parts[3])
+	if !isMade {
 		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
 	defer readonly.Close(file)
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		http.Error(writer, notFound, http.StatusNotFound)
-		return
-	}
 	if server.storeServedHook != nil {
-		parts := strings.SplitN(name, "/", 4)
-		server.storeServedHook(strings.Join(parts[:3], "/"))
+		server.storeServedHook(storeDir)
 	}
 	contentType := "video/mp4"
 	if path.Ext(name) == ".m4s" {

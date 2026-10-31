@@ -544,5 +544,34 @@ func (ingester *Ingester) logCorrectionTotals(ctx context.Context, nodeID int64,
 	ingester.logger.InfoContext(ctx, "a scan compared the files it read again with what was kept",
 		"nodeId", nodeID, "rootPath", scan.root, "scopePath", scan.scope, "isReadingAgain", scan.isReadingAgain,
 		"comparedCount", totals.comparedCount, "correctedCount", totals.correctedCount,
-		"thrownOutCount", totals.droppedCount)
+		"thrownOutCount", totals.droppedCount, "chunksCheckedCount", totals.chunksCheckedCount,
+		"chunksDroppedCount", totals.chunksDroppedCount)
+}
+
+// noteChunksChecked counts, in its scan's totals, what the node found checking a file's stores of
+// chunks against their records, and logs, at warn, each file whose chunks it dropped: the stores, the
+// chunks and what differed (D392 §4, §5). A chunk dropped is made again when a player asks for it, as
+// one never made, and nothing the core keeps changes.
+func (ingester *Ingester) noteChunksChecked(ctx context.Context, scan *scanState, checked *nodeproto.ChunksChecked) {
+	if checked == nil {
+		return
+	}
+	dropped, droppedCount := make([]string, 0, len(checked.Dropped)), 0
+	for _, each := range checked.Dropped {
+		droppedCount += each.FileCount
+		name := each.Name
+		if name == "" {
+			name = strconv.Itoa(each.FileCount) + " files, the whole store"
+		}
+		dropped = append(dropped, each.StoreDir+"/"+name+": "+each.Why)
+	}
+	if scan != nil {
+		scan.corrections.chunksCheckedCount += checked.CheckedCount
+		scan.corrections.chunksDroppedCount += droppedCount
+	}
+	if droppedCount > 0 {
+		ingester.logger.WarnContext(ctx, "chunks of a file read again were missing or damaged; they are dropped and "+
+			"made again when asked for", "fileId", checked.FileID, "checkedCount", checked.CheckedCount,
+			"droppedCount", droppedCount, "dropped", dropped)
+	}
 }

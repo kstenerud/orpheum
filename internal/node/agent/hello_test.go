@@ -24,6 +24,10 @@ func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.u
 
 func (fakePreparedShelf) EvictUnfinished() ([]string, error) { return nil, nil }
 
+func (fakePreparedShelf) CheckStoresOf(_ context.Context, fileID int64) nodeproto.ChunksChecked {
+	return nodeproto.ChunksChecked{FileID: fileID}
+}
+
 func (fakePreparedShelf) SetStoreTiers(map[string]nodeproto.KeepTier) {}
 
 // tieredShelf is a prepared shelf that keeps the tiers it was given.

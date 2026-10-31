@@ -283,6 +283,21 @@ func (tracker *runTracker) served(dir string, n int) {
 	tracker.storeLocked(dir).isMade[n] = true
 }
 
+// unmade forgets that a chunk of the store is made, its node having answered that it does not have
+// it: never made, or found missing or damaged against its record and dropped (D392 §4), so a player's
+// ask makes it again. A run of the store that has made it since is believed: the node is asked again.
+func (tracker *runTracker) unmade(dir string, chunk int) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	for _, each := range known.runByFirst {
+		if chunk >= each.first && chunk <= each.madeThrough {
+			return
+		}
+	}
+	delete(known.isMade, chunk)
+}
+
 // making is the chunk_store row of the store, and whether a run of it is on its way.
 func (tracker *runTracker) making(dir string) (storeID int64, isMaking bool) {
 	tracker.mutex.Lock()

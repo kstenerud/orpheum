@@ -112,4 +112,8 @@ type StoreManifest struct {
 	StoreDir string      `json:"storeDir"`
 	Video    BytesFile   `json:"video"`
 	Stream   ChunkStream `json:"stream"`
+	// ChunkRecords is the version of the records its init and chunks carry, each its size and CRC-32C
+	// beside it, written by the node as it puts them (D392 §4); zero for a store made before they were
+	// recorded, which cannot be checked and is dropped at its first use.
+	ChunkRecords int `json:"chunkRecords,omitempty"`
 }
