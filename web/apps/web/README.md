@@ -27,7 +27,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
   an admin's destinations show to an admin only (the server refuses them to anyone else); Device
   tests, among the places for watching, shows to everyone while the server offers them
-  (`should_offer_device_tests`). `src/app-shell.test.tsx`, `src/lab.test.tsx`.
+  (`should_offer_device_tests`). The menu's Sign out asks first, in the shared modal dialog, Sign out
+  or Cancel, and only its Sign out signs out (the owner, 2026-10-30). `src/app-shell.test.tsx`,
+  `src/app-shell.browser.test.tsx`, `src/lab.test.tsx`.
 - **Watch Together and Cast are their status tray signs, never top-bar places** (D364 §12–§14):
   both always in the tray, Cast's to everyone and Watch Together's to a person who may host or a
   signed-in guest in a session, white while their function is off and blue, pulsing gently unless

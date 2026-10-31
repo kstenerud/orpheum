@@ -297,6 +297,42 @@ describe("AppShell", () => {
     expect(switched).toBe(1);
   });
 
+  // The owner, 2026-10-30: "Selecting 'sign out' should open a confirmation."
+  it("asks before it signs out: only the question's Sign out signs out, Cancel keeps the person in", async () => {
+    let signedOut = 0;
+    const shown = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={() => {
+            signedOut += 1;
+          }}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    const asked = (): HTMLElement | null =>
+      shown.container.querySelector<HTMLElement>(".app-shell__sign-out-asked");
+    await click(shown.container.querySelector(".app-shell__menu-button"));
+    await click(buttonWithText(shown.container, "Sign out"));
+    expect(signedOut).toBe(0);
+    const question = asked();
+    expect(question?.tagName).toBe("DIALOG");
+    expect(question?.textContent).toContain("Sign out of this device?");
+    await click(buttonWithText(question ?? shown.container, "Cancel"));
+    expect(asked()).toBeNull();
+    expect(signedOut).toBe(0);
+    await click(shown.container.querySelector(".app-shell__menu-button"));
+    await click(buttonWithText(shown.container, "Sign out"));
+    await click(buttonWithText(asked() ?? shown.container, "Sign out"));
+    shown.unmount();
+    expect(signedOut).toBe(1);
+  });
+
   it("offers no Manage to someone who is not an admin", async () => {
     const markup = await drawnWithMenuOpen(
       <AppShell

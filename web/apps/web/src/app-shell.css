@@ -398,3 +398,10 @@
 .app-shell__main fieldset label {
   display: flex;
 }
+
+/* Sign out's question (app-shell.tsx's SignOutAsked): its two answers side by side. */
+.app-shell__sign-out-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

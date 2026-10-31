@@ -51,6 +51,14 @@ const backgroundAnswers: Answers = {
   "GET /together/mine": [200, { sessions: [] }],
 };
 
+/** Signs out by the menu: its Sign out, which asks first, then the question's own Sign out. */
+async function signOutByMenu(container: HTMLElement): Promise<void> {
+  await click(container.querySelector(".app-shell__menu-button"));
+  await click(buttonWithText(container, "Sign out"));
+  const asked = container.querySelector<HTMLElement>(".app-shell__sign-out-asked");
+  await click(asked === null ? undefined : buttonWithText(asked, "Sign out"));
+}
+
 /** What the sign-in page says after signing out, when the server answers DELETE /session so. */
 async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | undefined> {
   const services = servedBy(
@@ -70,8 +78,7 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
     "token",
   );
   const mounted = await mount(withServices(<App />, services));
-  await click(mounted.container.querySelector(".app-shell__menu-button"));
-  await click(buttonWithText(mounted.container, "Sign out"));
+  await signOutByMenu(mounted.container);
   const isSignedOut = services.session.token() === undefined;
   const notice = mounted.container.querySelector("output")?.textContent ?? undefined;
   mounted.unmount();
@@ -348,8 +355,7 @@ describe("App", () => {
       "token",
     );
     const mounted = await mount(withServices(<App />, { ...services, realm: "family" }));
-    await click(mounted.container.querySelector(".app-shell__menu-button"));
-    await click(buttonWithText(mounted.container, "Sign out"));
+    await signOutByMenu(mounted.container);
     await settleUntil(() => services.session.token() === undefined);
     expect(mounted.container.querySelector(".credentials-form")).toBeNull();
     expect(mounted.container.textContent).toContain("Signed out. Taking you to sign in");
