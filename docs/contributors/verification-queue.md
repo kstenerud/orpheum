@@ -2075,3 +2075,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   were missing or damaged" for its file id, and the scan's totals line says `"chunksDroppedCount":1` and
   a `chunksCheckedCount` of every file of its stores. (`internal/node/prepared/records.go`, `internal/node/byteserver/byteserver.go`,
   `internal/core/chunks/files.go`, `internal/core/library/derived.go`)
+- [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer (D391 §3). Owed first:
+  staging connect serves a signed address document at its issuer's `/.well-known/orpheum-discovery`
+  (connect's change, after the owner's root key set exists: VQ211). On staging's System page as admin,
+  Leave the discovery, then type staging's issuer (its name alone, no `https://`) and your password,
+  and Connect. Passes when the page says "Connected to https://<issuer>." with the root keys'
+  fingerprints, which match `ssh-keygen -lf` of the YubiKeys' `.pub` files; the claim code and the
+  account key claim it as before; an invitation's link opens at the client origin the document names;
+  and `discovery.json` in the core's persistent directory holds `issuer`, `rootSet` and `document`.
+  Then a wrong password refuses with "That isn't your password", and the suggested name (the field's
+  default) refuses saying the server doesn't know its keys until `suggested.go` names them.
+  (`internal/core/discovery/document.go`, `internal/core/api/discovery.go`,
+  `web/apps/web/src/system-discovery.tsx`)
+- [ ] **VQ211** — the owner signs with a YubiKey, on the Mac. Follow
+  docs/users/discovery-signing.md: make a resident key on each of the three YubiKeys, load one with
+  `ssh-add -K`, and make the first root key set with `go run ./cmd/discovery-sign root-set`. Passes
+  when the YubiKey blinks and a touch (and its PIN) signs, `root-sets.json` names three keys whose
+  fingerprints are the YubiKeys', and with the first YubiKey unplugged and the second loaded,
+  `discovery-sign document` and `discovery-sign record` sign too; `ssh-keygen -Y sign -n
+  orpheum-release-record-v1 -f ~/.ssh/orpheum-root-2 release.json` then `discovery-sign seal` gives the
+  same record. Then `discovery-sign root-set --remove` of the first key with the third plugged in
+  writes set 2. (`cmd/discovery-sign`, `discovery/trust`)
