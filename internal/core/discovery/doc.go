@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package discovery is the core's side of the discovery protocol (D273): it enrols with a discovery
-// (the paid service, or the owner's own) by its issuer when an admin asks, trusting the address
-// document the issuer serves, signed by the discovery's root key set (D391 §3), waits to be claimed,
-// keeps a session, sends its addresses as the heartbeat, and answers the WebRTC offers the discovery
-// passes on. suggested.go is the one place Orpheum names its paid discovery.
+// (the paid service, or the owner's own) by its issuer and identity when an admin asks, following
+// the discovery's root chain from its genesis and trusting only the address document it signs (D391
+// §3, D393; the root key audit's §3), waits to be claimed, keeps a session, sends its addresses as the
+// heartbeat, and answers the WebRTC offers the discovery passes on. It follows Orpheum's publisher
+// root too, whose release records it reads. suggested.go is the one place Orpheum names its paid
+// discovery and its publisher root.
 //
 // # Invariants
 //
-//   - Enrolling signs the discovery's nonce with the identity key, and the discovery, the root key set
-//     pinned, its address document and the core's id there survive a restart (discovery.json).
-//     TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
+//   - Enrolling signs the discovery's nonce with the identity key, bound to the discovery's identity,
+//     and the discovery, its trust state (trust-discovery) and the core's id there survive a restart
+//     (discovery.json). TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
+//   - A trust state that does not hold is never used (§3.3). TestTrust_AStateThatDoesNotHoldIsNeverUsed.
+//   - A discovery not suggested is enrolled only by the identity its admin confirms (§3.8).
+//     TestConnect_AnOwnDiscoveryIsEnrolledOnlyByTheIdentityItsAdminConfirms.
+//   - A rotation is followed, its floor lifted and a document the removed key signs refused, and the
+//     heartbeat names the root version and hash held (F17).
+//     TestDocument_TheCoreFollowsARotationAndTheRemovedKeySignsNoMore.
+//   - Equivocation, a rollback and a conflict of root statements are refused and said.
+//     TestDocument_EquivocationARollbackAndAConflictAreRefusedAndSaid.
+//   - A record changing a released digest is refused and said (F11); an automatic install waits a day
+//     from first sight (F4; security-updates.md Part C); a build with no publisher root reads none.
+//     TestRelease_ARecordChangingAReleasedDigestIsRefusedAndSaid,
+//     TestRelease_AnAutomaticInstallWaitsADayFromFirstSight,
+//     TestRelease_ABuildWithNoPublisherRootChecksNothingAndSaysSo.
 //   - An issuer is an https origin, or http only on this machine; anything else asks nothing.
 //     TestConnect_RefusesAnIssuerThatIsNotAnHTTPSOrigin.
 //   - The core API, client origin and loader origin are the issuer's signed document's and no
 //     other's: a document of another issuer, or one its set did not sign, enrols nothing.
 //     TestConnect_TakesItsAddressesFromTheIssuersSignedDocumentAlone.
-//   - The suggested issuer is trusted by the root keys this build names for it, never by the set it
-//     shows; a build naming none refuses it, asking nothing (D391 §7).
-//     TestConnect_TheSuggestedIssuerIsTrustedByItsCompiledKeysAndNoneFilledInFailsLoudly.
-//   - Hourly, a newer document that holds, from the issuer or any location its document names, moves
-//     the core's addresses, its API included, which it then calls under the same issuer; a forged one
-//     or none keeps the last good one and says why.
-//     TestDocument_ANewerSignedDocumentFromAnyLocationMovesTheCoreAndAForgedOneDoesNot.
+//   - The suggested issuer is trusted from the genesis this build holds, never one it shows; a build
+//     holding none refuses it, asking nothing (D391 §7).
+//     TestConnect_TheSuggestedIssuerIsTrustedByItsCompiledGenesisAndNoneFailsLoudly.
+//   - Hourly, a newer document that holds, from any place the core has used in the past year, moves
+//     the core's addresses, its API included, which it then calls under the same identity; a forged
+//     one or none keeps the last good one and says why.
+//     TestDocument_ANewerSignedDocumentFromAnyPlaceMovesTheCoreAndAForgedOneDoesNot.
 //   - No shipped source but suggested.go names the owner's domains, and the suggestion is an issuer
-//     with keys that parse. TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains,
+//     with genesis statements that hold. TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains,
 //     TestSuggested_IsAnIssuerAndItsRootKeysAreKeys.
 //   - A pending core asks whether it is claimed; a claimed one sends its addresses when they change
 //     and every five minutes otherwise, each time with a new nonce for the outside probe.
@@ -66,19 +81,20 @@
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.
 //     TestCall_KeepsTheDeprecationTheDiscoveryNames.
-//   - A release build reads its discovery's signed release record, at its issuer and its document's
-//     locations, at its start and daily, an hour after a failure, and keeps what it says of its own
-//     version for its admins; a development build reads nothing; a discovery serving none knows
+//   - A release build reads the release record the publisher root signed, at the publisher's places
+//     and its discovery's, at its start and daily, an hour after a failure, and keeps what it says of
+//     its own version for its admins; a development build reads nothing; with none served it knows
 //     nothing, and a failure is never the core's problem (security-updates.md Part A).
 //     TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion,
 //     TestRelease_ADevelopmentBuildAsksNothing,
 //     TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour.
-//   - A record no root key of the pinned set signed is never believed (D391 §6).
+//   - A record no key of the publisher root signed, a discovery's no more than a stranger's, is never
+//     believed (D393 §2).
 //     TestRelease_ARecordNoRootKeySignedIsNotBelieved.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
-//   - Every signature to the discovery is bound to its issuer and the core, and every answer is
+//   - Every signature to the discovery is bound to its identity and the core, and every answer is
 //     signed over its exact SDP, its offer and the offer's fingerprint (the protocol's §2.1, §2.5).
 //     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes (the fake
 //     discovery checks the binding) and TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
@@ -105,13 +121,14 @@
 //
 //   - D273: why a discovery, the paid service and the owner's own, and the protocol's versioning.
 //   - D391: a discovery is a key set and its names are locations; enrolment by issuer.
+//   - D393, and the root key audit's §3: the chains, the trust state, and following them.
 //   - docs/contributors/design/plans/discovery-core.md: the wire and the phases.
 //
 // # Where to change
 //
 //   - discovery.go: connecting and the loop; discovery_call.go: sessions and the signed call they
 //     carry; renewal.go: one session renewal at a time; signal.go: the signalling connection;
-//     document.go: the issuer's address document, opened at enrolment and looked for again hourly;
-//     release.go: the signed release record;
+//     document.go: enrolment, the chain followed and the address document looked for hourly;
+//     trustfile.go: the trust state kept; release.go: the publisher root and the release record;
 //     suggested.go: the suggested discovery; house_networks.go: the house's IPv6 networks (D356).
 package discovery

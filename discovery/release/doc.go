@@ -1,50 +1,49 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package release is the release record (security-updates.md Part A; D391 §6): one small JSON file,
-// signed by a root key of the discovery's set, which the release workflow writes at each release
-// (`go run ./cmd/release-record`), the owner signs (`go run ./cmd/discovery-sign record`), and every
-// discovery serves at WellKnownPath, beside its address document. A core reads it there, checks its
-// signature against the root key set it pinned, and takes what it says of its own version; the
-// install script checks an image's digest against it (`orpheum verify-release`). A public building
-// block, so the paid service serves the same file the same way (D275 §1).
+// Package release is the release record (security-updates.md Part A; D393 §2; the root key audit's
+// §3.1): signed by a key of Orpheum's publisher root, a chain of its own compiled into every binary,
+// never a discovery's. The release workflow writes it (`go run ./cmd/release-record`), the owner signs
+// it (`ssh-keygen -Y sign`, then `go run ./cmd/discovery-sign check`), and every discovery and the
+// publisher's own places serve it at RecordPath beside the publisher's chain. A core follows that
+// chain, opens the record, and takes what it says of its own version; the install's bootstrap checks
+// it with ssh-keygen before it runs any image. A public building block (D275 §1).
 //
-// The record, the payload a root key signs, is
+// The record, in the strict line format:
 //
-//	{"issuedAt": 1800000000000, "latest": "v0.3.2", "locations": ["registry.example/orpheum"],
-//	 "releases": {"v0.3.2": {"digest": "sha256:…"},
-//	              "v0.3.1": {"digest": "sha256:…", "security": true, "summary": "…", "fixedIn": "v0.3.2"}}}
-//
-// latest is the newest release; releases names each release the workflow has seen, with its image's
-// digest and, for an older one, whether it has a security fix pending, what it fixes and the first
-// version that has it; locations are the repositories the image may be pulled from, each a mirror,
-// since the digest, not the place, is what the record signs.
+//	orpheum-signed release 1
+//	id op1-…
+//	root-version 3
+//	sequence 57
+//	issued 2026-11-02T09:00:00Z
+//	expires 2026-12-02T09:00:00Z
+//	latest v0.4.0
+//	image v0.4.0 sha256:…        (each release's multi-architecture image digest, newest first)
+//	pending v0.3.2 v0.4.0 <summary>   (a fix a version lacks: version, fixed in, what it fixes)
+//	pull ghcr.io/kstenerud/orpheum    (where an image may be pulled: mirrors, the digest is the release)
+//	location https://…                (where the record is served)
 //
 // # Invariants
 //
 //   - A core is told of its own version and nothing else: the latest, its digest and where to pull
-//     it only when the latest is newer than its version, and its version's own pending fix.
+//     it only when the latest is newer, and its version's own pending fix.
 //     TestFor_TellsACoreOfItsOwnVersionAlone.
-//   - A record is taken only when a root key of the set signed it, as a release record, never an
-//     online key; an image is a release only by the digest the record names.
-//     TestOpen_ARecordIsTakenOnlySignedByARootKey.
-//   - A release with a security fix marks every older release that lacks one as needing it, fixed in
-//     the release; an older release already pending keeps its first fix; a plain release marks none.
-//     A release older than the latest is refused, as is a digest that is no image's.
-//     TestReleased_ASecurityFixMarksEveryOlderReleaseThatLacksOne,
-//     TestReleased_RefusesAnOlderReleaseOrADigestThatIsNone.
+//   - A record is taken only signed by the publisher's chain in the release namespace, naming its id
+//     and a root version it has reached, never a discovery's chain; it reads back as written.
+//     TestOpen_ARecordIsTakenOnlySignedByThePublishersKey, TestWrite_ReadsBackWhatItWrote.
+//   - A released version's digest never changes. TestReleased_AVersionsDigestNeverChanges.
+//   - A security release marks every older release lacking a fix; an older release, a tag that is
+//     none and a digest that is none are refused; each release dates the record and adds one to its
+//     sequence. TestReleased_ASecurityFixMarksEveryOlderReleaseThatLacksOne.
 //   - Versions are compared as semantic versions, a pre-release before its release.
 //     TestCompare_OrdersAsSemanticVersions.
-//   - What is written is read back as it was. TestWrite_ReadsBackWhatItWrote.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing
 //
-//   - docs/contributors/design/plans/security-updates.md: the record, the banner, and why the
-//     workflow writes it; D391 §6: why it is signed and where it is served.
-//   - D273 §6: what a discovery is; D275 §1: why its building blocks are public.
+//   - docs/contributors/design/plans/security-updates.md; D393 §2, §6, §8; the audit's F2, F4, F11.
 //
 // # Where to change
 //
-//   - release.go: the record, opening a signed one, answering a core and a release's change to it.
+//   - release.go: the record, its lines, opening a signed one, telling a core, a release's change.
 //   - version.go: comparing versions.
 package release

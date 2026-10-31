@@ -31,8 +31,10 @@ type UpdateBody struct {
 	Digest  string `doc:"The newest release's image digest, sha256:..., for the admin to check" json:"digest,omitempty"`
 	// Security is the security fix this version lacks; absent when none is pending.
 	Security  *SecurityFixBody `json:"security,omitempty"`
-	Command   string           `doc:"What installs the update, run on the server's machine as the user who installed it (D314); empty with no update" json:"command,omitempty"` //nolint:lll // one struct tag
-	CheckedAt int64            `doc:"Unix milliseconds the server's discovery last answered; 0 before it has" json:"checkedAt"`                                                 //nolint:lll // one struct tag
+	Command   string           `doc:"What installs the update, run on the server's machine as the user who installed it (D314); empty with no update" json:"command,omitempty"`                //nolint:lll // one struct tag
+	CheckedAt int64            `doc:"Unix milliseconds a signed release record was last read; 0 before one has" json:"checkedAt"`                                                              //nolint:lll // one struct tag
+	StaleAt   int64            `doc:"Unix milliseconds the release record held expired, since when the server cannot confirm it knows of every fix; 0 while current" json:"staleAt,omitempty"` //nolint:lll // one struct tag
+	Problem   string           `doc:"What the last reading of the release record found wrong, for the admin" json:"problem,omitempty"`                                                         //nolint:lll // one struct tag
 }
 
 // UpdateOutput is GET /system/update's answer.
@@ -62,9 +64,12 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 // updateBody is known as the API sends it, its command the install script of the release to go to
 // from image, the repository each version is published in: the latest, which has every fix.
 func updateBody(known discovery.Release, image string) UpdateBody {
-	body := UpdateBody{Version: known.Version, Latest: known.Latest, Digest: known.Digest}
+	body := UpdateBody{Version: known.Version, Latest: known.Latest, Digest: known.Digest, Problem: known.Problem}
 	if !known.CheckedAt.IsZero() {
 		body.CheckedAt = known.CheckedAt.UnixMilli()
+	}
+	if !known.StaleSince.IsZero() {
+		body.StaleAt = known.StaleSince.UnixMilli()
 	}
 	target := known.Latest
 	if known.Security != nil {

@@ -47,14 +47,21 @@ type Status struct {
 	// LoaderOrigin where it serves the loader that hands a browser on to it (D293 §4, D308): its
 	// address document's, and no other (D391 §3). Homepage says what the discovery is.
 	ClientOrigin, LoaderOrigin, Homepage string
-	// RootKeys are the fingerprints of the root key set the core pinned for its discovery, as
-	// `ssh-keygen -l` shows them, and RootSetVersion its version; DocumentIssuedAt is when the address
-	// document held was made, and DocumentProblem why the last look for a newer one found none that
-	// holds, empty when it did not fail.
-	RootKeys         []string
-	RootSetVersion   int64
-	DocumentIssuedAt time.Time
-	DocumentProblem  string
+	// Identity is the discovery's, its root chain's genesis hash ("od1-…"), which the core's
+	// signatures are bound to; Name is what its document calls it, and IsSuggested whether it is the
+	// suggested service (the root key audit's §3.8).
+	Identity, Name string
+	IsSuggested    bool
+	// RootKeys are the current root set's keys, each "<role> SHA256:…" as `ssh-keygen -l` shows its
+	// fingerprint, and RootVersion the set's version; DocumentIssuedAt is when the address document
+	// held was issued, DocumentStaleSince when it expired, zero while it is current (the server cannot
+	// confirm its addresses are current since then), and DocumentProblem what the last look found
+	// wrong: a conflict of root statements, equivocation, a document no longer signed.
+	RootKeys           []string
+	RootVersion        int64
+	DocumentIssuedAt   time.Time
+	DocumentStaleSince time.Time
+	DocumentProblem    string
 	// SuggestedIssuer is the discovery an admin is offered first (Suggested); empty offers none.
 	SuggestedIssuer string
 	// HomeAddresses are the core's addresses at home, "https://<label>.<coreId>.<zone>:<port>", from

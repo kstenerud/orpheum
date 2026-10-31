@@ -39,7 +39,7 @@ func TestStep_AClaimedCoreTellsItsDiscoveryItsLinksWhenTheyChangeAndUnderEachNew
 	built.service.parts.Links = links.read
 	expires := built.clock.Now().Add(7 * 24 * time.Hour)
 	links.set([]Link{{LocateHash: "hash-of-a-link", ExpiresAt: expires}}, []string{"hash-of-a-locator"})
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)

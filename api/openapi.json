@@ -974,6 +974,11 @@
       "ConnectDiscoveryInputBody": {
         "additionalProperties": false,
         "properties": {
+          "identity": {
+            "description": "The discovery's identity, od1-...; needed for any but the suggested one",
+            "maxLength": 128,
+            "type": "string"
+          },
           "issuer": {
             "description": "The discovery's issuer, the name typed: \"discovery.example\" or its https origin",
             "maxLength": 2048,
@@ -1364,13 +1369,18 @@
             "type": "string"
           },
           "documentAt": {
-            "description": "Unix milliseconds the address document held was made; 0 when none is",
+            "description": "Unix milliseconds the address document held was issued; 0 when none is",
             "format": "int64",
             "type": "integer"
           },
           "documentProblem": {
-            "description": "Why the last look for a newer address document found none that holds; empty when it did not fail",
+            "description": "What the last look at the discovery's places found wrong: a conflict of root statements, equivocation, a document no longer signed",
             "type": "string"
+          },
+          "documentStaleAt": {
+            "description": "Unix milliseconds the address document held expired, since when the server cannot confirm its addresses are current; 0 while current",
+            "format": "int64",
+            "type": "integer"
           },
           "fingerprint": {
             "description": "The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest",
@@ -1399,8 +1409,16 @@
               "null"
             ]
           },
+          "identity": {
+            "description": "The discovery's identity, its root chain's genesis hash (od1-...), which the server's signatures are bound to (D393 §4)",
+            "type": "string"
+          },
           "isHomeAddressReady": {
             "description": "Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)",
+            "type": "boolean"
+          },
+          "isSuggested": {
+            "description": "Whether the discovery is the one this build suggests, the known Orpheum service",
             "type": "boolean"
           },
           "issuer": {
@@ -1414,6 +1432,10 @@
           },
           "loaderOrigin": {
             "description": "Where the discovery serves the loader, as its address document names it",
+            "type": "string"
+          },
+          "name": {
+            "description": "What the discovery's address document calls it",
             "type": "string"
           },
           "portMapping": {
@@ -1462,7 +1484,7 @@
             "type": "integer"
           },
           "rootKeys": {
-            "description": "The fingerprints of the discovery's root keys the server trusts, as ssh-keygen -l shows each (D391 §2)",
+            "description": "The discovery's root keys the server trusts, each its role and fingerprint as ssh-keygen -l shows it (D393 §1)",
             "items": {
               "type": "string"
             },
@@ -1471,8 +1493,8 @@
               "null"
             ]
           },
-          "rootSetVersion": {
-            "description": "The version of that root key set",
+          "rootVersion": {
+            "description": "The version of the discovery's root chain the server holds",
             "format": "int64",
             "type": "integer"
           },
@@ -1507,8 +1529,9 @@
         },
         "required": [
           "issuer",
+          "isSuggested",
           "rootKeys",
-          "rootSetVersion",
+          "rootVersion",
           "documentAt",
           "claimExpiresAt",
           "removedAt",
@@ -2594,6 +2617,47 @@
           "username",
           "credential",
           "expiresAt"
+        ],
+        "type": "object"
+      },
+      "IdentifiedDiscoveryOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "description": "The discovery's identity, od1-..., to compare with what its operator shows",
+            "type": "string"
+          },
+          "isSuggested": {
+            "description": "Whether it is the discovery this build suggests, trusted from the root this build holds",
+            "type": "boolean"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer",
+          "identity",
+          "name",
+          "isSuggested"
+        ],
+        "type": "object"
+      },
+      "IdentifyDiscoveryInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "issuer": {
+            "description": "The discovery's issuer, the name typed",
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer"
         ],
         "type": "object"
       },
@@ -8324,7 +8388,7 @@
         "additionalProperties": false,
         "properties": {
           "checkedAt": {
-            "description": "Unix milliseconds the server's discovery last answered; 0 before it has",
+            "description": "Unix milliseconds a signed release record was last read; 0 before one has",
             "format": "int64",
             "type": "integer"
           },
@@ -8340,8 +8404,17 @@
             "description": "The newest release, when it is newer than this server's; empty when it runs the latest or knows of none",
             "type": "string"
           },
+          "problem": {
+            "description": "What the last reading of the release record found wrong, for the admin",
+            "type": "string"
+          },
           "security": {
             "$ref": "#/components/schemas/SecurityFixBody"
+          },
+          "staleAt": {
+            "description": "Unix milliseconds the release record held expired, since when the server cannot confirm it knows of every fix; 0 while current",
+            "format": "int64",
+            "type": "integer"
           },
           "version": {
             "description": "This server's version: a release's tag, or dev for a build of none, which knows of no update",
@@ -15826,6 +15899,58 @@
           }
         },
         "summary": "Enrol the core with its household's account by the key the account made (admin; D310 §5)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/discovery/identify": {
+      "post": {
+        "operationId": "identifyDiscovery",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifyDiscoveryInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifiedDiscoveryOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What a discovery's issuer shows: its identity and name, to compare before enrolling (admin; D393 §4)",
         "tags": [
           "Running it"
         ]

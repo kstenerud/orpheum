@@ -17,7 +17,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -54,11 +53,9 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	state := flags.String("state", "", "the directory its record is kept in (required)")
 	realm := flags.String("realm", "",
 		"the realm its core is signed in to by, as a paid discovery's host has one (D297)")
-	releaseRecord := flags.String("release-record", "",
-		"the release record its cores are told of their versions from (security-updates.md Part A)")
 	if err := flags.Parse(call.arguments); err != nil || *state == "" {
-		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir> [--realm <realm>] "+
-			"[--release-record <file>]\n", exitUsageError)
+		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir> [--realm <realm>]\n",
+			exitUsageError)
 	}
 	logger := slog.New(slog.NewTextHandler(call.stderr, nil))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
@@ -72,7 +69,7 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	}
 	handler, err := devDiscoveryHandler(devDiscoverySite{
 		base: base, recordPath: filepath.Join(*state, "single.json"), realm: *realm, clientFiles: clientFiles,
-		releaseRecord: *releaseRecord, documentPath: filepath.Join(*state, "address-document.json"),
+		published: filepath.Join(*state, "published"),
 	}, logger)
 	if err != nil {
 		return call.fail(errors.Join(err, listener.Close()))
@@ -91,52 +88,64 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 }
 
 // devDiscoverySite is what the development discovery serves: at base, its record in recordPath, the
-// realm its operator names (none for an owner's own), the client's files, the release record its
-// cores are told of their versions from (none tells them nothing), and the address document it signs
-// at its start, written to documentPath.
+// realm its operator names (none for an owner's own), the client's files, and the root chain and
+// address document it signs at its start, published into published. A development core reads no
+// release record.
 type devDiscoverySite struct {
-	base, recordPath, realm, releaseRecord, documentPath string
-	clientFiles                                          fs.FS
+	base, recordPath, realm, published string
+	clientFiles                        fs.FS
 }
 
-// writeDevDocument writes the development discovery's address document to file, signed by a root
-// key made for this run alone, which a core enrolling by its issuer, base, trusts at first use (D391
-// §3).
-func writeDevDocument(file string, document addressdoc.Document) error {
+// publishDev publishes into directory the development discovery's root chain, of one key made for this
+// run alone, listed once per tier as an own discovery of one key lists it, and document under it,
+// signed by that key; it returns the chain's identity, which a core enrolling by its issuer, base, is
+// given (the root key audit's §3.8).
+func publishDev(directory string, document addressdoc.Document) (string, error) {
 	_, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return fmt.Errorf("make the development discovery's root key: %w", err)
+		return "", fmt.Errorf("make the development discovery's root key: %w", err)
 	}
 	signer, err := ssh.NewSignerFromKey(private)
 	if err != nil {
-		return fmt.Errorf("make the development discovery's root key: %w", err)
+		return "", fmt.Errorf("make the development discovery's root key: %w", err)
 	}
-	set, err := json.Marshal(trust.RootSet{
-		Version: 1, IssuedAt: document.IssuedAt, Keys: []string{trust.KeyLine(signer.PublicKey())},
-	})
+	text := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+	root := trust.Root{
+		Chain: trust.ChainDiscovery, Version: 1, Issued: document.Issued,
+		Keys: []trust.RootKey{
+			{Role: trust.RoleRecovery, Public: signer.PublicKey(), Text: text, Label: devKeyLabel},
+			{Role: trust.RoleEveryday, Public: signer.PublicKey(), Text: text, Label: devKeyLabel},
+		},
+		Thresholds: map[trust.Role]int{trust.RoleEveryday: 1, trust.RoleRecovery: 1},
+	}
+	genesis, err := signedBy(signer, trust.NamespaceDiscoveryRoot, root.Payload)
 	if err != nil {
-		return fmt.Errorf("encode the root key set: %w", err)
+		return "", err
 	}
-	signedSet, err := trust.Sign(signer, trust.KindRootSet, set)
+	document.ID = trust.IdentityOf(trust.ChainDiscovery, []byte(genesis.Payload))
+	signedDocument, err := signedBy(signer, trust.NamespaceDiscoveryAddress, document.Payload)
 	if err != nil {
-		return err
+		return "", err
 	}
-	payload, err := json.Marshal(document)
+	files := append(trust.ChainFiles(addressdoc.RootPathPrefix, []trust.Signed{genesis}),
+		trust.Published{Path: addressdoc.DocumentPath, Signed: signedDocument})
+	return document.ID, trust.Publish(directory, files)
+}
+
+// devKeyLabel labels the development discovery's one key in its root statement.
+const devKeyLabel = "development"
+
+// signedBy is the payload made signed by signer in namespace.
+func signedBy(signer ssh.Signer, namespace string, made func() ([]byte, error)) (trust.Signed, error) {
+	payload, err := made()
 	if err != nil {
-		return fmt.Errorf("encode the address document: %w", err)
+		return trust.Signed{}, err
 	}
-	signedDocument, err := trust.Sign(signer, trust.KindAddressDocument, payload)
+	signature, err := trust.Sign(signer, namespace, payload)
 	if err != nil {
-		return err
+		return trust.Signed{}, err
 	}
-	served, err := json.Marshal(addressdoc.Served{Document: signedDocument, RootSets: []trust.Signed{signedSet}})
-	if err != nil {
-		return fmt.Errorf("encode the address document: %w", err)
-	}
-	if err = os.WriteFile(file, served, 0o644); err != nil { //nolint:gosec // public, as served
-		return fmt.Errorf("write the address document: %w", err)
-	}
-	return nil
+	return trust.Signed{Payload: string(payload), Signature: signature}, nil
 }
 
 // devDiscoveryHandler is the development discovery at base, which the core calls: single's two
@@ -149,17 +158,19 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 	port := base[strings.LastIndex(base, ":")+1:]
 	loaderOrigin := "http://localhost:" + port
 	clientOrigins := "http://" + addressdoc.CorePlace + ".localhost:" + port
-	err := writeDevDocument(site.documentPath, addressdoc.Document{
-		Issuer: base, CoreAPI: base + devCoreAPI, ClientAPI: base + devClientAPI, LoaderOrigin: loaderOrigin,
-		ClientOrigins: clientOrigins, IssuedAt: clock.System{}.Now().UnixMilli(),
+	now := clock.System{}.Now()
+	identity, err := publishDev(site.published, addressdoc.Document{
+		RootVersion: 1, Sequence: 1, Issued: now, Expires: now.Add(365 * 24 * time.Hour), Name: "Development",
+		Issuer: base, Locations: []string{base}, CoreAPI: base + devCoreAPI, ClientAPI: base + devClientAPI,
+		LoaderOrigin: loaderOrigin, ClientOrigins: clientOrigins,
 	})
 	if err != nil {
 		return nil, err
 	}
 	store := single.FileStore{Path: site.recordPath}
 	discovery, err := single.New(single.Parts{
-		Issuer: base, AddressDocument: site.documentPath, Zone: "discovery.test", Store: store,
-		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm, ReleaseRecord: site.releaseRecord,
+		Identity: identity, Published: site.published, Zone: "discovery.test", Store: store,
+		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)
@@ -172,7 +183,7 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 		return nil, err
 	}
 	mux := http.NewServeMux()
-	mux.Handle(addressdoc.WellKnownPath, discovery.WellKnownHandler())
+	mux.Handle(trust.WellKnownPrefix, discovery.WellKnownHandler())
 	mux.Handle(devCoreAPI+"/", http.StripPrefix(devCoreAPI, discovery.Handler()))
 	mux.Handle(devClientAPI+"/", http.StripPrefix(devClientAPI, discovery.ClientHandler()))
 	mux.HandleFunc("POST "+devClaim, func(writer http.ResponseWriter, request *http.Request) {

@@ -76,12 +76,12 @@
 //
 //   - The record is written whole: a new file renamed over it. TestFileStore_AWriteReplacesTheRecordWithAWholeNewFile.
 //
-//   - The address document and the release record are served at their well-known paths as the
-//     operator signed them, byte for byte, and with none, none is (D391 §3, §6; security-updates.md
-//     Part A). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
+//   - The operator's published directory, the root chain, the address document and the release
+//     record, is served under /.well-known/ as it is, byte for byte, and nothing outside it (the root
+//     key audit's §3.1). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
 //
-//   - A core's signatures are bound to the discovery's issuer, not the URL it calls (D391 §4).
-//     TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses, whose core enrols by the issuer.
+//   - A core's signatures are bound to the discovery's identity, not a name or URL (the audit's F14).
+//     TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses, whose core enrols by issuer and identity.
 //
 // # Read before changing
 //

@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	discoveryA = "https://discovery-a.example"
-	discoveryB = "https://discovery-b.example"
+	discoveryA = "od1-discoverya"
+	discoveryB = "od1-discoveryb"
 )
 
 // A signature made to enrol does not open a session, nor the reverse, and a key that is not a key
@@ -43,14 +43,14 @@ func TestVerify_ASignatureServesOnlyThePurposeItWasMadeFor(t *testing.T) {
 
 // A signature is bound to the discovery the core called and to the core: one discovery cannot pass
 // another's challenge to the core and use the signature there, nor one core's serve another (C8,
-// X12). A trailing slash on the issuer changes nothing.
+// X12), by its identity (the root key audit's F14).
 func TestVerify_ASignatureServesOnlyTheDiscoveryAndCoreItWasMadeFor(t *testing.T) {
 	t.Parallel()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	signature := ed25519.Sign(private, Message("session", discoveryA+"/", "k7xq2", "n0nce"))
+	signature := ed25519.Sign(private, Message("session", discoveryA, "k7xq2", "n0nce"))
 	if !Verify(public, "session", discoveryA, "k7xq2", "n0nce", signature) {
 		t.Error("a signature does not verify at the discovery it was made for")
 	}

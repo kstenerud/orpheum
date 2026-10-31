@@ -2,12 +2,15 @@
 
 package trust
 
-// CheckForTest checks a signature in any namespace, as ssh-keygen's vector was made in one of its
-// own.
-func CheckForTest(pinned Pinned, namespace, payload, signature string) error {
-	keys, err := parseKeys(pinned.Keys)
-	if err != nil {
-		return err
+import "golang.org/x/crypto/ssh"
+
+// VerifyForTest is verifyBlocks under keys, each marked as must, in any namespace: ssh-keygen's
+// vector was made in one of its own.
+func VerifyForTest(file, namespace, payload string, mustVerifyUV bool, keys ...ssh.PublicKey) error {
+	held := make([]Key, 0, len(keys))
+	for _, key := range keys {
+		held = append(held, Key{Public: key, MustVerifyUV: mustVerifyUV})
 	}
-	return verifySSH(signature, namespace, []byte(payload), keys)
+	_, err := verifyBlocks(file, namespace, []byte(payload), held)
+	return err
 }

@@ -4,31 +4,33 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
+	"maps"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
 
-// releaseCheckEvery is how often the core reads its discovery's release record about its version:
-// at its start, and daily (security-updates.md Part A).
+// releaseCheckEvery is how often the core reads the release record about its version: at its start,
+// and daily (security-updates.md Part A).
 const releaseCheckEvery = 24 * time.Hour
 
-// releaseRetryAfter is how long after a failed reading the core reads again.
+// releaseRetryAfter is how long after a reading that found no record that holds the core reads again.
 const releaseRetryAfter = time.Hour
 
-// maxRecordBytes bounds a signed release record.
-const maxRecordBytes = 256 << 10
+// AutomaticInstallHold is how long a core must have known a release as the latest, on its own
+// monotonic clock from first sight, before it installs it automatically: a stolen everyday key's
+// record is caught by the owner's watcher and undone by a recovery statement within it (the root key
+// audit's F4; D393 §8). The admin's banner and an install by hand are not held.
+const AutomaticInstallHold = 24 * time.Hour
 
 // Release is what the core knows of releases newer than its own, for its admins (security-updates.md
 // Part B).
 type Release struct {
-	// Version is this build's: a release's tag, or "dev" for a build of none, which asks nothing.
+	// Version is this build's: a release's tag, or "dev" for a build of none, which reads nothing.
 	Version string
 	// Latest is the newest release, only when it is newer than Version, Digest its image's and
 	// Location where it may be pulled from; all empty when the core runs the latest, or knows of none.
@@ -37,13 +39,238 @@ type Release struct {
 	Security *release.Fix
 	// CheckedAt is when a record that holds was last read; zero before the first.
 	CheckedAt time.Time
+	// LatestSince is when this run first knew Latest as the latest, on the monotonic clock.
+	LatestSince time.Time
+	// StaleSince is when the record held expired, zero while it is current: the server cannot confirm
+	// it knows of every fix since then. Problem is what the last reading found wrong: a record whose
+	// digest for a version changed, two of one sequence, no publisher root in this build.
+	StaleSince time.Time
+	Problem    string
+	// isCaughtUp is whether, this run, a place answered a look at the publisher's chain.
+	isCaughtUp bool
 }
 
-// IsRelease is whether the build is a release's, which asks its discovery about newer ones: a
-// development build has no version to ask about.
+// IsRelease is whether the build is a release's, which reads the release record: a development build
+// has no version to ask about.
 func (known Release) IsRelease() bool {
 	_, isRelease := release.Compare(known.Version, known.Version)
 	return isRelease
+}
+
+// MayInstallAutomatically is whether an automatic install (security-updates.md Part C, not built)
+// may install Latest at now: the core caught up with the publisher's chain this run, and has known
+// Latest as the latest for AutomaticInstallHold (the audit's §3.5 step 6). It never installs a version
+// at or below its own, which Latest never is.
+func (known Release) MayInstallAutomatically(now time.Time) bool {
+	return known.Latest != "" && known.isCaughtUp && !known.LatestSince.IsZero() &&
+		now.Sub(known.LatestSince) >= AutomaticInstallHold
+}
+
+// publisherHeld is the publisher root as the core holds it: its chain, the record as received and as
+// read, the floor a newer one must be above, every version's digest seen, and the places it is served.
+type publisherHeld struct {
+	chain   trust.Chain
+	signed  trust.Signed
+	record  release.Record
+	floor   floor
+	digests map[string]string
+}
+
+// publisherTrust is trust-publisher, kept as trust-discovery is (§3.3); a Leave keeps it.
+type publisherTrust struct {
+	Identity   string            `json:"identity"`
+	Statements []trust.Signed    `json:"statements"`
+	Record     trust.Signed      `json:"record"`
+	Floor      floor             `json:"floor"`
+	Digests    map[string]string `json:"digests"`
+}
+
+// loadPublisher holds the publisher root: trust-publisher checked again from the genesis this build
+// holds, or that genesis alone; none when this build holds none, which a release build says.
+func (service *Service) loadPublisher() error {
+	genesis := service.parts.Publisher.Genesis
+	if genesis.Payload == "" {
+		return nil
+	}
+	chain, err := trust.Genesis(trust.ChainPublisher, genesis)
+	if err != nil {
+		return fmt.Errorf("this build's publisher root: %w", err)
+	}
+	held := &publisherHeld{chain: chain, digests: map[string]string{}}
+	var state publisherTrust
+	isFound, err := service.readJSON(PublisherTrustFile, &state)
+	if err != nil {
+		return err
+	}
+	if isFound {
+		loaded, loadErr := trust.Load(trust.ChainPublisher, chain.ID(), state.Statements)
+		if loadErr != nil {
+			service.parts.Logger.Error("discovery: trust-publisher does not hold; starting from this build's root",
+				"err", loadErr)
+		} else {
+			held.chain, held.floor = loaded, state.Floor
+			held.digests = maps.Clone(state.Digests)
+			if record, openErr := release.Open(state.Record, loaded); openErr == nil {
+				held.signed, held.record = state.Record, record
+			}
+		}
+	}
+	if held.digests == nil {
+		held.digests = map[string]string{}
+	}
+	service.publisher = held
+	return nil
+}
+
+// checkRelease reads the signed release record at the core's start and daily, an hour after a reading
+// that found none that holds (§3.5): it follows the publisher's chain, then takes the newest record
+// that holds under it, above the floor, from the record's places, this build's and the discovery's
+// (every discovery serves it); refuses one naming another digest for a version it has seen, and two
+// of one sequence; and keeps what the record says of its own version. A development build reads
+// nothing, and a failure is never the step's problem.
+func (service *Service) checkRelease(ctx context.Context, _ Status) {
+	now := service.parts.Clock.Now()
+	service.mutex.Lock()
+	isDue := service.releaseAskedAt.IsZero() || now.Sub(service.releaseAskedAt) >= service.releaseWait
+	publisher := service.publisher
+	discoveryPlaces := service.held.livePlaces(now)
+	service.mutex.Unlock()
+	if !isDue || !(Release{Version: service.parts.Version}).IsRelease() {
+		return
+	}
+	if publisher == nil {
+		service.setReleaseChecked(now, releaseCheckEvery)
+		service.setReleaseProblem("this build holds no publisher root, so no release record is checked")
+		return
+	}
+	held := *publisher
+	held.digests = maps.Clone(publisher.digests)
+	places := placesOf(service.parts.Publisher.Locations, held.record.Locations, discoveryPlaces)
+	_, isReached := service.followChain(ctx, &held.chain, places, release.PublisherRootPath,
+		release.PublisherRootLatestPath)
+	if held.chain.Version() > publisher.chain.Version() {
+		held.floor = higherFloor(held.floor, floor{RootVersion: held.chain.Version()})
+	}
+	newest, problems := service.newestRecord(ctx, held, places)
+	wait := releaseCheckEvery
+	if newest != nil {
+		held.signed, held.record = newest.signed, newest.record
+		held.floor = floor{RootVersion: newest.record.RootVersion, Sequence: newest.record.Sequence}
+		maps.Copy(held.digests, newest.record.Images)
+	} else if held.record.Latest == "" || len(problems) > 0 {
+		wait = releaseRetryAfter
+	}
+	service.adoptRecord(ctx, held, now, wait, isReached, problems)
+}
+
+// placesOf are the places among lists, each once, in order, with no closing slash.
+func placesOf(lists ...[]string) []string {
+	var places []string
+	for _, list := range lists {
+		for _, each := range list {
+			if each = strings.TrimSuffix(each, "/"); !slices.Contains(places, each) {
+				places = append(places, each)
+			}
+		}
+	}
+	return places
+}
+
+// openedRecord is a record as received and as read.
+type openedRecord struct {
+	signed trust.Signed
+	record release.Record
+}
+
+// newestRecord is the newest record above held's floor that holds, from any of places, or nil, and
+// what was wrong with those that did not.
+func (service *Service) newestRecord(
+	ctx context.Context, held publisherHeld, places []string,
+) (*openedRecord, []string) {
+	var newest *openedRecord
+	var problems []string
+	for _, place := range places {
+		signed, isFound, err := service.fetchSigned(ctx, place+release.RecordPath)
+		if err != nil {
+			problems = append(problems, err.Error())
+		}
+		if err != nil || !isFound {
+			continue
+		}
+		record, err := release.Open(signed, held.chain)
+		if err != nil {
+			problems = append(problems, place+": "+err.Error())
+			continue
+		}
+		atFloor := record.RootVersion == held.floor.RootVersion && record.Sequence == held.floor.Sequence
+		if changed, isChanged := record.ChangedDigest(held.digests); isChanged {
+			problems = append(problems, fmt.Sprintf("%s names another image for %s than was signed before: refused",
+				place, changed))
+			service.parts.Logger.ErrorContext(ctx, "discovery: a release record changes a released version's digest",
+				"place", place, "version", changed)
+			continue
+		}
+		switch {
+		case atFloor && signed.Payload != held.signed.Payload:
+			problems = append(problems, fmt.Sprintf("%s serves another release record of sequence %d: refused",
+				place, record.Sequence))
+		case held.floor.isBelowOrAt(record.RootVersion, record.Sequence):
+		case newest == nil || record.IsNewerThan(newest.record):
+			newest = &openedRecord{signed: signed, record: record}
+		}
+	}
+	return newest, problems
+}
+
+// adoptRecord holds the publisher's state the reading reached, keeps it, and tells what changed.
+func (service *Service) adoptRecord(ctx context.Context, held publisherHeld, now time.Time, wait time.Duration,
+	isReached bool, problems []string,
+) {
+	told := held.record.For(service.parts.Version)
+	service.mutex.Lock()
+	was := service.release
+	service.publisher = &held
+	service.releaseAskedAt, service.releaseWait = now, wait
+	known := Release{
+		Latest: told.Latest, Digest: told.Digest, Location: told.Location, Security: told.Security,
+		CheckedAt: was.CheckedAt, LatestSince: was.LatestSince, Problem: strings.Join(problems, "; "),
+		isCaughtUp: was.isCaughtUp || isReached,
+	}
+	if held.record.Latest != "" {
+		known.CheckedAt = now
+	}
+	if told.Latest != was.Latest {
+		known.LatestSince = time.Time{}
+		if told.Latest != "" {
+			known.LatestSince = now
+		}
+	}
+	if !held.record.Expires.IsZero() && held.record.Expires.Before(now) {
+		known.StaleSince = held.record.Expires
+	}
+	service.release = known
+	service.mutex.Unlock()
+	if err := service.writeJSON(PublisherTrustFile, publisherTrust{
+		Identity: held.chain.ID(), Statements: held.chain.Statements(), Record: held.signed, Floor: held.floor,
+		Digests: held.digests,
+	}); err != nil {
+		service.parts.Logger.WarnContext(ctx, "discovery: could not keep the publisher's trust state", "err", err)
+	}
+	service.toldRelease(ctx, was, told)
+}
+
+// setReleaseChecked records a reading at now, the next after wait.
+func (service *Service) setReleaseChecked(now time.Time, wait time.Duration) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	service.releaseAskedAt, service.releaseWait = now, wait
+}
+
+// setReleaseProblem says what is wrong with reading the release record.
+func (service *Service) setReleaseProblem(problem string) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	service.release.Problem = problem
 }
 
 // Release is what the core knows now of releases newer than its own.
@@ -57,106 +284,6 @@ func (service *Service) Release() Release {
 		known.Security = &fix
 	}
 	return known
-}
-
-// errNoRecord is a discovery that serves no release record anywhere: nothing known, no failure.
-var errNoRecord = errors.New("no release record is served")
-
-// checkRelease reads the signed release record, at the core's start and daily, an hour after a
-// failure: at the discovery's issuer and each location its address document names, taking the
-// newest one a root key of the pinned set signed, and keeps what it says of this version (D391 §6).
-// A discovery that serves none knows nothing; a record no root key signed is never believed; a
-// development build reads nothing. A failure is logged and never the step's problem.
-func (service *Service) checkRelease(ctx context.Context, _ Status) {
-	now := service.parts.Clock.Now()
-	service.mutex.Lock()
-	isDue := service.releaseAskedAt.IsZero() || now.Sub(service.releaseAskedAt) >= service.releaseWait
-	opened := service.held
-	service.mutex.Unlock()
-	if !isDue || !(Release{Version: service.parts.Version}).IsRelease() {
-		return
-	}
-	record, err := service.newestRecord(ctx, opened)
-	if errors.Is(err, errNoRecord) {
-		record, err = release.Record{}, nil
-	}
-	service.mutex.Lock()
-	service.releaseAskedAt, service.releaseWait = now, releaseCheckEvery
-	if err != nil {
-		service.releaseWait = releaseRetryAfter
-		service.mutex.Unlock()
-		service.parts.Logger.WarnContext(ctx,
-			"discovery: no release record that holds could be read; reading again in an hour", "err", err)
-		return
-	}
-	told := record.For(service.parts.Version)
-	was := service.release
-	service.release = Release{
-		Latest: told.Latest, Digest: told.Digest, Location: told.Location, Security: told.Security, CheckedAt: now,
-	}
-	service.mutex.Unlock()
-	service.toldRelease(ctx, was, told)
-}
-
-// newestRecord is the newest record a root key of opened's set signed, among those served at its
-// issuer and its document's locations; errNoRecord when none serves one, and why none held when one
-// was served but none held.
-func (service *Service) newestRecord(ctx context.Context, opened held) (release.Record, error) {
-	var newest release.Record
-	var problems []error
-	isServed := false
-	for _, place := range opened.document.Places() {
-		url := place + release.WellKnownPath
-		signed, isFound, err := service.fetchRecord(ctx, url)
-		isServed = isServed || isFound
-		if err == nil && isFound {
-			var record release.Record
-			if record, err = release.Open(signed, opened.pinned); err == nil {
-				if record.IssuedAt > newest.IssuedAt {
-					newest = record
-				}
-				continue
-			}
-		}
-		if err != nil {
-			problems = append(problems, fmt.Errorf("%s: %w", url, err))
-		}
-	}
-	switch {
-	case newest.IssuedAt != 0:
-		return newest, nil
-	case !isServed && len(problems) == 0:
-		return release.Record{}, errNoRecord
-	}
-	return release.Record{}, errors.Join(problems...)
-}
-
-// fetchRecord is the signed record served at url, and whether one is: not-found is none.
-func (service *Service) fetchRecord(ctx context.Context, url string) (trust.Signed, bool, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	if err != nil {
-		return trust.Signed{}, false, fmt.Errorf("ask for the release record: %w", err)
-	}
-	response, err := service.parts.HTTP.Do(request)
-	if err != nil {
-		return trust.Signed{}, false, fmt.Errorf("reach %s: %w", url, err)
-	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read, and closed
-	switch {
-	case response.StatusCode == http.StatusNotFound:
-		return trust.Signed{}, false, nil
-	case response.StatusCode != http.StatusOK:
-		return trust.Signed{}, false, fmt.Errorf("%s answered %s", url, response.Status)
-	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxRecordBytes))
-	if err != nil {
-		return trust.Signed{}, false, fmt.Errorf("read %s: %w", url, err)
-	}
-	var signed trust.Signed
-	if err = json.Unmarshal(body, &signed); err != nil {
-		return trust.Signed{}, true, fmt.Errorf("%w: %w", release.ErrNotARecord, err)
-	}
-	return signed, true, nil
 }
 
 // toldRelease logs what the record changed: a security fix newly pending, or a newer release newly

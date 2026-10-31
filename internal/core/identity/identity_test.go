@@ -53,11 +53,11 @@ func TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signature := key.Sign("enrol", "https://discovery.example", "k7xq2", "n0nce")
-	if !proof.Verify(key.Public(), "enrol", "https://discovery.example", "k7xq2", "n0nce", signature) {
+	signature := key.Sign("enrol", "od1-discovery", "k7xq2", "n0nce")
+	if !proof.Verify(key.Public(), "enrol", "od1-discovery", "k7xq2", "n0nce", signature) {
 		t.Error("the signature does not verify for its own purpose")
 	}
-	if proof.Verify(key.Public(), "session", "https://discovery.example", "k7xq2", "n0nce", signature) {
+	if proof.Verify(key.Public(), "session", "od1-discovery", "k7xq2", "n0nce", signature) {
 		t.Error("an enrolment's signature verifies as a session's")
 	}
 }

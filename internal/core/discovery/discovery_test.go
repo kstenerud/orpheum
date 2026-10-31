@@ -78,8 +78,17 @@ type world struct {
 	// version is the build's, v0.1.0 unless a test names another before the service is made again.
 	version string
 	// suggested is the discovery the core suggests, none unless a test names one before the service
-	// is made again.
-	suggested Suggestion
+	// is made again; noPublisher has the build hold no publisher root.
+	suggested   Suggestion
+	noPublisher bool
+}
+
+// publisherRoot is the publisher root the core is built with: the fake's, unless it holds none.
+func (built *world) publisherRoot() PublisherRoot {
+	if built.noPublisher {
+		return PublisherRoot{}
+	}
+	return PublisherRoot{Genesis: built.fake.publisher.Statements[0]}
 }
 
 func newWorld(t *testing.T) *world {
@@ -105,6 +114,7 @@ func (built *world) restart(t *testing.T) *Service {
 	service, err := New(Parts{
 		Files: built.files, Key: built.key, HTTP: &http.Client{}, Clock: built.clock,
 		Logger: slog.New(slog.DiscardHandler), Version: built.version, APIMajor: 1, Suggested: built.suggested,
+		Publisher:      built.publisherRoot(),
 		Candidates:     func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:      func(context.Context) { built.claimedCount.Add(1) },
 		Random:         unjittered{},
@@ -120,19 +130,20 @@ func (built *world) restart(t *testing.T) *Service {
 func TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
-	status, err := built.service.Connect(t.Context(), built.issuer)
+	status, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if status.State != discoveryproto.StatePending || status.ClaimCode != "abcd-efgh" || status.CoreID != fakeCoreID {
 		t.Errorf("after connecting the status is %+v; want pending, with its claim code", status)
 	}
-	if _, err = built.service.Connect(t.Context(), built.issuer); !errors.Is(err, ErrAlreadyEnrolled) {
+	if _, err = built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); !errors.Is(
+		err, ErrAlreadyEnrolled) {
 		t.Errorf("connecting again = %v; want ErrAlreadyEnrolled", err)
 	}
 	again := built.restart(t).Status()
 	if again.Issuer != built.issuer || again.BaseURL != built.issuer || again.CoreID != fakeCoreID ||
-		again.ClientOrigin != "http://"+fakeCoreID+".localhost:8443" || again.RootSetVersion != 1 {
+		again.ClientOrigin != "http://"+fakeCoreID+".localhost:8443" || again.RootVersion != 1 {
 		t.Errorf("after a restart the status is %+v; want the discovery and the core's id kept", again)
 	}
 }
@@ -162,7 +173,7 @@ func TestStep_APendingCoreAsksWhetherItIsClaimedAsOftenAsTheSettingSays(t *testi
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.parts.Settings = durations{every: 1500 * time.Millisecond}
@@ -199,7 +210,7 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	}
 	claimed := newWorld(t)
 	claimed.service.parts.Settings = waits
-	if _, err := claimed.service.Connect(ctx, claimed.issuer); err != nil {
+	if _, err := claimed.service.Connect(ctx, claimed.issuer, claimed.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	claimed.service.step(ctx)
@@ -211,7 +222,7 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	}
 	copied := newWorld(t)
 	copied.service.parts.Settings = waits
-	if _, err := copied.service.Connect(ctx, copied.issuer); err != nil {
+	if _, err := copied.service.Connect(ctx, copied.issuer, copied.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	copied.service.step(ctx)
@@ -225,7 +236,7 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	if wait := built.service.step(ctx); wait != startingPendingEvery || len(built.fake.heartbeats) != 0 {
@@ -265,7 +276,7 @@ func TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -287,7 +298,7 @@ func TestCall_KeepsTheDeprecationTheDiscoveryNames(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	built.fake.deprecated = "2027-04-09"
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	if until := built.service.Status().DeprecatedUntil; until != "2027-04-09" {
@@ -298,7 +309,7 @@ func TestCall_KeepsTheDeprecationTheDiscoveryNames(t *testing.T) {
 func TestLeave_TellsTheDiscoveryAndForgetsIt(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	if err := built.service.Leave(t.Context()); err != nil {
@@ -351,7 +362,7 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	answerer := &answering{}
 	built.service.parts.Answerer = answerer
 	built.service.parts.OfferKey = offerKeys
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -414,7 +425,7 @@ func provenOffer(offerID, sdp string) discoveryproto.SignalMessage {
 func claimedWorld(t *testing.T) *world {
 	t.Helper()
 	built := newWorld(t)
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -429,7 +440,7 @@ func TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -539,7 +550,7 @@ func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -563,7 +574,7 @@ func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -592,7 +603,7 @@ func TestStatus_NamesTheHomeAddressesOnceClaimedAndSaysWhenTheirCertificateIsHel
 		discoveryproto.Candidate{Address: "192.168.1.250", Port: 8443, Source: "configured"},
 		discoveryproto.Candidate{Address: "192.168.1.251", Port: 443, Source: "interface", Scope: lan},
 		discoveryproto.Candidate{Address: "2001:db8:1::5", Port: 8443, Source: "configured"})
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	if pending := built.service.Status(); len(pending.HomeAddresses) != 0 || pending.IsHomeAddressReady {

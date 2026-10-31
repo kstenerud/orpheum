@@ -106,7 +106,7 @@ func TestSignal_OffersAreAnsweredAtOnce(t *testing.T) {
 	built.fake.mutex.Lock()
 	built.fake.passesAtOnce = true
 	built.fake.mutex.Unlock()
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -162,7 +162,7 @@ func signallingWorld(
 	built := newWorld(t)
 	answerer := &answering{}
 	built.service.parts.Answerer, built.service.parts.OfferKey = answerer, keys
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()

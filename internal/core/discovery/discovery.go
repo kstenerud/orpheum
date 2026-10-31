@@ -19,10 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
-	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
@@ -71,9 +69,11 @@ type Parts struct {
 	HTTP   *http.Client
 	Clock  clock.Clock
 	Logger *slog.Logger
-	// Suggested is the discovery an admin is offered first, and the root key set the core pins for it
-	// (Suggested); empty offers none.
+	// Suggested is the discovery an admin is offered first, and the genesis of its chain (Suggested);
+	// empty offers none. Publisher is the publisher root release records are signed under (Publisher);
+	// with no genesis, a release build checks no record.
 	Suggested Suggestion
+	Publisher PublisherRoot
 	// Version is this build's, and APIMajor its API's, for the discovery to serve the right client.
 	Version  string
 	APIMajor int
@@ -135,16 +135,15 @@ type Answerer interface {
 	) (rtcapi.Description, error)
 }
 
-// kept is the state file: which discovery, by its issuer, the root key set pinned for it and the
-// address document it last held, the core's id there, and its zone once claimed, so its certificate
-// is served from the start; and the house networks it learnt, so a restart keeps them (D356 §4).
+// kept is the state file: the identity of the discovery the core is enrolled with, whose trust
+// state is trust-discovery's (trustfile.go), the core's id there, and its zone once claimed, so its
+// certificate is served from the start; and the house networks it learnt, so a restart keeps them
+// (D356 §4).
 type kept struct {
-	Issuer        string              `json:"issuer"`
-	RootSet       trust.Pinned        `json:"rootSet"`
-	Document      addressdoc.Document `json:"document"`
-	CoreID        string              `json:"coreId"`
-	Zone          string              `json:"zone,omitempty"`
-	HouseNetworks []keptHouseNetwork  `json:"houseNetworks,omitempty"`
+	Identity      string             `json:"identity"`
+	CoreID        string             `json:"coreId"`
+	Zone          string             `json:"zone,omitempty"`
+	HouseNetworks []keptHouseNetwork `json:"houseNetworks,omitempty"`
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -165,13 +164,17 @@ type Service struct {
 	mutex sync.Mutex
 	// Guarded by mutex:
 	status Status
-	// held is the root key set pinned and the address document held; documentCheckedAt when the core
-	// last looked for a newer one (checkDocument).
+	// held is the discovery's trust state; documentCheckedAt when the core last looked at its places
+	// (checkDocument); isCaughtUp whether, in this run, a place answered a look at the chain: until one
+	// has, a restored core moves no address and installs nothing (the audit's F12).
 	held              held
 	documentCheckedAt time.Time
-	token             string
-	tokenExpiresAt    time.Time
-	lastSent          []discoveryproto.Candidate
+	isCaughtUp        bool
+	// publisher is the publisher root's trust state, nil when this build holds no publisher root.
+	publisher      *publisherHeld
+	token          string
+	tokenExpiresAt time.Time
+	lastSent       []discoveryproto.Candidate
 	// failures is how many calls of the step loop failed in a row, which its next wait doubles by.
 	failures int64
 	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
@@ -254,7 +257,8 @@ func New(parts Parts) (*Service, error) {
 	contents, err := parts.Files.ReadPersistentFile(StateFileName)
 	switch {
 	case errors.Is(err, instancedir.ErrNotFound):
-		return service, nil
+		publisherErr := service.loadPublisher()
+		return service, publisherErr
 	case err != nil:
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
@@ -262,16 +266,21 @@ func New(parts Parts) (*Service, error) {
 	if err = json.Unmarshal(contents, &state); err != nil {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
-	if state.Issuer == "" || state.Document.CoreAPI == "" {
-		// A discovery held by no issuer is none: the admin enrols the core again (D391 §1).
-		parts.Logger.Warn("discovery: discovery.json names no issuer; the core is enrolled with none")
-		return service, nil
+	opened, problem, err := service.loadTrust()
+	if err != nil || opened.chain.ID() != state.Identity || state.Identity == "" {
+		// A state that does not hold is never used: the admin enrols the core again (§3.3; D391 §1).
+		parts.Logger.Error("discovery: the trust state does not hold; the core is enrolled with no discovery",
+			"err", err)
+		publisherErr := service.loadPublisher()
+		return service, publisherErr
 	}
-	service.status.Issuer, service.status.BaseURL = state.Issuer, state.Document.CoreAPI
+	service.status.Issuer, service.status.BaseURL = opened.issuer, opened.document.CoreAPI
 	service.status.CoreID, service.status.Zone = state.CoreID, state.Zone
-	service.held = held{pinned: state.RootSet, document: state.Document}
+	service.status.DocumentProblem = problem
+	service.held = opened
 	service.learnt = learntOf(state.HouseNetworks)
-	return service, nil
+	publisherErr := service.loadPublisher()
+	return service, publisherErr
 }
 
 // SignedClientManifest is the client's manifest signed by the core's identity key, and that key's
@@ -300,9 +309,13 @@ func (service *Service) Status() Status {
 		if status.CoreID != "" {
 			status.ClientOrigin = document.ClientOrigin(status.CoreID)
 		}
-		status.LoaderOrigin, status.Homepage = document.LoaderOrigin, document.Homepage
-		status.RootKeys, status.RootSetVersion = service.held.pinned.Fingerprints(), service.held.pinned.Version
-		status.DocumentIssuedAt = time.UnixMilli(document.IssuedAt)
+		status.LoaderOrigin, status.Homepage, status.Name = document.LoaderOrigin, document.Homepage, document.Name
+		status.Identity, status.RootKeys = service.held.chain.ID(), service.held.chain.Fingerprints()
+		status.RootVersion, status.DocumentIssuedAt = service.held.chain.Version(), document.Issued
+		status.IsSuggested = status.Issuer == service.parts.Suggested.Issuer
+		if document.Expires.Before(service.parts.Clock.Now()) {
+			status.DocumentStaleSince = document.Expires
+		}
 	}
 	status.SuggestedIssuer = service.parts.Suggested.Issuer
 	return status
@@ -312,14 +325,19 @@ func (service *Service) Status() Status {
 var ErrAlreadyEnrolled = errors.New("the core is enrolled with a discovery already; leave it first")
 
 // Connect enrols the core with the discovery whose issuer the admin typed, "discovery.example" or
-// its https origin: it fetches the issuer's address document and opens it, pinning the root key set
-// it is signed by (the suggestion's, for the suggested issuer), then proves to the core API the
-// document names that it holds its key, and is given the code its owner claims it by, which Status
-// then holds until the discovery says it is claimed (D391 §3).
-func (service *Service) Connect(ctx context.Context, typed string) (Status, error) {
-	issuer, err := addressdoc.Issuer(typed)
+// its https origin, with "#od1-…" after it or identity naming the identity it must be (the root key
+// audit's §3.8): it follows the issuer's root chain from its genesis, the suggested one's from the
+// genesis this build holds, and opens its address document, then proves to the core API the document
+// names that it holds its key, its signature bound to the identity, and is given the code its owner
+// claims it by. A discovery not suggested, with no identity given, is refused with the identity found
+// (IdentityToConfirm), for the admin to compare with what its operator shows.
+func (service *Service) Connect(ctx context.Context, typed, confirmed string) (Status, error) {
+	issuer, named, err := splitIssuer(typed)
 	if err != nil {
 		return Status{}, err
+	}
+	if confirmed == "" {
+		confirmed = named
 	}
 	service.connecting.Lock()
 	defer service.connecting.Unlock()
@@ -330,13 +348,21 @@ func (service *Service) Connect(ctx context.Context, typed string) (Status, erro
 	if err != nil {
 		return Status{}, err
 	}
-	return service.enrol(ctx, issuer, opened)
+	found := service.identified(opened)
+	switch {
+	case found.IsSuggested:
+	case confirmed == "":
+		return Status{}, IdentityToConfirmError{Identified: found}
+	case confirmed != found.Identity:
+		return Status{}, fmt.Errorf("%w: it is %s", ErrNotTheIdentity, found.Identity)
+	}
+	return service.enrol(ctx, opened)
 }
 
-// enrol proves the core holds its key to the discovery issuer names, at the core API its document
-// names, and keeps the set, the document, and the id and code it is given.
-func (service *Service) enrol(ctx context.Context, issuer string, opened held) (Status, error) {
-	baseURL := opened.document.CoreAPI
+// enrol proves the core holds its key to the discovery opened, at the core API its document names,
+// and keeps its trust state, and the id and code it is given.
+func (service *Service) enrol(ctx context.Context, opened held) (Status, error) {
+	issuer, baseURL := opened.issuer, opened.document.CoreAPI
 	nonce, err := service.challenge(ctx, baseURL)
 	if err != nil {
 		return Status{}, err
@@ -347,7 +373,8 @@ func (service *Service) enrol(ctx context.Context, issuer string, opened held) (
 		base: baseURL, method: http.MethodPost, path: discoveryproto.PathEnrol,
 		body: discoveryproto.EnrolRequest{
 			PublicKey: public, Nonce: nonce,
-			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, issuer, proof.KeyLabel(public), nonce),
+			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, opened.chain.ID(), proof.KeyLabel(public),
+				nonce),
 		}, into: &enrolled,
 	})
 	if err != nil {
@@ -362,16 +389,18 @@ func (service *Service) enrol(ctx context.Context, issuer string, opened held) (
 	}
 	wasHeld := service.held
 	service.held, service.documentCheckedAt = opened, service.parts.Clock.Now()
+	service.isCaughtUp = true // the chain was just followed at the issuer
 	service.token, service.lastSent, service.sentHouseNetworks = "", nil, nil
 	service.mutex.Unlock()
-	if keepErr := service.keep(); keepErr != nil {
+	if keepErr := errors.Join(service.keepTrust(), service.keep()); keepErr != nil {
 		service.mutex.Lock()
 		service.status, service.held = was, wasHeld
 		service.mutex.Unlock()
 		return Status{}, keepErr
 	}
 	service.parts.Logger.InfoContext(ctx, "discovery: enrolled; waiting to be claimed", "issuer", issuer,
-		"coreApi", baseURL, "coreId", enrolled.CoreID, "rootSetVersion", opened.pinned.Version)
+		"identity", opened.chain.ID(), "coreApi", baseURL, "coreId", enrolled.CoreID,
+		"rootVersion", opened.chain.Version())
 	service.nudge()
 	return service.Status(), nil
 }
@@ -389,8 +418,11 @@ func (service *Service) Leave(ctx context.Context) error {
 	if err != nil {
 		service.parts.Logger.WarnContext(ctx, "discovery: the discovery did not take the core's leaving", "err", err)
 	}
-	if err := service.parts.Files.RemovePersistentFile(StateFileName); err != nil {
-		return fmt.Errorf("forget %s: %w", StateFileName, err)
+	for _, name := range []string{StateFileName, DiscoveryTrustFile} {
+		err := service.parts.Files.RemovePersistentFile(name)
+		if err != nil && !errors.Is(err, instancedir.ErrNotFound) {
+			return fmt.Errorf("forget %s: %w", name, err)
+		}
 	}
 	service.mutex.Lock()
 	service.status, service.token, service.lastSent = Status{}, "", nil
@@ -487,7 +519,7 @@ func (service *Service) enrolAgain(ctx context.Context, issuer string) time.Dura
 	service.mutex.Lock()
 	opened := service.held
 	service.mutex.Unlock()
-	if _, err := service.enrol(ctx, issuer, opened); err != nil {
+	if _, err := service.enrol(ctx, opened); err != nil {
 		return service.failed(ctx, "enrol again", err)
 	}
 	return service.wait(ctx, settings.DiscoveryPendingCheckEverySeconds)
@@ -559,8 +591,8 @@ func (service *Service) keep() error {
 	defer service.keeping.Unlock()
 	service.mutex.Lock()
 	state := kept{
-		Issuer: service.status.Issuer, RootSet: service.held.pinned, Document: service.held.document,
-		CoreID: service.status.CoreID, Zone: service.status.Zone, HouseNetworks: keptHouseNetworksOf(service.learnt),
+		Identity: service.held.chain.ID(), CoreID: service.status.CoreID, Zone: service.status.Zone,
+		HouseNetworks: keptHouseNetworksOf(service.learnt),
 	}
 	service.mutex.Unlock()
 	encoded, err := json.Marshal(state)
@@ -591,9 +623,14 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	if wait := service.askStatus(ctx, status); wait != 0 {
 		return wait
 	}
+	service.mutex.Lock()
+	rootVersion, rootHash := service.held.chain.Version(), service.held.chain.Hash()
+	service.mutex.Unlock()
 	request := discoveryproto.AddressesRequest{
 		OrpheumVersion: service.parts.Version,
 		APIMajor:       service.parts.APIMajor, Candidates: candidates, HouseNetworks: houseNetworks,
+		// The root it pinned, so its operator sees a core holding another statement (the audit's F17).
+		RootVersion: rootVersion, RootHash: rootHash,
 	}
 	if service.parts.TURN != nil {
 		request.TURN = service.parts.TURN(ctx)

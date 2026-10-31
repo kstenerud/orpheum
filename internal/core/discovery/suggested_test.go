@@ -85,17 +85,28 @@ func isUnshippedDirectory(root, path string) bool {
 		filepath.Clean(path) == filepath.Join(root, "web", "e2e")
 }
 
-// The suggestion is an issuer, and every root key it names is a key a root key set may hold: an
-// owner's mistyped line fails here, not at a household's enrolment.
+// The suggestion is an issuer, and each genesis this build holds, once the owner has put it there, is
+// a chain's first statement of the right kind, signed by one of its own keys: an owner's mistake
+// fails here, not at a household's enrolment or update.
 func TestSuggested_IsAnIssuerAndItsRootKeysAreKeys(t *testing.T) {
 	t.Parallel()
 	suggested := Suggested()
 	if issuer, err := addressdoc.Issuer(suggested.Issuer); err != nil || issuer != suggested.Issuer {
 		t.Errorf("the suggested issuer %q is not an issuer as typed: %q, %v", suggested.Issuer, issuer, err)
 	}
-	for _, line := range suggested.RootKeys {
-		if _, err := trust.ParseKey(line); err != nil {
-			t.Errorf("the suggested root key %q: %v", line, err)
+	for kind, genesis := range map[trust.ChainKind]trust.Signed{
+		trust.ChainDiscovery: suggested.Genesis, trust.ChainPublisher: Publisher().Genesis,
+	} {
+		if genesis.Payload == "" {
+			continue
+		}
+		if _, err := trust.Genesis(kind, genesis); err != nil {
+			t.Errorf("the compiled %s genesis: %v", kind, err)
+		}
+	}
+	for _, location := range Publisher().Locations {
+		if issuer, err := addressdoc.Issuer(location); err != nil || issuer != location {
+			t.Errorf("the publisher's location %q is not an origin: %v", location, err)
 		}
 	}
 }

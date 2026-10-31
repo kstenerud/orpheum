@@ -1,33 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Command discovery-sign is how a discovery's owner signs with a root key (D391 §2): the root key
-// sets' chain, an online key's delegation, the address document and the release record, each with
-// whichever one of the set's keys is at hand. It signs through the ssh-agent, so a YubiKey's resident
-// key loaded with `ssh-add -K` signs, asking for a touch, and no key leaves its device; or with a
-// --key-file, a plain Ed25519 key's, for an operator without a hardware key. It writes the signed
-// files a discovery serves (discovery/single, the paid service) and checks each in Go before it
-// writes it. It is a program of its own, not a subcommand of `orpheum`, since no household runs it:
+// Command discovery-sign is the owner's signing tool (the root key audit's §3.7; D393): it builds a
+// root statement, an address document or a drill from a typed edit (keys of either tier added or
+// removed, versions skipped, thresholds and locations changed), shows the payload and what changed,
+// and says the `ssh-keygen -Y sign -n <namespace> -f <stub>` command that signs it with one touch and
+// one PIN; then `check` checks the signature by the very code a core uses, keeps payload and
+// signature in the owner's ledger, its expected file the watcher's (cmd/discovery-watch), and writes
+// the files every place serves. It does not run ssh-keygen itself, since a process is started by
+// internal/node/execx alone (forbidigo's exec rule), and no root key is ever put in an agent (the
+// audit's F16). `bootstrap` writes the install's bootstrap script from the publisher's chain. No
+// household runs it.
 //
-//	go run ./cmd/discovery-sign root-set --sets root-sets.json --add yubikey-1.pub --add yubikey-2.pub
-//	go run ./cmd/discovery-sign document --sets root-sets.json --issuer discovery.example ... --out doc.json
-//
-// docs/users/discovery-signing.md is the owner's guide, the YubiKeys' set-up included.
+// docs/users/discovery-signing.md is the owner's guide: the day-one ceremony and each rotation.
 //
 // # Invariants
 //
-//   - A set is signed by a key of the set before it, the first by one of its own, and a key removed
-//     signs no later set; the chain written is the one a core catches up through.
-//     TestRootSet_AnyOneKeyMakesTheNextSetAndARemovedKeySignsNoMore.
-//   - What it signs, a document, a delegation and a record, is what a core opens, each by a root
-//     key. TestDocument_WhatTheHelperSignsACoreOpens.
-//   - A signature made by hand is sealed only when it holds under the chain.
-//     TestSeal_TakesAHandMadeSignatureOnlyWhenItHolds.
+//   - The owner's day one and a rotation, through the tool, publish what a core follows: a leaving
+//     signer whose new set does not sign is refused, and the ledger holds each signature made.
+//     TestSign_TheOwnersDayOneAndARotationArePublishedAsACoreFollowsThem.
+//   - A record changing a released version's digest is refused before it is kept; a drill names the
+//     keys that signed it. TestCheck_ARecordChangingADigestIsRefusedAndADrillNamesItsKeys.
+//   - The install's bootstrap checks the record's signature by the publisher's keys before it pulls
+//     or runs anything, then pulls the latest's image by its digest (the audit's §3.9).
+//     TestBootstrap_VerifiesTheRecordBeforeItRunsAnything.
 //
 // # Read before changing
 //
-//   - D391 §2, §3, §6; discovery/trust, where every signature is made and checked.
+//   - D393; docs/contributors/design/research/root-key-audit-2026-10-31.md §3.6, §3.7, §3.9, §4.
 //
 // # Where to change
 //
-//   - main.go: the ssh-agent and the usage; sign.go: each thing it signs.
+//   - commands.go: each command; ledger.go: the ledger and the published files; bootstrap.sh: the
+//     install's bootstrap.
 package main

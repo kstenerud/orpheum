@@ -4,9 +4,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,198 +11,227 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 )
 
-// signingAt is when the tests sign.
-var signingAt = time.UnixMilli(1_800_000_000_000)
-
-// yubiKey is a key loaded into an agent, as `ssh-add -K` loads a YubiKey's resident key: the agent
-// holding it, and its public half's line.
-type yubiKey struct {
-	agent agent.Agent
-	line  string
+// owner is the owner at the Mac: a ledger, and keys whose .pub files are in a directory.
+type owner struct {
+	t      *testing.T
+	ledger string
+	keys   string
+	now    time.Time
 }
 
-func newYubiKey(t *testing.T) yubiKey {
+func newOwner(t *testing.T) *owner {
 	t.Helper()
-	_, private, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	keyring := agent.NewKeyring()
-	if err = keyring.Add(agent.AddedKey{PrivateKey: private}); err != nil {
-		t.Fatal(err)
-	}
-	signer, err := ssh.NewSignerFromKey(private)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return yubiKey{agent: keyring, line: trust.KeyLine(signer.PublicKey())}
+	return &owner{t: t, ledger: t.TempDir(), keys: t.TempDir(), now: trusttest.Issued()}
 }
 
-// sign runs the helper with key plugged in, and fails the test unless it succeeds.
-func (key yubiKey) sign(t *testing.T, arguments ...string) string {
-	t.Helper()
+// pub writes key's .pub file, labelled, and returns its path.
+func (person *owner) pub(key trusttest.Key) string {
+	person.t.Helper()
+	path := filepath.Join(person.keys, key.Label+".pub")
+	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key.PublicKey()))) + " " + key.Label + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
+		person.t.Fatal(err)
+	}
+	return path
+}
+
+// runs has the tool run, its ledger given, and returns its status and what it said.
+func (person *owner) runs(arguments ...string) (int, string) {
+	person.t.Helper()
 	var stdout, stderr bytes.Buffer
-	if status := run(arguments, signingAt, key.agent.Signers, &stdout, &stderr); status != exitSuccess {
-		t.Fatalf("discovery-sign %v = %d: %s", arguments, status, stderr.String())
-	}
-	return stdout.String()
+	arguments = append(arguments[:1:1], append([]string{"--ledger", person.ledger}, arguments[1:]...)...)
+	status := run(arguments, person.now, &stdout, &stderr)
+	return status, stdout.String() + stderr.String()
 }
 
-// refused runs the helper with key plugged in, and fails the test unless it is refused saying want.
-func (key yubiKey) refused(t *testing.T, want string, arguments ...string) {
-	t.Helper()
-	var stdout, stderr bytes.Buffer
-	if status := run(arguments, signingAt, key.agent.Signers, &stdout, &stderr); status != exitFailure ||
-		!strings.Contains(stderr.String(), want) {
-		t.Errorf("discovery-sign %v = %d, %q; want refused saying %q", arguments, status, stderr.String(), want)
+// does runs the tool and fails the test unless it succeeds.
+func (person *owner) does(arguments ...string) string {
+	person.t.Helper()
+	status, said := person.runs(arguments...)
+	if status != exitSuccess {
+		person.t.Fatalf("discovery-sign %v = %d: %s", arguments, status, said)
 	}
+	return said
 }
 
-func readJSON(t *testing.T, file string, into any) {
-	t.Helper()
-	contents, err := os.ReadFile(file)
+// signs has keys sign the pending payload name in namespace with keys, as ssh-keygen -Y sign writes it, and
+// returns the payload's path.
+func (person *owner) signs(name, namespace string, keys ...trusttest.Key) string {
+	person.t.Helper()
+	path := filepath.Join(person.ledger, "pending", name)
+	payload, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatal(err)
+		person.t.Fatal(err)
 	}
-	if err = json.Unmarshal(contents, into); err != nil {
-		t.Fatal(err)
+	signed := trusttest.Sign(person.t, namespace, payload, keys...)
+	if err = os.WriteFile(path+".sig", []byte(signed.Signature), 0o600); err != nil {
+		person.t.Fatal(err)
 	}
+	return path
 }
 
-// The owner makes the first root key set of three YubiKeys with any one of them, and a later one
-// that removes a lost key with any other; a key no longer in the set signs nothing more, and the
-// chain a core catches up through holds (D391 §2).
-func TestRootSet_AnyOneKeyMakesTheNextSetAndARemovedKeySignsNoMore(t *testing.T) {
+// The owner's day one and a rotation, through the tool (the root key audit's §3.6, §3.7, §4): the
+// discovery's genesis signed by e1, checked and kept; the address document; e1 lost, replaced by e3
+// with e2 and e3 signing; the publisher's genesis and a record; and what is published is what a core
+// follows to the new set, from the genesis.
+func TestSign_TheOwnersDayOneAndARotationArePublishedAsACoreFollowsThem(t *testing.T) {
 	t.Parallel()
-	first, second, third := newYubiKey(t), newYubiKey(t), newYubiKey(t)
-	sets := filepath.Join(t.TempDir(), "root-sets.json")
-	said := first.sign(t, "root-set", "--sets", sets, "--add", first.line, "--add", second.line, "--add", third.line)
-	if !strings.Contains(said, "root key set 1, of 3 keys") {
-		t.Errorf("the first set: %q", said)
+	person := newOwner(t)
+	carried, home := trusttest.HardwareKey(t, "e1"), trusttest.HardwareKey(t, "e2")
+	bank := trusttest.HardwareKey(t, "r1")
+	said := person.does("genesis", "--chain", "discovery", "--everyday", person.pub(carried), "--everyday",
+		person.pub(home), "--recovery", person.pub(bank), "--location", "https://discovery.example")
+	if !strings.Contains(said, "ssh-keygen -Y sign -n orpheum-discovery-root-v1") ||
+		!strings.Contains(said, "key everyday uv sk-ssh-ed25519@openssh.com") {
+		t.Errorf("the genesis said %q; want the payload and the command that signs it", said)
 	}
-	// The first key lost: the second removes it.
-	second.sign(t, "root-set", "--sets", sets, "--remove", first.line)
-	var chain []trust.Signed
-	readJSON(t, sets, &chain)
-	pinned, err := trust.FirstUse(chain)
-	if err != nil || pinned.Version != 2 || len(pinned.Keys) != 2 {
-		t.Fatalf("the chain reaches %+v, %v; want version 2 of two keys", pinned, err)
-	}
-	first.refused(t, "none of the keys at hand", "root-set", "--sets", sets, "--add", first.line)
-	// A key outside the set cannot start a set of its own in the chain either.
-	stranger := newYubiKey(t)
-	stranger.refused(t, "none of the keys at hand", "root-set", "--sets", sets, "--remove", second.line)
-}
-
-// A document the helper signs, with the chain of sets beside it, is one a core opens for its issuer;
-// a delegation and a release record it signs hold too, each by a root key (D391 §3, §6).
-func TestDocument_WhatTheHelperSignsACoreOpens(t *testing.T) {
-	t.Parallel()
-	key := newYubiKey(t)
-	directory := t.TempDir()
-	sets := filepath.Join(directory, "root-sets.json")
-	key.sign(t, "root-set", "--sets", sets, "--add", key.line)
-	served := filepath.Join(directory, "orpheum-discovery.json")
-	key.sign(t, "document", "--sets", sets, "--out", served, "--issuer", "discovery.example",
+	person.does("check", "--kind", "root", "--payload",
+		person.signs("discovery-root-1", trust.NamespaceDiscoveryRoot, carried, home, bank))
+	person.does("address", "--issuer", "discovery.example", "--name", "Discovery",
 		"--core-api", "https://api.discovery.example/core/v1",
 		"--client-api", "https://api.discovery.example/client/v1",
-		"--loader", "https://discovery.example", "--client-origins", "https://{core}.client.example",
-		"--location", "https://mirror.example/discovery")
-	var document addressdoc.Served
-	readJSON(t, served, &document)
-	var chain []trust.Signed
-	readJSON(t, sets, &chain)
-	pinned, err := trust.FirstUse(chain)
-	if err != nil {
-		t.Fatal(err)
-	}
-	opened, _, err := addressdoc.Open(document, pinned, "https://discovery.example", signingAt)
-	if err != nil || opened.IssuedAt != signingAt.UnixMilli() || len(opened.Locations) != 1 {
-		t.Fatalf("the document opens as %+v, %v", opened, err)
-	}
+		"--loader-origin", "https://discovery.example", "--client-origins", "https://{core}.client.example",
+		"--location", "https://discovery.example")
+	person.does("check", "--kind", "address", "--payload",
+		person.signs("address-1-1", trust.NamespaceDiscoveryAddress, carried))
 
-	_, online, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
+	replacement := trusttest.HardwareKey(t, "e3")
+	said = person.does("root", "--chain", "discovery", "--remove", person.pub(carried),
+		"--add-everyday", person.pub(replacement))
+	if !strings.Contains(said, "- key everyday uv") || !strings.Contains(said, "+ removed SHA256:") ||
+		!strings.Contains(said, "an everyday or a recovery key") {
+		t.Errorf("the rotation said %q; want what changed and who signs", said)
 	}
-	onlineSigner, err := ssh.NewSignerFromKey(online)
-	if err != nil {
-		t.Fatal(err)
+	// carried signing its own removal is refused: it leaves, and no key of the new set signed.
+	if status, refused := person.runs("check", "--kind", "root", "--payload",
+		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, carried)); status != exitFailure {
+		t.Errorf("e1's own removal, signed by it alone: %d %q; want refused", status, refused)
 	}
-	delegation := filepath.Join(directory, "delegation.json")
-	key.sign(t, "delegation", "--sets", sets, "--issuer", "discovery.example", "--key",
-		trust.KeyLine(onlineSigner.PublicKey()), "--for", "2160h", "--out", delegation)
-	var delegated trust.Signed
-	readJSON(t, delegation, &delegated)
-	byOnline, err := trust.Sign(onlineSigner, trust.KindAddressDocument, []byte(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	byOnline.Delegation = &delegated
-	if _, err = pinned.OpenDocument(byOnline, "https://discovery.example", signingAt.Add(time.Hour)); err != nil {
-		t.Errorf("a document the delegated key signed: %v", err)
-	}
+	person.does("check", "--kind", "root", "--payload",
+		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, home, replacement))
 
-	unsigned := filepath.Join(directory, "release.json")
-	record := release.Record{
-		IssuedAt: 1, Latest: "v1.0.0",
-		Releases: map[string]release.Note{"v1.0.0": {Digest: "sha256:" + strings.Repeat("a", 64)}},
-	}
-	if err = release.Write(unsigned, record); err != nil {
+	publishing, pr1 := trusttest.HardwareKey(t, "p1"), trusttest.HardwareKey(t, "pr1")
+	person.does("genesis", "--chain", "publisher", "--everyday", person.pub(publishing), "--recovery", person.pub(pr1))
+	person.does("check", "--kind", "root", "--chain", "publisher", "--payload",
+		person.signs("publisher-root-1", trust.NamespacePublisherRoot, publishing))
+	publisherChain, _, err := ledger(person.ledger).chain(trust.ChainPublisher)
+	if err != nil {
 		t.Fatal(err)
 	}
-	signedRecord := filepath.Join(directory, "release.signed.json")
-	key.sign(t, "record", "--sets", sets, "--record", unsigned, "--out", signedRecord)
-	var sealed trust.Signed
-	readJSON(t, signedRecord, &sealed)
-	if opened, openErr := release.Open(sealed, pinned); openErr != nil || opened.Latest != "v1.0.0" {
-		t.Errorf("the signed record opens as %+v, %v", opened, openErr)
+	record, err := release.Record{ID: publisherChain.ID(), RootVersion: 1}.Released("v1.0.0",
+		"sha256:"+strings.Repeat("a", 64), "", []string{"registry.example/orpheum"}, person.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordPath := filepath.Join(person.ledger, "pending", "release")
+	if err = release.Write(recordPath, record); err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	person.does("check", "--kind", "release", "--payload", person.signs("release", trust.NamespaceRelease, publishing),
+		"--publish", out)
+
+	wantFollowedFrom(t, out)
+	expected, err := trust.ReadExpected(filepath.Join(person.ledger, expectedFile))
+	if err != nil || len(expected) != 8 {
+		t.Errorf("the ledger expects %d signatures, %v; want each of the eight the owner made", len(expected), err)
 	}
 }
 
-// A record signed by hand with ssh-keygen is sealed only when its signature holds under the chain.
-func TestSeal_TakesAHandMadeSignatureOnlyWhenItHolds(t *testing.T) {
+// wantFollowedFrom fails the test unless what is published in out is what a core holding the genesis
+// alone follows to the new set, the document carried signed no longer holding, and the publisher's
+// record opening.
+func wantFollowedFrom(t *testing.T, out string) {
+	t.Helper()
+	genesis := readPublished(t, out, addressdoc.RootPath(1))
+	core, err := trust.Genesis(trust.ChainDiscovery, genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	core, _ = core.Follow([]trust.Signed{readPublished(t, out, addressdoc.RootLatestPath)})
+	if core.Version() != 2 {
+		t.Fatalf("the core follows the published chain to %d; want 2", core.Version())
+	}
+	document := readPublished(t, out, addressdoc.DocumentPath)
+	if _, err = addressdoc.Open(document, core, "https://discovery.example"); err == nil {
+		t.Error("the document carried signed holds after carried was removed; the owner must sign it again")
+	}
+	publisher, err := trust.Genesis(trust.ChainPublisher, readPublished(t, out, release.PublisherRootPath(1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened, openErr := release.Open(readPublished(t, out, release.RecordPath), publisher); openErr != nil ||
+		opened.Latest != "v1.0.0" {
+		t.Errorf("the published record: %+v, %v", opened, openErr)
+	}
+}
+
+// A record that changes a released version's digest is refused before it is kept (the audit's F11),
+// and a drill names the keys that signed it.
+func TestCheck_ARecordChangingADigestIsRefusedAndADrillNamesItsKeys(t *testing.T) {
 	t.Parallel()
-	key := newYubiKey(t)
-	directory := t.TempDir()
-	sets := filepath.Join(directory, "root-sets.json")
-	key.sign(t, "root-set", "--sets", sets, "--add", key.line)
-	payload := filepath.Join(directory, "release.json")
-	if err := release.Write(payload, release.Record{
-		IssuedAt: 1, Latest: "v1.0.0",
-		Releases: map[string]release.Note{"v1.0.0": {Digest: "sha256:" + strings.Repeat("b", 64)}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	contents, err := os.ReadFile(payload)
+	person := newOwner(t)
+	publishing, pr1 := trusttest.HardwareKey(t, "p1"), trusttest.HardwareKey(t, "pr1")
+	person.does("genesis", "--chain", "publisher", "--everyday", person.pub(publishing), "--recovery", person.pub(pr1))
+	person.does("check", "--kind", "root", "--chain", "publisher", "--payload",
+		person.signs("publisher-root-1", trust.NamespacePublisherRoot, publishing))
+	chain, _, err := ledger(person.ledger).chain(trust.ChainPublisher)
 	if err != nil {
 		t.Fatal(err)
 	}
-	signers, err := key.agent.Signers()
+	first, err := release.Record{ID: chain.ID(), RootVersion: 1}.Released("v1.0.0", "sha256:"+strings.Repeat("a", 64),
+		"", nil, person.now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	byHand, err := trust.Sign(signers[0], trust.KindReleaseRecord, contents)
+	path := filepath.Join(person.ledger, "pending", "release")
+	if err = release.Write(path, first); err != nil {
+		t.Fatal(err)
+	}
+	person.does("check", "--kind", "release", "--payload", person.signs("release", trust.NamespaceRelease, publishing))
+	changed := first
+	changed.Sequence, changed.Images = 2, map[string]string{"v1.0.0": "sha256:" + strings.Repeat("b", 64)}
+	if err = release.Write(path, changed); err != nil {
+		t.Fatal(err)
+	}
+	if status, said := person.runs("check", "--kind", "release", "--payload",
+		person.signs("release", trust.NamespaceRelease, publishing)); status != exitFailure ||
+		!strings.Contains(said, "never changes") {
+		t.Errorf("a changed digest: %d %q; want refused", status, said)
+	}
+	person.does("drill", "--chain", "publisher")
+	entries, err := os.ReadDir(filepath.Join(person.ledger, "pending"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	signature := payload + ".sig"
-	if err = os.WriteFile(signature, []byte(byHand.Signature), 0o600); err != nil {
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "drill-") && !strings.HasSuffix(entry.Name(), ".sig") {
+			said := person.does("check", "--kind", "drill", "--chain", "publisher", "--payload",
+				person.signs(entry.Name(), trust.NamespaceDrill, pr1))
+			if !strings.Contains(said, trust.Fingerprint(pr1.PublicKey())) {
+				t.Errorf("the drill said %q; want the recovery key named", said)
+			}
+		}
+	}
+}
+
+func readPublished(t *testing.T, directory, path string) trust.Signed {
+	t.Helper()
+	name := filepath.Join(directory, filepath.FromSlash(strings.TrimPrefix(path, trust.WellKnownPrefix)))
+	payload, err := os.ReadFile(name)
+	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Join(directory, "release.signed.json")
-	key.sign(t, "seal", "--sets", sets, "--kind", string(trust.KindReleaseRecord), "--payload", payload,
-		"--signature", signature, "--out", out)
-	if err = os.WriteFile(payload, append(contents, ' '), 0o600); err != nil { //nolint:gosec // the test's own file
+	signature, err := os.ReadFile(name + ".sig")
+	if err != nil {
 		t.Fatal(err)
 	}
-	key.refused(t, "does not hold", "seal", "--sets", sets, "--kind", string(trust.KindReleaseRecord),
-		"--payload", payload, "--signature", signature, "--out", out)
+	return trust.Signed{Payload: string(payload), Signature: string(signature)}
 }

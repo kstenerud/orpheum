@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
-const nonceDiscovery = "https://discovery.example"
+const nonceDiscovery = "od1-discovery"
 
 // signedOver is a core's signature over nonce for purpose, at nonceDiscovery as core k7xq2.
 func signedOver(t *testing.T, purpose, nonce string) proof.SignedNonce {
@@ -23,7 +23,7 @@ func signedOver(t *testing.T, purpose, nonce string) proof.SignedNonce {
 		t.Fatal(err)
 	}
 	return proof.SignedNonce{
-		PublicKey: public, Purpose: purpose, Issuer: nonceDiscovery, Core: "k7xq2", Nonce: nonce,
+		PublicKey: public, Purpose: purpose, Identity: nonceDiscovery, Core: "k7xq2", Nonce: nonce,
 		Signature: ed25519.Sign(private, proof.Message(purpose, nonceDiscovery, "k7xq2", nonce)),
 	}
 }

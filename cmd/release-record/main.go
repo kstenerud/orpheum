@@ -36,19 +36,30 @@ func run(arguments []string, now time.Time, stdout, stderr io.Writer) int {
 	security := flags.String("security", "",
 		"what the release fixes, in a sentence for an admin: every older release lacking a fix is marked as "+
 			"needing this one; omitted, a plain release")
-	var locations []string
-	flags.Func("location", "an image repository the release may be pulled from, registry.example/orpheum; "+
-		"repeated for each mirror; omitted, the record's locations stay", func(location string) error {
-		locations = append(locations, location)
-		return nil
-	})
+	identity := flags.String("id", "", "the publisher's identity, op1-...: needed for a record made new")
+	rootVersion := flags.Int64("root-version", 0, "the publisher chain's version the record is signed under; "+
+		"omitted, the record's own")
+	var pulls, locations []string
+	flags.Func("pull", "an image repository the release may be pulled from, registry.example/orpheum; "+
+		"repeated; omitted, the record's own", appendTo(&pulls))
+	flags.Func("location", "a place the record is served; repeated; omitted, the record's own", appendTo(&locations))
 	if err := flags.Parse(arguments); err != nil || *path == "" || *tag == "" || *digest == "" || flags.NArg() != 0 {
 		return write(stderr, "usage: release-record --record <file> --version <tag> --digest <sha256:...> "+
-			"[--security <summary>] [--location <repository>]...\n", exitUsage)
+			"[--security <summary>] [--id <op1-...>] [--root-version <n>] [--pull <repository>]... "+
+			"[--location <url>]...\n", exitUsage)
 	}
 	record, err := release.Read(*path)
 	if err == nil {
-		record, err = record.Released(*tag, *digest, *security, locations, now)
+		if *identity != "" {
+			record.ID = *identity
+		}
+		if *rootVersion > 0 {
+			record.RootVersion = *rootVersion
+		}
+		if len(locations) > 0 {
+			record.Locations = locations
+		}
+		record, err = record.Released(*tag, *digest, *security, pulls, now)
 	}
 	if err == nil {
 		err = release.Write(*path, record)
@@ -56,20 +67,21 @@ func run(arguments []string, now time.Time, stdout, stderr io.Writer) int {
 	if err != nil {
 		return write(stderr, fmt.Sprintf("release-record: %v\n", err), exitFailure)
 	}
-	pending := 0
-	for _, note := range record.Releases {
-		if note.Security {
-			pending++
-		}
+	return write(stdout, fmt.Sprintf("%s: latest %s, sequence %d; %d releases named, %d with a security fix pending\n"+
+		"Check the digest, then sign it with an everyday key of the publisher root:\n"+
+		"  ssh-keygen -Y sign -n %s -f <the key's stub> %s\n"+
+		"and check, keep and publish it:\n"+
+		"  go run ./cmd/discovery-sign check --ledger <ledger> --kind release --payload %s --publish <dir>\n",
+		*path, record.Latest, record.Sequence, len(record.Images), len(record.Pending), trust.NamespaceRelease, *path,
+		*path), exitSuccess)
+}
+
+// appendTo is a flag that appends each value it is given to values.
+func appendTo(values *[]string) func(string) error {
+	return func(value string) error {
+		*values = append(*values, value)
+		return nil
 	}
-	return write(stdout, fmt.Sprintf("%s: latest %s; %d releases named, %d with a security fix pending\n"+
-		"Sign it with any one root key, a YubiKey's resident key or a key file:\n"+
-		"  go run ./cmd/discovery-sign record --record %s --signer <key> --out <signed record>\n"+
-		"or by hand, then put the record and its signature together:\n"+
-		"  ssh-keygen -Y sign -n %s -f <key> %s\n"+
-		"  go run ./cmd/discovery-sign seal --kind %s --payload %s --signature %s.sig --out <signed record>\n",
-		*path, record.Latest, len(record.Releases), pending, *path, trust.KindReleaseRecord, *path,
-		trust.KindReleaseRecord, *path, *path), exitSuccess)
 }
 
 // write writes text and returns status, or a failure when text could not be written.

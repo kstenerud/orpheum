@@ -7,6 +7,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -30,17 +30,21 @@ import (
 // what the core sent.
 type fakeDiscovery struct {
 	t *testing.T
-	// issuer is its issuer, which the core's signatures are bound to: the server's own URL, where the
-	// core calls it too, unless a test moves its core API to another.
-	issuer string
-	// root is its root key, and document the address document it serves at its issuer, signed by the
-	// root when asked; served, when set, is served in its place as it is.
-	root     trusttest.Root
+	// issuer is its issuer, the server's own URL, where the core calls it too unless a test moves its
+	// core API to another; chain is its root chain, e1 its everyday key and r1 its recovery key, and
+	// document the address document it serves, signed by e1. files, where a path's is set, are served
+	// in place of its own as they are.
+	issuer   string
+	chain    *trusttest.Chain
+	e1, r1   trusttest.Key
 	mutex    sync.Mutex
 	document addressdoc.Document
-	served   *addressdoc.Served
+	files    map[string]trust.Signed
 	// documentFetches is how many times the core asked for its address document.
 	documentFetches int
+	// publisher is the publisher's root chain, signed by its everyday key publisherKey.
+	publisher    *trusttest.Chain
+	publisherKey trusttest.Key
 	// Guarded by mutex:
 	nonces       map[string]bool
 	publicKey    ed25519.PublicKey
@@ -96,10 +100,10 @@ type fakeDiscovery struct {
 	// core was removed from an account, which a pending core's status says.
 	account   string
 	removedAt int64
-	// release is the release record it serves, signed by recordSigner, its root unless a test names
-	// another; nil serves none. releaseFetches is how many times the core read it.
+	// release is the release record it serves, signed by recordSigner, the publisher's key unless a
+	// test names another; nil serves none. releaseFetches is how many times the core read it.
 	release        *release.Record
-	recordSigner   ssh.Signer
+	recordSigner   *trusttest.Key
 	releaseFetches int
 }
 
@@ -124,10 +128,16 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	}
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
-	fake.issuer, fake.root = server.URL, trusttest.NewRoot(t)
+	fake.issuer, fake.files = server.URL, map[string]trust.Signed{}
+	fake.chain, fake.e1, fake.r1 = trusttest.NewDiscovery(t)
+	fake.publisherKey = trusttest.HardwareKey(t, "p1")
+	fake.publisher = trusttest.NewChain(t, trust.ChainPublisher, []trusttest.Key{fake.publisherKey},
+		[]trusttest.Key{trusttest.HardwareKey(t, "pr1")})
 	fake.document = addressdoc.Document{
-		Issuer: server.URL, CoreAPI: server.URL, ClientAPI: server.URL + "/client",
-		LoaderOrigin: fakeLoaderOrigin, ClientOrigins: fakeClientOrigins, IssuedAt: 1,
+		ID: fake.chain.ID(), RootVersion: 1, Sequence: 1, Issued: trusttest.Issued(),
+		Expires: trusttest.Issued().Add(365 * 24 * time.Hour), Name: "Fake", Issuer: server.URL,
+		Locations: []string{server.URL}, CoreAPI: server.URL, ClientAPI: server.URL + "/client",
+		LoaderOrigin: fakeLoaderOrigin, ClientOrigins: fakeClientOrigins,
 	}
 	return fake, server
 }
@@ -138,55 +148,104 @@ const (
 	fakeClientOrigins = "http://" + addressdoc.CorePlace + ".localhost:8443"
 )
 
-// serveDocument serves its address document: the one a test set, or its own signed by its root.
-func (fake *fakeDiscovery) serveDocument(writer http.ResponseWriter) {
-	fake.documentFetches++
-	served := fake.signedDocument(fake.document)
-	if fake.served != nil {
-		served = *fake.served
-	}
-	fake.answer(writer, served)
-}
-
-// servedWellKnown is whether request was for a signed file, which it served: at its issuer, and at
-// any location under it, as a mirror serves it.
+// servedWellKnown is whether request was for a signed file or its signature, which it served: at
+// its issuer, and at any location under it, as a mirror serves it.
 func (fake *fakeDiscovery) servedWellKnown(writer http.ResponseWriter, request *http.Request) bool {
-	switch {
-	case request.Method != http.MethodGet:
+	index := strings.Index(request.URL.Path, "/.well-known/")
+	if request.Method != http.MethodGet || index < 0 {
 		return false
-	case strings.HasSuffix(request.URL.Path, addressdoc.WellKnownPath):
-		fake.serveDocument(writer)
-		return true
-	case strings.HasSuffix(request.URL.Path, release.WellKnownPath):
-		fake.serveRecord(writer, request)
-		return true
 	}
-	return false
-}
-
-// serveRecord serves its release record, signed, unless it has none or a test has it fail.
-func (fake *fakeDiscovery) serveRecord(writer http.ResponseWriter, request *http.Request) {
-	switch {
-	case fake.failing["GET "+release.WellKnownPath]:
+	name, isSignature := strings.CutSuffix(request.URL.Path[index:], addressdoc.SignatureEnd)
+	if name == release.RecordPath && fake.failing["GET "+release.RecordPath] {
 		http.Error(writer, "the discovery failed", http.StatusInternalServerError)
-		return
-	case fake.release == nil:
+		return true
+	}
+	signed, isFound := fake.signedFile(name, !isSignature)
+	if !isFound {
 		http.NotFound(writer, request)
-		return
+		return true
 	}
-	fake.releaseFetches++
-	signer := fake.root.Signer
-	if fake.recordSigner != nil {
-		signer = fake.recordSigner
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	body := signed.Payload
+	if isSignature {
+		body = signed.Signature
 	}
-	fake.answer(writer, trusttest.Sign(fake.t, signer, trust.KindReleaseRecord, *fake.release))
+	_, _ = writer.Write([]byte(body)) //nolint:errcheck // the core reads what arrived
+	return true
 }
 
-// signedDocument is document signed by the fake's root, served with its root key set.
-func (fake *fakeDiscovery) signedDocument(document addressdoc.Document) addressdoc.Served {
-	return addressdoc.Served{
-		Document: fake.root.Signs(fake.t, trust.KindAddressDocument, document), RootSets: []trust.Signed{fake.root.Set},
+// signedFile is the signed file at name, and whether there is one; isCounted counts a fetch of the
+// document's or the record's payload.
+func (fake *fakeDiscovery) signedFile(name string, isCounted bool) (trust.Signed, bool) {
+	if signed, isSet := fake.files[name]; isSet {
+		if isCounted && name == addressdoc.DocumentPath {
+			fake.documentFetches++
+		}
+		return signed, true
 	}
+	switch {
+	case name == addressdoc.DocumentPath:
+		if isCounted {
+			fake.documentFetches++
+		}
+		return fake.signedDocument(fake.document), true
+	case name == release.RecordPath:
+		if fake.release == nil {
+			return trust.Signed{}, false
+		}
+		if isCounted {
+			fake.releaseFetches++
+		}
+		signer := fake.publisherKey
+		if fake.recordSigner != nil {
+			signer = *fake.recordSigner
+		}
+		return signRecord(fake.t, *fake.release, fake.publisher.ID(), signer), true
+	case strings.HasPrefix(name, addressdoc.RootPathPrefix):
+		return statementAt(fake.chain, strings.TrimPrefix(name, addressdoc.RootPathPrefix))
+	case strings.HasPrefix(name, release.PublisherRootPathPrefix):
+		return statementAt(fake.publisher, strings.TrimPrefix(name, release.PublisherRootPathPrefix))
+	}
+	return trust.Signed{}, false
+}
+
+// statementAt is chain's statement of version, "latest" the last.
+func statementAt(chain *trusttest.Chain, version string) (trust.Signed, bool) {
+	if version == "latest" {
+		return chain.Statements[len(chain.Statements)-1], true
+	}
+	for _, statement := range chain.Statements {
+		if root, err := trust.ParseRoot([]byte(statement.Payload)); err == nil && fmt.Sprint(root.Version) == version {
+			return statement, true
+		}
+	}
+	return trust.Signed{}, false
+}
+
+// signedDocument is document signed by the fake's everyday key.
+func (fake *fakeDiscovery) signedDocument(document addressdoc.Document) trust.Signed {
+	return signDocument(fake.t, document, fake.e1)
+}
+
+// signDocument is document signed by key in the address namespace.
+func signDocument(t *testing.T, document addressdoc.Document, key trusttest.Key) trust.Signed {
+	t.Helper()
+	payload, err := document.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return trusttest.Sign(t, trust.NamespaceDiscoveryAddress, payload, key)
+}
+
+// signRecord is record, under the publisher id, signed by key in the release namespace.
+func signRecord(t *testing.T, record release.Record, id string, key trusttest.Key) trust.Signed {
+	t.Helper()
+	record.ID = id
+	payload, err := record.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return trusttest.Sign(t, trust.NamespaceRelease, payload, key)
 }
 
 func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -348,7 +407,7 @@ func (fake *fakeDiscovery) signedFresh(
 		return false
 	}
 	delete(fake.nonces, nonce)
-	return proof.Verify(publicKey, purpose, fake.issuer, core, nonce, signature)
+	return proof.Verify(publicKey, purpose, fake.chain.ID(), core, nonce, signature)
 }
 
 func (fake *fakeDiscovery) read(request *http.Request, into any) {

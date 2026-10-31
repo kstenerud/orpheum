@@ -129,8 +129,18 @@ export const enSystem = {
         "That isn't a discovery's name. Type the name it gave you, as in discovery.example.",
       suggestedUnknown:
         "This version of the server doesn't know the keys of {{issuer}} yet, so it can't trust it. Update the server, or connect to another discovery.",
-      at: "Connected to {{issuer}}.",
-      rootKeys: "Trusted by the discovery's keys {{keys}} (set {{version}}).",
+      at: "Connected to {{name}}, at {{issuer}}.",
+      atService: "Connected to the Orpheum service, at {{issuer}}.",
+      identity: "Its identity is {{identity}}.",
+      compareIdentity:
+        "{{name}}, at {{issuer}}, shows this identity. Compare it with the one its operator shows you, and connect only if they are the same:",
+      identityMatches: "They are the same: connect",
+      identityCancel: "Cancel",
+      notTheIdentity:
+        "That discovery's identity is not the one confirmed. Nothing was connected; ask its operator.",
+      rootKeys: "Trusted by the discovery's keys {{keys}} (version {{version}}).",
+      documentStale:
+        "The discovery's addresses expired on {{at}}: this server cannot confirm they are current until the discovery signs them again.",
       documentProblem:
         "The discovery's addresses couldn't be checked for an update; the server keeps the last ones it trusted. Its log says why.",
       realm:

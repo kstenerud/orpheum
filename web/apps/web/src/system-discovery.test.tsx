@@ -32,7 +32,8 @@ const none = {
   issuer: "",
   suggestedIssuer,
   rootKeys: [],
-  rootSetVersion: 0,
+  rootVersion: 0,
+  isSuggested: false,
   documentAt: 0,
   fingerprint: "",
   published: [],
@@ -51,7 +52,9 @@ it("connects to the discovery the server suggests, by its name and the admin's p
     issuer: suggestedIssuer,
     coreApi: "https://api.discovery.example/core/v1",
     rootKeys: ["SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"],
-    rootSetVersion: 1,
+    rootVersion: 1,
+    isSuggested: true,
+    identity: "od1-service",
     coreId: "k7xq2",
     state: "pending",
     claimCode: "WXYZ-2345",
@@ -80,10 +83,11 @@ it("connects to the discovery the server suggests, by its name and the admin's p
   ]);
   expect(heard[1]?.body).toEqual({ issuer: "discovery.example", password: "owner-password" });
   const text = container.textContent;
-  expect(text).toContain(`Connected to ${suggestedIssuer}.`);
+  expect(text).toContain(`Connected to the Orpheum service, at ${suggestedIssuer}.`);
+  expect(text).toContain("Its identity is od1-service.");
   // The keys it trusts the discovery by, for the admin to compare (D391 §2).
   expect(text).toContain(
-    "Trusted by the discovery's keys SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG (set 1).",
+    "Trusted by the discovery's keys SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG (version 1).",
   );
   expect(text).toContain("Waiting to be claimed.");
   expect(text).toContain("enter the code WXYZ-2345");
@@ -103,6 +107,7 @@ it("says the server cannot trust the suggested discovery when this build knows n
   const services = servedBy({
     "GET /system/discovery": [200, none],
     "POST /system/discovery": issuerRefused,
+    "POST /system/discovery/identify": issuerRefused,
   });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
@@ -119,6 +124,52 @@ it("says the server cannot trust the suggested discovery when this build knows n
   );
 });
 
+it("shows another discovery's identity to compare, and connects with it only once confirmed (D393 §4)", async () => {
+  const heard: Heard[] = [];
+  const pending = {
+    ...none,
+    issuer: "https://home.example",
+    identity: "od1-home",
+    name: "Home",
+    state: "pending",
+    claimCode: "WXYZ-2345",
+    claimExpiresAt: 1_790_000_000_000,
+  };
+  const services = servedBy(
+    {
+      "GET /system/discovery": [
+        [200, none],
+        [200, pending],
+      ],
+      "POST /system/discovery/identify": [
+        200,
+        { issuer: "https://home.example", identity: "od1-home", name: "Home", isSuggested: false },
+      ],
+      "POST /system/discovery": [200, pending],
+    },
+    heard,
+  );
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  await enter(container.querySelector("form input"), "home.example");
+  await enter(container.querySelector('form input[type="password"]'), "owner-password");
+  await click(buttonWithText(container, "Connect"));
+  // Nothing enrolled yet: the identity is shown, for the admin to compare with the operator's.
+  expect(heard.map((each) => each.methodAndPath)).toEqual([
+    "GET /system/discovery",
+    "POST /system/discovery/identify",
+  ]);
+  expect(container.textContent).toContain("Home, at home.example, shows this identity.");
+  expect(container.textContent).toContain("od1-home");
+  await click(buttonWithText(container, "They are the same: connect"));
+  expect(heard[2]?.body).toEqual({
+    issuer: "home.example",
+    password: "owner-password",
+    identity: "od1-home",
+  });
+  expect(container.textContent).toContain("Connected to Home, at https://home.example.");
+});
+
 it("says where a claimed server is reached from, and warns of the discovery's deprecation", async () => {
   const services = servedBy({
     "GET /system/discovery": [
@@ -127,6 +178,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         ...none,
         issuer: "https://discovery.example.com",
         documentProblem: "no location served an address document that holds",
+        documentStaleAt: 1_790_000_000_000,
+        name: "Home",
         state: "claimed",
         realm: "karlnas.live",
         reachableFrom: "ipv6",
@@ -172,6 +225,9 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Links to this server open at https://k7xq2.client.example.");
   // No newer address document held: the server says it keeps the last it trusted (D391 §3).
   expect(text).toContain("the server keeps the last ones it trusted");
+  // An expired document: the addresses may be stale, and the page says since when (the audit's F9).
+  expect(text).toContain("this server cannot confirm they are current");
+  expect(text).toContain("Connected to Home, at https://discovery.example.com.");
   expect(text).toContain(
     "fingerprint is k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
   );
