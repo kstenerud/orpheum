@@ -487,6 +487,31 @@ had leaned on.
   while media plays. The new worker takes over a moment later (skipWaiting, clients.claim), but the
   page asks again only when a poster fails. Fix: probe again on `controllerchange`.
 
+## The 10-31 batch's security and testing work, built (2026-10-31)
+
+- **Built:** MPTCP off in every compose service, Orpheum's and connect's, and none
+  named on a kernel without MPTCP (12e606fc), which Docker would refuse; the household image pinned by
+  digest at install; `release-image.yml` in the environment `release`; no npm
+  install scripts and a lockfile check for new ones; being at home is never a
+  credential (02c55fd1); FFmpeg's environment and paths the node's alone, and every token check
+  refusing a wrong token (an earlier commit: no hole found); the false DevTools-bypass note after a
+  deploy (VQ194); revert-red's R1–R3, R5 and R6, background probing
+ ; security updates designed (design/plans/security-updates.md, the owner's four
+  questions owed).
+- **The owner's, in GitHub's settings:** the environment `release` with the owner as its required
+  reviewer, and a ruleset leaving `v*` tags to the owner; until the environment has a reviewer, a
+  publish waits for no one.
+- **The owner's, on the machines:** `from="192.168.1.199"` on the nas.example and gpuhost keys'
+  `authorized_keys` lines (report §2a).
+- **noexec, for the owner to decide (report §5, looked into):** Landlock's EXECUTE right governs
+  `execve` alone, never a `dlopen`'s `mmap(PROT_EXEC)`, and confines FFmpeg's runs, not the node. A
+  noexec mount blocks both, for every process in the container. Proposed: (1) the node's root
+  `read_only: true` with `/tmp` a tmpfs `noexec,nosuid,nodev`, which any Docker takes; (2) `./node` and
+  `./run` as local-driver volumes `o: bind,noexec,nosuid,nodev`, Linux hosts alone (a plain bind
+  mount cannot take noexec; Docker Desktop and OrbStack may not), tried on nas.example's LXC first; (3) a
+  deployment test that the options are there. FFmpeg, its libraries and drivers load from the image's
+  read-only paths, so nothing is expected to break.
+
 ## check-pr's time (research/test-regime-audit-2026-10-31.md), next batch (the owner agreed 2026-10-31)
 
 - **Done: R4.** test-dom.tsx no longer imports the modules of lazy screens; `vitest related
