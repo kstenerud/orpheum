@@ -9,7 +9,10 @@ accumulated batch (testing.md §10). This finds what changed since `--base` (by 
 the working tree's uncommitted and untracked files), and runs, at once:
 
 * **Go:** `go test` of each package a changed Go file is in, and of every package that imports one
-  of them directly (its tests included). What imports those in turn is `make check`'s.
+  of them directly (its tests included). What imports those in turn is `make check`'s. And
+  golangci-lint of each changed package alone, with make check's integration build tag: a long line
+  or an unchecked error was found only by the turn's-end gate, four whole runs in one session (the
+  owner, 2026-10-31: "lint the one package first" was a habit, not a check).
 * **Web:** the changed test files, and the tests that import a changed source directly, by the
   relative imports (revert_red_web.py). vitest's `related` follows every importer and took 44 s
   for one player file; the tests further out are `make check`'s. A stylesheet only a browser
@@ -18,7 +21,7 @@ the working tree's uncommitted and untracked files), and runs, at once:
   Makefile changed.
 * **Documentation:** the docs gate (`scripts/check_docs.py`), when Markdown changed.
 
-What it cannot run in the time (the type check, lint, generated code, the integration and browser
+What it cannot run in the time (the web type check and lint, the dev build's Go lint, generated code, the integration and browser
 tiers) it names, so a green is never read as `make check`'s.
 """
 
@@ -54,6 +57,7 @@ class Plan:
     """What the spot check runs, and what it names as left to `make check`."""
 
     go_packages: list[str] = field(default_factory=list)
+    lint_packages: list[str] = field(default_factory=list)
     web_files: list[str] = field(default_factory=list)
     python: bool = False
     docs: bool = False
@@ -97,6 +101,8 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
     for package in changed_packages:
         packages |= importers.get(package, set())
     result.go_packages = sorted(packages)
+    # Lint takes the changed packages alone: an importer's lint does not change with them.
+    result.lint_packages = sorted(changed_packages)
     if styles:
         result.not_run.append("stylesheets, which only the browser tier renders: " + ", ".join(styles))
     if result.web_files:
@@ -104,7 +110,7 @@ def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
     if any(is_browser_test(path) for path in result.web_files):
         result.not_run.append("browser-mode tests, which run in a browser (`make check`)")
     if result.go_packages:
-        result.not_run.append("what imports the importers, the dev build's tests and Go lint (`make check`)")
+        result.not_run.append("what imports the importers, the dev build's tests and its Go lint (`make check`)")
     result.not_run = list(dict.fromkeys(result.not_run))
     return result
 
@@ -138,7 +144,7 @@ class Run:
 def runs(spot: Plan, module: str) -> list[Run]:
     out = []
     if spot.go_packages:
-        relative = ["./" + p.removeprefix(module).lstrip("/") if p != module else "." for p in spot.go_packages]
+        relative = [relative_package(p, module) for p in spot.go_packages]
         out.append(Run(f"go test, {len(relative)} package(s)", go_test_as_make_check(relative)))
     tests = web_tests(spot.web_files)
     if tests:
@@ -147,7 +153,21 @@ def runs(spot: Plan, module: str) -> list[Run]:
         out.append(Run("the gates' Python tests", [sys.executable, "scripts/py_tests.py"]))
     if spot.docs:
         out.append(Run("the docs gate", [sys.executable, "scripts/check_docs.py"]))
+    linted = [relative_package(p, module) for p in spot.lint_packages]
+    linted = [p for p in linted if any(Path(p).glob("*.go"))]  # a package the change deleted has nothing to lint
+    if linted:
+        out.append(Run(f"golangci-lint, {len(linted)} package(s)", go_lint_as_make_check(linted)))
     return out
+
+
+def relative_package(package: str, module: str) -> str:
+    return "./" + package.removeprefix(module).lstrip("/") if package != module else "."
+
+
+def go_lint_as_make_check(packages: list[str]) -> list[str]:
+    """golangci-lint of packages as make check's go-lint runs it (Makefile), waiting for the machine's
+    lint lock rather than failing beside another run, so its cache serves both."""
+    return ["golangci-lint", "run", "--allow-serial-runners", "--build-tags", "integration", *packages]
 
 
 def go_test_as_make_check(packages: list[str]) -> list[str]:
