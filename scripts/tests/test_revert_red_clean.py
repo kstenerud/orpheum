@@ -56,6 +56,21 @@ class CleanRuns(unittest.TestCase):
             clean.runs_clean(self.tree, "go package", run, "def456")
         self.assertEqual(run.call_count, 1, "another toolchain asks again")
 
+    def test_a_pass_in_one_tree_serves_every_tree_and_a_failure_stays_its_own(self):
+        # The test-regime audit of 2026-10-31, R5: four trees each paid for the same clean run.
+        other = self.tree + "/other"
+        os.makedirs(other)  # a directory inside the same repository, as a second tree is
+        run = mock.Mock(return_value=done(0))
+        self.assertTrue(clean.runs_clean(self.tree, "go package", run, "abc123"))
+        self.assertTrue(clean.runs_clean(other, "go package", run, "abc123"))
+        self.assertEqual(run.call_count, 1, "the second tree takes the first's pass")
+        clean._CLEAN.clear()  # a new process: the kept pass serves another tree too
+        self.assertTrue(clean.runs_clean(other, "go package", run, "abc123"))
+        self.assertEqual(run.call_count, 1)
+        failing = mock.Mock(return_value=done(1))
+        self.assertFalse(clean.runs_clean(self.tree, "vitest related", failing, "abc123"))
+        self.assertTrue(clean.runs_clean(other, "vitest related", mock.Mock(return_value=done(0)), "abc123"))
+
     def test_a_failure_is_never_kept(self):
         self.assertFalse(clean.runs_clean(self.tree, "go package", mock.Mock(return_value=done(1)), "abc123"))
         self.assertIn("out", clean.clean_failure(self.tree, "go package"))

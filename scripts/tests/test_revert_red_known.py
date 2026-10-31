@@ -155,6 +155,17 @@ class CaughtBefore(unittest.TestCase):
         self.assertEqual(failed["go"], {"./internal/core/api": ["TestPlayback_Stalls", "TestPlayback_Starts"]})
         self.assertEqual(failed["vitest"], ["apps/web/src/play.test.tsx", "apps/web/src/up-trail.browser.test.tsx"])
 
+    def test_a_browser_mode_runs_failed_files_are_named_and_rerun_in_browser_mode(self):
+        # The test-regime audit of 2026-10-31, R5: unnamed, the confirming run was every browser-mode
+        # test that imports the file, 224 s.
+        output = (" \x1b[31mFAIL\x1b[39m  \x1b[46m chromium \x1b[49m apps/web/src/app-shell.browser.test.tsx > lays out\n"
+                  " FAIL   firefox  apps/web/src/app-shell.browser.test.tsx > lays out\n")
+        failed = known.failed_tests(output, "github.com/kstenerud/orpheum", known.commands.vitest("related", browser=True))
+        self.assertEqual(failed, {"vitest": ["apps/web/src/app-shell.browser.test.tsx"]})
+        runs = known.runs_of(failed)
+        self.assertEqual(len(runs), 1)
+        self.assertIn("vitest.browser.config.ts", runs[0].command)
+
     def test_a_runs_failures_are_its_own_runners_alone(self):
         # A gate script's tests print vitest's and Go's failures as fixtures (check-pr, 2026-10-30).
         python_run = [sys.executable, "scripts/py_tests.py"]
