@@ -283,7 +283,7 @@ func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 	}
 	// Neither is named Arkons, and two of its year are no single work under another name (D307 §1).
 	lib.provider.Searches[identifytest.SearchKey("Arkons", 1986)] = []identify.Candidate{
-		{ID: "15", Name: "Arkon", Year: 1986}, {ID: "18", Name: "Wing Nation", Year: 1986},
+		{ID: "15", Name: "Arkon", Year: 1986}, {ID: "18", Name: "Arkon Nation", Year: 1986},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Kestrel", 2014)] = []identify.Candidate{
 		{ID: "16", Name: "Kestrel", Year: 2013}, {ID: "17", Name: "Kestrel", Year: 2015},
