@@ -1925,3 +1925,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   bypassing the service worker" line shows, or one shows for a moment and goes as the new worker
   takes over, and posters load. With DevTools' "Bypass for network" ticked and the page reloaded,
   the line shows (the note still works). (`web/apps/web/src/worker-bypassed-note.tsx`)
+  **Failed 2026-10-31 (the owner, production):** the line still showed after the deploy, and went at
+  a reload: nothing asks the browser to update its worker, so a tab loaded while connectd restarted
+  kept the old one (agent-failures A53). The fix, `registration.update()` before the note speaks, is
+  next batch's; this item is checked again with it.

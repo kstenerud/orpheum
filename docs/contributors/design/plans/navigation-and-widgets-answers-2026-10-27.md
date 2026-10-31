@@ -503,6 +503,12 @@ had leaned on.
   neither; until then the environment `release` holds no publish.
 - **The owner's, on the machines:** `from="192.168.1.199"` on the nas.example and gpuhost keys'
   `authorized_keys` lines (report §2a).
+- **The DevTools-bypass note asks the browser for a new worker first (next batch; A53, VQ194 failed).**
+  Nothing in the client calls `registration.update()`: Firefox checks for a new worker only at a
+  page load, and one made during connectd's restart for a deploy (the owner's Mac, 07:32,
+  2026-10-31) kept the old worker, which does not know the probe, for every in-app move after; a
+  reload cleared it. Fix: a failed probe asks `registration.update()`, and probes again if a newer
+  worker takes over; only the same worker failing again shows the note.
 - **Security updates (the owner, 2026-10-31, yes to the recommendations), next batch:** Parts A and B
   of design/plans/security-updates.md (the release record, written by the release workflow, and the
   admins' banner); Part C, the opted-in timer, once signing exists.
