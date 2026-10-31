@@ -4,11 +4,13 @@ package turn
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
+	"syscall"
 
 	pionturn "github.com/pion/turn/v4"
 
@@ -47,6 +49,36 @@ type Parts struct {
 	Logger   *slog.Logger
 }
 
+// portChoices is how many ports the system may choose before a relay listening on port 0 gives up:
+// UDP's chosen port can be taken over TCP by someone else.
+const portChoices = 5
+
+// listenOnOnePort listens on address over UDP, then over TCP (with listenTCP) on the port UDP took.
+// When address leaves the port to the system and that port is taken over TCP, it lets the system
+// choose again, up to portChoices times; a port named in address is taken or refused as it is.
+func listenOnOnePort(ctx context.Context, address string,
+	listenTCP func(context.Context, string, string) (net.Listener, error),
+) (net.PacketConn, net.Listener, error) {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, nil, fmt.Errorf("TURN's listen address %q: %w", address, err)
+	}
+	for choice := 1; ; choice++ {
+		packets, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", address)
+		if err != nil {
+			return nil, nil, fmt.Errorf("listen for TURN on UDP %s: %w", address, err)
+		}
+		streams, err := listenTCP(ctx, "tcp", packets.LocalAddr().String())
+		if err == nil {
+			return packets, streams, nil
+		}
+		_ = packets.Close() //nolint:errcheck // the listen's error is the one to report
+		if port != "0" && port != "" || !errors.Is(err, syscall.EADDRINUSE) || choice == portChoices {
+			return nil, nil, fmt.Errorf("listen for TURN on TCP %s: %w", packets.LocalAddr(), err)
+		}
+	}
+}
+
 // Start serves TURN on config.Listen, over UDP and TCP, admitting the credentials Issue makes while
 // their membership lasts and until they expire. Relayed media leaves from the listen address's
 // host, so a relay listening on the tunnel's address answers through the tunnel (D243 §7). The
@@ -59,15 +91,9 @@ func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
 	if host == "" {
 		host = "0.0.0.0"
 	}
-	packets, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", config.Listen)
+	packets, streams, err := listenOnOnePort(ctx, config.Listen, (&net.ListenConfig{}).Listen)
 	if err != nil {
-		return nil, fmt.Errorf("listen for TURN on UDP %s: %w", config.Listen, err)
-	}
-	// TCP on the port UDP took, which a listen address with no port chose.
-	streams, err := (&net.ListenConfig{}).Listen(ctx, "tcp", packets.LocalAddr().String())
-	if err != nil {
-		_ = packets.Close() //nolint:errcheck // the listen's error is the one to report
-		return nil, fmt.Errorf("listen for TURN on TCP %s: %w", config.Listen, err)
+		return nil, err
 	}
 	relayed := func() pionturn.RelayAddressGenerator {
 		return &pionturn.RelayAddressGeneratorPortRange{
