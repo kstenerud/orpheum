@@ -2037,3 +2037,26 @@ An item is ticked only by the person who did it, and only with what they saw.
   made anew (the core's log shows its runs into a store not used before). Last, press "Full rescan"
   on the same library again: its totals say `"correctedCount":0` and nothing is thrown out.
   (`internal/core/library/derived.go`, `internal/core/chunks/streams.go`, `internal/core/identify/rescan.go`)
+- [ ] **VQ225** — a cast seeked on the Fire TV goes where it was sent, never back, and plays on at its
+  own speed with sound (staging; the plan's entry for file 5680, 2026-10-29). Deploy, then cast a film
+  from the Mac to the Fire TV (Silk), Watch Together off. Press Right on the Fire TV's remote twice, a
+  second apart, then twice again quickly (under a second apart), then press the Mac remote's Forward
+  10 s twice quickly. Passes when the film lands where the presses sent it each time and no step back
+  follows; the core's log has, for every "a player's play state changed … kind=seeked" line of the
+  receiver, a `soughtBy` (`right-key`, `seekForward-click`…) or a `sought` note with `why=command`, and
+  no `soughtBy=left-…` or `seekBack-…` you did not press; and no seek plays its picture fast and silent.
+  If a step back still comes, its line's `soughtBy` names what asked it: note it in the plan's entry.
+  If the fast silent play still comes, repeat with levelling off (the play page's switch) and say
+  whether it comes then too (`a playback's sound … isThroughWebAudio` says which path played).
+  (`web/packages/sdk/src/together-leader.ts`, `web/apps/web/src/seek-ahead.ts`,
+  `web/apps/web/src/play-state-video-events.ts`, `internal/core/api/report_context.go`)
+- [ ] **VQ226** — the first film cast to the Fire TV after a deploy starts and plays without freezes
+  (staging; the plan's section "A first film after an update freezing on the Fire TV", file 5671). With
+  the Fire TV on the discovery's page (under its loader) on the home page, deploy staging, let the Fire
+  TV reload onto the new build, leave it on its home page for at least 15 s, then cast file 5671 from
+  the Mac. Passes when its first minute plays with no freeze and its first 10 s report drops fewer
+  than 5% of its frames ("a player dropped frames"), and the Play page's scripts were fetched before
+  the cast: no page failure "the play screen's code took … ms to load" is reported for it, and its
+  "a playback started playing" `firstDataAfterMs` is no worse than a cast's after a plain reload. Repeat once leaving the Fire TV on its
+  home page for under 5 s before casting, to compare. (`web/apps/web/src/warm-play.ts`,
+  `web/apps/web/src/home.tsx`, `web/apps/web/src/cast-ready.tsx`)

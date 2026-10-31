@@ -278,6 +278,24 @@ had leaned on.
   measured the same way. Warming the Play page's scripts while the person browses (an idle
   `import()` under a loader) would move a deploy's fetch and compile out of the first start, if the
   first seconds are what the owner sees.
+- **Done (2026-10-31), the code-side candidates.** (a) **Warmed:** under the discovery's loader, the
+  home page and a cast's ready page import the Play page's code (hls.js with it) once per page load,
+  5 s after they show and then at the browser's idle (`web/apps/web/src/warm-play.ts`), so a deploy's
+  fetch over the link and its compile come while the person browses, not as the first film starts.
+  Not measured here: the browser-mode timing tooling runs no loader nor a deploy, so the effect is
+  the owner's device's to show (VQ226). (b) **Web Audio not bypassable in the client alone:** a sound
+  goes through Web Audio only while a gain or a later sound is wanted (`gain.ts`), and an element once
+  handed to Web Audio stays so for its life (`createMediaElementSource` cannot be undone). File 5680's
+  cast (2026-10-29, 22:34:55) shows why it was on with the boost off: it started on the film's own
+  picture and its own sound (`ladderSound=sound0-own`, no gain carried), which levelling raises
+  through Web Audio; the step to the common quality at 22:35:13 moved it to the levelled sound
+  (`sound0-96k-ownlevel`, its gain carried, none to add), but the element stayed routed. **Owner to
+  decide:** on a television, with levelling on, start on the ladder's levelled sound rather than the
+  film's own, so no gain is ever added and no Web Audio is made (the 96 kb/s AAC for the original's
+  sound); or keep it. (c) **Left for the device (VQ226):** the first film after a deploy with the
+  warming in, against one cast within 5 s of the home page (before it warms); and the same film from
+  the same point with levelling off and on, compared by "a player dropped frames" (a film's own sound
+  with levelling off takes no Web Audio).
 
 ## From the owner's VQ89 check (2026-10-28), next batch
 
@@ -387,6 +405,32 @@ had leaned on.
   undo, `GroupLeader.undo`?) and why the picture then raced its sound.
   Again in VQ110's run, file 5908: the remote's second jump, 22:38:56 UTC, to 3549.2 s
   (`readyAfterMs=4033 pictureAfterMs=1431 soundAfterMs=150`), then the same fast silent play.
+  **Looked into (2026-10-31).** Staging's log of 22:35:08–27 shows every seek of the receiver
+  (device 21 / app device 68) made on the receiver itself, as a person's: each was sent to the group
+  afterwards as the leader's own command (`leaderCommand`, its seeking unmarked), and none was the
+  remote's (no `sought` note, `why=command`, all session long; the Mac's panel sent no seek). The
+  four, 858.8 → 851.9 (17.5), 854.0 → 863.7 (23.1), 865.7 → 875.2 (25.4), 876.5 → 866.2 (27.1), are
+  each a 10 s step from where the film stood 560–575 ms before its seeking: a key's press, its release
+  and seek-ahead's 500 ms rest (`seekBy` → `SeekAhead.step`). So the two jumps back were steps back
+  the receiver's input layer was asked for, `left` or `seekBack`: from a key (Left, Rewind), a paired
+  controller's arrow, or the media session's `seekbackward` (`hearMediaSeeks`), which nothing logged.
+  Ruled out by the log or the code: the leader's undo and its carrying out of a command, the follower's
+  corrections and a leader's catch-up (each marks its seek and notes `sought`; none), hls.js (its start
+  seek only moves forward; its steps over a hole say `skippedBy`), the timeline's slider (it seeks to
+  whole seconds; 866181 is not), a rate (no `nudged` note; nudges are a few percent, not 2–4×).
+  **Done:** a seek a page's command asks says what asked it, `soughtBy` (`right-key`, `seekBack-media`,
+  `timeline-bar`) on its "a player's play state changed … kind=seeked" line, so the next one names
+  its source. **Fixed beside it:** a leader that sent two seeks of its own before the group's change
+  for the first came took that change for another device's and jumped back to the first
+  (`GroupLeader`, which remembered only its last own seek); it now remembers each. Not this run's
+  cause (it would have noted `sought`), but the same jump back. **The fast silent play:** not found in
+  the code: no rate is changed (none but the group's 1 here), and the picture's and the sound's
+  buffers both held the place sought (`videoBuffered=850.10-896.73 audioBuffered=849.75-900.68`). The
+  sound played through Web Audio (`isThroughWebAudio=true`, see the section on a first film after an
+  update), where Chromium's element runs its clock by how fast the audio graph pulls its sound
+  (createMediaElementSource: an element whose node is not connected does not play); a graph that
+  pulls in a burst after a seek would race the picture with the sound not heard. Unverified: VQ225
+  asks for the same seek with levelling off.
 - **Next batch (the owner, 2026-10-29):** the core and its discovery must find each other again whatever
   order they restart in ("It should be able to figure itself out either way"). Staging, 22:19:56: the
   core restarted, then connectd; the core's signalling said it connected (22:19:58), yet every offer then
