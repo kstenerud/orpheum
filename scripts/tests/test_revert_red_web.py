@@ -55,6 +55,33 @@ class ChangedFileOrder(unittest.TestCase):
         self.assertEqual(runs.count(rr.TYPECHECK), 1, "the type check once, early")
 
 
+class ShippedSourceReaders(unittest.TestCase):
+    """The Go tests that read every shipped source as text run for a web or shell file's revert:
+    check-pr called en-lab.ts green on revert though the owner's-domains guard fails with it reverted
+    (2026-10-31)."""
+
+    def test_a_web_or_shell_files_probe_runs_them_after_its_own_tests_and_before_the_wide_run(self):
+        repo = Repo({**FILES, "install.sh": "echo hello\n"})
+        guards = [rr.go_test(package, tests=[test]) for package, test in rr.GO_SHIPPED_SOURCE_READERS]
+        for path, first in ((f"{SRC}/sign.tsx", rr.scope_for(f"{SRC}/sign.tsx")),
+                            ("install.sh", [*rr.PY_TESTS_COMMAND, "scripts/tests/test_install_script.py"])):
+            with self.subTest(path), repo.cwd():
+                runs = [attempt.command for attempt in rr.attempts_for(rr.Change(path, "M"), first)]
+                for guard in guards:
+                    self.assertIn(guard, runs)
+                    self.assertGreater(runs.index(guard), runs.index(first))
+                    wide = rr.wide_scope(path)
+                    if wide is not None and wide in runs:
+                        self.assertLess(runs.index(guard), runs.index(wide))
+
+    def test_each_one_named_is_a_test_in_its_package(self):
+        # A run of a name no test has passes, matching nothing, so a renamed guard would go unnoticed.
+        root = Path(__file__).resolve().parents[2]
+        for package, test in rr.GO_SHIPPED_SOURCE_READERS:
+            sources = "".join(file.read_text(encoding="utf-8") for file in (root / package).glob("*_test.go"))
+            self.assertIn(f"func {test}(t *testing.T)", sources, f"{package} has no {test}")
+
+
 class AddedFileProbe(unittest.TestCase):
     def test_an_added_web_file_is_probed_first_against_the_tests_importing_it(self):
         repo = Repo({path: text for path, text in FILES.items() if not path.endswith("sign.tsx")})

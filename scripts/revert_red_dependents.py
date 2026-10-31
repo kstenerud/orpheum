@@ -26,6 +26,11 @@ from pathlib import Path
 # there in e3b120a0 so the store's own tests cache). Others that parse source (internal/core/api's
 # errors_test, internal/store's sqlcgen_test) read only their own directory's.
 GO_SOURCE_READERS = ("./internal/archtest", "./internal/store/storesources")
+# The Go tests that read every shipped source, whatever its language, as text: the guard that only
+# suggested.go names the owner's domains (D391 §7). A web or shell file's revert can turn them red,
+# and neither its own tests nor the Go readers above reach them: check-pr called en-lab.ts green on
+# revert though this guard fails with it reverted (2026-10-31).
+GO_SHIPPED_SOURCE_READERS = (("./internal/core/discovery", "TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains"),)
 # A Go test that builds the binary, and so compiles every package: none today.
 GO_BINARY_BUILDER = re.compile(r'exec\.Command\("go"|"go", "build"')
 # A web test that reads source files by path rather than importing them.
