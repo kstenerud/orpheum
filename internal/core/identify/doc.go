@@ -176,7 +176,9 @@
 //     the ids an earlier match recorded; an ambiguous title whose kept results cache.db lost is
 //     searched once more (D172). TestChooser_AChosenMatchIsPermanent,
 //     TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne,
-//     TestChooser_SearchesAgainWhenTheCacheLostTheCandidates.
+//     TestChooser_SearchesAgainWhenTheCacheLostTheCandidates. A guess a person confirms as it stands,
+//     "Identified correctly", is theirs in the same way and no longer marked a guess (D301 §4).
+//     TestChooser_AGuessConfirmedIsAPersonsMatch.
 //
 //   - A person's override holds until it is removed, then the field follows its source (D183).
 //     TestChooser_AnOverrideHoldsUntilItIsRemoved.

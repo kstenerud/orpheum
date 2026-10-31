@@ -621,7 +621,13 @@ had leaned on.
   the step, `ConfirmTitleMatch` (`internal/store/queries/identify.sql`: "A person confirmed the match:
   permanent, and never moved by a later pass", D172), but no API or page calls it. Owed: an
   "Identified correctly" beside "Identified incorrectly" under a guessed title's "…" (D379's menu),
-  confirming the match through an endpoint, and the guessed mark gone once confirmed.
+  confirming the match through an endpoint, and the guessed mark gone once confirmed. **Built
+  2026-10-31**: `POST /items/{id}/confirm-match` (edit_metadata, reaching the item, as "Identified
+  incorrectly"'s own requests), `identify.Chooser.ConfirmGuess` (a film, an episode placed by its name
+  or a series; `ConfirmSeriesMatch` beside `ConfirmTitleMatch`), and `identifiedCorrectlyAction` in
+  `match-correction.tsx` on the title's and the series' "…" while `isGuessed`; tests
+  `TestChooser_AGuessConfirmedIsAPersonsMatch`, `TestIdentification_APersonConfirmsAGuessedMatch`,
+  `title.test.tsx`, `identified-correctly.test.tsx`.
 - **A source whose B-frames have no display times plays choppily in Chrome (the owner, 2026-10-30,
   after a cast's takeover; not the cast's fault).** File 5667 (MP4, HEVC `hev1`, `has_b_frames=2`):
   every packet's pts equals its dts (`-100099,-100099 | -50050,-50050 | 0,0 …`) where a sound file's

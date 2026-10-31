@@ -8,7 +8,7 @@ import { FilingReportButton } from "./filing-report.tsx";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import type { MoreAction } from "./more-actions.tsx";
-import { dataOrThrow } from "./problem.ts";
+import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
@@ -29,6 +29,63 @@ export function identifiedIncorrectlyAction(
     label: t("title.identifiedIncorrectly"),
     dialog: (close) => <IdentifiedIncorrectlyDialog {...item} onClose={close} />,
   };
+}
+
+/**
+ * An admin's "Identified correctly" beside "Identified incorrectly" on a page whose match is a
+ * guess (D301 §4, D307 §2): it confirms the match as it stands, a person's from then on, and the
+ * page, told, reads it again without its guessed mark, and so without this entry (the owner,
+ * 2026-10-30: "No way to mark a guessed film 'identified correctly'"). The page gives it to an admin
+ * alone, on an item whose match is a guess alone.
+ */
+export function identifiedCorrectlyAction(
+  t: ReturnType<typeof useTranslation>["t"],
+  item: { readonly itemId: number; readonly onConfirmed: () => void },
+): MoreAction {
+  return {
+    key: "identified-correctly",
+    label: t("title.identifiedCorrectly"),
+    dialog: (close) => <IdentifiedCorrectlyDialog {...item} onClose={close} />,
+  };
+}
+
+/** The dialog "Identified correctly" opens: what confirming does, and Confirm. */
+function IdentifiedCorrectlyDialog(props: {
+  readonly itemId: number;
+  readonly onConfirmed: () => void;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const confirming = useRequest((cause) => identifyProblemText(t, cause));
+  const heading = t("title.identifiedCorrectly");
+  return (
+    <ModalDialog className="match-correction" label={heading} onClose={props.onClose}>
+      <h2>{heading}</h2>
+      <p>{t("title.identifiedCorrectlyExplain")}</p>
+      <div className="more-actions__offers">
+        <button
+          type="button"
+          disabled={confirming.isBusy}
+          onClick={() => {
+            confirming.runRequest(async (idempotencyKey) => {
+              throwIfRefused(
+                await api.POST("/items/{id}/confirm-match", {
+                  params: { path: { id: props.itemId } },
+                  ...idempotent(idempotencyKey),
+                }),
+              );
+              props.onClose();
+              props.onConfirmed();
+            });
+          }}
+        >
+          {t("title.confirmMatch")}
+        </button>
+        {confirming.problem === undefined ? null : <output>{confirming.problem}</output>}
+      </div>
+    </ModalDialog>
+  );
 }
 
 /**

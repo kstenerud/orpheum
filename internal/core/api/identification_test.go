@@ -384,3 +384,40 @@ func TestInterest_ASeasonsPageSaysItsSeason(t *testing.T) {
 		t.Errorf("looks %+v; want the item's own page, no season", looks)
 	}
 }
+
+// "Identified correctly" confirms a guessed match as it stands, a film's or a series' (D301 §4): it
+// is confirmed and no longer marked a guess, a second press changes nothing, and a match no guess
+// settled has nothing to confirm. A role that does not edit metadata may not.
+func TestIdentification_APersonConfirmsAGuessedMatch(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO guessed_match (item_id, guessed_at) VALUES (10, 5), (20, 5)")
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	user := harness.signIn(t, "partner", "partner-password")
+	wantError(t, harness.do(t, http.MethodPost, "/items/10/confirm-match", user, nil), http.StatusForbidden,
+		api.CodeForbidden)
+	for _, item := range []struct{ confirm, page string }{
+		{"/items/10/confirm-match", "/items/10"}, {"/items/20/confirm-match", "/collections/20"},
+	} {
+		for range 2 {
+			if confirmed := harness.do(t, http.MethodPost, item.confirm, admin, nil); confirmed.status !=
+				http.StatusNoContent {
+				t.Fatalf("POST %s = %d %s", item.confirm, confirmed.status, confirmed.body)
+			}
+		}
+		if page := harness.do(t, http.MethodGet, item.page, admin, nil); strings.Contains(page.body, "isGuessed") ||
+			!strings.Contains(page.body, `"identificationState":"confirmed"`) {
+			t.Errorf("GET %s after confirming = %s; want confirmed, no guess", item.page, page.body)
+		}
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/items/21/confirm-match", admin, nil), http.StatusConflict,
+		api.CodeConflict)
+	wantError(t, harness.do(t, http.MethodPost, "/items/99/confirm-match", admin, nil), http.StatusNotFound,
+		api.CodeNotFound)
+}

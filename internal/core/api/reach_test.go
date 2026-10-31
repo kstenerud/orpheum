@@ -158,6 +158,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 		{http.MethodGet, "/items/30/candidates", nil},
 		{http.MethodPost, "/items/30/match", map[string]any{"provider": "tmdb", "providerId": "1"}},
 		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0456789"}},
+		{http.MethodPost, "/items/30/confirm-match", nil},
 		{http.MethodGet, "/items/30/candidates?name=Civilisation", nil},
 		{http.MethodPut, "/interest/30", nil},
 		{http.MethodPut, "/items/30/overrides/name", map[string]any{"value": "Other"}},
@@ -191,7 +192,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest", "putTilesInterest",
+		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "putInterest",
+		"putTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"getNotInOrdering", "setSeriesPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).

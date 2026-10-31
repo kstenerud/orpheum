@@ -728,6 +728,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/confirm-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a guessed match as it stands, "Identified correctly"; permanent (edit_metadata; D301 §4) */
+        post: operations["postItemConfirmMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items/{id}/filing-report": {
         parameters: {
             query?: never;
@@ -7034,6 +7051,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CandidatesOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postItemConfirmMatch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

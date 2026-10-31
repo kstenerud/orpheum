@@ -23,6 +23,13 @@ UPDATE collection SET followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
+-- name: ConfirmSeriesMatch :exec
+-- A person confirmed a series' match as it stands, as ConfirmTitleMatch a title's (D172).
+UPDATE collection SET identification_state = 'confirmed'
+WHERE id = sqlc.arg(id) AND kind = 'series'
+  -- Only when it changes something (D303, DL9).
+  AND identification_state IS NOT 'confirmed';
+
 -- name: MarkSeriesUnmatched :exec
 -- The provider found nothing for a series whose own fields have no source yet.
 UPDATE collection SET followed_source = 'none'

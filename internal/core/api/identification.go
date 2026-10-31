@@ -161,6 +161,11 @@ func (server *Server) registerIdentification() {
 		Summary: "Choose a film's or series' match; permanent (edit_metadata)",
 	}, server.postItemMatch)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postItemConfirmMatch", Method: http.MethodPost, Path: "/items/{id}/confirm-match",
+		DefaultStatus: http.StatusNoContent, Tags: tags,
+		Summary: "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (edit_metadata; D301 §4)",
+	}, server.postItemConfirmMatch)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Set a field to a person's value, kept over every source (edit_metadata)",
@@ -238,6 +243,15 @@ func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*st
 	}
 	err = dependencies.Chooser.Choose(ctx, input.ID, input.Body.Provider, input.Body.ProviderID)
 	return &struct{}{}, server.identifyError(ctx, "choose a match", err)
+}
+
+func (server *Server) postItemConfirmMatch(ctx context.Context, input *ItemInput) (*struct{}, error) {
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = dependencies.Chooser.ConfirmGuess(ctx, input.ID)
+	return &struct{}{}, server.identifyError(ctx, "confirm a guessed match", err)
 }
 
 func (server *Server) postItemMatchByLink(ctx context.Context, input *MatchByLinkInput) (*struct{}, error) {
@@ -343,6 +357,8 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 		return invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
 	case errors.Is(err, identify.ErrNoMatch):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.providerId", "the provider has no such work")
+	case errors.Is(err, identify.ErrNotGuessed):
+		return newError(http.StatusConflict, CodeConflict, identify.ErrNotGuessed.Error())
 	case isLimited:
 		return providerRateLimited(limited)
 	case errors.Is(err, identify.ErrNoKey):

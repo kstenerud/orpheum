@@ -35,6 +35,8 @@ var (
 	ErrBadValue = errors.New("the value does not fit the field")
 	// ErrNoOverride is a field with no override to remove.
 	ErrNoOverride = errors.New("the field has no override")
+	// ErrNotGuessed is an item whose match is no guess the matcher made, so nothing to confirm.
+	ErrNotGuessed = errors.New("its match is no guess to confirm")
 )
 
 // IdentificationStates are the states of identification a list can ask for.
@@ -279,6 +281,63 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 		return fmt.Errorf("clear item %d's guess: %w", itemID, err)
 	}
 	return chooser.matcher.dropCandidates(ctx, itemID)
+}
+
+// ConfirmGuess confirms a match the matcher guessed, a film's or a series' (D301 §4) or an episode
+// placed by its name (D307 §2), as it stands: "Identified correctly". It is a person's from then on,
+// as a chosen one is, never moved by a later pass (D172), its guess's mark gone and the candidates
+// kept for correcting it no longer needed. One already confirmed is left as it is; one not guessed
+// is refused, ErrNotGuessed.
+func (chooser *Chooser) ConfirmGuess(ctx context.Context, itemID int64) error {
+	item, err := chooser.readTarget(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		isGuessed, guessedErr := queries.IsGuessedMatch(ctx, itemID)
+		if guessedErr != nil {
+			return fmt.Errorf("read whether it is a guess: %w", guessedErr)
+		}
+		if !isGuessed {
+			return refuseUnlessConfirmed(ctx, queries, item)
+		}
+		var confirmErr error
+		if item.isSeries {
+			confirmErr = queries.ConfirmSeriesMatch(ctx, itemID)
+		} else {
+			confirmErr = queries.ConfirmTitleMatch(ctx, itemID)
+		}
+		if confirmErr != nil {
+			return fmt.Errorf("confirm its match: %w", confirmErr)
+		}
+		return queries.ClearGuessedMatch(ctx, itemID)
+	})
+	if err != nil {
+		return fmt.Errorf("confirm item %d's guess: %w", itemID, err)
+	}
+	return chooser.matcher.dropCandidates(ctx, itemID)
+}
+
+// refuseUnlessConfirmed is nil for an item no guess marks that a person confirmed already, as by a
+// request sent twice, read in the confirming write; ErrNotGuessed otherwise.
+func refuseUnlessConfirmed(ctx context.Context, queries *sqlcgen.Queries, item target) error {
+	var state string
+	if item.isSeries {
+		series, err := queries.GetSeriesForMatch(ctx, item.id())
+		if err != nil {
+			return fmt.Errorf("read its match: %w", err)
+		}
+		state = ptr.ValueOrZero(series.IdentificationState)
+	} else {
+		var err error
+		if state, err = queries.GetTitleIdentification(ctx, item.id()); err != nil {
+			return fmt.Errorf("read its match: %w", err)
+		}
+	}
+	if state == identificationConfirmed {
+		return nil
+	}
+	return fmt.Errorf("item %d: %w", item.id(), ErrNotGuessed)
 }
 
 // isSearchField is whether a field is one a search for candidates is made with: changing it makes

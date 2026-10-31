@@ -15,7 +15,7 @@ import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
-import { identifiedIncorrectlyAction } from "./match-correction.tsx";
+import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -117,7 +117,8 @@ export function SeriesView(props: {
 
 /**
  * A series' rarely used actions, under its "…" (the owner, 2026-10-29): the order its episodes are
- * shown in, where it has more than one, and an admin's "Identified incorrectly".
+ * shown in, where it has more than one, and an admin's "Identified incorrectly", and, while its match
+ * is a guess, "Identified correctly" (D301 §4).
  */
 function SeriesMoreActions(props: {
   readonly series: SeriesDetail;
@@ -138,13 +139,17 @@ function SeriesMoreActions(props: {
     });
   }
   if (isAdmin) {
+    const onCorrected = onMatchCorrected ?? (() => undefined);
     actions.push(
       identifiedIncorrectlyAction(t, {
         itemId: series.id,
         isWork: onMatchCorrected !== undefined,
-        onCorrected: onMatchCorrected ?? (() => undefined),
+        onCorrected,
       }),
     );
+    if (series.isGuessed === true) {
+      actions.push(identifiedCorrectlyAction(t, { itemId: series.id, onConfirmed: onCorrected }));
+    }
   }
   return <MoreActions actions={actions} />;
 }

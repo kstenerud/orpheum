@@ -79,6 +79,49 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 	}
 }
 
+// "Identified correctly": a guessed match confirmed as it stands is a person's from then on, no
+// longer marked a guess, its candidates gone, and stays through another pass (D301 §4, D172); a
+// match no guess settled has nothing to confirm.
+func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	oldest := lib.provider.Add(identify.Metadata{ID: "31", Name: "The Lantern Keeper", Year: 1961})
+	lib.provider.Searches[identifytest.SearchKey("The Lantern Keeper", 0)] = []identify.Candidate{
+		{ID: "32", Name: "The Lantern Keeper", Year: 2015}, oldest,
+	}
+	const rel = "The Lantern Keeper.mkv"
+	lib.scan(videoRecord(rel))
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
+		t.Fatalf("outcome %s, want matched by a guess", outcome)
+	}
+	titleID := lib.titlesByPath()[rel].TitleID
+	if !lib.isGuessed(titleID) {
+		t.Fatal("the film is not marked a guess")
+	}
+	if err := lib.chooser.ConfirmGuess(t.Context(), titleID); err != nil {
+		t.Fatal(err)
+	}
+	for _, when := range []string{"after confirming", "after another pass"} {
+		file := lib.titlesByPath()[rel]
+		if file.IdentificationState != identify.IdentificationConfirmed || file.Year == nil || *file.Year != 1961 ||
+			lib.isGuessed(titleID) {
+			t.Errorf("%s: %+v, guessed %t; want the guessed film, confirmed, no guess", when, file,
+				lib.isGuessed(titleID))
+		}
+		lib.scan(videoRecord(rel))
+	}
+	if kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), titleID); err != nil || len(kept) != 0 {
+		t.Errorf("%d candidates kept after confirming (%v)", len(kept), err)
+	}
+	if err := lib.chooser.ConfirmGuess(t.Context(), titleID); err != nil {
+		t.Errorf("confirming again = %v; want nothing to change", err)
+	}
+	ambiguous, ambiguousID := ambiguousTheGeneral(t)
+	if err := ambiguous.chooser.ConfirmGuess(t.Context(), ambiguousID); !errors.Is(err, identify.ErrNotGuessed) {
+		t.Errorf("confirming an ambiguous film = %v, want %v", err, identify.ErrNotGuessed)
+	}
+}
+
 func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")

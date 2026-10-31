@@ -364,6 +364,10 @@ export const en = {
     extras: "Extras",
     unidentified: "Not identified yet",
     identifiedIncorrectly: "Identified incorrectly",
+    identifiedCorrectly: "Identified correctly",
+    identifiedCorrectlyExplain:
+      "It was identified automatically, as the likeliest. Confirm it is right, and it stays so: no longer marked, and no later scan changes it.",
+    confirmMatch: "Confirm",
     streamVideo: "Video: {{codec}}",
     streamAudio: "Audio: {{codec}} {{language}} {{channels}}",
     streamSubtitle: "Subtitles: {{codec}} {{language}}",
