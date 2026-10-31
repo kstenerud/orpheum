@@ -13,6 +13,7 @@ import { useLive } from "./live.tsx";
 import { useServices, useToken } from "./services.tsx";
 import { FollowsTheGroupHere } from "./together-viewer.tsx";
 import { useTogether } from "./use-together.ts";
+import { useWarmsPlay } from "./warm-play.ts";
 
 /**
  * A cast's receiver between videos (D364 §5): full screen, "Ready, controlled from ‹Device›", so the
@@ -44,6 +45,7 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
   const token = useToken();
   const { leaveReceiving } = useLive();
   const { cast } = props;
+  useWarmsPlay(); // the next video plays here: its Play page's code is ready for it
   const { snapshot } = useTogether({
     credential: cast.membershipCredential,
     sessionToken: token,

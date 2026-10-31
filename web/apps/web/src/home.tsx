@@ -11,6 +11,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { useWarmsPlay } from "./warm-play.ts";
 
 /**
  * How many of the newest films or series a home row shows, a best guess: three screens of a Fire TV's
@@ -21,10 +22,12 @@ export const newestShown = 18;
 /**
  * Home (the owner, 2026-10-25: "an actual home page", which "should list half-finished stuff and also
  * newly added things. We'll also add more things later"): Continue Watching, then the newest films
- * and the newest series, each a row of posters. A row with nothing in it is not shown.
+ * and the newest series, each a row of posters. A row with nothing in it is not shown. Once it has
+ * settled it warms the Play page's code under a loader (warm-play.ts).
  */
 export function Home(): JSX.Element {
   const { t } = useTranslation();
+  useWarmsPlay();
   return (
     <section className="home" aria-labelledby="home-heading">
       <h1 id="home-heading" className="home__heading">
