@@ -498,9 +498,9 @@ had leaned on.
   deploy (VQ194); revert-red's R1–R3, R5 and R6, background probing
  ; security updates designed (design/plans/security-updates.md, the owner's four
   questions owed).
-- **The owner's, in GitHub's settings:** the environment `release` with the owner as its required
-  reviewer, and a ruleset leaving `v*` tags to the owner; until the environment has a reviewer, a
-  publish waits for no one.
+- **Deferred until the repository is public (the owner, 2026-10-31):** the environment `release`'s
+  required reviewer and the `v*` tag ruleset. A private repository on GitHub's free plan offers
+  neither; until then the environment `release` holds no publish.
 - **The owner's, on the machines:** `from="192.168.1.199"` on the nas.example and gpuhost keys'
   `authorized_keys` lines (report §2a).
 - **Security updates (the owner, 2026-10-31, yes to the recommendations), next batch:** Parts A and B
