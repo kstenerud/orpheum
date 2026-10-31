@@ -391,18 +391,21 @@ func (server *Server) removeTogetherLink(ctx context.Context, input *RemoveToget
 	return &struct{}{}, nil
 }
 
-// signedInPerson is the person a Watch Together join or device is signed in as, by its session token:
-// nil for none, or for one lapsed or ended, which joins as nobody, as the link allows. A token that
-// could not be checked is the server's failure: taken for nobody, the session would not have followed
-// its person (D267 §2), and nothing said why (the M4 closing audit, 2026-10-08).
-func signedInPerson(ctx context.Context, dependencies *Dependencies, token string) (*together.Person, error) {
+// signedInBy is the person a Watch Together join or device is signed in as, and their device, by its
+// session token: nil for none, or for one lapsed or ended, which joins as nobody, as the link allows.
+// A token that could not be checked is the server's failure: taken for nobody, the session would not
+// have followed its person (D267 §2), and nothing said why (the M4 closing audit, 2026-10-08).
+func signedInBy(ctx context.Context, dependencies *Dependencies, token string) (*together.SignedIn, error) {
 	if token == "" {
 		return nil, nil //nolint:nilnil // no sign-in is no error
 	}
 	principal, err := dependencies.Auth.Authenticate(ctx, token)
 	switch {
 	case err == nil:
-		return &together.Person{UserID: principal.UserID, Name: principal.Name}, nil
+		return &together.SignedIn{
+			Person:   together.Person{UserID: principal.UserID, Name: principal.Name},
+			DeviceID: principal.DeviceID,
+		}, nil
 	case errors.Is(err, auth.ErrNotAuthenticated):
 		return nil, nil //nolint:nilnil // a lapsed sign-in joins as nobody
 	}
@@ -418,9 +421,13 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	if name == "" {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.name", "a name is needed")
 	}
-	person, err := signedInPerson(ctx, dependencies, bearerToken(input.Authorization))
+	signedIn, err := signedInBy(ctx, dependencies, bearerToken(input.Authorization))
 	if err != nil {
 		return nil, server.authError(ctx, "check the sign-in of someone joining by a link", err)
+	}
+	var person *together.Person
+	if signedIn != nil {
+		person = &signedIn.Person
 	}
 	joined, err := dependencies.Together.Join(input.Body.Secret, name, person, together.Leaving{
 		HeldCredential: input.Body.HeldCredential, ShouldLeave: input.Body.ShouldLeaveOther,

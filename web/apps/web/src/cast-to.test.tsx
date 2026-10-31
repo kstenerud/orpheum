@@ -282,6 +282,39 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
   });
 
+  // The owner's S23 cast to the Mac that hosted the Watch Together session, which ended it (2026-10-30).
+  it("lists no device in the Watch Together session its person is in (D384 §3)", async () => {
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          {
+            devices: [
+              device(1, "Phone", true),
+              { ...device(2, "Mac"), isInYourWatchTogether: true },
+              device(3, "Fire TV"),
+            ],
+          },
+        ],
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3] });
+    expect(buttonWithText(mounted.container, "Fire TV")).toBeDefined();
+    expect(mounted.container.textContent).not.toContain("Mac");
+  });
+
   it("says a device has no Orpheum tab in front, and a cast to it is refused with what to do (D338 §2)", async () => {
     const services = servedBy(
       {

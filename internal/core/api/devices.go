@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -19,6 +20,9 @@ type DeviceBody struct {
 	IsSignedIn   bool   `json:"isSignedIn"`
 	IsByCode     bool   `doc:"A code activated it: it neither administers nor changes the account" json:"isByCode"` //nolint:lll // one struct tag
 	IsThisDevice bool   `doc:"The device asking" json:"isThisDevice"`
+	// IsInYourWatchTogether is whether the device is in the Watch Together session the asker is in,
+	// which is never a cast target (D384 §3); told of the asker's own devices alone.
+	IsInYourWatchTogether bool `doc:"In the Watch Together session you are in, so never a cast target (D384 §3)" json:"isInYourWatchTogether,omitempty" required:"false"` //nolint:lll // one struct tag
 }
 
 // DevicesOutput is a person's devices, most recently used first.
@@ -119,7 +123,15 @@ func (server *Server) listMyDevices(ctx context.Context, input *struct{ Authoriz
 	if err != nil {
 		return nil, err
 	}
-	return server.devicesOf(ctx, dependencies, principal.UserID, principal.DeviceID)
+	output, err := server.devicesOf(ctx, dependencies, principal.UserID, principal.DeviceID)
+	if err != nil {
+		return nil, err
+	}
+	inSession := dependencies.Together.SignedInDevicesWith(principal.UserID)
+	for index := range output.Body.Devices {
+		output.Body.Devices[index].IsInYourWatchTogether = slices.Contains(inSession, output.Body.Devices[index].ID)
+	}
+	return output, nil
 }
 
 func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInput) (*struct{}, error) {

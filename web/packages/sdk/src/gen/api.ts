@@ -2794,6 +2794,8 @@ export interface components {
             id: number;
             /** @description A code activated it: it neither administers nor changes the account */
             isByCode: boolean;
+            /** @description In the Watch Together session you are in, so never a cast target (D384 §3) */
+            isInYourWatchTogether?: boolean;
             isSignedIn: boolean;
             /** @description The device asking */
             isThisDevice: boolean;

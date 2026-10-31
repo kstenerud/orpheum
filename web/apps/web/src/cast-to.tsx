@@ -233,13 +233,21 @@ function TargetList(props: {
   );
 }
 
-/** The person's devices open now but this one, as their list orders them, most recently used first. */
+/**
+ * The person's devices open now but this one, as their list orders them, most recently used first,
+ * and none in the Watch Together session they are in, whose cast would take it from the session (D384
+ * §3: the owner's S23, casting to the Mac that hosted the session, ended it, 2026-10-30).
+ */
 export function otherDevicesOpen(
   devices: readonly Device[],
   connectedDeviceIds: readonly number[],
 ): Device[] {
   return devices.filter(
-    (device) => !device.isThisDevice && device.isSignedIn && connectedDeviceIds.includes(device.id),
+    (device) =>
+      !device.isThisDevice &&
+      device.isSignedIn &&
+      device.isInYourWatchTogether !== true &&
+      connectedDeviceIds.includes(device.id),
   );
 }
 

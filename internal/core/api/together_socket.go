@@ -70,7 +70,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	if !isSession {
 		return
 	}
-	person, err := signedInPerson(ctx, dependencies, hello.SessionToken)
+	signedIn, err := signedInBy(ctx, dependencies, hello.SessionToken)
 	if err != nil {
 		// Could not be checked: the server's failure, and the device comes again (the M4 closing audit).
 		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked", "err", err)
@@ -89,7 +89,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 			}) // too far behind: it reads nothing
 		}
 	}
-	attachment, isAttached := server.attachDevice(ctx, connection, dependencies, hello, person, send)
+	attachment, isAttached := server.attachDevice(ctx, connection, dependencies, hello, signedIn, send)
 	if !isAttached {
 		return
 	}
@@ -120,7 +120,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 // just ended sending first the end its devices were sent.
 func (server *Server) attachDevice(
 	ctx context.Context, connection togetherSocket, dependencies *Dependencies, hello together.Inbound,
-	person *together.Person, send together.Sender,
+	signedIn *together.SignedIn, send together.Sender,
 ) (together.Attachment, bool) {
 	tuning, err := server.togetherTuning(ctx, dependencies)
 	if err != nil {
@@ -129,7 +129,7 @@ func (server *Server) attachDevice(
 		return together.Attachment{}, false
 	}
 	attachment, err := dependencies.Together.Attach(
-		hello.Credential, hello.Role, hello.CanSetRate, person, tuning, send)
+		hello.Credential, hello.Role, hello.CanSetRate, signedIn, tuning, send)
 	if err != nil {
 		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
 			"role", string(hello.Role), "err", err)
