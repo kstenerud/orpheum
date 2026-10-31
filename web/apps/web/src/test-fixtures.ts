@@ -6,6 +6,12 @@ import type { PlaybackDecision } from "./watching.ts";
 /** A sound not measured yet: played as it is (D226). */
 const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
 
+/**
+ * What a sound in a decision's tracks says of itself beyond its form, for a test that reads none of
+ * it: its stream unnamed, its loudness not measured, carrying no gain.
+ */
+export const unmeasuredSound = { stream: "", ...unlevelled };
+
 /** A decision to play the original as it is, with what a test changes of it. */
 export function directDecision(changes: Partial<PlaybackDecision> = {}): PlaybackDecision {
   return {
@@ -35,6 +41,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
           channelCount: 2,
           kbps: 0,
           isOriginal: true,
+          ...unmeasuredSound,
         },
       ],
       filePicture: { codec: "h264", width: 1920, height: 1080 },

@@ -4,7 +4,6 @@ package playback
 
 import (
 	"context"
-	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -51,6 +50,14 @@ type SoundTrack struct {
 	// Kbps is its rate, 0 when not known, as the file's own is not.
 	Kbps       int64
 	IsOriginal bool
+	// Stream is its stream, as its master playlist names it; off the ladder, the file's own track as
+	// its sound copied is named, which its player says it plays once it switches to it in place.
+	Stream string
+	// Levelling is what its player wants to bring it to the level, and CarriedGainDB the gain its
+	// chunks carry already (D226 §4): its own track's, so a sound switched to in place, as the
+	// dialogue boost is, plays at its own level (audio-switch-and-retiming-2026-11-01.md §1.2).
+	Levelling     decide.Levelling
+	CarriedGainDB float64
 }
 
 // FilePicture is the file's own picture, as the probe found it.
@@ -92,17 +99,18 @@ func (service *Service) tracksOf(
 			return Tracks{}, err
 		}
 		tracks.Pictures = ladderPictures(offered, tracks.FilePicture)
-		made := chunks.SoundsOf(chunks.SoundTracksOf(probe))
-		tracks.Sounds = convertedSounds(made, int64(offered.SoundKbps))
-		if len(offered.CopiedTracks) > 0 && len(tracks.Pictures) > 0 && tracks.Pictures[0].IsOriginal {
-			tracks.Pictures[0].Sounds = withOwnSounds(tracks.Sounds, offered.CopiedTracks, probe)
+		tracks.Sounds = convertedSounds(offered.Sounds, int64(offered.SoundKbps))
+		if offered.TopSounds != nil && len(tracks.Pictures) > 0 && tracks.Pictures[0].IsOriginal {
+			tracks.Pictures[0].Sounds = withOwnSounds(tracks.Sounds, offered.TopSounds, probe)
 		}
 	default:
 		tracks.Pictures = []PictureTrack{originalPicture(tracks.FilePicture, probe.Format.BitRateBps/1000)}
 		for _, sound := range tracks.FileSounds {
+			own := chunks.Stream{Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: sound.AudioTrackIndex}
 			tracks.Sounds = append(tracks.Sounds, SoundTrack{
 				AudioTrackIndex: sound.AudioTrackIndex, Codec: sound.Codec, ChannelCount: sound.ChannelCount,
-				IsOriginal: true,
+				IsOriginal: true, Stream: own.Name(),
+				Levelling: decide.AsItIsLevelling(started.levels, probe, sound.AudioTrackIndex),
 			})
 		}
 	}
@@ -158,31 +166,40 @@ func widthAt(file FilePicture, height int) int {
 	return width - width%2
 }
 
-// withOwnSounds are sounds with each standard mix of a track in copied replaced by the track's own
-// sound, as it is: what the top of a ladder plays (D368 §1).
-func withOwnSounds(sounds []SoundTrack, copied []int, probe nodeproto.Probe) []SoundTrack {
+// withOwnSounds are sounds as the top plays them, top in their order: each standard mix of a track it
+// plays copied replaced by the track's own sound, as it is (D368 §1), each with its stream and what
+// levels it there.
+func withOwnSounds(sounds []SoundTrack, top []chunks.OfferedSound, probe nodeproto.Probe) []SoundTrack {
 	own := make([]SoundTrack, 0, len(sounds))
 	streams := decide.AudioStreams(probe)
-	for _, sound := range sounds {
-		if !sound.IsBoosted && slices.Contains(copied, sound.AudioTrackIndex) && sound.AudioTrackIndex < len(streams) {
+	for index, sound := range sounds {
+		if index >= len(top) {
+			break
+		}
+		played := top[index]
+		if played.Stream.Kind == nodeproto.StreamSoundCopied && sound.AudioTrackIndex < len(streams) {
 			stream := streams[sound.AudioTrackIndex]
 			sound = SoundTrack{
 				AudioTrackIndex: sound.AudioTrackIndex, Codec: stream.Codec, ChannelCount: stream.Audio.ChannelCount,
 				Kbps: stream.BitRateBps / 1000, IsOriginal: true,
 			}
 		}
+		sound.Stream, sound.Levelling, sound.CarriedGainDB = played.Stream.Name(), played.Level.Levelling,
+			played.Level.CarriedGainDB
 		own = append(own, sound)
 	}
 	return own
 }
 
-// convertedSounds are the sounds a conversion makes of each sound, AAC in stereo at kbps.
-func convertedSounds(made []chunks.Sound, kbps int64) []SoundTrack {
+// convertedSounds are the sounds a conversion makes of each sound offered, AAC in stereo at kbps,
+// each with its stream and what levels it.
+func convertedSounds(made []chunks.OfferedSound, kbps int64) []SoundTrack {
 	sounds := make([]SoundTrack, 0, len(made))
 	for _, sound := range made {
 		sounds = append(sounds, SoundTrack{
-			AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted, Codec: convertedSoundCodec,
-			ChannelCount: convertedSoundChannels, Kbps: kbps,
+			AudioTrackIndex: sound.Stream.AudioTrackIndex, IsBoosted: sound.Stream.IsBoosted,
+			Codec: convertedSoundCodec, ChannelCount: convertedSoundChannels, Kbps: kbps, Stream: sound.Stream.Name(),
+			Levelling: sound.Level.Levelling, CarriedGainDB: sound.Level.CarriedGainDB,
 		})
 	}
 	return sounds

@@ -119,6 +119,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   answered, and which the request carries for the server's log (`startsAtMs`). A film whose track
   was changed 2:46 in started again at 0:00, the log saying only resumePositionMs=0 (staging,
   2026-10-26). `src/sound.test.tsx`.
+- **Another audio track chosen on a film's ladder switches in place, the dialogue boost's way**
+  (`playTrackChosen`, `src/ladder-sound.ts`): the picture plays on and the old sound until the new one is
+  heard, the boost kept as the person left it where the track has a boosted mix; the gain changes as
+  the new sound is heard, to its own track's levelling as the decision's tracks say it, never the
+  starting track's (`ladderSoundLevelOf`, `chooseSoundInPlace`). It asks for
+  the film again only where the player cannot switch in place: the element's own HLS, or a ladder a
+  stalled player moved to. Off the ladder, a track switches in place where the element lists its
+  file's tracks (Safari), levelled by its own and said to the server as the sound playing, which a
+  stall's offer then starts; elsewhere the film moves onto its ladder once. A Watch Together leader's
+  choice reloads no one's player, and a cast's receiver follows its remote's by the same path
+  (audio-switch-and-retiming-2026-11-01.md §1.2; the owner's answers of 2026-10-31).
+  `src/audio-switch.test.tsx`.
 - **A Play page's playback the core answered nothing for is asked for again** (`askWhileUnanswered`),
   each silence told to the core's log: the page draws its player, and with it a host's Watch
   Together player and its session connection, only once its playback is answered, and one answer lost
@@ -620,7 +632,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
   `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
-  `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
+  `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
   their link), `together-what-plays.tsx` (asking a guest's session what it plays),
   `together-leave.tsx` (a guest's Leave), `together-host.tsx` (the host's player in their session), `together-news.tsx` and

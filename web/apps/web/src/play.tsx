@@ -19,10 +19,9 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { PlayTop } from "./play-up.tsx";
-import { AudioMenu, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
+import { AudioMenu, type AudioTrack } from "./audio-tracks.tsx";
 import {
   FilmPlayer,
-  ladderAudioRenditionIndex,
   type FilmComposition,
   type FilmParts,
   deliveryOf,
@@ -32,6 +31,14 @@ import { problemText } from "./problem.ts";
 import { reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
+import {
+  hasACentre,
+  ladderAudioRenditionIndex,
+  ladderSoundLevel,
+  playTrackChosen,
+  soundChoiceCause,
+  useOwnTrackChoice,
+} from "./ladder-sound.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen } from "./film-fullscreen.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
@@ -43,7 +50,7 @@ import { BoostSwitch } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
-import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
+import { LevelSwitch, type SoundLevel } from "./levelling.tsx";
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
@@ -462,17 +469,20 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
  * film's own, which the device mixes down itself, so the dialogue boost, where the track has a
  * centre to raise, starts off here: turned on, it is kept, then the film is asked for again from
  * where the video stands, and the server answers with its ladder carrying the boosted mix (D336 §1,
- * §3).
+ * §3). Another audio track chosen switches in place where the element lists its file's tracks, as
+ * Safari's does, levelled by its own and said to the server, whose stall's offer starts it; else the
+ * film is asked for again, onto its ladder, once (the owner's answers of 2026-10-31).
  */
 function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
   const boostChosen = decideAgainFor(props, "boostChosen");
+  const { level, onAudioChosen } = useOwnTrackChoice(
+    props.decision,
+    props.videoRef,
+    decideAgainFor(props, "audioChosen"),
+  );
   return (
     <>
-      <UnderTheVideo
-        {...props}
-        level={soundLevelOf(props.decision)}
-        onAudioChosen={decideAgainFor(props, "audioChosen")}
-      />
+      <UnderTheVideo {...props} level={level} onAudioChosen={onAudioChosen} />
       {hasACentre(props.decision) ? (
         <BoostSwitch
           isInitiallyOn={false}
@@ -489,21 +499,15 @@ function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
 }
 
 /**
- * Whether the track the original plays has a centre for the dialogue boost to raise: more than two
- * channels, as the server's boosted mix needs (D222, D336 §2).
- */
-export function hasACentre(decision: PlaybackDecision): boolean {
-  const index = startingAudioTrack(decision)?.audioTrackIndex ?? 0;
-  const sound = (decision.tracks.fileSounds ?? []).find((each) => each.audioTrackIndex === index);
-  return sound !== undefined && sound.channelCount > 2;
-}
-
-/**
  * Under the film on its ladder: what sits under every video, its play state kept from where it
- * started, not where the person last left the file; its sound carries its levelling; and a switch
- * for the dialogue boost where the track playing has a boosted mix (D217 §3, D222), which changes the ladder's sound as soon as the other mix has loaded at the playhead, playing on meanwhile. The boosted mix carries
- * its track's gain, as the standard one does (D226 §3), so the level stays. Its lowest quality's word
- * that it cannot keep up goes to a host's session (D247 §8).
+ * started, not where the person last left the file; its sound levelled by its own track's levelling,
+ * changed as a new sound is heard; and a switch for the dialogue boost where the track playing has a
+ * boosted mix (D217 §3, D222). The boost turned on or off and another audio track chosen go one way:
+ * the ladder's sound changes as soon as the other has loaded at the playhead, the picture playing on,
+ * the old sound heard meanwhile (audio-switch-and-retiming-2026-11-01.md §1.2). A Watch Together
+ * leader's choice is its own and reloads no one's player; a cast's receiver follows its remote's by
+ * the same path (useTracksWorkedByARemote). Its lowest quality's word that it cannot keep up goes to a
+ * host's session (D247 §8).
  */
 function LadderUnder(
   props: PlayProps &
@@ -519,43 +523,45 @@ function LadderUnder(
     };
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
   const decision = { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
-  const level = ladderSoundLevel(props.decision, ladder.offer.soundCarriedGainDb);
+  const level =
+    ladder.heardLevel ?? ladderSoundLevel(props.decision, ladder.offer.soundCarriedGainDb);
   const { sound, playSound } = ladder;
+  // The boost as the person left it, kept across a track with no centre to raise, whose switch hides.
+  const [isBoostOn, setIsBoostOn] = useState(props.decision.preferences.isDialogueBoostOn);
+  const tracks = props.decision.tracks;
   const canBoost =
     sound !== undefined &&
-    ladderAudioRenditionIndex(props.decision.tracks, { ...sound, isBoosted: true }) !== undefined;
+    ladderAudioRenditionIndex(tracks, { ...sound, isBoosted: true }) !== undefined;
+  const askAgain = decideAgainFor({ ...props, decision }, "audioChosen");
   return (
     <>
       <UnderTheVideo
         {...props}
         decision={decision}
         level={level}
-        // Asked for again, not switched in place as the boost is: the offer's carried gain and the
-        // decision's levelling are the starting track's alone, so another would play at the wrong level.
-        onAudioChosen={decideAgainFor({ ...props, decision }, "audioChosen")}
+        onAudioChosen={(track) => {
+          playTrackChosen(
+            { audioTrackIndex: track.audioTrackIndex, isBoostOn, tracks },
+            {
+              playSound,
+              askAgain,
+            },
+          );
+        }}
       />
       {canBoost ? (
         <BoostSwitch
-          isInitiallyOn={props.decision.preferences.isDialogueBoostOn}
+          isInitiallyOn={isBoostOn}
           onSwitched={(isOn) => {
-            playSound({ audioTrackIndex: sound.audioTrackIndex, isBoosted: isOn });
+            setIsBoostOn(isOn);
+            const boosted = { audioTrackIndex: sound.audioTrackIndex, isBoosted: isOn };
+            playSound(boosted, soundChoiceCause(boosted));
           }}
         />
       ) : null}
       <PlayOriginal onChosen={decideAgainFor({ ...props, decision }, "originalChosen")} />
     </>
   );
-}
-
-/**
- * The level of a ladder's sound: the gain its chunks carry, levelled; or, for a sound that carries
- * none, the film's own levelling from the decision, so a person who plays without levelling, whose
- * sound is offered unlevelled, is told it plays as mixed and can turn levelling on (D226 §4).
- */
-export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: number): SoundLevel {
-  return carriedGainDb === 0
-    ? { levelling: decision.levelling, carriedGainDb: 0 }
-    : { levelling: { isMeasured: true, gainDb: carriedGainDb }, carriedGainDb };
 }
 
 /**

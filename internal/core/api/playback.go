@@ -112,8 +112,8 @@ type StartPlaybackOutputBody struct {
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
 	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
-	// Levelling brings the main sound to the level, as the file plays it directly; a film on its
-	// ladder carries its sound's own gain (LadderBody, D226).
+	// Levelling brings the starting track's sound, played as it is, to the level; each sound in
+	// Tracks says its own, which a player levels the sound it hears by (D226).
 	Levelling LevellingBody `json:"levelling"`
 	// FileBitRateKbps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when it is not known.

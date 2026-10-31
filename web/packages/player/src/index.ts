@@ -26,7 +26,16 @@ export {
 export type { Gain, SoundLatencyMemory, SoundOffset, SoundRoute } from "./gain.ts";
 export { canMoveSoundEarlier } from "./audio-shift.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
-export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget, SoundChoiceCause } from "./hls.ts";
+export type {
+  ChooseAudio,
+  HlsSupport,
+  HlsMethod,
+  HlsPlayback,
+  NativeTarget,
+  SoundChoiceCause,
+} from "./hls.ts";
+export { ownAudioTracksOf, switchOwnTrack } from "./own-tracks.ts";
+export type { OwnAudioTrack, OwnAudioTracks } from "./own-tracks.ts";
 export { linkShareForQuality } from "./abr-choice.ts";
 export { shapeChunkLoads } from "./link-shaping.ts";
 export type { LinkShaping } from "./link-shaping.ts";

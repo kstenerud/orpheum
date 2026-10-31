@@ -18,7 +18,7 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
-import { directDecision, television } from "./test-fixtures.ts";
+import { directDecision, television, unmeasuredSound } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
 
@@ -39,6 +39,7 @@ function direct(isSurround = false): PlaybackDecision {
           channelCount: 6,
           kbps: 0,
           isOriginal: true,
+          ...unmeasuredSound,
         },
       ],
       fileSounds: [{ audioTrackIndex: 0, codec: "eac3", channelCount: 6 }],
@@ -139,7 +140,13 @@ describe("the dialogue boost over the original (D336 §3)", () => {
 
   it("asks the server again with the boost's cause once it is kept, and plays what it answers", async () => {
     const heard: Heard[] = [];
-    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const converted = {
+      codec: "aac",
+      channelCount: 2,
+      kbps: 128,
+      isOriginal: false,
+      ...unmeasuredSound,
+    };
     const plain = directDecision();
     const boosted = directDecision({
       delivery: "hls",
@@ -247,7 +254,13 @@ describe("the dialogue boost's switch", () => {
 describe("the dialogue boost on a film's ladder", () => {
   /** A film on its ladder: its surround track's standard mix and boosted one. */
   function onLadder(isDialogueBoostOn: boolean): PlaybackDecision {
-    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const converted = {
+      codec: "aac",
+      channelCount: 2,
+      kbps: 128,
+      isOriginal: false,
+      ...unmeasuredSound,
+    };
     const plain = directDecision();
     return directDecision({
       onLadder: {

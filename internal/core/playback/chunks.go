@@ -11,8 +11,8 @@ import (
 
 // ChunksOf is the playback a media token refers to as its film's chunks are served to it (D247
 // §10): its file, whether its player decodes the film's own picture, the audio track it started
-// with and where its player last said it was. The token is the holder's, as for its other bytes:
-// a Watch Together viewer's for the film the session plays.
+// with, the sound it plays now and where its player last said it was. The token is the holder's, as
+// for its other bytes: a Watch Together viewer's for the film the session plays.
 func (service *Service) ChunksOf(ctx context.Context, token string, holder Holder) (chunks.Playback, error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
@@ -44,6 +44,9 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 		IsSoundUnlevelled:        playback.isSoundUnlevelled,
 		IsSoundUnmeasured:        playback.isSoundUnmeasured,
 		OwnSoundTracks:           playback.ownSoundTracks,
+		// The sound its player plays now, which a track chosen as it plays changes in place: a stall's
+		// offer starts it (chunks' playingSoundOf).
+		PlayingSound: playback.interest.sound,
 	}
 	if playback.startingAudio != nil {
 		chunked.HasStartingAudio, chunked.StartingAudioTrackIndex = true, playback.startingAudio.AudioTrackIndex

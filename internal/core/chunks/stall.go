@@ -39,7 +39,7 @@ type Offer struct {
 	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured: a player
 	// that stalls on it has no quality left to go to (D247 §8).
 	IsBelowTheLowest bool
-	// SoundCarriedGainDB is the levelling gain the starting sound's chunks carry (D226 §4), so the
+	// SoundCarriedGainDB is the levelling gain the sound's chunks carry (D226 §4), so the
 	// player, which levels after its volume, does not level it again.
 	SoundCarriedGainDB float64
 	// FilmPictureKbps is the film's own picture's average rate, as the quality was chosen by: what a
@@ -52,8 +52,9 @@ type Offer struct {
 	// IsHeldByUpload is whether the start took a lower quality than its link carries, to keep within
 	// what is left of the server's upload (StartAtMostKbps).
 	IsHeldByUpload bool
-	// SoundStreamName is the starting sound's stream, empty for a film with none, and FromMs where in
-	// the film both are made from: what the playback wants until its player says (D309 §1).
+	// SoundStreamName is the stream of the sound playing (playingSoundOf), empty for a film with
+	// none, and FromMs where in the film both are made from: what the playback wants until its player
+	// says (D309 §1).
 	SoundStreamName string
 	FromMs          int64
 	// LinkSharePercent is the share of a measured link the quality was chosen within,
@@ -171,22 +172,20 @@ func (service *Service) startAt(
 		IsOnTime:         film.kind == OnTime,
 	}
 	if playback.HasStartingAudio {
-		sound := offered.startingSoundOf(playback, picture)
+		sound := offered.playingSoundOf(playback, picture)
 		offer.SoundStreamName = sound.Name()
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, film.kind, sound, chunk); err != nil {
 			return Offer{}, err
 		}
+		levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+		if err != nil {
+			return Offer{}, err
+		}
 		// A track the top plays copied is at its own level at every quality, which the player's gain
 		// levels as it levels the track played as it is (D368 §1, D226 §4): its sound carries nothing
-		// of the levelling.
-		if !offered.isCopied(sound.AudioTrackIndex) {
-			track, err := service.levelledTrack(ctx, film, sound)
-			if err != nil {
-				return Offer{}, err
-			}
-			offer.SoundCarriedGainDB = track.CarriedGainDB
-		}
+		// of the levelling (soundLevelOf).
+		offer.SoundCarriedGainDB = soundLevelOf(levels, film.probe, sound).CarriedGainDB
 	}
 	return offer, nil
 }

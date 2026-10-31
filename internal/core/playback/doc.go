@@ -158,6 +158,20 @@
 //   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.
 //
+//   - A playback's levelling is its starting track's as it is, never the main track's, and each sound
+//     its tracks name says what levels it, its own track's levelling and the gain its chunks carry,
+//     so a track switched to in place, on the ladder or by the element off it, plays at its own level
+//     (audio-switch-and-retiming-2026-11-01.md §1.2). Enforced by
+//     TestStartingLevelling_IsTheStartingTracksOwnNotTheMainTracks,
+//     TestTracks_OffTheLadderEachTrackIsLevelledByItsOwn and
+//     TestOffered_EachSoundIsLevelledByItsOwnTrack (internal/core/chunks).
+//
+//   - The sound a playback plays is the one its player last asked for or said, which a stall's offer
+//     starts in place of its starting track's; a player playing its file as it is that says the sound
+//     it switched to wants none of the film's chunks for it. Enforced by
+//     TestSayInterest_APlayerOffTheLadderSaysTheSoundAStallStartsAndWantsNoChunks and
+//     TestStalled_StartsTheSoundThePlayerPlaysNotTheOneItStartedWith (internal/core/chunks).
+//
 //   - A media token is held by the person and session that started it while they reach its file's
 //     library: one taken back stops the playback at its next byte or report request (D243 §4).
 //     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere.

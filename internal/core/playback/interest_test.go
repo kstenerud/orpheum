@@ -263,3 +263,28 @@ func TestStoreTiers_AreTheHighestAnyPlayerGivesEachStore(t *testing.T) {
 		t.Errorf("the tiers = %v; want %v", tiers, want)
 	}
 }
+
+// A player playing its file as it is that switched to another of its tracks in place says the sound it
+// plays, by the name its tracks give it: it wants none of the film's chunks for it, and a stall's
+// offer starts that sound, not the one the playback started with (chunks' playingSoundOf;
+// audio-switch-and-retiming-2026-11-01.md §1.2).
+func TestSayInterest_APlayerOffTheLadderSaysTheSoundAStallStartsAndWantsNoChunks(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 11, 1, 20, 0, 0, 0, time.UTC))
+	holder := Holder{UserID: 1, SessionKey: "s", Reach: auth.EveryLibrary()}
+	direct := &tokenPlayback{
+		userID: 1, sessionKey: "s", fileID: 1, lastUsedAt: clock.Now(), startingAudio: &AudioTrack{},
+	}
+	service := uploadService(clock, 0, map[string]*tokenPlayback{"safari": direct})
+	service.chunks = &stoppingChunks{}
+	said := Interest{SoundStream: "sound1-own", PositionMs: 60_000}
+	if err := service.SayInterest(t.Context(), "safari", holder, said); err != nil {
+		t.Fatal(err)
+	}
+	if got := service.InterestsIn(1); len(got) != 0 {
+		t.Errorf("the interests = %+v; want none of a player playing the file as it is", got)
+	}
+	if got := chunksPlaybackOf(*direct); got.PlayingSound != "sound1-own" || got.StartingAudioTrackIndex != 0 {
+		t.Errorf("as the chunks see it = %+v; want it playing the second track, started on the first", got)
+	}
+}

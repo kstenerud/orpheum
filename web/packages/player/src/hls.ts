@@ -22,16 +22,32 @@ import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failu
 import type { ForwardBuffer } from "./forward-buffer.ts";
 import { linkNoter } from "./link-estimate.ts";
 
-/** Why the person's sound changes as it plays: the dialogue boost turned on or off (D217 §3). */
-export type SoundChoiceCause = "boostOn" | "boostOff";
+/**
+ * Why the person's sound changes as it plays: the dialogue boost turned on or off (D217 §3), or
+ * another audio track chosen (audio-switch-and-retiming-2026-11-01.md §1.2).
+ */
+export type SoundChoiceCause = "boostOn" | "boostOff" | "trackChosen";
+
+/**
+ * Chooses the audio rendition at index, in the master playlist's order, for cause; onHeard, where
+ * given, is told once the new sound is heard, its chunk at the playhead loaded and appended (at once
+ * where it already plays), so a gain of its own is applied then, never to the sound still playing.
+ */
+export type ChooseAudio = (index: number, cause: SoundChoiceCause, onHeard?: () => void) => void;
 
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
   /**
    * Plays the audio rendition at index, in the master playlist's order, for cause: the sound loaded
-   * plays on until the new one's chunk at the playhead has loaded (keepAudioRendition).
+   * plays on until the new one's chunk at the playhead has loaded, then onHeard is told
+   * (keepAudioRendition). Where canSwitchSoundInPlace is false it does nothing.
    */
-  readonly setAudioRendition: (index: number, cause: SoundChoiceCause) => void;
+  readonly setAudioRendition: ChooseAudio;
+  /**
+   * Whether setAudioRendition switches the sound in place: hls.js's playback; never the element's own
+   * HLS, which chooses its own tracks, so a page asks for its film again instead.
+   */
+  readonly canSwitchSoundInPlace: boolean;
   /** Stops playing and lets go of the element. */
   readonly destroy: () => void;
   /** The link's speed in kb/s as hls.js measures its segments, or undefined where it cannot say. */
@@ -77,6 +93,7 @@ export function playNative(target: NativeTarget, url: string): HlsPlayback {
   return {
     // Safari switches its own tracks from its controls; choosing one is left to them.
     setAudioRendition: () => undefined,
+    canSwitchSoundInPlace: false,
     // Safari measures its link for itself, and says nothing of it.
     estimateKbps: () => undefined,
     // A page's video kept for its next film may hold that film's source already: it is left be.
@@ -158,8 +175,11 @@ export interface AudioKeeping {
  * back at once, so hls.js loads it on from the end of the sound loaded, as it does for two groups'
  * stereo tracks, and the new sound is heard where the picture of its quality begins.
  *
- * Returns the choosing of another rendition, the person's (the dialogue boost turned on or off), which
- * it keeps from then on: one way for every change of sound as the film plays. The sound loaded plays
+ * Returns the choosing of another rendition, the person's (the dialogue boost turned on or off, or
+ * another audio track), which it keeps from then on: one way for every change of sound as the film
+ * plays. The choice's onHeard is told as hls.js says the chosen sound switched in
+ * (AUDIO_TRACK_SWITCHED), once its chunk is appended, or at once where it plays already; a choice
+ * made over one still on its way leaves the first unheard. The sound loaded plays
  * on while hls.js asks for the new one's chunk at the playhead, which starts the server making it,
  * and the new one is heard from that chunk once it has loaded, the sound loaded after it thrown away
  * (`nextAudioTrack`): switched with `audioTrack`, hls.js threw all of it away at once and the video
@@ -172,10 +192,16 @@ export function keepAudioRendition(
   hls: AudioKeeping,
   startIndex: number | undefined,
   note: (text: string) => void = () => undefined,
-): (index: number, cause: SoundChoiceCause) => void {
+): ChooseAudio {
   let kept = startIndex;
   let switchedTo: { readonly id: number; readonly form: SoundForm } | undefined;
-  let chosen: { readonly id: number; readonly cause: SoundChoiceCause } | undefined;
+  let chosen:
+    | {
+        readonly id: number;
+        readonly cause: SoundChoiceCause;
+        readonly onHeard: (() => void) | undefined;
+      }
+    | undefined;
   hls.on(Hls.Events.AUDIO_TRACK_SWITCHING, (_event, data) => {
     // A choice on its way leaves the sound loaded as it was until its chunk is heard.
     if (data.flushImmediate !== false) {
@@ -186,7 +212,9 @@ export function keepAudioRendition(
     kept = data.id;
     if (chosen?.id === data.id) {
       note(`sound ${String(data.id)} heard (${chosen.cause})`);
+      const { onHeard } = chosen;
       chosen = undefined;
+      onHeard?.();
     }
   });
   // A group's tracks are listed before hls.js chooses one of them: a rendition chosen then is the
@@ -203,15 +231,16 @@ export function keepAudioRendition(
     }
     switchInForm(hls, { place, sound: data.audioTracks[place] }, switchedTo?.form);
   });
-  return (index, cause) => {
+  return (index, cause, onHeard) => {
     if (index === kept && chosen === undefined) {
+      onHeard?.();
       return;
     }
     note(
       `sound ${String(index)} chosen (${cause}), loading at the playhead as sound ${String(kept ?? hls.audioTrack)} plays`,
     );
     kept = index;
-    chosen = { id: index, cause };
+    chosen = { id: index, cause, onHeard };
     // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
     hls.nextAudioTrack = index;
   };
@@ -226,7 +255,7 @@ export function startAndKeepAudio(
   hls: AudioStart & AudioKeeping,
   startIndex: number | undefined,
   note?: (text: string) => void,
-): (index: number, cause: SoundChoiceCause) => void {
+): ChooseAudio {
   startWithAudio(hls, startIndex ?? 0);
   // 0 is the playlist's default, which hls.js starts with: kept once it plays.
   return keepAudioRendition(hls, startIndex === 0 ? undefined : startIndex, note);
@@ -527,6 +556,7 @@ export function playHls(
     onFailed("hls_unsupported");
     return {
       setAudioRendition: () => undefined,
+      canSwitchSoundInPlace: false,
       destroy: () => undefined,
       estimateKbps: () => undefined,
     };
@@ -542,6 +572,7 @@ export function playHls(
   hls.attachMedia(video);
   return {
     setAudioRendition: chooseAudio,
+    canSwitchSoundInPlace: true,
     destroy: () => {
       stopRecoveringDecoding();
       hls.destroy();

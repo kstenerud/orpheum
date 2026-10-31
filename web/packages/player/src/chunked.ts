@@ -461,7 +461,12 @@ function playWithoutHlsJs(
   }
   if (method === "none") {
     onFailed("hls_unsupported");
-    return { setAudioRendition: () => undefined, destroy: () => undefined, ...unknowing };
+    return {
+      setAudioRendition: () => undefined,
+      canSwitchSoundInPlace: false,
+      destroy: () => undefined,
+      ...unknowing,
+    };
   }
   return undefined;
 }
@@ -597,6 +602,21 @@ function chunkLoader(soundShift: SoundShift): ReturnType<typeof shiftingFragment
 }
 
 /**
+ * How hls.js switches a chunked playback's sound in place, starting with the audio rendition at
+ * startIndex and keeping it (startAndKeepAudio), each choice noted among video's link notes.
+ */
+function switchingSoundInPlace(
+  hls: Hls,
+  startIndex: number | undefined,
+  video: HTMLVideoElement,
+): Pick<ChunkedPlayback, "setAudioRendition" | "canSwitchSoundInPlace"> {
+  return {
+    setAudioRendition: startAndKeepAudio(hls, startIndex, linkNoter(video)),
+    canSwitchSoundInPlace: true,
+  };
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, its
  * quality chosen by a bitrate controller of our own from startAtBps (D265); else with the element's
  * own HLS, which adapts by itself.
@@ -653,7 +673,7 @@ export function playChunked(
   });
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });
   diagnose(hls, video);
-  const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex, linkNoter(video));
+  const soundChoice = switchingSoundInPlace(hls, options.startAudioRenditionIndex, video);
   tellOwnMoves(hls, video);
   const linkKbps = tellChunkedLoading(hls, video, abr.choosing);
   const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
@@ -662,7 +682,7 @@ export function playChunked(
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
-    setAudioRendition: chooseAudio,
+    ...soundChoice,
     destroy: () => {
       for (const stop of stops) {
         stop();

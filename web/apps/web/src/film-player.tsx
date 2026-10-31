@@ -34,6 +34,12 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { startingAudioTrack } from "./audio-tracks.tsx";
+import {
+  chooseSoundInPlace,
+  ladderAudioRenditionIndex,
+  ladderSoundLevelOf,
+  ladderStartingAudio,
+} from "./ladder-sound.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
@@ -44,6 +50,7 @@ import { useServices } from "./services.tsx";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import { isStartThePages, type PlaybackDecision } from "./watching.ts";
+import type { SoundLevel } from "./levelling.tsx";
 
 /**
  * What a page knows of the film playing, given to what it composes around the video: the video, the
@@ -70,11 +77,19 @@ export interface FilmParts {
          */
         readonly sound: PlayingSound | undefined;
         /**
-         * Plays another of the ladder's sounds, the boost turned on or off, as the next of its
-         * playbacks starts with: the sound loaded plays on until the other's chunk at the playhead
-         * has loaded (keepAudioRendition, @orpheum/player).
+         * The level of the sound heard, its own track's as the decision's tracks say it, changed
+         * once a sound switched to in place is heard, never as it is chosen; undefined on a ladder a
+         * stalled player moved to, whose sounds no decision named.
          */
-        readonly playSound: (sound: PlayingSound) => void;
+        readonly heardLevel: SoundLevel | undefined;
+        /**
+         * Plays another of the ladder's sounds, for cause, the boost turned on or off or another
+         * track chosen, as the next of its playbacks starts with: the sound loaded plays on until the
+         * other's chunk at the playhead has loaded (keepAudioRendition, @orpheum/player). Returns
+         * whether it switches in place: not where the ladder names no such sound, or its player is
+         * the element's own HLS, which chooses its own tracks; the page then asks again.
+         */
+        readonly playSound: (sound: PlayingSound, cause: SoundChoiceCause) => boolean;
       }
     | undefined;
 }
@@ -448,7 +463,7 @@ function ChunkedFilm(props: {
   const { tracks } = props;
   // A playback's own start on its ladder starts by the link its device remembers (D381).
   const shouldStartByRememberedLink = props.isOnLadder === true && !isStartThePages(offer);
-  const { playbackRef, playing, cannotKeepUp, sound, playSound } = useLadderPlayback(
+  const { playbackRef, playing, cannotKeepUp, sound, heardLevel, playSound } = useLadderPlayback(
     videoRef,
     { offer, positionMs, tracks, sound: props.sound, shouldStartByRememberedLink },
     onFailed,
@@ -463,7 +478,7 @@ function ChunkedFilm(props: {
         videoRef={videoRef}
         readLinkKbps={() => playbackRef.current?.estimateKbps()}
         failure={failure}
-        ladder={{ offer, positionMs, playing, cannotKeepUp, sound, playSound }}
+        ladder={{ offer, positionMs, playing, cannotKeepUp, sound, heardLevel, playSound }}
       />
       {hasTracks && sound !== undefined ? (
         <TracksNote tracks={tracks} height={height} sound={sound} />
@@ -484,29 +499,11 @@ function ChunkedFilm(props: {
 }
 
 /**
- * The audio rendition of a film's ladder that plays sound: its place among the ladder's sounds, which
- * its tracks list in its master playlist's order, each track's standard mix then its boosted one,
- * both made by renditions.AudioRenditionsOf; undefined where the ladder has no such mix, or the
- * tracks are the file's own.
- */
-export function ladderAudioRenditionIndex(
-  tracks: PlaybackDecision["tracks"] | undefined,
-  sound: PlayingSound,
-): number | undefined {
-  const index = (tracks?.sounds ?? []).findIndex(
-    (each) =>
-      !each.isOriginal &&
-      each.audioTrackIndex === sound.audioTrackIndex &&
-      each.isBoosted === sound.isBoosted,
-  );
-  return index < 0 ? undefined : index;
-}
-
-/**
  * A chunked playback (useChunkedPlayback) with the sound it plays, among its tracks' sounds: the one
  * it starts with, the boosted mix as the person left the boost, and another chosen by playSound, the
- * boost turned on or off, heard once its chunk at the playhead has loaded, which a playback started
- * again, as for another place, starts with too.
+ * boost turned on or off or another track, heard once its chunk at the playhead has loaded, which a
+ * playback started again, as for another place, starts with too; and the level of the sound heard,
+ * which changes as the new one is heard, so the old never plays at the new one's gain.
  */
 function useLadderPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -520,11 +517,13 @@ function useLadderPlayback(
   onFailed: PlaybackFailed,
 ): ReturnType<typeof useChunkedPlayback> & {
   readonly sound: PlayingSound | undefined;
-  readonly playSound: (sound: PlayingSound) => void;
+  readonly heardLevel: SoundLevel | undefined;
+  readonly playSound: (sound: PlayingSound, cause: SoundChoiceCause) => boolean;
 } {
   const { offer, positionMs, tracks, shouldStartByRememberedLink } = starting;
   useShapedByTheTabsLink();
   const [sound, setSound] = useState(starting.sound);
+  const [heard, setHeard] = useState(starting.sound);
   const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
   const chunked = useChunkedPlayback(
     videoRef,
@@ -533,37 +532,25 @@ function useLadderPlayback(
   );
   const { playbackRef } = chunked;
   const playSound = useCallback(
-    (chosen: PlayingSound) => {
+    (chosen: PlayingSound, cause: SoundChoiceCause): boolean => {
       const index = ladderAudioRenditionIndex(tracks, chosen);
+      const isInPlace = chooseSoundInPlace(playbackRef.current, index, {
+        cause,
+        heard: () => {
+          setHeard(chosen);
+        },
+      });
+      // The next of its playbacks starts with it, switched in place or not, as the boost did.
       if (index !== undefined) {
         setSound(chosen);
         startAudioRef.current = index;
-        playbackRef.current?.setAudioRendition(index, soundChoiceCause(chosen));
       }
+      return isInPlace;
     },
     [tracks, playbackRef],
   );
-  return { ...chunked, sound, playSound };
-}
-
-/**
- * Why the ladder's sound changes as it plays, for its player's note: a sound chosen in place is the
- * boost turned on or off, the only choice switched in place (a track chosen asks again, LadderUnder).
- */
-export function soundChoiceCause(chosen: PlayingSound): SoundChoiceCause {
-  return chosen.isBoosted ? "boostOn" : "boostOff";
-}
-
-/**
- * The audio rendition a film's ladder starts with, for its sound: the track's boosted mix when the
- * boost is on and the ladder has it; else undefined, its master playlist's default, the track's
- * standard mix (chunks.MasterPlaylist).
- */
-export function ladderStartingAudio(
-  tracks: PlaybackDecision["tracks"] | undefined,
-  sound: PlayingSound | undefined,
-): number | undefined {
-  return sound?.isBoosted === true ? ladderAudioRenditionIndex(tracks, sound) : undefined;
+  const heardLevel = useMemo(() => ladderSoundLevelOf(tracks, heard), [tracks, heard]);
+  return { ...chunked, sound, heardLevel, playSound };
 }
 
 /**

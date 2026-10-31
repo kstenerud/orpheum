@@ -81,6 +81,18 @@ describe("playing a prepared rendition", () => {
     expect(removed).toEqual([]);
   });
 
+  it("says it cannot switch the sound in place, as the element's own HLS chooses its own tracks", () => {
+    const target: NativeTarget = {
+      getAttribute: () => null,
+      setAttribute: () => undefined,
+      removeAttribute: () => undefined,
+      load: () => undefined,
+    };
+    expect(playNative(target, "/api/v1/bytes/media/hls/t/master.m3u8").canSwitchSoundInPlace).toBe(
+      false,
+    );
+  });
+
   it("tells the video when hls.js moves it itself, and not for any other error", () => {
     let listener: ((event: unknown, data: { details: string }) => void) | undefined;
     tellOwnMoves(
@@ -290,6 +302,34 @@ describe("keeping the sound playing as the quality moves between audio groups (D
     expect(hls.audioTrack).toBe(1);
     hls.updated(3);
     expect(hls.audioTrack).toBe(1);
+  });
+
+  it("tells a choice's onHeard once its sound switched in, never before, and at once for the sound playing", () => {
+    const hls = fakeHls();
+    const choose = keepAudioRendition(hls, undefined);
+    hls.updated(3);
+    hls.switched(0);
+    const heard: string[] = [];
+    choose(2, "trackChosen", () => heard.push("third"));
+    expect(heard).toEqual([]); // the sound loaded plays on: its gain stays the old sound's
+    hls.switched(2);
+    expect(heard).toEqual(["third"]);
+    choose(2, "trackChosen", () => heard.push("third again"));
+    expect(heard).toEqual(["third", "third again"]);
+  });
+
+  it("leaves a choice made over one still on its way unheard, and tells only the last", () => {
+    const hls = fakeHls();
+    const choose = keepAudioRendition(hls, undefined);
+    hls.updated(3);
+    hls.switched(0);
+    const heard: string[] = [];
+    // A fake whose switch is at once; hls.js's waits for the chunk at the playhead.
+    choose(1, "trackChosen", () => heard.push("second"));
+    choose(2, "trackChosen", () => heard.push("third"));
+    hls.switched(1);
+    hls.switched(2);
+    expect(heard).toEqual(["third"]);
   });
 
   it("starts with the rendition it is given, and leaves hls.js its own where the group lacks the place", () => {

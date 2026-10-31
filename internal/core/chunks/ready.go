@@ -13,7 +13,7 @@ import (
 const readyAheadMs = 10_000
 
 // IsReadyAt is whether a stall's offer is ready for a player at positionMs (D253 §1): the offered
-// quality's chunks, and the starting sound's, are made from there for readyAheadMs, or to the film's
+// quality's chunks, and the sound playing's (playingSoundOf), are made from there for readyAheadMs, or to the film's
 // end. The core knows a chunk made from its node's progress or from serving it; after a restart it
 // knows none until then, and the offer is not ready.
 func (service *Service) IsReadyAt(ctx context.Context, playback Playback, offer Offer, positionMs int64) (bool, error) {
@@ -27,7 +27,7 @@ func (service *Service) IsReadyAt(ctx context.Context, playback Playback, offer 
 	}
 	streams := []Stream{{Kind: nodeproto.StreamQuality, Quality: offer.Quality}}
 	if playback.HasStartingAudio {
-		streams = append(streams, offered.startingSoundOf(playback, streams[0]))
+		streams = append(streams, offered.playingSoundOf(playback, streams[0]))
 	}
 	from, through := film.grid.chunkAt(positionMs), film.grid.chunkAt(positionMs+readyAheadMs)
 	for _, stream := range streams {

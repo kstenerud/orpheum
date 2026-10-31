@@ -32,6 +32,10 @@ type Playback struct {
 	// StartingAudioTrackIndex is that track's place among the film's audio tracks.
 	HasStartingAudio        bool
 	StartingAudioTrackIndex int
+	// PlayingSound is the sound its player last asked for or said it plays, by its stream's name, a
+	// file's own track off the ladder named as its sound copied; empty for none yet: a stall's offer
+	// starts it in place of the starting track's (playingSoundOf).
+	PlayingSound string
 	// PositionMs is where its player last reported it was, in the film (D217 §7).
 	PositionMs int64
 	// StartedAt is when its person pressed play: what failed before then is tried again for them.
@@ -356,8 +360,8 @@ const (
 
 // soundMediaOf are the film's sounds picture plays (soundOf), each as its master playlist names it: in
 // SoundsOf's order, which every group keeps, so a player keeps the sound's place as it moves between
-// groups; each named as its made mix is, a name the groups share; the playback's starting track's
-// standard sound the default, or the first where the film no longer has that track.
+// groups; each named as its made mix is, a name the groups share; the standard sound of the track the
+// playback plays (playingSoundOf) the default, or the first where the film no longer has that track.
 func (film cutFilm) soundMediaOf(offered offer, playback Playback, picture Stream) []soundMedia {
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
@@ -368,9 +372,8 @@ func (film cutFilm) soundMediaOf(offered offer, playback Playback, picture Strea
 		}
 		sounds = append(sounds, soundMedia{
 			uri: stream.Name() + "/stream.m3u8", name: offered.madeSound(sound).Name(), language: language,
-			channels: film.channelsOf(stream),
-			isDefault: !sound.IsBoosted && playback.HasStartingAudio &&
-				sound.AudioTrackIndex == playback.StartingAudioTrackIndex,
+			channels:  film.channelsOf(stream),
+			isDefault: offered.isPlayingTrack(playback, sound),
 		})
 	}
 	// A playback that started with no track the film still has starts with its first sound.
@@ -422,6 +425,10 @@ type Offered struct {
 	CopiedTracks []int
 	// OwnPictureKbps is the film's own picture's average rate, 0 when not known.
 	OwnPictureKbps int64
+	// Sounds are the sounds the lower qualities play, in SoundsOf's order, and TopSounds the top's,
+	// in the same order, where it plays sounds of its own (D368 §3), else nil: each with what levels
+	// it, so its player levels a sound switched to in place at its own level.
+	Sounds, TopSounds []OfferedSound
 }
 
 // Offered is what the playback's film offers it. ErrNoGrid as MasterPlaylist says.
@@ -434,10 +441,19 @@ func (service *Service) Offered(ctx context.Context, playback Playback) (Offered
 	if err != nil {
 		return Offered{}, err
 	}
-	return Offered{
+	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+	if err != nil {
+		return Offered{}, err
+	}
+	shown := Offered{
 		Pictures: offered.pictures, SoundKbps: offered.soundKbps, CopiedTracks: offered.copied,
 		OwnPictureKbps: film.pictureAverageBps() / 1000,
-	}, nil
+		Sounds:         offered.offeredSoundsOn(levels, film.probe, Stream{Kind: nodeproto.StreamQuality}),
+	}
+	if len(offered.pictures) > 0 && offered.hasPicturesOwnGroup(offered.pictures[0]) {
+		shown.TopSounds = offered.offeredSoundsOn(levels, film.probe, offered.pictures[0])
+	}
+	return shown, nil
 }
 
 // averageWithSoundKbps is a picture's average rate with its sound's, in kbit/s, as its master
