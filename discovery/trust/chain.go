@@ -136,11 +136,13 @@ func (chain Chain) Hash() string {
 	return hex.EncodeToString(digest[:])
 }
 
-// Fingerprints are the current set's keys' fingerprints, each with its role.
+// Fingerprints are the fingerprints of the current set's keys whose signatures count, each with its
+// role: a suspended key is not among them (D394 §4).
 func (chain Chain) Fingerprints() []string {
+	current := chain.Current()
 	var shown []string
-	for _, key := range chain.Current().Keys {
-		if key.Public != nil {
+	for _, key := range current.Keys {
+		if key.Public != nil && !current.IsSuspended(key) {
 			shown = append(shown, string(key.Role)+" "+key.Fingerprint())
 		}
 	}

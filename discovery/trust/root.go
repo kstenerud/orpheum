@@ -85,7 +85,7 @@ func (key RootKey) Fingerprint() string {
 
 // Root is a root statement (the audit's §3.1): its chain and id (none in the genesis, whose hash is
 // the id), its version, when it was issued, its keys, each role's threshold, every key ever removed,
-// and where the chain is served.
+// the keys of its set it suspends, and where the chain is served.
 type Root struct {
 	Chain      ChainKind
 	ID         string
@@ -94,8 +94,16 @@ type Root struct {
 	Keys       []RootKey
 	Thresholds map[Role]int
 	Removed    []string
-	Locations  []string
+	// Suspended are the fingerprints of keys the set holds whose signatures count for nothing until a
+	// later statement, a recovery key's, leaves them out (D394 §4).
+	Suspended []string
+	Locations []string
 }
+
+// suspendedLine is the line naming a suspended key by its fingerprint, one line a key, after the
+// removed lines. It is critical (format.go): it takes trust away, so a build that does not know it
+// refuses the statement rather than count the suspended key's signatures.
+const suspendedLine = criticalMark + "suspended"
 
 // rootSchema is the root statement's lines, format 1. A "delegate" line is reserved for an online
 // key's delegation, not built (D393 §9): a core that does not know it ignores it.
@@ -108,6 +116,7 @@ func rootSchema() Schema {
 		{Name: "key", IsRepeated: true, IsRequired: true},
 		{Name: "threshold", IsRepeated: true, IsRequired: true},
 		{Name: "removed", IsRepeated: true},
+		{Name: suspendedLine, IsRepeated: true},
 		{Name: "location", IsRepeated: true},
 	}}
 }
@@ -143,15 +152,18 @@ func ParseRoot(payload []byte) (Root, error) {
 		}
 		root.Thresholds[Role(role)] = number
 	}
-	root.Removed, root.Locations = lines["removed"], lines["location"]
+	root.Removed, root.Suspended, root.Locations = lines["removed"], lines[suspendedLine], lines["location"]
 	return root, root.check()
 }
 
-// check is whether the statement can sign anything: a key and a threshold for each role, and no key
-// it holds among those it removed.
+// check is whether the statement can sign anything: a key and a threshold for each role, no key it
+// holds among those it removed, each key it suspends one it holds, named once, and enough recovery
+// keys not suspended to resume the others (D394 §4).
 func (root Root) check() error {
 	for _, role := range []Role{RoleEveryday, RoleRecovery} {
-		if root.Thresholds[role] == 0 || len(root.usable(role, nil)) == 0 {
+		if root.Thresholds[role] == 0 || !slices.ContainsFunc(root.Keys, func(key RootKey) bool {
+			return key.Role == role && key.Public != nil
+		}) {
 			return fmt.Errorf("%w: the set has no %s key it can use, or no threshold for it", ErrBadValue, role)
 		}
 	}
@@ -160,7 +172,23 @@ func (root Root) check() error {
 			return fmt.Errorf("%w: %s is in the set and among its removed keys", ErrBadValue, key.Fingerprint())
 		}
 	}
+	for index, fingerprint := range root.Suspended {
+		isHeld := slices.ContainsFunc(root.Keys, func(key RootKey) bool {
+			return key.Public != nil && key.Fingerprint() == fingerprint
+		})
+		if !isHeld || slices.Contains(root.Suspended[:index], fingerprint) {
+			return fmt.Errorf("%w: suspended %s is not a key of the set, or is named twice", ErrBadValue, fingerprint)
+		}
+	}
+	if len(root.usable(RoleRecovery, nil)) < root.Thresholds[RoleRecovery] {
+		return fmt.Errorf("%w: the set suspends the recovery keys that would resume it", ErrBadValue)
+	}
 	return nil
+}
+
+// IsSuspended is whether the statement suspends key, a key it holds whose signatures count for nothing.
+func (root Root) IsSuspended(key RootKey) bool {
+	return key.Public != nil && slices.Contains(root.Suspended, key.Fingerprint())
 }
 
 // parseRootKey reads "<role> <uv|-> <type> <base64> [label]".
@@ -183,7 +211,8 @@ func parseRootKey(line string) (RootKey, error) {
 func (root Root) Payload() ([]byte, error) {
 	lines := Lines{
 		"chain": {string(root.Chain)}, "version": {strconv.FormatInt(root.Version, 10)},
-		"issued": {TimeText(root.Issued)}, "removed": root.Removed, "location": root.Locations,
+		"issued": {TimeText(root.Issued)}, "removed": root.Removed, suspendedLine: root.Suspended,
+		"location": root.Locations,
 	}
 	if root.ID != "" {
 		lines["id"] = []string{root.ID}
@@ -207,55 +236,63 @@ func (root Root) Payload() ([]byte, error) {
 	return rootSchema().Write(lines)
 }
 
-// usable are the role's keys this build can check a signature by, but those in removed.
+// usable are the role's keys this build can check a signature by, but those in removed and those the
+// statement suspends.
 func (root Root) usable(role Role, removed []string) []Key {
 	var keys []Key
 	for _, key := range root.Keys {
-		if key.Role == role && key.Public != nil && !slices.Contains(removed, key.Fingerprint()) {
+		if key.Role == role && key.Public != nil && !slices.Contains(removed, key.Fingerprint()) &&
+			!root.IsSuspended(key) {
 			keys = append(keys, Key{Public: key.Public, MustVerifyUV: key.MustVerifyUV})
 		}
 	}
 	return keys
 }
 
-// roleOf is the role the statement gives key, empty when it holds no such key.
+// roleOf is the role the statement gives key, empty when it holds no such key or suspends it.
 func (root Root) roleOf(key Key) Role {
 	for _, held := range root.Keys {
-		if held.Public != nil && sameKey(held.Public, key.Public) {
+		if held.Public != nil && sameKey(held.Public, key.Public) && !root.IsSuspended(held) {
 			return held.Role
 		}
 	}
 	return ""
 }
 
-// recoveryTier is what only a recovery key may change: each key's role, the recovery keys with their
-// marks, and the thresholds.
+// recoveryTier is what only a recovery key may change: the recovery keys with their marks and whether
+// each is suspended, and the thresholds.
 func (root Root) recoveryTier() string {
-	var parts []string
+	var recovery []string
 	for _, key := range root.Keys {
+		if key.Role == RoleEveryday {
+			continue
+		}
 		mark := "-"
 		if key.MustVerifyUV {
 			mark = "uv"
 		}
-		parts = append(parts, key.Text+" "+string(key.Role)+" "+mark)
+		part := key.Text + " " + string(key.Role) + " " + mark
+		if root.IsSuspended(key) {
+			part += " suspended"
+		}
+		recovery = append(recovery, part)
 	}
-	recovery := slices.DeleteFunc(slices.Clone(parts), func(part string) bool {
-		return strings.HasSuffix(part, " "+string(RoleEveryday)+" uv") ||
-			strings.HasSuffix(part, " "+string(RoleEveryday)+" -")
-	})
 	slices.Sort(recovery)
 	return strings.Join(recovery, ",") + "|" + fmt.Sprint(root.Thresholds[RoleRecovery], root.Thresholds[RoleEveryday])
 }
 
 // changesRecoveryTier is whether next changes what only a recovery key may: a recovery key added,
-// removed or re-marked, a key moved between roles, or a threshold.
+// removed, re-marked, suspended or resumed, a key moved between roles, a threshold, or any key resumed
+// (D394 §4: a thief holding an everyday key and its PIN can neither undo its suspension nor suspend
+// the recovery keys that would).
 func (root Root) changesRecoveryTier(next Root) bool {
 	if root.recoveryTier() != next.recoveryTier() {
 		return true
 	}
 	for _, key := range next.Keys {
 		for _, held := range root.Keys {
-			if key.Text == held.Text && key.Role != held.Role {
+			isResumed := root.IsSuspended(held) && !next.IsSuspended(key)
+			if key.Text == held.Text && (key.Role != held.Role || isResumed) {
 				return true
 			}
 		}

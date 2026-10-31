@@ -11,10 +11,14 @@
 // sign documents, records and changes of the everyday tier; recovery keys sign anything, alone change
 // the recovery tier, thresholds and roles, and may skip versions past a thief's statements. Keys of
 // both tiers are added and removed by a signed statement; a key removed stays named removed for good,
-// and a key leaving the set has the new set sign too. Every signature is an SSH signature in a
-// namespace of its object's type, by a key byte for byte expected, a key marked uv carrying the
-// user-verified flag, which neither x/crypto nor ssh-keygen checks. A "delegate" line is reserved for
-// an online key's freshness statements, not built (D393 §9).
+// and a key leaving the set has the new set sign too. A statement may suspend a key it holds, one
+// "!suspended <fingerprint>" line a key, critical so a build that does not know it refuses: the key
+// stays listed but its signatures count for nothing, nor toward the statement suspending it, until a
+// later statement leaves the line out. An everyday key suspends an everyday key, a recovery key any
+// key, and only a recovery key resumes one (D394 §4); a removed key is never resumed. Every signature
+// is an SSH signature in a namespace of its object's type, by a key byte for byte expected, a key
+// marked uv carrying the user-verified flag, which neither x/crypto nor ssh-keygen checks. A
+// "delegate" line is reserved for an online key's freshness statements, not built (D393 §9).
 //
 // # Invariants
 //
@@ -35,6 +39,13 @@
 //   - The tiers' rules: an everyday key never changes the recovery tier nor skips; two statements of
 //     one version are refused unless one is a recovery key's; a leaving signer has the new set sign
 //     too; removed keys stay named. TestFollow_TheTiersRulesHold.
+//   - A suspended key stays listed and signs nothing: no address document, release record, drill nor
+//     root statement. TestSuspend_ASuspendedKeysSignaturesCountForNothing.
+//   - An everyday key suspends an everyday key and never a recovery key; only a recovery key resumes;
+//     a statement signed only by the key it suspends is refused; a removed key never returns; the
+//     recovery keys are never all suspended. TestSuspend_OnlyARecoveryKeyResumesAndTheTiersRulesHold.
+//   - The suspended line is critical: a build that does not know it refuses the statement.
+//     TestSuspend_TheSuspendedLineIsCritical.
 //   - A published directory is served under WellKnownPrefix as it is, byte for byte, to GET alone, and
 //     nothing outside it nor a directory: every discovery serves through Served, discovery/single and
 //     the paid service alike. TestServed_ServesThePublishedDirectoryAsItIsAndNothingElse.
