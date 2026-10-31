@@ -138,18 +138,16 @@ func TestParseWriteDeployment_TheDirectoryNamedReachesTheRuntime(t *testing.T) {
 
 // A kernel with no MPTCP has no net.mptcp.enabled, and the deployment's compose file then names none,
 // which Docker would refuse a container for; one that has it turns it off (CVE-2026-98432).
-func TestParseWriteDeployment_SaysWhetherTheKernelLacksMPTCP(t *testing.T) { //nolint:paralleltest // sets the setting's path
-	saved := multipathTCPSetting
-	t.Cleanup(func() { multipathTCPSetting = saved })
+func TestParseWriteDeployment_SaysWhetherTheKernelLacksMPTCP(t *testing.T) {
+	t.Parallel()
 	present := filepath.Join(t.TempDir(), "enabled")
 	if err := os.WriteFile(present, []byte("1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for path, wantLacks := range map[string]bool{present: false, filepath.Join(t.TempDir(), "absent"): true} {
-		multipathTCPSetting = path
-		_, runtime, isParsed := parseWriteDeployment([]string{"--image", "orpheum:v0.1.0"}, io.Discard)
-		if !isParsed || runtime.KernelLacksMultipathTCP != wantLacks {
-			t.Errorf("with the setting at %s: lacks MPTCP %v; want %v", path, runtime.KernelLacksMultipathTCP, wantLacks)
+		_, runtime, isParsed := parseWriteDeploymentOn([]string{"--image", "orpheum:v0.1.0"}, io.Discard, path)
+		if lacks := runtime.KernelLacksMultipathTCP; !isParsed || lacks != wantLacks {
+			t.Errorf("with the setting at %s: lacks MPTCP %v; want %v", path, lacks, wantLacks)
 		}
 	}
 }
