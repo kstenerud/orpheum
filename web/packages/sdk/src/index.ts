@@ -168,11 +168,13 @@ export { candidatePairsOf, pairsReportedMost, type CandidatePairSeen } from "./r
 export {
   ApiProblem,
   dataOrThrow,
+  noteForTheLog,
   problemFromAnswer,
   reportFailure,
   sendFailuresTo,
   throwIfRefused,
 } from "./problem.ts";
+export type { SentLevel } from "./problem.ts";
 export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } from "./problem.ts";
 export type { WaitOptions } from "./ready.ts";
 export {

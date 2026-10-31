@@ -9,7 +9,10 @@
  * commands, never keys.
  */
 
+import { noteForTheLog } from "@orpheum/sdk";
+
 import { caretOf, isArrowTheElements, isFocusTarget } from "./focus-engine.ts";
+import { guardFormsOk } from "./form-ok.ts";
 import { createContainerMemory, type ContainerMemory } from "./focus-memory.ts";
 import { moveFocus, pressFocused } from "./focus-navigation.ts";
 import {
@@ -203,6 +206,11 @@ export function startInput(ways: InputWays): Input {
   };
   document.addEventListener("keydown", heardKey);
   document.addEventListener("focusin", focused);
+  // OK on a form's checkbox ticks it before the layer hears it, and never submits (form-ok.ts).
+  const stopFormsOk = guardFormsOk(
+    { target: window, focused: () => document.activeElement },
+    noteForTheLog,
+  );
   const stopPads = listenToPads({
     onPress: (press) => {
       const command = padsCommand(press);
@@ -221,6 +229,7 @@ export function startInput(ways: InputWays): Input {
     stop: () => {
       document.removeEventListener("keydown", heardKey);
       document.removeEventListener("focusin", focused);
+      stopFormsOk();
       stopPads();
     },
   };

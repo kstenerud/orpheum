@@ -51,4 +51,23 @@ describe("reportFailure", () => {
     fresh.reportFailure(new Error("after it"));
     expect(sent).toEqual(["Error: before the sign-in", "Error: after it"]);
   });
+
+  // A Fire TV's sign-in submitted on a checkbox's OK, and nothing said what the remote's keys had
+  // done (the owner, 2026-10-30).
+  it("sends a note for the log at the debug level, a failure as a failure, held alike until there is a sink", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./problem.ts");
+    fresh.noteForTheLog("a form's OK, held");
+    const sent: [string, string][] = [];
+    fresh.sendFailuresTo((text, level) => sent.push([text, level]));
+    fresh.noteForTheLog("x".repeat(600));
+    fresh.reportFailure(new Error("a failure"));
+    expect(sent).toEqual([
+      ["a form's OK, held", "debug"],
+      ["x".repeat(500), "debug"],
+      ["Error: a failure", "failure"],
+    ]);
+  });
 });

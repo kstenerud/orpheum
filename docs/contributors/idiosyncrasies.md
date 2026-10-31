@@ -47,6 +47,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the page said the browser was asking to reach devices on the network, and nothing asked. | [Silk on Fire TV leaves the local-network permission still to ask, and never asks](#silk-on-fire-tv-leaves-the-local-network-permission-still-to-ask-and-never-asks) |
+| On a Fire TV in Silk, OK on a sign-in's checkbox signed in, as though Sign in had been pressed. | [Enter on a focused checkbox submits its form, and does not tick it](#enter-on-a-focused-checkbox-submits-its-form-and-does-not-tick-it) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
@@ -1098,6 +1099,26 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Web platform, all browsers
+
+### Enter on a focused checkbox submits its form, and does not tick it
+
+- **Technology:** a form's implicit submission (HTML's "implicit submission"), in Chromium (so Silk)
+  and Firefox (measured in Playwright's Chromium and Firefox, 2026-10-31).
+- **Symptom:** on the owner's Fire TV (Silk), OK on the discovery's sign-in's "remember my realm"
+  box signed in at once, as though Sign in had been pressed (2026-10-30).
+- **Cause:** both browsers take Enter on a focused checkbox, as on a text field, for the form's
+  implicit submission: the form is submitted (its default button's), and the box is not ticked, which
+  Space alone does. A required field still empty holds the submission back, so it shows only once the
+  fields are filled, as a person fills them before the box. A remote's OK is Enter. The loader's pages
+  run no input layer, which otherwise presses a checkbox on OK and keeps the key from the browser.
+- **What we do:** `guardFormsOk` (`web/apps/web/src/form-ok.ts`), on the loader's pages and in the
+  client's input layer: OK on a form's checkbox or radio ticks it and is kept from the browser, and
+  the same key's press and key up, and any submit until that key is up, are stopped, whatever else
+  the browser sends (Silk's unmarked repeats among them); each OK in a form is noted for the core's
+  log at its debug level.
+- **Evidence:** a probe in vitest's browser mode (the realm sign-in filled in, the box focused, Enter
+  pressed): unguarded, both browsers submitted the form and left the box unticked; guarded, the box
+  ticked and nothing submitted (`realm-sign-in.browser.test.tsx`). VQ195 on the Fire TV.
 
 ### A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error
 

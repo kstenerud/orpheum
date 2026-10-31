@@ -712,6 +712,13 @@
       "ClientProblemInputBody": {
         "additionalProperties": false,
         "properties": {
+          "level": {
+            "description": "debug for a note of what the page did, logged at the debug level; absent for a failure",
+            "enum": [
+              "debug"
+            ],
+            "type": "string"
+          },
           "message": {
             "description": "What failed, in the page's own words",
             "maxLength": 500,

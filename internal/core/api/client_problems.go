@@ -19,9 +19,15 @@ type ClientProblemInput struct {
 	Body struct {
 		Message string `doc:"What failed, in the page's own words" json:"message" maxLength:"500" minLength:"1"`
 		Page    string `doc:"The page's path when it failed" json:"page" maxLength:"200"`
+		// Level is "debug" for a note of what the page did rather than a failure, logged at the
+		// debug level (a Fire TV's sign-in that submitted on a checkbox's OK, the owner, 2026-10-30).
+		Level string `doc:"debug for a note of what the page did, logged at the debug level; absent for a failure" enum:"debug" json:"level,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
+
+// clientNoteLevel is the Level of a page's note of what it did, not of a failure.
+const clientNoteLevel = "debug"
 
 func (server *Server) registerClientProblems() {
 	huma.Register(server.humaAPI, huma.Operation{
@@ -37,9 +43,15 @@ func (server *Server) reportClientProblem(ctx context.Context, input *ClientProb
 	if err != nil {
 		return nil, err
 	}
-	server.logger.InfoContext(ctx, "a page reported a failure", "userId", principal.UserID,
-		"deviceId", principal.DeviceID, "page", input.Body.Page, "message", input.Body.Message,
-		"userAgent", input.userAgent)
+	attributes := []any{
+		"userId", principal.UserID, "deviceId", principal.DeviceID, "page", input.Body.Page,
+		"message", input.Body.Message, "userAgent", input.userAgent,
+	}
+	if input.Body.Level == clientNoteLevel {
+		server.logger.DebugContext(ctx, "a page noted", attributes...)
+	} else {
+		server.logger.InfoContext(ctx, "a page reported a failure", attributes...)
+	}
 	return &struct{}{}, nil
 }
 

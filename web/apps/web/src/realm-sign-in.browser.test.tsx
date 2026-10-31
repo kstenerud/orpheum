@@ -12,8 +12,10 @@ import "./base.css";
 import "./i18n.ts";
 
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
+import { guardFormsOk } from "./form-ok.ts";
 import { HouseholdList } from "./loader-at-loader-origin.tsx";
 import { RealmSignIn } from "./realm-sign-in.tsx";
 import { mount } from "./test-dom.tsx";
@@ -34,6 +36,42 @@ describe("the realm's pages, laid out by a real browser", () => {
     const check = mounted.container.querySelector(".credentials-form__check");
     expect(check === null ? "" : getComputedStyle(check).display).toBe("flex");
     mounted.unmount();
+  });
+
+  // The owner's Fire TV, 2026-10-30: OK on "remember my realm" signed in at once. A real Enter on a
+  // checkbox in a form is the browser's implicit submission; the loader's guard (form-ok.ts) ticks the
+  // box and submits nothing.
+  it("ticks the remember box on OK, as the loader's page guards it, and submits nothing", async () => {
+    const submitted: boolean[] = [];
+    const stopGuard = guardFormsOk(
+      { target: window, focused: () => document.activeElement },
+      () => undefined,
+    );
+    const mounted = await mount(
+      <RealmSignIn
+        rememberedRealm={undefined}
+        isSending={false}
+        problem={undefined}
+        onSubmit={(typed) => submitted.push(typed.isRemembered)}
+      />,
+    );
+    try {
+      // Filled in, as a person does before the box: an empty required field holds the submit back.
+      for (const field of mounted.container.querySelectorAll<HTMLInputElement>(
+        'input:not([type="checkbox"])',
+      )) {
+        await userEvent.type(field, "karlnas1");
+      }
+      const box = mounted.container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      box?.focus();
+      await userEvent.keyboard("{Enter}");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(box?.checked).toBe(true);
+      expect(submitted).toEqual([]);
+    } finally {
+      mounted.unmount();
+      stopGuard();
+    }
   });
 
   it("keeps the realm in the banner on one line, however narrow the banner (D297 §5)", async () => {

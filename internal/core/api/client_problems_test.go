@@ -32,6 +32,25 @@ func TestClientProblems_ALoggedFailureSaysWhoseAndWhereAndIsBounded(t *testing.T
 	}
 }
 
+// A page's note of what it did, not a failure, is logged at the debug level, so a remote's OK on a
+// Fire TV's form says what its keys did (the owner, 2026-10-30); any other level is refused.
+func TestClientProblems_APagesNoteIsLoggedAtTheDebugLevel(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	note := map[string]any{"message": "a form's OK on a checkbox: keydown Enter/13", "page": "/", "level": "debug"}
+	if answer := harness.do(t, http.MethodPost, "/client-problems", user, note); answer.status != http.StatusNoContent {
+		t.Fatalf("POST /client-problems = %d %s", answer.status, answer.body)
+	}
+	harness.logs.AwaitLine(t, `"level":"DEBUG"`, `"msg":"a page noted"`, `"userId":1`,
+		`"message":"a form's OK on a checkbox: keydown Enter/13"`)
+	note["level"] = "error"
+	if answer := harness.do(t, http.MethodPost, "/client-problems", user, note); answer.status !=
+		http.StatusUnprocessableEntity {
+		t.Errorf("a page's line at the level %q was taken: %d", "error", answer.status)
+	}
+}
+
 // How a page chose its path to the core is logged in one line, with its reasons and WebRTC's pairs as
 // its browser sees them, the selected one apart, from a signed-in page alone, bounded: a page at home
 // on the carrier's hairpin said nothing of why (local-path-2026-10-27.md §4 items 1, 2).
