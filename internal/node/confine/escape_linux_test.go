@@ -71,9 +71,10 @@ func attemptEscape(what string, arguments []string) string {
 		runtime.LockOSThread()
 		err = os.WriteFile(fmt.Sprintf("/proc/self/task/%d/comm", syscall.Gettid()), []byte("probe"), 0o600)
 	case "environment":
-		// The names of the variables the process started with, never their values.
+		// The names of the variables the process started with, never their values. Not
+		// /proc/self/environ, which a confined process may not read.
 		names := []string{}
-		for _, variable := range os.Environ() {
+		for _, variable := range os.Environ() { //nolint:forbidigo // the helper says what its process started with
 			name, _, _ := strings.Cut(variable, "=")
 			names = append(names, name)
 		}
