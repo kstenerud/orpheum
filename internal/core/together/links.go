@@ -126,9 +126,9 @@ func (hub *Hub) Join(secret, name string, person *Person, leaving Leaving) (Join
 	hub.mutex.Lock()
 	defer hub.unlockTellingEnds()
 	now := hub.clock.Now()
-	joined, used := hub.sessionByLink(secret)
-	if used == nil || !used.waits(now) {
-		return Joined{}, ErrNoSession // used, withdrawn, past its lifetime (D346), or its session over
+	joined, used := hub.admittingLink(secret, now)
+	if used == nil {
+		return Joined{}, ErrNoSession
 	}
 	if others := hub.placesOf(person, leaving.HeldCredential, joined.id); len(others) > 0 {
 		if !leaving.ShouldLeave {
@@ -191,6 +191,31 @@ func (current *session) endLinksOf(gone *member) {
 			delete(current.links, id)
 		}
 	}
+}
+
+// LinkAdmits is whether a link's secret would admit its holder now, as Join takes it: asked before
+// the join's form, so a link refused, as one used already in another browser, says so at once rather
+// than after its person filled the form in (the owner, 2026-10-30, VQ172(3)). It says nothing of the
+// session, and nothing Join's refusal would not.
+func (hub *Hub) LinkAdmits(secret string) bool {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	_, admitting := hub.admittingLink(secret, hub.clock.Now())
+	return admitting != nil
+}
+
+// admittingLink is the session and link a link's secret names, while the link would admit someone
+// at now; nils for one used, withdrawn, past its lifetime (D346), its session over, or giving a place
+// whose guest has gone.
+func (hub *Hub) admittingLink(secret string, now time.Time) (*session, *link) {
+	joined, used := hub.sessionByLink(secret)
+	if used == nil || !used.waits(now) {
+		return nil, nil
+	}
+	if used.forMember != 0 && joined.members[used.forMember] == nil {
+		return nil, nil
+	}
+	return joined, used
 }
 
 // sessionByLink is the session and link a link's secret names, or nils.

@@ -124,6 +124,14 @@ type JoinTogetherInput struct {
 	}
 }
 
+// CheckTogetherLinkInput asks whether a link's secret would admit its holder now, before its join's
+// form is shown (VQ172(3)). In a body, as the join's is, so the secret is in no address or log.
+type CheckTogetherLinkInput struct {
+	Body struct {
+		Secret string `json:"secret" maxLength:"100" minLength:"1"`
+	}
+}
+
 // JoinTogetherOutput is the membership: its credential, which every device of the person says hello
 // with, and which their player plays by.
 type JoinTogetherOutput struct {
@@ -223,6 +231,12 @@ func (server *Server) registerTogether() {
 		OperationID: "joinTogether", Method: http.MethodPost, Path: "/together/join", Tags: tags,
 		Summary: "Join a session by your link, with the name the others see; no account needed (D246 §3)",
 	}, server.joinTogether)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "checkTogetherLink", Method: http.MethodPost, Path: "/together/join/check", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+		Summary: "Whether your link would admit you now, asked before its join's form; refused as the join " +
+			"would be, and saying nothing of its session (VQ172)",
+	}, server.checkTogetherLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "playTogether", Method: http.MethodPost, Path: "/together/playback", Tags: tags,
 		Summary: "A viewer's playback of what the session plays now (D246 §3)",
@@ -421,6 +435,22 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
 	output.Body.MembershipCredential, output.Body.Locator = joined.MembershipCredential, joined.Locator
 	return output, nil
+}
+
+// checkTogetherLink answers whether a link would admit its holder now, 204, or refuses it as the join
+// would, 404 not_found: a guest opening a link used already in another browser was shown the join's
+// form, and told only once they had filled it in (the owner, 2026-10-30, VQ172(3)). It tells the
+// link's holder no more than the join's refusal does, and anyone without the link nothing.
+func (server *Server) checkTogetherLink(ctx context.Context, input *CheckTogetherLinkInput) (*struct{}, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	if !dependencies.Together.LinkAdmits(input.Body.Secret) {
+		server.logger.InfoContext(ctx, "watch together: a link opened would admit no one")
+		return nil, server.togetherError(ctx, "check a link", together.ErrNoSession)
+	}
+	return &struct{}{}, nil
 }
 
 // playTogether starts a viewer's playback of the session's film, in the host's libraries: a viewer

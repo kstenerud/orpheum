@@ -81,7 +81,7 @@ beforeEach(() => {
 describe("a Watch Together viewer's page (D246 §3, §6)", () => {
   it("joins by the link with a name, then shows black until a film is on, asking nothing of its speakers (D336 §4)", async () => {
     const { services, heard, server } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [200, joined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
@@ -93,9 +93,10 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     // A click, as a person's tap: it is the one that lets the film and the voices play with sound.
     await click(buttonWithText(mounted.container, "Join"));
     expect(wordmark()).not.toBeNull();
-    // The Join asks the server first, so an out-of-date page reloads before its person types.
+    // The form asks the server whether its link admits first, so an out-of-date page reloads
+    // before its person types.
     expect(heard).toEqual([
-      { methodAndPath: "GET /health", body: undefined },
+      { methodAndPath: "POST /together/join/check", body: { secret: "link-secret" } },
       { methodAndPath: "POST /together/join", body: { secret: "link-secret", name: "Gran" } },
     ]);
     // The secret is spent: it is in neither the address nor the history.
@@ -123,7 +124,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("tells the session its page waits on nothing once it has had its tap: there are no speakers to choose (D336 §4)", async () => {
     const { services, server } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [200, joined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
@@ -416,7 +417,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("takes the Join's tap as the one that lets the film play with sound, and asks for no other", async () => {
     const { services, server } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [200, joined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
@@ -430,7 +431,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("takes the Join's submitting as the tap, as an iPhone's keyboard Go submits it, and asks for no other", async () => {
     const { services, server } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [200, joined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));

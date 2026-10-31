@@ -231,7 +231,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
 		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
 		"openTogether", "getTogether", "addTogetherLink", "addTogetherLinkFor", "removeTogetherLink",
-		"joinTogether", "leaveTogether",
+		"joinTogether", "checkTogetherLink", "leaveTogether",
 		"listMyTogether",
 		// A person's own casts between their devices: the receiver plays by its own playback, which
 		// checks its reach (D337 §1).

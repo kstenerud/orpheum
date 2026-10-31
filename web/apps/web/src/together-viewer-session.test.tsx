@@ -195,7 +195,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
     const { services, server, heard, place } = viewerServices("/together", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
       "POST /together/join": [200, { ...joined, sessionId: 2, membershipCredential: "second" }],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
@@ -214,7 +214,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await enter(mounted.container.querySelector("input"), "Gran");
     await submit(mounted.container.querySelector("form"));
     expect(heard).toEqual([
-      { methodAndPath: "GET /health", body: undefined },
+      { methodAndPath: "POST /together/join/check", body: { secret: "second-secret" } },
       { methodAndPath: "POST /together/join", body: { secret: "second-secret", name: "Gran" } },
     ]);
     mounted.unmount();
@@ -224,7 +224,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const { services, heard } = viewerServices(
       "/together#link-secret",
       {
-        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join/check": [204, undefined],
         "GET /together/mine": [200, { sessions: [] }],
         "GET /me": [200, { id: 4, name: "Partner", isAdmin: false, canHostWatchTogether: false }],
         "POST /together/join": [200, joined],
@@ -247,7 +247,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const { services } = viewerServices(
       "/together#link-secret",
       {
-        "GET /health": [200, { status: "ready", reasons: [] }],
+        "POST /together/join/check": [204, undefined],
         "GET /me": [200, { id: 4, name: "Partner", isAdmin: false, canHostWatchTogether: false }],
       },
       "partner-token",
@@ -282,7 +282,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("asks no one not signed in who they are, and leaves the name empty", async () => {
     const { services, heard } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
     expect(mounted.container.querySelector("input")?.value).toBe("");
@@ -315,7 +315,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("is a page of its own for someone not signed in: no sign-in, no menu", async () => {
     const { services } = viewerServices("/together#link-secret", {
-      "GET /health": [200, { status: "ready", reasons: [] }],
+      "POST /together/join/check": [204, undefined],
     });
     const mounted = await mount(withServices(<App />, services));
     expect(mounted.container.textContent).toContain("Join");
