@@ -195,7 +195,8 @@
 //     live links are shown again to the admin the same way until one is used, it is withdrawn or
 //     they end, registration_invitation_life_days (seven to start); using one or withdrawing forgets
 //     the others' sealed secrets in the same write (D267 §5, as the owner chose for invitations,
-//     2026-10-28). TestInvitation_ItsLiveLinksAreShownAgainUntilUsedWithdrawnOrEnded.
+//     2026-10-28). TestInvitation_ItsLiveLinksAreShownAgainUntilOneIsUsed and
+//     TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown.
 //
 //   - Each session has one device locator, a fresh one on each visit, which ends with the session;
 //     a visit renews the person's own link. TestLiveLocators_EachSessionHasOneFreshOnEachVisitEndingWithTheSession,

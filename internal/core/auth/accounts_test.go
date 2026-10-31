@@ -291,64 +291,84 @@ func TestChangePassword_OfNoOneIsNoSuchPerson(t *testing.T) {
 
 // sealedLinksKept is how many invitation and registration links not yet used keep their secret,
 // sealed, in their grant.
-func sealedLinksKept(t *testing.T, fixture fixture) string {
+func sealedLinksKept(t *testing.T, kit fixture) string {
 	t.Helper()
-	return strings.Join(storetest.QueryRaw(t, fixture.database.Path(),
+	return strings.Join(storetest.QueryRaw(t, kit.database.Path(),
 		`SELECT count(*) FROM "grant" WHERE kind = 'issued_secret' AND link_sealed IS NOT NULL`), "")
 }
 
-// An invitation's live links are listed to pass on again, opened from their sealed secrets, until
-// one is used, the invitation is withdrawn, or they end; using one or withdrawing forgets the
-// others' secrets at once (D267 §5, as the owner chose for invitations, 2026-10-28).
-func TestInvitation_ItsLiveLinksAreShownAgainUntilUsedWithdrawnOrEnded(t *testing.T) {
-	t.Parallel()
-	fixture := newFixture(t)
-	ctx := t.Context()
+// sealingFixture is a fixture whose links keep their secrets sealed, as the assembled core's do.
+func sealingFixture(t *testing.T) fixture {
+	t.Helper()
+	kit := newFixture(t)
 	key, err := secrets.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.SealLinksWith(secrets.NewStore(fixture.database, key, fixture.clock, rand.Reader, fixture.settings))
-	id, first, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "the neighbour"})
+	kit.service.SealLinksWith(secrets.NewStore(kit.database, key, kit.clock, rand.Reader, kit.settings))
+	return kit
+}
+
+// inviteFor issues an invitation for note and returns its id and first link.
+func inviteFor(t *testing.T, kit fixture, note string) (int64, IssuedSecret) {
+	t.Helper()
+	id, link, err := kit.service.Invite(t.Context(), NewInvitation{Role: RoleUser, AdminNote: note})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.clock.Advance(time.Hour)
-	second, err := fixture.service.AnotherInvitationLink(ctx, id)
+	return id, link
+}
+
+// An invitation's live links are listed to pass on again, opened from their sealed secrets, until
+// one is used, which forgets the others' secrets at once (D267 §5, as the owner chose for
+// invitations, 2026-10-28).
+func TestInvitation_ItsLiveLinksAreShownAgainUntilOneIsUsed(t *testing.T) {
+	t.Parallel()
+	kit := sealingFixture(t)
+	ctx := t.Context()
+	id, first := inviteFor(t, kit, "the neighbour")
+	kit.clock.Advance(time.Hour)
+	second, err := kit.service.AnotherInvitationLink(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	listed, err := fixture.service.Invitations(ctx)
+	listed, err := kit.service.Invitations(ctx)
 	isSame := func(a, b IssuedSecret) bool { return a.Secret == b.Secret && a.ExpiresAt.Equal(b.ExpiresAt) }
 	if err != nil || len(listed) != 1 || !slices.EqualFunc(listed[0].Links, []IssuedSecret{first, second}, isSame) {
 		t.Fatalf("the invitations = %+v, %v; want both links to pass on again, oldest first", listed, err)
 	}
-	if _, err = fixture.service.Register(ctx, second.Secret, "Ned", "a good long password", laptop); err != nil {
+	if _, err = kit.service.Register(ctx, second.Secret, "Ned", "a good long password", laptop); err != nil {
 		t.Fatal(err)
 	}
-	if listed, err = fixture.service.Invitations(ctx); err != nil || len(listed) != 1 || len(listed[0].Links) != 0 {
+	if listed, err = kit.service.Invitations(ctx); err != nil || len(listed) != 1 || len(listed[0].Links) != 0 {
 		t.Errorf("the used invitation = %+v, %v; want no link shown", listed, err)
 	}
-	if kept := sealedLinksKept(t, fixture); kept != "0" {
+	if kept := sealedLinksKept(t, kit); kept != "0" {
 		t.Errorf("%s unused links keep their secret after one was used; want none", kept)
 	}
-	withdrawn, _, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "the cousin"})
-	if err != nil {
+}
+
+// Withdrawing an invitation forgets its links' secrets at once, and a link that ended, after
+// registration_invitation_life_days (seven to start), is no longer shown (D267 §5; the owner,
+// 2026-10-28: "unused invitation links expire after 7 days").
+func TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown(t *testing.T) {
+	t.Parallel()
+	kit := sealingFixture(t)
+	ctx := t.Context()
+	withdrawn, _ := inviteFor(t, kit, "the cousin")
+	expiring, _ := inviteFor(t, kit, "the aunt")
+	if err := kit.service.WithdrawInvitation(ctx, withdrawn); err != nil {
 		t.Fatal(err)
 	}
-	expiring, _, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "the aunt"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = fixture.service.WithdrawInvitation(ctx, withdrawn); err != nil {
-		t.Fatal(err)
-	}
-	if kept := sealedLinksKept(t, fixture); kept != "1" {
+	if kept := sealedLinksKept(t, kit); kept != "1" {
 		t.Errorf("%s unused links keep their secret after one invitation was withdrawn; want the other's alone", kept)
 	}
-	fixture.clock.Advance(7*24*time.Hour + time.Second)
-	listed, err = fixture.service.Invitations(ctx)
-	if err != nil || len(listed) != 2 || listed[0].ID != expiring || len(listed[0].Links) != 0 {
+	if listed, err := kit.service.Invitations(ctx); err != nil || len(listed) != 1 || len(listed[0].Links) != 1 {
+		t.Fatalf("the invitations = %+v, %v; want the aunt's with its link", listed, err)
+	}
+	kit.clock.Advance(7*24*time.Hour + time.Second)
+	listed, err := kit.service.Invitations(ctx)
+	if err != nil || len(listed) != 1 || listed[0].ID != expiring || len(listed[0].Links) != 0 {
 		t.Errorf("after 7 days the invitations = %+v, %v; want the aunt's waiting with no link shown", listed, err)
 	}
 }
