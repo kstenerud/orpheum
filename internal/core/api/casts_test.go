@@ -243,6 +243,41 @@ func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
 	}
 }
 
+// A device in the Watch Together session its person is in is said so among their devices, never a
+// cast target, from the moment its page says hello signed in to the session: the owner's S23 cast to
+// the Mac that hosted the session, which ended it (D384 §3, 2026-10-30).
+func TestCast_ADeviceInTheCastersWatchTogetherSessionIsSaidSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	macToken := harness.createAdminAndSignIn(t)
+	phoneToken := harness.signIn(t, "owner", "owner-password")
+	mac, phone := harness.thisDevice(t, macToken), harness.thisDevice(t, phoneToken)
+	inSession := func() []int64 {
+		var devices api.DevicesOutput
+		listed := harness.do(t, http.MethodGet, "/me/devices", phoneToken, nil)
+		if err := json.Unmarshal([]byte(listed.body), &devices.Body); err != nil {
+			t.Fatal(err)
+		}
+		var in []int64
+		for _, device := range devices.Body.Devices {
+			if device.IsInYourWatchTogether {
+				in = append(in, device.ID)
+			}
+		}
+		return in
+	}
+	opened := harness.openTogether(t, macToken)
+	host := harness.dialTogether(t, opened.Body.MembershipCredential) // a hello signed in to nothing
+	host.awaitWelcome()
+	if in := inSession(); len(in) != 0 {
+		t.Fatalf("with no device of the person's in the session signed in, devices in it = %v; want none", in)
+	}
+	harness.dialTogetherSignedIn(t, opened.Body.MembershipCredential, macToken).awaitWelcome()
+	if in := inSession(); !slices.Equal(in, []int64{mac}) || slices.Contains(in, phone) {
+		t.Errorf("with the Mac's page in the session, devices in it = %v; want the Mac's, %d", in, mac)
+	}
+}
+
 // A cast goes only to a device with an Orpheum tab in front: a page that says hello behind is
 // listed as connected but not in front, a cast to it is refused for the person to bring a tab to
 // the front, and once the page says it came to the front the cast is handed to it (D338 §2).

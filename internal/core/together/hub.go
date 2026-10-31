@@ -50,6 +50,13 @@ type Person struct {
 	Name   string
 }
 
+// SignedIn is the person a device said hello signed in as, and which of their devices it is (the
+// sign-in's device): a device in its person's session is never a cast target (D384 §3).
+type SignedIn struct {
+	Person
+	DeviceID int64
+}
+
 // Sender takes the messages for one device: its WebSocket's writer, which must never block.
 type Sender func(message Outbound)
 
@@ -176,12 +183,15 @@ type member struct {
 
 // device is one connected client of a member.
 type device struct {
-	id         int64
-	role       DeviceRole
-	canSetRate bool
-	buffering  bool
-	suspended  SuspendReason
-	rttMs      int64
+	id int64
+	// signedInDevice is the person's device it said hello signed in as (SignedIn.DeviceID), or 0
+	// for a device that said hello signed in to nothing, as a guest's by link alone.
+	signedInDevice int64
+	role           DeviceRole
+	canSetRate     bool
+	buffering      bool
+	suspended      SuspendReason
+	rttMs          int64
 	// hasBeenReady is whether it has once said it is ready to play: until then the roster shows it
 	// loading.
 	hasBeenReady bool
@@ -475,10 +485,11 @@ type Attachment struct {
 
 // Attach attaches a device to the member its credential names, with a role, its messages going to
 // send, and welcomes it: the session, its member, the group, the roster and how to follow the group,
-// tuning. A device of a person signed in makes the membership theirs (D243 §2). A credential that
-// names no member is ErrNoSession, a *CastEndedError saying why where a cast's just ended.
+// tuning. A device of a person signed in makes the membership theirs (D243 §2), and is known as
+// that person's device (SignedInDevicesWith). A credential that names no member is ErrNoSession, a
+// *CastEndedError saying why where a cast's just ended.
 func (hub *Hub) Attach(
-	credential string, role DeviceRole, canSetRate bool, signedIn *Person, tuning Tuning, send Sender,
+	credential string, role DeviceRole, canSetRate bool, signedIn *SignedIn, tuning Tuning, send Sender,
 ) (Attachment, error) {
 	if !role.plays() && role != RolePanel {
 		return Attachment{}, fmt.Errorf("role %q: want video, panel or both", role)
@@ -489,9 +500,13 @@ func (hub *Hub) Attach(
 	if attachedMember == nil {
 		return Attachment{}, hub.noSessionFor(credential)
 	}
-	if signedIn != nil && attachedMember.person == nil {
-		person := *signedIn
-		attachedMember.person = &person
+	var signedInDevice int64
+	if signedIn != nil {
+		signedInDevice = signedIn.DeviceID
+		if attachedMember.person == nil {
+			person := signedIn.Person
+			attachedMember.person = &person
+		}
 	}
 	if tuning.SnapSeeksBeyondMs > 0 {
 		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
@@ -502,7 +517,7 @@ func (hub *Hub) Attach(
 	hub.lastID++
 	now := hub.clock.Now()
 	attachedDevice := &device{
-		id: hub.lastID, role: role, canSetRate: canSetRate, send: send,
+		id: hub.lastID, signedInDevice: signedInDevice, role: role, canSetRate: canSetRate, send: send,
 	}
 	attachedMember.devices[hub.lastID] = attachedDevice
 	send(Outbound{

@@ -75,6 +75,26 @@ func (hub *Hub) placesOf(person *Person, held string, except int64) []place {
 	return places
 }
 
+// SignedInDevicesWith is every signed-in device attached to the Watch Together session userID is in,
+// as host or as a guest signed in, of any member, by the sign-in's device: none is a cast target for
+// them, since a cast to one takes it from the session (D384 §3; the owner's S23, casting to the Mac
+// that hosted the session, ended it, 2026-10-30). Empty when they are in none.
+func (hub *Hub) SignedInDevicesWith(userID int64) []int64 {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	var devices []int64
+	for _, place := range hub.placesOf(&Person{UserID: userID}, "", 0) {
+		for _, each := range place.in.members {
+			for _, attached := range each.devices {
+				if attached.signedInDevice != 0 && !slices.Contains(devices, attached.signedInDevice) {
+					devices = append(devices, attached.signedInDevice)
+				}
+			}
+		}
+	}
+	return devices
+}
+
 // isPersons is whether candidate is person's place in the session: they host it, or joined it
 // signed in; false for nobody.
 func (current *session) isPersons(candidate *member, person *Person) bool {

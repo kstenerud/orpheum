@@ -1212,6 +1212,10 @@
             "description": "A code activated it: it neither administers nor changes the account",
             "type": "boolean"
           },
+          "isInYourWatchTogether": {
+            "description": "In the Watch Together session you are in, so never a cast target (D384 §3)",
+            "type": "boolean"
+          },
           "isSignedIn": {
             "type": "boolean"
           },

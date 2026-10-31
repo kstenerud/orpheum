@@ -33,6 +33,13 @@ type socket struct {
 // dialTogether opens a device's session WebSocket and says hello with credential, a playing device.
 func (harness testHarness) dialTogether(t *testing.T, credential string) socket {
 	t.Helper()
+	return harness.dialTogetherSignedIn(t, credential, "")
+}
+
+// dialTogetherSignedIn opens a device's session WebSocket and says hello with credential, a playing
+// device, signed in by sessionToken, or to nothing where it is "".
+func (harness testHarness) dialTogetherSignedIn(t *testing.T, credential, sessionToken string) socket {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
@@ -44,7 +51,7 @@ func (harness testHarness) dialTogether(t *testing.T, credential string) socket 
 	opened := socket{t: t, connection: connection}
 	opened.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello, Credential: credential,
-		Role: together.RoleVideo, Client: "index-T3st.js",
+		Role: together.RoleVideo, Client: "index-T3st.js", SessionToken: sessionToken,
 	})
 	return opened
 }

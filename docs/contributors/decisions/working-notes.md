@@ -24717,9 +24717,13 @@ own Back takes control back.
 - 1: web/apps/web/src/cast-to.test.tsx ("goes to its home page in the page's place as a cast ends there, through the cast handed again with another film (D384 §1)", "goes home as casting ends, and Back from there never plays the cast's film (D384 §1, D383 §1)"), web/apps/web/src/cast-receiver.test.tsx ("goes home when the remote stops casting (D384 §1)", "goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)"), web/apps/web/src/cast-ready.test.tsx, web/apps/web/src/cast-uncontrolled.test.tsx, web/apps/web/src/cast-receiving-mark.test.ts, web/e2e/cast.spec.ts; on a device, VQ190
 - 2: web/apps/web/src/cast-to.test.tsx ("a film played on a device that casts"), web/apps/web/src/cast-remote.test.tsx, web/apps/web/src/cast-dialog.test.tsx, web/apps/web/src/status-tray.test.tsx, web/apps/web/src/watch-together.test.tsx, web/apps/web/src/together-guest-play.test.tsx, web/apps/web/src/together-viewer-shell.test.tsx, web/apps/web/src/together-viewer-cast.test.tsx, web/apps/web/src/input-pages.browser.test.tsx, web/e2e/cast.spec.ts, web/e2e/together.spec.ts; on devices, VQ190
 - Also: web/apps/web/src/cast-receiver-steps.test.tsx ("keeps control through the step the Use question's close makes, and leaves at the Back after"), web/apps/web/src/navigation.test.ts ("the person's own steps through the history"); on a device, VQ190
+- 3: internal/core/api/casts_test.go (TestCast_ADeviceInTheCastersWatchTogetherSessionIsSaidSo), web/apps/web/src/cast-to.test.tsx ("lists no device in the Watch Together session its person is in (D384 §3)")
 
-**Status:** Decided 2026-10-30; §1, §2 and the Also built (2026-10-30) in the web client, §3 not built
-(the next batch). The Also in `navigation.ts`: navigation tells the person's own steps through the
+**Status:** Decided 2026-10-30; §1, §2 and the Also built (2026-10-30) in the web client; §3 built
+(2026-10-31): a Watch Together device's hello signed in names its person's device to the hub
+(`together.SignedIn`), `Hub.SignedInDevicesWith` gives every signed-in device in the session the
+person is in, `GET /me/devices` marks each of the asker's so (`isInYourWatchTogether`), and Cast's
+dialog lists none of them (`cast-to.tsx`'s `otherDevicesOpen`). The Also in `navigation.ts`: navigation tells the person's own steps through the
 history alone (`onPersonsStep`), never the end of a step the app makes itself off an entry held over
 the page (a dialog's close), a go waiting on it, or Up's way back, nor a Back that only closed what
 was open; the receiver's controlled mode listens there instead of to the window's popstate
