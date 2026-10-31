@@ -9,7 +9,7 @@ import {
   CredentialsNotice,
   CredentialsProblem,
 } from "./credentials-form.tsx";
-import { idempotent } from "./idempotent.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ApiProblem, dataOrThrow, fieldProblemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import type { Membership } from "./together-storage.ts";
@@ -258,7 +258,8 @@ function useLinkState(secret: string, isJoinShown: boolean): LinkState {
         setState({ secret, state: told });
       }
     };
-    api.POST("/together/join/check", { body: { secret } }).then(
+    // Keyed as every POST is (D244 §4), though asking twice changes nothing.
+    api.POST("/together/join/check", { body: { secret }, ...idempotent(newIdempotencyKey()) }).then(
       ({ response }) => {
         tell(response.status === 404 ? "refused" : "admits");
       },
