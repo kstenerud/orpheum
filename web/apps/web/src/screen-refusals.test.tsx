@@ -47,7 +47,7 @@ const library: components["schemas"]["LibraryBody"] = {
 const waitingItem: components["schemas"]["ItemBody"] = {
   id: 7,
   kind: "movie",
-  name: "Variety",
+  name: "Théo",
   identificationState: "ambiguous",
 };
 
@@ -136,7 +136,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "POST /items/7/refresh": refusal(404, "not_found"),
       "GET /items/7/candidates": [
         200,
-        { provider: "tmdb", candidates: [{ providerId: "101", name: "Variety" }] },
+        { provider: "tmdb", candidates: [{ providerId: "101", name: "Théo" }] },
       ],
       "POST /items/7/match": refusal(409, "conflict"),
     });
@@ -278,7 +278,7 @@ describe("a match TMDB refuses says why and who can fix it", () => {
       "GET /items": [200, { items: [waitingItem] }],
       "GET /items/7/candidates": [
         200,
-        { provider: "tmdb", candidates: [{ providerId: "101", name: "Variety" }] },
+        { provider: "tmdb", candidates: [{ providerId: "101", name: "Théo" }] },
       ],
       "POST /items/7/match": providerRefusal("key_refused"),
       "POST /items/7/refresh": providerRefusal("unavailable"),

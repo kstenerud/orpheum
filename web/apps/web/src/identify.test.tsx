@@ -55,14 +55,14 @@ describe("identify", () => {
         <CandidateList
           onPick={ignore}
           candidates={[
-            { providerId: "101", name: "Variety", originalName: "Variety", year: 1994 },
+            { providerId: "101", name: "Théo: The Guardian", originalName: "Théo", year: 1994 },
             { providerId: "7", name: "Léon Morin, Priest" },
           ]}
         />,
       ),
     );
-    expect(markup).toContain("Variety (1994)");
-    expect(markup).toContain("Originally “Variety”");
+    expect(markup).toContain("Théo: The Cameraman (1994)");
+    expect(markup).toContain("Originally “Théo”");
     expect(markup).toContain("Léon Morin, Priest (?)");
     expect(markup.match(/This one/gu)).toHaveLength(2);
   });

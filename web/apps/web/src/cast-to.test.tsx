@@ -471,7 +471,7 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(tabStorage().getItem(castReceivingKey)).toBeNull();
   });
 
-  // The owner's staging, 2026-10-29: casting Back to the Lantern, the person started Watch Together;
+  // The owner's staging, 2026-10-29: casting Forward to the Summit, the person started Watch Together;
   // the cast handed again with its host's part, of the same film, was kept as it was, and the
   // receiver stayed out of the session the person's Watch Together page showed.
   it("takes the same cast handed again with its person's part in Watch Together, and keeps it as a credential is minted afresh for the same part (D364 §11, D372 §8)", async () => {

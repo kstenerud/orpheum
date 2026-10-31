@@ -95,7 +95,7 @@ describe("browse", () => {
         items: [
           {
             id: 12,
-            name: "The Thief of Bagdad",
+            name: "Alcazar",
             kind: "movie",
             year: 1992,
             identificationState: "identified",

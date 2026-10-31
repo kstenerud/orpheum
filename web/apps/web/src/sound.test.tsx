@@ -389,7 +389,7 @@ describe("another audio track, chosen mid-film (D230 §5)", () => {
         }),
       ),
     );
-    // The Unknown, its track changed 2:46 in, started again at 0:00 (staging, 2026-10-26).
+    // Wraithcatchers, its track changed 2:46 in, started again at 0:00 (staging, 2026-10-26).
     standVideoAt(166.502);
     await choose(mounted.container.querySelector("select"), "81");
     expect(asked).toEqual([{ cause: "audioChosen", at: { positionMs: 166_502, isPaused: false } }]);

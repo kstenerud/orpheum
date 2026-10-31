@@ -117,8 +117,8 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     expect(focusedTile()).toMatch(/^Film \d+$/u);
   });
 
-  // The owner's Fire TV, 2026-10-29: "Pressing back from the Copper Kettle page brought me back to the
-  // top of the series list. It should bring me back to the point in the list where Copper Kettle is,
+  // The owner's Fire TV, 2026-10-29: "Pressing back from the Gus Doyle page brought me back to the
+  // top of the series list. It should bring me back to the point in the list where Gus Doyle is,
   // still highlighted." Silk's Back is a step of the history, and the list drew its first page alone.
   it("goes back by the browser's own Back to a series on the list's second page, focused and in view", async () => {
     await page.viewport(width, height);

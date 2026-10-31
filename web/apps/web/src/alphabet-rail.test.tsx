@@ -36,7 +36,7 @@ function page(entries: readonly Entry[], nextCursor: string): Answer {
   return [200, { titles: entries, nextCursor }];
 }
 
-const firstPage = page([film(1, "12 Marrow Larks"), film(2, "Wing")], "c1");
+const firstPage = page([film(1, "12 Patient Sailors"), film(2, "Arkon")], "c1");
 const secondPage = page([film(3, "Greed"), film(4, "Metropolis")], "c2");
 const lastPage = page([film(5, "Keepsake Hollow"), film(6, "Zelkaro")], "");
 
@@ -92,11 +92,11 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
 
   it("moves to the first title of all for #, those beginning with a digit, loading nothing more", async () => {
     const heard: Heard[] = [];
-    mounted = await mountFilms([firstPage, page([film(1, "12 Marrow Larks")], "x")], heard);
+    mounted = await mountFilms([firstPage, page([film(1, "12 Patient Sailors")], "x")], heard);
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     await click(buttonWithText(mounted.container, "#"));
     await settleUntil(() => focusedName() !== undefined);
-    expect(focusedName()).toBe("12 Marrow Larks");
+    expect(focusedName()).toBe("12 Patient Sailors");
     const onlyTitles = titlesHeard(heard);
     expect(new URLSearchParams(onlyTitles[1]?.query).has("from")).toBe(false);
     expect(onlyTitles).toHaveLength(2);

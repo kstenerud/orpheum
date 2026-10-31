@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { TracksNote } from "./tracks-note.tsx";
 
-/** The Big Parade on its ladder, as nas.example offers it to Firefox: its own HEVC picture and 540p. */
+/** 28 Winters Later on its ladder, as nas.example offers it to Firefox: its own HEVC picture and 540p. */
 const scopeFilm = {
   pictures: [
     { stream: "picture", codec: "hevc", width: 1920, height: 696, kbps: 2205, isOriginal: true },

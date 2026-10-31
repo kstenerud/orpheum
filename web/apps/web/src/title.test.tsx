@@ -74,7 +74,7 @@ describe("TitleView", () => {
   it("shows no broken banner or still art not made yet, through the posters' own way (the owner, 2026-10-26)", async () => {
     // The title page drew its backdrop and an episode's still as plain images, so art not made
     // yet, or never made, showed as a broken image across the top of the page (staging answered
-    // 404 for 12 Marrow Larks's landscape-l).
+    // 404 for 12 Patient Sailors's landscape-l).
     const page = await mount(withServices(<TitleView title={heat} />));
     const backdrop = (): Element | null => page.container.querySelector("img.title__backdrop");
     expect(backdrop()?.getAttribute("src")).toBe("/api/v1/bytes/art/b1/landscape-l.webp");

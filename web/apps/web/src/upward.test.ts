@@ -22,13 +22,13 @@ const shows: LibraryName = { id: 7, name: "Shows" };
 const films: LibraryName = { id: 3, name: "Films" };
 const kids: LibraryName = { id: 4, name: "Kids" };
 
-/** Copper Kettle's S2E3, played: its series is 5, its libraries Shows. */
+/** Gus Doyle's S2E3, played: its series is 5, its libraries Shows. */
 const playsEpisode: PlaybackDecision["plays"] = {
   titleId: 23,
   kind: "episode",
   libraryId: 7,
   libraryName: "Shows",
-  episode: { seriesId: 5, seriesName: "Copper Kettle", seasonNumber: 2, episodeNumber: 3 },
+  episode: { seriesId: 5, seriesName: "Gus Doyle", seasonNumber: 2, episodeNumber: 3 },
 };
 
 /** Metropolis, played: the film 10, in Films and Kids. */
@@ -52,7 +52,7 @@ const filmPage: Route = { screen: "title", itemId: 10 };
 function seriesUpward(navigation: Navigation): Upward {
   return {
     crumbs: [libraryCrumb("series", [shows], { t: i18n.t, behind: navigation.behind() })],
-    here: "Copper Kettle",
+    here: "Gus Doyle",
   };
 }
 
@@ -67,7 +67,7 @@ function episodePageUpward(navigation: Navigation): Upward {
     versions: [],
     extras: [],
     libraries: [shows],
-    episode: { seriesId: 5, seriesName: "Copper Kettle", seasonNumber: 2, episodeNumber: 3 },
+    episode: { seriesId: 5, seriesName: "Gus Doyle", seasonNumber: 2, episodeNumber: 3 },
   };
   return titleUpward(episode, { t: i18n.t, behind: navigation.behind() });
 }

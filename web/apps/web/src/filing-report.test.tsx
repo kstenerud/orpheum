@@ -21,7 +21,7 @@ afterEach(() => {
 const report = {
   name: "filed-wrongly-606-20261016T210000Z.md",
   path: "/var/lib/orpheum/core/backups/reports/filed-wrongly-606-20261016T210000Z.md",
-  markdown: "# Filed wrongly: Quillwick\n",
+  markdown: "# Filed wrongly: Greywolf\n",
 };
 
 it("writes an admin's report on the server and shows it, with where it is, to copy (D306 §3)", async () => {
@@ -36,7 +36,7 @@ it("writes an admin's report on the server and shows it, with where it is, to co
   );
   await click(buttonWithText(mounted.container, "Report this"));
   expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /items/606/filing-report"]);
-  expect(mounted.container.querySelector("textarea")?.value).toBe("# Filed wrongly: Quillwick\n");
+  expect(mounted.container.querySelector("textarea")?.value).toBe("# Filed wrongly: Greywolf\n");
   expect(mounted.container.textContent).toContain(`Saved on the server as ${report.path}.`);
   expect(buttonWithText(mounted.container, "Copy")).not.toBeNull();
 });
