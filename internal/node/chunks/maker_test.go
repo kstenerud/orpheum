@@ -362,7 +362,8 @@ func TestMake_FFmpegWritesOnlyInItsStoreInsideThePreparedDirectory(t *testing.T)
 		hostile.StoreDir = storeDir
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)
-		if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, hostile, nil); !errors.Is(err, ErrBadRun) {
+		_, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, hostile, nil)
+		if !errors.Is(err, ErrBadRun) {
 			t.Errorf("the store %q: %v, want it refused", storeDir, err)
 		}
 		if entries, err := os.ReadDir(directory); err != nil || len(entries) != 0 || fake.ran.Arguments != nil {
