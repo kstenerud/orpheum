@@ -25050,3 +25050,27 @@ functionality for convenience."
 8. **An own discovery depends on nothing of the owner's**: its names, key set and record location are
    its own; the only things of the owner's it may use are the software and, by choice, the record's
    published locations.
+
+## D392 — A full rescan re-examines every file and corrects only what the differences touch
+
+**Decided** (2026-10-31), by the project owner, amending D357 §2. B-frame re-timing's mark is read at
+a file's probe, and a rescan never probes a file unchanged on disk, so files already scanned (file
+5667 among them) would never be marked. The owner: "We should probably have a 'full rescan' button
+anyway in case something goes wrong (especially during beta). It should be smart about throwing out
+data, and mostly be about double-checking and correcting."
+
+1. **Where:** D357's three admin buttons (everything, a library, a title) each offer a full rescan
+   beside the rescan.
+2. **Every file is examined again**, changed on disk or not, and the new probe compared with the one
+   kept.
+3. **Only what a difference touches is thrown out:** made chunks of a file whose picture or sound
+   facts changed (a new re-timing mark among them), a sound's loudness measurement where that sound
+   changed, and each derived thing that read a changed fact; nothing a person set (D357 §3), no
+   watch history, and nothing whose inputs are unchanged.
+4. **What is kept is checked against what is there:** made chunks whose files are missing or damaged
+   are dropped, artwork missing is fetched again, NFOs read again, and the scope re-matched as D357
+   §2 does.
+5. **Every correction is logged** (the file, what differed, what was thrown out because of it) with
+   each run's totals; a full rescan that finds nothing wrong changes nothing.
+6. **In the background as jobs** (D357 §5), its progress shown as a rescan's; a second press over the
+   same scope adds nothing.
