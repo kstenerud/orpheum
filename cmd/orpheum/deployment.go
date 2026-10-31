@@ -93,8 +93,8 @@ func parseWriteDeployment(arguments []string, stderr io.Writer) (deployment.Kind
 }
 
 // multipathTCPSetting is the kernel's MPTCP switch, which a kernel without MPTCP has not: seen from
-// write-deployment's container, as the deployment's containers will see it.
-const multipathTCPSetting = "/proc/sys/net/mptcp/enabled"
+// write-deployment's container, as the deployment's containers will see it. A variable for its test.
+var multipathTCPSetting = "/proc/sys/net/mptcp/enabled"
 
 // hasSetting says whether the kernel setting at path exists.
 func hasSetting(path string) bool {
