@@ -16,6 +16,11 @@ it again: these runs were most of 1670 s of a check-pr's probing that no timing 
 audit's finding 5, 2026-10-28). Each is timed as a run of its own kind, "<kind>, nothing reverted".
 A failure is never kept: it is asked again.
 
+**A pass serves every worktree** (the test-regime audit of 2026-10-31, R5): the trees are made alike,
+from the same commit, so a kind's clean pass in one is kept for all, in memory and on disk, by the
+commit, the kind and the toolchain; four trees each paid for the same run. A failure stays its tree's
+own, and the per-red rerun of the failed tests (below) still runs in the red's own tree.
+
 **The tests that failed, again** (the owner, 2026-10-28, "go with your recommendations"): that run
 once per worktree and kind proved only that the environment works; a red from a test that fails
 under load, or at HEAD, still counted for every file after the first. So a red whose failed tests
@@ -70,8 +75,12 @@ def kept_path(tree: str) -> Path | None:
     return Path(done.stdout.strip()) / "revert-red" / "clean-runs.json" if done.returncode == 0 else None
 
 
-def _key(tree: str, head: str, kind: str) -> str:
-    return "\0".join((tree, head, kind, toolchain()))
+# Where a pass is kept in place of a tree: it serves every tree.
+EVERY_TREE = ""
+
+
+def _key(head: str, kind: str) -> str:
+    return "\0".join((EVERY_TREE, head, kind, toolchain()))
 
 
 def _kept(path: Path | None) -> dict[str, bool]:
@@ -83,16 +92,16 @@ def _kept(path: Path | None) -> dict[str, bool]:
 
 def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProcess[str]], head: str = "") -> bool:
     """Whether a run of kind passes in tree with nothing reverted: run asks it, the first time for
-    this tree and kind, with the probe's files already restored, unless a pass at head is kept. A
-    run past its timeout has not passed."""
+    this kind, with the probe's files already restored, unless a pass at head is kept, from any
+    tree; a failure is asked again in each tree. A run past its timeout has not passed."""
     with _LOCK:
-        known = _CLEAN.get((tree, kind))
+        known = True if _CLEAN.get((EVERY_TREE, kind)) else _CLEAN.get((tree, kind))
     if known is not None:
         return known
     path = kept_path(tree) if head else None
-    if head and _kept(path).get(_key(tree, head, kind)):
+    if head and _kept(path).get(_key(head, kind)):
         with _LOCK:
-            _CLEAN[(tree, kind)] = True
+            _CLEAN[(EVERY_TREE, kind)] = True
         return True
     output = ""
     try:
@@ -103,14 +112,14 @@ def runs_clean(tree: str, kind: str, run: Callable[[], subprocess.CompletedProce
         passed = False
         output = "it ran past its timeout"
     with _LOCK:
-        _CLEAN[(tree, kind)] = passed
+        _CLEAN[(EVERY_TREE if passed else tree, kind)] = passed
         if not passed:
             _FAILED_OUTPUT[(tree, kind)] = "\n".join(output.strip().splitlines()[-KEPT_LINES:])
         elif head and path is not None:
             kept = _kept(path)
             # Only this commit's: an older one's passes can serve no later run.
             kept = {key: value for key, value in kept.items() if f"\0{head}\0" in key}
-            kept[_key(tree, head, kind)] = True
+            kept[_key(head, kind)] = True
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(kept, indent=1, sort_keys=True), encoding="utf-8")
     return passed

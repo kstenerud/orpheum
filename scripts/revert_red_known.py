@@ -184,8 +184,13 @@ def known(root: str, head: str, key: str, part: str = "") -> dict[str, Any] | No
 # A failed Go test's line, and the line ending its package's output.
 GO_FAILED_TEST = re.compile(r"^\s*--- FAIL: (Test\w+)", re.MULTILINE)
 GO_FAILED_PACKAGE = re.compile(r"^FAIL\s+(\S+)", re.MULTILINE)
-# A failed vitest file, with its project where the suite has several.
-VITEST_FAILED = re.compile(r"FAIL\s+(?:\|[\w-]+\|\s+)?(\S+\.test\.tsx?)")
+# A failed vitest file, with its project where the suite has several, or its browser in browser mode
+# (" FAIL   chromium  apps/…browser.test.tsx"): named, a browser-mode red's confirming run is its failed
+# files alone, seconds, not every browser-mode test that imports the file (the test-regime audit of
+# 2026-10-31, R5: 224 s for one file).
+VITEST_FAILED = re.compile(r"FAIL\s+(?:\|[\w-]+\|\s+|(?:chromium|firefox|webkit)\s+)?(\S+\.test\.tsx?)")
+# A terminal colour, which vitest may print about a project's or browser's name.
+COLOUR = re.compile(r"\x1b\[[0-9;]*m")
 # A failed module of the gate scripts' tests, as py_tests.py names it.
 PYTHON_FAILED = re.compile(r"^--- (test_\w+\.py) failed ---$", re.MULTILINE)
 PYTHON_TESTS = "scripts/tests"
@@ -210,6 +215,7 @@ def failed_tests(output: str, module: str, command: list[str] | None = None) -> 
     one. A gate script's tests print vitest's and Go's failures as fixtures, and their probe, taking
     those for its own red, ran vitest on a file no tree has (check-pr, 2026-10-30)."""
     runner = runner_of(command) if command is not None else None
+    output = COLOUR.sub("", output)
     go: dict[str, list[str]] = {}
     tests: list[str] = []
     for line in output.splitlines():
