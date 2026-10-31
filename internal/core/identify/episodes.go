@@ -174,7 +174,7 @@ func (filer *libraryFiler) fileUnnumberedSpecial(
 }
 
 // specialNamed is the number its matched series' listing of specials (season 0) gives a special
-// of that name, or 0: Brackenmere's "The Promised Land", a film filed in a series, is one of its
+// of that name, or 0: a series' feature-length special, a film filed in a series, is one of its
 // specials at TMDB. A file's name may carry the series' before the special's.
 func (filer *libraryFiler) specialNamed(ctx context.Context, seriesID int64, name string) (int, error) {
 	series, err := filer.cachedSeriesMatch(ctx, seriesID)

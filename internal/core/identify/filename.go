@@ -95,7 +95,7 @@ var (
 	partPattern   = regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])part[\p{Z} ._-]*([0-9]{1,2})(?:[^\p{L}\p{N}]+|$)`)
 	partOfPattern = regexp.MustCompile(
 		`(?i)(?:^|[^\p{L}\p{N}])([0-9]{1,2})[\p{Z} ._-]*of[\p{Z} ._-]*[0-9]{1,2}(?:[^\p{L}\p{N}]+|$)`)
-	// A number after the series' name, as a word: "ERASED 02 Its Name", "Show_-_03_v2_[720p]"; a
+	// A number after the series' name, as a word: "Show 02 Its Name", "Show_-_03_v2_[720p]"; a
 	// release's version, "v2", may follow it. The function seriesNumberedEpisode checks what comes
 	// before.
 	numberWordPattern = regexp.MustCompile(
@@ -221,12 +221,12 @@ func lastOfRun(rest string, season, episode int, runs ...*regexp.Regexp) int {
 // seriesFromFolders names a series from the folders above an episode: "Show/Season 01/x.mkv" and
 // "Show/Specials/x.mkv" are Show. A season pack's folder, "Show/Show.S02.COMPLETE.720p/x.mkv", names
 // a season too, not a series of its own, so the folder above it names the series; with none above,
-// what the pack's name says before its season marker does (the owner's NAS, 2026-10-07: each of Ted
-// Lasso's seasons was a series of its own).
+// what the pack's name says before its season marker does (the owner's NAS, 2026-10-07: each of a
+// series' seasons was a series of its own).
 //
 // A folder of one episode, "Show/Show.S01E01.1080p/x.mkv", or one named only for its number,
 // "Show/Show.S01/E01/x.mkv", and a specials or extras folder are passed over the same way (the
-// owner's NAS, 2026-10-13: each of Wing Vellmoor's episodes, and Corvessa's "E01" to "E12", were
+// owner's NAS, 2026-10-13: each of a series' episodes, and another series' "E01" to "E12", were
 // series of their own).
 func seriesFromFolders(folder string) (name string, year int) {
 	packPrefix := ""
@@ -272,7 +272,7 @@ func isBonusFolder(name string) bool {
 // its contents to be classified as films"). A marker in the file name places it as ParsePath does;
 // else "Show - 01 - Its Name", "E01" or "Episode 1" numbers it, in the season its folders name or
 // the first; else, or in a specials or extras folder, it is a special of season 0, its name the
-// file's, placed by its path: a featurette, or a film made of the series (Brackenmere's "The Promised
+// file's, placed by its path: a featurette, or a film made of the series (Show's "The Promised
 // Land"), which its series' listing of specials may name.
 func ParseEpisodePath(relative string) ParsedPath {
 	parsed := ParsePath(relative)
@@ -366,7 +366,7 @@ func firstOf(text string, expressions ...*regexp.Regexp) []int {
 }
 
 // seriesNumberedEpisode reads an episode's number written as a word after the series' name, as in
-// "ERASED 02 Palm of the Hand" or "[Group]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2", and what
+// "Show 02 Palm of the Hand" or "[Group]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2", and what
 // follows it. What comes before the number must end with the series' name, as textindex.SameWork
 // folds it, so a number inside an episode's own name is not taken for one, and a date's numbers
 // are none ("Show 14.03.2019"). The separator after one number may be the one before the next,
@@ -388,8 +388,8 @@ func seriesNumberedEpisode(stem, seriesName string) (episode int, rest string, f
 
 // outermostSeriesFolder names the series of a file no marker places by the folder just under the
 // library's root, where a series library keeps each series: a featurette or a film inside a series'
-// folders is that series', not its own folder's ("Brackenmere/The Promised Land 2020/x.mkv" is Red
-// Dwarf's). When that folder is itself an episode's or a season pack's, the folders say as for an
+// folders is that series', not its own folder's ("Show/The Promised Land 2020/x.mkv" is Show's).
+// When that folder is itself an episode's or a season pack's, the folders say as for an
 // episode.
 func outermostSeriesFolder(folder string) (name string, year int) {
 	parts := strings.Split(strings.Trim(folder, "/"), "/")
@@ -432,7 +432,7 @@ func episodeFolderNumber(folder string) (int, bool) {
 }
 
 // wordsBeforeTags are a name's words before its first release tag, one joined to a word by a dash
-// too: "Ice Station Wren-AC3-5.1-DVDRip" is Ice Station Wren.
+// too: "Movie Name-AC3-5.1-DVDRip" is Movie Name.
 func wordsBeforeTags(words []string) []string {
 	for index, word := range words {
 		if parts := strings.Split(word, "-"); len(parts) > 1 && !isReleaseTag(word) {
@@ -453,7 +453,7 @@ func wordsBeforeTags(words []string) []string {
 }
 
 // withoutOpenBracket is text cut where a bracket opens that does not close: what is left of a group
-// whose year cut it, as in "Goin' Yonder (Western Comedy" or "Verbena [ATG".
+// whose year cut it, as in "Movie Name (Western Comedy" or "Show Name [ATG".
 func withoutOpenBracket(text string) string {
 	open := -1
 	depth := 0
@@ -497,7 +497,7 @@ func cleanTitle(stem string) (name string, year int) {
 	}
 	if matches := everyMatch(yearPattern, text); len(matches) > 0 {
 		// The last year-looking number is the year; an earlier one is part of the name, as in
-		// "7th Heaven (1968)" or "Glass Runner 2061 (2017)".
+		// "7th Heaven (1968)" or "Station 2061 (2022)".
 		last := matches[len(matches)-1]
 		// A number that is the whole name is the name: "1917".
 		if last[0] > 0 {

@@ -12,7 +12,7 @@ import (
 )
 
 // UnplacedEpisodes is a series some of whose episodes have no number though no specials or extras
-// folder holds them: their files' names were likely read wrongly, as Quillwick's "1x4" were on the
+// folder holds them: their files' names were likely read wrongly, as a series' "1x4" were on the
 // owner's NAS (2026-10-16), and the admin is told (D306 §6).
 type UnplacedEpisodes struct {
 	SeriesID   int64
@@ -41,7 +41,7 @@ func (chooser *Chooser) SeriesWithUnplacedEpisodes(ctx context.Context) ([]Unpla
 
 // isBonusName is whether a file's own name says it is bonus material, as a specials or extras
 // folder's would, or as a disc's are named: "Season 6 Special Features - Commercials", "Music Video -
-// Do the Bartman" (staging, 2026-10-16: The Pumbletons' sixteen).
+// Its Song Name" (staging, 2026-10-16: an animated series' sixteen).
 func isBonusName(name string) bool {
 	if isBonusFolder(name) {
 		return true

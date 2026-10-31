@@ -26,12 +26,12 @@ const (
 //
 // It looks in tiers, the next only when the one before found none: the name and the year; the name
 // and a year one off, as a film's year at TMDB is often its first showing's, the year before its
-// release (Larkhollow, 1997, is TMDB's 1998); and a candidate whose whole name begins the
+// release (a film's 1997 is TMDB's 1998); and a candidate whose whole name begins the
 // query's, word by word, in the year, as a release name carries a subtitle the provider's does not
-// ("Wild Rex 2 The Dust Road" is TMDB's "Wild Rex 2", 1981). One candidate in a tier is a clear
+// ("Show 2 The Return" is TMDB's "Show 2", 1981). One candidate in a tier is a clear
 // winner, but for a film with no year, which is a guess. Several are settled by a guess (the
 // owner's NAS, 2026-10-15, where 85 titles waited for a choice, many plain to them): with no year
-// the oldest, with one the most voted (Disney's The Thief of Bagdad over another of 1992), and TMDB's order
+// the oldest, with one the most voted (the better-known of two same-named films from 1992), and TMDB's order
 // after. With no candidate named as the query, a work released under another name is guessed
 // (underAnotherName, D307 §1).
 //
@@ -129,8 +129,9 @@ func namedExactly(query Query, found []Candidate) []Candidate {
 const searchFoundTheWorkAtMost = 2
 
 // underAnotherName is the guess among candidates none of whose names is the query's, a work released
-// under another name in another country (D307 §1: "Kaito Kumo" is TMDB's "Kaito the 3rd"): with a
-// year, the one candidate of that year; with none, the oldest of the one or two the search found.
+// under another name in another country (D307 §1: a series released under a different regional
+// name is TMDB's under its original one): with a year, the one candidate of that year; with none,
+// the oldest of the one or two the search found.
 func underAnotherName(query Query, candidates []Candidate) (Candidate, bool) {
 	if query.Year != 0 {
 		var ofTheYear []Candidate

@@ -65,8 +65,8 @@ func Fold(text string) string {
 // only letters, numbers and the spacing marks some scripts write vowels with, so punctuation and
 // spacing, which files and providers write each their own way, say nothing: "Lantern's Agents"
 // and "Lanterns Agents", "Moth-Lantern" and "Moth Lantern", "Fièvre" and "FIEVRE" are one work. An
-// ampersand is the word it stands for: "Wit & Wilfulness" is "Wit and Wilfulness" (the owner's
-// NAS, 2026-10-13, where TMDB's single "Wit & Wilfulness" of 2005 waited for a person's choice).
+// ampersand is the word it stands for: "Show & Tell" is "Show And Tell" (the owner's
+// NAS, 2026-10-13, where TMDB's single ampersand-titled match waited for a person's choice).
 func SameWork(name string) string {
 	folded := Fold(strings.ReplaceAll(name, "&", " and "))
 	var builder strings.Builder

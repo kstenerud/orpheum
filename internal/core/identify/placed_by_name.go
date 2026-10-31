@@ -73,7 +73,7 @@ func (filer *libraryFiler) placedByName(
 	if wanted == "" {
 		return placement{}, false, nil
 	}
-	// A file's name often carries its series' before its own: "Orbitorama - Comet Pilot 3000".
+	// A file's name often carries its series' before its own: "Show - Comet Pilot 3000".
 	withoutSeries := wanted
 	if series := textindex.SameWork(seriesName); series != "" && len(wanted) > len(series) {
 		withoutSeries = strings.TrimSpace(strings.TrimPrefix(wanted, series))
@@ -106,7 +106,7 @@ func (filer *libraryFiler) placedByName(
 const nearEnough = 0.85
 
 // nameNearness is how near two folded names are, 1 for the same: 0.95 for a name that ends with a
-// listed one long enough not to end too many ("Quillwick - Born to be King" and "Born to Be
+// listed one long enough not to end too many ("Show - Born to be King" and "Born to Be
 // King"), else one less the share of letters that differ.
 func nameNearness(wanted, listed string) float64 {
 	switch {

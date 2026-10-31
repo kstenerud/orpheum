@@ -152,7 +152,7 @@ func (file StoreFile) AsSought() StoreFile {
 // made waits for the run to get there. An init is made by any run of its store, with its first
 // chunk: the one from the earliest chunk is said. Said as the run covering the chunk where the
 // playback last reported, an init on its way read as one no run would make (the owner's
-// The Unknown, 2026-10-26).
+// film, 2026-10-26).
 func (service *Service) CoveringRun(file StoreFile) (RunSpan, bool) {
 	if file.isInit {
 		return service.runs.earliest(file.storeDir)

@@ -125,7 +125,7 @@ func (offered offer) has(stream Stream) bool {
 // measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1),
 // but a track whose copy FFmpeg failed on twice at one chunk (hasGivenUp), which plays the sound the
 // server makes instead, as the lower qualities do, until the film is forgotten: a copy that cannot be
-// cut leaves the film playable (A Woman of Paris, staging, 2026-10-28).
+// cut leaves the film playable (a film, staging, 2026-10-28).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	all, err := service.ladderOf(ctx, film)
 	if err != nil {
