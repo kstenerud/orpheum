@@ -146,7 +146,7 @@ export interface ChoosingLink<Chunk extends FollowedChunk> {
  * Why the controller chose a quality, told with the switch to it (tellLoading): the reason its step
  * note gives ("first"; a chunk given up, with its bytes, its wait and the estimate after; a step up;
  * the link), and the link's samples then (samplesText). A Fire TV fell from 9018 to 696 kb/s 2.3 s
- * into Nosferatu with its link estimated at 69 kb/s, its chunks having loaded at 14–18 Mb/s, and the
+ * into a film with its link estimated at 69 kb/s, its chunks having loaded at 14–18 Mb/s, and the
  * core's log said nothing of why (the owner's cast, staging, 2026-10-28).
  */
 export interface ChoiceWhy {

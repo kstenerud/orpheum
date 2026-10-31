@@ -423,7 +423,7 @@ export function tellMainThreadStalls(
  * (D352 §1): hls.js's estimate, which our controller samples only as it does, read as hls.js's
  * starting value, 5000 kb/s, on a Fire TV whose controller had measured nothing (the owner's cast,
  * staging, 2026-10-28); and why the controller chose it (whyChose), which a switch's line in the
- * core's log never said (the same Fire TV's Nosferatu, 15:33). Returns that estimate, in kbit/s.
+ * core's log never said (the same Fire TV's film, 15:33). Returns that estimate, in kbit/s.
  */
 export function tellChunkedLoading(
   hls: LoadingHls,

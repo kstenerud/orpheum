@@ -61,7 +61,7 @@ export function isLoadFailure(data: Pick<ErrorData, "details" | "response">): bo
  * once the new media source is attached. hls.js restarts only a loader still stopped then, and a
  * chunk the detach aborted marks the picture's loader idle while detached (resetFragmentLoading, with
  * no chunk current): at 0:00 its loader then never loaded again, from where it had loaded to, the
- * video holding nothing (a Mac's Firefox giving up A Woman of Paris's own picture, the owner's test
+ * video holding nothing (a Mac's Firefox giving up a film's own picture, the owner's test
  * on staging, 2026-10-18). Until it is attached, the position to resume from is positionS
  * (resumePositionOf); after, hls.js seeks the video there once it has loaded there.
  */

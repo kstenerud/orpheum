@@ -12,7 +12,7 @@ import { suspectWorker } from "./worker-bypassed-note.tsx";
 
 /**
  * A poster, or a named blank where there is none, or where its image does not load: one not yet
- * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: Copper Kettle's
+ * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: a series'
  * seasons showed broken images while their art waited its turn). The card's own text names the item.
  * A blank for an image that did not load asks for it again (useArtShown), and shows it once made.
  * A film or series with no poster but a still, its backdrop or a frame of its video, shows the still

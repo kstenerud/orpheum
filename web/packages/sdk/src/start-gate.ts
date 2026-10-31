@@ -5,7 +5,7 @@
  * leader. It starts, and plays on after a seek, only once what it has loaded ahead of where it is
  * outlasts loading its next chunk, with a margin (readyAheadOf, the rule a follower is ready by after
  * a seek; the owner, 2026-10-28), picture and sound both, the element's buffered being what the two
- * hold in common. The browser plays at canplay: a Fire TV's Silk resumed The Marrowgate Family at
+ * hold in common. The browser plays at canplay: a Fire TV's Silk resumed a series at
  * 1798.9 s with its first chunk loaded to 1800.47 s, played, ran dry 1.1 s in while the next chunk,
  * 10.4 s of film, took 2.3 s to come, and stalled (the owner's cast, staging, 2026-10-28;
  * idiosyncrasies.md). The wait comes before the play, never a play paused and played again: on Silk
