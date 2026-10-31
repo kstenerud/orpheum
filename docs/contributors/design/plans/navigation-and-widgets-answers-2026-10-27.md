@@ -963,7 +963,7 @@ software chain was made with the tool on 2026-10-31 (issuer `https://orpheum.dev
 `/yoloai/files/orpheum-staging-keys`, published into connect's `.staging/published`. Its address
 document names D390's planned staging addresses (`api.orpheum.dev`, `account.orpheum.dev`,
 `{core}.orpheum-client-test.com`), which no DNS serves yet: staging cores enrol with it only after
-the move to `orpheum.dev` (D390 §5), and the owner confirms or corrects those addresses first.
+the move to `orpheum.dev` (D390 §5). The owner confirmed those addresses (2026-10-31).
 
 **Owed by the owner:** the day-one ceremony (VQ211) and the genesis statements in `suggested.go`;
 `-published=/published` and its read-only mount in production's compose file. On the Mac and a real

@@ -469,7 +469,7 @@ func publish(run signing, flags *flag.FlagSet, arguments []string) (bool, error)
 // before, and says the command that signs it, and by whom.
 func (run signing) pending(name, namespace string, payload []byte, before, signers string) error {
 	path := run.ledger.path("pending", name)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { //nolint:gosec // the owner's own ledger
 		return fmt.Errorf("write the payload: %w", err)
 	}
 	if err := os.WriteFile(path, payload, 0o600); err != nil { //nolint:gosec // the owner's own ledger
