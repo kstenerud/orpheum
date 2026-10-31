@@ -29,6 +29,9 @@ type ClientProblemInput struct {
 // clientNoteLevel is the Level of a page's note of what it did, not of a failure.
 const clientNoteLevel = "debug"
 
+// logKeyClientMessage is the log's key for a page's own words of what failed or what it did.
+const logKeyClientMessage = "message"
+
 func (server *Server) registerClientProblems() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "reportClientProblem", Method: http.MethodPost, Path: "/client-problems",
@@ -44,8 +47,8 @@ func (server *Server) reportClientProblem(ctx context.Context, input *ClientProb
 		return nil, err
 	}
 	attributes := []any{
-		"userId", principal.UserID, "deviceId", principal.DeviceID, "page", input.Body.Page,
-		"message", input.Body.Message, "userAgent", input.userAgent,
+		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "page", input.Body.Page,
+		logKeyClientMessage, input.Body.Message, logKeyUserAgent, input.userAgent,
 	}
 	if input.Body.Level == clientNoteLevel {
 		server.logger.DebugContext(ctx, "a page noted", attributes...)
