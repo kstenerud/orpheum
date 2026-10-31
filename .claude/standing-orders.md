@@ -1,44 +1,21 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Done 2026-10-30:** the 10-27 batch (D364, D367–D377, the Fire TV, casting and Watch Together fixes):
-   check-pr green but for unticked VQs; the owner's "deploy anyway"; nas.example runs an earlier commit (`ssh
-   prod-nas`, bundle fetched as bundle/sandbox-main, `make deploy DIR=/srv/orpheum`); prod connect
-   0a3fcd5-216be59e. Owed by the owner: VQ85–88, 90, 91, 93, 96, 97, 102(2), 103, 115, 118, 120, 142;
-   VQ81's disk case; D368's loudness on stepping down.
-   **Done 2026-10-31:** the 10-30 batch below, with D382–D389 (casting and Watch Together as dialogs) and
-   the library-title scrub: check-pr green, every VQ from 150 up ticked; nas.example runs an earlier commit;
-   prod connect eb6c283-e39602fe; MPTCP off (sysctl) on prod-api, the edge, the Proxmox host and LXC 102.
-   **Done 2026-10-31 (the 10-31 batch, below):** check-pr green in 214 s; nas.example runs
-   An earlier commit, MPTCP 0 in its containers; prod connect package connect-production-656e4c4-9a4d70b6.run
-   waits for the owner; VQ194 owed. Next batch: the plan file's queued items, with security updates'
-   Parts A and B and noexec step 1 (the owner, 2026-10-31).
-   **The 10-31 batch (owner 2026-10-31): the testing and security fixes, closed out; everything else waits
-   for the batch after.** From the plan file's "The week's security report" and "check-pr's time"
-   sections: MPTCP off in every compose service (Orpheum's templates and connect's); the household
-   image pinned by digest at install; `release-image.yml` behind the owner's approval; no npm install
-   scripts, with a lockfile check; Plex2Shell's lessons as tests (an architecture test that home is never a credential, the
-   node alone sets FFmpeg's environment and paths, every token check validates); noexec looked into;
-   the security-update notice designed; the false DevTools-bypass note after a deploy; revert-red's
-   R1, R2, R3, R5 and R6 (background probing per commit). End: one check-pr, the owner's go, nas.example.
-   **The 10-30 batch (owner 2026-10-30: cosmetic issues and what makes testing easier), from
-   design/plans/navigation-and-widgets-answers-2026-10-27.md:**
-   - Cosmetic: the session-ended notice as a modal; a title page's one "Identified incorrectly" entry
-     opening a modal (Rescan, Enter manually, Report this), Play first; season posters in place of the
-     season choice box, rare items under a "…" menu; a modal opened from a choice box swaps with it,
-     never stacks; the watched check over an episode's still; the Libraries icon as a menu; Watch
-     Together's invite pop-up closes on an outside click; the Fire TV's black blip at a start (the player
-     chooses its first rung); the local-network note only where the browser asks (not Silk).
-   - Testing: item 7 whole (D372 §9–§10: a signed-in guest's page has the banner, the guest stays a
-     member while elsewhere and catches up on return; a link guest returns by the same link); a debug
-     link throttle and connection drop (Show debug tools); the page says when DevTools bypass its
-     worker; the cast remote's sound controls and the receiver's quality/link on the sender; core and
-     discovery find each other whatever the restart order; pagehide gives up the lead.
-   - Process (owner 2026-10-30): D378 built (unticked VQs owed, not failures; web reds keyed by their
-     tests' modules); CI frees the runner's disk; files near 800 lines split; a security audit of every
-     pin (CVEs), bumps proposed to the owner.
-   - **Not this batch (owner):** the remembered link kept across deploys (a clean slate on deploy).
-   - End: one check-pr, the owner's go, nas.example.
+2. **Done:** the 10-27, 10-30 and 10-31 batches (nas.example runs an earlier commit; prod connect
+   connect-production-656e4c4-9a4d70b6). Owed by the owner: VQ85–88, 90, 91, 93, 96, 97, 102(2), 103, 115,
+   118, 120, 142, 194; VQ81's disk case; D368's loudness on stepping down. Deploy: `ssh prod-nas`, bundle
+   fetched as bundle/sandbox-main, `make deploy DIR=/srv/orpheum`.
+   **The 11-01 batch (owner 2026-10-31, "Let's do that", to the lead's proposal): fixes from the owner's
+   testing, so the beta feels solid.** From the plan file: the bypass note's `registration.update()`
+   (VQ194 again); security updates Parts A and B; noexec step 1; seamless audio track switching
+   (design to the owner first); the cast seek jump-back (file 5680) and the first-cast freeze (file
+   5671); B-frame re-timing by picture order at scan (design points to the owner first); Firefox's slow
+   recovery; the `live:` socket through the shown-again check; main-thread freezes logged on every
+   page; sign out confirms and lands on the discovery's sign-in; the Fire TV checkbox; a refused link
+   said before the join form; "Identified correctly"; invite links kept (7 days); D384 §3; the
+   specials-folder misreading. **Not this batch:** networking (LAN origin, WebRTC tuning, IPv4
+   reach), which is the batch after; inventory features; the decoder-limit codec drop; the
+   average-bitrate rung. End: one check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
