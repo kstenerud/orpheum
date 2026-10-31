@@ -24990,3 +24990,52 @@ need to type in"; "all of the TV virtual keyboards I've seen have '.' on the pri
 8. **Order:** the audit's §8: the relying-party setting, mail hygiene and the zones' hardening, then
    staging, then production's app and account, mail, the old loader's retirement, the redirects and
    the website, HSTS preload.
+
+## D391 — A discovery is a key, its names are locations: greenfield names, signed address documents and release records, an own discovery depending on nothing of the owner's
+
+**Decided** (2026-10-31), by the project owner, amending D390 §4–§8 and security-updates.md's record
+home, after the audit [domain-assumptions-audit-2026-10-31.md](../design/research/domain-assumptions-audit-2026-10-31.md).
+The owner: "I'm perfectly happy greenfielding this change of domains. Breakage is not an issue ...
+What I want is a well-designed system that works smoothly, and isn't making compromises just for
+backwards compatibility"; "When someone sets up their own discovery server, will they in any way be
+dependent upon any of my domains?"; "Can we make this such that I can change these names later
+(including the github hosted stuff) as a hedge against future problems (losing a domain, github
+changing terms, being retired, etc)?"; "I have 3 yubikeys that I'll use, and also my mac's passkey
+functionality for convenience."
+
+1. **Greenfield.** No redirects or kept links for the old names, no farewell update for the old
+   loader, no adoption without an admin: nas.example and staging connect again.
+2. **A discovery's identity is a key set; its names are locations.** The paid service's root is three
+   keys, one on each of the owner's YubiKeys (`ed25519-sk`, else `ecdsa-sk`, signing SSH signatures by
+   `ssh-keygen -Y sign`), none copyable. Any one root key authorises the service's online signing key
+   and signs a release record; two of the three change the root set or the addresses' fallbacks. The
+   Mac's passkey signs the owner in (account and operator panel at `orpheum.cc`); it anchors nothing.
+   An own discovery has its operator's own key set.
+3. **The address document.** A discovery serves `/.well-known/orpheum-discovery`, signed: its issuer
+   (the typed origin), core API, client API, loader origin, client-origin pattern, account origin,
+   homepage, support address, and fallback locations where the same signed document is also served.
+   A core is given an issuer once, by its admin with the admin's password, fetches the document,
+   refuses it unless the issuer matches exactly (RFC 8414 §3.3) and the signature chains to the root
+   set, pins the root set, and from then on accepts only the origins the document names. A newer
+   signed document from any listed location moves it; a name lost to someone else signs nothing.
+4. **A core's signatures bind to the issuer, not the API's URL**, so the API can move by a document.
+5. **The layout:** production `orpheum.cc` (issuer, app), `account.orpheum.cc`, `api.orpheum-app.com`
+   (off the brand site, for security alone), `orpheum-client.com`, `orpheum-core.com`; staging mirrors
+   it on `orpheum.dev`, `account.orpheum.dev`, `api.orpheum-app-test.com`, `orpheum-client-test.com`,
+   `orpheum-test.com`. The website is `orpheum.mov`. Mail from `noreply@orpheum.cc`.
+6. **Releases are signed records; their hosts are locations.** The release record (security-updates.md)
+   is signed by a root key and names each release's image digests and where the image may be pulled;
+   cores and installs check the digest against the signed record, so GitHub's registry, or any other,
+   is a mirror. The record is published with each release and served by every discovery; a standalone
+   core or an own discovery reads it from the record's published locations or a file its operator
+   places. Nothing reaches `orpheum-app.com` for it.
+7. **One source of truth.** Orpheum names exactly one default, the suggested issuer `https://orpheum.cc`
+   (and the root set's fingerprints that go with it), in one Go file served to the web client; an
+   architecture test fails any other mention of the owner's domains in shipped code. connect keeps one
+   names file per environment from which every flag, CORS and CSP entry, the RP ID (`orpheum.cc`),
+   page text, mail, HSTS (`includeSubDomains; preload`) and the tunnel's hostnames derive; a test
+   keeps staging's and production's names on different registrable domains
+   (`golang.org/x/net/publicsuffix`, the owner's yes to the recommendation).
+8. **An own discovery depends on nothing of the owner's**: its names, key set and record location are
+   its own; the only things of the owner's it may use are the software and, by choice, the record's
+   published locations.
