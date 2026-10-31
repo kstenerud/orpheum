@@ -25007,10 +25007,13 @@ functionality for convenience."
    loader, no adoption without an admin: nas.example and staging connect again.
 2. **A discovery's identity is a key set; its names are locations.** The paid service's root is three
    keys, one on each of the owner's YubiKeys (`ed25519-sk`, else `ecdsa-sk`, signing SSH signatures by
-   `ssh-keygen -Y sign`), none copyable. Any one root key authorises the service's online signing key
-   and signs a release record; two of the three change the root set or the addresses' fallbacks. The
-   Mac's passkey signs the owner in (account and operator panel at `orpheum.cc`); it anchors nothing.
-   An own discovery has its operator's own key set.
+   `ssh-keygen -Y sign`), none copyable. **Any one of the three signs anything**, the root set's own
+   change and a move of the addresses included: the others are spares against loss (one carried, one
+   at home, one in a bank), not a quorum (the owner: "I don't want it to require 2 keys ... Nobody's
+   going to know what the keys are for unless they've specifically targeted me both online and
+   offline, which is a pretty hefty threat model for a plex competitor"). The Mac's passkey signs the
+   owner in (account and operator panel at `orpheum.cc`); it anchors nothing. An own discovery has its
+   operator's own key set, of any size from one.
 3. **The address document.** A discovery serves `/.well-known/orpheum-discovery`, signed: its issuer
    (the typed origin), core API, client API, loader origin, client-origin pattern, account origin,
    homepage, support address, and fallback locations where the same signed document is also served.
