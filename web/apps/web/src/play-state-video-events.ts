@@ -12,6 +12,7 @@ import {
 } from "@orpheum/player";
 import { playerMovedItselfEvent, startGateOf, type components } from "@orpheum/sdk";
 
+import { seekAskedEvent, soughtByOf } from "./seek-ahead.ts";
 import { startGateFieldsOf, timeSeeks } from "./seek-timing.ts";
 import { soundOf } from "./startup-sound.ts";
 import type { PathMoves } from "./services.tsx";
@@ -145,6 +146,12 @@ function eventContexts(
   const onMovedItself = (event: Event): void => {
     skippedBy = skippedByOf(event);
   };
+  // What on the page asked the seek its next seeking makes (seek-ahead.ts): a step back of a cast's
+  // receiver no one meant said nothing of what asked it (staging, 2026-10-29, file 5680).
+  let soughtBy: string | undefined;
+  const onSeekAsked = (event: Event): void => {
+    soughtBy = soughtByOf(event);
+  };
   let playedOnFrom: { readonly startedAfter: StartedAfter; readonly atMs: number } | undefined;
   const heard = (startedAfter: StartedAfter) => (): void => {
     if (startedAfter !== "waiting" || playedOnFrom?.startedAfter !== "seeking") {
@@ -157,10 +164,14 @@ function eventContexts(
     seeking: heard("seeking"),
   };
   video.addEventListener(playerMovedItselfEvent, onMovedItself);
+  video.addEventListener(seekAskedEvent, onSeekAsked);
   for (const [event, listener] of Object.entries(before)) {
     video.addEventListener(event, listener);
   }
-  const now = (known: { readonly skippedBy?: SkippedBy | undefined }): PlayEventContext =>
+  const now = (known: {
+    readonly skippedBy?: SkippedBy | undefined;
+    readonly soughtBy?: string | undefined;
+  }): PlayEventContext =>
     eventContextOf(video, document, {
       isUserActive: "userActivation" in navigator ? navigator.userActivation.isActive : undefined,
       mediaSessionAction: lastSessionAction(),
@@ -169,8 +180,9 @@ function eventContexts(
   return {
     paused: () => now({}),
     seeked: () => {
-      const context = now({ skippedBy });
+      const context = now({ skippedBy, soughtBy });
       skippedBy = undefined;
+      soughtBy = undefined;
       return context;
     },
     started: () => {
@@ -188,6 +200,7 @@ function eventContexts(
     },
     stop: () => {
       video.removeEventListener(playerMovedItselfEvent, onMovedItself);
+      video.removeEventListener(seekAskedEvent, onSeekAsked);
       for (const [event, listener] of Object.entries(before)) {
         video.removeEventListener(event, listener);
       }

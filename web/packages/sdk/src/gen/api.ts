@@ -3062,6 +3062,8 @@ export interface components {
              * @enum {string}
              */
             skippedBy?: "hole" | "nudge";
+            /** @description What on the page asked a seek: its command and where it came from, as seekBack-media */
+            soughtBy?: string;
             /**
              * @description What a start played on from: its play, a wait for data, a seek
              * @enum {string}

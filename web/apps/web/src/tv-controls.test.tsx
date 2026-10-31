@@ -7,6 +7,7 @@ import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
+import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { clockText } from "./timeline.tsx";
@@ -85,6 +86,46 @@ describe("the overlay as drawn", () => {
       "Play",
       "Full screen",
     ]);
+  });
+
+  it("says a seek it makes for Left or Right was asked by that key, not by the seeking command it answers with", async () => {
+    // A Fire TV's receiver stepped back 10 s no one meant, and the log could not say what asked it
+    // (staging, 2026-10-29, file 5680): Right and the remote's fast-forward must read apart.
+    const videoRef = createRef<HTMLVideoElement>();
+    const video = document.createElement("video");
+    Object.defineProperty(video, "duration", { value: 600 });
+    video.currentTime = 100;
+    Reflect.set(videoRef, "current", video);
+    const asked: (string | undefined)[] = [];
+    video.addEventListener(seekAskedEvent, (event) => {
+      asked.push(soughtByOf(event));
+    });
+    mounted = await mount(
+      withServices(
+        <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />,
+      ),
+    );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const press = (command: string): void => {
+      act(() => {
+        document.body.dispatchEvent(
+          new CustomEvent(commandEventName, {
+            detail: { command, source: "key" },
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+    };
+    press("back"); // hidden, where Left seeks
+    press("left");
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft" }));
+      vi.advanceTimersByTime(seekRestMs);
+    });
+    vi.useRealTimers();
+    expect(asked).toEqual(["left-key"]);
+    expect(video.currentTime).toBe(90);
   });
 
   it("puts the stage full screen from its full-screen button's press, and leaves from it in full screen", async () => {

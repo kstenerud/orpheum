@@ -72,8 +72,8 @@ export function heldStepMs(heldForMs: number): number {
 
 /** What a SeekAhead seeks and tells. */
 export interface SeekAheadWays {
-  /** Makes the seek. */
-  readonly seek: (atMs: number) => void;
+  /** Makes the seek, asked by what askedBy says where known (askedByOf). */
+  readonly seek: (atMs: number, askedBy?: string) => void;
   /** Tells the place shown changed. */
   readonly changed: () => void;
   /** Where a held key's release is heard: the page's window. */
@@ -90,6 +90,8 @@ export class SeekAhead {
   readonly #ways: SeekAheadWays;
   /** The place shown: the aim, waiting or made and not yet landed. */
   #aimMs: number | undefined;
+  /** What asked the aim, as askedByOf says it; undefined where not told. */
+  #askedBy: string | undefined;
   /** When the seek to the aim was made; undefined while it waits for the presses to rest. */
   #madeAtMs: number | undefined;
   /** When the steps of this run of presses began. */
@@ -122,9 +124,13 @@ export class SeekAhead {
     return aimMs;
   }
 
-  /** Shows atMs and seeks there once no other aim has come for restMs; 0 seeks at once. */
-  aim(atMs: number, restMs: number): void {
+  /**
+   * Shows atMs and seeks there once no other aim has come for restMs; 0 seeks at once. askedBy is
+   * what asked it (askedByOf), told with the seek.
+   */
+  aim(atMs: number, restMs: number, askedBy?: string): void {
     this.#aimMs = atMs;
+    this.#askedBy = askedBy;
     this.#madeAtMs = undefined;
     clearTimeout(this.#timer);
     if (restMs <= 0) {
@@ -146,6 +152,7 @@ export class SeekAhead {
     direction: -1 | 1,
     film: { readonly atMs: number; readonly mostMs: number },
     isKey: boolean,
+    askedBy?: string,
   ): void {
     const { atMs: fromMs, mostMs } = film;
     const nowMs = this.#now();
@@ -158,7 +165,7 @@ export class SeekAhead {
     if (isKey) {
       this.#hearRelease();
     }
-    this.aim(toMs, this.#stopHearingKeys === undefined ? seekRestMs : heldKeyRestMs);
+    this.aim(toMs, this.#stopHearingKeys === undefined ? seekRestMs : heldKeyRestMs, askedBy);
   }
 
   /** Makes a waiting seek now: play or pause pressed while choosing. */
@@ -195,7 +202,7 @@ export class SeekAhead {
       return;
     }
     this.#madeAtMs = this.#now();
-    this.#ways.seek(aimMs);
+    this.#ways.seek(aimMs, this.#askedBy);
   }
 
   /** Waits for the held key's release, or the page losing the keys, to rest seekRestMs. */
@@ -227,6 +234,26 @@ export class SeekAhead {
   }
 }
 
+/**
+ * What asked a seek, for the core's log: the command and where it came from, as
+ * "<command>-<source>" (seekBack-media, right-key, timeline-bar), source "click" for a press with
+ * none. A cast's receiver on a Fire TV stepped back 10 s twice, a step no one meant, and the log
+ * could not say whether a key, a controller or the media session asked it (staging, 2026-10-29,
+ * file 5680).
+ */
+export function askedByOf(command: string, source: string | undefined): string {
+  return `${command}-${source ?? "click"}`;
+}
+
+/** The event a video is sent just before a seek asked of it (seekAheadOf), its detail askedByOf's. */
+export const seekAskedEvent = "orpheum-seek-asked";
+
+/** What asked a seek, from its seekAskedEvent; undefined for any other event. */
+export function soughtByOf(event: Event): string | undefined {
+  const detail: unknown = event instanceof CustomEvent ? event.detail : undefined;
+  return typeof detail === "string" && /^[A-Za-z]+-[a-z]+$/u.test(detail) ? detail : undefined;
+}
+
 /** The event a video is sent as the place its player shows changes (seekAheadOf). */
 export const seekAimedEvent = "orpheum-seek-aimed";
 
@@ -245,7 +272,10 @@ export function seekAheadOf(video: HTMLVideoElement): SeekAhead {
     return known;
   }
   const ahead = new SeekAhead({
-    seek: (atMs) => {
+    seek: (atMs, askedBy) => {
+      if (askedBy !== undefined) {
+        video.dispatchEvent(new CustomEvent(seekAskedEvent, { detail: askedBy }));
+      }
       seekTo(video, atMs);
     },
     changed: () => {
