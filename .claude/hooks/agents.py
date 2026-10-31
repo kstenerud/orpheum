@@ -116,6 +116,40 @@ def mark_stopped(agent_id: str, root: Path | None = None, now: float | None = No
     _record(agent_id, "stopped", root, now)
 
 
+def count_call(agent_id: str, root: Path | None = None, now: float | None = None) -> int:
+    """Records one more tool call of the agent, as an action, and returns how many it has made."""
+    if not is_agent_id(agent_id):
+        return 0
+    calls = int(state(agent_id, root).get("calls", 0)) + 1
+    _record(agent_id, "active", root, now)
+    path = _state_path(agent_id, root)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps({**state(agent_id, root), "calls": calls}), encoding="utf-8")
+    temporary.replace(path)
+    return calls
+
+
+# An agent that acted within this long and has not stopped since counts as running. A working agent
+# makes a call every few seconds; one silent for longer waits for something, or was never seen to stop.
+RUNNING_WITHIN_SECONDS = 15 * 60
+
+
+def running(root: Path | None = None, now: float | None = None) -> list[str]:
+    """The agents running now, by their records: acted within RUNNING_WITHIN_SECONDS, not stopped since."""
+    at = time.time() if now is None else now
+    try:
+        records = sorted(state_dir(root).glob("*.json"))
+    except (OSError, subprocess.SubprocessError):
+        return []
+    found = []
+    for record in records:
+        recorded = state(record.stem, root)
+        active = float(recorded.get("active", 0.0))
+        if at - active <= RUNNING_WITHIN_SECONDS and not has_stopped(record.stem, root):
+            found.append(record.stem)
+    return found
+
+
 def has_stopped(agent_id: str, root: Path | None = None) -> bool:
     """Whether the agent stopped after its last action: an agent never seen stopping has not."""
     recorded = state(agent_id, root)

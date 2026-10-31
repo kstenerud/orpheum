@@ -42,8 +42,12 @@ def main() -> None:
         # Nothing marked, but the tree is not the one make check last passed: a shell command wrote
         # it, or commits were picked in, which no edit hook sees. A commit runs only the spot check
         # (the owner, 2026-10-30), so a 62-line function written by a script went unlinted until an
-        # agent's gate found it (c9189b2a); the gate runs here instead.
-        target = "check"
+        # agent's gate found it (c9189b2a); the gate runs here instead. What runs is chosen by what changed
+        # since that pass, as for an edit's mark: documentation alone gets the documentation check (the
+        # owner, 2026-10-31: a docs commit ran the whole make check for five minutes).
+        import documentation_only  # noqa: PLC0415 — scripts/ is on the path once hooklib is imported
+
+        target = "check-documentation" if documentation_only.is_documentation_alone(changed_since_pass()) else "check"
     else:
         return
     if already_passed():
@@ -86,6 +90,13 @@ def already_passed() -> bool:
     done = subprocess.run([sys.executable, str(hooklib.ROOT / "scripts" / "check_stamp.py"), "matches"],
                           cwd=hooklib.ROOT, capture_output=True, check=False)
     return done.returncode == 0
+
+
+def changed_since_pass() -> list[str]:
+    """The paths the working tree changed since make check last passed; empty when it never did."""
+    done = subprocess.run([sys.executable, str(hooklib.ROOT / "scripts" / "check_stamp.py"), "changed"],
+                          cwd=hooklib.ROOT, capture_output=True, text=True, check=False)
+    return [line for line in done.stdout.splitlines() if line] if done.returncode == 0 else []
 
 
 def block(target: str, output: str) -> None:

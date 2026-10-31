@@ -176,6 +176,35 @@ class StandingOrdersAndDebts(unittest.TestCase):
         said = run_hook("on_prompt.py", {}, CLAUDE_PROJECT_DIR=str(project))
         self.assertIn("Finish the worktrees.", said["hookSpecificOutput"]["additionalContext"])
 
+    def test_a_session_sees_the_orders_again_only_when_they_change_or_a_compaction_dropped_them(self):
+        project = self.project()
+        (project / ".claude").mkdir()
+        orders = project / ".claude" / "standing-orders.md"
+        orders.write_text("1. Finish the worktrees.\n")
+        transcript = project / "transcript.jsonl"
+        def prompt(context: int) -> str:
+            transcript.write_text(json.dumps({"message": {"usage": {"cache_read_input_tokens": context}}}) + "\n")
+            said = run_hook("on_prompt.py", {"session_id": "s1", "transcript_path": str(transcript)},
+                            CLAUDE_PROJECT_DIR=str(project))
+            return said.get("hookSpecificOutput", {}).get("additionalContext", "")
+        self.assertIn("Finish the worktrees.", prompt(50_000))
+        self.assertNotIn("Finish the worktrees.", prompt(60_000))
+        orders.write_text("1. Finish the worktrees.\n2. Then the gate patch.\n")
+        self.assertIn("Then the gate patch.", prompt(70_000))
+        self.assertNotIn("Then the gate patch.", prompt(80_000))
+        self.assertIn("Then the gate patch.", prompt(30_000), "a compaction drops the orders shown before it")
+
+    def test_a_session_past_the_hand_off_size_is_told_to_hand_off(self):
+        project = self.project()
+        transcript = project / "transcript.jsonl"
+        transcript.write_text(json.dumps({"message": {"usage": {"input_tokens": 5, "cache_creation_input_tokens": 2000,
+                                                                 "cache_read_input_tokens": 130_000}}}) + "\n")
+        event = {"session_id": "s2", "transcript_path": str(transcript)}
+        said = run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project))
+        self.assertIn("132k tokens", said["hookSpecificOutput"]["additionalContext"])
+        self.assertEqual(run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project),
+                                  ORPHEUM_CONTEXT_WARN_TOKENS="200000"), {})
+
     def test_an_owed_full_check_pr_is_shown_at_a_sessions_start_until_paid(self):
         project = self.project()
         def debt(*args: str) -> None:
@@ -193,6 +222,60 @@ class StandingOrdersAndDebts(unittest.TestCase):
         self.assertIn("on_session_start.py", json.dumps(hooks["SessionStart"]))
         self.assertIn("on_prompt.py", json.dumps(hooks["UserPromptSubmit"]))
         self.assertIn("on_subagent_stop.py", json.dumps(hooks["SubagentStop"]))
+
+
+class AgentLimits(unittest.TestCase):
+    """The owner's usage rules applied at the launch and the call, not remembered (2026-10-31)."""
+
+    def records(self) -> Path:
+        directory = Path(tempfile.mkdtemp(prefix="hooks-agents-"))
+        self.addCleanup(__import__("shutil").rmtree, directory)
+        return directory
+
+    def launch(self, records: Path, **tool_input: str) -> str:
+        return decision(run_hook("pre_agent.py", {"tool_name": "Agent", "tool_input": {"prompt": "x", **tool_input}},
+                                 ORPHEUM_AGENTS_STATE_DIR=str(records)))
+
+    def test_a_launch_names_its_model_unless_it_is_a_fork(self):
+        records = self.records()
+        self.assertEqual(self.launch(records), "deny")
+        self.assertEqual(self.launch(records, model="sonnet"), "")
+        self.assertEqual(self.launch(records, subagent_type="fork"), "")
+
+    def test_a_fourth_agent_waits_for_one_of_three_running(self):
+        import time
+        records = self.records()
+        for agent in ("a1", "a2", "a3"):
+            (records / f"{agent}.json").write_text(json.dumps({"active": time.time()}))
+        self.assertEqual(self.launch(records, model="sonnet"), "deny")
+        (records / "a3.json").write_text(json.dumps({"active": time.time() - 5, "stopped": time.time()}))
+        self.assertEqual(self.launch(records, model="sonnet"), "")
+        (records / "a2.json").write_text(json.dumps({"active": time.time() - 3600}))
+        (records / "a4.json").write_text(json.dumps({"active": time.time()}))
+        self.assertEqual(self.launch(records, model="sonnet"), "", "an agent silent for an hour is not running")
+
+    def test_an_agent_past_its_briefs_size_is_told_to_report_and_stop(self):
+        records = self.records()
+        def call(agent: str = "a7") -> str:
+            said = run_hook("on_tool_done.py", {"agent_id": agent, "tool_name": "Read"},
+                            ORPHEUM_AGENTS_STATE_DIR=str(records))
+            return said.get("hookSpecificOutput", {}).get("additionalContext", "")
+        (records / "a7.json").write_text(json.dumps({"active": 1.0, "calls": 148}))
+        self.assertEqual(call(), "")
+        self.assertIn("tool call 150", call())
+        self.assertEqual(call(), "")
+        self.assertEqual(json.loads((records / "a7.json").read_text())["calls"], 151)
+        self.assertEqual(run_hook("on_tool_done.py", {"tool_name": "Read"}, ORPHEUM_AGENTS_STATE_DIR=str(records)),
+                         {}, "the session itself is not counted")
+        sys.path.insert(0, str(HOOKS))
+        import on_tool_done  # noqa: PLC0415
+        self.assertIsNotNone(on_tool_done.reminder(175))
+        self.assertIsNone(on_tool_done.reminder(176))
+
+    def test_the_settings_register_them(self):
+        hooks = json.dumps(json.loads((ROOT / ".claude" / "settings.json").read_text())["hooks"])
+        self.assertIn("pre_agent.py", hooks)
+        self.assertIn("on_tool_done.py", hooks)
 
 
 class SubagentStop(unittest.TestCase):
@@ -416,6 +499,7 @@ class StopWithoutMarks(unittest.TestCase):
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
                 mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop, "already_passed", lambda: passed["value"]), \
+                mock.patch.object(on_stop, "changed_since_pass", lambda: ["internal/core/x.go", "docs/x.md"]), \
                 mock.patch.object(on_stop, "gate_held", lambda: False), \
                 mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
@@ -424,6 +508,32 @@ class StopWithoutMarks(unittest.TestCase):
             passed["value"] = True
             on_stop.main()
         self.assertEqual(targets, ["check"], "a tree the gate passed is not gated again")
+
+    def test_a_tree_changed_only_in_documentation_behind_the_hooks_back_gets_the_documentation_check(self):
+        # A docs commit made by a shell command left no mark and ran the whole make check (the owner,
+        # 2026-10-31: "the checks done should be limited to the kind of change made").
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        targets = []
+
+        def command(target, env):
+            targets.append(target)
+            return ["true"]
+
+        with mock.patch.object(on_stop, "PENDING", Path(tempfile.mkdtemp())), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "changed_since_pass", lambda: ["docs/contributors/lead.md", "AGENTS.md"]), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            on_stop.main()
+        self.assertEqual(targets, ["check-documentation"])
 
 
 class StopDeferred(unittest.TestCase):

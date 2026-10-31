@@ -29,6 +29,10 @@ cache reads were 85% of the bill, agents 77% of it.
   Opus agents took the whole 5-hour quota and 20% of the week; 2026-10-31: fifteen took the week to
   91%).
 - **No polling loops**, for agents or for gates: wait for the notification.
+- **The hooks hold the limits, not memory:** the prompt hook warns past 120k of context, an agent launch
+  needs a model and a free slot of three, an agent past 150 calls is told to stop (`CLAUDE.md`, "On
+  cost"). At a batch's end, read `python3 scripts/token_usage.py --since <the batch's first day>` and put
+  its totals in the batch's report.
 
 ## 2. Agents
 
