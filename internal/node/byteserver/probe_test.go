@@ -44,7 +44,7 @@ func TestServeProbe_AnswersAReadableRootWithItsFacts(t *testing.T) {
 	directory := t.TempDir()
 	root := nodetest.OpenMediaRoot(t, directory)
 	gone := nodetest.OpenMediaRoot(t, t.TempDir())
-	handler := byteserver.New([]*confine.MediaRoot{root, gone}, nil).
+	handler := byteserver.New([]*confine.MediaRoot{root, gone}).
 		ProbingWith(func(probed *confine.MediaRoot, relative string) (confine.Facts, error) {
 			if probed == gone {
 				return confine.Facts{}, &fs.PathError{Op: "stat", Path: gone.Path(), Err: fs.ErrNotExist}
@@ -77,7 +77,7 @@ func TestServeProbe_AnswersAPlaceInsideARoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := nodetest.OpenMediaRoot(t, directory)
-	handler := byteserver.New([]*confine.MediaRoot{root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{root}).Handler()
 	info, err := os.Stat(filepath.Join(directory, "disk1"))
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce(t *testing.T) 
 	stuckAt := time.Date(2026, 10, 21, 19, 6, 32, 0, time.UTC)
 	gate := diskwatch.NewGate(clocktest.NewFake(stuckAt))
 	var measured atomic.Int32
-	handler := byteserver.New([]*confine.MediaRoot{root}, nil).WatchingOpens(gate, time.Minute).
+	handler := byteserver.New([]*confine.MediaRoot{root}).WatchingOpens(gate, time.Minute).
 		ProbingWith(func(root *confine.MediaRoot, relative string) (confine.Facts, error) {
 			measured.Add(1)
 			return root.FactsOf(relative)
@@ -130,7 +130,7 @@ func TestServeProbe_AsksWhileAProbeRunsShareIt(t *testing.T) {
 	root := nodetest.OpenMediaRoot(t, t.TempDir())
 	release := make(chan struct{})
 	var measured atomic.Int32
-	server := byteserver.New([]*confine.MediaRoot{root}, nil).
+	server := byteserver.New([]*confine.MediaRoot{root}).
 		ProbingWith(func(root *confine.MediaRoot, relative string) (confine.Facts, error) {
 			measured.Add(1)
 			select { // the share's host is gone, then back

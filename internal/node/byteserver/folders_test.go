@@ -50,7 +50,7 @@ func TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside(t
 		t.Fatal(err)
 	}
 	root := nodetest.OpenMediaRoot(t, directory)
-	handler := byteserver.New([]*confine.MediaRoot{root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{root}).Handler()
 	if code, answer := folders(t, handler, root.Path()); code != http.StatusOK ||
 		answer.State != nodeproto.ProbeReadable || !slices.Equal(answer.Folders, []string{"films", "shows"}) {
 		t.Errorf("the root's folders: %d, %+v; want films and shows", code, answer)
@@ -80,7 +80,7 @@ func TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt(
 	t.Parallel()
 	movie := newFilm(t, "video/movies/Arkon (1979)/Arkon (1979).mkv")
 	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)))
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).WatchingOpens(gate, time.Minute).Handler()
 	folder := movie.root.Path() + "/video/movies"
 	named := func(path string) string {
 		return nodeproto.BytesFile{RootPath: folder, Path: []byte(path), PayloadHash: movie.payloadHash}.Target()
@@ -117,7 +117,7 @@ func TestServeFolders_AShareThatHasGoneIsNotAnsweringWithinTheWindow(t *testing.
 	var listed atomic.Int32
 	hold := make(chan struct{})
 	t.Cleanup(func() { close(hold) })
-	handler := byteserver.New([]*confine.MediaRoot{root}, nil).WatchingOpens(gate, 30*time.Second).
+	handler := byteserver.New([]*confine.MediaRoot{root}).WatchingOpens(gate, 30*time.Second).
 		ListingFoldersWith(func(*confine.MediaRoot, string) ([]string, error) {
 			listed.Add(1)
 			select { // the share's host is gone

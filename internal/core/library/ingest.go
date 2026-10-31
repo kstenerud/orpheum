@@ -106,9 +106,11 @@ type scanState struct {
 }
 
 // correctionTotals are a scan's probes read again and compared with those kept, those that differed,
-// and the derived things they threw out.
+// and the derived things they threw out; and the files of its videos' stores of chunks its node
+// checked against their records, and those it dropped, missing, damaged or unrecorded (D392 §4).
 type correctionTotals struct {
 	comparedCount, correctedCount, droppedCount int
+	chunksCheckedCount, chunksDroppedCount      int
 }
 
 // noteProbeReadAgain counts a probe compared with the one kept, and whether it differed.
@@ -271,14 +273,21 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Sca
 			return batch.recordSidecar(ctx, scan, record.Sidecar)
 		}
 	case nodeproto.RecordMount:
-		if scan := batch.scanInProgress(); scan != nil {
-			mountPath := resolveReportedPath(scan.root, record.Mount.Path).text
-			scan.mounts[mountPath] = record.Mount.FilesystemDevice
-		}
+		batch.recordMount(record.Mount)
+	case nodeproto.RecordChunksChecked:
+		batch.ingester.noteChunksChecked(ctx, batch.ingester.scans[batch.key], record.ChunksChecked)
 	case nodeproto.RecordListed:
 		// A listing is compared, not ingested (TakeListing).
 	}
 	return nil
+}
+
+// recordMount notes a mount boundary the batch's scan in progress crossed, with its device.
+func (batch *ingestBatch) recordMount(mount *nodeproto.Mount) {
+	if scan := batch.scanInProgress(); scan != nil {
+		mountPath := resolveReportedPath(scan.root, mount.Path).text
+		scan.mounts[mountPath] = mount.FilesystemDevice
+	}
 }
 
 // scanInProgress is the batch's scan in progress, or nil for a record outside one or under a root no

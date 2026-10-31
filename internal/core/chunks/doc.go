@@ -142,6 +142,12 @@
 //     TestEnsure_AFilmWithNoGridYetIsSaidSo; through the API by
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).
 //
+//   - A chunk known made that its node answers it does not have, dropped as missing or damaged against
+//     its record (D392 §4) or evicted, is made again as one never made, a run of it alone between made
+//     ones; an init so answered with the chunk it is asked from; one a run on its way has made since is
+//     asked for again, never made twice. Enforced by
+//     TestWant_AChunkKnownMadeThatItsNodeDroppedIsMadeAgain.
+//
 //   - A chunk the node served, whose next is known made or on its way, looks the same minute ahead,
 //     so a run made faster than played has the next on its way before the player reaches it; after a
 //     restart nothing past a served chunk is known, and nothing is queued over it. Enforced by

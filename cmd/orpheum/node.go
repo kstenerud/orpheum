@@ -380,10 +380,10 @@ func serveBytes(
 	if err != nil {
 		return nil, "", err
 	}
-	server := byteserver.New(roots, directory.root).ServingResults(shares.heldResults).
+	server := byteserver.New(roots).ServingResults(shares.heldResults).
 		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes).LoggingTo(logger, clock.System{})
 	if directory.shelf != nil {
-		server.OnStoreServed(directory.shelf.MarkServed)
+		server.ServingStores(directory.shelf).OnStoreServed(directory.shelf.MarkServed)
 	}
 	handler, err := keepSocketKey(ctx, listener.Addr().String(), server.Handler(), logger)
 	if err != nil {

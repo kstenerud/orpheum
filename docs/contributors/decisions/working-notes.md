@@ -25079,11 +25079,11 @@ data, and mostly be about double-checking and correcting."
 - 1: TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain (internal/core/api), web/apps/web/src/rescan.test.tsx (the buttons)
 - 2: TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle, TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter, TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot (internal/core/library), TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages (internal/core/identify)
 - 3: TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch, TestDerivedFromProbe_EachThingDeclaresItsFactsAndOneWayToThrowItOut, TestFactsKey_ChangesWithTheFactsAStreamsChunksAreMadeFromAlone (internal/core/library), TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut (internal/core/assembly), TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores, TestForgetStores_ThrowsOutTheStoresOfTheChangedStreamAlone (internal/core/chunks), TestForget_ThrowsOutOneTracksLoudnessAndOnePicturesTimeline (internal/core/readthrough), TestForgetText_ThrowsOutOneTracksText (internal/core/subtitles), TestRetireFrameStills_RetiresOnlyTheFilesFrameStills (internal/core/artwork)
-- 4: TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle (NFOs read again), TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages (images asked for again, the scope matched again)
+- 4: TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle (NFOs read again), TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages (images asked for again, the scope matched again); made chunks checked: TestPutFile_PutsEachFileWithItsRecordAndItIsOpenedOnceItMatches, TestOpenChecked_DropsAChunkMissingOrDamagedAgainstItsRecord, TestOpenChecked_DropsAStoreMadeBeforeItsFilesWereRecordedAtItsFirstUse, TestCheckStoresOf_ChecksEveryFileOfAFilesStoresAndDropsTheMissingAndDamaged (internal/node/prepared), TestServeStoreFile_ServesNoChunkThatIsNotWhatItsRecordSays (internal/node/byteserver), TestAgent_AnExaminingChecksTheChunksOfTheVideosAFullRescanNames (internal/node/agent), TestScans_AFullRescanHasItsNodeCheckTheChunksOfEachVideoItReadsAgain (internal/core/library), TestWant_AChunkKnownMadeThatItsNodeDroppedIsMadeAgain (internal/core/chunks)
 - 5: TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch (each correction and the totals logged), TestScans_ASecondFullScanOfAnUnchangedLibraryChangesNothing
 - 6: TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages, TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain (a second press adds nothing)
 
-**Verification owed:** VQ215 (file 5667 marked for re-timing, its old chunks thrown out, and played).
+**Verification owed:** VQ215 (file 5667 marked for re-timing, its old chunks thrown out, and played), VQ230 (a chunk damaged by hand dropped and made again).
 
 **Status:** Decided 2026-10-31.
 
@@ -25115,11 +25115,27 @@ Decided in the build, for the owner's review:
   refused: a full rescan marks those owed again (as a refresh asking for its images does), and the
   pass its end owes queues them. An image whose files are gone from the art cache is served's own
   concern and not looked for.
-- **Open: made chunks are not checked against their files.** The core keeps no record of a chunk's
-  size or hash (what is made is known in memory, from the node's word), and the node's store manifest
-  names its store, not its chunks. A chunk missing on the node is already made again when a player
-  asks for it; a damaged one is not found. A check needs the node to record each chunk's size and
-  hash as it puts it and to verify them when asked: the owner's question.
+- **Made chunks are checked against their files** (built 2026-10-31 at the owner's word: "do the
+  damaged chunk spotting this batch. I want it fully functional when we deploy"; VQ230). The node
+  writes beside each file of a store, its init and every chunk, a record of its size and CRC-32C
+  (`<name>.sum`, "size=<bytes> crc32c=<8 hex>"), after the file and under the store's lock, which a
+  check takes too; the store's manifest names the records' version (`chunkRecords`). One record per
+  file rather than one per store: a store's file rewritten at each chunk would cost the square of its
+  length. CRC-32C rather than SHA-256: the guard is against accident, a disk's or a person's, which
+  nothing able to write a chunk could not also write the record of; in hardware it checks a 4 MiB
+  chunk in about 1.5–2 ms, open, stat and every byte read included, measured on a loaded machine. Every
+  chunk served is checked first, its size from the filesystem and every byte, before a byte is sent;
+  one missing, damaged or without its record is dropped, logged at warn (file id, stream, chunk, what
+  differed), and the byte socket answers it not made, so the core, which knew it made, forgets that
+  and has it made again (`chunks.Service.Want`): a run of it alone. A store whose manifest names no
+  records, made before this deploy, is dropped whole at its first use. A full rescan's examining names
+  each stored video it reads again (`ExamineFile.checksChunksOf`, node protocol 56), and its node checks
+  every file of that file's stores the same way and says what it checked and dropped in a
+  `chunks_checked` record, which the scan counts in its totals (`chunksCheckedCount`,
+  `chunksDroppedCount`) and logs at warn per file; an ordinary scan checks nothing. Code:
+  `internal/node/prepared/records.go`, `internal/node/byteserver/byteserver.go`,
+  `internal/node/agent/listing.go`, `internal/core/library/compare.go` and `derived.go`,
+  `internal/core/chunks/files.go`.
 
 ## D393 — The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats
 

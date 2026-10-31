@@ -150,7 +150,7 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 		listing.taken.Complete = *record.ScanComplete
 		return nil
 	case nodeproto.RecordObserved, nodeproto.RecordSidecar, nodeproto.RecordSkip, nodeproto.RecordError,
-		nodeproto.RecordMount:
+		nodeproto.RecordMount, nodeproto.RecordChunksChecked:
 	}
 	if err := listing.markSeen(ctx); err != nil {
 		return err
@@ -215,7 +215,11 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 	if !isStored && kind == nodeproto.ExamineVideo {
 		listing.newVideos = append(listing.newVideos, listedVideo{listed: listed, located: located, scan: scan})
 	}
-	listing.taken.ToExamine = append(listing.taken.ToExamine, nodeproto.ExamineFile{Path: listed.Path, Kind: kind})
+	examine := nodeproto.ExamineFile{Path: listed.Path, Kind: kind}
+	if isStored && kind == nodeproto.ExamineVideo && listing.readAgain.covers(relative) {
+		examine.ChecksChunksOf = stored.ID // its stores of chunks checked too (D392 §4)
+	}
+	listing.taken.ToExamine = append(listing.taken.ToExamine, examine)
 	return nil
 }
 

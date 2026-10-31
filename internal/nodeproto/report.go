@@ -15,6 +15,9 @@ const (
 	RecordScanComplete RecordType = "scan_complete"
 	RecordMount        RecordType = "mount"
 	RecordSidecar      RecordType = "sidecar"
+	// RecordChunksChecked is what an examining found checking a file's stores of chunks against their
+	// records, for a full rescan (D392 §4).
+	RecordChunksChecked RecordType = "chunks_checked"
 )
 
 // SidecarKind is what a sidecar file is for.

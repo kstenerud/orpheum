@@ -5,6 +5,7 @@ package byteserver_test
 import (
 	"encoding/hex"
 	"io/fs"
+	"log/slog"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
@@ -83,7 +85,7 @@ func request(t *testing.T, handler http.Handler, method, target string, header h
 func TestServeFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "Films/Film (1999)/Film (1999).mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	whole := movie.get(t, handler, movie.payloadHash, nil)
 	if whole.Code != http.StatusOK || whole.Body.String() != string(movie.contents) {
 		t.Fatalf("GET = %d with %d bytes, want 200 with the file's %d",
@@ -107,7 +109,7 @@ func TestServeFile_RemembersHashesInTheOnesItShares(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	shared := namedfile.NewHashes()
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).SharingHashes(shared).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).SharingHashes(shared).Handler()
 	for range 3 {
 		if got := movie.get(t, handler, movie.payloadHash, nil); got.Code != http.StatusOK {
 			t.Fatalf("GET = %d; want 200", got.Code)
@@ -121,7 +123,7 @@ func TestServeFile_RemembersHashesInTheOnesItShares(t *testing.T) {
 func TestServeFile_HonoursRangeAndIfRange(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	ranged := movie.get(t, handler, movie.payloadHash, http.Header{"Range": {"bytes=10-19"}})
 	if ranged.Code != http.StatusPartialContent || ranged.Body.String() != string(movie.contents[10:20]) {
 		t.Errorf("Range bytes=10-19 = %d %q, want 206 %q", ranged.Code, ranged.Body.String(), movie.contents[10:20])
@@ -136,7 +138,7 @@ func TestServeFile_HonoursRangeAndIfRange(t *testing.T) {
 func TestServeFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	if got := movie.get(t, handler, movie.payloadHash, nil); got.Code != http.StatusOK {
 		t.Fatalf("the first GET = %d, want 200", got.Code)
 	}
@@ -165,7 +167,7 @@ func TestServeFile_NamesNothingOutsideARoot(t *testing.T) {
 	if err := os.WriteFile(outside, movie.contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	cases := map[string]string{
 		"a path out of the root": movie.target("../secret.mkv", movie.payloadHash),
 		"an absolute path":       movie.target(outside, movie.payloadHash),
@@ -196,7 +198,7 @@ func TestServeFile_NamesNothingOutsideARoot(t *testing.T) {
 func TestServeFile_OnlyReads(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
 		got := request(t, handler, method, movie.target(movie.path, movie.payloadHash), nil)
 		if got.Code != http.StatusMethodNotAllowed {
@@ -209,27 +211,39 @@ func TestServeFile_ServesANameThatIsNotUTF8(t *testing.T) {
 	t.Parallel()
 	name := "caf\xe9.mkv" // Latin-1, as an old disk wrote it (D49)
 	movie := newFilm(t, name)
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
 	got := request(t, handler, http.MethodGet, movie.target(name, movie.payloadHash), nil)
 	if got.Code != http.StatusOK {
 		t.Errorf("GET a Latin-1 name = %d, want 200", got.Code)
 	}
 }
 
-// preparedRoot is a prepared directory with a store's init, a chunk, its manifest and a raw file, and
-// what a whole-film prepare left (D344).
-func preparedRoot(t *testing.T) *confine.MediaRoot {
+// storeDir is the store the tests' prepared directory holds.
+const storeDir = "7/chunks-q1200k480p/0123456789abcdef"
+
+// preparedStores is a prepared directory's shelf with a store's init and chunk 12 put in it, each with
+// its record, a raw file of a run, and what a whole-film prepare left (D344); and the directory.
+func preparedStores(t *testing.T) (*prepared.Shelf, string) {
 	t.Helper()
 	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}
+	rawPath, err := shelf.OpenStore(t.Context(), nodeproto.StoreManifest{StoreDir: storeDir, Stream: quality})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, contents := range map[string]string{"init.mp4": "init", "00012.m4s": "the twelfth chunk"} {
+		if err := shelf.PutFile(storeDir, name, []byte(contents)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for name, contents := range map[string]string{
 		"7/remux/0123456789abcdef/master.m3u8":                 "#EXTM3U\n",
 		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s":   "segment",
 		"7/remux/0123456789abcdef/video/init_0.mp4":            "init",
 		"7/remux/0123456789abcdef/notes.txt":                   "not a rendition's",
-		"7/chunks-q1200k480p/0123456789abcdef/init.mp4":        "init",
-		"7/chunks-q1200k480p/0123456789abcdef/00012.m4s":       "chunk",
-		"7/chunks-q1200k480p/0123456789abcdef/store.json":      "the store's manifest",
-		"7/chunks-q1200k480p/0123456789abcdef/raw-1/00013.mp4": "a raw file",
+		storeDir + "/" + filepath.Base(rawPath) + "/00013.mp4": "a raw file",
 	} {
 		full := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
@@ -239,8 +253,7 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 			t.Fatal(err)
 		}
 	}
-	prepared := nodetest.OpenMediaRoot(t, directory)
-	return prepared
+	return shelf, directory
 }
 
 // A store's init and chunks are served, and counted a use of the store; its manifest, its raw files,
@@ -248,7 +261,8 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 	t.Parallel()
 	var served []string
-	handler := byteserver.New(nil, preparedRoot(t)).OnStoreServed(func(dir string) {
+	shelf, _ := preparedStores(t)
+	handler := byteserver.New(nil).ServingStores(shelf).OnStoreServed(func(dir string) {
 		served = append(served, dir)
 	}).Handler()
 	const store = nodeproto.PathBytesChunks + "7/chunks-q1200k480p/0123456789abcdef/"
@@ -259,14 +273,13 @@ func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 		}
 	}
 	for _, name := range []string{
-		store + "store.json", store + "raw-1/00013.mp4", store + "00013.m4s",
+		store + "store.json", store + "00012.m4s.sum", store + "raw-1/00013.mp4", store + "00013.m4s",
 		nodeproto.PathBytesChunks + "7/remux/0123456789abcdef/master.m3u8",
 	} {
 		if got := request(t, handler, http.MethodGet, name, nil); got.Code != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", name, got.Code)
 		}
 	}
-	const storeDir = "7/chunks-q1200k480p/0123456789abcdef"
 	if want := []string{storeDir, storeDir}; !slices.Equal(served, want) {
 		t.Errorf("served %v, want the store twice, for its init and its chunk", served)
 	}
@@ -278,9 +291,43 @@ func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 			t.Errorf("%s was served", name)
 		}
 	}
-	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet, store+"00012.m4s", nil); got.Code !=
+	if got := request(t, byteserver.New(nil).Handler(), http.MethodGet, store+"00012.m4s", nil); got.Code !=
 		http.StatusNotFound {
 		t.Errorf("a node with no prepared directory: %d, want 404", got.Code)
+	}
+}
+
+// A chunk is served only once its size and every byte are what its record says: one truncated, with
+// a byte flipped or with its record unreadable is a 404, as one not made yet, which the core makes
+// again, and not one of its bytes is sent; it is dropped, so a chunk made again is served (D392 §4).
+func TestServeStoreFile_ServesNoChunkThatIsNotWhatItsRecordSays(t *testing.T) {
+	t.Parallel()
+	chunk := nodeproto.PathBytesChunks + storeDir + "/00012.m4s"
+	for name, damage := range map[string]struct{ file, contents string }{
+		"truncated":                  {"00012.m4s", "the"},
+		"a byte flipped":             {"00012.m4s", "the twelfth chunK"},
+		"with its record unreadable": {"00012.m4s.sum", "not a record"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			shelf, directory := preparedStores(t)
+			handler := byteserver.New(nil).ServingStores(shelf).Handler()
+			path := filepath.Join(directory, filepath.FromSlash(storeDir), damage.file)
+			if err := os.WriteFile(path, []byte(damage.contents), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got := request(t, handler, http.MethodGet, chunk, nil)
+			if got.Code != http.StatusNotFound || strings.Contains(got.Body.String(), "twelfth") {
+				t.Errorf("a chunk %s: %d %q; want a 404 and none of its bytes", name, got.Code, got.Body.String())
+			}
+			if err := shelf.PutFile(storeDir, "00012.m4s", []byte("made again")); err != nil {
+				t.Fatal(err)
+			}
+			if got := request(t, handler, http.MethodGet, chunk, nil); got.Code != http.StatusOK ||
+				got.Body.String() != "made again" {
+				t.Errorf("a chunk made again: %d %q; want it served", got.Code, got.Body.String())
+			}
+		})
 	}
 }
 
@@ -297,7 +344,7 @@ func (held heldResults) Result(token string) ([]byte, bool) {
 func TestServeResult_ServesAHeldResultByItsTokenAndNothingElse(t *testing.T) {
 	t.Parallel()
 	held := heldResults{"a5": []byte(`{"jobId":5}`)}
-	handler := byteserver.New(nil, nil).ServingResults(held).Handler()
+	handler := byteserver.New(nil).ServingResults(held).Handler()
 	served := request(t, handler, http.MethodGet, nodeproto.PathBytesResult+"a5", nil)
 	if served.Code != http.StatusOK || served.Body.String() != `{"jobId":5}` ||
 		served.Header().Get("Content-Type") != "application/json" {
@@ -307,7 +354,7 @@ func TestServeResult_ServesAHeldResultByItsTokenAndNothingElse(t *testing.T) {
 		http.StatusNotFound {
 		t.Errorf("a token held nothing for: %d, want 404", unknown.Code)
 	}
-	servingNone := byteserver.New(nil, nil).Handler()
+	servingNone := byteserver.New(nil).Handler()
 	if none := request(t, servingNone, http.MethodGet, nodeproto.PathBytesResult+"a5", nil); none.Code !=
 		http.StatusNotFound {
 		t.Errorf("a server serving no results: %d, want 404", none.Code)
@@ -321,7 +368,7 @@ func TestServeFile_AFileOnARootWhoseDiskDoesNotAnswerIs504NamingTheRoot(t *testi
 	t.Parallel()
 	movie := newFilm(t, "Film (1999).mkv")
 	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)))
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).WatchingOpens(gate, time.Minute).Handler()
 	if served := movie.get(t, handler, movie.payloadHash, nil); served.Code != http.StatusOK {
 		t.Fatalf("GET through an open gate = %d, want 200", served.Code)
 	}
@@ -344,7 +391,7 @@ func TestServeFile_AFileItsDiskFailsIs504NamingTheRoot(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "Film (1999).mkv")
 	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)))
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}).WatchingOpens(gate, time.Minute).
 		OpeningWith(func(map[string]*confine.MediaRoot, nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
 			return nil, nil, &fs.PathError{Op: "open", Path: movie.path, Err: syscall.EIO}
 		}).Handler()

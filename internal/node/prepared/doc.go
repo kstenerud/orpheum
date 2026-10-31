@@ -14,8 +14,10 @@
 //   - Nothing but this package and the planned trash writer (internal/node/trash, not yet
 //     written) deletes on the node. Enforced by the forbidigo rules tagged [delete].
 //   - It deletes only whole run directories under its own directory, three levels down
-//     (<file_id>/<kind>/<id>), and the empty folders they leave. Enforced by
-//     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
+//     (<file_id>/<kind>/<id>), and the empty folders they leave; and, inside a store, a file and its
+//     record found not to agree (records.go), with a run's raw files. Enforced by
+//     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten and
+//     TestOpenChecked_DropsAChunkMissingOrDamagedAgainstItsRecord.
 //   - A run within its kept time is evicted only when the budget or the disk still needs it, after
 //     every run past its kept time; one being written, never.
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
@@ -34,6 +36,26 @@
 //     restart (D238 §2); a chunk is put in it whole, and a run's raw files are discarded only inside
 //     its own raw directory. TestStore_IsMadeWithItsManifestAndTakesAChunkWhole,
 //     TestStore_DiscardsOnlyItsRunsRawFiles.
+//   - Each file a store holds but its manifest, its init and every chunk, has its record beside it,
+//     <name>.sum, "size=<bytes> crc32c=<8 hex>": written as the file is put, after it, the store's lock
+//     held across both, and a check takes the same lock to read the record and open the file, so it
+//     never sees the one without the other. The manifest names the records' version (ChunkRecords).
+//     CRC-32C, not SHA-256: it guards against accident, a disk's or a person's, not an adversary, who
+//     could write the record too; computed in hardware, a 4 MiB chunk's check costs about 1.5–2 ms
+//     (BenchmarkOpenChecked_AFourMiBChunk) (D392 §4).
+//     TestPutFile_PutsEachFileWithItsRecordAndItIsOpenedOnceItMatches.
+//   - A store's file is opened to be served only once its size, from the filesystem, and its CRC-32C,
+//     over every byte, are its record's (OpenChecked). One truncated, with a byte changed, whose file is
+//     missing or without its record is dropped, file and record, logged at warn with its file id,
+//     stream, chunk and what differed, and is as one never made: the byte socket answers 404, and the
+//     core has it made again (D392 §4). TestOpenChecked_DropsAChunkMissingOrDamagedAgainstItsRecord.
+//   - A store made before its files were recorded, its manifest naming no records' version, cannot be
+//     checked: it is dropped whole at its first use, a chunk asked for or a run opening it, never while
+//     a run writes it (D392 §4). TestOpenChecked_DropsAStoreMadeBeforeItsFilesWereRecordedAtItsFirstUse.
+//   - A full rescan's check of a file's stores (CheckStoresOf) checks every init and chunk of each as a
+//     serve does, drops what a serve would, and says how many it checked and each it dropped; no other
+//     file's store is touched (D392 §4).
+//     TestCheckStoresOf_ChecksEveryFileOfAFilesStoresAndDropsTheMissingAndDamaged.
 //   - At each hello the node evicts every run directory that is not a store with its manifest, a
 //     making that never finished or what a whole-film prepare left, whatever its kept time; never
 //     one being written (the owner, 2026-10-02; D344 §1).
@@ -50,6 +72,8 @@
 //
 //   - D217 §5: a node owns its prepared directory, its budget, kept time and disk limit.
 //   - D344: the whole-film prepare is retired; the directory holds stores of chunks.
+//   - D392 §4: what is kept is checked against what is there; made chunks missing or damaged are
+//     dropped.
 //   - principles §2: the user's files are not ours to touch; these are ours.
 //
 // # Where to change
@@ -57,5 +81,6 @@
 //   - shelf.go: the budget, last use, eviction and room.
 //   - unfinished.go: the hello's eviction of what never finished.
 //   - stores.go: the stores of chunks, their files and their runs' raw files.
+//   - records.go: each file's record, and its check before it is served and when a full rescan asks.
 //   - sizes.go: the runs' sizes, as the shelf knows them without walking them again.
 package prepared

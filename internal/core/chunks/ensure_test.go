@@ -266,6 +266,46 @@ func TestWant_AStoresInitStartsAndCutsNothingWhileARunOfItIsOnItsWay(t *testing.
 	}
 }
 
+// A chunk the core knows made that its node answers it does not have, dropped as missing or damaged
+// against its record, is made again as one never made: a run of it alone, between the made ones; an
+// init so dropped with the chunk it is asked from. One a run on its way has made since is asked for
+// again, never made twice (D392 §4).
+func TestWant_AChunkKnownMadeThatItsNodeDroppedIsMadeAgain(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	ensured(t, service, picture, 3)
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
+	service.runs.madeThrough(dir, 3, 20)
+	chunk := func(n int) StoreFile {
+		return StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, chunk: n, runFrom: n}
+	}
+	if err := service.Want(t.Context(), chunk(10)); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 1 {
+		t.Fatalf("the runs asked for = %+v; want none more while the run that made chunk 10 is on its way", runs)
+	}
+	service.runs.forget(dir, 3) // the run ended
+	if err := service.Want(t.Context(), chunk(10)); err != nil {
+		t.Fatal(err)
+	}
+	runs := queue.runs(t, service)
+	if len(runs) != 2 || runs[1].firstChunk != 10 || runs[1].lastChunk != 10 {
+		t.Fatalf("the runs asked for = %+v; want a second, chunk 10 alone, the node having dropped it", runs)
+	}
+	service.runs.forget(dir, 10)
+	service.runs.madeThrough(dir, 10, 10)
+	initFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 15}
+	if err := service.Want(t.Context(), initFile); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 3 || runs[2].firstChunk != 15 || runs[2].lastChunk != 15 {
+		t.Errorf("the runs asked for = %+v; want a third, chunk 15 alone, which makes the dropped init", runs)
+	}
+}
+
 // A picture's init asked for after a jump says nothing of where the player is, and moves no sound: it
 // stands where the playback last reported, the film's start for a player that jumped before its
 // report, and started the sound from there, cutting the run the jump needed, every two seconds, while

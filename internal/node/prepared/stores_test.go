@@ -22,7 +22,7 @@ func openTestStore(t *testing.T) (*Shelf, string, nodeproto.StoreManifest) {
 		StoreDir: testStore,
 		Stream:   nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480},
 	}
-	rawPath, err := shelf.OpenStore(manifest)
+	rawPath, err := shelf.OpenStore(t.Context(), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestStore_IsMadeWithItsManifestAndTakesAChunkWhole(t *testing.T) {
 	if kept, found := shelf.readStoreManifest(testStore); !found || kept.Stream != manifest.Stream {
 		t.Errorf("the store's manifest is %+v, %v; want the one it was opened with", kept, found)
 	}
-	other, err := shelf.OpenStore(manifest)
+	other, err := shelf.OpenStore(t.Context(), manifest)
 	if err != nil || other == rawPath {
 		t.Errorf("a second run's raw directory is %q, %v; want one of its own", other, err)
 	}

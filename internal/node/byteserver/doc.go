@@ -11,7 +11,8 @@
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx, the forbidigo rules tagged [exec] and [execve], and
 //     TestArch_OnlyExecxImportsOsExec.
-//   - Removes, renames and truncates nothing. Enforced by the forbidigo rule tagged [delete].
+//   - Removes, renames and truncates nothing itself: a chunk found damaged is dropped by the prepared
+//     shelf it asks (prepared.Shelf.OpenChecked). Enforced by the forbidigo rule tagged [delete].
 //   - Opens media only through the read-only confine.MediaRoot. Enforced by the forbidigo rule
 //     tagged [media-root].
 //   - A file's bytes are served only while its payload hash is the one the request names; a file
@@ -23,7 +24,12 @@
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
 //   - A store's init and chunks are served only by a name of a store's shape, never its manifest or
-//     a run's raw files (D247 §10). Enforced by TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse.
+//     a run's raw files or a file's record (D247 §10). Enforced by
+//     TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse.
+//   - A store's file is served only once the prepared shelf has checked its size and every byte
+//     against its record, before any byte is sent; one that is not what its record says is dropped by
+//     the shelf and answered 404, as one not made yet, which the core has made again (D392 §4).
+//     TestServeStoreFile_ServesNoChunkThatIsNotWhatItsRecordSays.
 //   - A result the node holds, too large to post, is served whole by its attempt's token, and
 //     nothing for a token it does not hold (D234 §5).
 //     TestServeResult_ServesAHeldResultByItsTokenAndNothingElse.

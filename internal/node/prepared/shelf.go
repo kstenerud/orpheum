@@ -77,6 +77,9 @@ type Shelf struct {
 	// storeTiers are how strongly the core's players want each chunk store kept, by its directory
 	// (D309 §8); nil until the core first said, when the stores are evicted as the runs are.
 	storeTiers map[string]nodeproto.KeepTier // guarded by mutex
+	// locks are the stores' locks: a file's put and its check against its record hold its store's
+	// (storeLock, D392 §4).
+	locks storeLocks
 }
 
 // SetStoreTiers keeps how strongly the core's players want each chunk store kept, by its directory,

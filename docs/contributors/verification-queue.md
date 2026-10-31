@@ -2060,3 +2060,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   "a playback started playing" `firstDataAfterMs` is no worse than a cast's after a plain reload. Repeat once leaving the Fire TV on its
   home page for under 5 s before casting, to compare. (`web/apps/web/src/warm-play.ts`,
   `web/apps/web/src/home.tsx`, `web/apps/web/src/cast-ready.tsx`)
+- [ ] **VQ230** — a damaged chunk is dropped and made again on staging (D392 §4). Deploy core and node
+  together (node protocol 56). Play a film on the Mac's Chrome for a minute, note its file id, and stop.
+  In the node's prepared directory (`<instance cache>/prepared/<file id>/chunks-<stream>/<store>/`), pick
+  a chunk the minute made, say `00005.m4s` of the stream played, and damage it by hand: overwrite a
+  few bytes in its middle (`printf 'xxxx' | dd of=00005.m4s bs=1 seek=1000 conv=notrunc`), and in a
+  store of the sound played truncate one (`truncate -s 100 00007.m4s`). Play the film from its start again in a new
+  private window, so the browser's day of caching does not answer for the server. Passes
+  when playback goes past both without a stall longer than a chunk's making and with no picture or
+  sound broken, the node's log has "dropped a chunk that did not match its record; it is made again
+  when asked for" for each, at warn, naming the file id, the stream, the chunk and what differed (its
+  CRC-32C, its size), and the core's log shows a run of that chunk alone made. Then damage another
+  chunk the same way, press "Full rescan" on the film: the core's log has "chunks of a file read again
+  were missing or damaged" for its file id, and the scan's totals line says `"chunksDroppedCount":1` and
+  a `chunksCheckedCount` of every file of its stores. (`internal/node/prepared/records.go`, `internal/node/byteserver/byteserver.go`,
+  `internal/core/chunks/files.go`, `internal/core/library/derived.go`)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -83,6 +84,8 @@ func summary(records []nodeproto.ScanRecord) []string {
 			lines = append(lines, "mount "+record.Mount.Path.Text)
 		case nodeproto.RecordSidecar:
 			lines = append(lines, "sidecar "+record.Sidecar.Path.Text+" "+string(record.Sidecar.Kind))
+		case nodeproto.RecordChunksChecked:
+			lines = append(lines, "chunks_checked "+strconv.FormatInt(record.ChunksChecked.FileID, 10))
 		case nodeproto.RecordListed:
 			line := "listed " + record.Listed.Path.Text
 			if record.Listed.IsDirectory {

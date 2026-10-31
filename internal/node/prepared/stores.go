@@ -3,6 +3,7 @@
 package prepared
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,19 +24,33 @@ import (
 const rawPrefix = "raw-"
 
 // OpenStore makes the store, with its manifest when it has none, and a raw directory for one run's
-// FFmpeg, returning its absolute path. The manifest is written whole or not at all.
-func (shelf *Shelf) OpenStore(manifest nodeproto.StoreManifest) (string, error) {
-	storePath := filepath.Join(shelf.directory, filepath.FromSlash(manifest.StoreDir))
-	if err := os.MkdirAll(storePath, 0o750); err != nil {
-		return "", fmt.Errorf("make the store %s: %w", manifest.StoreDir, err)
+// FFmpeg, returning its absolute path. The manifest is written whole or not at all, and says its
+// files carry records (chunkRecordsVersion); a store made before they did is dropped first, as one
+// that cannot be checked (D392 §4).
+func (shelf *Shelf) OpenStore(ctx context.Context, manifest nodeproto.StoreManifest) (string, error) {
+	storeDir := manifest.StoreDir
+	storePath := filepath.Join(shelf.directory, filepath.FromSlash(storeDir))
+	lock := shelf.storeLock(storeDir)
+	lock.Lock()
+	defer lock.Unlock()
+	kept, found := shelf.readStoreManifest(storeDir)
+	if found && kept.ChunkRecords != chunkRecordsVersion {
+		if err := shelf.dropUnrecordedStore(ctx, storeDir); err != nil {
+			return "", err
+		}
+		found = false
 	}
-	shelf.knowStore(manifest.StoreDir)
-	if _, found := shelf.readStoreManifest(manifest.StoreDir); !found {
+	if err := os.MkdirAll(storePath, 0o750); err != nil {
+		return "", fmt.Errorf("make the store %s: %w", storeDir, err)
+	}
+	shelf.knowStore(storeDir)
+	if !found {
+		manifest.ChunkRecords = chunkRecordsVersion
 		encoded, err := json.Marshal(manifest)
 		if err != nil {
-			return "", fmt.Errorf("encode %s's manifest: %w", manifest.StoreDir, err)
+			return "", fmt.Errorf("encode %s's manifest: %w", storeDir, err)
 		}
-		if err := shelf.PutFile(manifest.StoreDir, nodeproto.StoreManifestName, encoded); err != nil {
+		if err := shelf.putWhole(storeDir, nodeproto.StoreManifestName, encoded); err != nil {
 			return "", err
 		}
 	}
@@ -53,10 +68,23 @@ func (shelf *Shelf) HasFile(storeDir, name string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-// PutFile writes name into the store whole, so no reader ever sees part of it. Not durably: a chunk
-// is made again when a crash lost it, and a sync for each would slow the making. The store's size
-// grows by what it adds, the file it replaces apart.
+// PutFile writes name, the store's init or a chunk, into the store whole, so no reader ever sees part
+// of it, and then its record, its size and CRC-32C, beside it (recordName), the store's lock held
+// across both, so a check never sees the one without the other (D392 §4). Not durably: a chunk is
+// made again when a crash lost it, or its record, and a sync for each would slow the making.
 func (shelf *Shelf) PutFile(storeDir, name string, contents []byte) error {
+	lock := shelf.storeLock(storeDir)
+	lock.Lock()
+	defer lock.Unlock()
+	if err := shelf.putWhole(storeDir, name, contents); err != nil {
+		return err
+	}
+	return shelf.putWhole(storeDir, recordName(name), recordOf(contents).encoded())
+}
+
+// putWhole writes name into the store whole. The store's size grows by what it adds, the file it
+// replaces apart.
+func (shelf *Shelf) putWhole(storeDir, name string, contents []byte) error {
 	storePath := filepath.Join(shelf.directory, filepath.FromSlash(storeDir))
 	shelf.knowStore(storeDir)
 	var replacedBytes int64
@@ -90,6 +118,12 @@ func replaceIn(directory, name string, contents []byte) (err error) {
 		return fmt.Errorf("write %s: %w", filepath.Join(directory, name), err)
 	}
 	return nil
+}
+
+// openInStore opens one of a store's files to read, never through a link out of the prepared
+// directory.
+func (shelf *Shelf) openInStore(storeDir, name string) (*os.File, error) {
+	return os.OpenInRoot(shelf.directory, filepath.Join(filepath.FromSlash(storeDir), name))
 }
 
 // errNotRaw is a raw directory or file outside the shelf's stores.
