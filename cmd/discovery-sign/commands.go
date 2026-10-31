@@ -115,15 +115,19 @@ var errHasGenesis = errors.New("the ledger holds this chain already: a new genes
 	"for when every key is lost")
 
 // nextRoot writes the next root statement from the ledger's chain: keys added and removed, every key
-// removed named removed for good, thresholds and locations changed, versions skipped (§3.6).
+// removed named removed for good, keys suspended and resumed (D394 §4), thresholds and locations
+// changed, versions skipped (§3.6).
 func nextRoot(run signing, flags *flag.FlagSet, arguments []string) (bool, error) {
 	kind := flags.String("chain", "", "discovery or publisher (required)")
 	skip := flags.Int64("skip", 1,
 		"versions to move on: more than 1 only a recovery key signs, past a thief's statements")
-	var addEveryday, addRecovery, removed, thresholds, locations []string
+	var addEveryday, addRecovery, removed, suspended, resumed, thresholds, locations []string
 	flags.Func("add-everyday", "an everyday key's .pub file to add; repeated", appendTo(&addEveryday))
 	flags.Func("add-recovery", "a recovery key's .pub file to add; repeated", appendTo(&addRecovery))
 	flags.Func("remove", "a key's .pub file, or its SHA256: fingerprint, to remove; repeated", appendTo(&removed))
+	flags.Func("suspend", "a key's .pub file, or its SHA256: fingerprint, to suspend; repeated", appendTo(&suspended))
+	flags.Func("resume", "a suspended key's .pub file, or its SHA256: fingerprint, to resume; repeated",
+		appendTo(&resumed))
 	flags.Func("threshold", "<role>=<n>; repeated", appendTo(&thresholds))
 	flags.Func("location", "where the chain is served, in place of those it names; repeated", appendTo(&locations))
 	if !parsed(&run, flags, arguments) || !isChain(*kind) || *skip < 1 {
@@ -137,15 +141,12 @@ func nextRoot(run signing, flags *flag.FlagSet, arguments []string) (bool, error
 	next := current
 	next.ID, next.Version, next.Issued = chain.ID(), current.Version+*skip, run.now
 	next.Keys, next.Removed = slices.Clone(current.Keys), slices.Clone(current.Removed)
-	next.Thresholds = maps.Clone(current.Thresholds)
-	isRecovery := *skip > 1 || len(addRecovery) > 0 || len(thresholds) > 0
-	for _, each := range removed {
-		role, removeErr := removeKey(&next, each)
-		if removeErr != nil {
-			return false, removeErr
-		}
-		isRecovery = isRecovery || role == trust.RoleRecovery
+	next.Suspended, next.Thresholds = slices.Clone(current.Suspended), maps.Clone(current.Thresholds)
+	isRecovery, err := changeStanding(&next, removed, suspended, resumed)
+	if err != nil {
+		return false, err
 	}
+	isRecovery = isRecovery || *skip > 1 || len(addRecovery) > 0 || len(thresholds) > 0
 	if changeErr := errors.Join(addKeys(&next, trust.RoleRecovery, addRecovery),
 		addKeys(&next, trust.RoleEveryday, addEveryday), setThresholds(&next, thresholds)); changeErr != nil {
 		return false, changeErr
@@ -163,7 +164,7 @@ func nextRoot(run signing, flags *flag.FlagSet, arguments []string) (bool, error
 	}
 	before := chain.Statements()[len(chain.Statements())-1].Payload
 	return false, run.pending(fmt.Sprintf("%s-root-%d", *kind, next.Version), current.Chain.RootNamespace(), payload,
-		before, signers+"; if that key leaves the set, a key of the new set of the same tier signs too")
+		before, signers+"; if that key leaves the set or is suspended, a key of the new set of the same tier signs too")
 }
 
 // address writes the next address document, under the discovery chain's version, its sequence one
@@ -405,7 +406,7 @@ func renderBootstrap(root trust.Root, locations []string) (string, error) {
 	}
 	var signers []string
 	for _, key := range root.Keys {
-		if key.Public != nil && !slices.Contains(root.Removed, key.Fingerprint()) {
+		if key.Public != nil && !slices.Contains(root.Removed, key.Fingerprint()) && !root.IsSuspended(key) {
 			signers = append(signers, `orpheum namespaces="`+trust.NamespaceRelease+`" `+key.Text)
 		}
 	}
@@ -482,25 +483,84 @@ func addKeys(root *trust.Root, role trust.Role, files []string) error {
 	return nil
 }
 
-// removeKey takes named, a .pub file or a fingerprint, out of root's keys and names it removed; it
-// returns the role it had.
+// removeKey takes named, a .pub file or a fingerprint, out of root's keys and names it removed, for
+// good, suspended or not; it returns the role it had.
 func removeKey(root *trust.Root, named string) (trust.Role, error) {
+	fingerprint, index, err := heldKey(*root, named)
+	if err != nil {
+		return "", err
+	}
+	role := root.Keys[index].Role
+	root.Keys = slices.Delete(root.Keys, index, index+1)
+	root.Removed = append(root.Removed, fingerprint)
+	root.Suspended = slices.DeleteFunc(root.Suspended, func(held string) bool { return held == fingerprint })
+	return role, nil
+}
+
+// changeStanding removes, suspends and resumes the keys named in root, and says whether only a
+// recovery key may sign the change: a recovery key removed or suspended, or any key resumed, so a
+// thief holding an everyday key cannot undo its suspension (D394 §4).
+func changeStanding(root *trust.Root, removed, suspended, resumed []string) (bool, error) {
+	isRecovery := len(resumed) > 0
+	for _, each := range removed {
+		role, err := removeKey(root, each)
+		if err != nil {
+			return false, err
+		}
+		isRecovery = isRecovery || role == trust.RoleRecovery
+	}
+	for _, each := range suspended {
+		role, err := suspendKey(root, each, true)
+		if err != nil {
+			return false, err
+		}
+		isRecovery = isRecovery || role == trust.RoleRecovery
+	}
+	for _, each := range resumed {
+		if _, err := suspendKey(root, each, false); err != nil {
+			return false, err
+		}
+	}
+	return isRecovery, nil
+}
+
+// suspendKey suspends named, a .pub file or a fingerprint of a key root holds, or resumes it when
+// isSuspending is false; it returns the key's role.
+func suspendKey(root *trust.Root, named string, isSuspending bool) (trust.Role, error) {
+	fingerprint, index, err := heldKey(*root, named)
+	if err != nil {
+		return "", err
+	}
+	isSuspended := root.IsSuspended(root.Keys[index])
+	switch {
+	case isSuspending && isSuspended:
+		return "", fmt.Errorf("%s is suspended already", fingerprint)
+	case !isSuspending && !isSuspended:
+		return "", fmt.Errorf("%s is not suspended", fingerprint)
+	case isSuspending:
+		root.Suspended = append(root.Suspended, fingerprint)
+	default:
+		root.Suspended = slices.DeleteFunc(root.Suspended, func(held string) bool { return held == fingerprint })
+	}
+	return root.Keys[index].Role, nil
+}
+
+// heldKey is named's fingerprint, a .pub file's or named itself when it is one, and its index among
+// root's keys.
+func heldKey(root trust.Root, named string) (string, int, error) {
 	fingerprint := named
 	if !strings.HasPrefix(named, "SHA256:") {
 		key, err := readKey(named)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		fingerprint = key.Fingerprint()
 	}
 	index := slices.IndexFunc(root.Keys, func(key trust.RootKey) bool { return key.Fingerprint() == fingerprint })
 	if index < 0 {
-		return "", fmt.Errorf("%s is not in the set", fingerprint)
+		return "", 0, fmt.Errorf("%s is not in the set", fingerprint)
 	}
-	role := root.Keys[index].Role
-	root.Keys = slices.Delete(root.Keys, index, index+1)
-	root.Removed = append(root.Removed, fingerprint)
-	return role, nil
+	return fingerprint, index, nil
 }
 
 // setThresholds sets each "<role>=<n>".
