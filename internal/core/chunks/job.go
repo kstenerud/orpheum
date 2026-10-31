@@ -19,21 +19,22 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// ErrGridChanged is a run asked for on a grid the film no longer has: its file changed, or the
-// segment length did, and its chunks are another store's.
+// ErrGridChanged is a run asked for on a store the film no longer has: its file changed, the
+// segment length did, or the facts of its probe the stream is made from (StoreKey), and its chunks
+// are another store's.
 var ErrGridChanged = errors.New("the film is no longer cut on the grid the run was asked for")
 
 // storedRun is a make_chunks job's run: its store, as the chunk_store row the job targets names it,
 // and its chunks.
 type storedRun struct {
-	fileID int64
-	stream Stream
-	gridID string
+	fileID   int64
+	stream   Stream
+	storeKey string
 	runArgs
 }
 
 // dir is the run's store's directory.
-func (run storedRun) dir() string { return StoreDir(run.fileID, run.stream, run.gridID) }
+func (run storedRun) dir() string { return StoreDir(run.fileID, run.stream, run.storeKey) }
 
 // runOf is the run a make_chunks job makes, failing for good for a job whose store or arguments
 // name none.
@@ -53,7 +54,7 @@ func (service *Service) runOf(ctx context.Context, job jobs.Job) (storedRun, err
 	if !isStream {
 		return run, jobs.MarkPermanent(fmt.Errorf("chunk store %d names no stream: %q", row.ID, row.Stream))
 	}
-	run.fileID, run.stream, run.gridID = row.SourceFile, stream, row.GridID
+	run.fileID, run.stream, run.storeKey = row.SourceFile, stream, row.StoreKey
 	return run, nil
 }
 
@@ -72,8 +73,8 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 		return jobs.MarkPermanent(err)
 	case err != nil:
 		return err
-	case !isCut || film.grid.ID() != run.gridID:
-		return jobs.MarkPermanent(fmt.Errorf("file %d, grid %s: %w", run.fileID, run.gridID, ErrGridChanged))
+	case !isCut || film.storeKey(run.stream) != run.storeKey:
+		return jobs.MarkPermanent(fmt.Errorf("file %d, store %s: %w", run.fileID, run.storeKey, ErrGridChanged))
 	case run.FirstChunk < 0 || run.LastChunk < run.FirstChunk || run.LastChunk > film.grid.lastChunk():
 		return jobs.MarkPermanent(fmt.Errorf("file %d has no chunks %d to %d", run.fileID, run.FirstChunk,
 			run.LastChunk))
@@ -112,11 +113,11 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 func (service *Service) cutForRun(ctx context.Context, run storedRun) (cutFilm, bool, error) {
 	film, isCut, err := service.cut(ctx, run.fileID, OnKeyframes)
 	hasUncutPicture := errors.Is(err, ErrCannotBeCut) && film.picture.Codec != ""
-	if (err != nil && !hasUncutPicture) || (isCut && film.grid.ID() == run.gridID) {
+	if (err != nil && !hasUncutPicture) || (isCut && film.storeKey(run.stream) == run.storeKey) {
 		return film, isCut, err
 	}
 	timed, isTimed, timeErr := service.cut(ctx, run.fileID, OnTime)
-	if timeErr == nil && isTimed && timed.grid.ID() == run.gridID {
+	if timeErr == nil && isTimed && timed.storeKey(run.stream) == run.storeKey {
 		return timed, true, nil
 	}
 	if hasUncutPicture {

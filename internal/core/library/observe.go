@@ -43,7 +43,7 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		// Stored unread by its listing (D304 §1): what its read finds says whose row it becomes.
 		return batch.placeRead(ctx, scan, seenFile, existing.ID)
 	case err == nil && bytes.Equal(existing.PayloadHash, seenFile.hash):
-		return batch.updateObservedFile(ctx, existing.ID, seenFile)
+		return batch.updateObservedFile(ctx, scan, existing.ID, seenFile)
 	case err == nil:
 		// A different file at the path: the old row's history stays with it (D173).
 		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: existing.ID}
@@ -94,7 +94,7 @@ func (batch *ingestBatch) insertOrFill(
 		return batch.insertFile(ctx, scan, seenFile)
 	}
 	batch.noteNewFile(scan)
-	return batch.updateObservedFile(ctx, unreadID, seenFile)
+	return batch.updateObservedFile(ctx, scan, unreadID, seenFile)
 }
 
 // reviveOrInsert brings back the latest tombstone on the node with this payload, with its
@@ -119,7 +119,7 @@ func (batch *ingestBatch) reviveOrInsert(
 	}
 	// At its new path first, while still a tombstone: brought back at its old path, which another
 	// file may hold now, it broke the one live file per path, and the scan failed whole.
-	if err := batch.updateObservedFile(ctx, tombstone, seenFile); err != nil {
+	if err := batch.updateObservedFile(ctx, scan, tombstone, seenFile); err != nil {
 		return err
 	}
 	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
@@ -208,7 +208,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
 	batch.noteNewFile(scan)
-	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
+	if err := batch.keepProbe(ctx, scan, id, seenFile); err != nil {
 		return err
 	}
 	return batch.syncStreams(ctx, id, observed.Probe)
@@ -216,7 +216,9 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 
 // updateObservedFile records a file observed again, perhaps at a new path (a move), and re-derives its
 // streams from the new probe.
-func (batch *ingestBatch) updateObservedFile(ctx context.Context, id int64, seenFile observation) error {
+func (batch *ingestBatch) updateObservedFile(
+	ctx context.Context, scan *scanState, id int64, seenFile observation,
+) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	err := batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
 		Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
@@ -230,16 +232,32 @@ func (batch *ingestBatch) updateObservedFile(ctx context.Context, id int64, seen
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seenFile.path, err)
 	}
-	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
+	if err := batch.keepProbe(ctx, scan, id, seenFile); err != nil {
 		return err
 	}
 	return batch.syncStreams(ctx, id, observed.Probe)
 }
 
 // keepProbe keeps a file's probe beside its row, with its duration, written only when either
-// changed (D303, M8).
-func (batch *ingestBatch) keepProbe(ctx context.Context, id int64, seenFile observation) error {
-	err := batch.queries.UpsertFileProbe(ctx, sqlcgen.UpsertFileProbeParams{
+// changed (D303, M8). A probe read again is first compared with the one kept, and what its changed
+// facts touch is thrown out (D392 §3, correctProbe); the scan counts it.
+func (batch *ingestBatch) keepProbe(ctx context.Context, scan *scanState, id int64, seenFile observation) error {
+	kept, err := store.OrNotFound(batch.queries.GetFileProbeJSON(ctx, id))
+	switch {
+	case err == nil:
+		correction, correctErr := batch.correctProbe(ctx, DerivedOf{FileID: id, PayloadHash: seenFile.hash}, kept,
+			seenFile.observed.Probe)
+		if correctErr != nil {
+			return correctErr
+		}
+		scan.noteProbeReadAgain(correction)
+		if len(correction.changes) > 0 {
+			batch.corrections = append(batch.corrections, correction)
+		}
+	case !errors.Is(err, store.ErrNotFound):
+		return fmt.Errorf("read the kept probe of %s: %w", seenFile.path, err)
+	}
+	err = batch.queries.UpsertFileProbe(ctx, sqlcgen.UpsertFileProbeParams{
 		FileID: id, ProbeJSON: seenFile.probeJSON, DurationMs: seenFile.observed.Probe.Format.DurationMs,
 	})
 	if err != nil {

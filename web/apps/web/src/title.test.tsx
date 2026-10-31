@@ -469,13 +469,14 @@ describe("a film whose match is a guess (D301)", () => {
     await settleUntil(() => buttonNamed(page, "More actions") !== undefined);
     await click(buttonNamed(page, "More actions"));
     await click(buttonWithText(page, "Identified incorrectly"));
-    // One dialog, in the list's place (the owner, 2026-10-29): Rescan, Enter manually, Report this.
+    // One dialog, in the list's place (the owner, 2026-10-29): Rescan and its full rescan beside it
+    // (D392 §1), Enter manually, Report this.
     expect(page.querySelectorAll("dialog")).toHaveLength(1);
     const offered = [...(page.querySelector("dialog")?.querySelectorAll("button") ?? [])].map(
       (button) => button.textContent,
     );
     // Its Close is the cross every dialog has (the owner, 2026-10-30).
-    expect(offered).toEqual(["Rescan", "Enter manually", "Report this", ""]);
+    expect(offered).toEqual(["Rescan", "Full rescan", "Enter manually", "Report this", ""]);
     expect(page.querySelector("dialog .modal-dialog__close")?.getAttribute("aria-label")).toBe(
       "Close",
     );

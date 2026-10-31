@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 45
+-- cache schema version 46
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,6 +93,12 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   -- When its listing was last handed to its node, NULL before: until then a scan asked for of the root
   -- joins this one, whose listing will see what the ask is about.
   listing_sent_at INTEGER,
+  -- JSON: what it reads again, changed on disk or not, relative to the root: folders and files, '.' for
+  -- every file (a full rescan, D392 section 2); an empty list, or NULL, for none, a scan that reads only
+  -- what is new or changed. Every NFO and subtitle file in its scope is read again too when it names any.
+  read_again_json TEXT,
+  -- What the one that follows it reads again, every request made while this one ran together.
+  again_read_again_json TEXT,
   UNIQUE (node_id, root_path)
 ) STRICT;
 
@@ -132,7 +138,10 @@ CREATE TABLE rescan (
   unchanged_count INTEGER NOT NULL DEFAULT 0,
   left_alone_count INTEGER NOT NULL DEFAULT 0,
   unsettled_count INTEGER NOT NULL DEFAULT 0,
-  failed_count    INTEGER NOT NULL DEFAULT 0
+  failed_count    INTEGER NOT NULL DEFAULT 0,
+  -- Whether it is a full rescan: every file in its scope read again, changed on disk or not, and what
+  -- a difference touches thrown out (D392).
+  is_full     INTEGER NOT NULL DEFAULT 0 CHECK (is_full IN (0, 1))
 ) STRICT;
 -- One rescan of a scope at a time: a second press while one runs adds nothing (D357 section 5).
 CREATE UNIQUE INDEX rescan_scope ON rescan(library_id, coalesce(item_id, 0));
@@ -157,8 +166,9 @@ CREATE TABLE chunk_store (                                 -- D247 section 10: o
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   source_file INTEGER NOT NULL,          -- persistent.db's file
   stream      TEXT NOT NULL,             -- the stream's name: picture, q1200k480p, sound0, sound0-boost
-  grid_id     TEXT NOT NULL,             -- the hash of the grid it is cut on
-  UNIQUE (source_file, stream, grid_id)
+  -- The hash of the grid it is cut on, then of the probe's facts it is made from (D392 section 3)
+  store_key   TEXT NOT NULL,
+  UNIQUE (source_file, stream, store_key)
 ) STRICT;
 
 CREATE TABLE node_attempt (                                -- D234 section 7: work given to a node

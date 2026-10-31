@@ -13,7 +13,7 @@ type ChunkStore struct {
 	ID         int64
 	SourceFile int64
 	Stream     string
-	GridID     string
+	StoreKey   string
 }
 
 type Job struct {
@@ -65,14 +65,6 @@ type NodeAttempt struct {
 	SentAt       int64
 }
 
-type Rematch struct {
-	ItemID   int64
-	RescanID int64
-	Name     string
-	Year     int64
-	IdsJSON  string
-}
-
 type Rescan struct {
 	ID             int64
 	LibraryID      int64
@@ -85,6 +77,7 @@ type Rescan struct {
 	LeftAloneCount int64
 	UnsettledCount int64
 	FailedCount    int64
+	IsFull         int64
 }
 
 type Scan struct {
@@ -101,6 +94,8 @@ type Scan struct {
 	ScopePath           string
 	AgainScopePath      *string
 	ListingSentAt       *int64
+	ReadAgainJSON       *string
+	AgainReadAgainJSON  *string
 }
 
 type ScanBatch struct {

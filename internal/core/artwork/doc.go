@@ -134,6 +134,11 @@
 //     TestHandle_AVideoWithNoFrameIsHeldSoAndAPictureShownTakesNone,
 //     TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo.
 //
+//   - A file's frame stills are retired once the facts of its probe they were taken by changed, in the
+//     ingest's write that keeps the new probe (RetireFrameStills; library.DerivedDroppers), a
+//     person's choice and its item's other images kept; the next pass takes one again where it is
+//     still wanted (D392 §3). TestRetireFrameStills_RetiresOnlyTheFilesFrameStills.
+//
 // # Read before changing
 //
 //   - D212: the whole design; D99 as D212 §5 narrows it.

@@ -9,18 +9,37 @@ import (
 	"context"
 )
 
+const deleteChunkStoresOfStreams = `-- name: DeleteChunkStoresOfStreams :execrows
+DELETE FROM chunk_store WHERE source_file = ?1 AND stream GLOB ?2
+`
+
+type DeleteChunkStoresOfStreamsParams struct {
+	SourceFile int64
+	StreamGlob string
+}
+
+// A film's stores of the streams whose names match stream_glob, on every grid: those made from facts
+// of its probe that changed, thrown out (D392 section 3).
+func (q *Queries) DeleteChunkStoresOfStreams(ctx context.Context, arg DeleteChunkStoresOfStreamsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteChunkStoresOfStreams, arg.SourceFile, arg.StreamGlob)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const ensureChunkStore = `-- name: EnsureChunkStore :one
 
-INSERT INTO chunk_store (source_file, stream, grid_id)
+INSERT INTO chunk_store (source_file, stream, store_key)
 VALUES (?1, ?2, ?3)
-ON CONFLICT (source_file, stream, grid_id) DO UPDATE SET stream = excluded.stream
+ON CONFLICT (source_file, stream, store_key) DO UPDATE SET stream = excluded.stream
 RETURNING id
 `
 
 type EnsureChunkStoreParams struct {
 	SourceFile int64
 	Stream     string
-	GridID     string
+	StoreKey   string
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -30,14 +49,14 @@ type EnsureChunkStoreParams struct {
 // RETURNING gives the id of a row already there, which a guard would stop it returning.
 // @sqlc-vet-disable upsert-only-if-changed
 func (q *Queries) EnsureChunkStore(ctx context.Context, arg EnsureChunkStoreParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, ensureChunkStore, arg.SourceFile, arg.Stream, arg.GridID)
+	row := q.db.QueryRowContext(ctx, ensureChunkStore, arg.SourceFile, arg.Stream, arg.StoreKey)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
 }
 
 const getChunkStore = `-- name: GetChunkStore :one
-SELECT id, source_file, stream, grid_id
+SELECT id, source_file, stream, store_key
 FROM chunk_store
 WHERE id = ?1
 `
@@ -49,7 +68,7 @@ func (q *Queries) GetChunkStore(ctx context.Context, id int64) (ChunkStore, erro
 		&i.ID,
 		&i.SourceFile,
 		&i.Stream,
-		&i.GridID,
+		&i.StoreKey,
 	)
 	return i, err
 }

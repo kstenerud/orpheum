@@ -17,8 +17,8 @@ func TestIsReadyAt_AnOfferIsReadyOnceItsPictureAndSoundAreMadeTenSecondsOnFromTh
 	offer := stalledAt(t, service, 2000)
 	playback := Playback{FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true}
 	gridID := mustGrid(t, service).ID()
-	picture := StoreDir(1, quality(1200, 480), gridID)
-	sound := StoreDir(1, Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}, gridID)
+	picture := testStoreDir(t, service, quality(1200, 480), gridID)
+	sound := testStoreDir(t, service, Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}, gridID)
 	isReady := func() bool {
 		t.Helper()
 		ready, err := service.IsReadyAt(t.Context(), playback, offer, 95_000)

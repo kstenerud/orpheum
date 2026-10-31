@@ -152,9 +152,9 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	top, averageBps := topOf(film, playback)
 	offered.pictures = append(offered.pictures, top...)
 	offered.copied = slices.DeleteFunc(copiedTracksOf(film, playback, top), func(track int) bool {
-		return service.runs.hasGivenUp(StoreDir(film.file.ID, Stream{
+		return service.runs.hasGivenUp(film.storeDir(Stream{
 			Kind: nodeproto.StreamSoundCopied, AudioTrackIndex: track,
-		}, film.grid.ID()))
+		}))
 	})
 	for _, quality := range all {
 		if (averageBps <= 0 || int64(quality.Kbps)*1000 < averageBps) && (height <= 0 || quality.Height < height) {

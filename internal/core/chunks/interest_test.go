@@ -93,7 +93,7 @@ func TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn(t *testing.T) {
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	wanted.say(playingAt(picture, 10))
 	askedFor(t, service, picture, 10)
-	service.runs.begin(StoreDir(1, picture, mustGrid(t, service).ID()), 10, 39, 21, 1, service.clock.Now())
+	service.runs.begin(testStoreDir(t, service, picture, mustGrid(t, service).ID()), 10, 39, 21, 1, service.clock.Now())
 	for _, to := range []int{12, 8} {
 		wanted.say(playingAt(picture, to))
 		askedFor(t, service, picture, to)
@@ -142,7 +142,7 @@ func TestStopUnwanted_APlayerOnMadeChunksWantsTheRunThatMakesWhatFollowsThem(t *
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	wanted := wantedBy(service)
 	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
-	dir := StoreDir(1, sound, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, sound, mustGrid(t, service).ID())
 	service.runs.madeThrough(dir, 0, 19) // ten chunks before the run made, by a run since ended
 	wanted.say(playingAt(sound, 20))
 	askedFor(t, service, sound, 20)
@@ -171,10 +171,10 @@ func TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops(t *testing.T) {
 	if !slices.Equal(queue.cancelledFirsts, []int{3}) {
 		t.Fatalf("the runs cancelled start at %v; want the left quality's, from 3", queue.cancelledFirsts)
 	}
-	if service.runs.hasRun(StoreDir(1, high, mustGrid(t, service).ID())) {
+	if service.runs.hasRun(testStoreDir(t, service, high, mustGrid(t, service).ID())) {
 		t.Error("the left quality still has a run; want it forgotten")
 	}
-	if !service.runs.hasRun(StoreDir(1, low, mustGrid(t, service).ID())) {
+	if !service.runs.hasRun(testStoreDir(t, service, low, mustGrid(t, service).ID())) {
 		t.Error("the quality the player plays has no run; want it kept")
 	}
 }
@@ -188,7 +188,7 @@ func TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade(t *testin
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	wanted := wantedBy(service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	paused := playingAt(picture, 3)
 	paused.IsStopped = true
 	wanted.say(paused)
@@ -228,7 +228,7 @@ func TestAskedFor_APausedPlayerStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	wanted := wantedBy(service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
-	service.runs.madeThrough(StoreDir(1, picture, mustGrid(t, service).ID()), 3, 8)
+	service.runs.madeThrough(testStoreDir(t, service, picture, mustGrid(t, service).ID()), 3, 8)
 	paused := playingAt(picture, 3)
 	paused.IsStopped = true
 	wanted.say(paused)
@@ -275,7 +275,7 @@ func TestWant_APausedPlayersAskStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	wanted := wantedBy(service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	service.runs.madeThrough(dir, 3, 8)
 	paused := playingAt(picture, 3)
 	paused.IsStopped = true
@@ -300,7 +300,7 @@ func TestStopUnwanted_APlayerThatSeeksFarIntoARunStopsItAndStartsItsOwn(t *testi
 		service, _ := chunksFixture(t, queue, fakeNode{})
 		wanted := wantedBy(service)
 		picture := Stream{Kind: nodeproto.StreamPicture}
-		dir := StoreDir(1, picture, mustGrid(t, service).ID())
+		dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 		wanted.say(playingAt(picture, 1))
 		askedFor(t, service, picture, 1)
 		service.runs.begin(dir, 1, 30, 21, 1, service.clock.Now())
@@ -335,7 +335,7 @@ func TestWant_AnInitAskedForFarBehindWhereThePlayerIsStartsNoRunThere(t *testing
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	wanted := wantedBy(service)
 	quality := Stream{Kind: nodeproto.StreamPicture}
-	dir := StoreDir(1, quality, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, quality, mustGrid(t, service).ID())
 	wanted.say(playingAt(quality, 24))
 	init := StoreFile{fileID: 1, kind: OnKeyframes, stream: quality, storeDir: dir, isInit: true, runFrom: 1}
 	chunk := StoreFile{fileID: 1, kind: OnKeyframes, stream: quality, storeDir: dir, runFrom: 24, chunk: 24}
@@ -365,7 +365,7 @@ func TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant(t *testing.T) {
 	service.logger = slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	wanted := wantedBy(service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	wanted.say(playingAt(picture, 3))
 	askedFor(t, service, picture, 3)
 	service.runs.madeThrough(dir, 3, 6)
@@ -402,7 +402,7 @@ func TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted(t *testing.T) {
 	wanted := wantedBy(service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	dir := testStoreDir(t, service, picture, mustGrid(t, service).ID())
 	wanted.say(playingAt(picture, 3), playingAt(sound, 2))
 	askedFor(t, service, picture, 3)
 	service.runs.madeThrough(dir, 3, 6)

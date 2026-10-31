@@ -152,7 +152,8 @@ func TestStoreFileOf_OffersOnlyTheStreamsAndFilesThePlaybackHas(t *testing.T) {
 		}
 	}
 	file, err := service.StoreFileOf(t.Context(), playback, "sound0-boost-96k", "000042.m4s")
-	if err != nil || file.NodeID != 1 || file.Target != nodeproto.PathBytesChunks+"1/chunks-sound0-boost-96k/"+gridID+
+	if err != nil || file.NodeID != 1 || file.Target != nodeproto.PathBytesChunks+"1/chunks-sound0-boost-96k/"+
+		testStoreKey(t, service, Stream{Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96}, gridID)+
 		"/00042.m4s" || file.ContentType != "video/iso.segment" || file.runFrom != 42 {
 		t.Errorf("chunk 42 of the boosted sound = %+v, %v; want it on node 1 as the node names it", file, err)
 	}

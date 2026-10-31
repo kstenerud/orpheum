@@ -21,3 +21,8 @@ WHERE (loudness.integrated_lufs, loudness.range_lu, loudness.true_peak_dbtp, lou
   loudness.measured_at)
   IS NOT (excluded.integrated_lufs, excluded.range_lu, excluded.true_peak_dbtp, excluded.failure,
     excluded.measured_at);
+
+-- name: DeleteLoudnessOfSound :execrows
+-- What was measured of one track of a file's bytes, both mixes, thrown out once the track's facts in
+-- its probe changed: the sweep measures it again (D392 section 3).
+DELETE FROM loudness WHERE payload_hash = sqlc.arg(payload_hash) AND stream_index = sqlc.arg(stream_index);

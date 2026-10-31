@@ -9,6 +9,25 @@ import (
 	"context"
 )
 
+const deleteSubtitleText = `-- name: DeleteSubtitleText :execrows
+DELETE FROM subtitle_text WHERE source_hash = ?1 AND stream_index = ?2
+`
+
+type DeleteSubtitleTextParams struct {
+	SourceHash  []byte
+	StreamIndex int64
+}
+
+// An embedded track's text thrown out once the track's facts changed in its video's probe: the next
+// play makes it again (D392 section 3).
+func (q *Queries) DeleteSubtitleText(ctx context.Context, arg DeleteSubtitleTextParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteSubtitleText, arg.SourceHash, arg.StreamIndex)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const forgetSubtitleTextFailure = `-- name: ForgetSubtitleTextFailure :exec
 DELETE FROM subtitle_text WHERE source_hash = ? AND stream_index = ? AND failure IS NOT NULL
 `

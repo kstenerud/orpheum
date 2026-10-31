@@ -56,6 +56,9 @@ type Nodes interface {
 type ScanRequests interface {
 	Request(ctx context.Context, nodeID int64, root string, priority int64) error
 	RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error
+	RequestReadingAgain(
+		ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+	) error
 	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
 }
 
@@ -297,7 +300,28 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	}
 	asked := 0
 	for _, root := range roots {
-		isAsked, err := admin.rescan(ctx, root)
+		isAsked, err := admin.rescan(ctx, root, nil)
+		if err != nil {
+			return asked, err
+		}
+		if isAsked {
+			asked++
+		}
+	}
+	return asked, nil
+}
+
+// ScanReadingAgain asks, as Scan does, for a scan of every root of a library that reads every file
+// again, changed on disk or not, and compares each probe with the one kept: a full rescan's (D392
+// §2). It says how many roots it asked.
+func (admin *Admin) ScanReadingAgain(ctx context.Context, libraryID int64) (int, error) {
+	roots, err := admin.libraryRoots(ctx, libraryID)
+	if err != nil {
+		return 0, err
+	}
+	asked := 0
+	for _, root := range roots {
+		isAsked, err := admin.rescan(ctx, root, readEverythingAgain())
 		if err != nil {
 			return asked, err
 		}
@@ -361,7 +385,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeNa
 	if err != nil {
 		return false, fmt.Errorf("approve %s's removals: %w", path, err)
 	}
-	return admin.rescan(ctx, root)
+	return admin.rescan(ctx, root, nil)
 }
 
 // ForgetMount is the admin saying a disk missing from a mount point inside a root is gone for
@@ -403,7 +427,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 	if err != nil {
 		return false, fmt.Errorf("forget %s: %w", mountPath, err)
 	}
-	return admin.rescan(ctx, root)
+	return admin.rescan(ctx, root, nil)
 }
 
 // libraryRoots are a live library's roots with their states.
@@ -469,12 +493,21 @@ func (admin *Admin) libraryNodeIDByName(ctx context.Context, libraryID int64, no
 }
 
 // rescan asks for a root's scan, if its node is connected, and reports whether it did.
-func (admin *Admin) rescan(ctx context.Context, root sqlcgen.ListLibraryRootStatesRow) (bool, error) {
+func (admin *Admin) rescan(
+	ctx context.Context, root sqlcgen.ListLibraryRootStatesRow, readAgain ReadAgain,
+) (bool, error) {
 	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 	if !connected || nodeID != root.NodeID {
 		return false, nil
 	}
-	if err := admin.scans.Request(ctx, nodeID, root.RootPath, jobs.PriorityPersonsRequest); err != nil {
+	var err error
+	if len(readAgain) > 0 {
+		err = admin.scans.RequestReadingAgain(ctx, nodeID, root.RootPath, wholeRoot, readAgain,
+			jobs.PriorityPersonsRequest)
+	} else {
+		err = admin.scans.Request(ctx, nodeID, root.RootPath, jobs.PriorityPersonsRequest)
+	}
+	if err != nil {
 		return false, err
 	}
 	return true, nil

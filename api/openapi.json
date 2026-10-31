@@ -11992,6 +11992,16 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+            "explode": false,
+            "in": "query",
+            "name": "full",
+            "schema": {
+              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -12016,7 +12026,7 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357)",
+        "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357); with full, read its files again first and throw out what their differences touch (D392)",
         "tags": [
           "Identification"
         ]
@@ -12477,6 +12487,16 @@
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
             }
+          },
+          {
+            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+            "explode": false,
+            "in": "query",
+            "name": "full",
+            "schema": {
+              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -12501,7 +12521,7 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357)",
+        "summary": "Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392)",
         "tags": [
           "Libraries"
         ]
@@ -12848,6 +12868,16 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+            "explode": false,
+            "in": "query",
+            "name": "full",
+            "schema": {
+              "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -12872,7 +12902,7 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357)",
+        "summary": "Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392)",
         "tags": [
           "Libraries"
         ]

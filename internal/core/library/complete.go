@@ -31,6 +31,7 @@ const outcomeComplete = "complete"
 // root_state are written in this batch's transaction, together.
 func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, complete *nodeproto.ScanComplete) error {
 	delete(batch.ingester.scans, batch.key)
+	batch.ingester.logCorrectionTotals(ctx, batch.nodeID, scan)
 	if complete.RootPath != scan.root {
 		return fmt.Errorf("scan_complete names %s, but the scan in progress is of %s", complete.RootPath, scan.root)
 	}
@@ -384,7 +385,7 @@ func (batch *ingestBatch) concludeMoves(ctx context.Context, scan *scanState) er
 		if movedFrom != 0 {
 			err = batch.retireUnread(ctx, move.unreadID, movedFrom)
 			if err == nil {
-				err = batch.updateObservedFile(ctx, movedFrom, move.seenFile)
+				err = batch.updateObservedFile(ctx, scan, movedFrom, move.seenFile)
 			}
 		} else {
 			err = batch.insertOrFill(ctx, scan, move.seenFile, move.unreadID)

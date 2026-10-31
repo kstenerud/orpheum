@@ -39,6 +39,39 @@
 //     stored, moved there, and keeps its row without a read (D304 §5).
 //     TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain.
 //
+//   - A scan that reads files again, a full rescan's (D392 §2), reads each it names (ReadAgain: a
+//     library's every file, a film's or series' own videos), changed on disk or not, and every NFO and
+//     subtitle file it lists; what it does not name, stored as listed, is seen and not read. What it
+//     reads again is kept with the scan in cache.db, through an ask that joins it and in the scan that
+//     follows it. TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle,
+//     TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter,
+//     TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot.
+//
+//   - What is kept that was made from a file's probe, and from which of its facts, is said in one
+//     place, derivedFromProbe (derived.go), so a new derived thing declares its facts there and the
+//     server's wiring how it is thrown out (DerivedDroppers, wired whole:
+//     TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut, internal/core/assembly):
+//
+//     the picture's chunks (cache.db), from its container's formatNames and its main picture's
+//     streamIndex, codec, codecProfile and video facts; each audio track's chunks (cache.db), from its
+//     container's formatNames and the track's streamIndex, codec, codecProfile and audio facts; each
+//     audio track's loudness, from the track's streamIndex, codec, codecProfile and audio facts; the
+//     picture's timeline, from its streamIndex and codec; each own subtitle track's text, from its
+//     streamIndex and codec; the frame stills, from the container's durationMs and the picture's
+//     streamIndex, width and height.
+//
+//     A probe read again is compared with the one kept fact by fact (a fact at its zero value is
+//     none), and each derived thing whose facts differ is thrown out by the package that keeps it,
+//     persistent.db's in the write that keeps the new probe, cache.db's after it; nothing else, and
+//     nothing a person set or watched (D357 §3). Each correction is logged at info, the file, the facts
+//     that differed and what was thrown out, and a scan's totals at its end; probes alike change
+//     nothing (D392 §3, §5). TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch,
+//     TestScans_ASecondFullScanOfAnUnchangedLibraryChangesNothing,
+//     TestDerivedFromProbe_EachThingDeclaresItsFactsAndOneWayToThrowItOut. A store of chunks also
+//     names the facts it was made from (PictureChunksFactsKey, SoundChunksFactsKey; chunks.StoreKey),
+//     so one made before they changed is never served, whoever read the file again.
+//     TestFactsKey_ChangesWithTheFactsAStreamsChunksAreMadeFromAlone.
+//
 //   - A new video is stored at its listing, unread, so it is filed from its path before it is read;
 //     its read fills that row in, or, finding a file stored before, moved or come back, retires it,
 //     what identification filed it in going with it (D304 §1, §5).
@@ -390,6 +423,7 @@
 //   - D42: nodes are sensors; the core is the only thing that decides.
 //   - D240: a scan is a listing the core compares, and the batches it has the node read.
 //   - D360: the extensions a scan reads are the code's, each container proven to play.
+//   - D392: a full rescan reads every file again and throws out only what the differences touch.
 //   - docs/contributors/design/plans/library-model.md, docs/contributors/design/plans/scanner.md.
 //   - Every list, search and detail a person asks for holds only the libraries their reach reaches,
 //     and one not reached is answered as one that does not exist: the lists in SQL, a detail and a
@@ -426,7 +460,9 @@
 //     readable.go: why a file cannot be read now (D241 §3); retire.go: retiring a node, a root
 //     or a file (D231 §7, D241 §5); move.go: a root that moved, repointed (D241 §6);
 //     rescan_scans.go: the scans a rescan asks for, of a library or of the folders holding one
-//     film's or series' files, and whether they are over (D357 §2).
+//     film's or series' files, and whether they are over (D357 §2); read_again.go: what a full
+//     rescan's scan reads again (D392 §2); derived.go: what is made from a probe, from which facts,
+//     and how a probe read again corrects it (D392 §3, §5).
 //     libraryfolders.go: which folders a library may have, adding one, and listing a node's folders
 //     (D359).
 package library

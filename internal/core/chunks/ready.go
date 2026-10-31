@@ -31,7 +31,7 @@ func (service *Service) IsReadyAt(ctx context.Context, playback Playback, offer 
 	}
 	from, through := film.grid.chunkAt(positionMs), film.grid.chunkAt(positionMs+readyAheadMs)
 	for _, stream := range streams {
-		if !service.runs.isMadeFromThrough(StoreDir(playback.FileID, stream, film.grid.ID()), from, through) {
+		if !service.runs.isMadeFromThrough(film.storeDir(stream), from, through) {
 			return false, nil
 		}
 	}

@@ -29,7 +29,8 @@ func TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := nodeproto.PathBytesChunks + "1/chunks-q700k432p/" + grid.ID() + "/"
+	storeKey := harness.filmOnesStoreKey(t, "q700k432p", grid.ID())
+	store := nodeproto.PathBytesChunks + "1/chunks-q700k432p/" + storeKey + "/"
 	harness.nodeBytes.mutex.Lock()
 	harness.nodeBytes.files[store+"00001.m4s"] = strings.Repeat("x", 25_000)
 	harness.nodeBytes.mutex.Unlock()
@@ -61,7 +62,8 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := nodeproto.PathBytesChunks + "1/chunks-q2000k540p/" + grid.ID() + "/"
+	storeKey := harness.filmOnesStoreKey(t, "q2000k540p", grid.ID())
+	store := nodeproto.PathBytesChunks + "1/chunks-q2000k540p/" + storeKey + "/"
 	harness.nodeBytes.mutex.Lock()
 	harness.nodeBytes.files[store+"00001.m4s"] = "chunk one"
 	harness.nodeBytes.files[store+"00002.m4s"] = "chunk two"

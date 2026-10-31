@@ -60,7 +60,7 @@ func (service *Service) StoreFileOf(
 	if isInit {
 		runFrom = film.grid.chunkAt(playback.PositionMs)
 	}
-	dir := StoreDir(playback.FileID, stream, film.grid.ID())
+	dir := film.storeDir(stream)
 	// The node names a chunk's file in five digits, or more past 99999: a name of more is asked for
 	// as the node names it.
 	name := chunkName(chunk)

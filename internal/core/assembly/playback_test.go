@@ -19,3 +19,16 @@ func TestFilesPlayed_AreThoseOfThePlaybacksThatPlayed(t *testing.T) {
 		t.Errorf("files played %v; want file 1 alone, file 2 only warmed up", files)
 	}
 }
+
+// The server wires a way to throw out every thing derived from a file's probe, so a file read again
+// whose probe changed leaves nothing made from its old facts (D392 §3).
+func TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut(t *testing.T) {
+	t.Parallel()
+	services, err := Build(t.Context(), testParts(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unwired := services.ingester.UnwiredDroppers(); len(unwired) != 0 {
+		t.Errorf("the ingest has no way to throw out %v", unwired)
+	}
+}

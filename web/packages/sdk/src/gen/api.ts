@@ -858,7 +858,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357) */
+        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357); with full, read its files again first and throw out what their differences touch (D392) */
         post: operations["postItemRescan"];
         delete?: never;
         options?: never;
@@ -1081,7 +1081,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357) */
+        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
         post: operations["postLibraryRescan"];
         delete?: never;
         options?: never;
@@ -1166,7 +1166,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357) */
+        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
         post: operations["postLibrariesRescan"];
         delete?: never;
         options?: never;
@@ -7382,7 +7382,10 @@ export interface operations {
     };
     postItemRescan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
+                full?: boolean;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -7910,7 +7913,10 @@ export interface operations {
     };
     postLibraryRescan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
+                full?: boolean;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -8090,7 +8096,10 @@ export interface operations {
     };
     postLibrariesRescan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
+                full?: boolean;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;

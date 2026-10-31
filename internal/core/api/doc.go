@@ -91,7 +91,8 @@
 //     TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs.
 //   - Only an admin rescans: every library of films or series, one, or one film or series; the
 //     Libraries page shows an admin each library's rescan as it runs (D357 §1, §5).
-//     TestRescan_IsForAnAdminOnly.
+//     TestRescan_IsForAnAdminOnly. Each rescan's request with full set is its full rescan, every file
+//     in its scope read again first (D392 §1, §6). TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each

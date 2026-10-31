@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -34,4 +35,17 @@ func MoveFetchedToCopysFile(ctx context.Context, queries *sqlcgen.Queries, fromF
 		return fmt.Errorf("move the subtitles fetched for file %d to file %d: %w", fromFileID, toFileID, err)
 	}
 	return nil
+}
+
+// ForgetText throws out the text made of one of a video's own subtitle tracks, once the facts of its
+// probe the text was made from changed (library.DerivedDroppers, D392 §3), in the ingest's write that
+// keeps the new probe: the next play makes it again. It says whether there was any.
+func ForgetText(ctx context.Context, queries *sqlcgen.Queries, of library.DerivedOf) (bool, error) {
+	deleted, err := queries.DeleteSubtitleText(ctx, sqlcgen.DeleteSubtitleTextParams{
+		SourceHash: of.PayloadHash, StreamIndex: int64(of.StreamIndex),
+	})
+	if err != nil {
+		return false, fmt.Errorf("forget the text of file %d's stream %d: %w", of.FileID, of.StreamIndex, err)
+	}
+	return deleted > 0, nil
 }

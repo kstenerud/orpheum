@@ -2026,3 +2026,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   in low-delay mode; and the core's log shows its picture's runs made, none refused. Also the qualities
   below the top play smoothly, with no frame stepped twice at chunk joins.
   (`internal/node/probe/parse.go`, `internal/node/chunks/arguments.go`, `internal/core/chunks/job.go`)
+- [ ] **VQ215** — a full rescan corrects file 5667 on staging (D392; with VQ207). Deploy core and node
+  together. On the Libraries page, open the library holding file 5667 and press "Full rescan". When it
+  ends, the core's log has the line "a file read again differs from what was kept of it; what that
+  touched is thrown out" for fileId 5667, its `differed` naming `video.needsRetiming: none → true` on
+  its picture's stream and its `thrownOut` naming the picture's chunks, and the scan's totals line
+  ("a scan compared the files it read again with what was kept"). Its stored probe record's picture
+  says `"needsRetiming":true`. Then on the Mac's Chrome play file 5667 at the top quality for a minute
+  and jump to its middle: passes as VQ207 does, smooth, no run of dropped frames, its picture's chunks
+  made anew (the core's log shows its runs into a store not used before). Last, press "Full rescan"
+  on the same library again: its totals say `"correctedCount":0` and nothing is thrown out.
+  (`internal/core/library/derived.go`, `internal/core/chunks/streams.go`, `internal/core/identify/rescan.go`)

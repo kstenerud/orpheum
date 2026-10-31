@@ -31,7 +31,13 @@ func (scans *Scans) takeListing(ctx context.Context, scanID int64, records []nod
 	if err != nil {
 		return err
 	}
-	taken, err := scans.ingester.TakeListing(ctx, scan.NodeID, scan.RootPath, scan.ScopePath, records, rules)
+	readAgain, err := decodeReadAgain(scan.ReadAgainJSON)
+	if err != nil {
+		return err
+	}
+	taken, err := scans.ingester.TakeListingReadingAgain(ctx, ListingScan{
+		NodeID: scan.NodeID, Root: scan.RootPath, Scope: scan.ScopePath, ReadAgain: readAgain,
+	}, records, rules)
 	if err != nil {
 		return err
 	}
@@ -188,8 +194,12 @@ func (scans *Scans) complete(ctx context.Context, scan cachegen.Scan) error {
 		if endErr := scans.end(ctx, scan); endErr != nil {
 			return endErr
 		}
+		readAgain, decodeErr := decodeReadAgain(scan.ReadAgainJSON)
+		if decodeErr != nil {
+			return decodeErr
+		}
 		return scans.request(ctx, scanAsk{
-			nodeID: scan.NodeID, root: scan.RootPath, scope: wholeRoot, priority: scan.Priority,
+			nodeID: scan.NodeID, root: scan.RootPath, scope: wholeRoot, priority: scan.Priority, readAgain: readAgain,
 		})
 	}
 	if err != nil {
@@ -216,7 +226,13 @@ func (scans *Scans) endThenAgain(ctx context.Context, scan cachegen.Scan) error 
 	if scan.AgainScopePath != nil {
 		again = *scan.AgainScopePath
 	}
-	return scans.request(ctx, scanAsk{nodeID: scan.NodeID, root: scan.RootPath, scope: again, priority: scan.Priority})
+	readAgain, err := decodeReadAgain(scan.AgainReadAgainJSON)
+	if err != nil {
+		return err
+	}
+	return scans.request(ctx, scanAsk{
+		nodeID: scan.NodeID, root: scan.RootPath, scope: again, priority: scan.Priority, readAgain: readAgain,
+	})
 }
 
 // end forgets a scan, its batches and what the ingest held of it.

@@ -22,3 +22,8 @@ WHERE (subtitle_text.ass, subtitle_text.vtt, subtitle_text.failure, subtitle_tex
 -- name: ForgetSubtitleTextFailure :exec
 -- A play asks again for a track that could not be made: its failure goes while it is made again.
 DELETE FROM subtitle_text WHERE source_hash = ? AND stream_index = ? AND failure IS NOT NULL;
+
+-- name: DeleteSubtitleText :execrows
+-- An embedded track's text thrown out once the track's facts changed in its video's probe: the next
+-- play makes it again (D392 section 3).
+DELETE FROM subtitle_text WHERE source_hash = sqlc.arg(source_hash) AND stream_index = sqlc.arg(stream_index);

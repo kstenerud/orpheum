@@ -25075,6 +25075,52 @@ data, and mostly be about double-checking and correcting."
 6. **In the background as jobs** (D357 §5), its progress shown as a rescan's; a second press over the
    same scope adds nothing.
 
+**Proven by:**
+- 1: TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain (internal/core/api), web/apps/web/src/rescan.test.tsx (the buttons)
+- 2: TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle, TestScans_WhatAScanReadsAgainSurvivesAJoinAndTheScanAfter, TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot (internal/core/library), TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages (internal/core/identify)
+- 3: TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch, TestDerivedFromProbe_EachThingDeclaresItsFactsAndOneWayToThrowItOut, TestFactsKey_ChangesWithTheFactsAStreamsChunksAreMadeFromAlone (internal/core/library), TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut (internal/core/assembly), TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores, TestForgetStores_ThrowsOutTheStoresOfTheChangedStreamAlone (internal/core/chunks), TestForget_ThrowsOutOneTracksLoudnessAndOnePicturesTimeline (internal/core/readthrough), TestForgetText_ThrowsOutOneTracksText (internal/core/subtitles), TestRetireFrameStills_RetiresOnlyTheFilesFrameStills (internal/core/artwork)
+- 4: TestTakeListing_AScanReadingAgainReadsWhatItNamesAndEveryNFOAndSubtitle (NFOs read again), TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages (images asked for again, the scope matched again)
+- 5: TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch (each correction and the totals logged), TestScans_ASecondFullScanOfAnUnchangedLibraryChangesNothing
+- 6: TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages, TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain (a second press adds nothing)
+
+**Verification owed:** VQ215 (file 5667 marked for re-timing, its old chunks thrown out, and played).
+
+**Status:** Decided 2026-10-31.
+
+**Build note** (2026-10-31, staging's check owed, VQ215): the full rescan is the rescan's request with
+`full` set (`POST /libraries/rescan?full=true`, `/libraries/{id}/rescan?full=true`,
+`/items/{id}/rescan?full=true`), recorded on the rescan's row (cache.db `rescan.is_full`), and is the
+scope's one rescan, so a press of either kind while one runs adds nothing. Its scan carries what it
+reads again (cache.db `scan.read_again_json`; `library.ReadAgain`): a library's every file, a film's or
+series' own videos, and, for either, every NFO and subtitle file the listing holds; an ask joining it,
+or the scan after it, keeps them. The facts each derived thing is made from are one table,
+`derivedFromProbe` in `internal/core/library/derived.go` (listed in the package's doc.go); a probe read
+again is compared with the one kept fact by fact, and each thing whose facts differ is thrown out by
+the package that keeps it (`library.DerivedDroppers`, wired in `internal/core/assembly/playback.go`).
+Decided in the build, for the owner's review:
+
+- **A store of chunks names its facts.** Its directory's last part is its grid's id, then 16 hex
+  characters of the hash of the facts its stream is made from (`chunks.StoreKey`), so a store made
+  from facts since changed is never served, though the node still holds it: the core forgets it, and
+  the node evicts it first, as one no player wants. Consequence: at this build's deploy every store
+  already made is named by its grid alone and so made again at its next play, once; the old ones go
+  as the node needs room.
+- **Every probe read again corrects**, not only a full rescan's: a file a scan reads again because it
+  changed on disk, with the same payload, is compared too. One mechanism; a full rescan only reads
+  more files.
+- **The frame stills are derived from a probe** (its length, the picture's index and size); the
+  timeline only from the picture's stream index and codec, so a picture newly marked for re-timing
+  keeps its timeline and its grid.
+- **"Artwork missing" is what the artwork table holds without an image**, missing at its source or
+  refused: a full rescan marks those owed again (as a refresh asking for its images does), and the
+  pass its end owes queues them. An image whose files are gone from the art cache is served's own
+  concern and not looked for.
+- **Open: made chunks are not checked against their files.** The core keeps no record of a chunk's
+  size or hash (what is made is known in memory, from the node's word), and the node's store manifest
+  names its store, not its chunks. A chunk missing on the node is already made again when a player
+  asks for it; a damaged one is not found. A check needs the node to record each chunk's size and
+  hash as it puts it and to verify them when asked: the owner's question.
+
 ## D393 — The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats
 
 **Decided** (2026-10-31), by the project owner, amending D391 §2, §3, §4 and §6, on the audit

@@ -26,6 +26,8 @@ type fakeNodes struct {
 	scanned []string
 	// scopes are the folders a person asked to scan, as root:folder.
 	scopes []string
+	// readAgain are what scans asked for read again, as root:path, each path its own.
+	readAgain []string
 	// scanning are the scans in progress.
 	scanning map[ScanRoot]ScanProgress
 	// removed are the nodes an admin retired.
@@ -97,6 +99,17 @@ func (nodes *fakeNodes) RequestUnder(_ context.Context, nodeID int64, root, scop
 		nodes.scopes = append(nodes.scopes, root+":"+scope)
 	}
 	return nil
+}
+
+func (nodes *fakeNodes) RequestReadingAgain(
+	ctx context.Context, nodeID int64, root, scope string, readAgain ReadAgain, priority int64,
+) error {
+	if nodeID == nodes.id && priority == jobs.PriorityPersonsRequest {
+		for _, path := range readAgain {
+			nodes.readAgain = append(nodes.readAgain, root+":"+path)
+		}
+	}
+	return nodes.RequestUnder(ctx, nodeID, root, scope, priority)
 }
 
 func showsRequest(node string, roots ...string) CreateRequest {

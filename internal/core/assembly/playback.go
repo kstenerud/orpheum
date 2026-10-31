@@ -4,6 +4,7 @@ package assembly
 
 import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
@@ -43,6 +44,20 @@ func (services *Services) openPlayback(parts Parts) {
 	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
 	// The nodes keep the chunk stores by how strongly the players want them (D309 §8).
 	services.nodes.SetStoreTiers(services.playback.StoreTiers)
+	// A file read again whose probe differs throws out what the differences touch, each thing by the
+	// package that keeps it (D392 §3).
+	services.ingester.SetDerivedDroppers(derivedDroppers(services))
+}
+
+// derivedDroppers are how each thing derived from a file's probe is thrown out once the facts it was
+// made from change (library.DerivedDroppers): the read-through's measurements and timelines, the
+// subtitles' texts, the frame stills and the chunk stores.
+func derivedDroppers(services *Services) library.DerivedDroppers {
+	return library.DerivedDroppers{
+		Loudness: readthrough.ForgetLoudness, Timeline: readthrough.ForgetTimeline,
+		SubtitleText: subtitles.ForgetText, FrameStills: services.artwork.RetireFrameStills,
+		PictureChunks: services.chunks.ForgetPictureStores, SoundChunks: services.chunks.ForgetSoundStores,
+	}
 }
 
 // playingFiles are the files played now, as the playback service last heard them: a playback a

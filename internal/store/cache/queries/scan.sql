@@ -3,21 +3,24 @@
 
 -- name: InsertScan :one
 -- A scan of a root, unless one is in progress: then nothing, and no id.
-INSERT INTO scan (node_id, root_path, priority, started_at, scope_path)
-VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(priority), sqlc.arg(started_at), sqlc.arg(scope_path))
+INSERT INTO scan (node_id, root_path, priority, started_at, scope_path, read_again_json)
+VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(priority), sqlc.arg(started_at), sqlc.arg(scope_path),
+        sqlc.narg(read_again_json))
 ON CONFLICT (node_id, root_path) DO NOTHING
 RETURNING id;
 
 -- name: SetScanAgain :execrows
 -- A scan asked for while one of the root runs: one more follows it (D236 section 3), of the scope
--- that covers every request made meanwhile.
-UPDATE scan SET is_another_scan_queued = 1, again_scope_path = sqlc.arg(again_scope_path)
+-- that covers every request made meanwhile, reading again what each of them reads again.
+UPDATE scan SET is_another_scan_queued = 1, again_scope_path = sqlc.arg(again_scope_path),
+                again_read_again_json = sqlc.narg(again_read_again_json)
 WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
 
 -- name: JoinScan :exec
 -- A scan asked for of a root whose scan's listing is not yet with its node joins it: its scope
--- widened to cover both, and its priority the higher of the two.
-UPDATE scan SET scope_path = sqlc.arg(scope_path), priority = sqlc.arg(priority)
+-- widened to cover both, its priority the higher of the two, and what either reads again read again.
+UPDATE scan SET scope_path = sqlc.arg(scope_path), priority = sqlc.arg(priority),
+                read_again_json = sqlc.narg(read_again_json)
 WHERE id = sqlc.arg(id);
 
 -- name: SendScanListing :one
@@ -26,22 +29,26 @@ WHERE id = sqlc.arg(id);
 UPDATE scan SET listing_sent_at = sqlc.arg(listing_sent_at)
 WHERE id = sqlc.arg(id) AND listed_at IS NULL
 RETURNING id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-          is_another_scan_queued, scope_path, again_scope_path, listing_sent_at;
+          is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json;
 
 -- name: GetScanOfRoot :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
 
 -- name: GetScan :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan WHERE id = sqlc.arg(id);
 
 -- name: ListScans :many
 -- Every scan in progress, oldest first.
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan ORDER BY id;
 
 -- name: SetScanListed :exec

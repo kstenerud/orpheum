@@ -46,7 +46,8 @@ func (q *Queries) DeleteScan(ctx context.Context, id int64) error {
 
 const getScan = `-- name: GetScan :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan WHERE id = ?1
 `
 
@@ -67,6 +68,8 @@ func (q *Queries) GetScan(ctx context.Context, id int64) (Scan, error) {
 		&i.ScopePath,
 		&i.AgainScopePath,
 		&i.ListingSentAt,
+		&i.ReadAgainJSON,
+		&i.AgainReadAgainJSON,
 	)
 	return i, err
 }
@@ -90,7 +93,8 @@ func (q *Queries) GetScanBatch(ctx context.Context, id int64) (ScanBatch, error)
 
 const getScanOfRoot = `-- name: GetScanOfRoot :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan WHERE node_id = ?1 AND root_path = ?2
 `
 
@@ -116,6 +120,8 @@ func (q *Queries) GetScanOfRoot(ctx context.Context, arg GetScanOfRootParams) (S
 		&i.ScopePath,
 		&i.AgainScopePath,
 		&i.ListingSentAt,
+		&i.ReadAgainJSON,
+		&i.AgainReadAgainJSON,
 	)
 	return i, err
 }
@@ -142,18 +148,20 @@ func (q *Queries) GetUndoneScanBatchHolding(ctx context.Context, arg GetUndoneSc
 
 const insertScan = `-- name: InsertScan :one
 
-INSERT INTO scan (node_id, root_path, priority, started_at, scope_path)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO scan (node_id, root_path, priority, started_at, scope_path, read_again_json)
+VALUES (?1, ?2, ?3, ?4, ?5,
+        ?6)
 ON CONFLICT (node_id, root_path) DO NOTHING
 RETURNING id
 `
 
 type InsertScanParams struct {
-	NodeID    int64
-	RootPath  string
-	Priority  int64
-	StartedAt int64
-	ScopePath string
+	NodeID        int64
+	RootPath      string
+	Priority      int64
+	StartedAt     int64
+	ScopePath     string
+	ReadAgainJSON *string
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -166,6 +174,7 @@ func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) (int64, 
 		arg.Priority,
 		arg.StartedAt,
 		arg.ScopePath,
+		arg.ReadAgainJSON,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -192,26 +201,34 @@ func (q *Queries) InsertScanBatch(ctx context.Context, arg InsertScanBatchParams
 }
 
 const joinScan = `-- name: JoinScan :exec
-UPDATE scan SET scope_path = ?1, priority = ?2
-WHERE id = ?3
+UPDATE scan SET scope_path = ?1, priority = ?2,
+                read_again_json = ?3
+WHERE id = ?4
 `
 
 type JoinScanParams struct {
-	ScopePath string
-	Priority  int64
-	ID        int64
+	ScopePath     string
+	Priority      int64
+	ReadAgainJSON *string
+	ID            int64
 }
 
 // A scan asked for of a root whose scan's listing is not yet with its node joins it: its scope
-// widened to cover both, and its priority the higher of the two.
+// widened to cover both, its priority the higher of the two, and what either reads again read again.
 func (q *Queries) JoinScan(ctx context.Context, arg JoinScanParams) error {
-	_, err := q.db.ExecContext(ctx, joinScan, arg.ScopePath, arg.Priority, arg.ID)
+	_, err := q.db.ExecContext(ctx, joinScan,
+		arg.ScopePath,
+		arg.Priority,
+		arg.ReadAgainJSON,
+		arg.ID,
+	)
 	return err
 }
 
 const listScans = `-- name: ListScans :many
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+       is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 FROM scan ORDER BY id
 `
 
@@ -239,6 +256,8 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 			&i.ScopePath,
 			&i.AgainScopePath,
 			&i.ListingSentAt,
+			&i.ReadAgainJSON,
+			&i.AgainReadAgainJSON,
 		); err != nil {
 			return nil, err
 		}
@@ -257,7 +276,8 @@ const sendScanListing = `-- name: SendScanListing :one
 UPDATE scan SET listing_sent_at = ?1
 WHERE id = ?2 AND listed_at IS NULL
 RETURNING id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-          is_another_scan_queued, scope_path, again_scope_path, listing_sent_at
+          is_another_scan_queued, scope_path, again_scope_path, listing_sent_at, read_again_json,
+       again_read_again_json
 `
 
 type SendScanListingParams struct {
@@ -284,25 +304,34 @@ func (q *Queries) SendScanListing(ctx context.Context, arg SendScanListingParams
 		&i.ScopePath,
 		&i.AgainScopePath,
 		&i.ListingSentAt,
+		&i.ReadAgainJSON,
+		&i.AgainReadAgainJSON,
 	)
 	return i, err
 }
 
 const setScanAgain = `-- name: SetScanAgain :execrows
-UPDATE scan SET is_another_scan_queued = 1, again_scope_path = ?1
-WHERE node_id = ?2 AND root_path = ?3
+UPDATE scan SET is_another_scan_queued = 1, again_scope_path = ?1,
+                again_read_again_json = ?2
+WHERE node_id = ?3 AND root_path = ?4
 `
 
 type SetScanAgainParams struct {
-	AgainScopePath *string
-	NodeID         int64
-	RootPath       string
+	AgainScopePath     *string
+	AgainReadAgainJSON *string
+	NodeID             int64
+	RootPath           string
 }
 
 // A scan asked for while one of the root runs: one more follows it (D236 section 3), of the scope
-// that covers every request made meanwhile.
+// that covers every request made meanwhile, reading again what each of them reads again.
 func (q *Queries) SetScanAgain(ctx context.Context, arg SetScanAgainParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, setScanAgain, arg.AgainScopePath, arg.NodeID, arg.RootPath)
+	result, err := q.db.ExecContext(ctx, setScanAgain,
+		arg.AgainScopePath,
+		arg.AgainReadAgainJSON,
+		arg.NodeID,
+		arg.RootPath,
+	)
 	if err != nil {
 		return 0, err
 	}

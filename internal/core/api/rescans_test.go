@@ -64,3 +64,50 @@ func TestRescan_IsForAnAdminOnly(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/rescan", admin, nil), http.StatusNotFound,
 		api.CodeNotFound)
 }
+
+// D392 §1, §6: each rescan offers a full rescan beside it, by its full flag: a library's has its scan
+// read every file again, and is the library's one rescan, so a second press of either adds nothing;
+// "Rescan everything" in full starts none while it runs. A person of another role is refused it.
+func TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	user := harness.signIn(t, "partner", "partner-password")
+	for _, path := range []string{
+		"/libraries/rescan?full=true", "/libraries/1/rescan?full=true",
+		"/items/1/rescan?full=true",
+	} {
+		wantError(t, harness.do(t, http.MethodPost, path, user, nil), http.StatusForbidden, api.CodeForbidden)
+	}
+	harness.nodes.scanned, harness.nodes.readAgain = nil, nil
+	started := harness.do(t, http.MethodPost, "/libraries/1/rescan?full=true", admin, nil)
+	if started.status != http.StatusAccepted || !strings.Contains(started.body, `"isStarted":true`) {
+		t.Fatalf("an admin's full rescan = %d %s", started.status, started.body)
+	}
+	if !slices.Equal(harness.nodes.readAgain, []string{"/media/shows:."}) {
+		t.Errorf("read again: %v; want every file of the library's root", harness.nodes.readAgain)
+	}
+	for _, path := range []string{"/libraries/1/rescan?full=true", "/libraries/1/rescan"} {
+		again := harness.do(t, http.MethodPost, path, admin, nil)
+		if again.status != http.StatusAccepted || !strings.Contains(again.body, `"isStarted":false`) {
+			t.Errorf("%s while the full rescan runs = %d %s; want nothing started", path, again.status, again.body)
+		}
+	}
+	everything := harness.do(t, http.MethodPost, "/libraries/rescan?full=true", admin, nil)
+	if everything.status != http.StatusAccepted || !strings.Contains(everything.body, `"startedCount":0`) {
+		t.Errorf("a full rescan of everything while it runs = %d %s; want none started", everything.status,
+			everything.body)
+	}
+	if len(harness.nodes.readAgain) != 1 {
+		t.Errorf("read again: %v; want the first press's alone", harness.nodes.readAgain)
+	}
+}

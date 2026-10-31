@@ -21,8 +21,9 @@ const scanWorkFilesAtMost = 10_000
 // ScanWork asks, at a person's priority, for a scan of the folders that hold the live files of a
 // film or a series in a library: under each of its roots that holds any, the one folder holding
 // all of them there, whose scan removes nothing outside it (D272 §9), as a rescan of the one item
-// scans its files (D357 §2). A root whose node is away is not asked. It says how many it asked.
-func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64) (int, error) {
+// scans its files (D357 §2); isReadingAgain, one that reads those files again, changed on disk or
+// not, a full rescan's (D392 §2). A root whose node is away is not asked. It says how many it asked.
+func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64, isReadingAgain bool) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return 0, err
@@ -35,30 +36,43 @@ func (admin *Admin) ScanWork(ctx context.Context, libraryID, itemID int64) (int,
 	}
 	asked := 0
 	for _, root := range roots {
-		scope, holdsAny := "", false
-		for _, file := range files {
-			relative, under := RelativeToRoot([]byte(file.Path), root.RootPath)
-			if file.NodeID != root.NodeID || !under {
-				continue
-			}
-			folder := path.Dir(PathText(relative))
-			if holdsAny {
-				scope = widerScope(scope, folder)
-			} else {
-				scope, holdsAny = cleanScope(folder), true
-			}
+		scope, readAgain, holdsAny := workUnder(root, files)
+		if !isReadingAgain {
+			readAgain = nil
 		}
 		nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 		if !holdsAny || !connected || nodeID != root.NodeID {
 			continue
 		}
-		err := admin.scans.RequestUnder(ctx, nodeID, root.RootPath, scope, jobs.PriorityPersonsRequest)
+		err := admin.scans.RequestReadingAgain(ctx, nodeID, root.RootPath, scope, readAgain,
+			jobs.PriorityPersonsRequest)
 		if err != nil {
 			return asked, err
 		}
 		asked++
 	}
 	return asked, nil
+}
+
+// workUnder is the one folder under a root holding all of a film's or series' files there, its scope,
+// and those files, relative to the root; and whether the root holds any.
+func workUnder(
+	root sqlcgen.ListLibraryRootStatesRow, files []sqlcgen.ListFilesOfWorkRow,
+) (scope string, readAgain ReadAgain, holdsAny bool) {
+	for _, file := range files {
+		relative, under := RelativeToRoot([]byte(file.Path), root.RootPath)
+		if file.NodeID != root.NodeID || !under {
+			continue
+		}
+		readAgain = append(readAgain, PathText(relative))
+		folder := path.Dir(PathText(relative))
+		if holdsAny {
+			scope = widerScope(scope, folder)
+		} else {
+			scope, holdsAny = cleanScope(folder), true
+		}
+	}
+	return scope, readAgain, holdsAny
 }
 
 // IsScanning is whether a scan of any of a library's roots is in progress.

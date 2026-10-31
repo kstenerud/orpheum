@@ -59,7 +59,8 @@ func (fixture runsFixture) start(t *testing.T, id int64, run testRun) <-chan err
 	if !isStream {
 		t.Fatalf("no stream %q", run.stream)
 	}
-	storeID, err := fixture.service.storeIDOf(t.Context(), 1, stream, run.gridID)
+	storeID, err := fixture.service.storeIDOf(t.Context(), 1, stream,
+		testStoreKey(t, fixture.service, stream, run.gridID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +93,8 @@ func TestHandleMakeChunks_SendsTheRunOfTheFilmsPictureAndTakesItsChunksAsTheyAre
 	if command.Type != nodeproto.CommandMakeChunks || sent == nil {
 		t.Fatalf("the node was sent %+v; want a run of chunks", command)
 	}
-	checkQualityRun(t, *sent, gridID)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	checkQualityRun(t, *sent, testStoreKey(t, service, quality, gridID))
 	madeThrough := 4
 	service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
 		JobID: 7, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning, ChunksMadeThrough: &madeThrough,
@@ -228,11 +230,11 @@ func TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesid
 
 // checkQualityRun fails the test unless sent is chunks 3 to 5 of film 1's picture at 1200k, 480p, its
 // source by identity, bounded by the grid's starts and the last chunk's end.
-func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, gridID string) {
+func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, storeKey string) {
 	t.Helper()
 	wantVideo := nodeproto.BytesFile{RootPath: "/m", Path: []byte("f1.mkv"), PayloadHash: "01"}
 	if sent.Video.Target() != wantVideo.Target() || sent.VideoStreamIndex != 0 || sent.VideoCodec != "h264" ||
-		sent.StoreDir != "1/chunks-q1200k480p/"+gridID || sent.FirstChunk != 3 || sent.SoundLeadInMs != 0 ||
+		sent.StoreDir != "1/chunks-q1200k480p/"+storeKey || sent.FirstChunk != 3 || sent.SoundLeadInMs != 0 ||
 		!slices.Equal(sent.BoundsMs, []int64{30_000, 40_000, 50_000, 60_000}) ||
 		sent.Stream != (nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}) {
 		t.Fatalf("the node was sent %+v; want chunks 3 to 5 of film 1's picture at 1200k, 480p, by its "+
@@ -431,7 +433,8 @@ func TestTakeProgress_ARunNoPlayerWantsStopsAtItsNextStep(t *testing.T) {
 	fixture := runsOnAFakeNode(t)
 	service := fixture.service
 	grid := mustGrid(t, service)
-	dir := StoreDir(1, Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}},
+	dir := testStoreDir(t, service,
+		Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}},
 		grid.ID())
 	wanted := wantedBy(service)
 	wanted.say(Interest{StreamName: "q1200k480p", PositionMs: 30_000})
@@ -460,7 +463,7 @@ func TestTakeProgress_ARunCancelledIsNotTakenAsRunningAgainByItsProgress(t *test
 	service := fixture.service
 	grid := mustGrid(t, service)
 	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
-	dir := StoreDir(1, quality, grid.ID())
+	dir := testStoreDir(t, service, quality, grid.ID())
 	wanted := wantedBy(service)
 	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
 	command := testutil.Receive(t, fixture.node.sent, "the run's command")
@@ -496,7 +499,7 @@ func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t 
 	service := fixture.service
 	grid := mustGrid(t, service)
 	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
-	dir := StoreDir(1, quality, grid.ID())
+	dir := testStoreDir(t, service, quality, grid.ID())
 	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
 	command := testutil.Receive(t, fixture.node.sent, "the run's command")
 	service.runs.evict(dir, 3, 1, service.clock.Now())

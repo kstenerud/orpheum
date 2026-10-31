@@ -314,7 +314,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   never a mixed or other one; the list and the library's page show how far its rescan is, scanning
   first, then the films and series matched again; and "Rescan this" beside "Identified incorrectly",
   for an admin alone. Each says whether it started, or one already runs. `libraries.test.tsx`,
-  `rescan.test.tsx`, `library-pages.test.tsx`.
+  `rescan.test.tsx`, `library-pages.test.tsx`. Beside each is its full rescan (D392): "Full rescan
+  of everything", and "Full rescan" on a library's page and in "Identified incorrectly", which ask
+  for the same rescan with every file read again first. `rescan.test.tsx`.
 - **The admin's libraries are a list, each with a page of its own, and creating one is a page too**
   (D361): `/libraries` lists each library at a glance with "Manage this library"; `/libraries/<id>`
   holds everything that changes it, deleting it (confirmed first) going back to the list;

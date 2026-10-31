@@ -30,6 +30,38 @@ type RescansStartedOutput struct {
 	}
 }
 
+// RescanKindInput is whether a rescan is a full one (D392): every file in its scope read again,
+// changed on disk or not, and what the differences touch thrown out, before the rescan's match.
+type RescanKindInput struct {
+	IsFull bool `doc:"A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)" query:"full"` //nolint:lll // one struct tag
+}
+
+// kind is the rescan the input asks for.
+func (input RescanKindInput) kind() identify.RescanKind {
+	if input.IsFull {
+		return identify.FullRescan
+	}
+	return identify.Rescan
+}
+
+// RescanEverythingInput asks for a rescan, or a full one, of every library of films or of series.
+type RescanEverythingInput struct {
+	AuthorizationHeader
+	RescanKindInput
+}
+
+// LibraryRescanInput asks for a rescan, or a full one, of a library.
+type LibraryRescanInput struct {
+	LibraryInput
+	RescanKindInput
+}
+
+// ItemRescanInput asks for a rescan, or a full one, of a film or a series.
+type ItemRescanInput struct {
+	ItemInput
+	RescanKindInput
+}
+
 // LibraryRescanBody is how far a library's rescans are (D357 §5): scanning, then matching its films
 // and series again.
 type LibraryRescanBody struct {
@@ -43,30 +75,33 @@ func (server *Server) registerRescans() {
 		OperationID: "postLibrariesRescan", Method: http.MethodPost, Path: "/libraries/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
 		Summary: "Rescan every library of films or of series: scan it, then match each film and series " +
-			"in it again from its files, leaving alone what a person set (admin; D357)",
+			"in it again from its files, leaving alone what a person set (admin; D357); with full, read " +
+			"every file again first and throw out what its differences touch (D392)",
 	}, server.postLibrariesRescan)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibraryRescan", Method: http.MethodPost, Path: "/libraries/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
 		Summary: "Rescan a library of films or of series: scan it, then match each film and series in it " +
-			"again from its files, leaving alone what a person set (admin; D357)",
+			"again from its files, leaving alone what a person set (admin; D357); with full, read every " +
+			"file again first and throw out what its differences touch (D392)",
 	}, server.postLibraryRescan)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postItemRescan", Method: http.MethodPost, Path: "/items/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagIdentification},
 		Summary: "Rescan a film or series: scan its files, then match it again from them, unless a person " +
-			"chose its match (admin; D357)",
+			"chose its match (admin; D357); with full, read its files again first and throw out what their " +
+			"differences touch (D392)",
 	}, server.postItemRescan)
 }
 
-func (server *Server) postLibrariesRescan(ctx context.Context, input *AuthorizationHeader) (
+func (server *Server) postLibrariesRescan(ctx context.Context, input *RescanEverythingInput) (
 	*RescansStartedOutput, error,
 ) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	started, err := dependencies.Rescans.RescanEverything(ctx)
+	started, err := dependencies.Rescans.RescanEverything(ctx, input.kind())
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan every library", err)
 	}
@@ -75,12 +110,14 @@ func (server *Server) postLibrariesRescan(ctx context.Context, input *Authorizat
 	return output, nil
 }
 
-func (server *Server) postLibraryRescan(ctx context.Context, input *LibraryInput) (*RescanStartedOutput, error) {
+func (server *Server) postLibraryRescan(ctx context.Context, input *LibraryRescanInput) (
+	*RescanStartedOutput, error,
+) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID)
+	isStarted, err := dependencies.Rescans.RescanLibrary(ctx, input.ID, input.kind())
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan a library", err)
 	}
@@ -89,12 +126,12 @@ func (server *Server) postLibraryRescan(ctx context.Context, input *LibraryInput
 	return output, nil
 }
 
-func (server *Server) postItemRescan(ctx context.Context, input *ItemInput) (*RescanStartedOutput, error) {
+func (server *Server) postItemRescan(ctx context.Context, input *ItemRescanInput) (*RescanStartedOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID)
+	isStarted, err := dependencies.Rescans.RescanItem(ctx, input.ID, input.kind())
 	if err != nil {
 		return nil, server.rescanError(ctx, "rescan an item", err)
 	}

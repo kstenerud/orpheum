@@ -71,8 +71,8 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 		return fmt.Errorf("file %d has no chunk %d: its last is %d", fileID, wanted, film.grid.lastChunk())
 	}
 	service.refreshChunkTiming(ctx)
-	gridID := film.grid.ID()
-	dir := StoreDir(fileID, stream, gridID)
+	storeKey := film.storeKey(stream)
+	dir := StoreDir(fileID, stream, storeKey)
 	wants, askErr := service.ask(ctx, film, stream, wanted, asked.isAsked)
 	if askErr != nil {
 		return askErr
@@ -84,7 +84,7 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	if refused := service.refuseGivenUp(dir, first); refused != nil {
 		return refused
 	}
-	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
+	storeID, err := service.storeIDOf(ctx, fileID, stream, storeKey)
 	if err != nil {
 		service.runs.forget(dir, first)
 		return err
@@ -154,7 +154,7 @@ func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream S
 func (service *Service) ask(
 	ctx context.Context, film cutFilm, stream Stream, wanted int, isAsked bool,
 ) (wantedness, error) {
-	dir := StoreDir(film.file.ID, stream, film.grid.ID())
+	dir := film.storeDir(stream)
 	service.runs.knowGrid(dir, film.grid)
 	if service.runs.isEvicted(dir) && !service.runs.isCovered(dir, wanted) {
 		return nil, fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
@@ -176,18 +176,19 @@ func (service *Service) ask(
 	return wants, nil
 }
 
-// storeIDOf is the chunk_store row of a stream of a film on a grid, made the first time it is named.
-func (service *Service) storeIDOf(ctx context.Context, fileID int64, stream Stream, gridID string) (int64, error) {
+// storeIDOf is the chunk_store row of a stream of a film by its store's key (cutFilm.storeKey), made
+// the first time it is named.
+func (service *Service) storeIDOf(ctx context.Context, fileID int64, stream Stream, storeKey string) (int64, error) {
 	var storeID int64
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		var writeErr error
 		storeID, writeErr = queries.EnsureChunkStore(ctx, cachegen.EnsureChunkStoreParams{
-			SourceFile: fileID, Stream: stream.Name(), GridID: gridID,
+			SourceFile: fileID, Stream: stream.Name(), StoreKey: storeKey,
 		})
 		return writeErr
 	})
 	if err != nil {
-		return 0, fmt.Errorf("record the store of %s: %w", StoreDir(fileID, stream, gridID), err)
+		return 0, fmt.Errorf("record the store of %s: %w", StoreDir(fileID, stream, storeKey), err)
 	}
 	return storeID, nil
 }

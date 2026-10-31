@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -128,9 +129,32 @@ func (grid Grid) ID() string {
 }
 
 // StoreDir is the directory, under the node's prepared directory, of the store of one stream of a
-// film on its grid: "<file_id>/chunks-<stream>/<grid_id>" (nodeproto.MakeChunks.StoreDir).
-func StoreDir(fileID int64, stream Stream, gridID string) string {
-	return fmt.Sprintf("%d/chunks-%s/%s", fileID, stream.Name(), gridID)
+// film: "<file_id>/chunks-<stream>/<store_key>" (nodeproto.MakeChunks.StoreDir), by its key
+// (StoreKey).
+func StoreDir(fileID int64, stream Stream, storeKey string) string {
+	return fmt.Sprintf("%d/chunks-%s/%s", fileID, stream.Name(), storeKey)
+}
+
+// StoreKey names a stream's store of a film: its grid's id, then the key of the facts of the film's
+// probe the stream is made from (library.PictureChunksFactsKey, library.SoundChunksFactsKey), so a
+// film whose grid changes, or whose facts a stream is made from change when its file is read again,
+// has that stream's chunks made into a new store, and the old store's are never served again
+// (D392 §3).
+func StoreKey(gridID string, probe nodeproto.Probe, stream Stream) string {
+	if stream.Kind.IsSound() {
+		return gridID + library.SoundChunksFactsKey(probe, stream.AudioTrackIndex)
+	}
+	return gridID + library.PictureChunksFactsKey(probe)
+}
+
+// storeKey is the key of a stream's store of the film as it is cut (StoreKey).
+func (film cutFilm) storeKey(stream Stream) string {
+	return StoreKey(film.grid.ID(), film.probe, stream)
+}
+
+// storeDir is the directory of a stream's store of the film as it is cut.
+func (film cutFilm) storeDir(stream Stream) string {
+	return StoreDir(film.file.ID, stream, film.storeKey(stream))
 }
 
 // The names of a store's files: its init, and each chunk's, five digits or more.

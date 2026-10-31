@@ -60,11 +60,22 @@
 //     TestGrid_IsTheMainPicturesKeptTimelineMergedToTheSegmentLength and
 //     TestGrid_SaysThereIsNoneYetOrThatTheFilmCannotBeCut.
 //
-//   - A stream's name reads back as the stream, a store is <file_id>/chunks-<stream>/<grid_id>, and
-//     a grid's id is the hash of its starts and the film's length, so a changed grid is a new store.
-//     Enforced by TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers,
-//     TestGridID_IsTheHashOfItsStartsAndLengthAndNamesTheStore and
-//     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber.
+//   - A stream's name reads back as the stream, a store is <file_id>/chunks-<stream>/<store_key>, and
+//     a store's key is its grid's id, the hash of its starts and the film's length, then the key of the
+//     facts of the film's probe the stream is made from (StoreKey, library.PictureChunksFactsKey and
+//     library.SoundChunksFactsKey), so a changed grid is a new store, and so is a stream whose facts
+//     changed when its file was read again: a picture newly marked for re-timing is made into new
+//     stores, its sounds' kept, and a run of a store made before ends for good (D392 §3). Enforced by
+//     TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers,
+//     TestGridID_IsTheHashOfItsStartsAndLengthAndNamesTheStore,
+//     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber and
+//     TestStoreKey_AFilmWhosePicturesFactsChangedHasItsPictureMadeIntoNewStores.
+//
+//   - A film's stores of a stream whose probe's facts changed are thrown out when its file is read
+//     again (library.DerivedDroppers): the picture's, copied and at each quality, or one audio track's,
+//     every mix and its copy, their chunk_store rows and what the tracker holds of them but a run on its
+//     way, and no other stream's (D392 §3). Enforced by
+//     TestForgetStores_ThrowsOutTheStoresOfTheChangedStreamAlone.
 //
 //   - A film whose file has no index of its keyframes is cut on time, a chunk at each multiple of the
 //     segment length, and its playback offered its twin at the top and the qualities below it, not
