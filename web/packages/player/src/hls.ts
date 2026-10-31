@@ -153,7 +153,7 @@ export interface AudioKeeping {
  * differs in channels or codec from the one loaded (`flushAudioIfNeeded`), and moves the sound with
  * the picture's next chunk, which is loaded far ahead of where it plays, so a Fire TV whose quality
  * stepped down from the film's own 5.1 sound kept 2.5 s of sound against 38.6 s of picture, asked
- * for the light track's chunks from there, found them being made, and stalled (staging, Nosferatu,
+ * for the light track's chunks from there, found them being made, and stalled (staging, a film,
  * 2026-10-28). The rendition at the place is switched to in the loaded one's form, its own given
  * back at once, so hls.js loads it on from the end of the sound loaded, as it does for two groups'
  * stereo tracks, and the new sound is heard where the picture of its quality begins.
@@ -163,7 +163,7 @@ export interface AudioKeeping {
  * on while hls.js asks for the new one's chunk at the playhead, which starts the server making it,
  * and the new one is heard from that chunk once it has loaded, the sound loaded after it thrown away
  * (`nextAudioTrack`): switched with `audioTrack`, hls.js threw all of it away at once and the video
- * waited for the new one's chunk, a boost turned on at the top of Thimbleford's ladder froze it 2.2 s
+ * waited for the new one's chunk, a boost turned on at the top of a film's ladder froze it 2.2 s
  * (staging, 2026-10-29). A switch to the place while one chosen is on its way, as the quality moves
  * to another group, is made the same way. Each choice is noted, with its cause, and again as it is
  * heard (idiosyncrasies.md).

@@ -328,7 +328,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   /**
    * Whether the quality loading, a hole in which hls.js could not step over, can be given up as
    * unplayable here, a lower one there to load (D266): iPhone Safari kept 0.26 s of a well-formed
-   * first chunk of Copper Kettle's own picture, 242 frames over 10 s, and hls.js, stepping over the hole
+   * first chunk of a series' own picture, 242 frames over 10 s, and hls.js, stepping over the hole
    * and finding the playhead still, gave the playback up (the owner's group test, 2026-10-13).
    */
   canGiveUpAtAHole(): boolean {

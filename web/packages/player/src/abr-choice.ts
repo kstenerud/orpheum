@@ -37,7 +37,7 @@ export const shareRisesToS = 25;
 /**
  * How recently, in ms, bytes of a chunk given up must have arrived for it to have been arriving, its
  * bytes a measure of the link, rather than stuck (bandwidth-sampling-2026-10-29.md P3): the stuck
- * chunks of a Fire TV's Nosferatu delivered a few kilobytes and then nothing (staging, 2026-10-28). A
+ * chunks of a Fire TV's film delivered a few kilobytes and then nothing (staging, 2026-10-28). A
  * starting value, a second, twice the controller's look; to be measured.
  */
 export const arrivingWithinMs = 1000;
@@ -105,7 +105,7 @@ export const cacheHitUnderMs = 10;
 
 /**
  * The fewest bytes a chunk measures the link with, counted after its first piece (D382 §2): a
- * smaller one's time is mostly its request's wait, not its bytes arriving. A Woman of Paris opens on black, a first chunk of 44.8 KB, which
+ * smaller one's time is mostly its request's wait, not its bytes arriving. A film opens on black, a first chunk of 44.8 KB, which
  * measured a LAN as 676 kbit/s and started the film at its lowest quality (the owner's test on
  * staging, 2026-10-18). The lowest quality's 10 s chunk is about 500 KB.
  */
@@ -288,7 +288,7 @@ export interface GivenUpChunk {
  * arriving or only its first piece, says nothing of it: undefined. It is a
  * censored measurement, "slower than this, or the transport stopped", which belongs to the link's
  * reliability, a drop (D352 §4), never to its speed. Counted as one byte over the whole wait, one
- * such chunk among four at 14–18 Mb/s made the estimate 69 kb/s, and a Fire TV played Nosferatu at its
+ * such chunk among four at 14–18 Mb/s made the estimate 69 kb/s, and a Fire TV played a film at its
  * lowest quality for 75 s (staging, 2026-10-28). hls.js samples only the wait of a fragment it
  * abandons with nothing loaded.
  */
@@ -385,7 +385,7 @@ export function voiceCeiling(levels: readonly ChoiceLevel[], linkBps: number | u
  * channel, the core finding or making the chunk, and none of it the link carrying bytes (D247 §9:
  * the speed measured while chunks download). hls.js's own sample runs from the ask to the chunk
  * parsed, less its estimate of that wait, which weights a long wait as an outlier and leaves most
- * of it in. The Unknown' first chunk of its own picture, made and on disk, measured a path that
+ * of it in. A film's first chunk of its own picture, made and on disk, measured a path that
  * had carried 12.5 Mb/s at 1008 kb/s, its page having opened two more WebRTC connections in the
  * seconds before, as it does only while its requests crowd the ones it has; that one sample took
  * the player to the lowest quality (the owner, on staging, 2026-10-26).

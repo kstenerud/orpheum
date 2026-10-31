@@ -324,9 +324,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `filmOfExtra`); a film or a series under the library the person came through, else the first of
   those listing it by name (the server's `libraries`); an other video under its library's list at its
   folder, a folder under the one above; Home, Films, Series, a library's list and the account's and
-  admin's tops have no parent. It shows as a trail on a computer or a phone, `Series › Copper Kettle ›
+  admin's tops have no parent. It shows as a trail on a computer or a phone, `Series › Show ›
   S1E1 Pilot`, each part an Up, a Play page's last part, what plays, a link to its own page, and as
-  one "‹ Copper Kettle" on a television (`src/up-trail.tsx`), nothing drawn over it, a title's backdrop
+  one "‹ Show" on a television (`src/up-trail.tsx`), nothing drawn over it, a title's backdrop
   below it. A
   remote's Back with nothing of the app behind goes to the parent, as does a television's Back at the
   base laid under a page it opened on. `src/navigation.test.ts`, `src/upward.test.ts` (the research's

@@ -148,7 +148,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   turned on or off, is the one way a sound changes as the film plays, a prepared rendition's too: the
   sound loaded plays on while the new one's chunk at the playhead is asked for, starting the server
   making it, and the new one is heard from that chunk once it has loaded, each choice noted with its
-  cause and again as it is heard; a boost turned on at the top of Thimbleford's ladder, the sound loaded
+  cause and again as it is heard; a boost turned on at the top of a film's ladder, the sound loaded
   thrown away, froze it 2.2 s (staging, 2026-10-29) (`keepAudioRendition`, `src/hls.ts`; D368's
   revision of 2026-10-28; idiosyncrasies.md). `hls.test.ts`.
 - **A player that is not a follower, alone, a cast's receiver or a session's leader, starts, and

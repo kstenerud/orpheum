@@ -38,9 +38,9 @@ export function UpLink(props: {
 }
 
 /**
- * Where the page is and the way up (D367 §8): on a computer or a phone a trail, "Series › Copper Kettle
+ * Where the page is and the way up (D367 §8): on a computer or a phone a trail, "Series › Show
  * › S1E1 Pilot", each ancestor a link up to it, the one before the last the parent; on a television
- * one "‹ Copper Kettle", one stop for focus. A top page has none. A remote's Back with nothing of the
+ * one "‹ Show", one stop for focus. A top page has none. A remote's Back with nothing of the
  * app behind goes to the parent too (D367 §5), as does a television's Back at the base laid under a
  * page it opened on.
  */

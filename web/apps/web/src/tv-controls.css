@@ -25,7 +25,7 @@
   visibility: hidden;
 }
 
-/* The way out of the player (D367 §6, §8): Up, "‹ Copper Kettle", and Back, above the bar. */
+/* The way out of the player (D367 §6, §8): Up, "‹ Show", and Back, above the bar. */
 .tv-controls__leave {
   display: flex;
   gap: var(--space-3);

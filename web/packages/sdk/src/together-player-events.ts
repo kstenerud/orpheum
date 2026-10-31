@@ -110,7 +110,7 @@ export const qualitySwitchedTextMost = 300;
  * estimate then: undefined before chunks measured it, when the estimate is only hls.js's starting
  * value; the quality it played before, absent for the first it plays; and, where its own bitrate
  * controller chose it, why ("first", a chunk given up with its bytes and wait, a step up, the link)
- * and the link's samples then. A Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its link
+ * and the link's samples then. A Fire TV fell from 9018 to 696 kb/s 2.3 s into a film, its link
  * estimated at 69 kb/s though its chunks had loaded at 14–18 Mb/s, and the core's log said nothing
  * of why (the owner's cast, staging, 2026-10-28).
  */

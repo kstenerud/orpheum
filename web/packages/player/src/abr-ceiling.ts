@@ -45,7 +45,7 @@ import { busyText, type BusyPage } from "./abr-busy.ts";
  * end or after; the link decides again once less is loaded, on the evidence then. A step down exists
  * so the player does not run dry, and with this much loaded it is not about to: a Fire TV with
  * 37.3 s loaded fell from its top quality to its second lowest on one slow sample, and the change
- * of sound with it threw its loaded sound away and stalled it (staging, Nosferatu, 2026-10-28). The
+ * of sound with it threw its loaded sound away and stalled it (staging, a film, 2026-10-28). The
  * step-up's own (stepUpBufferMs): what is enough to climb on is enough to stay on, and a climb that
  * does not hold is followed down once the buffer it spent falls under it.
  */
@@ -286,7 +286,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   /**
    * Whether the quality loading, a hole in which hls.js could not step over, can be given up as
    * unplayable here, a lower one there to load (D266): iPhone Safari kept 0.26 s of a well-formed
-   * first chunk of Copper Kettle's own picture, 242 frames over 10 s, and hls.js, stepping over the hole
+   * first chunk of a series' own picture, 242 frames over 10 s, and hls.js, stepping over the hole
    * and finding the playhead still, gave the playback up (the owner's group test, 2026-10-13).
    */
   canGiveUpAtAHole(): boolean {
@@ -703,7 +703,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   /**
    * Chooses level for the next chunk, and keeps why, with the link's samples then, when it is a
    * change, for the switch to it (whyChose): a switch's line in the core's log said nothing of why
-   * (staging, Nosferatu, 2026-10-28).
+   * (staging, a film, 2026-10-28).
    */
   #choose(level: number, why: () => string): number {
     if (level !== this.#lastChosen) {

@@ -204,7 +204,7 @@ function huberCentreOf(points: readonly Weighed[], spread: number): number {
  * every choice of quality reads, is e to their **centre**, Huber's: a sample further than
  * clipAtSpreads spreads from it counts as if it were that far, so no one sample rules it. The
  * harmonic mean it replaces is at most five times its slowest sample: one chunk at 14 kb/s among four
- * at 14–18 Mb/s made it 69 kb/s, and a Fire TV dropped from Nosferatu's own picture to its lowest
+ * at 14–18 Mb/s made it 69 kb/s, and a Fire TV dropped from a film's own picture to its lowest
  * quality for 75 s (staging, 2026-10-28; bandwidth-sampling §1.1).
  *
  * A choice reads it at a **bound**, a quantile set by what is loaded ahead (boundDeviationsByAheadS):
@@ -248,7 +248,7 @@ export class LinkEstimate {
     const predictedBps = this.estimateBps();
     // Calibrated against the bound read with nothing loaded, the one whose quantile the log can check
     // (about one sample in ten slower): the bound a choice reads with 20 s loaded is the centre, which
-    // half the samples fall below by construction (98 of 241 on a Fire TV's Nosferatu, staging,
+    // half the samples fall below by construction (98 of 241 on a Fire TV's film, staging,
     // 2026-10-29), saying nothing of the estimate's calibration.
     const boundBps = this.nextChunkBps(0);
     const msAt = (bps: number | undefined): { readonly ms?: number } =>
@@ -346,7 +346,7 @@ export class LinkEstimate {
    * set aside; undefined while no kept sample had an estimate before it. One sample out
    * of five ruled it before: a Fire TV's 376 KB in 1200 ms among four at 9.7–22.6 Mb/s made it
    * 460%, the confident estimate 1315 kb/s, and the ceiling fell from its top quality to its second
-   * lowest (staging, Nosferatu, 2026-10-28).
+   * lowest (staging, a film, 2026-10-28).
    */
   predictionError(): number | undefined {
     const errors = this.#samples
