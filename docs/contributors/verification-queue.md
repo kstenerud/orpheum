@@ -1919,3 +1919,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   reason=sessionEnded` for it (D389 §1).
   (`web/apps/web/src/together-viewer.tsx`, `cast-dialog.tsx`, `internal/core/together/cast.go`,
   `internal/core/assembly/assembly.go`, `together-session-end.ts`)
+- [ ] **VQ194** — the first visit after a deploy says nothing of developer tools: after
+  the next nas.example deploy, open the production page in Firefox on the Mac (the owner's, where it was
+  seen on 2026-10-31) without reloading first, DevTools closed. Passes when no "Developer tools are
+  bypassing the service worker" line shows, or one shows for a moment and goes as the new worker
+  takes over, and posters load. With DevTools' "Bypass for network" ticked and the page reloaded,
+  the line shows (the note still works). (`web/apps/web/src/worker-bypassed-note.tsx`)
