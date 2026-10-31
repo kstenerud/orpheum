@@ -396,8 +396,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D388](working-notes.md#d388--a-device-is-cast-to-or-it-is-not-the-remote-offers-no-play-on-this-device-instead) A device is cast to or it is not: the remote offers no "Play on this device instead"
 - [D389](working-notes.md#d389--a-watch-together-sessions-end-ends-its-members-casts-each-receiver-goes-home) A Watch Together session's end ends its members' casts: each receiver goes home
 - [D390](working-notes.md#d390--the-services-addresses-the-app-and-account-on-orpheumcc-the-api-unmoved-staging-on-orpheumdev-the-website-on-orpheummov) The service's addresses: the app and account on orpheum.cc, the API unmoved, staging on orpheum.dev, the website on orpheum.mov — *revisited by D391*
-- [D391](working-notes.md#d391--a-discovery-is-a-key-its-names-are-locations-greenfield-names-signed-address-documents-and-release-records-an-own-discovery-depending-on-nothing-of-the-owners) A discovery is a key, its names are locations: greenfield names, signed address documents and release records, an own discovery depending on nothing of the owner's
+- [D391](working-notes.md#d391--a-discovery-is-a-key-its-names-are-locations-greenfield-names-signed-address-documents-and-release-records-an-own-discovery-depending-on-nothing-of-the-owners) A discovery is a key, its names are locations: greenfield names, signed address documents and release records, an own discovery depending on nothing of the owner's — *revisited by D393*
 - [D392](working-notes.md#d392--a-full-rescan-re-examines-every-file-and-corrects-only-what-the-differences-touch) A full rescan re-examines every file and corrects only what the differences touch
+- [D393](working-notes.md#d393--the-root-key-design-corrected-by-its-audit-two-tiers-of-single-keys-a-separate-publisher-root-user-verified-signatures-versioned-formats) The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats
 
 ## Archived
 

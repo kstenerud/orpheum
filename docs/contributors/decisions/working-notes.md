@@ -25074,3 +25074,38 @@ data, and mostly be about double-checking and correcting."
    each run's totals; a full rescan that finds nothing wrong changes nothing.
 6. **In the background as jobs** (D357 §5), its progress shown as a rescan's; a second press over the
    same scope adds nothing.
+
+## D393 — The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats
+
+**Decided** (2026-10-31), by the project owner, amending D391 §2, §3, §4 and §6, on the audit
+[root-key-audit-2026-10-31.md](../design/research/root-key-audit-2026-10-31.md), whose §3 is the
+design built ("This is the one part that absolutely MUST be correct from the start"; "OK, agreed. I'll
+have to order another yubikey. The system should allow adding and removing keys of both tiers").
+
+1. **Two tiers, every signature one key** (F1). Everyday keys (carried, home) sign address documents,
+   release records, and root statements that change the everyday tier alone. Recovery keys (the
+   bank's YubiKey, and a second at another site: a fourth YubiKey the owner is ordering) sign
+   anything, alone may add or remove recovery keys or change thresholds and roles, and their root
+   statement may skip versions past anything an everyday key signed. **Keys of both tiers are added
+   and removed by a signed root statement**, by the tier allowed to change that tier. A key that
+   leaves the set has the new set sign too (audit §3.4). Roles and per-role thresholds are in the
+   format, all 1.
+2. **Two roots** (F2): the discovery's (an own discovery's is its operator's) signs address documents;
+   the publisher's, Orpheum's, compiled into every binary, signs release records. The owner's same
+   YubiKeys hold both under separate keys and namespaces.
+3. **Every signature is user-verified** (F3): keys are made with `-O verify-required`, and Orpheum
+   checks the user-verified flag itself, as neither x/crypto nor `ssh-keygen -Y verify` does.
+4. **Identity is the hash of the first root statement** (F5), not a name; the core enrols by issuer
+   and pins that identity, and its signatures bind to the identity (F14).
+5. **Formats** (F7, F8): a strict line format, not JSON, with a format header, a criticality rule for
+   unknown lines, one SSHSIG namespace per object type, signatures over the exact bytes served, an
+   embedded key checked against the one expected.
+6. **Freshness** (F9, F11, F12): a counter per object type that only rises, ordered by (root version,
+   counter); expiry warns and never refuses; no decision rests on the core's clock; a signed digest
+   never changes; signed statements are kept as received and re-checked at start, and a restored core
+   catches up before it trusts.
+7. **Moves** (F6): a core keeps fetching from every location it has used in the past year.
+8. **Safety nets** (F4, F10, F13, F17): automatic installs wait 24 hours; a watcher tells the owner of
+   every signature it did not expect; the install verifies before it runs anything; cores report their
+   pinned root version in their heartbeat; a yearly drill exercises every key.
+9. **The online delegated key is not built** (F15); the format reserves its place.
