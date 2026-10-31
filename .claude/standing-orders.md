@@ -9,6 +9,14 @@
    **Done 2026-10-31:** the 10-30 batch below, with D382–D389 (casting and Watch Together as dialogs) and
    the library-title scrub: check-pr green, every VQ from 150 up ticked; nas.example runs an earlier commit;
    prod connect eb6c283-e39602fe; MPTCP off (sysctl) on prod-api, the edge, the Proxmox host and LXC 102.
+   **This batch (owner 2026-10-31): the testing and security fixes, closed out; everything else waits
+   for the batch after.** From the plan file's "The week's security report" and "check-pr's time"
+   sections: MPTCP off in every compose service (Orpheum's templates and connect's); the household
+   image pinned by digest at install; `release-image.yml` behind the owner's approval; no npm install
+   scripts, with a lockfile check; Plex2Shell's lessons as tests (an architecture test that home is never a credential, the
+   node alone sets FFmpeg's environment and paths, every token check validates); noexec looked into;
+   the security-update notice designed; the false DevTools-bypass note after a deploy; revert-red's
+   R1, R2, R3, R5 and R6 (background probing per commit). End: one check-pr, the owner's go, nas.example.
    **The 10-30 batch (owner 2026-10-30: cosmetic issues and what makes testing easier), from
    design/plans/navigation-and-widgets-answers-2026-10-27.md:**
    - Cosmetic: the session-ended notice as a modal; a title page's one "Identified incorrectly" entry
