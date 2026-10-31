@@ -99,7 +99,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 }
 
 // A switch of quality is logged with why the player's controller chose it and the link's samples
-// then, bounded as a diagnosis's text is: a Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its
+// then, bounded as a diagnosis's text is: a Fire TV fell from 9018 to 696 kb/s 2.3 s into Aegis, its
 // link estimated at 69 kb/s though its chunks had loaded at 14-18 Mb/s, and nothing in the log said
 // why (the owner's cast, staging, 2026-10-28).
 func TestHub_LogsWhyAPlayerSwitchedQuality(t *testing.T) {

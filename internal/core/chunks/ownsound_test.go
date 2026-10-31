@@ -151,7 +151,7 @@ func TestStartOnLadder_StartsTheTopOnTheFilmsOwnSoundCopied(t *testing.T) {
 // A track whose copy FFmpeg failed on twice at one chunk is offered no more copied: a playback started
 // anew plays the top with the sound the server makes, as the lower qualities do, and its master
 // playlist names no copy, so the film plays rather than every start being refused for the copy (A
-// Perfect World, staging, 2026-10-28, its copy's chunk 0 refused twice and the film unplayable).
+// Hollow Continent, staging, 2026-10-28, its copy's chunk 0 refused twice and the film unplayable).
 func TestStartOnLadder_ATrackWhoseCopyCannotBeMadePlaysTheSoundTheServerMakes(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()

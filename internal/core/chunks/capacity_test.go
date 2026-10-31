@@ -104,7 +104,7 @@ func TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse(t *testing.T) {
 // An evicted store still gives its players what is made and what another of its runs is making, and
 // starts no run for them: only a player its eviction left without its chunks is refused (D250 §6). A
 // chunk made was refused, answered 500 as it was served, while a run of its store made the rest at
-// 2.5x playback (the owner's Wings on nas.example, 2026-10-17).
+// 2.5x playback (the owner's Arkons on nas.example, 2026-10-17).
 func TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun(t *testing.T) {
 	t.Parallel()
 	stage := newCapacityStage(t)

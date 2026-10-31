@@ -26,7 +26,7 @@ func emberwingAtTMDB(t *testing.T) *Client {
 		"/tv/episode_group/5e90a": `{"id":"5e90a","name":"Intended Order","type":2,"episode_count":3,
 			"group_count":2,"groups":[
 				{"id":"g1","name":"Season 1","order":1,"locked":true,"episodes":[
-					{"id":2003,"name":"Tranquilla","season_number":1,"episode_number":11,"order":0},
+					{"id":2003,"name":"Stillness","season_number":1,"episode_number":11,"order":0},
 					{"id":2001,"name":"The Kettle Job","season_number":1,"episode_number":1,"order":1}]},
 				{"id":"g0","name":"Specials","order":0,"locked":true,"episodes":[
 					{"id":2900,"name":"Here's How It Went","season_number":0,"episode_number":1,"order":0}]}]}`,
