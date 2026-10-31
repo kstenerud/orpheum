@@ -70,6 +70,14 @@ func attemptEscape(what string, arguments []string) string {
 		// As CUDA names its helper thread: through its own task's comm file.
 		runtime.LockOSThread()
 		err = os.WriteFile(fmt.Sprintf("/proc/self/task/%d/comm", syscall.Gettid()), []byte("probe"), 0o600)
+	case "environment":
+		// The names of the variables the process started with, never their values.
+		names := []string{}
+		for _, variable := range os.Environ() {
+			name, _, _ := strings.Cut(variable, "=")
+			names = append(names, name)
+		}
+		return "allowed " + strings.Join(names, ",")
 	case "inet-socket", "unix-socket", "unix-connect", "unix-pair":
 		err = attemptSocket(what, arguments)
 	case "start-process", "session", "process-group", "clone3", "threads":
@@ -420,5 +428,44 @@ func TestEscape_AConfinedToolStartsNoProcessAndStaysInItsGroupButStartsThreads(t
 	}
 	if got := attemptConfined(t, confine.Access{}, "threads"); got != "allowed" {
 		t.Errorf("confined, starting threads: %s; want allowed", got)
+	}
+}
+
+// A confined tool starts with an empty environment, whatever the shim's own carries and whatever a
+// spec says beside its tool, arguments and access: the variables that steer where a process loads
+// libraries and hardware drivers from, which Plex2Shell's transcoder took from a request
+// (security-week-2026-10-30 §5), cannot reach FFmpeg through the shim. They are first shown to reach
+// an unconfined process, so their absence is the shim's doing (D190 §3). Not parallel: it sets the
+// process's environment, which the shim inherits.
+func TestEscape_AConfinedToolStartsWithAnEmptyEnvironmentWhateverItsShimOrSpecCarries(t *testing.T) {
+	steering := []string{"LD_LIBRARY_PATH", "LD_PRELOAD", "LIBVA_DRIVERS_PATH", "LIBVA_DRIVER_NAME"}
+	for _, name := range steering {
+		t.Setenv(name, filepath.Join(t.TempDir(), "absent"))
+	}
+	unconfined := strings.Split(strings.TrimPrefix(attemptUnconfined(t, "environment"), "allowed "), ",")
+	for _, name := range steering {
+		if !slices.Contains(unconfined, name) {
+			t.Fatalf("unconfined, the process started without %s; want it there, so its absence below is "+
+				"the shim's (D190 §3)", name)
+		}
+	}
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := confine.EncodeSpec(confine.Spec{Tool: self, Arguments: helperArguments(attempt, "environment")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A spec that also names an environment, under any spelling, is read for its tool, arguments and
+	// access alone.
+	steered := strings.TrimSuffix(encoded, "}") +
+		`,"env":["LD_PRELOAD=/tmp/evil.so"],"environment":["LIBVA_DRIVERS_PATH=/tmp/evil"],` +
+		`"Env":["LD_LIBRARY_PATH=/tmp/evil"]}`
+	for name, spec := range map[string]string{"the node's spec": encoded, "a spec naming an environment": steered} {
+		if got := runSelfForAnswer(t, helperArguments(actAsShim, spec)); got != "allowed" {
+			t.Errorf("%s: the confined tool started with the variables %q; want none", name,
+				strings.TrimPrefix(got, "allowed "))
+		}
 	}
 }

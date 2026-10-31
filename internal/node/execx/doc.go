@@ -24,8 +24,10 @@
 //     TestArch_NodeNeverImportsCore.
 //   - Errors from the process are wrapped where they enter. Enforced by wrapcheck, which is scoped
 //     to this package.
-//   - A tool gets the hardening flags first and none of the node's environment (D204).
-//     TestRun_PassesHardenedArgumentsAndAnEmptyEnvironment.
+//   - A tool gets the hardening flags first and none of the node's environment (D204), so no
+//     LD_LIBRARY_PATH, LD_PRELOAD or LIBVA_DRIVERS_PATH steers what it loads.
+//     TestRun_PassesHardenedArgumentsAndAnEmptyEnvironment,
+//     TestRun_NoLibraryOrDriverPathInTheNodesEnvironmentReachesTheTool.
 //   - A run names its input one way: FileInput, a file with only the file protocol allowed, or
 //     PipeInput, stdin with only the pipe protocol. TestExtract_FFmpegReadsOnlyTheFileOrThePipeItIsGiven.
 //   - A failure says why: its status and the last stderrTailBytes of stderr.

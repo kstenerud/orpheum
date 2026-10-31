@@ -19,6 +19,8 @@
 //   - A file named under a root the node was not given is refused (ErrNoRoot, D107), as is a name
 //     with no path or a payload hash that is not hex (ErrBadName).
 //     TestOpenNamed_FindsTheRootByItsPathAndRefusesABadName.
+//   - Nothing a name carries reaches past its root, or past the library folder it names: no climb,
+//     absolute path or link out of it. TestOpenNamed_NothingANameCarriesReachesPastItsRootOrFolder.
 //   - Opens media only through the read-only confine.MediaRoot. Enforced by the forbidigo rule
 //     tagged [media-root].
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and

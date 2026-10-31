@@ -41,6 +41,9 @@
 //     glibc and Go fall back to a clone it can read (EPERM there failed FFmpeg's threads).
 //     TestEscape_AConfinedToolStartsNoProcessAndStaysInItsGroupButStartsThreads, and for the pinned
 //     FFmpeg's threads, TestEscape_ThePinnedFFmpegEncodesWithThreadsWhenConfined.
+//   - A confined tool starts with an empty environment, whatever the shim's own carries; a spec
+//     carries a tool, its arguments and its access, and nothing it adds besides reaches the tool.
+//     TestEscape_AConfinedToolStartsWithAnEmptyEnvironmentWhateverItsShimOrSpecCarries.
 //   - A mechanism the machine offers but the shim could not put in force stops the run
 //     (ErrNotConfined), so no run has less than the node reported.
 //   - Only a run that uses the GPU is granted its devices, and it is granted every NVIDIA GPU that
