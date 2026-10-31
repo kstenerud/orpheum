@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import re
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -43,6 +45,8 @@ def report(outcomes: list[Outcome]) -> str:
 
 # How a claimed outcome's detail names the VQ items still owed (check_revert_red.claimed).
 OWED = " — owed: "
+# One VQ item of that list.
+OWED_ITEM = re.compile(r"\bVQ\d+\b")
 
 
 def owed_report(outcomes: list[Outcome]) -> list[str]:
@@ -51,7 +55,9 @@ def owed_report(outcomes: list[Outcome]) -> list[str]:
     files: dict[str, list[str]] = {}
     for outcome in outcomes:
         if outcome.verdict == "CLAIMED" and OWED in outcome.detail:
-            for item in outcome.detail.split(OWED, 1)[1].split(", "):
+            # The items alone: a detail may go on past the list, as the browser tier's halving adds
+            # what its run found (check_revert_red, "a browser run with it and others reverted").
+            for item in OWED_ITEM.findall(outcome.detail.split(OWED, 1)[1]):
                 files.setdefault(item, []).append(outcome.path)
     if not files:
         return []
