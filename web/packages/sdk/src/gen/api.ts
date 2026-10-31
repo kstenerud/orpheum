@@ -2634,6 +2634,11 @@ export interface components {
             webrtcPairs?: components["schemas"]["CandidatePairBody"][] | null;
         };
         ClientProblemInputBody: {
+            /**
+             * @description debug for a note of what the page did, logged at the debug level; absent for a failure
+             * @enum {string}
+             */
+            level?: "debug";
             /** @description What failed, in the page's own words */
             message: string;
             /** @description The page's path when it failed */

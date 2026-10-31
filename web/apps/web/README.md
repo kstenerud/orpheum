@@ -273,7 +273,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   signed; and the loader clears every cookie it can see. A person signed out at a client origin
   lands on the discovery's sign-in wherever it has realms, however the core was reached, through a
   realm or by a link, and the client draws none of the core's own meanwhile (the owner, 2026-10-30;
-  `leavesWhenSignedOut`, the loader interface's minor 5). A client's file comes only over the page's
+  `willLeaveWhenSignedOut`, the loader interface's minor 5). A client's file comes only over the page's
   path, never as the discovery's 404, and a client's script that does not load shows what happened to
   copy, never a black page; a worker reads the list of the client's files again before it takes
   a file for the loader's own. Under a loader a media load never goes to the network: it goes
@@ -538,7 +538,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   before the page (`data-focus-container`: the banner, a row or grid, the player, within an open dialog alone), presses
   what has focus (a list's choices opened by a key, stepped through by a controller's OK, which
   cannot work a browser's own list), or goes back as the page's own Back does
-  (`src/back-button.tsx`). An arrow inside a
+  (`src/back-button.tsx`). OK on a form's checkbox or radio ticks it and never submits the form,
+  whatever the browser sends after (`src/form-ok.ts`, on the loader's pages too, which run no input
+  layer; a browser takes Enter on a checkbox for the form's submission, idiosyncrasies.md), each OK in
+  a form noted for the core's log at its debug level (`noteForTheLog`; the owner's Fire TV,
+  2026-10-30; `src/form-ok.test.ts`, `src/realm-sign-in.browser.test.tsx`; VQ195). An arrow inside a
   text field's value or a range's is the field's; one with nowhere to go is the browser's. The
   first arrow starts in the main content, not the banner; an arrow into a container or the main
   content goes back to what last had focus there; the focused element is scrolled into view no

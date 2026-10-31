@@ -4,6 +4,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
+import { noteForTheLog } from "@orpheum/sdk";
 import { StrictMode, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -12,6 +13,7 @@ import type { ClientFilesMessage } from "./client-files.ts";
 import { i18n } from "./i18n.ts";
 import { AtClientOriginPage } from "./loader-at-client-origin.tsx";
 import { startAtLoaderOrigin } from "./loader-at-loader-origin.tsx";
+import { guardFormsOk } from "./form-ok.ts";
 import { coreIdOfOrigin, loaderConfigOf } from "./loader-config.ts";
 import { removeUnownedKeys } from "./browser-storage.ts";
 import { clearCookies } from "./loader-sweep.ts";
@@ -104,6 +106,9 @@ function loaderPage(): JSX.Element | undefined {
   );
 }
 
+// The loader's pages run no input layer: OK on its sign-in's "remember my realm" submitted the form
+// on the owner's Fire TV (2026-10-30). The client it runs later keeps its own guard as well.
+guardFormsOk({ target: window, focused: () => document.activeElement }, noteForTheLog);
 const page = loaderPage();
 if (page !== undefined) {
   root.render(<StrictMode>{page}</StrictMode>);

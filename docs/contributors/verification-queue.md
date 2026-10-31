@@ -1964,3 +1964,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   seconds after the first, saying `1 more since`. Then on the Fire TV, the next time its focus seems
   stuck, the log says whether its page froze and on which screen.
   (`web/apps/web/src/page-freezes.ts`, `client-main.tsx`; `web/packages/player/src/main-thread.ts`)
+- [ ] **VQ195** — OK on a sign-in's checkbox ticks it and signs nothing in, on a Fire TV, on staging
+  (the owner, 2026-10-30, VQ160's run: "As soon as I select the checkbox, it acts as though I'd
+  pressed the log in button"). On the Fire TV (Silk), signed out, at the discovery's sign-in: fill in
+  the realm, name and password by the remote, arrow to "This is my own device: remember my realm" and
+  press OK. Passes when the box ticks and the page stays on the sign-in; OK again unticks it; then OK
+  on Sign in signs in. Hold OK on the box for a second too: it ticks once, and nothing is submitted.
+  Signed in after, the core's log has a debug line `a page noted … a form's OK on a checkbox input`
+  for each OK pressed in the core's own sign-in, if one was used (the discovery's sign-in, at the
+  discovery's origin, can tell only its console). (`web/apps/web/src/form-ok.ts`, `loader-main.tsx`,
+  `input-commands.ts`)
+- [ ] **VQ196** — signing out lands on the discovery's sign-in however the household was reached, on
+  staging (the owner, 2026-10-30: the Fire TV went to the discovery's sign-in, the S23 to the core's).
+  (1) On the S23 (Chrome), the household reached by a link (your own link, or a fresh sign-in by a
+  link), signed in: the menu's Sign out asks "Sign out of this device?"; Cancel keeps you in; Sign out
+  goes to the discovery's sign-in, with no core sign-in drawn on the way. (2) The same on the Fire TV,
+  by remote: the question takes focus, Back cancels it, OK on Sign out signs out to the discovery's
+  sign-in. (`web/apps/web/src/app-shell.tsx`, `loader-at-client-origin.tsx`, `app.tsx`)

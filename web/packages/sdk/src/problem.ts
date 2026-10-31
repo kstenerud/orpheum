@@ -131,13 +131,36 @@ export function isProblemBody(value: unknown): value is UnknownProblemBody {
 export function reportFailure(cause: unknown): void {
   // eslint-disable-next-line no-console -- this is the reporter the console is for (standards/typescript.md)
   console.error("Orpheum: a request failed", cause);
+  sendOn(failureText(cause), "failure");
+}
+
+/** The longest line the core's log takes from a page (POST /client-problems' message). */
+const textMost = 500;
+
+/**
+ * Notes a line for the core's log at its debug level, beside the console's: what the page did, not
+ * what failed, so a rare misbehaviour on a device no one watches explains itself the next time it
+ * comes (a Fire TV's sign-in that submitted on a checkbox's OK, the owner, 2026-10-30). It goes as a
+ * failure goes (sendFailuresTo), within the same bound.
+ */
+export function noteForTheLog(text: string): void {
+  // eslint-disable-next-line no-console -- the console is this note's first reader (standards/typescript.md)
+  console.debug("Orpheum:", text);
+  sendOn(text.slice(0, textMost), "debug");
+}
+
+/** How a line sent to the core's log is logged there: a failure, or a note at the debug level. */
+export type SentLevel = "failure" | "debug";
+
+/** Sends text on as level, or holds it until there is somewhere to send it, within the bound. */
+function sendOn(text: string, level: SentLevel): void {
   if (failureSink.send === undefined) {
     if (failureSink.held.length < failureSink.most) {
-      failureSink.held.push(failureText(cause));
+      failureSink.held.push({ text, level });
     }
   } else if (failureSink.sent < failureSink.most) {
     failureSink.sent += 1;
-    failureSink.send(failureText(cause));
+    failureSink.send(text, level);
   }
 }
 
@@ -149,24 +172,29 @@ export const failuresSentMost = 20;
  * anywhere to send them: a sign-in's own connections are made before it, and one that took half a
  * minute said so nowhere (staging, 2026-10-23).
  */
-const failureSink: { send?: (text: string) => void; sent: number; most: number; held: string[] } = {
+const failureSink: {
+  send?: (text: string, level: SentLevel) => void;
+  sent: number;
+  most: number;
+  held: { readonly text: string; readonly level: SentLevel }[];
+} = {
   sent: 0,
   most: failuresSentMost,
   held: [],
 };
 
 /**
- * Sends each failure reportFailure is given on to send as well as to the console, at most
- * failuresSentMost of them for the page's life: on a phone no one reads the console, and a playback
- * that started over by itself left nothing to say why (staging, 2026-10-14). send must not report
- * its own failure, or one failure would send another.
+ * Sends each failure reportFailure is given, and each note noteForTheLog is, on to send as well as
+ * to the console, with its level, at most failuresSentMost of them for the page's life: on a phone no
+ * one reads the console, and a playback that started over by itself left nothing to say why
+ * (staging, 2026-10-14). send must not report its own failure, or one failure would send another.
  */
-export function sendFailuresTo(send: (text: string) => void): void {
+export function sendFailuresTo(send: (text: string, level: SentLevel) => void): void {
   failureSink.send = send;
   failureSink.sent = 0;
-  for (const text of failureSink.held.splice(0)) {
+  for (const { text, level } of failureSink.held.splice(0)) {
     failureSink.sent += 1;
-    send(text);
+    send(text, level);
   }
 }
 
@@ -183,5 +211,5 @@ export function failureText(cause: unknown): string {
     // A string, or what JSON cannot say: undefined, a function, a symbol.
     text = String(cause);
   }
-  return text.slice(0, 500);
+  return text.slice(0, textMost);
 }
