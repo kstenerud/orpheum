@@ -37,6 +37,10 @@
 //   - Every JSON field on the wire is camelCase and every marshalled struct has explicit tags.
 //     Enforced by tagliatelle (json: camel) and musttag.
 //   - Never branches on the User-Agent. Enforced by the forbidigo rule tagged [client-identity].
+//   - Being at home, or on the port only the server's own machine reaches, is a condition on a
+//     signed-in session, never one: every function asking isFromHome takes an auth.Principal or
+//     authenticates first (the log's pathOf alone excepted). Enforced by
+//     TestArch_HomeIsNeverACredential.
 //   - Every handler is the Server method its operation's OperationID names, so the API document
 //     and the code say one name. Enforced by TestArch_APIHandlersAreNamedForTheirOperations.
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the

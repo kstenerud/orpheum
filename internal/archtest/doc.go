@@ -22,6 +22,9 @@
 //     or a test-support package (storetest, clocktest, settingstest, authtest, jobstest…).
 //   - TestArch_ReleaseBinaryReadsNoEnvironment: the release build of cmd/orpheum reads no
 //     environment variable (D204).
+//   - TestArch_HomeIsNeverACredential: every function of internal/core/api that asks whether a
+//     request came from home has a signed-in person in hand: it takes an auth.Principal or calls a
+//     require… method (research/security-week-2026-10-30.md §5, Plex2Shell's second step).
 //   - TestArch_APIHandlersAreNamedForTheirOperations: each handler internal/core/api registers is
 //     the method its OperationID names.
 //   - TestArch_NoHandBuiltJSON: no code that ships spells out a JSON object's keys in a string; a
