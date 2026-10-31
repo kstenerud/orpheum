@@ -15,9 +15,9 @@ func TestIsAtOrUnder_CutsOnlyAtASeparator(t *testing.T) {
 		want            bool
 	}{
 		{"/media/films", "/media/films", true},
-		{"/media/films/Wing.mkv", "/media/films", true},
-		{"/media/films/Wing.mkv", "/media/films/", true},
-		{"/media/films/Wing.mkv", "/media/film", false},
+		{"/media/films/Arkon.mkv", "/media/films", true},
+		{"/media/films/Arkon.mkv", "/media/films/", true},
+		{"/media/films/Arkon.mkv", "/media/film", false},
 		{"/media", "/media/films", false},
 		{"/anything", "/", true},
 		{"/", "/", true},
