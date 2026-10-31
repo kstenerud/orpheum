@@ -67,7 +67,7 @@ describe("usePages", () => {
 
   it("shows what a scan adds without a reload, and says when nothing changed (D237)", async () => {
     const poller = handPoller();
-    let titles = ["Wing", "Greed"];
+    let titles = ["Arkon", "Greed"];
     const load = pagedBy2(() => titles);
     let pages: Pages<string> | undefined;
     function Probe(): null {
@@ -77,20 +77,20 @@ describe("usePages", () => {
     const mounted = await mount(createElement(Probe));
     expect(pages?.loadedSoFar).toEqual({
       state: "loaded",
-      value: { items: ["Wing", "Greed"], nextCursor: "" },
+      value: { items: ["Arkon", "Greed"], nextCursor: "" },
     });
     expect(await pollOnce(poller)).toBe("unchanged");
-    titles = ["Nosferatu", "Wing", "Greed"];
+    titles = ["Aegis", "Arkon", "Greed"];
     expect(await pollOnce(poller)).toBe("changed");
     expect(pages?.loadedSoFar).toEqual({
       state: "loaded",
-      value: { items: ["Nosferatu", "Wing"], nextCursor: "2" },
+      value: { items: ["Aegis", "Arkon"], nextCursor: "2" },
     });
     mounted.unmount();
   });
   it("shows nothing a read its poll gave up answers late (the owner, 2026-10-24)", async () => {
     const poller = handPoller();
-    let titles = ["Wing", "Greed"];
+    let titles = ["Arkon", "Greed"];
     const load = pagedBy2(() => titles);
     let pages: Pages<string> | undefined;
     function Probe(): null {
@@ -98,7 +98,7 @@ describe("usePages", () => {
       return null;
     }
     const mounted = await mount(createElement(Probe));
-    titles = ["Nosferatu", "Wing", "Greed"];
+    titles = ["Aegis", "Arkon", "Greed"];
     const aborter = new AbortController();
     aborter.abort();
     await act(async () => {
@@ -109,7 +109,7 @@ describe("usePages", () => {
     });
     expect(pages?.loadedSoFar).toEqual({
       state: "loaded",
-      value: { items: ["Wing", "Greed"], nextCursor: "" },
+      value: { items: ["Arkon", "Greed"], nextCursor: "" },
     });
     mounted.unmount();
   });
@@ -117,7 +117,7 @@ describe("usePages", () => {
   it("reads a list whose first read failed again on the next poll, and shows it (2026-10-06)", async () => {
     const poller = handPoller();
     let isServerUp = false;
-    const titles = pagedBy2(() => ["Wing", "Greed"]);
+    const titles = pagedBy2(() => ["Arkon", "Greed"]);
     const load = (cursor: string): Promise<Page<string>> =>
       isServerUp ? titles(cursor) : Promise.reject(new TypeError("Failed to fetch"));
     let pages: Pages<string> | undefined;
@@ -133,7 +133,7 @@ describe("usePages", () => {
     expect(await pollOnce(poller)).toBe("changed");
     expect(pages?.loadedSoFar).toEqual({
       state: "loaded",
-      value: { items: ["Wing", "Greed"], nextCursor: "" },
+      value: { items: ["Arkon", "Greed"], nextCursor: "" },
     });
     mounted.unmount();
     written.mockRestore();
@@ -142,7 +142,7 @@ describe("usePages", () => {
   it("shows again a list whose page more failed, though the poll reads what it showed before", async () => {
     const poller = handPoller();
     let isServerUp = true;
-    const titles = pagedBy2(() => ["Wing", "Greed", "The Gold Rush"]);
+    const titles = pagedBy2(() => ["Arkon", "Greed", "Valdora"]);
     const load = (cursor: string): Promise<Page<string>> =>
       isServerUp ? titles(cursor) : Promise.reject(new TypeError("Failed to fetch"));
     let pages: Pages<string> | undefined;
@@ -162,7 +162,7 @@ describe("usePages", () => {
     expect(await pollOnce(poller)).toBe("changed");
     expect(pages?.loadedSoFar).toEqual({
       state: "loaded",
-      value: { items: ["Wing", "Greed"], nextCursor: "2" },
+      value: { items: ["Arkon", "Greed"], nextCursor: "2" },
     });
     mounted.unmount();
     written.mockRestore();
@@ -217,9 +217,9 @@ describe("a poll of a list scrolled far (D306 §7)", () => {
   it("shows an item read twice once, given its id, and keeps an unchanged item the one shown", async () => {
     const poller = handPoller();
     let titles = [
-      { id: 1, name: "Wing" },
+      { id: 1, name: "Arkon" },
       { id: 2, name: "Greed" },
-      { id: 3, name: "The Gold Rush" },
+      { id: 3, name: "Valdora" },
     ];
     const load = (cursor: string): Promise<Page<{ id: number; name: string }>> => {
       const from = cursor === "" ? 0 : Number(cursor);
@@ -238,18 +238,18 @@ describe("a poll of a list scrolled far (D306 §7)", () => {
       pages?.loadMore();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    const alien =
+    const arkon =
       pages?.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items[0] : undefined;
-    // Greed's name changes, and The Gold Rush moves up into the first page while the second keeps it.
+    // Greed's name changes, and Valdora moves up into the first page while the second keeps it.
     titles = [
-      { id: 1, name: "Wing" },
-      { id: 3, name: "The Gold Rush" },
+      { id: 1, name: "Arkon" },
+      { id: 3, name: "Valdora" },
       { id: 2, name: "Greed!" },
     ];
     expect(await pollOnce(poller)).toBe("changed");
     const shown = pages?.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
-    expect(shown.map((title) => title.name)).toEqual(["Wing", "The Gold Rush"]);
-    expect(shown[0]).toBe(alien);
+    expect(shown.map((title) => title.name)).toEqual(["Arkon", "Valdora"]);
+    expect(shown[0]).toBe(arkon);
     mounted.unmount();
   });
 });

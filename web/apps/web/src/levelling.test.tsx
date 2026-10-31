@@ -24,13 +24,13 @@ afterEach(() => {
   mounted = undefined;
 });
 
-const alien: SoundLevel = { levelling: { isMeasured: true, gainDb: 12.7 }, carriedGainDb: 0 };
+const arkon: SoundLevel = { levelling: { isMeasured: true, gainDb: 12.7 }, carriedGainDb: 0 };
 
 describe("levelling a film's loudness (D226)", () => {
   it("adds the gain after the volume, and takes out what a copy already carries", () => {
-    expect(addedGainDb(alien, true)).toBe(12.7);
-    expect(addedGainDb(alien, false)).toBe(0);
-    const prepared = { ...alien, carriedGainDb: 12.7 };
+    expect(addedGainDb(arkon, true)).toBe(12.7);
+    expect(addedGainDb(arkon, false)).toBe(0);
+    const prepared = { ...arkon, carriedGainDb: 12.7 };
     expect(addedGainDb(prepared, true)).toBe(0);
     expect(addedGainDb(prepared, false)).toBe(-12.7);
     const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
@@ -45,14 +45,14 @@ describe("levelling a film's loudness (D226)", () => {
   });
 
   it("says what was done: raised, lowered, as mixed, not measured, or what a device's own volume allows", () => {
-    expect(levelNote(alien, true, true)).toEqual({ key: "raised", db: 12.7 });
-    expect(levelNote(alien, false, true)).toEqual({ key: "asMixed", db: 0 });
+    expect(levelNote(arkon, true, true)).toEqual({ key: "raised", db: 12.7 });
+    expect(levelNote(arkon, false, true)).toEqual({ key: "asMixed", db: 0 });
     const loud = { levelling: { isMeasured: true, gainDb: -4.2 }, carriedGainDb: 0 };
     expect(levelNote(loud, true, true)).toEqual({ key: "lowered", db: 4.2 });
     const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
     expect(levelNote(unmeasured, true, true)).toEqual({ key: "notMeasured", db: 0 });
-    expect(levelNote(alien, true, false)).toEqual({ key: "deviceVolume", db: 0 });
-    expect(levelNote({ ...alien, carriedGainDb: 12.7 }, false, false)).toEqual({
+    expect(levelNote(arkon, true, false)).toEqual({ key: "deviceVolume", db: 0 });
+    expect(levelNote({ ...arkon, carriedGainDb: 12.7 }, false, false)).toEqual({
       key: "raised",
       db: 12.7,
     });
@@ -72,7 +72,7 @@ describe("levelling a film's loudness (D226)", () => {
       seconds: 720,
     });
     expect(measuringNote(note, { isRunning: false })).toEqual({ key: "notMeasured", db: 0 });
-    const raised = levelNote(alien, true, true);
+    const raised = levelNote(arkon, true, true);
     expect(measuringNote(raised, { isRunning: true, secondsLeft: 180 })).toEqual(raised);
   });
 
@@ -98,7 +98,7 @@ describe("levelling a film's loudness (D226)", () => {
     const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     mounted = await mount(
       withServices(
-        <LevelSwitch fileId={1} level={alien} isInitiallyOn videoRef={createRef()} />,
+        <LevelSwitch fileId={1} level={arkon} isInitiallyOn videoRef={createRef()} />,
         services,
       ),
     );
