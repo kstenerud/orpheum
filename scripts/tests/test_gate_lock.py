@@ -46,12 +46,23 @@ class GateLock(unittest.TestCase):
         root = repository(self)
         marker = root / "first-ran"
         started = root / "first-started"
-        first = run_lock(root, "sh", "-c", f"touch {started}; sleep 1; touch {marker}")
+        release = root / "release"
+        # The first holds the lock until the second says it waits (30 s at most, so a second that says
+        # nothing fails rather than hangs): a fixed 1 s ran out before the second asked, at a load of 48
+        # (2026-10-31), and the second never had to wait.
+        first = run_lock(root, "sh", "-c",
+                         f"touch {started}; i=0; while [ ! -e {release} ] && [ $i -lt 1500 ]; do sleep 0.02; "
+                         f"i=$((i+1)); done; touch {marker}")
         wait_for(started)  # the first holds the lock: a fixed 0.3 s missed it on a loaded machine
-        self.assertEqual(run_lock(root, "--held").wait(), 0, "a gate holds it")
+        held = run_lock(root, "--held")
+        self.assertEqual(held.wait(), 0, "a gate holds it")
+        held.stdout.close()
         second = run_lock(root, "sh", "-c", f"test -e {marker}")
+        said = second.stdout.readline()
+        release.touch()
         out, _ = second.communicate(timeout=30)
-        first.wait(timeout=30)
+        out = said + out
+        first.communicate(timeout=30)
         self.assertEqual(second.returncode, 0, "the second ran only after the first finished")
         self.assertIn("waiting for it to finish", out)
         self.assertEqual(run_lock(root, "--held").wait(), 1, "none holds it once both ended")
