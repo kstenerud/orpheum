@@ -21,6 +21,15 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_bash.py\""
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_agent.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -30,6 +39,15 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/on_tool_done.py\""
           }
         ]
       }

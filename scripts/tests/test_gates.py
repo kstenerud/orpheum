@@ -417,6 +417,26 @@ class CheckStamp(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
+    def test_changed_names_every_path_since_the_pass_untracked_ones_too(self):
+        root = git_repo({"a.go": "package a\n"})
+        cwd = Path.cwd()
+        try:
+            os.chdir(root)
+            with mock_argv(["check_stamp.py", "changed"]):
+                self.assertEqual(stamp.main(), 1, "no gate has passed yet")
+            with mock_argv(["check_stamp.py", "begin"]):
+                self.assertEqual(stamp.main(), 0)
+            with mock_argv(["check_stamp.py", "write"]):
+                self.assertEqual(stamp.main(), 0)
+            (root / "notes.md").write_text("# notes\n")
+            (root / "a.go").write_text("package a\n\nvar x = 1\n")
+            out = io.StringIO()
+            with mock_argv(["check_stamp.py", "changed"]), contextlib.redirect_stdout(out):
+                self.assertEqual(stamp.main(), 0)
+            self.assertEqual(out.getvalue().split(), ["a.go", "notes.md"])
+        finally:
+            os.chdir(cwd)
+
     def test_the_gate_refuses_to_begin_while_a_design_cycle_defers_it(self):
         # The owner, 2026-10-30: a make check ends the cycle, every safeguard back in place.
         root = git_repo({"a.go": "package a\n"})

@@ -93,10 +93,18 @@ def main() -> int:
         passed = passed_tree()
         committing = _git("write-tree")  # the index being committed, as the hook's git sets it
         return 0 if passed is not None and passed == working_tree_id() == committing else 1
+    if action == "changed":
+        # The paths that differ from the tree make check last passed, untracked files counted: the Stop
+        # hook gates a tree changed behind its back by what kind of change it is (the owner, 2026-10-31).
+        passed = passed_tree()
+        if passed is None:
+            return 1
+        print(_git("diff", "--name-only", passed, working_tree_id()))
+        return 0
     if action == "matches":
         passed = passed_tree()
         return 0 if passed is not None and passed == working_tree_id() else 1
-    print("usage: check_stamp.py begin|write|fresh|matches", file=sys.stderr)
+    print("usage: check_stamp.py begin|write|fresh|matches|changed", file=sys.stderr)
     return 2
 
 
