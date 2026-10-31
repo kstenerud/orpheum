@@ -20,6 +20,10 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
   pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
   output. Fix it; don't argue with it.
+- **After a commit**, `.githooks/post-commit` starts revert-red's code part over the batch so far in
+  the background, niced, on two probe trees (`scripts/background_probe.py`), so check-pr finds most
+  files already probed; a run of the gate's own stops it. `touch .git/revert-red/background-off`
+  while the owner tests on staging, and remove it after.
 - **While `make check-pr` runs**, it runs on HEAD in its own worktree (`scripts/check_pr_snapshot.py`)
   and holds a lock: edit freely, but `.claude/hooks/pre_bash.py` refuses tests, lints and commits
   until it ends, and the Stop hook leaves its `make check` for the first turn after. If it fails

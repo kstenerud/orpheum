@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Starts revert-red's code part in the background over the batch so far, detached and niced, so
+# check-pr finds most files already probed (scripts/background_probe.py; the test-regime audit of
+# 2026-10-31, R6). It returns at once, and a failure to start is no failure of the commit.
+python3 scripts/background_probe.py launch >/dev/null 2>&1 || true
