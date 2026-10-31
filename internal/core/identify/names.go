@@ -12,9 +12,9 @@ import (
 // How the matcher compares a file's name with a provider's: by the one identity fold (D232), word by
 // word, a leading article aside.
 
-// beginsByWords is whether name begins with every word of prefix, and has more: "Wild Rex 2 The
-// Road Warrior" begins with "Wild Rex 2", not "Wild Rex" alone being "Wild Rex 2", and "Wings" does
-// not begin with "Wing". Words compare as SameWork does.
+// beginsByWords is whether name begins with every word of prefix, and has more: "Show 2 The
+// Return" begins with "Show 2", not "Show" alone being "Show 2", and "Shows" does
+// not begin with "Show". Words compare as SameWork does.
 func beginsByWords(name, prefix string) bool {
 	words, start := withoutArticle(wordsOf(name)), withoutArticle(wordsOf(prefix))
 	if len(start) == 0 || len(words) <= len(start) {
@@ -29,7 +29,7 @@ func beginsByWords(name, prefix string) bool {
 }
 
 // isArticle is whether a word is one a name may begin with or not and name the same work: a file's
-// "The Girl in the Crate" is TMDB's "Girl in the Crate" (the owner's staging, 2026-10-21). English only:
+// "The Show" is TMDB's "Show" (the owner's staging, 2026-10-21). English only:
 // the provider is searched in English.
 func isArticle(word string) bool {
 	switch textindex.SameWork(word) {
@@ -89,7 +89,7 @@ func nearlyNamed(query Query, candidates []Candidate) (Candidate, bool) {
 }
 
 // lettersOffAtMost is how many letters a name may be off by and still be nearly the name: none for a
-// short one, where a letter makes another word ("Metropolis", "Seat"; "Wings", "Wing"), one from eight
+// short one, where a letter makes another word ("Metropolis", "Seat"; "Shows", "Show"), one from eight
 // letters, two from fourteen.
 func lettersOffAtMost(name string) int {
 	switch length := len([]rune(name)); {
@@ -101,8 +101,8 @@ func lettersOffAtMost(name string) int {
 	return 0
 }
 
-// isPlural is whether one name is the other with an s after it: a sequel's name, "Wings" after
-// "Wing", never a misspelling.
+// isPlural is whether one name is the other with an s after it: a sequel's name, "Shows" after
+// "Show", never a misspelling.
 func isPlural(first, second string) bool {
 	return first+"s" == second || second+"s" == first
 }

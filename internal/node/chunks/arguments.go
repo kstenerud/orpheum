@@ -37,7 +37,7 @@ func runStartMs(command nodeproto.MakeChunks) int64 {
 // isLedInFromFilmStart is whether a run of a sound copied makes the film's first chunk, which starts
 // more than spanToleranceMs after the film does: its picture's first keyframe a read-through counts
 // is that late, as a film whose first keyframe an edit list puts before its start, and drops, starts
-// at its next, 10.2 s in (A Woman of Paris, staging, 2026-10-28). The copy is cut where chunk 0
+// at its next, 10.2 s in (a film, staging, 2026-10-28). The copy is cut where chunk 0
 // starts, as the picture is, and what is before it is a lead-in from the film's start, dropped: the
 // muxer, which cuts only at the times it is given, put all the film read before chunk 0's end in it,
 // and the seek to chunk 0's start, which FFmpeg lands on the picture's keyframe at or before it,

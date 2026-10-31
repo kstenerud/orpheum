@@ -277,7 +277,7 @@ type PlayerNote struct {
 	FromQualityKbps  int64 `json:"fromQualityKbps,omitempty"`
 	// LinkSamples are a qualitySwitched note's link samples when its controller chose the quality,
 	// each its quality, bytes, time to arrive and wait for its first byte, at most diagnosisTextMost:
-	// a Fire TV fell from 9018 to 696 kb/s 2.3 s into Nosferatu, its link estimated at 69 kb/s though its
+	// a Fire TV fell from 9018 to 696 kb/s 2.3 s into a film, its link estimated at 69 kb/s though its
 	// chunks had loaded at 14-18 Mb/s, and nothing in the log said why (the owner's cast, staging,
 	// 2026-10-28).
 	LinkSamples string `json:"linkSamples,omitempty"`

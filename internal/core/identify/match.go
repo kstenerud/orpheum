@@ -166,8 +166,8 @@ func idOfIDs(ctx context.Context, provider Provider, kind string, byProvider map
 
 // ReconsiderAmbiguous returns to their first match the films and series left ambiguous whose kept
 // search results the rules now settle: a rule that changed since they were searched would settle
-// them, and nothing searched them again (the owner's NAS, 2026-10-13, where Wit & Wilfulness of
-// 2005, TMDB's one answer, waited for a person's choice). It reads only persistent.db and cache.db,
+// them, and nothing searched them again (the owner's NAS, 2026-10-13, where a film's single TMDB
+// match, its ampersand folded, waited for a person's choice). It reads only persistent.db and cache.db,
 // asking no provider; the first-match sweep then searches each once more, and accepts what the
 // rules settle. A person's choice is never undone. It says how many it returned.
 func (matcher *Matcher) ReconsiderAmbiguous(ctx context.Context) (int, error) {

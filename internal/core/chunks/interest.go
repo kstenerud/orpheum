@@ -117,7 +117,7 @@ func (stopped stoppedRun) attributes(cancelled int) []any {
 // describeInterests says, for a log, what each player wanting stream wants: where it plays from, or
 // where it stopped and the film it keeps ahead; empty when none wants it. A run stopped as no player
 // wanted it said nothing of whose want had ended, and a pause read as a playing player's run cut
-// (the owner's The Unknown, 2026-10-26).
+// (the owner's film, 2026-10-26).
 func describeInterests(stream string, interests []Interest, keptAheadMs int64) []string {
 	described := []string{}
 	for _, interest := range interests {
@@ -254,7 +254,7 @@ func (known *storeRuns) isWantedLocked(
 		// A run the first chunk its player needs is too far past is a place the player sought away from
 		// (D309 §2, D353), though its chunks reach past the player: wanted for covering a jump's chunk,
 		// it kept the jump from starting a run there, and the player waited for it to make the film
-		// between (the owner's The Unknown, 2026-10-26). Nearer, it is the player's place.
+		// between (the owner's film, 2026-10-26). Nearer, it is the player's place.
 		if jump, isAway := known.judgeJumpLocked(grid, each, unmade, rules); isAway {
 			jumps = append(jumps, jump)
 			continue
