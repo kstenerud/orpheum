@@ -17,7 +17,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from revert_red_attempts import Attempt
 from revert_red_commands import vitest
+from revert_red_tags import TYPECHECK
 
 # A relative import or re-export: `from "./x.tsx"`, `import "./x.css"`, `import("./x.ts")`.
 RELATIVE_IMPORT = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.{1,2}/[^"']+)["']""")
@@ -153,3 +155,11 @@ def added_file_scope(tree: str, path: str) -> list[str] | None:
     """The vitest run of the tests importing an added web file, or None when none does."""
     tests = importing_tests(tree, path)
     return [*PROBE_RUN, *tests] if tests else None
+
+
+def direct_then_types(tree: str, path: str) -> list[Attempt]:
+    """A web file's first runs: the tests importing it itself (browser-mode files left to their own
+    runs), then the type check, as other_builds makes it, before every test that reaches it."""
+    direct = [test for test in importing_tests(tree, path, depth=1) if ".browser.test." not in test]
+    first = [Attempt([*PROBE_RUN, *direct], ", found by the tests that import it")] if direct else []
+    return [*first, Attempt(TYPECHECK, ", found by the type check", None, True)]

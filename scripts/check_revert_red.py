@@ -104,7 +104,7 @@ from revert_red_trees import hold_probe_trees, link_installed_packages, probe_tr
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_clean import clean_failure, failed_pass_clean, probe_kind, runs_clean
 from revert_red_unreachable import is_unreachable_removal
-from revert_red_web import added_file_scope
+from revert_red_web import added_file_scope, direct_then_types
 from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
 from revert_red_timings import keep as keep_timings, summary as timings_summary
 
@@ -211,6 +211,8 @@ def wide_scope(path: str) -> list[str] | None:
 
 
 VITEST_RUN = vitest("run")
+# The wide run's label (wide_scope), which a claimed file's cheap probe leaves out.
+WIDE_LABEL = ", found by the tests its revert can reach"
 
 
 def attempts_for(change: Change, first: list[str], base: str = "", head: str = "") -> list[Attempt]:
@@ -241,23 +243,39 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
     elif LOCALE_SOURCE.search(change.path) and base and head:
         # The catalogue's own test, then the tests rendering its changed keys, first (revert_red_locales).
         attempts = [*locale_runs(toplevel(), base, head, change.path), *attempts]
+    elif TS_SOURCE.search(change.path) and change.status == "M" and change.path != GENERATED_API_TYPES:
+        # The tests importing it directly, then the type check, seconds each, before every test that
+        # reaches it: eight changed files' related runs, 110-140 s green each, came before a type check
+        # red in 30 s (the test-regime audit of 2026-10-31, R3). An added file's first run is already
+        # the tests importing it (added_file_scope).
+        attempts = [*direct_then_types(toplevel(), change.path), *attempts]
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
-        attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
+        attempts.append(Attempt(wide, WIDE_LABEL))
     # The browser tier's runs last, whatever made them first: a stylesheet's scope is one, and its
     # browser-mode tests, seconds, settle most sheets before it (the owner, 2026-10-18).
-    every = [*attempts, *other_builds(change.path), *browser_mode_tests(change.path), *browser_tier(change.path)]
+    later = [*other_builds(change.path), *browser_mode_tests(change.path), *browser_tier(change.path)]
+    every = [*attempts, *(attempt for attempt in later if attempt not in attempts)]
     return sorted(every, key=is_browser_run)
 
 
 # Whether a probe takes a red the record holds for the same revert over the same code
-# (revert_red_known); the nightly run, trusting no record, sets it off (--trust-no-record).
+# (revert_red_known), and whether a claimed file takes only its cheap runs (probe); the nightly run,
+# trusting no record, sets it off (--trust-no-record), and probes a claimed file whole.
 TRUST_RECORD = True
 
 
 def probe(tree: str, base: str, head: str, change: Change, timeout: int,
           browser: str = BROWSER_INLINE) -> Outcome:
-    """One file's verdict: its revert probed, then the branch's claims if nothing went red."""
+    """One file's verdict: its revert probed, then the branch's claims if nothing went red.
+
+    A file a valid claim covers passes red or green, so it takes only its cheap runs, which may still
+    show it covered; the wide runs and the browser's decide nothing for it. They took 1640 s of one
+    check-pr's probing (the test-regime audit of 2026-10-31, R1). The nightly run probes it whole."""
+    claim = claimed(tree, base, head, change.path) if TRUST_RECORD else None
+    if claim is not None and claim.verdict == "CLAIMED":
+        cheap = probe_unclaimed(tree, base, head, change, timeout, browser, cheap=True)
+        return claim if cheap.verdict in ("GREEN", "BROWSER_OWED") else cheap
     outcome = probe_unclaimed(tree, base, head, change, timeout, browser)
     if outcome.verdict == "BROWSER_OWED":
         # A claim passes it red or green, so a browser run decides nothing (client-main.tsx: 15 min, 2026-10-17).
@@ -290,8 +308,9 @@ def claimed(tree: str, base: str, head: str, path: str) -> Outcome | None:
 
 
 def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: int,
-                    browser: str = BROWSER_INLINE) -> Outcome:
-    """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
+                    browser: str = BROWSER_INLINE, cheap: bool = False) -> Outcome:
+    """Revert one file in the worktree, with its unit's companions, run its tests, restore it; cheap,
+    only the runs before the wide one and the browser's, a green of which is kept in no record."""
     if change.status == "M" and is_cosmetic(tree, base, head, change.path):
         return Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour to cover")
     if change.status == "A" and is_package_clause_only(tree, change.path):
@@ -329,6 +348,8 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         if TS_SOURCE.search(change.path) and emits_the_same_between(tree, base, head, change.path):
             # The browser runs the same JavaScript either way, so no browser run can notice it (emitted_js.py).
             attempts = [a for a in attempts if not is_browser_run(a)]
+        if cheap:
+            attempts = [a for a in attempts if not is_browser_run(a) and a.label != WIDE_LABEL]
         deferred = [a for a in attempts if is_browser_run(a)] if browser == BROWSER_DEFERRED else []
         if browser == BROWSER_ONLY and not CSS_SOURCE.search(change.path):
             attempts = [a for a in attempts if is_browser_run(a)]
@@ -389,7 +410,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         if deferred:
             return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "
                            "the last tier, after check-pr's own browser run")
-        if not unreached:
+        if not unreached and not cheap:
             known_red.remember(tree, head, revert, ran, "GREEN", GREEN_DETAIL, browser)
         return Outcome(change.path, "GREEN", browser_map.NO_TEST_REACHES if unreached else GREEN_DETAIL)
     finally:
@@ -428,6 +449,11 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
 
     unreached: set[str] = set()
     related = browser_mode if command is not None else (browser_mode or BROWSER_MODE_RELATED)
+    # Each sheet's own browser-mode tests first, alone, seconds each: a red settles it, and only the
+    # rest go into the halving, over the browser tier alone. The halving's every level ran every
+    # browser-mode test of its group, sixteen runs one after another, about 1500 s of one check-pr
+    # (the test-regime audit of 2026-10-31, R2).
+    noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout)
 
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
@@ -435,11 +461,6 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
             for path in group:
                 if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
                     return None
-            if related:
-                importing = run_whole_group([*related, *(path.removeprefix("web/") for path in group)], tree,
-                                            timeout)
-                if importing.returncode != 0:
-                    return importing
             reaching = browser_map.tests_reaching(tree, base, head, group)
             if reaching == []:
                 unreached.update(group)
@@ -457,7 +478,9 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
             for path in group:
                 restore(tree, head, path)
 
-    halving = settle_stylesheets([change.path for change in sheets], run_reverted)
+    halving = settle_stylesheets([change.path for change in sheets if change.path not in noticed_alone],
+                                 run_reverted)
+    halving.noticed.update(noticed_alone)
     for failure in halving.failures:
         print(f"A browser run failed {failure}\n")
     settled: dict[str, Outcome] = {}
@@ -478,6 +501,26 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
         settled[path] = Outcome(path, verdict, "a test fails when it is reverted, found by the browser tier"
                                 if verdict == "RED_TEST" else "reverting it breaks the build, found by the browser tier")
     return settled
+
+
+def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,
+                          timeout: int) -> dict[str, str]:
+    """The sheets whose own browser-mode tests turn red with it reverted alone, with what the run
+    printed; each run timed, each sheet put back. A run past its timeout settles nothing."""
+    noticed: dict[str, str] = {}
+    for path in sheets if related else []:
+        try:
+            if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
+                continue
+            done = timed(TIMINGS, path, "vitest related (browser mode)", None,
+                         functools.partial(run_whole_group, [*related, path.removeprefix("web/")], tree, timeout))
+            if done.returncode != 0:
+                noticed[path] = done.stdout + done.stderr
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            restore(tree, head, path)
+    return noticed
 
 
 BROWSER_TIER_LOCK = threading.Lock()
