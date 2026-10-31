@@ -345,8 +345,7 @@ describe("signing out at a core's client origin (D308)", () => {
       const went: string[] = [];
       leaveWhenSignedOut(session, {
         core: { coreId: "k7xq2", fingerprint, realm: "nas" },
-        hasRealms: true,
-        loaderOrigin: config.loaderOrigin,
+        at: { config, loaderOrigin: config.loaderOrigin },
         go: (to) => {
           went.push(to);
         },
@@ -418,8 +417,7 @@ describe("signing out at a core's client origin (D308)", () => {
     const went: string[] = [];
     leaveWhenSignedOut(session, {
       core: { coreId: "k7xq2", fingerprint, realm: undefined },
-      hasRealms: true,
-      loaderOrigin: config.loaderOrigin,
+      at: { config, loaderOrigin: config.loaderOrigin },
       go: (to) => {
         went.push(to);
       },
@@ -435,8 +433,7 @@ describe("signing out at a core's client origin (D308)", () => {
     // At a discovery with no realms, whose page has no sign-in of its own.
     leaveWhenSignedOut(session, {
       core: { coreId: "k7xq2", fingerprint, realm: undefined },
-      hasRealms: false,
-      loaderOrigin: config.loaderOrigin,
+      at: { config: { hasRealms: false }, loaderOrigin: config.loaderOrigin },
       go: (to) => {
         went.push(to);
       },

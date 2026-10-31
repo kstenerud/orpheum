@@ -38,7 +38,7 @@ export interface Services {
    * sign-in, so it draws none of the server's own meanwhile (D308; the owner, 2026-10-30): undefined
    * on the core's own origin, where it never is.
    */
-  readonly leavesWhenSignedOut?: boolean | undefined;
+  readonly willLeaveWhenSignedOut?: boolean | undefined;
   /**
    * The moves of the page's requests from one path to another, at a discovery's page: what the core
    * says this session may do depends on the path (an admin administers only from home, D297 §6), so

@@ -150,18 +150,20 @@ export function leaveWhenSignedOut(
   session: Session,
   to: {
     readonly core: KeptCore;
-    /** Whether the discovery has realms, and so a sign-in of its own (LoaderConfig.hasRealms). */
-    readonly hasRealms: boolean;
-    readonly loaderOrigin: string;
+    /** The client origin's page: whether its discovery has realms, and the loader's origin. */
+    readonly at: {
+      readonly config: Pick<LoaderConfig, "hasRealms">;
+      readonly loaderOrigin: string;
+    };
     readonly go: (address: string) => void;
   },
 ): () => void {
-  const { core, loaderOrigin, go } = to;
-  if (!leavesWhenSignedOut(core, to.hasRealms)) {
+  const { core, at, go } = to;
+  if (!leavesWhenSignedOut(core, at.config.hasRealms)) {
     return () => undefined;
   }
   return whenSignedOut(session, () => {
-    go(signedOutAddress(loaderOrigin, core.coreId));
+    go(signedOutAddress(at.loaderOrigin, core.coreId));
   });
 }
 
@@ -265,7 +267,7 @@ export function loaderOver(
     mediaCarrierOf: kept.mediaCarrierOf,
     onPathBack: kept.onPathBack,
     onLocalNetworkAsking: reaching.onLocalNetworkAsking,
-    leavesWhenSignedOut: leavesWhenSignedOut(core, at.config.hasRealms),
+    willLeaveWhenSignedOut: leavesWhenSignedOut(core, at.config.hasRealms),
     session,
     setMediaCredentials: kept.setMediaCredentials,
     switchHousehold: () => {
@@ -439,12 +441,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           tellWorker: at.tellWorker,
         });
         at.unmount();
-        leaveWhenSignedOut(session, {
-          core,
-          hasRealms: at.config.hasRealms,
-          loaderOrigin: at.loaderOrigin,
-          go: goBy,
-        });
+        leaveWhenSignedOut(session, { core, at, go: goBy });
         showWhenPathRefused(kept, { at, core });
         run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {

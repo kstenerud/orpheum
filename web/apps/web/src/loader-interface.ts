@@ -76,7 +76,7 @@ export interface OrpheumLoader {
    * core's own meanwhile. Since minor 5: an older loader has none, and leaves for a core reached
    * through a realm alone.
    */
-  readonly leavesWhenSignedOut?: boolean;
+  readonly willLeaveWhenSignedOut?: boolean;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.
