@@ -657,3 +657,10 @@ had leaned on.
   `orpheum.cc`. Owed: the owner's Cloudflare zones, tunnel hostnames and HSTS preload; connect's
   production configuration, the panel's pages and passkeys' relying party; Orpheum's install
   template's discovery address and nas.example's core configuration.
+- **Built (11-01 batch): Firefox's recovery (5ae59ff9, VQ197)** — desktop Firefox fires no `online`
+  (Mozilla bug 654579), and the transport cut its backoff short only on that; an offer that reaches no
+  server now retries every 2 s. **Next batch, left open:** a page on a core's direct HTTPS name still
+  hears the network's return only from `online` (its session socket may wait 30 s), and the direct
+  mode's WebRTC signaller (`transport-choice.ts`) does not mark its failures `Unreached`. Freezes of a
+  second or more are told to the core's log on every page (VQ198); they share the page's 20
+  failure reports.
