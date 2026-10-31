@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { CastDialog as CastDialogComponent } from "./cast-dialog.tsx";
-import { lazyScreen } from "./screen-load.tsx";
+import { lazyScreen, resetOnEachTestMount } from "./screen-load.tsx";
 import type { TogetherDialog as TogetherDialogComponent } from "./together-dialog.tsx";
 
 const loadCastDialog = async (): Promise<{ default: typeof CastDialogComponent }> => ({
@@ -30,3 +30,4 @@ export function resetTrayDialogsForTests(): void {
   CastDialog = lazyScreen("cast-dialog", loadCastDialog);
   TogetherDialog = lazyScreen("together-dialog", loadTogetherDialog);
 }
+resetOnEachTestMount(resetTrayDialogsForTests);

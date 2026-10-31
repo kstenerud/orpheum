@@ -30,10 +30,10 @@ function ownPathOf(path: string, specifier: string): string | undefined {
   return `${directory}/${specifier.slice(2)}`;
 }
 
-/** Each of the app's files the home page loads before it draws, by what loaded it first. */
-function loadedAtStart(): Map<string, string> {
-  const loadedBy = new Map<string, string>([["./client-main.tsx", ""]]);
-  const toRead = ["./client-main.tsx"];
+/** Each of the app's files entry loads as it loads, the home page's by default, by what loaded it first. */
+function loadedAtStart(entry = "./client-main.tsx"): Map<string, string> {
+  const loadedBy = new Map<string, string>([[entry, ""]]);
+  const toRead = [entry];
   for (let path = toRead.pop(); path !== undefined; path = toRead.pop()) {
     toRead.push(...newlyLoaded(path, loadedBy));
   }
@@ -76,5 +76,25 @@ describe("what the home page loads before it draws (the audit of 2026-10-25, W1)
         (/^\.\/lab[-.]/u.test(path) && path !== "./lab-offered.ts"),
     );
     expect(unwanted.map((path) => chainTo(loadedBy, path))).toEqual([]);
+  });
+});
+
+// The test-regime audit of 2026-10-31 (R4): test-dom.tsx imported later-screens.tsx for its reset,
+// which made every test that mounts anything "related" to every screen, half the suite rerun by
+// revert-red for one changed screen. A helper reaches a screen's code only as the test itself does
+// (test-walk.tsx mounts the app, so it does).
+describe("what the tests' shared helpers load", () => {
+  it("is no module of lazily loaded screens: a test that mounts a screen imports it itself", () => {
+    const helpers = Object.keys(sources).filter(
+      (path) => /^\.\/test-[^/]+\.tsx?$/u.test(path) && path !== "./test-walk.tsx",
+    );
+    expect(helpers).toContain("./test-dom.tsx");
+    const reached = helpers.flatMap((helper) => {
+      const loadedBy = loadedAtStart(helper);
+      return ["./later-screens.tsx", "./tray-dialog-code.tsx"]
+        .filter((path) => loadedBy.has(path))
+        .map((path) => chainTo(loadedBy, path));
+    });
+    expect(reached).toEqual([]);
   });
 });
