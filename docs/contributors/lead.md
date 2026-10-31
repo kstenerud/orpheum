@@ -65,8 +65,8 @@ protection really is worth it."
 - **check-pr's budget is 5 minutes.** Measure every run's wall time and report an overrun; omit
   `BASE=` (an old base re-probes every commit since). While it runs it works in its own tree under a
   lock: edit freely; if it fails, `git stash`, fix, commit, `make check-pr-failed`, `git stash pop`.
-- **Fail fast:** lint the changed packages (`./dev golangci-lint run <pkgs>`, eslint on the files)
-  and `make fmt` before `make check`; chain with `&&` and `set -o pipefail` (a `make check | tail`
+- **Fail fast:** `make spot` lints the changed Go packages (since 2026-10-31: four gate runs in one
+  session went to line lengths); eslint the changed web files and `make fmt` before `make check`; chain with `&&` and `set -o pipefail` (a `make check | tail`
   once let a failed check commit). A load-flaky failure is diagnosed by running the one test alone,
   never retried blind.
 - **Slow tests:** find out why, fix it when cheap, record the mechanism in
