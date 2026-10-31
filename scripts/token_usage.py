@@ -7,6 +7,8 @@
 Every model call re-reads the whole context from the prompt cache, so a session costs about its calls
 times its context (the measurement of 2026-10-31, docs/contributors/lead.md §1). Weighted cost counts
 one uncached input token as 1: cache writes 1.25, cache reads 0.1, output 5, the ratios of the prices.
+Cost is in dollars at each model's API price (PRICES), so an Opus call and a Sonnet call are told apart:
+weighted alike, the first trial's ledger could not say what moving a job to Sonnet saved (2026-10-31).
 Run it at a batch's end: `python3 scripts/token_usage.py --since 2026-11-01`.
 """
 from __future__ import annotations
@@ -22,6 +24,26 @@ ROOT = Path(__file__).resolve().parents[1]
 WEIGHTS = {"input_tokens": 1.0, "cache_creation_input_tokens": 1.25, "cache_read_input_tokens": 0.1,
            "output_tokens": 5.0}
 CONTEXT_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+# Dollars per million tokens: input, output, cache read (the claude-api skill's table, cached 2026-10-06;
+# Haiku 5.5's cache read, not in it, taken as a tenth of its input, as Sonnet's is).
+# A cache write is 2x input: Claude Code caches for an hour. Keyed by the model id's prefix.
+PRICES = {"claude-fable-5-1": (10.0, 50.0, 0.25), "claude-opus-5-5": (4.0, 20.0, 0.20),
+          "claude-sonnet-5-5": (2.0, 10.0, 0.20), "claude-haiku-5-5": (0.10, 0.50, 0.01)}
+CACHE_WRITE_TIMES_INPUT = 2.0
+# A model not in PRICES: its weighted tokens at Opus 5.5's input price, and the report names it.
+UNKNOWN_INPUT_PRICE = PRICES["claude-opus-5-5"][0]
+
+
+def cost(model: str, usage: dict[str, object]) -> tuple[float, bool]:
+    """The call's dollars, and whether its model's price is known."""
+    def tokens(key: str) -> float:
+        return float(usage.get(key) or 0)  # type: ignore[arg-type]
+    price = next((p for prefix, p in PRICES.items() if model.startswith(prefix)), None)
+    if price is None:
+        return sum(weight * tokens(key) for key, weight in WEIGHTS.items()) * UNKNOWN_INPUT_PRICE / 1e6, False
+    paid_in, paid_out, paid_read = price
+    return (tokens("input_tokens") * paid_in + tokens("cache_creation_input_tokens") * paid_in * CACHE_WRITE_TIMES_INPUT
+            + tokens("cache_read_input_tokens") * paid_read + tokens("output_tokens") * paid_out) / 1e6, True
 
 
 @dataclass
@@ -30,6 +52,8 @@ class Session:
     is_agent: bool
     calls: int = 0
     weighted: float = 0.0
+    dollars: float = 0.0
+    unpriced: set[str] = field(default_factory=set)
     peak_context: int = 0
     tools: int = 0
     models: set[str] = field(default_factory=set)
@@ -72,18 +96,27 @@ def read(path: Path, since: str = "") -> Session:
             session.calls += 1
             session.weighted += sum(weight * float(usage.get(key) or 0) for key, weight in WEIGHTS.items())
             session.peak_context = max(session.peak_context, sum(int(usage.get(key) or 0) for key in CONTEXT_KEYS))
-            session.models.add(str(message.get("model")))
+            model = str(message.get("model"))
+            session.models.add(model)
+            paid, known = cost(model, usage)
+            session.dollars += paid
+            if not known:
+                session.unpriced.add(model)
     return session
 
 
 def report(sessions: list[Session], top: int) -> str:
-    total = sum(s.weighted for s in sessions) or 1.0
-    agents = sum(s.weighted for s in sessions if s.is_agent)
-    lines = [f"{len(sessions)} sessions, {sum(s.calls for s in sessions)} model calls, "
-             f"{total / 1e6:.1f}M weighted tokens; agents {100 * agents / total:.0f}%, "
+    total = sum(s.dollars for s in sessions) or 1.0
+    agents = sum(s.dollars for s in sessions if s.is_agent)
+    weighted = sum(s.weighted for s in sessions)
+    lines = [f"{len(sessions)} sessions, {sum(s.calls for s in sessions)} model calls, ${total:.2f} at API prices "
+             f"({weighted / 1e6:.1f}M weighted tokens); agents {100 * agents / total:.0f}%, "
              f"lead {100 * (total - agents) / total:.0f}%"]
-    for s in sorted(sessions, key=lambda s: -s.weighted)[:top]:
-        lines.append(f"{s.weighted / 1e6:7.2f}M {100 * s.weighted / total:4.1f}%  calls {s.calls:4}  tools {s.tools:4}  "
+    unpriced = sorted(set().union(*(s.unpriced for s in sessions)))
+    if unpriced:
+        lines.append(f"no price for {', '.join(unpriced)}: counted at ${UNKNOWN_INPUT_PRICE:g}/M weighted (PRICES)")
+    for s in sorted(sessions, key=lambda s: -s.dollars)[:top]:
+        lines.append(f"${s.dollars:7.2f} {100 * s.dollars / total:4.1f}%  calls {s.calls:4}  tools {s.tools:4}  "
                      f"peak {s.peak_context // 1000:4}k  {'agent' if s.is_agent else 'lead '}  "
                      f"{','.join(sorted(s.models))[:24]:24}  {s.task}")
     return "\n".join(lines)

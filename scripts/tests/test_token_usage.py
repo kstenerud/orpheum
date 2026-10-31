@@ -50,6 +50,26 @@ class TokenUsage(unittest.TestCase):
         self.assertIn("1 sessions, 1 model calls", out.getvalue())
         self.assertEqual(token_usage.read(directory / "lead.jsonl").calls, 2)
 
+    def test_cost_is_at_each_models_price(self):
+        directory = Path(tempfile.mkdtemp())
+        def priced(model: str, **usage: int) -> str:
+            entry = json.loads(call("x" + model, **usage))
+            entry["message"]["model"] = model
+            return json.dumps(entry)
+        (directory / "lead.jsonl").write_text(priced("claude-opus-5-5", cache_read_input_tokens=1_000_000,
+                                                     output_tokens=1_000_000) + "\n")
+        (directory / "subagents").mkdir()
+        (directory / "subagents" / "a.jsonl").write_text(priced("claude-sonnet-5-5", input_tokens=1_000_000,
+                                                                cache_creation_input_tokens=1_000_000) + "\n")
+        self.assertAlmostEqual(token_usage.read(directory / "lead.jsonl").dollars, 0.20 + 20.0)
+        self.assertAlmostEqual(token_usage.read(directory / "subagents" / "a.jsonl").dollars, 2.0 + 4.0)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            token_usage.main(["--dir", str(directory)])
+        self.assertIn("$26.20 at API prices", out.getvalue())
+        self.assertIn("agents 23%", out.getvalue())
+        self.assertNotIn("no price", out.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
