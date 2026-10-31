@@ -6,7 +6,10 @@
    prod-nas`, bundle fetched as bundle/sandbox-main, `make deploy DIR=/srv/orpheum`); prod connect
    0a3fcd5-216be59e. Owed by the owner: VQ85–88, 90, 91, 93, 96, 97, 102(2), 103, 115, 118, 120, 142;
    VQ81's disk case; D368's loudness on stepping down.
-   **This batch (owner 2026-10-30: cosmetic issues and what makes testing easier), from
+   **Done 2026-10-31:** the 10-30 batch below, with D382–D389 (casting and Watch Together as dialogs) and
+   the library-title scrub: check-pr green, every VQ from 150 up ticked; nas.example runs an earlier commit;
+   prod connect eb6c283-e39602fe; MPTCP off (sysctl) on prod-api, the edge, the Proxmox host and LXC 102.
+   **The 10-30 batch (owner 2026-10-30: cosmetic issues and what makes testing easier), from
    design/plans/navigation-and-widgets-answers-2026-10-27.md:**
    - Cosmetic: the session-ended notice as a modal; a title page's one "Identified incorrectly" entry
      opening a modal (Rescan, Enter manually, Report this), Play first; season posters in place of the
