@@ -692,3 +692,8 @@ had leaned on.
   mode's WebRTC signaller (`transport-choice.ts`) does not mark its failures `Unreached`. Freezes of a
   second or more are told to the core's log on every page (VQ198); they share the page's 20
   failure reports.
+- **Built (11-01 batch): B-frame re-timing (VQ207).** The owner approved both departures
+  from the design (2026-10-31, "1: ok. 2: ok"): a read 1 s past each run's last boundary, not 0.5 s
+  (an H.264 keyframe at a boundary needed about 0.65 s), and an encode shifting the re-timed stream
+  (`setts`) as well as `dts2pts`. Files already scanned are marked by D392's full rescan. **Next batch:**
+  a run's last chunk is accepted though it runs past its boundary, which hid the 0.5 s fault.
