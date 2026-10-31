@@ -23,9 +23,11 @@ dir="${HOME:-/root}/orpheum"
 media=""
 pull=true
 prune=true
+releaseRecord=""
+rootKeys=""
 
 usage() {
-	echo "usage: sh install.sh --media <folder> [--media <folder>...] [--dir <folder>] [--image <image>] [--no-pull] [--keep-images]" >&2
+	echo "usage: sh install.sh --media <folder> [--media <folder>...] [--dir <folder>] [--image <image>] [--no-pull] [--keep-images] [--release-record <file> [--root-keys <file>]]" >&2
 	exit 2
 }
 
@@ -39,6 +41,10 @@ $2"; shift 2 ;;
 	--no-pull) pull=false; shift ;;
 	# Leave every older image of this one's repository in place.
 	--keep-images) prune=false; shift ;;
+	# The signed release record the pulled image's digest must be named in (D391 §6), and the root
+	# keys it must be signed by, one authorised key's line each: the suggested discovery's when none.
+	--release-record) [ "$#" -ge 2 ] || usage; releaseRecord=$2; shift 2 ;;
+	--root-keys) [ "$#" -ge 2 ] || usage; rootKeys=$2; shift 2 ;;
 	*) usage ;;
 	esac
 done
@@ -234,6 +240,31 @@ if $pull; then
 	if ! pinned=$(pinnedImage); then
 		say "$image has no digest of its repository after its pull, so it cannot be pinned to it; nothing was installed"
 		exit 1
+	fi
+fi
+# verifyRelease checks the pinned image's digest against the signed release record, in Go: `orpheum
+# verify-release`, run from the image the deployment ran before when there is one, so an image does
+# not vouch for itself on an update; on a first install, the script itself came from the new image.
+verifyRelease() {
+	[ -f "$releaseRecord" ] || { say "$releaseRecord is not a file; nothing was installed"; exit 1; }
+	verifier=$pinned
+	[ -z "$previousID" ] || verifier=$previousID
+	set -- verify-release --digest "${pinned##*@}"
+	if [ -n "$rootKeys" ]; then
+		while IFS= read -r key; do
+			[ -z "$key" ] || set -- "$@" --root-key "$key"
+		done <"$rootKeys"
+	fi
+	if ! docker run --rm -i "$verifier" "$@" <"$releaseRecord" >&2; then
+		say "$pinned is not a release the signed record names; nothing was installed"
+		exit 1
+	fi
+}
+if [ -n "$releaseRecord" ]; then
+	if $pull; then
+		verifyRelease
+	else
+		say "an image built here has no digest a record could name; the release record is not checked"
 	fi
 fi
 nvidiaAccess
@@ -433,7 +464,8 @@ say "open it:"
 say "  from a phone, laptop or TV at home:  http://$address:${port:-8440}"
 say "  in a browser on this computer:       http://localhost:${thisMachinePort:-8441}"
 if [ -n "$realm" ]; then
-	say "  from away: sign in at ${loader:-your discovery's page} with the realm $realm, as $admin"
+	[ -n "$loader" ] || loader="your discovery's page"
+	say "  from away: sign in at $loader with the realm $realm, as $admin"
 fi
 if [ -n "$setupCode" ]; then
 	say "make the first admin there with this one-time code:"

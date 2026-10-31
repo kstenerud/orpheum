@@ -290,16 +290,27 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 }
 
 // The address document, which names where the owner serves the core's own client and the loader,
-// is served at the well-known path as the operator signed it, byte for byte: its signature is what a
-// core trusts (D391 §3). With no file, there is none.
+// and the release record, which says what a core may run, are served at their well-known paths as
+// the operator signed them, byte for byte: their signatures are what a core trusts (D391 §3, §6). With
+// no file, there is none, and a pending core reads the record as a claimed one does, with no session.
 func TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
 	server := httptest.NewServer(built.discovery.WellKnownHandler())
 	t.Cleanup(server.Close)
+	for path, file := range map[string]string{
+		addressdoc.WellKnownPath: built.document, release.WellKnownPath: built.discovery.parts.ReleaseRecord,
+	} {
+		wantServedAsWritten(t, server, path, file)
+	}
+}
+
+// wantServedAsWritten fails the test unless server serves nothing at path until file is written, and
+// then the file as it is, JSON.
+func wantServedAsWritten(t *testing.T, server *httptest.Server, path, file string) {
+	t.Helper()
 	get := func() (int, string, string) {
-		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+addressdoc.WellKnownPath,
-			http.NoBody)
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+path, http.NoBody)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -315,14 +326,14 @@ func TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs(t *testing.T) {
 		return response.StatusCode, response.Header.Get("Content-Type"), string(body)
 	}
 	if status, _, _ := get(); status != http.StatusNotFound {
-		t.Fatalf("with no document: %d, want 404", status)
+		t.Fatalf("%s with no file: %d, want 404", path, status)
 	}
-	const signed = `{"document":{"payload":"{\"issuer\":\"https://discovery.home.example\"}","signature":"x"}}`
-	if err := os.WriteFile(built.document, []byte(signed), 0o600); err != nil {
+	const signed = `{"payload":"{\"issuer\":\"https://discovery.home.example\"}","signature":"x"}`
+	if err := os.WriteFile(file, []byte(signed), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if status, kind, body := get(); status != http.StatusOK || kind != "application/json" || body != signed {
-		t.Fatalf("the document: %d %q %q, want 200, JSON and the file as written", status, kind, body)
+		t.Fatalf("%s: %d %q %q, want 200, JSON and the file as written", path, status, kind, body)
 	}
 }
 
@@ -758,46 +769,5 @@ func TestLinks_AClaimedCoresFullSetsReplaceTheLast(t *testing.T) {
 	}
 	if !built.discovery.locators["a-locator"] || len(built.discovery.locators) != 1 {
 		t.Errorf("the locators kept are %v; want the one sent", built.discovery.locators)
-	}
-}
-
-// A core, pending or claimed, asks what the release record says of its own version, with a session's
-// token, and is told of that version alone; before the record is written it is told nothing.
-func TestRelease_ACoreIsToldWhatTheRecordSaysOfItsOwnVersion(t *testing.T) {
-	t.Parallel()
-	built := newStage(t)
-	signer := newKey(t)
-	_, enrolled := built.enrol(t, signer)
-	token := built.session(t, signer, enrolled.CoreID)
-	ask := func(version string) discoveryproto.ReleaseResponse {
-		t.Helper()
-		var told discoveryproto.ReleaseResponse
-		status := built.call(t, http.MethodPost, discoveryproto.PathRelease, token,
-			discoveryproto.ReleaseRequest{OrpheumVersion: version}, &told)
-		if status != http.StatusOK {
-			t.Fatalf("asking the release record answered %d", status)
-		}
-		return told
-	}
-	if told := ask("v0.3.1"); told != (discoveryproto.ReleaseResponse{}) {
-		t.Errorf("with no record, told %+v; want nothing", told)
-	}
-	digest := "sha256:" + strings.Repeat("c", 64)
-	if err := release.Write(built.discovery.parts.ReleaseRecord, release.Record{
-		Latest: "v0.3.2", Digest: digest,
-		Versions: map[string]release.Note{"v0.3.1": {Security: true, Summary: "a fix", FixedIn: "v0.3.2"}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	told := ask("v0.3.1")
-	if told.Latest != "v0.3.2" || told.Digest != digest || told.Security == nil || told.Security.FixedIn != "v0.3.2" {
-		t.Errorf("told %+v; want v0.3.2, its digest and the fix v0.3.1 lacks", told)
-	}
-	if told := ask("v0.3.2"); told != (discoveryproto.ReleaseResponse{}) {
-		t.Errorf("the latest was told %+v; want nothing", told)
-	}
-	if status := built.call(t, http.MethodPost, discoveryproto.PathRelease, "not-a-token",
-		discoveryproto.ReleaseRequest{OrpheumVersion: "v0.3.1"}, nil); status != http.StatusUnauthorized {
-		t.Errorf("asking without a session answered %d", status)
 	}
 }

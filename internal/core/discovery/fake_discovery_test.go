@@ -16,10 +16,12 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 )
@@ -94,10 +96,11 @@ type fakeDiscovery struct {
 	// core was removed from an account, which a pending core's status says.
 	account   string
 	removedAt int64
-	// release is what it says of the core's version when asked; nil has no such call, as a discovery
-	// older than it. releaseAsked are the versions the core asked about, in turn.
-	release      *discoveryproto.ReleaseResponse
-	releaseAsked []string
+	// release is the release record it serves, signed by recordSigner, its root unless a test names
+	// another; nil serves none. releaseFetches is how many times the core read it.
+	release        *release.Record
+	recordSigner   ssh.Signer
+	releaseFetches int
 }
 
 // fakeKey is the one key the fake discovery takes.
@@ -145,6 +148,40 @@ func (fake *fakeDiscovery) serveDocument(writer http.ResponseWriter) {
 	fake.answer(writer, served)
 }
 
+// servedWellKnown is whether request was for a signed file, which it served: at its issuer, and at
+// any location under it, as a mirror serves it.
+func (fake *fakeDiscovery) servedWellKnown(writer http.ResponseWriter, request *http.Request) bool {
+	switch {
+	case request.Method != http.MethodGet:
+		return false
+	case strings.HasSuffix(request.URL.Path, addressdoc.WellKnownPath):
+		fake.serveDocument(writer)
+		return true
+	case strings.HasSuffix(request.URL.Path, release.WellKnownPath):
+		fake.serveRecord(writer, request)
+		return true
+	}
+	return false
+}
+
+// serveRecord serves its release record, signed, unless it has none or a test has it fail.
+func (fake *fakeDiscovery) serveRecord(writer http.ResponseWriter, request *http.Request) {
+	switch {
+	case fake.failing["GET "+release.WellKnownPath]:
+		http.Error(writer, "the discovery failed", http.StatusInternalServerError)
+		return
+	case fake.release == nil:
+		http.NotFound(writer, request)
+		return
+	}
+	fake.releaseFetches++
+	signer := fake.root.Signer
+	if fake.recordSigner != nil {
+		signer = fake.recordSigner
+	}
+	fake.answer(writer, trusttest.Sign(fake.t, signer, trust.KindReleaseRecord, *fake.release))
+}
+
 // signedDocument is document signed by the fake's root, served with its root key set.
 func (fake *fakeDiscovery) signedDocument(document addressdoc.Document) addressdoc.Served {
 	return addressdoc.Served{
@@ -159,9 +196,7 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 	}
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	// At its issuer, and at any location under it, as a mirror serves it.
-	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, addressdoc.WellKnownPath) {
-		fake.serveDocument(writer)
+	if fake.servedWellKnown(writer, request) {
 		return
 	}
 	if request.Header.Get(discoveryproto.ProtocolHeader) != discoveryproto.ProtocolVersion {
@@ -281,15 +316,6 @@ func (fake *fakeDiscovery) serveMore(writer http.ResponseWriter, request *http.R
 		var outcome discoveryproto.DeviceCodeOutcomeRequest
 		fake.read(request, &outcome)
 		fake.deviceOutcomes[outcome.Code] = outcome.Sealed
-	case "POST /release":
-		if fake.release == nil {
-			http.NotFound(writer, request)
-			return
-		}
-		var asked discoveryproto.ReleaseRequest
-		fake.read(request, &asked)
-		fake.releaseAsked = append(fake.releaseAsked, asked.OrpheumVersion)
-		fake.answer(writer, *fake.release)
 	case "PUT /acme-account":
 		var reported discoveryproto.ACMEAccountRequest
 		fake.read(request, &reported)

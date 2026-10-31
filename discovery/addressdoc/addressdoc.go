@@ -141,11 +141,22 @@ func (document Document) ClientOrigin(coreID string) string {
 
 // URLs are where the document is served: at its issuer, then at each location, in turn.
 func (document Document) URLs() []string {
-	urls := []string{document.Issuer + WellKnownPath}
-	for _, location := range document.Locations {
-		urls = append(urls, strings.TrimSuffix(location, "/")+WellKnownPath)
+	urls := make([]string, 0, len(document.Locations)+1)
+	for _, place := range document.Places() {
+		urls = append(urls, place+WellKnownPath)
 	}
 	return urls
+}
+
+// Places are the bases the discovery's signed files are served under, each with no closing slash:
+// its issuer, then each location, in turn. The document is at each one's WellKnownPath, the release
+// record at its own (discovery/release).
+func (document Document) Places() []string {
+	places := []string{document.Issuer}
+	for _, location := range document.Locations {
+		places = append(places, strings.TrimSuffix(location, "/"))
+	}
+	return places
 }
 
 // checkPattern is whether pattern is an origin once a core's id is in its place, which the pattern

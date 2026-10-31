@@ -74,14 +74,11 @@
 //   - A core is online while it holds its signalling connection, offline since it last closed.
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //
-//   - A core, pending or claimed, asks under its session what the release record (discovery/release)
-//     says of its own version, and is told of that version alone; with no record, nothing
-//     (security-updates.md Part A). TestRelease_ACoreIsToldWhatTheRecordSaysOfItsOwnVersion.
-//
 //   - The record is written whole: a new file renamed over it. TestFileStore_AWriteReplacesTheRecordWithAWholeNewFile.
 //
-//   - The address document is served at its well-known path as the operator signed it, byte for
-//     byte, and with none, none is (D391 §3). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
+//   - The address document and the release record are served at their well-known paths as the
+//     operator signed them, byte for byte, and with none, none is (D391 §3, §6; security-updates.md
+//     Part A). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
 //
 //   - A core's signatures are bound to the discovery's issuer, not the URL it calls (D391 §4).
 //     TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses, whose core enrols by the issuer.

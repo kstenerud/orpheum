@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
@@ -20,8 +21,8 @@ type knownRelease struct {
 	known discovery.Release
 }
 
-func (release knownRelease) Release() discovery.Release {
-	return release.known
+func (known knownRelease) Release() discovery.Release {
+	return known.known
 }
 
 // An admin is told the security fix the server's version lacks, the latest and the command that
@@ -36,11 +37,11 @@ func TestUpdate_AnAdminIsToldTheFixPendingAndTheCommandThatInstallsIt(t *testing
 		t.Fatal(err)
 	}
 	checked := time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC)
-	release := &knownRelease{known: discovery.Release{
+	releases := &knownRelease{known: discovery.Release{
 		Version: "v0.3.1", Latest: "v0.3.3", Digest: "sha256:abc", CheckedAt: checked,
-		Security: &discoveryproto.SecurityFix{Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"},
+		Security: &release.Fix{Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"},
 	}}
-	dependencies.Releases, dependencies.PublishedImage = release, "ghcr.io/example/orpheum"
+	dependencies.Releases, dependencies.PublishedImage = releases, "ghcr.io/example/orpheum"
 	read := func() api.UpdateBody {
 		t.Helper()
 		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
@@ -58,11 +59,18 @@ func TestUpdate_AnAdminIsToldTheFixPendingAndTheCommandThatInstallsIt(t *testing
 	}); !reflect.DeepEqual(told, want) {
 		t.Errorf("told %+v; want %+v", told, want)
 	}
-	release.known.Security = nil
+	releases.known.Security = nil
 	if plain := read(); plain.Security != nil || plain.Latest != "v0.3.3" || plain.Command != command {
 		t.Errorf("a plain newer release: told %+v; want the latest and its command, no fix", plain)
 	}
-	release.known = discovery.Release{Version: "v0.3.3", CheckedAt: checked}
+	// The signed record names where the release may be pulled, which the command then pulls from by
+	// the release's own digest, not the image this build was published as (D391 §6).
+	releases.known.Location, releases.known.Digest = "mirror.example/orpheum", "sha256:"+strings.Repeat("c", 64)
+	pinned := "docker run --rm mirror.example/orpheum@sha256:" + strings.Repeat("c", 64) + " install-script | sh"
+	if mirrored := read(); mirrored.Command != pinned {
+		t.Errorf("a release the record names a location for: command %q; want %q", mirrored.Command, pinned)
+	}
+	releases.known = discovery.Release{Version: "v0.3.3", CheckedAt: checked}
 	if current := read(); current.Latest != "" || current.Command != "" {
 		t.Errorf("the latest running: told %+v; want no update", current)
 	}
