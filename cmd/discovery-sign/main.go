@@ -17,7 +17,11 @@ const (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], clock.System{}.Now(), os.Stdout, os.Stderr))
+	now := clock.System{}.Now()
+	if status, isGuided := runGuided(os.Args[1:], now, os.Stdin, os.Stdout, os.Stderr, sshKeygen{}); isGuided {
+		os.Exit(status)
+	}
+	os.Exit(run(os.Args[1:], now, os.Stdout, os.Stderr))
 }
 
 // write writes text and returns status, or a failure when text could not be written.
@@ -29,7 +33,14 @@ func write(writer io.Writer, text string, status int) int {
 }
 
 // usage is how the command is run.
-const usage = `usage: discovery-sign <what> --ledger <dir> [flags]
+const usage = `usage: discovery-sign ceremony [--folder <dir>] [--software <keysdir>]
+       discovery-sign test-key [--dir <dir>]
+       discovery-sign sign-release --folder <dir> --record <unsigned record file>
+       discovery-sign <what> --ledger <dir> [flags]
+
+ceremony asks plain questions and does day one for both chains (run it again to carry on if stopped);
+test-key says whether a key's signatures carry the user-verified flag; sign-release signs a release.
+The commands below are what they use, for the cases they do not cover yet.
 
 Each command but check and publish writes a payload to sign, shows it, and says the ssh-keygen command
 that signs it with a root key's stub (ssh-keygen -K writes it from the YubiKey). Read every line, then
