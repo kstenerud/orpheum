@@ -151,6 +151,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
   it("saving a secret, and resetting a setting", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "PUT /secrets/tmdb_api_key": refusal(409, "conflict"),
       "POST /config/should_scan_on_node_hello/reset": refusal(404, "not_found"),
@@ -171,6 +172,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
   it("saving a setting's value the server does not accept", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting, libraryCheck] }],
       "PUT /config": [
         422,
@@ -243,6 +245,7 @@ describe("a request that never reaches the server says so, rather than nothing",
   it("resetting a setting", async () => {
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
+      "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "POST /config/should_scan_on_node_hello/reset": unreachable,
     });

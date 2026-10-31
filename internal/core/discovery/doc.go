@@ -48,6 +48,12 @@
 //     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.
 //     TestCall_KeepsTheDeprecationTheDiscoveryNames.
+//   - A release build asks its discovery what the release record says of its own version, at its
+//     start and daily, an hour after a failure, and keeps it for its admins; a development build asks
+//     nothing; a discovery without the call knows nothing, and a failure is never the core's problem
+//     (security-updates.md Part A). TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion,
+//     TestRelease_ADevelopmentBuildAsksNothing,
+//     TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.
 //   - A discovery is reached over HTTPS, or plain HTTP only on this machine.
 //     TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine.

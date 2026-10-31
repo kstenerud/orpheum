@@ -19,6 +19,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
 
@@ -92,6 +93,10 @@ type Parts struct {
 	// Wait waits out a duration, or until ctx ends: how a realm sign-in that failed answers no sooner
 	// than one that the core refused (D297 §2). Nil waits by a timer; a test passes its own.
 	Wait func(ctx context.Context, wait time.Duration)
+	// ReleaseRecord is the release record's file in the discovery's deployment, which the release
+	// workflow writes and the core's release call is answered from (security-updates.md Part A); empty,
+	// or a file absent, tells each core nothing.
+	ReleaseRecord string
 }
 
 // Discovery is a single-target discovery: its record in its store, and in memory its nonces, its
@@ -193,6 +198,14 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 		return
 	case http.MethodDelete + " " + discoveryproto.PathCore:
 		discovery.leave(writer, request)
+		return
+	case http.MethodPost + " " + discoveryproto.PathRelease:
+		// A pending core asks too: a security fix matters before its claim as after.
+		var asked discoveryproto.ReleaseRequest
+		if read(writer, request, &asked) {
+			answer(writer, release.File{Path: discovery.parts.ReleaseRecord, Logger: discovery.parts.Logger}.Answer(
+				request.Context(), asked.OrpheumVersion))
+		}
 		return
 	}
 	if held.State != discoveryproto.StateClaimed {

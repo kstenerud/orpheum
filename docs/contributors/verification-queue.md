@@ -1932,6 +1932,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Built (11-01 batch):** a probe the network answers first asks `registration.update()`; a newer
   worker on its way is no bypass, and the note asks again as it takes over. Check again as above,
   after the deploy that carries it, in a tab left open across the deploy.
+- [ ] **VQ195** — an admin sees a security update's banner on a real deployment
+  (security-updates.md Part B): on staging, give the discovery a release record naming the core's
+  version as needing a fix (`go run ./cmd/release-record --record <file> --version <newer tag>
+  --digest sha256:<64 hex> --security "a test fix"` after a first run for the core's own tag), and
+  restart the core. Passes when, signed in as the admin on the Mac's Chrome, every page shows "A
+  security update is available (<tag>): a test fix." with the command and Update now leading to How
+  to update; Snooze for a day hides it and a reload keeps it hidden; signed in as dan on Firefox,
+  no banner shows; the settings page's Updates row names the newer version. Needs the paid
+  service's `POST /release` (or Orpheum's own discovery) to serve the record, which the connect
+  repository owes. (`web/apps/web/src/security-update-note.tsx`, `internal/core/discovery/release.go`)
 - [ ] **VQ197** — Firefox's page is back soon after the network, with no `online` event to tell it,
   on staging. On the Mac, Firefox over WebRTC through staging's discovery (the core's log says
   `over=webrtc` for it), playing a film. Turn the Wi-Fi off for about 20 s, then on. Passes when the

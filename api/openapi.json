@@ -6355,6 +6355,24 @@
         ],
         "type": "object"
       },
+      "SecurityFixBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fixedIn": {
+            "description": "The first release that has it, \"v0.3.2\"",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What the fix fixes, in a sentence for the admin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "fixedIn"
+        ],
+        "type": "object"
+      },
       "SeekBody": {
         "additionalProperties": false,
         "properties": {
@@ -8192,6 +8210,40 @@
             "description": "What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last"
           }
         },
+        "type": "object"
+      },
+      "UpdateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "checkedAt": {
+            "description": "Unix milliseconds the server's discovery last answered; 0 before it has",
+            "format": "int64",
+            "type": "integer"
+          },
+          "command": {
+            "description": "What installs the update, run on the server's machine as the user who installed it (D314); empty with no update",
+            "type": "string"
+          },
+          "digest": {
+            "description": "The newest release's image digest, sha256:..., for the admin to check",
+            "type": "string"
+          },
+          "latest": {
+            "description": "The newest release, when it is newer than this server's; empty when it runs the latest or knows of none",
+            "type": "string"
+          },
+          "security": {
+            "$ref": "#/components/schemas/SecurityFixBody"
+          },
+          "version": {
+            "description": "This server's version: a release's tag, or dev for a build of none, which knows of no update",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "checkedAt"
+        ],
         "type": "object"
       },
       "UserBody": {
@@ -15634,6 +15686,48 @@
           }
         },
         "summary": "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/update": {
+      "get": {
+        "operationId": "getSystemUpdate",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What the server knows of an update: a security fix its version lacks, or a newer release (admin)",
         "tags": [
           "Running it"
         ]

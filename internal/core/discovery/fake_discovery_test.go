@@ -84,6 +84,10 @@ type fakeDiscovery struct {
 	// core was removed from an account, which a pending core's status says.
 	account   string
 	removedAt int64
+	// release is what it says of the core's version when asked; nil has no such call, as a discovery
+	// older than it. releaseAsked are the versions the core asked about, in turn.
+	release      *discoveryproto.ReleaseResponse
+	releaseAsked []string
 }
 
 // fakeKey is the one key the fake discovery takes.
@@ -235,6 +239,15 @@ func (fake *fakeDiscovery) serveMore(writer http.ResponseWriter, request *http.R
 		var outcome discoveryproto.DeviceCodeOutcomeRequest
 		fake.read(request, &outcome)
 		fake.deviceOutcomes[outcome.Code] = outcome.Sealed
+	case "POST /release":
+		if fake.release == nil {
+			http.NotFound(writer, request)
+			return
+		}
+		var asked discoveryproto.ReleaseRequest
+		fake.read(request, &asked)
+		fake.releaseAsked = append(fake.releaseAsked, asked.OrpheumVersion)
+		fake.answer(writer, *fake.release)
 	case "PUT /acme-account":
 		var reported discoveryproto.ACMEAccountRequest
 		fake.read(request, &reported)

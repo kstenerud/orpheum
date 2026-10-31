@@ -24,6 +24,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -66,6 +67,7 @@ func newStageWithRealm(t *testing.T, realm string) *stage {
 		Now: built.clock, Random: rand.Reader,
 		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
 		Realm:      realm, ClientOrigin: testClientOrigin, LoaderOrigin: testLoaderOrigin,
+		ReleaseRecord: filepath.Join(t.TempDir(), "release.json"),
 		Wait: func(_ context.Context, wait time.Duration) {
 			built.mutex.Lock()
 			defer built.mutex.Unlock()
@@ -734,5 +736,46 @@ func TestLinks_AClaimedCoresFullSetsReplaceTheLast(t *testing.T) {
 	}
 	if !built.discovery.locators["a-locator"] || len(built.discovery.locators) != 1 {
 		t.Errorf("the locators kept are %v; want the one sent", built.discovery.locators)
+	}
+}
+
+// A core, pending or claimed, asks what the release record says of its own version, with a session's
+// token, and is told of that version alone; before the record is written it is told nothing.
+func TestRelease_ACoreIsToldWhatTheRecordSaysOfItsOwnVersion(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer := newKey(t)
+	_, enrolled := built.enrol(t, signer)
+	token := built.session(t, signer, enrolled.CoreID)
+	ask := func(version string) discoveryproto.ReleaseResponse {
+		t.Helper()
+		var told discoveryproto.ReleaseResponse
+		status := built.call(t, http.MethodPost, discoveryproto.PathRelease, token,
+			discoveryproto.ReleaseRequest{OrpheumVersion: version}, &told)
+		if status != http.StatusOK {
+			t.Fatalf("asking the release record answered %d", status)
+		}
+		return told
+	}
+	if told := ask("v0.3.1"); told != (discoveryproto.ReleaseResponse{}) {
+		t.Errorf("with no record, told %+v; want nothing", told)
+	}
+	digest := "sha256:" + strings.Repeat("c", 64)
+	if err := release.Write(built.discovery.parts.ReleaseRecord, release.Record{
+		Latest: "v0.3.2", Digest: digest,
+		Versions: map[string]release.Note{"v0.3.1": {Security: true, Summary: "a fix", FixedIn: "v0.3.2"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	told := ask("v0.3.1")
+	if told.Latest != "v0.3.2" || told.Digest != digest || told.Security == nil || told.Security.FixedIn != "v0.3.2" {
+		t.Errorf("told %+v; want v0.3.2, its digest and the fix v0.3.1 lacks", told)
+	}
+	if told := ask("v0.3.2"); told != (discoveryproto.ReleaseResponse{}) {
+		t.Errorf("the latest was told %+v; want nothing", told)
+	}
+	if status := built.call(t, http.MethodPost, discoveryproto.PathRelease, "not-a-token",
+		discoveryproto.ReleaseRequest{OrpheumVersion: "v0.3.1"}, nil); status != http.StatusUnauthorized {
+		t.Errorf("asking without a session answered %d", status)
 	}
 }

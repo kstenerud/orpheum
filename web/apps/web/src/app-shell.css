@@ -371,6 +371,22 @@
   max-width: none;
 }
 
+/*
+ * The banner of a security update pending, an admin's alone (security-updates.md Part B): in the
+ * warning yellow, which asks for something to be done (D280), and its command on a line of its own.
+ */
+.app-shell__note--security {
+  border-color: var(--color-warning);
+}
+
+.app-shell__note-command {
+  flex-basis: 100%;
+}
+
+.app-shell__note-command code {
+  overflow-wrap: anywhere;
+}
+
 /* A label and its control sit side by side with room between them; a theme restyles this. */
 .app-shell__main label {
   display: inline-flex;

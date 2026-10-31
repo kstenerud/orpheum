@@ -136,6 +136,7 @@ func (server *Server) registerDiscovery() {
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
 		Summary: "Take the core out of its discovery (admin; D273)",
 	}, server.leaveDiscovery)
+	server.registerUpdate()
 }
 
 func (server *Server) getDiscovery(ctx context.Context, input *AuthorizationHeader) (*DiscoveryStatusOutput, error) {
