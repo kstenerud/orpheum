@@ -75,6 +75,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
+import background_probe
 import browser_map
 import revert_red_known as known_red
 import revert_red_reruns as reruns
@@ -634,6 +635,9 @@ def main() -> int:
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
     # Each probe's runs within its share of the CPUs, so the probes at once fit the machine.
     revert_red_commands.CPU_SHARE = max(1, (os.cpu_count() or 2) // min(jobs, max(1, len(owed))))
+    # A background probe of the batch (background_probe.py) gives the trees up to a run of the gate's
+    # own; what it probed is kept, and this run takes it.
+    background_probe.stop()
     with hold_probe_trees():
         reruns.begin(base)
         status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,
