@@ -292,7 +292,9 @@ had leaned on.
   (`sound0-96k-ownlevel`, its gain carried, none to add), but the element stayed routed. **Owner to
   decide:** on a television, with levelling on, start on the ladder's levelled sound rather than the
   film's own, so no gain is ever added and no Web Audio is made (the 96 kb/s AAC for the original's
-  sound); or keep it. (c) **Left for the device (VQ226):** the first film after a deploy with the
+  sound); or keep it. **The owner (2026-10-31): start on the already-levelled sound whenever
+  levelling ("Level loudness") is on**, not only on a television; filed for the batch after token
+  use. (c) **Left for the device (VQ226):** the first film after a deploy with the
   warming in, against one cast within 5 s of the home page (before it warms); and the same film from
   the same point with levelling off and on, compared by "a player dropped frames" (a film's own sound
   with levelling off takes no Web Audio).
@@ -754,6 +756,43 @@ VQ-number clashes between parallel agents and cherry-pick conflicts in verificat
 visible costs. Look at: brief size and what each agent rereads (AGENTS.md, decisions, plan files),
 gate runs per agent, model choice per task, the lead's own context (standing orders and memory
 injected every prompt), and file layouts that make parallel agents conflict.
+
+**Measured (the lead, 2026-10-31), from the session transcripts of 10-26 to 10-31** (one lead session,
+190 agents; cost weighted as input 1, cache write 1.25, cache read 0.1, output 5):
+
+- **Cache reads are the bill.** Every model call re-reads the whole context, so a session costs about
+  (calls × average context). The lead read 1.96 billion cached tokens over 4,888 calls (average
+  context about 400k, peak 895k); the agents read 5.8 billion. The agents were 77% of the cost, the
+  lead 23%.
+- **Contexts were allowed to grow to 1M.** Agents inherit the lead's 1M-context model, so a build
+  agent ran 200–640 calls with its context climbing to 400–960k before any compaction. An agent starts
+  at about 42k (system prompt, tools, AGENTS.md); everything above that is its own tool output carried
+  to every later call.
+- **What fills an agent's context:** many small shell reads, not big files. Of the carried cost,
+  `cat`/`sed`/`head` 38% (6,048 calls, about 1k each), `grep` 27% (9,740 calls, 0.5k each), whole-file
+  reads 23% (mostly one research agent's PDFs), test and gate output only 3% (outputs are already
+  short; their cost is in the calls and minutes).
+- **Simulated: compacting at 160k** would have cut the lead's input by about 70% and the agents' by
+  about 50%; at 300k, 55% and 30%. Compaction loses detail and adds some rereads, so take roughly half
+  of that as the real saving.
+- **Small fixed costs:** MEMORY.md is 25 KB (about 6k tokens on every lead call); the standing orders
+  (3 KB) are injected on every prompt.
+
+**Proposed, in order of effect:**
+
+1. **A compaction window of 200k tokens** for the lead and every agent: `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`
+   in Claude Code's environment (the user-level `~/.claude/settings.json` `env`, or `.claude/settings.json`,
+   a gate file). The biggest single lever; the model stays the same.
+2. **Agents sized to about 150 calls**: a build that needs more is split, or done by the lead; a brief
+   names the files and the mechanism, so the agent does not search for them.
+3. **Sonnet unless the brief says Opus**: `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` makes the cheaper model the
+   default, so Opus is a choice made per brief rather than a rule that is forgotten (it was, all batch).
+4. **Fewer, fuller calls**: related reads and greps in one shell command; a section read with a range
+   rather than reading a file, then grepping, then reading it again.
+5. **The lead: a fresh session per phase** with a handoff memory, never a day on one context; agents
+   end at `make spot`, the lead runs one `make check` at the merge.
+6. **MEMORY.md pruned** to the live entries (old "READ FIRST" handoffs folded into one), about a third
+   of its size.
 
 ## D391's Orpheum side, built (2026-10-31)
 
