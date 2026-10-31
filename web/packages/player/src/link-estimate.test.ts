@@ -42,11 +42,11 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
     expect(estimate.count()).toBe(10);
   });
 
-  it("is not ruled by one sample that is not the link's: Nosferatu's four near 15 Mb/s and one at 14 kb/s", () => {
-    // The harmonic mean made these 69 kb/s, and a Fire TV fell from Nosferatu's own picture to its
+  it("is not ruled by one sample that is not the link's: Aegis's four near 15 Mb/s and one at 14 kb/s", () => {
+    // The harmonic mean made these 69 kb/s, and a Fire TV fell from Aegis's own picture to its
     // lowest quality for 75 s (staging, 2026-10-28; bandwidth-sampling-2026-10-29.md §1.1).
-    const nosferatu = estimateOf(14, 18, 15, 16, 0.014);
-    expect(nosferatu.estimateBps()).toBeGreaterThan(10_000_000);
+    const aegis = estimateOf(14, 18, 15, 16, 0.014);
+    expect(aegis.estimateBps()).toBeGreaterThan(10_000_000);
     // Nor by one fast one, a cache hit not told as one.
     expect(estimateOf(10, 10, 10, 10, 1000).estimateBps()).toBeLessThan(15_000_000);
     // The spread is the samples' own once three are kept, never below its floor.
@@ -95,7 +95,7 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
   });
 
   it("keeps a top quality through one slow sample of five where the old divisor cut it (failure 3)", () => {
-    // The Fire TV's five samples (staging, Nosferatu, 2026-10-28): 9.65, 18.2, 12.7, 2.51, 22.6 Mb/s.
+    // The Fire TV's five samples (staging, Aegis, 2026-10-28): 9.65, 18.2, 12.7, 2.51, 22.6 Mb/s.
     const fireTv = new LinkEstimate();
     for (const [bytes, arrivedMs] of [
       [191_842, 159],
@@ -129,7 +129,7 @@ describe("the link's estimate (D352 §2, revised 2026-10-29)", () => {
   });
 
   it("is not ruled by one slow sample of five: the most extreme error is set aside", () => {
-    // A Fire TV's five samples as its stall report gave them (staging, Nosferatu, 2026-10-28).
+    // A Fire TV's five samples as its stall report gave them (staging, Aegis, 2026-10-28).
     const fireTv = new LinkEstimate();
     for (const [bytes, arrivedMs] of [
       [191_842, 159],

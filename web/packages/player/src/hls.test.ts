@@ -438,7 +438,7 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
     return hls;
   }
 
-  /** Nosferatu's sound at the top, its own 5.1 copied, and at the lower qualities the light stereo track. */
+  /** Aegis's sound at the top, its own 5.1 copied, and at the lower qualities the light stereo track. */
   function own(): Sound[] {
     return [{ name: "English", lang: "en", channels: "6" }];
   }
@@ -461,7 +461,7 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
   });
 
   it("plays the sound loaded on as the person turns the boost on, the boosted mix heard from its chunk at the playhead once it arrives", () => {
-    // Thimbleford at the top of its ladder, its own 5.1 sound loaded 37 s ahead, the boost turned on
+    // Hold Fast at the top of its ladder, its own 5.1 sound loaded 37 s ahead, the boost turned on
     // while the server had not made the boosted mix (staging, 2026-10-29): it froze 2.2 s.
     const hls = fakeHls({ fromS: 10, toS: 47 });
     const notes: string[] = [];
