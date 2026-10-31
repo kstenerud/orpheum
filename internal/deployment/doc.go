@@ -35,6 +35,10 @@
 //   - Each deployment's outside network has a private IPv6 /64 of its own, chosen by its directory,
 //     so two on one machine both start; one whose directory is not known keeps fd77:5e::/64.
 //     TestWrite_EachDeploymentsNetworkHasASubnetOfItsOwn.
+//   - Every service with a network of its own turns MPTCP off in it (CVE-2026-98432), since the
+//     setting is each network's and the household's kernel is not ours; one sharing another's
+//     network shares one that has it off. TestCompose_EveryServiceWithANetworkOfItsOwnTurnsMPTCPOff,
+//     TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //

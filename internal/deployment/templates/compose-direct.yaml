@@ -16,6 +16,10 @@
 #   ORPHEUM_OUTSIDE_IPV6_SUBNET  the outside network's private IPv6 /64, this deployment's own
 #
 # The directory holds core/ and node/ (the instances) and run/ (their sockets).
+#
+# Each service turns MPTCP off in its network (CVE-2026-98432, a use-after-free reached through
+# MPTCP listeners): the setting is each network's own, so the host's does not reach it, and a
+# household's kernel is not ours.
 
 services:
   # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. Port 443 is bound
@@ -28,6 +32,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     sysctls:
       net.ipv4.ip_unprivileged_port_start: "0"
+      net.mptcp.enabled: "0"
     volumes:
       - ./core:/var/lib/orpheum/core
       - ./run:/run/orpheum
@@ -53,6 +58,8 @@ services:
     user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
     command: ["node", "--instance", "/var/lib/orpheum/node"]
     network_mode: none
+    sysctls:
+      net.mptcp.enabled: "0"
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     volumes:

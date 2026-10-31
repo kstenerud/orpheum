@@ -17,6 +17,11 @@
 #
 # The directory holds tunnel/ (wg0.conf and its keys), core/ and node/ (the instances) and run/
 # (their sockets).
+#
+# Each service with a network of its own turns MPTCP off in it (CVE-2026-98432, a use-after-free
+# reached through MPTCP listeners): the setting is each network's own, so the host's does not reach
+# it, and a household's kernel is not ours. The core shares the tunnel's network, whose setting it
+# has; Docker refuses a net.* sysctl to a service that shares another's.
 
 services:
   # The core's end of the tunnel to the VPS (D243 §7). The core shares its network, so the tunnel is
@@ -30,6 +35,7 @@ services:
     cap_add: [NET_ADMIN]
     sysctls:
       net.ipv4.ip_unprivileged_port_start: "0"
+      net.mptcp.enabled: "0"
     environment:
       ORPHEUM_TUNNEL_MTU: ${ORPHEUM_TUNNEL_MTU:-1420}
       ORPHEUM_TUNNEL_IPV4: ${ORPHEUM_TUNNEL_IPV4:?}
@@ -81,6 +87,8 @@ services:
     user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
     command: ["node", "--instance", "/var/lib/orpheum/node"]
     network_mode: none
+    sysctls:
+      net.mptcp.enabled: "0"
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     volumes:
