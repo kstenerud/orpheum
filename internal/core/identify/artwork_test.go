@@ -53,8 +53,8 @@ func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
-	other := leon
-	other.Artwork = []identify.ImageRef{{Kind: library.ArtPoster, Ref: "/leon-poster.jpg"}}
+	other := theo
+	other.Artwork = []identify.ImageRef{{Kind: library.ArtPoster, Ref: "/theo-poster.jpg"}}
 	lib.provider.Add(other)
 	const rel = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(rel))
@@ -74,7 +74,7 @@ func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 	}
 	if len(rematched) != 1 || rematched[0].ItemID != titleID || rematched[0].Source != "tmdb" ||
 		!slices.Equal(rematched[0].Refs, other.Artwork) {
-		t.Errorf("after the rematch: reported %+v; want the title with Léon's images, so Metropolis's go (D223 §9)",
+		t.Errorf("after the rematch: reported %+v; want the title with Théo's images, so Metropolis's go (D223 §9)",
 			rematched)
 	}
 }
@@ -87,7 +87,7 @@ func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T)
 		{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Ref: "/season-1.jpg"},
 	}}
 	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(series)}
-	lib.provider.Seasons["1437/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Tranquilla"}}
+	lib.provider.Seasons["1437/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Stillness"}}
 	const rel = "Emberwing/Season 01/Emberwing - S01E01.mkv"
 	lib.scanAll(rel)
 	seriesID := lib.onlySeries().ID

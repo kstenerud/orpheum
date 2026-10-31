@@ -83,11 +83,11 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
 	lib.provider.Add(heat)
-	lib.provider.Add(leon)
+	lib.provider.Add(theo)
 	lib.scan(videoRecord("Metropolis (1995).mkv"),
 		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
 	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
-	for _, id := range []string{heat.ID, leon.ID} {
+	for _, id := range []string{heat.ID, theo.ID} {
 		if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", id); err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	lib.scan(videoRecord("Metropolis (1995).mkv"),
 		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
-	if titleName(file) != leon.Name || file.IdentificationState != identify.IdentificationConfirmed {
+	if titleName(file) != theo.Name || file.IdentificationState != identify.IdentificationConfirmed {
 		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, titleName(file))
 	}
 	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)
@@ -108,7 +108,7 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 			tmdb = append(tmdb, row.ProviderID)
 		}
 	}
-	if !slices.Equal(tmdb, []string{leon.ID}) {
+	if !slices.Equal(tmdb, []string{theo.ID}) {
 		t.Errorf("TMDB ids %v, want only the last choice", tmdb)
 	}
 }

@@ -33,12 +33,12 @@ func TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear(t *testing.T
 		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
 			`<movie><title>Metropolis</title><year>1995</year><premiered>1995-12-15</premiered></movie>`),
 		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
-		nfoRecord("Wing (1979)/Wing (1979).nfo", `<movie><title>Wing</title><year>1979</year></movie>`),
-		videoRecord("Wing (1979)/Wing (1979).mkv"),
+		nfoRecord("Arkon (1979)/Arkon (1979).nfo", `<movie><title>Arkon</title><year>1979</year></movie>`),
+		videoRecord("Arkon (1979)/Arkon (1979).mkv"),
 		nfoRecord("The Freshman/The Freshman.nfo", `<movie><title>The Freshman</title></movie>`),
 		videoRecord("The Freshman/The Freshman.mkv"),
 	)
-	want := []string{"Wing 19790000", "The Freshman none", "Metropolis 19951215"}
+	want := []string{"Arkon 19790000", "The Freshman none", "Metropolis 19951215"}
 	if got := lib.releasedOnOf(); !slices.Equal(got, want) {
 		t.Errorf("the films' days = %v; want %v", got, want)
 	}

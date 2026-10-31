@@ -155,8 +155,8 @@ func changeRandomly(random *rand.Rand, files *[]randomFile, nfos map[string]stri
 // randomPath is a video path of one of the shapes a library holds, well named or not, and the NFO
 // beside it, or "".
 func randomPath(random *rand.Rand) (video, nfo string) {
-	names := []string{"Metropolis", "Wing", "Greed", "Fièvre", "Variety", "狂った一頁", "Nosferatu", "the-unknown"}
-	shows := []string{"Quillwick", "Test Show", "Brackenmere", "Farwander"}
+	names := []string{"Metropolis", "Arkon", "Greed", "Fièvre", "Théo", "狂った一頁", "Nosferatu", "the-unknown"}
+	shows := []string{"Grey Wolf", "Test Show", "Grey Comet", "Skyreach"}
 	name, show := names[random.IntN(len(names))], shows[random.IntN(len(shows))]
 	year, season, episode := 1970+random.IntN(50), 1+random.IntN(4), 1+random.IntN(9)
 	shapes := []string{

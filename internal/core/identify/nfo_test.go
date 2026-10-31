@@ -42,7 +42,7 @@ https://www.themoviedb.org/movie/9019`
 
 func TestParseNFO_LockdataLocksEveryFieldItSets(t *testing.T) {
 	t.Parallel()
-	nfo, err := ParseNFO([]byte(`<movie><title>Wings</title><year>1986</year><lockdata>true</lockdata></movie>`))
+	nfo, err := ParseNFO([]byte(`<movie><title>Arkons</title><year>1986</year><lockdata>true</lockdata></movie>`))
 	if err != nil {
 		t.Fatal(err)
 	}

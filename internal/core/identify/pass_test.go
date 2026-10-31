@@ -613,7 +613,7 @@ func TestPass_AWriteBetweenItsBatchesHasThePassReadAgainAndFileEverything(t *tes
 	})
 	tallied, tally := querytally.New(t.Context())
 	all := librarytest.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, []nodeproto.ScanRecord{
-		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord("Wing (1979)/Wing (1979).mkv"),
+		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord("Arkon (1979)/Arkon (1979).mkv"),
 		videoRecord("Nosferatu (1998)/Nosferatu (1998).mkv"),
 	}, true)
 	if err := lib.ingester.IngestScan(t.Context(), lib.nodeID, lib.rootPath, all); err != nil {
