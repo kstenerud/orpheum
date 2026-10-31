@@ -24,18 +24,16 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
-	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// testZone is the owner's zone in the tests, and testIssuer the discovery's issuer, which the cores'
-// signatures are bound to.
+// testZone is the owner's zone in the tests, and testIdentity the discovery's identity, which the
+// cores' signatures are bound to.
 const (
-	testZone   = "home.example"
-	testIssuer = "https://discovery.home.example"
+	testZone     = "home.example"
+	testIdentity = "od1-discoveryhome"
 )
 
 // stage is a discovery behind an HTTP server, on a clock the test moves.
@@ -47,8 +45,8 @@ type stage struct {
 	now       time.Time
 	// waited is each wait the discovery asked for, which passes at once.
 	waited []time.Duration
-	// document is the address document's file, which the test writes.
-	document string
+	// published is the operator's published directory, which the test writes.
+	published string
 }
 
 func newStage(t *testing.T) *stage {
@@ -61,16 +59,15 @@ func newStageWithRealm(t *testing.T, realm string) *stage {
 	t.Helper()
 	built := &stage{
 		now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{},
-		document: filepath.Join(t.TempDir(), "address-document.json"),
+		published: t.TempDir(),
 	}
 	held, err := New(Parts{
-		Logger: slog.New(slog.NewTextHandler(built.logs, nil)),
-		Issuer: testIssuer, AddressDocument: built.document, Zone: testZone,
+		Logger:   slog.New(slog.NewTextHandler(built.logs, nil)),
+		Identity: testIdentity, Published: built.published, Zone: testZone,
 		Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now:   built.clock, Random: rand.Reader,
-		ICEServers:    []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
-		Realm:         realm,
-		ReleaseRecord: filepath.Join(t.TempDir(), "release.json"),
+		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
+		Realm:      realm,
 		Wait: func(_ context.Context, wait time.Duration) {
 			built.mutex.Lock()
 			defer built.mutex.Unlock()
@@ -136,7 +133,7 @@ type key struct {
 
 // sign signs a nonce for purpose, bound to the test's discovery and the core, as a core does.
 func (signer key) sign(purpose, core, nonce string) []byte {
-	return ed25519.Sign(signer.private, proof.Message(purpose, testIssuer, core, nonce))
+	return ed25519.Sign(signer.private, proof.Message(purpose, testIdentity, core, nonce))
 }
 
 func newKey(t *testing.T) key {
@@ -289,27 +286,17 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 	}
 }
 
-// The address document, which names where the owner serves the core's own client and the loader,
-// and the release record, which says what a core may run, are served at their well-known paths as
-// the operator signed them, byte for byte: their signatures are what a core trusts (D391 §3, §6). With
-// no file, there is none, and a pending core reads the record as a claimed one does, with no session.
+// The operator's published directory is served under /.well-known/ as it is, byte for byte: the
+// address document, the root chain and the release record, each beside its signature, which is what a
+// core trusts (the root key audit's §3.1). A file absent, a directory, or a path that leaves the
+// directory is not found; a pending core reads them as a claimed one does, with no session.
 func TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
 	server := httptest.NewServer(built.discovery.WellKnownHandler())
 	t.Cleanup(server.Close)
-	for path, file := range map[string]string{
-		addressdoc.WellKnownPath: built.document, release.WellKnownPath: built.discovery.parts.ReleaseRecord,
-	} {
-		wantServedAsWritten(t, server, path, file)
-	}
-}
-
-// wantServedAsWritten fails the test unless server serves nothing at path until file is written, and
-// then the file as it is, JSON.
-func wantServedAsWritten(t *testing.T, server *httptest.Server, path, file string) {
-	t.Helper()
-	get := func() (int, string, string) {
+	get := func(path string) (int, string) {
+		t.Helper()
 		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+path, http.NoBody)
 		if err != nil {
 			t.Fatal(err)
@@ -323,17 +310,33 @@ func wantServedAsWritten(t *testing.T, server *httptest.Server, path, file strin
 		if err != nil {
 			t.Fatal(err)
 		}
-		return response.StatusCode, response.Header.Get("Content-Type"), string(body)
+		return response.StatusCode, string(body)
 	}
-	if status, _, _ := get(); status != http.StatusNotFound {
-		t.Fatalf("%s with no file: %d, want 404", path, status)
+	if status, _ := get("/.well-known/orpheum-discovery"); status != http.StatusNotFound {
+		t.Fatalf("with nothing published: %d, want 404", status)
 	}
-	const signed = `{"payload":"{\"issuer\":\"https://discovery.home.example\"}","signature":"x"}`
-	if err := os.WriteFile(file, []byte(signed), 0o600); err != nil {
-		t.Fatal(err)
+	files := map[string]string{
+		"orpheum-discovery": "orpheum-signed address 1\n", "orpheum-discovery.sig": "-----BEGIN SSH SIGNATURE-----",
+		"orpheum/root/1": "orpheum-signed root 1\n", "orpheum/release": "orpheum-signed release 1\n",
 	}
-	if status, kind, body := get(); status != http.StatusOK || kind != "application/json" || body != signed {
-		t.Fatalf("%s: %d %q %q, want 200, JSON and the file as written", path, status, kind, body)
+	for name, contents := range files {
+		path := filepath.Join(built.published, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, contents := range files {
+		if status, body := get("/.well-known/" + name); status != http.StatusOK || body != contents {
+			t.Errorf("%s: %d %q; want the file as written", name, status, body)
+		}
+	}
+	for _, path := range []string{"/.well-known/orpheum/root", "/.well-known/orpheum/root/2", "/.well-known/%2e%2e/x"} {
+		if status, _ := get(path); status != http.StatusNotFound {
+			t.Errorf("%s: %d; want 404", path, status)
+		}
 	}
 }
 

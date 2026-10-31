@@ -125,11 +125,24 @@ export async function connectAndClaim(
   expect(quicker.ok(), `the setting: ${String(quicker.status())} ${await quicker.text()}`).toBe(
     true,
   );
-  // The core is given the discovery's issuer, its own address, and the owner's password, and trusts
-  // the address document it serves there (D391 §3).
+  // The core is given the discovery's issuer, its own address, the identity it shows, which the
+  // admin compares with its operator's, and the owner's password, and trusts the root chain and the
+  // address document it serves there (D393 §4).
+  const identified = await api.post(`${serverUrl()}/api/v1/system/discovery/identify`, {
+    headers: signedIn(token),
+    data: { issuer: discovery },
+  });
+  expect(
+    identified.ok(),
+    `identify: ${String(identified.status())} ${await identified.text()}`,
+  ).toBe(true);
   const connected = await api.post(`${serverUrl()}/api/v1/system/discovery`, {
     headers: signedIn(token),
-    data: { issuer: discovery, password: owner.password },
+    data: {
+      issuer: discovery,
+      identity: await answerField(identified, "identity"),
+      password: owner.password,
+    },
   });
   expect(connected.ok()).toBe(true);
   const claimed = await api.post(`${discovery}/dev/claim`, {

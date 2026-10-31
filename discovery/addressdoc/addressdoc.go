@@ -3,64 +3,97 @@
 package addressdoc
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
 
-// WellKnownPath is where a discovery serves its address document, at its issuer and at each of its
-// locations (RFC 8615).
-const WellKnownPath = "/.well-known/orpheum-discovery"
+// The paths a discovery's signed files are served at, under its issuer and under each of its
+// locations, each beside its signature at the same path and ".sig" (the root key audit's §3.1): the
+// address document, and its root chain's statements by version and the latest.
+const (
+	DocumentPath   = "/.well-known/orpheum-discovery"
+	RootPathPrefix = "/.well-known/orpheum/root/"
+	RootLatestPath = RootPathPrefix + "latest"
+	SignatureEnd   = ".sig"
+)
+
+// RootPath is where the chain's statement of version is served.
+func RootPath(version int64) string {
+	return RootPathPrefix + strconv.FormatInt(version, 10)
+}
 
 // CorePlace is the place a core's id takes in a document's ClientOrigins (D308).
 const CorePlace = "{core}"
 
-// Document is a discovery's address document, the payload its signature is over: what a core enrolled
-// with the issuer may trust its discovery to name (D391 §3).
+// Document is a discovery's address document (the root key audit's §3.1; D391 §3): the discovery's
+// id, the root version it was signed under and its sequence, which only rise; when it was issued and
+// until when it is current; the discovery's name and issuer, the typed origin; where it is served;
+// and what a core enrolled with it may trust it to name.
 type Document struct {
-	// Issuer is the discovery's typed origin, its identity's name, "https://discovery.example".
-	Issuer string `json:"issuer"`
+	ID          string
+	RootVersion int64
+	Sequence    int64
+	Issued      time.Time
+	Expires     time.Time
+	Name        string
+	Issuer      string
+	// Locations are where this document and the chain are served, the issuer among them.
+	Locations []string
 	// CoreAPI is the base URL a core calls the discovery's protocol at; ClientAPI the client's.
-	CoreAPI   string `json:"coreApi"`
-	ClientAPI string `json:"clientApi"`
+	CoreAPI   string
+	ClientAPI string
 	// LoaderOrigin is where the loader is served (D308); ClientOrigins the pattern of each core's own
 	// client origin, CorePlace standing for its id, or one origin, for a discovery of one household.
-	LoaderOrigin  string `json:"loaderOrigin"`
-	ClientOrigins string `json:"clientOrigins"`
-	// AccountOrigin is where a household's account is kept, at a discovery that has accounts.
-	AccountOrigin string `json:"accountOrigin,omitempty"`
-	// Homepage says what the discovery is, for a stranger; Support is the discovery's own address
-	// for help, "mailto:" not included.
-	Homepage string `json:"homepage,omitempty"`
-	Support  string `json:"support,omitempty"`
-	// Locations are the further places this very document is served, each a URL that WellKnownPath
-	// follows, so a core finds a newer one when the issuer's name is lost.
-	Locations []string `json:"locations,omitempty"`
-	// IssuedAt is when the document was made, Unix milliseconds: a newer one replaces an older.
-	IssuedAt int64 `json:"issuedAt"`
+	LoaderOrigin  string
+	ClientOrigins string
+	// AccountOrigin is where a household's account is kept, at a discovery that has accounts;
+	// Homepage says what the discovery is, for a stranger; Support is its address for help.
+	AccountOrigin, Homepage, Support string
 }
 
-// Served is what WellKnownPath answers: the signed document, and the root key set's statements
-// (trust.RootSet) from the first, so a core several versions behind catches up from any location.
-type Served struct {
-	Document trust.Signed   `json:"document"`
-	RootSets []trust.Signed `json:"rootSets"`
+// The fields of the document whose names its check also says.
+const (
+	fieldCoreAPI      = "core-api"
+	fieldClientAPI    = "client-api"
+	fieldLoaderOrigin = "loader-origin"
+)
+
+// documentSchema is the address document's lines, format 1.
+func documentSchema() trust.Schema {
+	return trust.Schema{Type: "address", Format: 1, Fields: []trust.Field{
+		{Name: "id", IsRequired: true},
+		{Name: "root-version", IsRequired: true},
+		{Name: "sequence", IsRequired: true},
+		{Name: "issued", IsRequired: true},
+		{Name: "expires", IsRequired: true},
+		{Name: "name", IsRequired: true},
+		{Name: "issuer", IsRequired: true},
+		{Name: "location", IsRepeated: true},
+		{Name: fieldCoreAPI, IsRequired: true},
+		{Name: fieldClientAPI, IsRequired: true},
+		{Name: fieldLoaderOrigin, IsRequired: true},
+		{Name: "client-origins", IsRequired: true},
+		{Name: "account-origin"},
+		{Name: "homepage"},
+		{Name: "support"},
+	}}
 }
 
 // Errors a document's check returns.
 var (
 	ErrNotAnIssuer   = errors.New("a discovery is named by its origin: https://name, or http:// only on this machine")
 	ErrWrongIssuer   = errors.New("the document is not the asked issuer's")
-	ErrNotADocument  = errors.New("not a discovery's address document")
+	ErrWrongID       = errors.New("the document is another discovery's")
+	ErrAheadOfChain  = errors.New("the document names a root version the chain held has not reached: catch up first")
 	ErrNotAnOrigin   = errors.New("not an https origin")
 	ErrNotAnAddress  = errors.New("not an https URL")
-	ErrMissingField  = errors.New("the document lacks a field every document has")
 	ErrNoCoreInPlace = errors.New("the client origins' pattern puts the core's id in no label")
 )
 
@@ -78,53 +111,94 @@ func Issuer(typed string) (string, error) {
 	return origin, nil
 }
 
-// Open is the document served holds once it is checked: its root key sets taken from pinned on
-// (trust.Pinned.Advance), its signature by that set at now, and its fields as Check says, for issuer.
-// The set reached is returned with it, the core's to keep.
-func Open(served Served, pinned trust.Pinned, issuer string, now time.Time) (Document, trust.Pinned, error) {
-	advanced, err := pinned.Advance(served.RootSets)
+// Parse reads a document's payload, checking only its form.
+func Parse(payload []byte) (Document, error) {
+	lines, err := documentSchema().Parse(payload)
 	if err != nil {
-		return Document{}, pinned, err
+		return Document{}, err
 	}
-	payload, err := advanced.OpenDocument(served.Document, issuer, now)
+	document := Document{
+		ID: lines.One("id"), Name: lines.One("name"), Issuer: lines.One("issuer"), Locations: lines["location"],
+		CoreAPI: lines.One(fieldCoreAPI), ClientAPI: lines.One(fieldClientAPI),
+		LoaderOrigin: lines.One(fieldLoaderOrigin), ClientOrigins: lines.One("client-origins"),
+		AccountOrigin: lines.One("account-origin"), Homepage: lines.One("homepage"), Support: lines.One("support"),
+	}
+	if document.RootVersion, err = trust.ParseCount(lines.One("root-version")); err != nil {
+		return Document{}, err
+	}
+	if document.Sequence, err = trust.ParseCount(lines.One("sequence")); err != nil {
+		return Document{}, err
+	}
+	if document.Issued, err = trust.ParseTime(lines.One("issued")); err != nil {
+		return Document{}, err
+	}
+	if document.Expires, err = trust.ParseTime(lines.One("expires")); err != nil {
+		return Document{}, err
+	}
+	return document, nil
+}
+
+// Payload is the document written as its lines, which a key then signs.
+func (document Document) Payload() ([]byte, error) {
+	lines := trust.Lines{
+		"id": {document.ID}, "root-version": {strconv.FormatInt(document.RootVersion, 10)},
+		"sequence": {strconv.FormatInt(document.Sequence, 10)}, "issued": {trust.TimeText(document.Issued)},
+		"expires": {trust.TimeText(document.Expires)}, "name": {document.Name}, "issuer": {document.Issuer},
+		"location": document.Locations, fieldCoreAPI: {document.CoreAPI}, fieldClientAPI: {document.ClientAPI},
+		fieldLoaderOrigin: {document.LoaderOrigin}, "client-origins": {document.ClientOrigins},
+	}
+	for key, value := range map[string]string{
+		"account-origin": document.AccountOrigin, "homepage": document.Homepage, "support": document.Support,
+	} {
+		if value != "" {
+			lines[key] = []string{value}
+		}
+	}
+	return documentSchema().Write(lines)
+}
+
+// Open is the document signed holds once it is checked (§3.5): a signature of chain's current set's
+// in the address namespace, its id the chain's, its root version one the chain has reached, its
+// issuer exactly issuer (RFC 8414 §3.3), and its addresses ones a core takes. The core keeps the
+// floors; a newer document is one with a higher (root version, sequence).
+func Open(signed trust.Signed, chain trust.Chain, issuer string) (Document, error) {
+	if err := chain.Verify(trust.NamespaceDiscoveryAddress, signed); err != nil {
+		return Document{}, err
+	}
+	document, err := Parse([]byte(signed.Payload))
 	if err != nil {
-		return Document{}, pinned, err
+		return Document{}, err
 	}
-	var document Document
-	if err = json.Unmarshal(payload, &document); err != nil {
-		return Document{}, pinned, fmt.Errorf("%w: %w", ErrNotADocument, err)
+	switch {
+	case document.ID != chain.ID():
+		return Document{}, fmt.Errorf("%w: %s, not %s", ErrWrongID, document.ID, chain.ID())
+	case document.RootVersion > chain.Version():
+		return Document{}, fmt.Errorf("%w: %d, held %d", ErrAheadOfChain, document.RootVersion, chain.Version())
 	}
-	if checkErr := document.Check(issuer); checkErr != nil {
-		return Document{}, pinned, checkErr
-	}
-	return document, advanced, nil
+	return document, document.Check(issuer)
 }
 
 // Check is whether the document is issuer's and every address in it is one a core takes: its issuer
-// exactly issuer (RFC 8414 §3.3), and every origin and URL https, or http on this machine.
+// exactly issuer, and every origin and URL https, or http on this machine.
 func (document Document) Check(issuer string) error {
 	if document.Issuer != issuer {
 		return fmt.Errorf("%w: %q, asked %q", ErrWrongIssuer, document.Issuer, issuer)
 	}
-	if document.CoreAPI == "" || document.ClientAPI == "" || document.LoaderOrigin == "" ||
-		document.ClientOrigins == "" || document.IssuedAt == 0 {
-		return ErrMissingField
-	}
-	addresses := map[string]string{"coreApi": document.CoreAPI, "clientApi": document.ClientAPI}
+	addresses := map[string]string{fieldCoreAPI: document.CoreAPI, fieldClientAPI: document.ClientAPI}
 	if document.Homepage != "" {
 		addresses["homepage"] = document.Homepage
 	}
 	for index, location := range document.Locations {
-		addresses[fmt.Sprintf("locations[%d]", index)] = location
+		addresses[fmt.Sprintf("location %d", index)] = location
 	}
 	for name, address := range addresses {
 		if !isAddress(address) {
 			return fmt.Errorf("%s %q: %w", name, address, ErrNotAnAddress)
 		}
 	}
-	origins := map[string]string{"loaderOrigin": document.LoaderOrigin}
+	origins := map[string]string{fieldLoaderOrigin: document.LoaderOrigin}
 	if document.AccountOrigin != "" {
-		origins["accountOrigin"] = document.AccountOrigin
+		origins["account-origin"] = document.AccountOrigin
 	}
 	for name, origin := range origins {
 		if checked, err := originOf(origin); err != nil || checked != origin {
@@ -134,27 +208,29 @@ func (document Document) Check(issuer string) error {
 	return checkPattern(document.ClientOrigins)
 }
 
+// IsNewerThan is whether the document comes after other: a higher root version, or the same and a
+// higher sequence (the audit's F9).
+func (document Document) IsNewerThan(other Document) bool {
+	if document.RootVersion != other.RootVersion {
+		return document.RootVersion > other.RootVersion
+	}
+	return document.Sequence > other.Sequence
+}
+
 // ClientOrigin is the client origin of the core coreID: the pattern's, its id in CorePlace.
 func (document Document) ClientOrigin(coreID string) string {
 	return strings.ReplaceAll(document.ClientOrigins, CorePlace, coreID)
 }
 
-// URLs are where the document is served: at its issuer, then at each location, in turn.
-func (document Document) URLs() []string {
-	urls := make([]string, 0, len(document.Locations)+1)
-	for _, place := range document.Places() {
-		urls = append(urls, place+WellKnownPath)
-	}
-	return urls
-}
-
 // Places are the bases the discovery's signed files are served under, each with no closing slash:
-// its issuer, then each location, in turn. The document is at each one's WellKnownPath, the release
-// record at its own (discovery/release).
+// its issuer, then each location not the issuer, in turn.
 func (document Document) Places() []string {
 	places := []string{document.Issuer}
 	for _, location := range document.Locations {
-		places = append(places, strings.TrimSuffix(location, "/"))
+		place := strings.TrimSuffix(location, "/")
+		if place != document.Issuer {
+			places = append(places, place)
+		}
 	}
 	return places
 }

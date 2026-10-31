@@ -5,13 +5,11 @@ package single_test
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -33,20 +31,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// writeDocument writes document, signed by a root key made for the test, where a discovery serves it
-// from: the operator's signed file.
-func writeDocument(t *testing.T, path string, document addressdoc.Document) {
+// publishDiscovery publishes, into directory, a root chain made for the test and document under it,
+// signed by its everyday key, as the operator's signing tool does; it returns the chain's identity.
+func publishDiscovery(t *testing.T, directory string, document addressdoc.Document) string {
 	t.Helper()
-	root := trusttest.NewRoot(t)
-	encoded, err := json.Marshal(addressdoc.Served{
-		Document: root.Signs(t, trust.KindAddressDocument, document), RootSets: []trust.Signed{root.Set},
-	})
+	chain, everyday, _ := trusttest.NewDiscovery(t)
+	document.ID = chain.ID()
+	payload, err := document.Payload()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(path, encoded, 0o600); err != nil {
+	files := append(trust.ChainFiles(addressdoc.RootPathPrefix, chain.Statements), trust.Published{
+		Path: addressdoc.DocumentPath, Signed: trusttest.Sign(t, trust.NamespaceDiscoveryAddress, payload, everyday),
+	})
+	if err = trust.Publish(directory, files); err != nil {
 		t.Fatal(err)
 	}
+	return chain.ID()
 }
 
 // memoryFiles is the core's persistent directory, in memory.
@@ -104,13 +105,14 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 		handler.ServeHTTP(writer, request)
 	}))
 	t.Cleanup(server.Close)
-	documentPath := filepath.Join(t.TempDir(), "address-document.json")
-	writeDocument(t, documentPath, addressdoc.Document{
-		Issuer: server.URL, CoreAPI: server.URL, ClientAPI: server.URL + "/client", LoaderOrigin: server.URL,
-		ClientOrigins: "http://" + addressdoc.CorePlace + ".localhost:8443", IssuedAt: discoveryNow.UnixMilli(),
+	published := t.TempDir()
+	discoveryID := publishDiscovery(t, published, addressdoc.Document{
+		RootVersion: 1, Sequence: 1, Issued: trusttest.Issued(), Expires: trusttest.Issued().Add(365 * 24 * time.Hour),
+		Name: "Home", Issuer: server.URL, CoreAPI: server.URL, ClientAPI: server.URL + "/client",
+		LoaderOrigin: server.URL, ClientOrigins: "http://" + addressdoc.CorePlace + ".localhost:8443",
 	})
 	held, err := single.New(single.Parts{
-		Issuer: server.URL, AddressDocument: documentPath, Zone: "home.example",
+		Identity: discoveryID, Published: published, Zone: "home.example",
 		Store: single.FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now:   func() time.Time { return discoveryNow }, Random: rand.Reader,
 		Logger: slog.New(slog.NewTextHandler(logs, nil)),
@@ -119,7 +121,7 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	mux.Handle(addressdoc.WellKnownPath, held.WellKnownHandler())
+	mux.Handle(trust.WellKnownPrefix, held.WellKnownHandler())
 	mux.Handle("/", held.Handler())
 	handler = mux
 	key, err := identity.GenerateKey(rand.Reader)
@@ -144,7 +146,7 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	status, err := core.Connect(t.Context(), server.URL)
+	status, err := core.Connect(t.Context(), server.URL, discoveryID)
 	if err != nil {
 		t.Fatal(err)
 	}

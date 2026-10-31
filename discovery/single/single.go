@@ -17,10 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
-	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
 
@@ -63,13 +61,14 @@ type TXTRecords interface {
 
 // Parts is what a single-target discovery is made of.
 type Parts struct {
-	// Issuer is the discovery's issuer, the origin its address document is served at, which the
-	// core's signatures are bound to (the protocol's §2.1; X12; D391 §4).
-	Issuer string
-	// AddressDocument is the signed address document's file (addressdoc.Served), which the operator
-	// signs (`orpheum discovery sign`) and WellKnownHandler serves: where the core's links lead, its
-	// loader and its client API (D391 §3). Empty, or a file absent, serves none, and no core enrols.
-	AddressDocument string
+	// Identity is the discovery's id, its root chain's genesis hash ("od1-…"), which the core's
+	// signatures are bound to (the protocol's §2.1; X12; the root key audit's F14).
+	Identity string
+	// Published is the directory of signed files the operator publishes, as `discovery-sign` writes
+	// it, which WellKnownHandler serves under /.well-known/: the address document, the root chain, and
+	// the release record with the publisher's chain (the audit's §3.1). Empty serves none, and no core
+	// enrols.
+	Published string
 	// Zone is the owner's zone: the core's names are under <coreId>.<Zone>.
 	Zone  string
 	Store Store
@@ -88,10 +87,6 @@ type Parts struct {
 	// Wait waits out a duration, or until ctx ends: how a realm sign-in that failed answers no sooner
 	// than one that the core refused (D297 §2). Nil waits by a timer; a test passes its own.
 	Wait func(ctx context.Context, wait time.Duration)
-	// ReleaseRecord is the signed release record's file in the discovery's deployment (trust.Signed),
-	// which a root key signed and WellKnownHandler serves as it is (security-updates.md Part A; D391
-	// §6); empty, or a file absent, serves none, and tells each core nothing.
-	ReleaseRecord string
 }
 
 // Discovery is a single-target discovery: its record in its store, and in memory its nonces, its
@@ -142,21 +137,6 @@ func New(parts Parts) (*Discovery, error) {
 // Handler answers the core's calls, at paths relative to the discovery's base URL.
 func (discovery *Discovery) Handler() http.Handler {
 	return http.HandlerFunc(discovery.serve)
-}
-
-// WellKnownHandler serves the discovery's address document at addressdoc.WellKnownPath and the signed
-// release record at release.WellKnownPath, to be mounted at its issuer's root: each the operator's
-// signed file as it is, read afresh at each asking, so a newly signed one is served from the moment
-// it is written. With none, it answers not-found.
-func (discovery *Discovery) WellKnownHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+addressdoc.WellKnownPath, func(writer http.ResponseWriter, request *http.Request) {
-		serveFile(writer, request, discovery.parts.AddressDocument, discovery.parts.Logger)
-	})
-	mux.HandleFunc("GET "+release.WellKnownPath, func(writer http.ResponseWriter, request *http.Request) {
-		serveFile(writer, request, discovery.parts.ReleaseRecord, discovery.parts.Logger)
-	})
-	return mux
 }
 
 func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Request) {
@@ -253,7 +233,7 @@ func (discovery *Discovery) challenge(writer http.ResponseWriter, request *http.
 // and kept until it expires.
 func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, core, nonce string, signature []byte) bool {
 	return discovery.nonces.Spend(discovery.parts.Now(), proof.SignedNonce{
-		PublicKey: publicKey, Purpose: purpose, Issuer: discovery.parts.Issuer, Core: core, Nonce: nonce,
+		PublicKey: publicKey, Purpose: purpose, Identity: discovery.parts.Identity, Core: core, Nonce: nonce,
 		Signature: signature,
 	})
 }

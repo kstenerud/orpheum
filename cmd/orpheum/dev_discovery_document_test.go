@@ -5,51 +5,54 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
 
-// The development discovery serves, at its issuer's well-known path, an address document it signed
-// at its start: the core API, client API and origins it serves at, which a core enrolling by the
-// discovery's issuer trusts at first use (D391 §3).
+// The development discovery publishes, at its issuer's well-known paths, a root chain of a key made
+// for the run and an address document it signed: the core API, client API and origins it serves at,
+// which a core enrolling by the discovery's issuer and identity opens (D393 §4).
 func TestDevDiscovery_ServesTheAddressDocumentItSignedAtItsIssuer(t *testing.T) {
 	t.Parallel()
 	files := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><html><head></head><body></body></html>")}}
 	const base = "http://127.0.0.1:4321"
 	handler, err := devDiscoveryHandler(devDiscoverySite{
-		base: base, recordPath: filepath.Join(t.TempDir(), "single.json"), clientFiles: files,
-		documentPath: filepath.Join(t.TempDir(), "address-document.json"),
+		base: base, recordPath: filepath.Join(t.TempDir(), "single.json"), clientFiles: files, published: t.TempDir(),
 	}, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder,
-		httptest.NewRequestWithContext(t.Context(), http.MethodGet, addressdoc.WellKnownPath, http.NoBody))
-	var served addressdoc.Served
-	if err = json.Unmarshal(recorder.Body.Bytes(), &served); err != nil {
-		t.Fatalf("the well-known path answered %d %q: %v", recorder.Code, recorder.Body.String(), err)
+	get := func(path string) trust.Signed {
+		t.Helper()
+		var signed trust.Signed
+		parts := map[*string]string{&signed.Payload: path, &signed.Signature: path + addressdoc.SignatureEnd}
+		for into, at := range parts {
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, at, http.NoBody))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("%s answered %d", at, recorder.Code)
+			}
+			*into = recorder.Body.String()
+		}
+		return signed
 	}
-	pinned, err := trust.FirstUse(served.RootSets)
+	chain, err := trust.Genesis(trust.ChainDiscovery, get(addressdoc.RootPath(1)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A root key signs the document itself, with no delegation, so it holds at any time.
-	document, _, err := addressdoc.Open(served, pinned, base, time.UnixMilli(0))
+	document, err := addressdoc.Open(get(addressdoc.DocumentPath), chain, base)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if document.CoreAPI != base+"/core/v1" || document.LoaderOrigin != "http://localhost:4321" ||
-		document.ClientOrigin("k7") != "http://k7.localhost:4321" {
+		document.ClientOrigin("k7") != "http://k7.localhost:4321" || document.ID != chain.ID() {
 		t.Errorf("the document names %+v; want the discovery's own API and origins", document)
 	}
 }

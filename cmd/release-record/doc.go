@@ -3,25 +3,25 @@
 // Command release-record writes a release into the unsigned release record (security-updates.md
 // Part A; discovery/release), as the release workflow runs it at each release:
 //
-//	go run ./cmd/release-record --record release.json --version v0.3.2 --digest sha256:… \
-//	  [--security "what the release fixes, in a sentence for an admin"] [--location registry.example/orpheum]
+//	go run ./cmd/release-record --record release --version v0.3.2 --digest sha256:… \
+//	  [--security "what the release fixes, in a sentence for an admin"] [--pull registry.example/orpheum] \
+//	  [--id op1-… --root-version <n>]   (for a record made new, or after a rotation)
 //
-// and says how to sign it with a root key (D391 §6): `go run ./cmd/discovery-sign record`, or
-// `ssh-keygen -Y sign` by hand and `discovery-sign seal`. The signed record is then published beside
-// the release and put where each discovery serves it (single.Parts.ReleaseRecord; the paid service's
-// own). It is a program of its own, not a subcommand of `orpheum`, since no household runs it; it is
-// Go, not a script, so the record is written by the very type a core reads it with.
+// and says how to sign it with an everyday key of the publisher root: `ssh-keygen -Y sign -n
+// orpheum-release-v1`, then `go run ./cmd/discovery-sign check --kind release`, which publishes it. It
+// is a program of its own, not a subcommand of `orpheum`, since no household runs it; it is Go, not a
+// script, so the record is written by the very type a core reads it with.
 //
 // # Invariants
 //
-//   - A release is written into the record by release.Record.Released, dated, and the file is
-//     written whole; a release it refuses writes nothing and exits non-zero saying why; a written
-//     record says how to sign it. TestRun_WritesEachReleaseIntoTheRecordAndRefusesAnOlderOne.
+//   - A release is written into the record by release.Record.Released, dated, its sequence one more;
+//     a release older than the latest, or a version given another digest, writes nothing and exits
+//     non-zero; a written record says how to sign it.
+//     TestRun_WritesEachReleaseIntoTheRecordAndRefusesAnOlderOne.
 //
 // # Read before changing
 //
-//   - docs/contributors/design/plans/security-updates.md: the record and who writes it (the owner,
-//     2026-10-31: the release workflow); D391 §6: the record signed.
+//   - docs/contributors/design/plans/security-updates.md; D393 §2.
 //
 // # Where to change
 //

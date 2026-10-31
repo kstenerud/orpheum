@@ -14,15 +14,24 @@ import (
 
 const issuer = "https://discovery.example"
 
-var now = time.UnixMilli(1_800_000_000_000)
-
-func document() addressdoc.Document {
+func document(id string) addressdoc.Document {
 	return addressdoc.Document{
-		Issuer: issuer, CoreAPI: "https://api.discovery.example/core/v1",
-		ClientAPI: "https://api.discovery.example/client/v1", LoaderOrigin: issuer,
-		ClientOrigins: "https://{core}.client.example", Homepage: "https://about.example",
-		Locations: []string{"https://mirror.example/discovery"}, IssuedAt: now.UnixMilli(),
+		ID: id, RootVersion: 1, Sequence: 1, Issued: trusttest.Issued(),
+		Expires: trusttest.Issued().Add(365 * 24 * time.Hour),
+		Name:    "Discovery", Issuer: issuer, Locations: []string{issuer, "https://mirror.example/discovery"},
+		CoreAPI: "https://api.discovery.example/core/v1", ClientAPI: "https://api.discovery.example/client/v1",
+		LoaderOrigin: issuer, ClientOrigins: "https://{core}.client.example", Homepage: "https://about.example",
 	}
+}
+
+// sign is the document's payload signed by key in the address namespace.
+func sign(t *testing.T, made addressdoc.Document, key trusttest.Key) trust.Signed {
+	t.Helper()
+	payload, err := made.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return trusttest.Sign(t, trust.NamespaceDiscoveryAddress, payload, key)
 }
 
 func TestIssuer_ANameTypedIsItsHTTPSOriginAndAnythingButAnOriginIsRefused(t *testing.T) {
@@ -49,53 +58,51 @@ func TestIssuer_ANameTypedIsItsHTTPSOriginAndAnythingButAnOriginIsRefused(t *tes
 	}
 }
 
-func TestOpen_ADocumentSignedByTheSetIsTheAskedIssuersAndNoOtherIsTaken(t *testing.T) {
+// A document is taken only signed by a key of the chain's current set in the address namespace,
+// naming the chain's id and a root version it has reached, for exactly the issuer asked; its lines
+// read back as written (the root key audit's §3.1, §3.5).
+func TestOpen_ADocumentIsTheChainsTheAskedIssuersAndNoOtherIsTaken(t *testing.T) {
 	t.Parallel()
-	root := trusttest.NewRoot(t)
-	served := addressdoc.Served{
-		Document: root.Signs(t, trust.KindAddressDocument, document()), RootSets: []trust.Signed{root.Set},
-	}
-	opened, pinned, err := addressdoc.Open(served, root.Pinned, issuer, now)
+	chain, everyday, recovery := trusttest.NewDiscovery(t)
+	held := chain.Follower(t)
+	made := document(chain.ID())
+	opened, err := addressdoc.Open(sign(t, made, everyday), held, issuer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if opened.CoreAPI != document().CoreAPI || pinned.Version != 1 {
-		t.Fatalf("opened %+v, %+v", opened, pinned)
+	if opened.CoreAPI != made.CoreAPI || !opened.Expires.Equal(made.Expires) || len(opened.Places()) != 2 ||
+		opened.ClientOrigin("k7xq2") != "https://k7xq2.client.example" {
+		t.Errorf("opened %+v", opened)
 	}
-	if opened.ClientOrigin("k7xq2") != "https://k7xq2.client.example" {
-		t.Errorf("the client origin: %q", opened.ClientOrigin("k7xq2"))
+	if _, err = addressdoc.Open(sign(t, made, recovery), held, issuer); err != nil {
+		t.Errorf("a recovery key's document: %v", err)
 	}
-	if urls := opened.URLs(); len(urls) != 2 || urls[1] != "https://mirror.example/discovery"+addressdoc.WellKnownPath {
-		t.Errorf("the URLs: %v", urls)
-	}
-	// The same document asked for at another issuer: RFC 8414 §3.3, never used.
-	if _, _, err = addressdoc.Open(served, root.Pinned, "https://other.example", now); !errors.Is(
+	if _, err = addressdoc.Open(sign(t, made, everyday), held, "https://other.example"); !errors.Is(
 		err, addressdoc.ErrWrongIssuer) {
-		t.Fatalf("another issuer's: %v, want ErrWrongIssuer", err)
+		t.Errorf("another issuer's: %v; want ErrWrongIssuer", err)
 	}
-	// Signed by a key outside the set.
-	stranger := trusttest.NewRoot(t)
-	forged := addressdoc.Served{Document: stranger.Signs(t, trust.KindAddressDocument, document())}
-	if _, _, err = addressdoc.Open(forged, root.Pinned, issuer, now); !errors.Is(err, trust.ErrUntrustedKey) {
-		t.Fatalf("a stranger's: %v, want ErrUntrustedKey", err)
+	other, _, _ := trusttest.NewDiscovery(t)
+	if _, err = addressdoc.Open(sign(t, document(other.ID()), everyday), held, issuer); !errors.Is(
+		err, addressdoc.ErrWrongID) {
+		t.Errorf("another discovery's: %v; want ErrWrongID", err)
 	}
-}
-
-func TestOpen_CatchesUpTheRootSetFromTheStatementsServedWithIt(t *testing.T) {
-	t.Parallel()
-	root := trusttest.NewRoot(t)
-	next, nextLine := trusttest.NewKey(t)
-	second := root.Signs(t, trust.KindRootSet, trust.RootSet{Version: 2, Keys: []string{nextLine}})
-	served := addressdoc.Served{
-		Document: trusttest.Sign(t, next, trust.KindAddressDocument, document()),
-		RootSets: []trust.Signed{root.Set, second},
+	ahead := made
+	ahead.RootVersion = 2
+	if _, err = addressdoc.Open(sign(t, ahead, everyday), held, issuer); !errors.Is(err, addressdoc.ErrAheadOfChain) {
+		t.Errorf("a root version not reached: %v; want ErrAheadOfChain", err)
 	}
-	_, pinned, err := addressdoc.Open(served, root.Pinned, issuer, now)
-	if err != nil {
-		t.Fatal(err)
+	if _, err = addressdoc.Open(sign(t, made, trusttest.HardwareKey(t, "x")), held, issuer); !errors.Is(
+		err, trust.ErrUntrustedKey) {
+		t.Errorf("a stranger's: %v; want ErrUntrustedKey", err)
 	}
-	if pinned.Version != 2 || pinned.Keys[0] != nextLine {
-		t.Fatalf("the set reached: %+v", pinned)
+	asRoot := trusttest.Sign(t, trust.NamespaceDiscoveryRoot, []byte(sign(t, made, everyday).Payload), everyday)
+	if _, err = addressdoc.Open(asRoot, held, issuer); err == nil {
+		t.Error("a document signed in the root namespace was taken")
+	}
+	newer := made
+	newer.Sequence = 2
+	if !newer.IsNewerThan(made) || made.IsNewerThan(newer) || !ahead.IsNewerThan(newer) {
+		t.Error("documents are ordered by root version, then sequence")
 	}
 }
 
@@ -109,17 +116,15 @@ func TestCheck_EveryAddressIsHTTPSAndThePatternPutsTheCoreInALabel(t *testing.T)
 		"core in no whole label":  func(d *addressdoc.Document) { d.ClientOrigins = "https://c-{core}.client.example" },
 		"two cores":               func(d *addressdoc.Document) { d.ClientOrigins = "https://{core}.{core}.example" },
 		"a location in the clear": func(d *addressdoc.Document) { d.Locations = []string{"http://mirror.example"} },
-		"no client API":           func(d *addressdoc.Document) { d.ClientAPI = "" },
-		"never issued":            func(d *addressdoc.Document) { d.IssuedAt = 0 },
 		"a homepage, no page":     func(d *addressdoc.Document) { d.Homepage = "javascript:alert(1)" },
 	} {
-		changed := document()
+		changed := document("od1-x")
 		change(&changed)
 		if err := changed.Check(issuer); err == nil {
 			t.Errorf("%s: taken", name)
 		}
 	}
-	single := document()
+	single := document("od1-x")
 	single.ClientOrigins = "https://home.example"
 	if err := single.Check(issuer); err != nil {
 		t.Errorf("one household's origin: %v", err)

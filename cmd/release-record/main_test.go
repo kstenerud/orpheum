@@ -12,25 +12,28 @@ import (
 	"github.com/kstenerud/orpheum/discovery/release"
 )
 
-// Each release is written into the record with its digest and where it may be pulled from, dated
-// when it was written, a security release marking the older ones; an older release is refused,
-// writing nothing, and so is a call without what it needs. Each written record says how to sign it
-// (D391 §6).
+// Each release is written into the record with its digest and where it may be pulled from, dated and
+// its sequence one more, a security release marking the older ones; an older release, and a version
+// given another digest than it was signed with, are refused, writing nothing, as is a call without
+// what it needs. Each written record says how to sign it (D393 §2).
 func TestRun_WritesEachReleaseIntoTheRecordAndRefusesAnOlderOne(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "release.json")
+	path := filepath.Join(t.TempDir(), "release")
 	digest := "sha256:" + strings.Repeat("e", 64)
 	later := "sha256:" + strings.Repeat("f", 64)
 	now := time.UnixMilli(1_800_000_000_000)
 	for _, arguments := range [][]string{
-		{"--record", path, "--version", "v0.3.1", "--digest", digest, "--location", "registry.example/orpheum"},
+		{
+			"--record", path, "--version", "v0.3.1", "--digest", digest, "--id", "op1-publisher", "--root-version", "1",
+			"--pull", "registry.example/orpheum",
+		},
 		{"--record", path, "--version", "v0.3.2", "--digest", later, "--security", "a sign-in could be guessed"},
 	} {
 		var stdout, stderr bytes.Buffer
 		if status := run(arguments, now, &stdout, &stderr); status != exitSuccess {
 			t.Fatalf("run(%v) = %d, %s", arguments, status, stderr.String())
 		}
-		if !strings.Contains(stdout.String(), "ssh-keygen -Y sign -n orpheum-release-record-v1 -f <key> "+path) {
+		if !strings.Contains(stdout.String(), "ssh-keygen -Y sign -n orpheum-release-v1 -f <the key's stub> "+path) {
 			t.Errorf("run said %q; want the command that signs the record", stdout.String())
 		}
 	}
@@ -38,20 +41,41 @@ func TestRun_WritesEachReleaseIntoTheRecordAndRefusesAnOlderOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := release.Note{Digest: digest, Security: true, Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"}
-	if record.Latest != "v0.3.2" || record.Releases["v0.3.2"].Digest != later || record.Releases["v0.3.1"] != want ||
-		record.IssuedAt != now.UnixMilli() || len(record.Locations) != 1 {
-		t.Errorf("the record is %+v; want v0.3.2 latest, v0.3.1 needing its fix, its location kept", record)
+	if record.Latest != "v0.3.2" || record.Images["v0.3.2"] != later || record.Pending["v0.3.1"].FixedIn != "v0.3.2" ||
+		record.Sequence != 2 || record.ID != "op1-publisher" || !record.Issued.Equal(now.UTC().Truncate(time.Second)) ||
+		len(record.Pulls) != 1 {
+		t.Errorf("the record is %+v; want v0.3.2 latest, v0.3.1 needing its fix, its place kept", record)
 	}
 	var stdout, stderr bytes.Buffer
-	if status := run([]string{"--record", path, "--version", "v0.3.0", "--digest", digest}, now, &stdout,
-		&stderr); status != exitFailure || !strings.Contains(stderr.String(), "older") {
-		t.Errorf("an older release: status %d, %q; want refused saying it is older", status, stderr.String())
-	}
-	if again, readErr := release.Read(path); readErr != nil || again.Latest != "v0.3.2" {
-		t.Errorf("a refused release left the record %+v, %v; want it as it was", again, readErr)
-	}
 	if status := run([]string{"--record", path}, now, &stdout, &stderr); status != exitUsage {
 		t.Errorf("without a version: status %d; want a usage error", status)
+	}
+}
+
+// A release older than the latest, and a version given another digest than it was released with,
+// are refused, writing nothing (the root key audit's F11).
+func TestRun_RefusesAnOlderReleaseOrAnotherDigestForAVersion(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "release")
+	digest := "sha256:" + strings.Repeat("e", 64)
+	now := time.UnixMilli(1_800_000_000_000)
+	var stdout, stderr bytes.Buffer
+	if status := run([]string{
+		"--record", path, "--version", "v0.3.2", "--digest", "sha256:" + strings.Repeat("f", 64), "--id", "op1-x",
+		"--root-version", "1",
+	}, now, &stdout, &stderr); status != exitSuccess {
+		t.Fatalf("the first release: %d %s", status, stderr.String())
+	}
+	for _, refused := range [][]string{
+		{"--record", path, "--version", "v0.3.0", "--digest", digest},
+		{"--record", path, "--version", "v0.3.2", "--digest", digest},
+	} {
+		var stdout, stderr bytes.Buffer
+		if status := run(refused, now, &stdout, &stderr); status != exitFailure {
+			t.Errorf("%v: status %d, %q; want refused", refused, status, stderr.String())
+		}
+	}
+	if again, readErr := release.Read(path); readErr != nil || again.Latest != "v0.3.2" || again.Sequence != 1 {
+		t.Errorf("a refused release left the record %+v, %v; want it as it was", again, readErr)
 	}
 }

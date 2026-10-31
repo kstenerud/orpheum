@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -20,26 +21,27 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
-// enrollingDiscovery serves its signed address document at its issuer, its own URL, and answers a
-// challenge and an enrolment with a claim code, a session, the core's status, and a claim by the key
-// abcd-efgh-jkmn-pqrs, as a discovery does; internal/core/discovery's tests check the signatures and
-// the rest of the protocol.
-func enrollingDiscovery(t *testing.T) *httptest.Server {
+// enrollingDiscovery serves its root chain and its signed address document at its issuer, its own
+// URL, and answers a challenge and an enrolment with a claim code, a session, the core's status, and
+// a claim by the key abcd-efgh-jkmn-pqrs, as a discovery does; it returns its identity too. The core
+// discovery package's tests check the signatures and the rest of the protocol.
+func enrollingDiscovery(t *testing.T) (*httptest.Server, string) {
 	t.Helper()
 	var claimed atomic.Bool
-	root := trusttest.NewRoot(t)
-	var fake *httptest.Server
-	fake = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	chain, everyday, _ := trusttest.NewDiscovery(t)
+	files := map[string]trust.Signed{}
+	fake := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		name, isSignature := strings.CutSuffix(request.URL.Path, addressdoc.SignatureEnd)
+		if files[name].Payload != "" {
+			text := files[name].Payload
+			if isSignature {
+				text = files[name].Signature
+			}
+			_, _ = writer.Write([]byte(text)) //nolint:errcheck // the core reads what arrived
+			return
+		}
 		var answer any
 		switch request.URL.Path {
-		case addressdoc.WellKnownPath:
-			answer = addressdoc.Served{
-				Document: root.Signs(t, trust.KindAddressDocument, addressdoc.Document{
-					Issuer: fake.URL, CoreAPI: fake.URL, ClientAPI: fake.URL + "/client",
-					LoaderOrigin: "https://loader.example", ClientOrigins: "https://{core}.client.example", IssuedAt: 1,
-				}),
-				RootSets: []trust.Signed{root.Set},
-			}
 		case discoveryproto.PathChallenge:
 			answer = discoveryproto.ChallengeResponse{Nonce: "a-nonce"}
 		case discoveryproto.PathEnrol:
@@ -71,7 +73,20 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 		_ = json.NewEncoder(writer).Encode(answer) //nolint:errcheck // the core reads what arrived
 	}))
 	t.Cleanup(fake.Close)
-	return fake
+	payload, err := (addressdoc.Document{
+		ID: chain.ID(), RootVersion: 1, Sequence: 1, Issued: trusttest.Issued(),
+		Expires: trusttest.Issued().Add(365 * 24 * time.Hour), Name: "Discovery", Issuer: fake.URL, CoreAPI: fake.URL,
+		ClientAPI: fake.URL + "/client", LoaderOrigin: "https://loader.example",
+		ClientOrigins: "https://{core}.client.example",
+	}).Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range trust.ChainFiles(addressdoc.RootPathPrefix, chain.Statements) {
+		files[file.Path] = file.Signed
+	}
+	files[addressdoc.DocumentPath] = trusttest.Sign(t, trust.NamespaceDiscoveryAddress, payload, everyday)
+	return fake, chain.ID()
 }
 
 // fingerprintText is a fingerprint as a person reads it: 13 groups of four safe32 characters.
@@ -82,17 +97,18 @@ var fingerprintText = regexp.MustCompile(`^([0-9a-hjkmnp-tv-z]{4}-){12}[0-9a-hjk
 // one root key it trusts.
 func wantPendingWithItsCode(t *testing.T, status api.DiscoveryStatusBody, issuer string) {
 	t.Helper()
-	if status.Issuer != issuer || status.CoreAPI != issuer || status.State != "pending" ||
+	if status.Issuer != issuer || status.CoreAPI != issuer || status.State != "pending" || status.Name != "Discovery" ||
 		status.ClaimCode != "WXYZ-2345" || !fingerprintText.MatchString(status.Fingerprint) ||
-		status.LoaderOrigin != "https://loader.example" || len(status.RootKeys) != 1 {
+		status.LoaderOrigin != "https://loader.example" || len(status.RootKeys) != 2 {
 		t.Errorf("connected = %+v; want pending at %s with its claim code and the key's fingerprint, "+
-			"in safe32 groups for a person to read, its loader and its root key", status, issuer)
+			"in safe32 groups for a person to read, its loader and its two root keys", status, issuer)
 	}
 }
 
-// connecting is the body that connects the core to the discovery at issuer, with the owner's password.
-func connecting(issuer string) map[string]any {
-	return map[string]any{"issuer": issuer, "password": "owner-password"}
+// connecting is the body that connects the core to the discovery at issuer, of identity, with the
+// owner's password.
+func connecting(issuer, identity string) map[string]any {
+	return map[string]any{"issuer": issuer, "identity": identity, "password": "owner-password"}
 }
 
 // Only an admin connects the core to a discovery, with their password; a name that is not an issuer
@@ -117,9 +133,9 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/system/discovery", partner, nil), http.StatusForbidden,
 		api.CodeForbidden)
 	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin,
-		connecting("http://discovery.example.com")), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
-	fake := enrollingDiscovery(t)
-	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL))
+		connecting("http://discovery.example.com", "")), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	fake, identity := enrollingDiscovery(t)
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, identity))
 	var status api.DiscoveryStatusBody
 	if err := json.Unmarshal([]byte(connected.body), &status); err != nil || connected.status != http.StatusOK {
 		t.Fatalf("POST /system/discovery = %d %s", connected.status, connected.body)
@@ -132,7 +148,7 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 		t.Errorf("a pending core's port mapping = %+v; want none asked for, said as an empty list",
 			status.PortMapping)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL)),
+	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, identity)),
 		http.StatusConflict, api.CodeConflict)
 	if left := harness.do(t, http.MethodDelete, "/system/discovery", admin, nil); left.status != http.StatusNoContent {
 		t.Fatalf("DELETE /system/discovery = %d %s", left.status, left.body)
@@ -157,9 +173,9 @@ func TestDiscovery_ConnectingAsksTheAdminsPassword(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	fake := enrollingDiscovery(t)
+	fake, identity := enrollingDiscovery(t)
 	wrongPassword := harness.do(t, http.MethodPost, "/system/discovery", admin,
-		map[string]any{"issuer": fake.URL, "password": "not-the-password"})
+		map[string]any{"issuer": fake.URL, "identity": identity, "password": "not-the-password"})
 	wantError(t, wrongPassword, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	if !strings.Contains(wrongPassword.body, "body.password") {
 		t.Errorf("a wrong password = %s; want it refused naming the field", wrongPassword.body)
@@ -177,8 +193,8 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	fake := enrollingDiscovery(t)
-	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL))
+	fake, identity := enrollingDiscovery(t)
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, identity))
 	if connected.status != http.StatusOK {
 		t.Fatalf("connecting = %d %s", connected.status, connected.body)
 	}
@@ -205,4 +221,34 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 		t.Errorf("the admin's realm key after the claim: %v; want one for karlnas", err)
 	}
 	wantError(t, keyed("abcd-efgh-jkmn-pqrs", "owner-password"), http.StatusConflict, api.CodeConflict)
+}
+
+// An admin asks what a discovery shows before enrolling: its identity and name, to compare with what
+// its operator shows; connecting with no identity, or another, is refused naming the field, and
+// enrols nothing (the root key audit's §3.8; D393 §4).
+func TestDiscovery_AnAdminComparesTheDiscoverysIdentityBeforeEnrolling(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	fake, identity := enrollingDiscovery(t)
+	shown := harness.do(t, http.MethodPost, "/system/discovery/identify", admin, map[string]any{"issuer": fake.URL})
+	var identified struct {
+		Identity string `json:"identity"`
+		Name     string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(shown.body), &identified); err != nil || shown.status != http.StatusOK ||
+		identified.Identity != identity || identified.Name != "Discovery" {
+		t.Fatalf("identify = %d %s; want the identity %s and the name", shown.status, shown.body, identity)
+	}
+	for _, given := range []string{"", "od1-another"} {
+		refused := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, given))
+		wantError(t, refused, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+		if !strings.Contains(refused.body, "body.identity") {
+			t.Errorf("identity %q = %s; want it refused naming the field", given, refused.body)
+		}
+	}
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL, identity))
+	if connected.status != http.StatusOK {
+		t.Errorf("the identity shown = %d %s; want enrolled", connected.status, connected.body)
+	}
 }

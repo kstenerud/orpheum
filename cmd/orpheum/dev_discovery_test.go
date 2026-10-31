@@ -23,7 +23,7 @@ func TestDevDiscovery_ThePageSaysItHasRealmsOnlyWhenOneIsNamed(t *testing.T) {
 	for realm, want := range map[string]bool{"karlnas": true, "": false} {
 		handler, err := devDiscoveryHandler(devDiscoverySite{
 			base: "http://127.0.0.1:1", recordPath: filepath.Join(t.TempDir(), "single.json"), realm: realm,
-			clientFiles: files, documentPath: filepath.Join(t.TempDir(), "address-document.json"),
+			clientFiles: files, published: t.TempDir(),
 		}, slog.New(slog.DiscardHandler))
 		if err != nil {
 			t.Fatal(err)
@@ -48,7 +48,7 @@ func TestDevDiscovery_ThePageNamesTheLoadersOriginsOnItsPort(t *testing.T) {
 	files := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><html><head></head><body></body></html>")}}
 	handler, err := devDiscoveryHandler(devDiscoverySite{
 		base: "http://127.0.0.1:4321", recordPath: filepath.Join(t.TempDir(), "single.json"), clientFiles: files,
-		documentPath: filepath.Join(t.TempDir(), "address-document.json"),
+		published: t.TempDir(),
 	}, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)

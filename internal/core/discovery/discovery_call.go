@@ -78,7 +78,7 @@ func (service *Service) openSession(ctx context.Context) (string, error) {
 		base: status.BaseURL, method: http.MethodPost, path: discoveryproto.PathSession,
 		body: discoveryproto.SessionRequest{
 			CoreID: status.CoreID, InstanceID: service.instanceID, Nonce: nonce,
-			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, status.Issuer, status.CoreID, nonce),
+			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, status.Identity, status.CoreID, nonce),
 		}, into: &opened,
 	})
 	if err != nil {

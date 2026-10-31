@@ -54,6 +54,14 @@ in Orpheum says "you are running a version with a known hole".
   or the registry. So Part C waits for the signed digest.
 - An auto-install restarts the core. The script waits until no playback has been active for 30 minutes,
   or until 04:00 local, whichever comes first.
+- **The 24-hour hold (D393 §8; the root key audit's F4), a rule Part C must keep:** an automatic install
+  installs a release only once the core has known the record naming it as the latest for 24 hours,
+  counted on the core's own monotonic clock from first sight, and only once the core has caught up
+  with the publisher's chain since it started; never a version at or below its own. The core already
+  computes it: `discovery.Release.MayInstallAutomatically(now)` (`AutomaticInstallHold`), which Part
+  C's updater asks of the core instead of deciding for itself. A recovery statement during the hold
+  that removes the record's signer drops the record, and the install with it. The admin's banner and
+  an install by hand are not held.
 
 **Standalone cores** (no discovery) read the same record from the record's published locations or a
 file their operator places (D391 §6, which replaces a fixed URL on the owner's site: nothing reaches
@@ -81,62 +89,65 @@ the owner's domains for it). The record is the same file.
 
 ## 6. As built (Parts A and B)
 
-**The record (signed since D391 §6).** One JSON file, `discovery/release`'s `Record`, the exact bytes
-a root key of the discovery's set signs (`trust.KindReleaseRecord`, the SSH signature namespace
-`orpheum-release-record-v1`):
+**The record (D391 §6, corrected by D393 §2, §5).** A text payload in the strict line format of the
+root key audit's §3.1, `discovery/release`'s `Record`, and its detached SSH signature, by an everyday
+or recovery key of **Orpheum's publisher root**, a chain of its own compiled into every binary (never a
+discovery's), in the namespace `orpheum-release-v1`:
 
-```json
-{"issuedAt": 1800000000000, "latest": "v0.3.2", "locations": ["registry.example/orpheum"],
- "releases": {"v0.3.2": {"digest": "sha256:…"},
-              "v0.3.1": {"digest": "sha256:…", "security": true, "summary": "…", "fixedIn": "v0.3.2"},
-              "v0.3.0": {"digest": "sha256:…"}}}
+```
+orpheum-signed release 1
+id op1-…
+root-version 3
+sequence 57
+issued 2026-11-02T09:00:00Z
+expires 2026-12-02T09:00:00Z
+latest v0.4.0
+image v0.4.0 sha256:<the multi-architecture index>
+image v0.3.2 sha256:…
+pending v0.3.2 v0.4.0 <one sentence for the admin>
+pull ghcr.io/kstenerud/orpheum
+location https://<where the record is served>
 ```
 
-`latest` is the newest release; `releases` names every release the record has seen, each with its
-image's digest, and for an older one whether a security fix is pending for it, what the fix fixes (one
-sentence for an admin) and the first release that has it; `locations` are the repositories the image
-may be pulled from, each a mirror, since the signed digest, not the place, says it is the release.
-It is served as `{"payload": "<the record's exact bytes>", "signature": "-----BEGIN SSH SIGNATURE-----…"}`.
+`(root-version, sequence)` only rises; `expires` is a month after `issued`, and past it a core keeps
+the record and says it cannot confirm it is current; a version's `image` digest never changes once
+signed (a rebuilt release takes a new version). `pull` lines are mirrors: the digest is the release.
 
-**Its home (D391 §6).** The signed record is published with each release, and served by every
-discovery at `/.well-known/orpheum-release-record`, at its issuer and at each location its address
-document names: `single.Parts.ReleaseRecord` for Orpheum's own discovery (`orpheum dev discovery
---release-record <file>` in development), and the paid service's own setting. Nothing reaches the
-owner's domains for it, and an own discovery depends on nothing of the owner's: its operator signs
-the record with their own root key, or serves the owner's to cores that trust the owner's keys. An
-absent file tells every core nothing, which is never an error to the core.
+**Its home.** The record and its `.sig` are served at `/.well-known/orpheum/release` beside the
+publisher's chain (`/.well-known/orpheum/publisher-root/<n>` and `latest`) at the publisher's places
+(compiled in) and by every discovery (`single.Parts.Published`, the paid service's own). Nothing
+reaches the owner's domains but through those places, and an own discovery depends on nothing of the
+owner's: its cores read the publisher's record wherever it is served, the signature being what counts.
 
 **Writing and signing it.** `go run ./cmd/release-record --record <file> --version <tag> --digest
-<sha256:…> [--security "<summary>"] [--location <repository>]` writes one release into the unsigned
-record, dated: with `--security`, every older release with no fix pending is marked as needing this
-one (one already pending keeps its first fix, which the latest has too); a release older than the
-latest is refused, and so is a digest that is no image's. It then prints how to sign it: `go run
-./cmd/discovery-sign record --record <file> --signer <key> --out <signed>`, with any one root key, a
-YubiKey's resident key included (docs/users/discovery-signing.md), or `ssh-keygen -Y sign -n
-orpheum-release-record-v1 -f <key> <file>` by hand and `discovery-sign seal`. It is a program of its
-own, not an `orpheum` subcommand, because no household runs it, and Go, not a script under
-`scripts/`, so the record is written by the very type a core reads it with. The release workflow (a
-gate file) is to run it after the image is pushed, with the pushed digest; the owner signs, since a
-root key is a YubiKey in a drawer, not a CI secret.
+<sha256:…> [--security "<summary>"] [--pull <repository>] [--id op1-… --root-version <n>]` writes one
+release into the unsigned record, dated, its sequence one more: with `--security`, every older release
+with no fix pending is marked as needing this one; a release older than the latest, and a version given
+another digest, are refused. It prints the command that signs it: `ssh-keygen -Y sign -n
+orpheum-release-v1 -f <the key's stub> <file>`, then `go run ./cmd/discovery-sign check --kind release
+--publish <dir>`, which checks it with the code a core uses, keeps it in the owner's ledger and writes
+the files to publish. The release workflow (a gate file) is to run `release-record` after the image is
+pushed; the owner signs on the Mac after checking the digest (docs/users/discovery-signing.md).
 
-**The core reads it.** No call under the session: the core fetches the signed record from its
-discovery's issuer and each location its document names, takes the newest one a root key of the set
-it pinned signed, and keeps what it says of its own version alone (`Record.For`): `latest`, its digest
-and a location only when the latest is newer, the fix only when its version has one pending. A record
-no root key signed is never believed. The core reads at its start and daily, an hour after a
-failure; a development build (`dev`) reads nothing; a discovery serving none knows nothing, and a
-failure is never the core's standing problem.
+**The core reads it.** The core follows the publisher's chain from the genesis it was built with, then
+fetches the record from every place, takes the newest above its floor that the chain's current set
+signed (each key's user-verified flag checked), refuses one that changes a digest it has seen or
+another of its floor's own sequence, and keeps what it says of its own version alone (`Record.For`).
+It reads at its start and daily, an hour after a reading that found none; a development build reads
+nothing; a build with no publisher root reads none and says so; a failure is never the core's
+standing problem. Its trust state is `trust-publisher` in the persistent directory, checked again at
+each start.
 
-**The install checks it.** `sh install.sh … --release-record <signed record> [--root-keys <file>]`
-checks the pulled image's digest against the signed record before it installs anything, in Go:
-`orpheum verify-release --digest <sha256:…> [--root-key <line>]… < <signed record>`, run from the
-image the deployment ran before on an update (so a new image does not vouch for itself), with the
-suggested discovery's root keys unless the operator names their own. Not yet the default: an install
-without the flag checks nothing, until the owner's keys are filled in and the record is published
-(the install script's tests are a gate file; see the plan's record of what is owed).
+**The install checks it before running anything (the audit's §3.9, F10).** A household installs with
+the bootstrap the owner publishes (`discovery-sign bootstrap`): it holds the publisher chain's current
+keys as `ssh-keygen`'s allowed signers for `orpheum-release-v1` alone, fetches the record and its
+signature, verifies it with `ssh-keygen -Y verify`, reads the latest's image digest with `awk`, pulls
+the image by that digest, and only then runs that image's own install script with `--image
+<repository>@<digest>`. `ssh-keygen` cannot check the user-verified flag, so this first install has a
+touch's strength; every later update goes through the core's check, which has the PIN's.
 
 **The admin.** `GET /api/v1/system/update` (admin) says the version, the latest when newer, its
-digest, the fix pending and the command: `docker run --rm <location>@<digest> install-script | sh`
+digest, the fix pending, when the record expired and what was wrong reading it, and the command: `docker run --rm <location>@<digest> install-script | sh`
 from the first location the signed record names, by the digest it signed, or, with no record's
 location, the image the build was published as and the latest's tag; the latest's own install script
 run again over the deployment (D314), which keeps everything. The client's banner (`security-update-note.tsx`) stands above every page for an
@@ -144,6 +155,7 @@ admin while a fix is pending, with the command, Update now (the How to update pa
 Snooze for a day (this browser, that fix). The settings page's Updates row shows the version and a
 newer one, the only place a plain release shows.
 
-**Not yet:** the paid service (orpheum-connect) serves the signed record at its well-known path; until
-then a core in the beta reads none, and knows nothing. The banner's
+**Not yet:** the publisher root's genesis is made at the owner's day-one ceremony and compiled in;
+until then a release build reads no record, and says so. The paid service (orpheum-connect) is to
+serve the record and the publisher's chain at their paths. The banner's
 command assumes the deployment's default folder; the How to update page says what to add for another.

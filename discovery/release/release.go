@@ -3,7 +3,6 @@
 package release
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,39 +10,54 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
 
-// WellKnownPath is where a discovery serves the signed release record, at its issuer and at each of
-// its address document's locations, and where a record is published beside each release (D391 §6).
-const WellKnownPath = "/.well-known/orpheum-release-record"
+// The paths the signed release record and the publisher's root chain are served at, under each
+// location, each beside its signature at the same path and ".sig" (the root key audit's §3.1).
+const (
+	RecordPath              = "/.well-known/orpheum/release"
+	PublisherRootPathPrefix = "/.well-known/orpheum/publisher-root/"
+	PublisherRootLatestPath = PublisherRootPathPrefix + "latest"
+)
 
-// Record is the release record, the payload a root key signs (trust.KindReleaseRecord).
-type Record struct {
-	// IssuedAt is when the record was written, Unix milliseconds: a newer one replaces an older.
-	IssuedAt int64 `json:"issuedAt"`
-	// Latest is the newest release's tag, "v0.3.2".
-	Latest string `json:"latest"`
-	// Locations are the image repositories a release may be pulled from, "registry.example/orpheum",
-	// each a mirror: the digest, not the place, says it is the release (D391 §6).
-	Locations []string `json:"locations"`
-	// Releases are every release the record has seen, by its tag: its image's digest, and for an
-	// older one whether it has a security fix pending.
-	Releases map[string]Note `json:"releases"`
+// PublisherRootPath is where the publisher's root statement of version is served.
+func PublisherRootPath(version int64) string {
+	return PublisherRootPathPrefix + strconv.FormatInt(version, 10)
 }
 
-// Note is what the record says of one release.
-type Note struct {
-	// Digest is the release image's, "sha256:…": the multi-platform image's own, as a registry names
-	// it after a push.
-	Digest string `json:"digest"`
-	// Security is whether the release has a security fix pending; Summary says what it fixes, for the
-	// admin, and FixedIn is the first release that has it.
-	Security bool   `json:"security,omitempty"`
-	Summary  string `json:"summary,omitempty"`
-	FixedIn  string `json:"fixedIn,omitempty"`
+// recordLasts is how long a record is current after it is issued: the owner signs it again at each
+// release, or monthly (the audit's F9).
+const recordLasts = 30 * 24 * time.Hour
+
+// Record is the release record (the audit's §3.1; D393 §2), signed by a key of the publisher's root:
+// the publisher's id, the root version it was signed under and its sequence, which only rise; when it
+// was issued and until when it is current; the latest release; every release's image digest, which
+// never changes once signed; the fixes each older release lacks; where an image may be pulled; and
+// where the record is served.
+type Record struct {
+	ID          string
+	RootVersion int64
+	Sequence    int64
+	Issued      time.Time
+	Expires     time.Time
+	Latest      string
+	// Images are each release's image digest, the multi-architecture index's, by its tag.
+	Images map[string]string
+	// Pending are the security fixes each older release lacks, by its tag.
+	Pending   map[string]Fix
+	Pulls     []string
+	Locations []string
+}
+
+// Fix is a security fix a version lacks: the first release that has it, and what it fixes, in a
+// sentence for the admin.
+type Fix struct {
+	FixedIn, Summary string
 }
 
 // Told is what the record tells a core of its own version.
@@ -55,101 +69,216 @@ type Told struct {
 	Security *Fix
 }
 
-// Fix is a security fix a version lacks: what it fixes, in a sentence for the admin, and the first
-// release that has it.
-type Fix struct {
-	Summary, FixedIn string
+// recordSchema is the release record's lines, format 1.
+func recordSchema() trust.Schema {
+	return trust.Schema{Type: "release", Format: 1, Fields: []trust.Field{
+		{Name: "id", IsRequired: true},
+		{Name: "root-version", IsRequired: true},
+		{Name: "sequence", IsRequired: true},
+		{Name: "issued", IsRequired: true},
+		{Name: "expires", IsRequired: true},
+		{Name: "latest", IsRequired: true},
+		{Name: "image", IsRepeated: true, IsRequired: true},
+		{Name: "pending", IsRepeated: true},
+		{Name: "pull", IsRepeated: true},
+		{Name: "location", IsRepeated: true},
+	}}
 }
 
-// For is what the record tells the core running version (security-updates.md Part A): the latest and
-// its digest when it is newer, and the version's pending fix. Nothing for a version that is no
-// release's tag, a development build's.
-func (record Record) For(version string) Told {
-	var told Told
-	if order, isRelease := Compare(record.Latest, version); isRelease && order > 0 {
-		told.Latest, told.Digest = record.Latest, record.Releases[record.Latest].Digest
-		if len(record.Locations) > 0 {
-			told.Location = record.Locations[0]
+// digestPattern is an image's digest, as a registry names it.
+var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+
+// Errors Released, Parse and Open return.
+var (
+	ErrNotARelease     = errors.New("not a release's tag: v<major>.<minor>.<patch>, perhaps with -<pre-release>")
+	ErrOlder           = errors.New("older than the record's latest release")
+	ErrNotADigest      = errors.New("not an image's digest: sha256: and 64 hexadecimal digits")
+	ErrDigestChanged   = errors.New("a released version's digest never changes: a rebuilt release takes a new version")
+	ErrNotARecord      = errors.New("not a release record")
+	ErrNotThePublisher = errors.New("the record is not the publisher's")
+	ErrAheadOfChain    = errors.New("the record names a root version the publisher's chain held has not reached")
+)
+
+// Parse reads a record's payload, checking its form and that its latest has an image.
+func Parse(payload []byte) (Record, error) {
+	lines, err := recordSchema().Parse(payload)
+	if err != nil {
+		return Record{}, err
+	}
+	record := Record{
+		ID: lines.One("id"), Latest: lines.One("latest"), Images: map[string]string{}, Pending: map[string]Fix{},
+		Pulls: lines["pull"], Locations: lines["location"],
+	}
+	if record.RootVersion, err = trust.ParseCount(lines.One("root-version")); err != nil {
+		return Record{}, err
+	}
+	if record.Sequence, err = trust.ParseCount(lines.One("sequence")); err != nil {
+		return Record{}, err
+	}
+	if record.Issued, err = trust.ParseTime(lines.One("issued")); err != nil {
+		return Record{}, err
+	}
+	if record.Expires, err = trust.ParseTime(lines.One("expires")); err != nil {
+		return Record{}, err
+	}
+	for _, line := range lines["image"] {
+		tag, digest, _ := strings.Cut(line, " ")
+		if _, isRelease := parse(tag); !isRelease || !digestPattern.MatchString(digest) || record.Images[tag] != "" {
+			return Record{}, fmt.Errorf("%w: image %q", ErrNotARecord, line)
 		}
+		record.Images[tag] = digest
 	}
-	if note, isNamed := record.Releases[version]; isNamed && note.Security {
-		told.Security = &Fix{Summary: note.Summary, FixedIn: note.FixedIn}
+	for _, line := range lines["pending"] {
+		fields := strings.SplitN(line, " ", 3)
+		if len(fields) != 3 {
+			return Record{}, fmt.Errorf("%w: pending %q", ErrNotARecord, line)
+		}
+		record.Pending[fields[0]] = Fix{FixedIn: fields[1], Summary: fields[2]}
 	}
-	return told
+	if record.Images[record.Latest] == "" {
+		return Record{}, fmt.Errorf("%w: the latest, %s, has no image", ErrNotARecord, record.Latest)
+	}
+	return record, nil
 }
 
-// VersionOf is the release whose image digest is, and whether the record names one.
-func (record Record) VersionOf(digest string) (string, bool) {
-	for _, tag := range slices.Sorted(maps.Keys(record.Releases)) {
-		if record.Releases[tag].Digest == digest {
+// Payload is the record written as its lines, which a key then signs: images and fixes newest first.
+func (record Record) Payload() ([]byte, error) {
+	lines := trust.Lines{
+		"id": {record.ID}, "root-version": {strconv.FormatInt(record.RootVersion, 10)},
+		"sequence": {strconv.FormatInt(record.Sequence, 10)}, "issued": {trust.TimeText(record.Issued)},
+		"expires": {trust.TimeText(record.Expires)}, "latest": {record.Latest}, "pull": record.Pulls,
+		"location": record.Locations,
+	}
+	for _, tag := range newestFirst(slices.Collect(maps.Keys(record.Images))) {
+		lines["image"] = append(lines["image"], tag+" "+record.Images[tag])
+	}
+	for _, tag := range newestFirst(slices.Collect(maps.Keys(record.Pending))) {
+		fix := record.Pending[tag]
+		lines["pending"] = append(lines["pending"], tag+" "+fix.FixedIn+" "+fix.Summary)
+	}
+	return recordSchema().Write(lines)
+}
+
+// newestFirst are tags in order, the newest release first.
+func newestFirst(tags []string) []string {
+	slices.SortFunc(tags, func(one, other string) int {
+		order, _ := Compare(other, one)
+		return order
+	})
+	return tags
+}
+
+// Open is the record signed holds once it is checked (§3.5): a signature of the publisher's chain's
+// current set's in the release namespace, its id the chain's and its root version one the chain has
+// reached. The core keeps the floors and the digests it has seen.
+func Open(signed trust.Signed, publisher trust.Chain) (Record, error) {
+	if publisher.Kind() != trust.ChainPublisher {
+		return Record{}, ErrNotThePublisher
+	}
+	if err := publisher.Verify(trust.NamespaceRelease, signed); err != nil {
+		return Record{}, err
+	}
+	record, err := Parse([]byte(signed.Payload))
+	if err != nil {
+		return Record{}, err
+	}
+	switch {
+	case record.ID != publisher.ID():
+		return Record{}, fmt.Errorf("%w: %s, not %s", ErrNotThePublisher, record.ID, publisher.ID())
+	case record.RootVersion > publisher.Version():
+		return Record{}, fmt.Errorf("%w: %d, held %d", ErrAheadOfChain, record.RootVersion, publisher.Version())
+	}
+	return record, nil
+}
+
+// IsNewerThan is whether the record comes after other: a higher root version, or the same and a
+// higher sequence.
+func (record Record) IsNewerThan(other Record) bool {
+	if record.RootVersion != other.RootVersion {
+		return record.RootVersion > other.RootVersion
+	}
+	return record.Sequence > other.Sequence
+}
+
+// ChangedDigest is the first version for which the record names another digest than seen did, and
+// whether there is one: equivocation, which a core refuses and tells its admins of (the audit's F11).
+func (record Record) ChangedDigest(seen map[string]string) (string, bool) {
+	for _, tag := range slices.Sorted(maps.Keys(record.Images)) {
+		if known, isKnown := seen[tag]; isKnown && known != record.Images[tag] {
 			return tag, true
 		}
 	}
 	return "", false
 }
 
-// digestPattern is an image's digest, as a registry names it.
-var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+// For is what the record tells the core running version (security-updates.md Part A): the latest, its
+// digest and where to pull it when it is newer, and the version's pending fix. Nothing for a version
+// that is no release's tag, a development build's.
+func (record Record) For(version string) Told {
+	var told Told
+	if order, isRelease := Compare(record.Latest, version); isRelease && order > 0 {
+		told.Latest, told.Digest = record.Latest, record.Images[record.Latest]
+		if len(record.Pulls) > 0 {
+			told.Location = record.Pulls[0]
+		}
+	}
+	if fix, isPending := record.Pending[version]; isPending {
+		told.Security = &fix
+	}
+	return told
+}
 
-// Errors Released and Open return.
-var (
-	ErrNotARelease = errors.New("not a release's tag: v<major>.<minor>.<patch>, perhaps with -<pre-release>")
-	ErrOlder       = errors.New("older than the record's latest release")
-	ErrNotADigest  = errors.New("not an image's digest: sha256: and 64 hexadecimal digits")
-	ErrNotARecord  = errors.New("not a release record")
-)
+// VersionOf is the release whose image digest is, and whether the record names one.
+func (record Record) VersionOf(digest string) (string, bool) {
+	for _, tag := range slices.Sorted(maps.Keys(record.Images)) {
+		if record.Images[tag] == digest {
+			return tag, true
+		}
+	}
+	return "", false
+}
 
-// Released is the record once tag, its image at digest, is released at now: the latest, named with
-// its digest among the releases, and with securitySummary, what the release fixes, every older
-// release that has no fix pending marked as needing this one. A release already pending keeps its
-// first fix, which the latest has too. The latest released again takes its digest anew, as a re-run
-// of the workflow does. Locations, when given, are where the image may be pulled from henceforth.
-func (record Record) Released(tag, digest, securitySummary string, locations []string, now time.Time) (Record, error) {
+// Released is the record once tag, its image at digest, is released at now, its sequence one more,
+// current for a month: the latest, its digest named, and with securitySummary, what the release
+// fixes, every older release that has no fix pending marked as needing this one. A version already
+// named keeps its digest: naming another is refused (the audit's F11). Pulls, when given, are where
+// an image may be pulled, from this record on.
+func (record Record) Released(tag, digest, securitySummary string, pulls []string, now time.Time) (Record, error) {
 	if _, isRelease := parse(tag); !isRelease {
 		return record, fmt.Errorf("%q: %w", tag, ErrNotARelease)
 	}
 	if !digestPattern.MatchString(digest) {
 		return record, fmt.Errorf("%q: %w", digest, ErrNotADigest)
 	}
+	if known, isKnown := record.Images[tag]; isKnown && known != digest {
+		return record, fmt.Errorf("%s: %w", tag, ErrDigestChanged)
+	}
 	if order, isRelease := Compare(tag, record.Latest); isRelease && order < 0 {
 		return record, fmt.Errorf("%s is %w, %s", tag, ErrOlder, record.Latest)
 	}
-	releases := make(map[string]Note, len(record.Releases)+1)
-	maps.Copy(releases, record.Releases)
+	next := record
+	next.Images, next.Pending = maps.Clone(record.Images), maps.Clone(record.Pending)
+	if next.Images == nil {
+		next.Images, next.Pending = map[string]string{}, map[string]Fix{}
+	}
 	if securitySummary != "" {
-		for older, note := range releases {
-			if older != tag && !note.Security {
-				releases[older] = Note{Digest: note.Digest, Security: true, Summary: securitySummary, FixedIn: tag}
+		for older := range next.Images {
+			if _, isPending := next.Pending[older]; !isPending && older != tag {
+				next.Pending[older] = Fix{FixedIn: tag, Summary: securitySummary}
 			}
 		}
 	}
-	releases[tag] = Note{Digest: digest}
-	if len(locations) == 0 {
-		locations = record.Locations
+	next.Images[tag], next.Latest = digest, tag
+	if len(pulls) > 0 {
+		next.Pulls = slices.Clone(pulls)
 	}
-	return Record{
-		IssuedAt: now.UnixMilli(), Latest: tag, Locations: slices.Clone(locations), Releases: releases,
-	}, nil
-}
-
-// Open is the record signed holds once its signature is a root key's of pinned (trust.Pinned.OpenRecord).
-func Open(signed trust.Signed, pinned trust.Pinned) (Record, error) {
-	payload, err := pinned.OpenRecord(signed)
-	if err != nil {
-		return Record{}, err
-	}
-	var record Record
-	if err = json.Unmarshal(payload, &record); err != nil {
-		return Record{}, fmt.Errorf("%w: %w", ErrNotARecord, err)
-	}
-	if record.Latest == "" || record.IssuedAt == 0 {
-		return Record{}, fmt.Errorf("%w: it names no latest release or when it was written", ErrNotARecord)
-	}
-	return record, nil
+	next.Sequence++
+	next.Issued, next.Expires = now.UTC().Truncate(time.Second), now.UTC().Truncate(time.Second).Add(recordLasts)
+	return next, nil
 }
 
 // Read is the unsigned record path holds, the release workflow's own copy; an absent file is an
-// empty record, nothing known.
+// empty record.
 func Read(path string) (Record, error) {
 	contents, err := os.ReadFile(path) //nolint:gosec // the path is the workflow's configured one
 	if errors.Is(err, fs.ErrNotExist) {
@@ -158,8 +287,8 @@ func Read(path string) (Record, error) {
 	if err != nil {
 		return Record{}, fmt.Errorf("read the release record: %w", err)
 	}
-	var record Record
-	if err = json.Unmarshal(contents, &record); err != nil {
+	record, err := Parse(contents)
+	if err != nil {
 		return Record{}, fmt.Errorf("read the release record %s: %w", path, err)
 	}
 	return record, nil
@@ -168,11 +297,11 @@ func Read(path string) (Record, error) {
 // Write writes record to path, readable by all, as the exact bytes a root key then signs: it holds
 // no secret.
 func Write(path string, record Record) error {
-	contents, err := json.MarshalIndent(record, "", "  ")
+	payload, err := record.Payload()
 	if err != nil {
-		return fmt.Errorf("encode the release record: %w", err)
+		return fmt.Errorf("write the release record: %w", err)
 	}
-	if err = os.WriteFile(path, append(contents, '\n'), 0o644); err != nil { //nolint:gosec // readable by all, as said
+	if err = os.WriteFile(path, payload, 0o644); err != nil { //nolint:gosec // readable by all, as said
 		return fmt.Errorf("write the release record: %w", err)
 	}
 	return nil

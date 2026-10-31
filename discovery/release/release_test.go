@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,28 +22,40 @@ const (
 	digestD = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
-// written is when the tests' records were written.
-var written = time.UnixMilli(1_800_000_000_000)
-
 // aRecord is a record of four releases: v0.3.0 and v0.3.1 lack a security fix v0.3.2 has, and v0.3.3
 // is the latest, a plain one.
-func aRecord() release.Record {
-	fix := func(digest string) release.Note {
-		return release.Note{Digest: digest, Security: true, Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"}
-	}
+func aRecord(id string) release.Record {
+	fix := release.Fix{FixedIn: "v0.3.2", Summary: "a sign-in could be guessed"}
 	return release.Record{
-		IssuedAt: written.UnixMilli(), Latest: "v0.3.3", Locations: []string{"registry.example/orpheum"},
-		Releases: map[string]release.Note{
-			"v0.3.0": fix(digestC), "v0.3.1": fix(digestD), "v0.3.2": {Digest: digestB}, "v0.3.3": {Digest: digestA},
-		},
+		ID: id, RootVersion: 1, Sequence: 4, Issued: trusttest.Issued(),
+		Expires: trusttest.Issued().Add(720 * time.Hour),
+		Latest:  "v0.3.3", Pulls: []string{"registry.example/orpheum"},
+		Images:  map[string]string{"v0.3.0": digestC, "v0.3.1": digestD, "v0.3.2": digestB, "v0.3.3": digestA},
+		Pending: map[string]release.Fix{"v0.3.0": fix, "v0.3.1": fix},
 	}
+}
+
+func publisher(t *testing.T) (*trusttest.Chain, trusttest.Key) {
+	t.Helper()
+	everyday := trusttest.HardwareKey(t, "e1")
+	return trusttest.NewChain(t, trust.ChainPublisher, []trusttest.Key{everyday},
+		[]trusttest.Key{trusttest.HardwareKey(t, "r1")}), everyday
+}
+
+func signed(t *testing.T, record release.Record, key trusttest.Key) trust.Signed {
+	t.Helper()
+	payload, err := record.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return trusttest.Sign(t, trust.NamespaceRelease, payload, key)
 }
 
 // A core is told the latest, its digest and where to pull it only when it is newer than its own
 // version, and only its own version's fix; a development build's version is told nothing.
 func TestFor_TellsACoreOfItsOwnVersionAlone(t *testing.T) {
 	t.Parallel()
-	fix := &release.Fix{Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"}
+	fix := &release.Fix{FixedIn: "v0.3.2", Summary: "a sign-in could be guessed"}
 	latest := release.Told{Latest: "v0.3.3", Digest: digestA, Location: "registry.example/orpheum"}
 	for version, want := range map[string]release.Told{
 		"v0.3.1": {Latest: latest.Latest, Digest: latest.Digest, Location: latest.Location, Security: fix},
@@ -50,114 +63,116 @@ func TestFor_TellsACoreOfItsOwnVersionAlone(t *testing.T) {
 		"v0.3.3": {},
 		"v0.4.0": {},
 		"dev":    {},
-		// One the record never named is told of the latest, with no fix it cannot know of.
 		"v0.2.9": latest,
 	} {
-		if told := aRecord().For(version); !reflect.DeepEqual(told, want) {
+		if told := aRecord("op1-x").For(version); !reflect.DeepEqual(told, want) {
 			t.Errorf("For(%s) = %+v; want %+v", version, told, want)
 		}
 	}
 }
 
-// A record is taken only signed by a root key of the set, never an online key's, and only when it
-// is a record; the release an image's digest is, is found by its digest alone (D391 §6).
-func TestOpen_ARecordIsTakenOnlySignedByARootKey(t *testing.T) {
+// A record is taken only signed by a key of the publisher's chain in the release namespace, naming its
+// id and a root version it has reached; a discovery's chain never signs one (D393 §2). Its lines read
+// back as written, and an image is a release only by the digest the record names.
+func TestOpen_ARecordIsTakenOnlySignedByThePublishersKey(t *testing.T) {
 	t.Parallel()
-	root := trusttest.NewRoot(t)
-	signed := root.Signs(t, trust.KindReleaseRecord, aRecord())
-	opened, err := release.Open(signed, root.Pinned)
-	if err != nil || !reflect.DeepEqual(opened, aRecord()) {
+	chain, key := publisher(t)
+	held := chain.Follower(t)
+	made := aRecord(chain.ID())
+	opened, err := release.Open(signed(t, made, key), held)
+	if err != nil || !reflect.DeepEqual(opened, made) {
 		t.Fatalf("the signed record = %+v, %v; want it as written", opened, err)
 	}
 	if version, isNamed := opened.VersionOf(digestB); !isNamed || version != "v0.3.2" {
 		t.Errorf("VersionOf(digestB) = %q, %v; want v0.3.2", version, isNamed)
 	}
-	if _, isNamed := opened.VersionOf("sha256:" + digestA[len("sha256:")+1:] + "0"); isNamed {
-		t.Error("a digest no release has was named")
+	discovery, discoveryKey, _ := trusttest.NewDiscovery(t)
+	if _, err = release.Open(signed(t, aRecord(discovery.ID()), discoveryKey), discovery.Follower(t)); !errors.Is(
+		err, release.ErrNotThePublisher) {
+		t.Errorf("a discovery's chain: %v; want ErrNotThePublisher", err)
 	}
-	stranger := trusttest.NewRoot(t)
-	if _, err = release.Open(stranger.Signs(t, trust.KindReleaseRecord, aRecord()), root.Pinned); !errors.Is(
-		err, trust.ErrUntrustedKey) {
-		t.Errorf("a record a stranger signed: %v; want ErrUntrustedKey", err)
+	stranger := signed(t, made, trusttest.HardwareKey(t, "x"))
+	if _, err = release.Open(stranger, held); !errors.Is(err, trust.ErrUntrustedKey) {
+		t.Errorf("a stranger's record: %v; want ErrUntrustedKey", err)
 	}
-	// The same bytes signed as an address document are no record.
-	if _, err = release.Open(root.Signs(t, trust.KindAddressDocument, aRecord()), root.Pinned); !errors.Is(
-		err, trust.ErrWrongNamespace) {
-		t.Errorf("a record signed as a document: %v; want ErrWrongNamespace", err)
+	ahead := made
+	ahead.RootVersion = 3
+	if _, err = release.Open(signed(t, ahead, key), held); !errors.Is(err, release.ErrAheadOfChain) {
+		t.Errorf("a root version not reached: %v; want ErrAheadOfChain", err)
 	}
-	if _, err = release.Open(root.Signs(t, trust.KindReleaseRecord, map[string]int{"x": 1}), root.Pinned); !errors.Is(
-		err, release.ErrNotARecord) {
-		t.Errorf("a signed thing that is no record: %v; want ErrNotARecord", err)
+	if !ahead.IsNewerThan(made) || made.IsNewerThan(ahead) {
+		t.Error("records are ordered by root version, then sequence")
 	}
 }
 
-// A security release marks every older release that lacks a fix, the one before it among them, as
-// fixed in it; one already pending keeps its first fix. A plain release marks none. Each keeps its
-// digest, and the record is dated anew.
+// A released version's digest never changes: the record refuses another for it, and a core that has
+// seen one names the version another record changes (the audit's F11).
+func TestReleased_AVersionsDigestNeverChanges(t *testing.T) {
+	t.Parallel()
+	if _, err := aRecord("op1-x").Released("v0.3.3", digestB, "", nil, trusttest.Issued()); !errors.Is(
+		err, release.ErrDigestChanged) {
+		t.Errorf("the latest with another digest: %v; want ErrDigestChanged", err)
+	}
+	changed := aRecord("op1-x")
+	changed.Images["v0.3.2"] = digestC
+	if tag, isChanged := changed.ChangedDigest(aRecord("op1-x").Images); !isChanged || tag != "v0.3.2" {
+		t.Errorf("ChangedDigest = %q, %v; want v0.3.2", tag, isChanged)
+	}
+}
+
+// A security release marks every older release that lacks a fix as fixed in it; one already pending
+// keeps its first fix; a plain release marks none. Each release dates the record anew, a month current,
+// its sequence one more.
 func TestReleased_ASecurityFixMarksEveryOlderReleaseThatLacksOne(t *testing.T) {
 	t.Parallel()
-	later := written.Add(time.Hour)
-	plain, err := aRecord().Released("v0.3.4", digestB, "", nil, later)
+	later := trusttest.Issued().Add(time.Hour)
+	plain, err := aRecord("op1-x").Released("v0.3.4", digestB, "", nil, later)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plain.Latest != "v0.3.4" || plain.Releases["v0.3.4"] != (release.Note{Digest: digestB}) ||
-		plain.Releases["v0.3.2"].Security || plain.IssuedAt != later.UnixMilli() ||
-		!reflect.DeepEqual(plain.Locations, aRecord().Locations) {
-		t.Errorf("plain release = %+v; want v0.3.4 latest with its digest, no new fix, dated now", plain)
+	if plain.Latest != "v0.3.4" || plain.Images["v0.3.4"] != digestB || len(plain.Pending) != 2 ||
+		plain.Sequence != 5 || !plain.Issued.Equal(later) || !plain.Expires.Equal(later.Add(720*time.Hour)) {
+		t.Errorf("plain release = %+v", plain)
 	}
 	mirror := []string{"mirror.example/orpheum"}
 	secure, err := plain.Released("v0.3.5", digestA, "a link could be reused", mirror, later)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newFix := func(digest string) release.Note {
-		return release.Note{Digest: digest, Security: true, Summary: "a link could be reused", FixedIn: "v0.3.5"}
+	newFix := release.Fix{FixedIn: "v0.3.5", Summary: "a link could be reused"}
+	oldFix := release.Fix{FixedIn: "v0.3.2", Summary: "a sign-in could be guessed"}
+	want := map[string]release.Fix{
+		"v0.3.0": oldFix, "v0.3.1": oldFix, "v0.3.2": newFix, "v0.3.3": newFix, "v0.3.4": newFix,
 	}
-	oldFix := func(digest string) release.Note {
-		return release.Note{Digest: digest, Security: true, Summary: "a sign-in could be guessed", FixedIn: "v0.3.2"}
+	if !reflect.DeepEqual(secure.Pending, want) || !reflect.DeepEqual(secure.Pulls, mirror) {
+		t.Errorf("security release = %+v; want %+v from the new place", secure, want)
 	}
-	want := map[string]release.Note{
-		"v0.3.0": oldFix(digestC), "v0.3.1": oldFix(digestD), "v0.3.2": newFix(digestB),
-		"v0.3.3": newFix(digestA), "v0.3.4": newFix(digestB), "v0.3.5": {Digest: digestA},
+	if _, err = aRecord("op1-x").Released("v0.3.2", digestB, "", nil, later); !errors.Is(err, release.ErrOlder) {
+		t.Errorf("an older release: %v; want ErrOlder", err)
 	}
-	if !reflect.DeepEqual(secure.Releases, want) || secure.Latest != "v0.3.5" ||
-		!reflect.DeepEqual(secure.Locations, []string{"mirror.example/orpheum"}) {
-		t.Errorf("security release = %+v; want %+v from the new location", secure, want)
+	if _, err = aRecord("op1-x").Released("latest", digestB, "", nil, later); !errors.Is(err, release.ErrNotARelease) {
+		t.Errorf("no tag: %v; want ErrNotARelease", err)
 	}
-}
-
-// A release older than the latest, a tag that is none, and a digest that is no image's are refused;
-// the latest released again takes its new digest.
-func TestReleased_RefusesAnOlderReleaseOrADigestThatIsNone(t *testing.T) {
-	t.Parallel()
-	for _, refused := range []struct {
-		tag, digest string
-		want        error
-	}{
-		{"v0.3.2", digestB, release.ErrOlder},
-		{"latest", digestB, release.ErrNotARelease},
-		{"v0.4.0", "sha256:abc", release.ErrNotADigest},
-	} {
-		if _, err := aRecord().Released(refused.tag, refused.digest, "", nil, written); !errors.Is(err, refused.want) {
-			t.Errorf("Released(%s, %s) = %v; want %v", refused.tag, refused.digest, err, refused.want)
-		}
-	}
-	again, err := aRecord().Released("v0.3.3", digestB, "", nil, written)
-	if err != nil || again.Releases["v0.3.3"].Digest != digestB || len(again.Releases) != len(aRecord().Releases) {
-		t.Errorf("the latest again = %+v, %v; want its new digest and nothing else changed", again, err)
+	if _, err = aRecord("op1-x").Released("v0.4.0", "sha256:abc", "", nil, later); !errors.Is(
+		err, release.ErrNotADigest) {
+		t.Errorf("no digest: %v; want ErrNotADigest", err)
 	}
 }
 
 func TestWrite_ReadsBackWhatItWrote(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "release.json")
-	if err := release.Write(path, aRecord()); err != nil {
+	path := filepath.Join(t.TempDir(), "release")
+	if err := release.Write(path, aRecord("op1-x")); err != nil {
 		t.Fatal(err)
 	}
 	read, err := release.Read(path)
-	if err != nil || !reflect.DeepEqual(read, aRecord()) {
-		t.Errorf("read back %+v, %v; want %+v", read, err, aRecord())
+	if err != nil || !reflect.DeepEqual(read, aRecord("op1-x")) {
+		t.Errorf("read back %+v, %v", read, err)
+	}
+	payload, err := aRecord("op1-x").Payload()
+	if err != nil || !strings.HasPrefix(string(payload), "orpheum-signed release 1\nid op1-x\n") ||
+		!strings.Contains(string(payload), "image v0.3.3 "+digestA+"\nimage v0.3.2") {
+		t.Errorf("the payload %q, %v; want the format's lines, newest first", payload, err)
 	}
 }
 

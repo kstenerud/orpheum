@@ -4,20 +4,16 @@ package trust_test
 
 import (
 	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/json"
 	"errors"
-	"io"
+	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 
 	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 )
 
 // The vector ssh-keygen made (OpenSSH 10.0): `ssh-keygen -t ed25519`, then `ssh-keygen -Y sign -n
@@ -34,49 +30,47 @@ Nah3M066gqGcNm0MumInGd+OnO+onH/NzjyAA=
 `
 )
 
+// A signature holds only in the namespace expected, over the exact bytes, by a key expected; one
+// ssh-keygen made holds (the root key audit's §3.2).
 func TestVerify_ASignatureSSHKeygenMadeHoldsAndNothingElse(t *testing.T) {
 	t.Parallel()
-	pinned, err := trust.Anchor(1, []string{vectorKey})
+	key, err := trust.ParseKey(vectorKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The vector is in a namespace of its own: a release record's is checked in its own, so the same
-	// bytes are refused there, and accepted by the namespace they were made for.
-	if _, err = pinned.OpenRecord(trust.Signed{Payload: vectorPayload, Signature: vectorSignature}); !errors.Is(
-		err, trust.ErrWrongNamespace) {
-		t.Fatalf("a signature for another namespace: %v, want ErrWrongNamespace", err)
-	}
-	if err = trust.CheckForTest(pinned, "orpheum-test-v1", vectorPayload, vectorSignature); err != nil {
+	if err = trust.VerifyForTest(vectorSignature, "orpheum-test-v1", vectorPayload, false, key); err != nil {
 		t.Fatalf("ssh-keygen's signature: %v", err)
 	}
-	if err = trust.CheckForTest(pinned, "orpheum-test-v1", vectorPayload+" ", vectorSignature); !errors.Is(
-		err, trust.ErrBadSignature) {
-		t.Fatalf("a payload changed by a byte: %v, want ErrBadSignature", err)
-	}
-	other, _ := newKey(t)
-	stranger, err := trust.Anchor(1, []string{trust.KeyLine(other.PublicKey())})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = trust.CheckForTest(stranger, "orpheum-test-v1", vectorPayload, vectorSignature); !errors.Is(
-		err, trust.ErrUntrustedKey) {
-		t.Fatalf("a key outside the set: %v, want ErrUntrustedKey", err)
+	for name, check := range map[string]error{
+		"another namespace": trust.VerifyForTest(vectorSignature, trust.NamespaceRelease, vectorPayload, false, key),
+		"a byte changed":    trust.VerifyForTest(vectorSignature, "orpheum-test-v1", vectorPayload+" ", false, key),
+		"another key": trust.VerifyForTest(vectorSignature, "orpheum-test-v1", vectorPayload, false,
+			trusttest.PlainKey(t, "x").PublicKey()),
+		// A plain key cannot say its PIN was given: one that must cannot sign.
+		"a user-verified key": trust.VerifyForTest(vectorSignature, "orpheum-test-v1", vectorPayload, true, key),
+	} {
+		if check == nil {
+			t.Errorf("%s: taken", name)
+		}
 	}
 }
 
-func TestSign_AHardwareKeysSignatureHoldsAndAKeyOfAnotherTypeIsRefused(t *testing.T) {
+// A hardware key marked uv signs only with the user-verified flag set, which Orpheum checks itself, as
+// neither x/crypto nor ssh-keygen does (D393 §3); a key of a type the design does not take signs
+// nothing.
+func TestVerify_AKeyMarkedUVSignsOnlyWithItsPIN(t *testing.T) {
 	t.Parallel()
-	hardware := newSKKey(t)
-	pinned, err := trust.Anchor(1, []string{trust.KeyLine(hardware.PublicKey())})
-	if err != nil {
-		t.Fatal(err)
+	withPIN, withoutPIN := trusttest.HardwareKey(t, "e1"), trusttest.HardwareKeyWithoutPIN(t, "e2")
+	payload := "orpheum-signed release 1\n"
+	signed := trusttest.Sign(t, trust.NamespaceRelease, []byte(payload), withPIN)
+	if err := trust.VerifyForTest(signed.Signature, trust.NamespaceRelease, payload, true,
+		withPIN.PublicKey()); err != nil {
+		t.Errorf("a signature with the PIN: %v", err)
 	}
-	signed, err := trust.Sign(hardware, trust.KindReleaseRecord, []byte(`{"latest":"v1.0.0"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pinned.OpenRecord(signed); err != nil {
-		t.Fatalf("an sk-ssh-ed25519 key's record: %v", err)
+	unverified := trusttest.Sign(t, trust.NamespaceRelease, []byte(payload), withoutPIN)
+	if err := trust.VerifyForTest(unverified.Signature, trust.NamespaceRelease, payload, true,
+		withoutPIN.PublicKey()); !errors.Is(err, trust.ErrNotUserVerified) {
+		t.Errorf("a signature without the PIN: %v; want ErrNotUserVerified", err)
 	}
 	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -86,204 +80,78 @@ func TestSign_AHardwareKeysSignatureHoldsAndAKeyOfAnotherTypeIsRefused(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = trust.Anchor(1, []string{trust.KeyLine(ecSigner.PublicKey())}); !errors.Is(err, trust.ErrKeyType) {
-		t.Fatalf("a software ECDSA root key: %v, want ErrKeyType", err)
-	}
-	if _, err = trust.Sign(ecSigner, trust.KindReleaseRecord, []byte("{}")); !errors.Is(err, trust.ErrKeyType) {
-		t.Fatalf("signing with a software ECDSA key: %v, want ErrKeyType", err)
+	if _, err = trust.ParseKey(strings.TrimSpace(string(ssh.MarshalAuthorizedKey(ecSigner.PublicKey())))); !errors.Is(
+		err, trust.ErrKeyType) {
+		t.Errorf("a software ECDSA key: %v; want ErrKeyType", err)
 	}
 }
 
-func TestAnchor_AnEmptySetIsRefusedNeverTrusted(t *testing.T) {
+// The format is strict text: LF lines, the header first, keys in order, repeated only where they may;
+// an unknown line is skipped unless it is critical, and a format number this build does not know is
+// refused (§3.1).
+func TestParse_TheFormatIsStrictAndAnUnknownCriticalLineRefuses(t *testing.T) {
 	t.Parallel()
-	if _, err := trust.Anchor(1, nil); !errors.Is(err, trust.ErrNoRootKeys) {
-		t.Fatalf("an empty anchor: %v, want ErrNoRootKeys", err)
+	schema := trust.Schema{Type: "release", Format: 1, Fields: []trust.Field{
+		{Name: "id", IsRequired: true}, {Name: "image", IsRepeated: true},
+	}}
+	good := "orpheum-signed release 1\nid op1-x\nfuture yes\nimage a\nimage b\n"
+	lines, err := schema.Parse([]byte(good))
+	if err != nil || lines.One("id") != "op1-x" || len(lines["image"]) != 2 || lines["future"] != nil {
+		t.Fatalf("a good payload: %v, %v", lines, err)
 	}
-	if _, err := trust.Anchor(1, []string{"not a key"}); err == nil {
-		t.Fatal("a line that is no key was taken")
-	}
-}
-
-func TestFirstUse_TakesASelfSignedSetAndCatchesUpThroughEachLaterOne(t *testing.T) {
-	t.Parallel()
-	first, firstLine := newKey(t)
-	second, secondLine := newKey(t)
-	third, thirdLine := newKey(t)
-	sets := []trust.Signed{
-		rootSet(t, first, 1, firstLine, secondLine),
-		// Several versions on, in any order: each signed by a key of the set before it.
-		rootSet(t, third, 3, thirdLine),
-		rootSet(t, second, 2, secondLine, thirdLine),
-	}
-	pinned, err := trust.FirstUse(sets)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pinned.Version != 3 || len(pinned.Keys) != 1 || pinned.Keys[0] != thirdLine {
-		t.Fatalf("caught up to %+v, want version 3 of the third key alone", pinned)
-	}
-	stranger, strangerLine := newKey(t)
-	if _, err = trust.FirstUse([]trust.Signed{rootSet(t, stranger, 1, firstLine)}); !errors.Is(
-		err, trust.ErrNotTheFirstSet) {
-		t.Fatalf("a first set its own keys did not sign: %v, want ErrNotTheFirstSet", err)
-	}
-	_ = strangerLine
-}
-
-func TestAdvance_ASetSignedByAKeyNoLongerInTheSetIsRefused(t *testing.T) {
-	t.Parallel()
-	kept, keptLine := newKey(t)
-	stolen, stolenLine := newKey(t)
-	pinned, err := trust.FirstUse([]trust.Signed{rootSet(t, kept, 1, keptLine, stolenLine)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The stolen key removed by the one kept, then signing a set of its own.
-	pinned, err = pinned.Advance([]trust.Signed{rootSet(t, kept, 2, keptLine)})
-	if err != nil || pinned.Version != 2 {
-		t.Fatalf("the removal: %+v, %v", pinned, err)
-	}
-	after, err := pinned.Advance([]trust.Signed{rootSet(t, stolen, 3, stolenLine)})
-	if !errors.Is(err, trust.ErrUntrustedKey) || after.Version != 2 {
-		t.Fatalf("a set the removed key signed: %+v, %v; want version 2 kept and ErrUntrustedKey", after, err)
-	}
-	// One added by a key of the set is taken.
-	added, addedLine := newKey(t)
-	pinned, err = pinned.Advance([]trust.Signed{rootSet(t, kept, 4, keptLine, addedLine)})
-	if err != nil || len(pinned.Keys) != 2 {
-		t.Fatalf("an added key: %+v, %v", pinned, err)
-	}
-	if _, err = pinned.OpenRecord(sign(t, added, trust.KindReleaseRecord, "{}")); err != nil {
-		t.Fatalf("the added key's record: %v", err)
-	}
-}
-
-func TestOpenDocument_AnOnlineKeySignsOnlyForItsIssuerAndWhileItsDelegationLasts(t *testing.T) {
-	t.Parallel()
-	root, rootLine := newKey(t)
-	online, onlineLine := newKey(t)
-	pinned, err := trust.Anchor(1, []string{rootLine})
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.UnixMilli(1_800_000_000_000)
-	delegation := sign(t, root, trust.KindDelegation, mustJSON(t, trust.Delegation{
-		Key: onlineLine, Issuer: "https://discovery.example", NotBefore: now.Add(-time.Hour).UnixMilli(),
-		NotAfter: now.Add(time.Hour).UnixMilli(),
-	}))
-	document := sign(t, online, trust.KindAddressDocument, `{"issuer":"https://discovery.example"}`)
-	document.Delegation = &delegation
-	if _, err = pinned.OpenDocument(document, "https://discovery.example", now); err != nil {
-		t.Fatalf("a document the delegated key signed: %v", err)
-	}
-	for name, check := range map[string]func() error{
-		"another issuer": func() error {
-			_, openErr := pinned.OpenDocument(document, "https://other.example", now)
-			return openErr
-		},
-		"after it ends": func() error {
-			_, openErr := pinned.OpenDocument(document, "https://discovery.example", now.Add(2*time.Hour))
-			return openErr
-		},
-		"a record": func() error {
-			_, openErr := pinned.OpenRecord(document)
-			return openErr
-		},
+	for text, want := range map[string]error{
+		"orpheum-signed release 1\r\nid x\n":          trust.ErrNotStrict,
+		"orpheum-signed release 1\nid x":              trust.ErrNotStrict,
+		"orpheum-signed release 1\nid x \n":           trust.ErrNotStrict,
+		"orpheum-signed release 1\n\nid x\n":          trust.ErrNotStrict,
+		"orpheum-signed release 1\nid\tx\n":           trust.ErrNotStrict,
+		"orpheum-signed release 2\nid x\n":            trust.ErrUnknownFormat,
+		"orpheum-signed address 1\nid x\n":            trust.ErrWrongType,
+		"orpheum-signed release 1\nid x\n!future y\n": trust.ErrCritical,
+		"orpheum-signed release 1\nimage a\nid x\n":   trust.ErrOutOfOrder,
+		"orpheum-signed release 1\nid x\nid y\n":      trust.ErrOutOfOrder,
+		"orpheum-signed release 1\nimage a\n":         trust.ErrMissingLine,
 	} {
-		if err = check(); err == nil {
-			t.Errorf("%s: taken", name)
+		if _, parseErr := schema.Parse([]byte(text)); !errors.Is(parseErr, want) {
+			t.Errorf("%q: %v; want %v", text, parseErr, want)
 		}
 	}
-	// A delegation the online key made itself holds nothing.
-	selfMade := sign(t, online, trust.KindDelegation, delegation.Payload)
-	document.Delegation = &selfMade
-	if _, err = pinned.OpenDocument(document, "https://discovery.example", now); !errors.Is(err, trust.ErrDelegation) {
-		t.Fatalf("a delegation no root key signed: %v, want ErrDelegation", err)
-	}
-	// A root key signs a document itself, with no delegation.
-	if _, err = pinned.OpenDocument(sign(t, root, trust.KindAddressDocument, "{}"), "https://discovery.example",
-		now); err != nil {
-		t.Fatalf("a document a root key signed: %v", err)
-	}
 }
 
-// newKey is a plain Ed25519 key, and its public half's line.
-func newKey(t *testing.T) (ssh.Signer, string) {
-	t.Helper()
-	_, private, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
+// A chain's id is its genesis' hash, od1- or op1-, and its genesis is signed by one of its own keys;
+// a state kept is taken again only from the genesis of the id pinned (D393 §4; §3.3).
+func TestGenesis_TheIdIsTheGenesisHashAndAStateIsCheckedAgainFromIt(t *testing.T) {
+	t.Parallel()
+	chain, everyday, _ := trusttest.NewDiscovery(t)
+	held := chain.Follower(t)
+	if !strings.HasPrefix(held.ID(), "od1-") || held.ID() != chain.ID() || len(held.ID()) != len("od1-")+52 {
+		t.Errorf("the id %q", held.ID())
 	}
-	signer, err := ssh.NewSignerFromKey(private)
-	if err != nil {
-		t.Fatal(err)
+	next, root := chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "e2")}},
+		everyday)
+	chain.Take(next, root)
+	loaded, err := trust.Load(trust.ChainDiscovery, chain.ID(), chain.Statements)
+	if err != nil || loaded.Version() != 2 {
+		t.Fatalf("the state loaded: %v, %v", loaded.Version(), err)
 	}
-	return signer, trust.KeyLine(signer.PublicKey())
-}
-
-// rootSet is a statement of version's set of keys, signed by signer.
-func rootSet(t *testing.T, signer ssh.Signer, version int64, keys ...string) trust.Signed {
-	t.Helper()
-	return sign(t, signer, trust.KindRootSet, mustJSON(t, trust.RootSet{Version: version, Keys: keys}))
-}
-
-func sign(t *testing.T, signer ssh.Signer, kind trust.Kind, payload string) trust.Signed {
-	t.Helper()
-	signed, err := trust.Sign(signer, kind, []byte(payload))
-	if err != nil {
-		t.Fatal(err)
+	other, _, _ := trusttest.NewDiscovery(t)
+	if _, err = trust.Load(trust.ChainDiscovery, other.ID(), chain.Statements); !errors.Is(
+		err, trust.ErrNotTheIdentity) {
+		t.Errorf("another identity's state: %v; want ErrNotTheIdentity", err)
 	}
-	return signed
-}
-
-func mustJSON(t *testing.T, value any) string {
-	t.Helper()
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		t.Fatal(err)
+	// A state whose statement was changed after it was kept does not load.
+	tampered := chain.Statements
+	tampered[1].Payload = strings.Replace(tampered[1].Payload, "version 2", "version 3", 1)
+	if _, err = trust.Load(trust.ChainDiscovery, chain.ID(), tampered); err == nil {
+		t.Error("a tampered state loaded")
 	}
-	return string(encoded)
-}
-
-// skKey is a hardware key's Ed25519 as a YubiKey signs with it (sk-ssh-ed25519@openssh.com), made in
-// software: the signature is over the application's hash, the flags, the counter and the message's
-// hash (OpenSSH's PROTOCOL.u2f).
-type skKey struct {
-	private ed25519.PrivateKey
-	public  ssh.PublicKey
-}
-
-// skApplication is the application `ssh-keygen -O application=ssh:orpheum` gives a key.
-const skApplication = "ssh:orpheum"
-
-func newSKKey(t *testing.T) *skKey {
-	t.Helper()
-	public, private, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
+	stranger := trusttest.HardwareKey(t, "x")
+	forged := trusttest.SignRoot(t, trust.ChainDiscovery, chain.Last, stranger)
+	forged.Payload = chain.Statements[0].Payload
+	if _, err = trust.Genesis(trust.ChainDiscovery, forged); !errors.Is(err, trust.ErrNotGenesis) {
+		t.Errorf("a genesis none of its keys signed: %v; want ErrNotGenesis", err)
 	}
-	wire := ssh.Marshal(struct {
-		Type        string
-		Key         []byte
-		Application string
-	}{ssh.KeyAlgoSKED25519, public, skApplication})
-	parsed, err := ssh.ParsePublicKey(wire)
-	if err != nil {
-		t.Fatal(err)
+	if _, err = trust.Genesis(trust.ChainPublisher, chain.Statements[0]); !errors.Is(err, trust.ErrNotTheChain) {
+		t.Errorf("a discovery's genesis as a publisher's: %v; want ErrNotTheChain", err)
 	}
-	return &skKey{private: private, public: parsed}
-}
-
-func (key *skKey) PublicKey() ssh.PublicKey { return key.public }
-
-func (key *skKey) Sign(_ io.Reader, data []byte) (*ssh.Signature, error) {
-	const userPresent = 0x01
-	application := sha256.Sum256([]byte(skApplication))
-	message := sha256.Sum256(data)
-	counter := binary.BigEndian.AppendUint32(nil, 1)
-	signed := append(append(append(application[:], userPresent), counter...), message[:]...)
-	return &ssh.Signature{
-		Format: ssh.KeyAlgoSKED25519, Blob: ed25519.Sign(key.private, signed),
-		Rest: append([]byte{userPresent}, counter...),
-	}, nil
 }

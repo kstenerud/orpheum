@@ -37,7 +37,7 @@ func TestStep_AFailedCallWaitsLongerEachTimeInARowAndASuccessStartsOver(t *testi
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	failing := func(isFailing bool) {
@@ -113,7 +113,7 @@ func TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond(t *testing.T)
 	t.Parallel()
 	built := newWorld(t)
 	built.service.parts.Answerer = &answering{}
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -148,7 +148,7 @@ func TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond(t *testing.T)
 func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan time.Time, stop func()) {
 	t.Helper()
 	built.service.parts.Answerer = &answering{}
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -263,7 +263,9 @@ func TestConnect_TwoAtOnceEnrolOnce(t *testing.T) {
 	var connecting sync.WaitGroup
 	errs := make([]error, 2)
 	for index := range errs {
-		connecting.Go(func() { _, errs[index] = built.service.Connect(t.Context(), built.issuer) })
+		connecting.Go(func() {
+			_, errs[index] = built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID())
+		})
 	}
 	connecting.Wait()
 	built.fake.mutex.Lock()
@@ -288,7 +290,7 @@ func TestSession_LastsAsLongAsTheDiscoverySaysCountedOnTheCoresOwnClock(t *testi
 	built.fake.mutex.Lock()
 	built.fake.sessionLasts = int64((sessionMargin + 2*heartbeatEvery - time.Minute) / time.Second)
 	built.fake.mutex.Unlock()
-	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -316,7 +318,7 @@ func TestSignal_ACoreNewlyClaimedDialsAtOnce(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	built.service.parts.Answerer = &answering{}
-	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
 		t.Fatal(err)
 	}
 	dials := make(chan time.Time, 8)

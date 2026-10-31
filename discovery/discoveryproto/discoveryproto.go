@@ -212,6 +212,12 @@ type AddressesRequest struct {
 	// A discovery judges a device asking from one at home (IsInHouseNetworks), for the LAN path's place
 	// alone, and never returns them to a client (D356 §3, §5, §9).
 	HouseNetworks []HouseNetwork `json:"houseNetworks,omitempty"`
+	// RootVersion is the version of the discovery's root chain the core holds, and RootHash its
+	// statement's SHA-256 in hexadecimal: the operator sees a core holding another statement of a
+	// version than the one published, which two statements of one version would make (the root key
+	// audit's F17; D393 §8).
+	RootVersion int64  `json:"rootVersion,omitempty"`
+	RootHash    string `json:"rootHash,omitempty"`
 }
 
 // ProbeResult is what the discovery's outside probe found of one candidate, each part a field of its

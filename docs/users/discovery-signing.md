@@ -1,114 +1,103 @@
-# Signing for a discovery with YubiKeys
+# Signing for a discovery and for releases, with YubiKeys
 
-A discovery is known by a set of root keys, not by its names (D391 §2): a core trusts its address
-document and its release record only when a key of the set signed them. Any one key of the set signs
-anything, the set's own change included; the others are spares against a loss. This guide is for a
-discovery's owner: the paid service's, whose three keys live on three YubiKeys, or an own discovery's,
-whose set may be one key.
+A discovery is known by its root chain, not by its names (D391, corrected by D393 on the
+[root key audit](../contributors/design/research/root-key-audit-2026-10-31.md)): a core trusts its
+address document only when a key of the chain signed it, and Orpheum's releases are signed under a
+second chain, the publisher's, compiled into every binary. Each chain has two tiers of keys, each
+signature one key:
 
-Everything here runs on the owner's own computer, with OpenSSH 8.2 or newer (`ssh -V`) and the
-Orpheum source (`go run ./cmd/discovery-sign`). No private key leaves a YubiKey.
+- **Everyday keys** (`e1` carried, `e2` at home) sign address documents, release records, and root
+  statements that change the everyday tier alone.
+- **Recovery keys** (`r1` in a bank, `r2` at a second site) sign anything, alone change the recovery
+  tier, thresholds and roles, and may skip versions past a thief's statements.
 
-## Once per YubiKey: make its key
+Keys of both tiers are added and removed by a signed root statement. A key removed stays named
+removed for good, and a key that leaves the set has the new set sign too. The owner's same
+YubiKeys hold both chains under separate keys. An own discovery's operator may have one key, listed
+once per tier.
 
-Plug in one YubiKey and run:
+Everything here runs on the owner's Mac with OpenSSH 8.2 or newer and the Orpheum source. The tool,
+`go run ./cmd/discovery-sign`, writes each payload and says the `ssh-keygen` command that signs it;
+you run that command (one touch, one PIN), then `check`, which checks the signature with the code a
+core uses, keeps both in your **ledger** (a private git repository, on nas.example), and writes the files
+to publish. Root keys are never loaded into `ssh-agent`.
 
-```sh
-ssh-keygen -t ed25519-sk -O resident -O application=ssh:orpheum -O verify-required \
-  -C "orpheum root 1" -f ~/.ssh/orpheum-root-1
-```
+## Day one (the audit's §4)
 
-- `ed25519-sk` makes the key on the YubiKey (YubiKey firmware 5.2.3 or later). An older one
-  takes `-t ecdsa-sk` instead; both are accepted.
-- `-O resident` keeps the key's handle on the YubiKey, so any computer can load it later with
-  `ssh-keygen -K` or `ssh-add -K`: nothing on this computer is needed to sign again.
-- `-O application=ssh:orpheum` names it, so it is told apart from other SSH keys on the same YubiKey.
-- `-O verify-required` asks for the YubiKey's PIN as well as a touch for every signature. Set a PIN
-  first if it has none (`ykman fido access change-pin`).
+1. **Check the tokens.** `ykman info` on each: firmware 5.2.3 or later (5.7 or later preferred);
+   note the serial numbers.
+2. **Set a distinct FIDO2 PIN on each** (`ykman fido access change-pin`), 8 characters or more.
+3. **Make each credential**, one per key and per chain (`e1`, `e2`, `r1`; then `pe1`, `pe2`, `pr1`
+   for the publisher), for example:
 
-Do the same for the second and third YubiKey, with `-C "orpheum root 2"` and `-f
-~/.ssh/orpheum-root-2`, and so on. Each `.pub` file is the public key: it is what goes into the root
-key set, and, for the paid service, into Orpheum itself.
+   ```sh
+   ssh-keygen -t ed25519-sk -O resident -O verify-required -O application=ssh:orpheum-root \
+     -O user=e1 -O write-attestation=e1.att -C e1 -f orpheum-root-e1
+   ```
 
-Keep one YubiKey with you, one at home and one in a bank: any one signs.
+   `-O verify-required` makes every signature carry the PIN's user-verified flag, which a core
+   checks; `-O resident` lets any computer get the key's stub back with `ssh-keygen -K`. Keep the
+   attestation files.
+4. **Make the second recovery key** `r2`: a fourth YubiKey the same way, or on an offline machine a
+   plain `ssh-keygen -t an earlier commit -a 200 -C r2 -f orpheum-root-r2` with a long passphrase, printed and the
+   file destroyed.
+5. **Record the fingerprints** (`ssh-keygen -lf orpheum-root-*.pub`) on paper, with each key.
+6. **Write each genesis:**
 
-## The first root key set
+   ```sh
+   go run ./cmd/discovery-sign genesis --ledger ~/ledger --chain discovery \
+     --everyday orpheum-root-e1.pub --everyday orpheum-root-e2.pub \
+     --recovery orpheum-root-r1.pub --recovery orpheum-root-r2.pub --location https://<issuer>
+   ```
 
-```sh
-eval "$(ssh-agent)"     # if no agent runs
-ssh-add -K              # touch the YubiKey: loads its resident keys into the agent
-go run ./cmd/discovery-sign root-set --sets root-sets.json \
-  --add ~/.ssh/orpheum-root-1.pub --add ~/.ssh/orpheum-root-2.pub --add ~/.ssh/orpheum-root-3.pub
-```
+   and the same with `--chain publisher` and the publisher's keys. Read every line it shows.
+7. **Sign each genesis with every key** (one is enough; every one proves each key and PIN work),
+   appending each signature to the same `.sig`:
 
-It writes `root-sets.json`, the chain of the set's statements, signed by whichever of the set's keys
-the agent holds (touch it when it blinks), and prints the keys' fingerprints. Keep the file with the
-discovery's deployment, and in the repository of whoever runs it: every later step reads it.
+   ```sh
+   ssh-keygen -Y sign -n orpheum-discovery-root-v1 -f orpheum-root-e1 ~/ledger/pending/discovery-root-1
+   ```
 
-**For the paid service only:** put the three `.pub` lines into `RootKeys` in
-`internal/core/discovery/suggested.go`. Until they are there, a core refuses to enrol with the
-suggested discovery, saying it does not know its keys.
+   then `go run ./cmd/discovery-sign check --ledger ~/ledger --kind root --payload
+   ~/ledger/pending/discovery-root-1`, and for the publisher `-n orpheum-publisher-root-v1` and
+   `--chain publisher`. Verify each on a second machine with `ssh-keygen -Y verify`.
+8. **Drill each key:** `discovery-sign drill --chain discovery`, sign with each key in namespace
+   `orpheum-drill-v1`, then `check --kind drill`: it names each key that signed.
+9. **Put the genesis statements in Orpheum:** each `root/1` payload and its `.sig`, verbatim, into
+   `Suggested().Genesis` and `Publisher().Genesis` in `internal/core/discovery/suggested.go`; commit
+   with the identities (`od1-…`, `op1-…`) and fingerprints in the message.
+10. **Publish:** `discovery-sign address …` then sign it with an everyday key (namespace
+    `orpheum-discovery-address-v1`) and `check --kind address --publish <dir>`; copy `<dir>` to every
+    place. Write the install's bootstrap with `discovery-sign bootstrap --out install --location
+    https://<publisher place>` and publish it with the SHA-256 it prints.
+11. **Start the watcher** on nas.example every 15 minutes: `go run ./cmd/discovery-watch --expected
+    ~/ledger/expected --place https://<each place>`; a non-zero exit is an alert.
+12. **Distribute the keys:** `e1` carried, `e2` at home, `r1` to the bank, `r2` to its own site.
 
-## Losing, replacing or adding a key
+Every year: sign a drill with each key, and sign the address document again before it expires.
 
-Plug in any YubiKey of the set that remains, then:
+## Rotations (the audit's §3.6)
 
-```sh
-ssh-add -K
-go run ./cmd/discovery-sign root-set --sets root-sets.json \
-  --remove ~/.ssh/orpheum-root-1.pub --add ~/.ssh/orpheum-root-4.pub
-```
+Each is a `root` command; it shows the statement and who must sign it.
 
-It writes the next version of the set, signed by the key at hand, and adds it to the chain. Then
-sign the address document again (below), so every discovery serves the new chain: a core catches up
-from any version it holds, one set after another. The rules for a removed key and for two sets of
-one version are being settled by an outside audit (D391 §2); until then a removed key signs no later
-set, but is not otherwise remembered.
+| Event | Command | Signs |
+| --- | --- | --- |
+| `e1` lost or broken | `root --chain discovery --remove e1.pub --add-everyday e3.pub` | `e2`, and `e3` too |
+| `e1` stolen, PIN safe | the same, at once | `e2`, and `e3` |
+| `e1` stolen with its PIN | `root --chain discovery --skip 1000 --remove e1.pub --remove <each key the thief added> --add-everyday e3.pub` | `r1` (or `r2`), and `e3` |
+| both everyday keys lost | `root --chain discovery --remove e1.pub --remove e2.pub --add-everyday e3.pub --add-everyday e4.pub` | `r1` |
+| `r1` lost | `root --chain discovery --remove r1.pub --add-recovery r3.pub` | `r2`, and `r3` |
+| `r1` stolen with its PIN | the same, at once, with `--skip 1000` if the thief signed a statement | `r2`, and `r3` |
+| all keys lost | a new `genesis`: a new identity; every admin enrols again, and installs a release by hand | nothing can |
 
-## The address document
+The watcher names each statement a thief made and the keys it added. After any rotation: sign the
+address document and the release record again under the new version (`address`, `release-record`
+with `--root-version`), publish at every place, check the watcher shows every place consistent, and
+look for cores whose heartbeat names an older root version.
 
-```sh
-go run ./cmd/discovery-sign document --sets root-sets.json --out orpheum-discovery.json \
-  --issuer discovery.example \
-  --core-api https://api.discovery.example/core/v1 --client-api https://api.discovery.example/client/v1 \
-  --loader https://discovery.example --client-origins 'https://{core}.client.example' \
-  --homepage https://about.example --location https://mirror.example/discovery
-```
+## Releases
 
-Serve the file at `/.well-known/orpheum-discovery` at the issuer and at each `--location`
-(`discovery/single` serves it from its `AddressDocument` file). Signing again with a later time moves
-every core to the new addresses within the hour. A running discovery may sign its own documents with
-an online key a root key authorised for a time:
-
-```sh
-go run ./cmd/discovery-sign delegation --sets root-sets.json --issuer discovery.example \
-  --key online.pub --for 2160h --out delegation.json
-```
-
-## The release record
-
-The release workflow writes the unsigned record (`go run ./cmd/release-record`, which prints the
-next step). Sign it:
-
-```sh
-ssh-add -K
-go run ./cmd/discovery-sign record --sets root-sets.json --record release.json --out release.signed.json
-```
-
-Publish `release.signed.json` with the release, and put it where each discovery serves it, at
-`/.well-known/orpheum-release-record`.
-
-## Without the agent
-
-`ssh-keygen` signs by hand, and `discovery-sign seal` puts the signature with what it signed,
-checking it first:
-
-```sh
-ssh-keygen -Y sign -n orpheum-release-record-v1 -f ~/.ssh/orpheum-root-2 release.json
-go run ./cmd/discovery-sign seal --sets root-sets.json --kind orpheum-release-record-v1 \
-  --payload release.json --signature release.json.sig --out release.signed.json
-```
-
-On a new computer, `ssh-keygen -K` writes the YubiKey's resident key's handle and `.pub` into the
-current directory, for `-f`. An operator with no hardware key uses a plain `ssh-keygen -t an earlier commit
-key: `--key-file` names it, if it has no passphrase, or `ssh-add` loads it.
+The release workflow writes the unsigned record (`go run ./cmd/release-record`); check its digest,
+then sign with an everyday key of the publisher chain, namespace `orpheum-release-v1`, and `check
+--kind release --publish <dir>`. A version's digest never changes: a rebuilt release takes a new
+version, and `check` refuses a record that changes one.

@@ -7,7 +7,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"strings"
 
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
@@ -26,24 +25,23 @@ const (
 )
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
-// discoveryproto's Purpose constants), the discovery's issuer, the origin its address document is
-// served at and the core enrolled by (discovery/addressdoc), without a trailing slash, the core (its
-// id, or before it has one KeyLabel of its public key), and the discovery's nonce. Bound so, a
-// discovery cannot pass another's challenge to the core and come away with a session there, nor one
-// core's signature serve another (the protocol's §2.1; C8, X12); bound to the issuer, not the URL
-// the core calls, the discovery's API moves by a new document without the core enrolling again
-// (D391 §4).
-func Message(purpose, issuer, core, nonce string) []byte {
-	return []byte(prefix + purpose + ":" + strings.TrimSuffix(issuer, "/") + ":" + core + ":" + nonce)
+// discoveryproto's Purpose constants), the discovery's identity, its root chain's id ("od1-…",
+// discovery/trust), the core (its id, or before it has one KeyLabel of its public key), and the
+// discovery's nonce. Bound so, a discovery cannot pass another's challenge to the core and come away
+// with a session there, nor one core's signature serve another (the protocol's §2.1; C8, X12); bound
+// to the identity, which lasts the discovery's life, not to a name or URL, its addresses move by a new
+// document without the core enrolling again (the root key audit's F14; D393 §4).
+func Message(purpose, identity, core, nonce string) []byte {
+	return []byte(prefix + purpose + ":" + identity + ":" + core + ":" + nonce)
 }
 
 // Verify is whether signature is publicKey's over Message's fields. A key of the wrong size is no
 // key: it verifies nothing.
-func Verify(publicKey ed25519.PublicKey, purpose, issuer, core, nonce string, signature []byte) bool {
+func Verify(publicKey ed25519.PublicKey, purpose, identity, core, nonce string, signature []byte) bool {
 	if len(publicKey) != ed25519.PublicKeySize {
 		return false
 	}
-	return ed25519.Verify(publicKey, Message(purpose, issuer, core, nonce), signature)
+	return ed25519.Verify(publicKey, Message(purpose, identity, core, nonce), signature)
 }
 
 // Answer is a WebRTC answer as the core signs it: the core's id, the offer's id, the fingerprint the

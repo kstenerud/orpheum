@@ -1953,6 +1953,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/discovery/identify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a discovery's issuer shows: its identity and name, to compare before enrolling (admin; D393 §4) */
+        post: operations["identifyDiscovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/reachability": {
         parameters: {
             query?: never;
@@ -2736,6 +2753,8 @@ export interface components {
             remedy?: string;
         };
         ConnectDiscoveryInputBody: {
+            /** @description The discovery's identity, od1-...; needed for any but the suggested one */
+            identity?: string;
             /** @description The discovery's issuer, the name typed: "discovery.example" or its https origin */
             issuer: string;
             /** @description The admin's own password */
@@ -2871,11 +2890,16 @@ export interface components {
             deprecatedUntil?: string;
             /**
              * Format: int64
-             * @description Unix milliseconds the address document held was made; 0 when none is
+             * @description Unix milliseconds the address document held was issued; 0 when none is
              */
             documentAt: number;
-            /** @description Why the last look for a newer address document found none that holds; empty when it did not fail */
+            /** @description What the last look at the discovery's places found wrong: a conflict of root statements, equivocation, a document no longer signed */
             documentProblem?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds the address document held expired, since when the server cannot confirm its addresses are current; 0 while current
+             */
+            documentStaleAt?: number;
             /** @description The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest */
             fingerprint: string;
             /** @description The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it */
@@ -2883,10 +2907,14 @@ export interface components {
             /** @description What the discovery is, as its address document names it */
             homepage?: string;
             houseNetworks: components["schemas"]["HouseNetworkBody"][] | null;
+            /** @description The discovery's identity, its root chain's genesis hash (od1-...), which the server's signatures are bound to (D393 §4) */
+            identity?: string;
             /** @description Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6) */
             isHomeAddressReady: boolean;
             /** @description The discovery's issuer, the origin the server was enrolled by; empty when it is enrolled with none (D391 §3) */
             issuer: string;
+            /** @description Whether the discovery is the one this build suggests, the known Orpheum service */
+            isSuggested: boolean;
             /**
              * Format: int64
              * @description Unix milliseconds; 0 before the first
@@ -2894,6 +2922,8 @@ export interface components {
             lastHeartbeatAt: number;
             /** @description Where the discovery serves the loader, as its address document names it */
             loaderOrigin?: string;
+            /** @description What the discovery's address document calls it */
+            name?: string;
             portMapping: components["schemas"]["PortMappingBody"];
             probe: components["schemas"]["DiscoveryProbeBody"][] | null;
             /** @description Why the last call to the discovery failed; empty when it did not */
@@ -2912,13 +2942,13 @@ export interface components {
              * @description Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not
              */
             removedAt: number;
-            /** @description The fingerprints of the discovery's root keys the server trusts, as ssh-keygen -l shows each (D391 §2) */
+            /** @description The discovery's root keys the server trusts, each its role and fingerprint as ssh-keygen -l shows it (D393 §1) */
             rootKeys: string[] | null;
             /**
              * Format: int64
-             * @description The version of that root key set
+             * @description The version of the discovery's root chain the server holds
              */
-            rootSetVersion: number;
+            rootVersion: number;
             /**
              * @description Absent before the discovery's first answer
              * @enum {string}
@@ -3290,6 +3320,18 @@ export interface components {
             expiresAt: number;
             urls: string[] | null;
             username: string;
+        };
+        IdentifiedDiscoveryOutputBody: {
+            /** @description The discovery's identity, od1-..., to compare with what its operator shows */
+            identity: string;
+            issuer: string;
+            /** @description Whether it is the discovery this build suggests, trusted from the root this build holds */
+            isSuggested: boolean;
+            name: string;
+        };
+        IdentifyDiscoveryInputBody: {
+            /** @description The discovery's issuer, the name typed */
+            issuer: string;
         };
         InAnotherSessionDetailBody: {
             /** @description The other session's host */
@@ -5181,7 +5223,7 @@ export interface components {
         UpdateBody: {
             /**
              * Format: int64
-             * @description Unix milliseconds the server's discovery last answered; 0 before it has
+             * @description Unix milliseconds a signed release record was last read; 0 before one has
              */
             checkedAt: number;
             /** @description What installs the update, run on the server's machine as the user who installed it (D314); empty with no update */
@@ -5190,7 +5232,14 @@ export interface components {
             digest?: string;
             /** @description The newest release, when it is newer than this server's; empty when it runs the latest or knows of none */
             latest?: string;
+            /** @description What the last reading of the release record found wrong, for the admin */
+            problem?: string;
             security?: components["schemas"]["SecurityFixBody"];
+            /**
+             * Format: int64
+             * @description Unix milliseconds the release record held expired, since when the server cannot confirm it knows of every fix; 0 while current
+             */
+            staleAt?: number;
             /** @description This server's version: a release's tag, or dev for a build of none, which knows of no update */
             version: string;
         };
@@ -10036,6 +10085,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiscoveryStatusBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    identifyDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentifyDiscoveryInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentifiedDiscoveryOutputBody"];
                 };
             };
             /** @description Error */
