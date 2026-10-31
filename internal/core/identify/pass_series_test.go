@@ -47,9 +47,9 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 	prisoner := "The Wanderer (1967)/The Wanderer - 01 - The Bells of Saint Quill.mkv"
 	featurette := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv"
 	episode := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Brindlewood.S05E01.mkv"
-	film := "Brackenmere/The Promised Land 2020/Brackenmere The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv"
-	wing1 := "Wing Vellmoor/Wing.Vellmoor.S01E01.1080p.x265-LANTERN/Wing.Vellmoor.S01E01.1080p.x265-LANTERN.mkv"
-	wing2 := "Wing Vellmoor/Wing.Vellmoor.S01E02.1080p.x265-LANTERN/Wing.Vellmoor.S01E02.1080p.x265-LANTERN.mkv"
+	film := "Grey Comet/The Promised Land 2020/Grey Comet The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv"
+	wing1 := "Arkon Horizon/Arkon.Horizon.S01E01.1080p.x265-LANTERN/Arkon.Horizon.S01E01.1080p.x265-LANTERN.mkv"
+	wing2 := "Arkon Horizon/Arkon.Horizon.S01E02.1080p.x265-LANTERN/Arkon.Horizon.S01E02.1080p.x265-LANTERN.mkv"
 	var records []nodeproto.ScanRecord
 	for _, path := range []string{prisoner, featurette, episode, film, wing1, wing2} {
 		records = append(records, videoRecord(path))
@@ -63,8 +63,8 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 		}
 	}
 	want := map[string]string{
-		prisoner: "The Wanderer", featurette: "Brindlewood", episode: "Brindlewood", film: "Brackenmere",
-		wing1: "Wing Vellmoor", wing2: "Wing Vellmoor",
+		prisoner: "The Wanderer", featurette: "Brindlewood", episode: "Brindlewood", film: "Grey Comet",
+		wing1: "Arkon Horizon", wing2: "Arkon Horizon",
 	}
 	for path, series := range want {
 		if got := seriesOf[titles[path].TitleID]; got != series {
@@ -72,24 +72,25 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 		}
 	}
 	if names := slices.Sorted(maps.Values(seriesOf)); len(slices.Compact(names)) != 4 {
-		t.Errorf("series %v; want The Wanderer, Brindlewood, Brackenmere and Wing Vellmoor alone", slices.Compact(names))
+		t.Errorf("series %v; want The Wanderer, Brindlewood, Grey Comet and Arkon Horizon alone", slices.Compact(names))
 	}
-	if name := titleName(titles[film]); name != "Brackenmere The Promised Land" {
+	if name := titleName(titles[film]); name != "Grey Comet The Promised Land" {
 		t.Errorf("the film made of the series is named %q; want its file's name, as a special", name)
 	}
 	if titles[wing1].TitleID == titles[wing2].TitleID {
-		t.Error("Wing Vellmoor's two episodes are one title")
+		t.Error("Arkon Horizon's two episodes are one title")
 	}
 }
 
 // Episodes an older reading of their folders put each in a series of its own, no one having
 // matched or confirmed them, are filed again in the one series their folders now name, though no
 // file moved: kept where they were, a rescan renamed each series back from the folders and left
-// Wing Vellmoor as six series of one name (the owner's NAS, 2026-10-13).
+// Arkon Horizon as six series of one name (the owner's NAS, 2026-10-13).
 func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "nfo")
-	first, second := "Wing Vellmoor/Season 1/Wing Vellmoor - S01E01.mkv", "Wing Vellmoor/Season 1/Wing Vellmoor - S01E02.mkv"
+	first := "Arkon Horizon/Season 1/Arkon Horizon - S01E01.mkv"
+	second := "Arkon Horizon/Season 1/Arkon Horizon - S01E02.mkv"
 	lib.scan(videoRecord(first), videoRecord(second))
 	titles := lib.titlesByPath()
 	seriesID := int64(0)
@@ -103,11 +104,11 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	storetest.ExecRaw(t, lib.database.Path(),
 		`INSERT INTO collection (id, kind, membership, created_by) VALUES (9001, 'series', 'explicit', 'scanner')`,
 		split(`INSERT INTO item_text (item_id, language, is_original, name)
-			SELECT 9001, language, is_original, 'Wing Vellmoor S01E02' FROM item_text WHERE item_id = %d`, seriesID),
+			SELECT 9001, language, is_original, 'Arkon Horizon S01E02' FROM item_text WHERE item_id = %d`, seriesID),
 		`INSERT INTO ordering (id, collection_id, name) VALUES (9001, 9001, 'aired')`,
 		split(`UPDATE position SET ordering_id = 9001 WHERE title_id = %d`, titles[second].TitleID),
 		split(`UPDATE collection_member SET collection_id = 9001 WHERE member_title = %d`, titles[second].TitleID),
-		split(`UPDATE item_text SET name = 'Wing Vellmoor S01E01' WHERE item_id = %d`, seriesID),
+		split(`UPDATE item_text SET name = 'Arkon Horizon S01E01' WHERE item_id = %d`, seriesID),
 	)
 	if seriesOf := lib.seriesOfEach(); seriesOf[titles[first].TitleID] == seriesOf[titles[second].TitleID] {
 		t.Fatal("the older reading's state was not built: the episodes share a series")
@@ -116,8 +117,8 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	after := lib.titlesByPath()
 	seriesOf := lib.seriesOfEach()
 	one, other := seriesOf[after[first].TitleID], seriesOf[after[second].TitleID]
-	if one != "Wing Vellmoor" || other != "Wing Vellmoor" {
-		t.Errorf("the episodes are in series %q and %q; want Wing Vellmoor", one, other)
+	if one != "Arkon Horizon" || other != "Arkon Horizon" {
+		t.Errorf("the episodes are in series %q and %q; want Arkon Horizon", one, other)
 	}
 	if lib.seriesIDOf(after[first].TitleID) != lib.seriesIDOf(after[second].TitleID) {
 		t.Error("the episodes are in two series of one name; want them in one")
@@ -127,8 +128,8 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(waiting) != 1 || ptr.ValueOrZero(waiting[0].Name) != "Wing Vellmoor" {
-		t.Errorf("waiting for a match: %+v; want Wing Vellmoor alone, the emptied series waiting for no one", waiting)
+	if len(waiting) != 1 || ptr.ValueOrZero(waiting[0].Name) != "Arkon Horizon" {
+		t.Errorf("waiting for a match: %+v; want Arkon Horizon alone, the emptied series waiting for no one", waiting)
 	}
 }
 

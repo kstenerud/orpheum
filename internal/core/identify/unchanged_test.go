@@ -22,7 +22,7 @@ func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", `<movie><title>Metropolis</title><year>1995</year></movie>`),
 		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
 		videoRecord("Metropolis (1995)/Metropolis (1995)-trailer.mkv"),
-		videoRecord("Wing (1979)/Wing (1979).mkv"),
+		videoRecord("Arkon (1979)/Arkon (1979).mkv"),
 		nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`),
 		videoRecord("Test Show/Season 01/Test Show - S01E01.mkv"),
 		videoRecord("Test Show/Season 01/Test Show - S01E02.mkv"),
@@ -48,8 +48,8 @@ func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 func TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
-	lib.provider.Searches[identifytest.SearchKey("Variety", 1994)] = []identify.Candidate{lib.provider.Add(leon)}
-	const rel = "Variety (1994)/Variety (1994).mkv"
+	lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{lib.provider.Add(theo)}
+	const rel = "Théo (1994)/Théo (1994).mkv"
 	lib.scan(videoRecord(rel))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s, want matched", outcome)

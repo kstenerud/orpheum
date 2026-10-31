@@ -178,19 +178,19 @@ func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 	twoOn := lib.provider.Add(identify.Metadata{ID: "3", Name: "The General", Year: 2004, RuntimeMs: 100 * minuteMs})
 	lib.provider.Searches[identifytest.SearchKey("The General", 2002)] = []identify.Candidate{yearOn, ofTheYear}
 	lib.provider.Searches[identifytest.SearchKey("The General", 2006)] = []identify.Candidate{twoOn}
-	lib.provider.Searches[identifytest.SearchKey("Quillfen", 2014)] = []identify.Candidate{
-		lib.provider.Add(identify.Metadata{ID: "16", Name: "Quillfen", Year: 2013, RuntimeMs: 140 * minuteMs}),
-		lib.provider.Add(identify.Metadata{ID: "17", Name: "Quillfen", Year: 2015, RuntimeMs: 98 * minuteMs}),
+	lib.provider.Searches[identifytest.SearchKey("Kestrel", 2014)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "16", Name: "Kestrel", Year: 2013, RuntimeMs: 140 * minuteMs}),
+		lib.provider.Add(identify.Metadata{ID: "17", Name: "Kestrel", Year: 2015, RuntimeMs: 98 * minuteMs}),
 	}
 	lib.provider.Searches[identifytest.SearchKey("Mirage", 2014)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "26", Name: "Mirage", Year: 2013, RuntimeMs: 140 * minuteMs}),
 		lib.provider.Add(identify.Metadata{ID: "27", Name: "Mirage", Year: 2015, RuntimeMs: 150 * minuteMs}),
 	}
 	lib.scan(videoLasting("The General (2002).mkv", 100*minuteMs), videoLasting("The General (2006).mkv", 100*minuteMs),
-		videoLasting("Quillfen (2014).mkv", 98*minuteMs), videoLasting("Mirage (2014).mkv", 98*minuteMs))
+		videoLasting("Kestrel (2014).mkv", 98*minuteMs), videoLasting("Mirage (2014).mkv", 98*minuteMs))
 	for rel, want := range map[string]identify.Outcome{
 		"The General (2002).mkv": identify.OutcomeMatched, "The General (2006).mkv": identify.OutcomeAmbiguous,
-		"Quillfen (2014).mkv": identify.OutcomeMatched, "Mirage (2014).mkv": identify.OutcomeAmbiguous,
+		"Kestrel (2014).mkv": identify.OutcomeMatched, "Mirage (2014).mkv": identify.OutcomeAmbiguous,
 	} {
 		if outcome := lib.matchFileTitle(rel); outcome != want {
 			t.Errorf("%s: outcome %s; want %s", rel, outcome, want)
@@ -199,24 +199,24 @@ func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 	if id, _ := lib.followed("The General (2002).mkv"); id != "1" {
 		t.Errorf("The General (2002) follows %s; want 1, of its year, both fitting", id)
 	}
-	if id, _ := lib.followed("Quillfen (2014).mkv"); id != "17" {
-		t.Errorf("Quillfen (2014) follows %s; want 17, a year off and fitting", id)
+	if id, _ := lib.followed("Kestrel (2014).mkv"); id != "17" {
+		t.Errorf("Kestrel (2014) follows %s; want 17, a year off and fitting", id)
 	}
 }
 
 // D365 §3 with D301 §1: with no year in the name, the oldest is taken where the runtimes do not
-// separate them (Disney's The Thief of Bagdad over a later one), and the fit comes first where they do.
+// separate them (Disney's Alcazar over a later one), and the fit comes first where they do.
 func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
-	disneys := lib.provider.Add(identify.Metadata{ID: "4812", Name: "The Thief of Bagdad", Year: 1992, RuntimeMs: 90 * minuteMs})
-	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "The Thief of Bagdad", Year: 2019, RuntimeMs: 128 * minuteMs})
+	disneys := lib.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992, RuntimeMs: 90 * minuteMs})
+	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019, RuntimeMs: 128 * minuteMs})
 	remake.Votes = 15000
-	lib.provider.Searches[identifytest.SearchKey("The Thief of Bagdad", 0)] = []identify.Candidate{remake, disneys}
+	lib.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
 	older := lib.provider.Add(identify.Metadata{ID: "30", Name: "Clarabel", Year: 1954, RuntimeMs: 113 * minuteMs})
 	newer := lib.provider.Add(identify.Metadata{ID: "31", Name: "Clarabel", Year: 1995, RuntimeMs: 127 * minuteMs})
 	lib.provider.Searches[identifytest.SearchKey("Clarabel", 0)] = []identify.Candidate{older, newer}
-	const sabrina, unprobed = "Clarabel.mkv", "The Thief of Bagdad.mkv"
+	const sabrina, unprobed = "Clarabel.mkv", "Alcazar.mkv"
 	lib.scan(videoLasting(sabrina, 127*minuteMs), videoLasting(unprobed, 0))
 	for _, each := range []struct{ rel, want, why string }{
 		{sabrina, "31", "the newer, whose runtime fits the file's, the older's contradicting it"},
@@ -228,10 +228,10 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 		}
 	}
 	both := newTestLibrary(t, "movies", "tmdb")
-	disneys = both.provider.Add(identify.Metadata{ID: "4812", Name: "The Thief of Bagdad", Year: 1992})
-	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "The Thief of Bagdad", Year: 2019})
+	disneys = both.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992})
+	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019})
 	remake.Votes = 15000
-	both.provider.Searches[identifytest.SearchKey("The Thief of Bagdad", 0)] = []identify.Candidate{remake, disneys}
+	both.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
 	both.scan(videoLasting(unprobed, 100*minuteMs))
 	both.matchFileTitle(unprobed)
 	if id, _ := both.followed(unprobed); id != "812" {

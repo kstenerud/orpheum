@@ -11,8 +11,8 @@ import (
 
 // A series is told when five or more of its episodes have no number outside a specials or extras
 // folder: a series whose unnumbered files are its DVD extras, by their folder or their own names,
-// or which has a few, is not (D306 §6; staging, 2026-10-16: Far Harbour Nine's 148 DVD extras, The
-// Pumbletons' special features and Brackenmere's three specials).
+// or which has a few, is not (D306 §6; staging, 2026-10-16: Far Orbit Seven's 148 DVD extras, The
+// Hendersons' special features and Grey Comet's three specials).
 func TestUnplacedOf_TellsASeriesWhoseEpisodesAmongItsSeasonsHaveNoNumber(t *testing.T) {
 	t.Parallel()
 	var rows []sqlcgen.ListUnnumberedEpisodeFilesRow
@@ -21,10 +21,10 @@ func TestUnplacedOf_TellsASeriesWhoseEpisodesAmongItsSeasonsHaveNoNumber(t *test
 			rows = append(rows, sqlcgen.ListUnnumberedEpisodeFilesRow{SeriesID: seriesID, SeriesName: name, Path: path})
 		}
 	}
-	add(1, "Quillwick", "/m/Quillwick/S01/Quillwick - 1x1.avi", "/m/Quillwick/S01/Quillwick - 1x2.avi",
-		"/m/Quillwick/S01/Quillwick - 1x3.avi", "/m/Quillwick/S01/Quillwick - 1x4.avi",
-		"/m/Quillwick/S01/Quillwick - 1x5.avi", "/m/Quillwick/Extras/Making of.avi")
-	add(2, "Far Harbour Nine", "/m/DS9/Season 1/DS9 - Season 1 - DVD Extras/A.mkv",
+	add(1, "Greywolf", "/m/Greywolf/S01/Greywolf - 1x1.avi", "/m/Greywolf/S01/Greywolf - 1x2.avi",
+		"/m/Greywolf/S01/Greywolf - 1x3.avi", "/m/Greywolf/S01/Greywolf - 1x4.avi",
+		"/m/Greywolf/S01/Greywolf - 1x5.avi", "/m/Greywolf/Extras/Making of.avi")
+	add(2, "Far Orbit Seven", "/m/DS9/Season 1/DS9 - Season 1 - DVD Extras/A.mkv",
 		"/m/DS9/Season 1/DS9 - Season 1 - DVD Extras/B.mkv", "/m/DS9/Season 1/DS9 - Season 1 - DVD Extras/C.mkv")
 	add(3, "Pilots", "/m/Pilots/Unaired Pilot.mkv", "/m/Pilots/Season 1/Second Pilot.mkv",
 		"/m/Pilots/Third/Third Pilot.mkv", "/m/Pilots/Fourth Pilot.mkv")
@@ -33,7 +33,7 @@ func TestUnplacedOf_TellsASeriesWhoseEpisodesAmongItsSeasonsHaveNoNumber(t *test
 		"/m/Springfield/S02/Music Video - Do the Dance.mkv", "/m/Springfield/S02/Music Video - Deep Water.mkv",
 		"/m/Springfield/S07/Season 7 Special Features - Deleted Scenes.mkv")
 	got := unplacedOf(rows)
-	want := []UnplacedEpisodes{{SeriesID: 1, SeriesName: "Quillwick", FileCount: 5}}
+	want := []UnplacedEpisodes{{SeriesID: 1, SeriesName: "Greywolf", FileCount: 5}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("unplacedOf = %+v, want %+v", got, want)
 	}

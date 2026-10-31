@@ -77,25 +77,25 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		}},
 		// A season pack's folder names a season, not a series: the folder above it names the series,
 		// or, with none, what the pack's name says before its season marker.
-		{"Copper Kettle/Copper.Kettle.S02.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Copper.Kettle.S02E01.720p.mkv", ParsedPath{
-			Kind: "episode", Name: "Copper Kettle", Season: 2, Episode: 1,
+		{"Gus Doyle/Gus.Doyle.S02.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Gus.Doyle.S02E01.720p.mkv", ParsedPath{
+			Kind: "episode", Name: "Gus Doyle", Season: 2, Episode: 1,
 		}},
-		{"Copper Kettle/copper-kettle-s04/Copper.Kettle.S04E01.1080p.HEVC.x265-WICKER[PORCH.ex].mkv", ParsedPath{
-			Kind: "episode", Name: "Copper Kettle", Season: 4, Episode: 1,
+		{"Gus Doyle/copper-kettle-s04/Gus.Doyle.S04E01.1080p.HEVC.x265-WICKER[PORCH.ex].mkv", ParsedPath{
+			Kind: "episode", Name: "Gus Doyle", Season: 4, Episode: 1,
 		}},
-		{"Wexford Lasses/Wexford Lasses Season 1 Complete 720p HDTV x264 [i_c]/Wexford Lasses S01E01.mp4", ParsedPath{
-			Kind: "episode", Name: "Wexford Lasses", Season: 1, Episode: 1,
+		{"Harlow Girls/Harlow Girls Season 1 Complete 720p HDTV x264 [i_c]/Harlow Girls S01E01.mp4", ParsedPath{
+			Kind: "episode", Name: "Harlow Girls", Season: 1, Episode: 1,
 		}},
-		{"Slow.Ferrets.S01.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Slow.Ferrets.S01E01.720p.mkv", ParsedPath{
-			Kind: "episode", Name: "Slow Ferrets", Season: 1, Episode: 1,
+		{"Quiet.Ravens.S01.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Quiet.Ravens.S01E01.720p.mkv", ParsedPath{
+			Kind: "episode", Name: "Quiet Ravens", Season: 1, Episode: 1,
 		}},
-		{"Quillwick.1982.S01-S04.1080p.BluRay.EAC3.2.0.x265-FERN/S01/Quillwick.S01E01.mkv", ParsedPath{
-			Kind: "episode", Name: "Quillwick", Year: 1982, Season: 1, Episode: 1,
+		{"Greywolf.1982.S01-S04.1080p.BluRay.EAC3.2.0.x265-FERN/S01/Greywolf.S01E01.mkv", ParsedPath{
+			Kind: "episode", Name: "Greywolf", Year: 1982, Season: 1, Episode: 1,
 		}},
 		// "Seasons 1 to 5" in a show's own folder is no season marker: the folder names the series.
 		{
-			"Star Wren Lower Rooms 2020 Seasons 1 to 5 720p Complete WEB [i_c]/Season 1/Lower Rooms - S01E01.mkv",
-			ParsedPath{Kind: "episode", Name: "Star Wren Lower Rooms", Year: 2020, Season: 1, Episode: 1},
+			"Nova Trail Night Berths 2020 Seasons 1 to 5 720p Complete WEB [i_c]/Season 1/Night Berths - S01E01.mkv",
+			ParsedPath{Kind: "episode", Name: "Nova Trail Night Berths", Year: 2020, Season: 1, Episode: 1},
 		},
 	}
 	for _, tc := range cases {
@@ -142,18 +142,18 @@ func TestParsePath_AnEpisodesFolderOrNumberNamesNoSeriesOfItsOwn(t *testing.T) {
 		season, episode int
 	}{
 		{
-			"Wing Vellmoor/Wing.Vellmoor.S01E01.1080p.x265-LANTERN/Wing.Vellmoor.S01E01.1080p.x265-LANTERN.mkv",
-			"Wing Vellmoor", 1, 1,
+			"Arkon Horizon/Arkon.Horizon.S01E01.1080p.x265-LANTERN/Arkon.Horizon.S01E01.1080p.x265-LANTERN.mkv",
+			"Arkon Horizon", 1, 1,
 		},
-		{"Star Wren Lower Rooms/S04/Star.Wren.Lower.Rooms.S04E01.1080p.HEVC.x265-WICKER[SHELF]/" +
-			"Star.Wren.Lower.Rooms.S04E01.1080p.HEVC.x265-WICKER.mkv", "Star Wren Lower Rooms", 4, 1},
+		{"Nova Trail Night Berths/S04/Nova.Trail.Night.Berths.S04E01.1080p.HEVC.x265-WICKER[SHELF]/" +
+			"Nova.Trail.Night.Berths.S04E01.1080p.HEVC.x265-WICKER.mkv", "Nova Trail Night Berths", 4, 1},
 		{
-			"Corvessa/01.Corvessa.S01.720p.Bluray.x264.anoXmous/E01/Corvessa.S01E01.720p.Bluray.x264.anoXmous_.mp4",
-			"Corvessa", 1, 1,
+			"Ashwood/01.Ashwood.S01.720p.Bluray.x264.anoXmous/E01/Ashwood.S01E01.720p.Bluray.x264.anoXmous_.mp4",
+			"Ashwood", 1, 1,
 		},
-		{"Wed At First Light/www.example.org    -    Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW/" +
-			"Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW.mkv", "Wed At First Light", 13, 1},
-		{"Wing.Vellmoor.S01E02.1080p.x265-LANTERN/Wing.Vellmoor.S01E02.1080p.x265-LANTERN.mkv", "Wing Vellmoor", 1, 2},
+		{"Paired at First Light/www.example.org    -    Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW/" +
+			"Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW.mkv", "Paired at First Light", 13, 1},
+		{"Arkon.Horizon.S01E02.1080p.x265-LANTERN/Arkon.Horizon.S01E02.1080p.x265-LANTERN.mkv", "Arkon Horizon", 1, 2},
 	}
 	for _, test := range cases {
 		parsed := ParsePath(test.path)
@@ -176,56 +176,56 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 			EpisodeName: "The Bells of Saint Quill",
 		}},
 		// The owner's NAS, 2026-10-16: an episode number of one digit after the season's "x".
-		{"Quillwick/Quillwick - 1x4 - Born to be King.avi", ParsedPath{
-			Kind: "episode", Name: "Quillwick", Season: 1, Episode: 4, EpisodeName: "Born to be King",
+		{"Grey Wolf/Greywolf - 1x4 - Born to be King.avi", ParsedPath{
+			Kind: "episode", Name: "Grey Wolf", Season: 1, Episode: 4, EpisodeName: "Born to be King",
 		}},
 		// The owner's NAS, 2026-10-16: the series' name and the episode's number, with no marker.
 		{"Cidade das Gaivotas/Cidade das Gaivotas 01 - A Coroa do Faroleiro.mkv", ParsedPath{
 			Kind: "episode", Name: "Cidade das Gaivotas", Season: 1, Episode: 1, EpisodeName: "A Coroa do Faroleiro",
 		}},
-		{"ERASED/ERASED 02 Palm of the Hand (BDRip 1080p AC3 10bit).mkv", ParsedPath{
-			Kind: "episode", Name: "ERASED", Season: 1, Episode: 2, EpisodeName: "Palm of the Hand",
+		{"VANISHED/VANISHED 02 Palm of the Hand (BDRip 1080p AC3 10bit).mkv", ParsedPath{
+			Kind: "episode", Name: "VANISHED", Season: 1, Episode: 2, EpisodeName: "Palm of the Hand",
 		}},
 		{
 			"Tsuki no Onna/[Hoshizora]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2_[720p-10bit] [C66E9481].mkv",
 			ParsedPath{Kind: "episode", Name: "Tsuki no Onna", Season: 1, Episode: 3},
 		},
 		// A miniseries' parts.
-		{"Lonesome Wren/Lonesome Wren part 2.mkv", ParsedPath{
-			Kind: "episode", Name: "Lonesome Wren", Season: 1, Episode: 2,
+		{"Solitary Wren/Solitary Wren part 2.mkv", ParsedPath{
+			Kind: "episode", Name: "Solitary Wren", Season: 1, Episode: 2,
 		}},
-		{"The Walking Ape/The Walking Ape - Part 3 - The Ape House.avi", ParsedPath{
-			Kind: "episode", Name: "The Walking Ape", Season: 1, Episode: 3, EpisodeName: "The Ape House",
+		{"The Hollow Garden/The Hollow Garden - Part 3 - The Human Zoo.avi", ParsedPath{
+			Kind: "episode", Name: "The Hollow Garden", Season: 1, Episode: 3, EpisodeName: "The Human Zoo",
 		}},
-		{"Cold Tobias/Cold Tobias BBC 1996 2 of 4.avi", ParsedPath{
-			Kind: "episode", Name: "Cold Tobias", Season: 1, Episode: 2,
+		{"Pale Harrow/Pale Harrow BBC 1996 2 of 4.avi", ParsedPath{
+			Kind: "episode", Name: "Pale Harrow", Season: 1, Episode: 2,
 		}},
 		{
 			"Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv",
 			ParsedPath{Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true},
 		},
-		{"Star Wren Far Harbour Nine/Season 1/Star Wren Far Harbour Nine - Season 1 - DVD Extras/" +
-			"Far Harbour Nine A Bright Opening.mkv", ParsedPath{
-			Kind: "episode", Name: "Star Wren Far Harbour Nine", EpisodeName: "Far Harbour Nine A Bright Opening",
+		{"Nova Trail Far Orbit Seven/Season 1/Nova Trail Far Orbit Seven - Season 1 - DVD Extras/" +
+			"Far Orbit Seven A Bold Beginning.mkv", ParsedPath{
+			Kind: "episode", Name: "Nova Trail Far Orbit Seven", EpisodeName: "Far Orbit Seven A Bold Beginning",
 			IsUnnumbered: true,
 		}},
-		{"The Server Room Lot/Extras/The Server Room Lot Season 3 - Extras/Out-takes.avi", ParsedPath{
-			Kind: "episode", Name: "The Server Room Lot", EpisodeName: "Out-takes", IsUnnumbered: true,
+		{"The Lab Crowd/Extras/The Lab Crowd Season 3 - Extras/Out-takes.avi", ParsedPath{
+			Kind: "episode", Name: "The Lab Crowd", EpisodeName: "Out-takes", IsUnnumbered: true,
 		}},
-		{"Some.Fathers.Do.Mind.Em.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(BINGOWINGZ-UKB-RG)/" +
+		{"Some.Fathers.Dont.Arf.Try.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(BINGOWINGZ-UKB-RG)/" +
 			"Christmas SPECIALS/Learning to Row.mp4", ParsedPath{
-			Kind: "episode", Name: "Some Fathers Do Mind Em",
+			Kind: "episode", Name: "Some Fathers Dont Arf Try",
 			EpisodeName: "Learning to Row", IsUnnumbered: true,
 		}},
 		{
-			"Brackenmere/The Promised Land 2020/Brackenmere The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv",
+			"Grey Comet/The Promised Land 2020/Grey Comet The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv",
 			ParsedPath{
-				Kind: "episode", Name: "Brackenmere", EpisodeName: "Brackenmere The Promised Land",
+				Kind: "episode", Name: "Grey Comet", EpisodeName: "Grey Comet The Promised Land",
 				IsUnnumbered: true,
 			},
 		},
-		{"The Pumbletons/The Pumbletons S05 720p x265/Special features - Deleted Scenes.mkv", ParsedPath{
-			Kind: "episode", Name: "The Pumbletons", EpisodeName: "Special features", IsUnnumbered: true,
+		{"The Hendersons/The Hendersons S05 720p x265/Special features - Deleted Scenes.mkv", ParsedPath{
+			Kind: "episode", Name: "The Hendersons", EpisodeName: "Special features", IsUnnumbered: true,
 		}},
 	}
 	for _, test := range cases {
