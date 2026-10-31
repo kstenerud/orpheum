@@ -44,8 +44,11 @@ export class GroupLeader {
   #carriedOutSeq: number | undefined = undefined;
   /** Whether it has found its group yet, as it began to lead. */
   #hasJoined = false;
-  /** Where its own last seek, sent to its group, went, until its group's change for it comes. */
-  #ownSeekToMs: number | undefined = undefined;
+  /**
+   * Where each of its own seeks sent to its group went, oldest first, until its group's change for
+   * it comes: a second seek sent before the change for the first leaves the first its own too.
+   */
+  #ownSeeksToMs: number[] = [];
 
   constructor(parts: LeaderParts) {
     this.#parts = parts;
@@ -76,7 +79,7 @@ export class GroupLeader {
    * already, not another device's to seek to.
    */
   sentSeek(toMs: number): void {
-    this.#ownSeekToMs = toMs;
+    this.#ownSeeksToMs.push(toMs);
   }
 
   /**
@@ -129,20 +132,20 @@ export class GroupLeader {
    * seek's change is no other's: a Fire TV leading a cast sought back about 200 ms after each of its
    * own 10 s skips, its group's change for the skip coming as it had played on past where it went
    * (staging, 2026-10-28, 18:32:39 and 18:32:44). A cast's remote is its person's too, so the
-   * change's member cannot tell them apart; where its own seek went can.
+   * change's member cannot tell them apart; where its own seeks went can, each of them: two skips in
+   * a row, the second sent before the change for the first came, took the first's change for
+   * another device's and jumped back to it. A change for one of its own seeks answers it and every
+   * one sent before it, which the server has passed; another seek's change ends the wait for all.
    */
   #seekAsAsked(group: GroupView, tuning: SyncTuning): void {
-    const ownToMs = this.#ownSeekToMs;
-    const isOwn =
-      group.event === "seeked" &&
-      ownToMs !== undefined &&
-      Math.abs(group.positionMs - ownToMs) <= 1;
-    if (group.event === "seeked") {
-      this.#ownSeekToMs = undefined;
+    if (group.event !== "seeked") {
+      return;
     }
+    const ownAt = this.#ownSeeksToMs.findIndex((toMs) => Math.abs(group.positionMs - toMs) <= 1);
+    this.#ownSeeksToMs = ownAt < 0 ? [] : this.#ownSeeksToMs.slice(ownAt + 1);
     const isFar =
       Math.abs(group.positionMs - positionMsOf(this.#parts.media)) > tuning.leaveDriftUpToMs;
-    if (group.event === "seeked" && isFar && !isOwn) {
+    if (isFar && ownAt < 0) {
       this.#seek(group.positionMs, "command");
     }
   }

@@ -211,6 +211,39 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(media.currentTime).toBe(70);
   });
 
+  it("does not seek back to its first of two quick seeks as the group's change for the first comes after the second was sent", () => {
+    // Two 10 s skips forward in a row, the second sent before the group's change for the first
+    // came: the first's change was taken for another device's seek, and the player jumped back to it.
+    const { media, setGroup, notes, commands } = leading(
+      { ...paused, state: "Playing" },
+      { mediaAtS: 60, isPlaying: true },
+    );
+    media.currentTime = 70;
+    media.fire("seeking");
+    media.fire("seeked");
+    vi.advanceTimersByTime(1000);
+    media.currentTime = 80.5;
+    media.fire("seeking");
+    media.fire("seeked");
+    vi.advanceTimersByTime(1000);
+    expect(commands).toEqual([
+      { command: "seek", positionMs: 70_000 },
+      { command: "seek", positionMs: 80_500 },
+    ]);
+    media.currentTime = 80.8; // it plays on from its second seek as the first's change comes
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
+      2000,
+    );
+    expect(media.currentTime).toBe(80.8);
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 70_000, positionMs: 80_500 },
+      2100,
+    );
+    expect(media.currentTime).toBe(80.8);
+    expect(notes.filter((note) => note.kind === "sought")).toEqual([]);
+  });
+
   it("sends its own person's pause as a command, the group following it", () => {
     const { media, commands } = leading(
       { ...paused, state: "Playing" },
