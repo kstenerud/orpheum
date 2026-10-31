@@ -17,18 +17,28 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 )
 
 // fakeDiscovery speaks the discovery's side of the protocol, checking every signature, and keeps
 // what the core sent.
 type fakeDiscovery struct {
 	t *testing.T
-	// baseURL is where the core calls it, which the core's signatures are bound to; clientOrigin is
-	// where it says it serves its client.
-	baseURL, clientOrigin, loaderOrigin string
-	mutex                               sync.Mutex
+	// issuer is its issuer, which the core's signatures are bound to: the server's own URL, where the
+	// core calls it too, unless a test moves its core API to another.
+	issuer string
+	// root is its root key, and document the address document it serves at its issuer, signed by the
+	// root when asked; served, when set, is served in its place as it is.
+	root     trusttest.Root
+	mutex    sync.Mutex
+	document addressdoc.Document
+	served   *addressdoc.Served
+	// documentFetches is how many times the core asked for its address document.
+	documentFetches int
 	// Guarded by mutex:
 	nonces       map[string]bool
 	publicKey    ed25519.PublicKey
@@ -111,8 +121,35 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	}
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
-	fake.baseURL = server.URL
+	fake.issuer, fake.root = server.URL, trusttest.NewRoot(t)
+	fake.document = addressdoc.Document{
+		Issuer: server.URL, CoreAPI: server.URL, ClientAPI: server.URL + "/client",
+		LoaderOrigin: fakeLoaderOrigin, ClientOrigins: fakeClientOrigins, IssuedAt: 1,
+	}
 	return fake, server
+}
+
+// The origins the fake discovery's document names: a loader, and each core's own client origin.
+const (
+	fakeLoaderOrigin  = "http://localhost:8443"
+	fakeClientOrigins = "http://" + addressdoc.CorePlace + ".localhost:8443"
+)
+
+// serveDocument serves its address document: the one a test set, or its own signed by its root.
+func (fake *fakeDiscovery) serveDocument(writer http.ResponseWriter) {
+	fake.documentFetches++
+	served := fake.signedDocument(fake.document)
+	if fake.served != nil {
+		served = *fake.served
+	}
+	fake.answer(writer, served)
+}
+
+// signedDocument is document signed by the fake's root, served with its root key set.
+func (fake *fakeDiscovery) signedDocument(document addressdoc.Document) addressdoc.Served {
+	return addressdoc.Served{
+		Document: fake.root.Signs(fake.t, trust.KindAddressDocument, document), RootSets: []trust.Signed{fake.root.Set},
+	}
 }
 
 func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -122,6 +159,11 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 	}
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
+	// At its issuer, and at any location under it, as a mirror serves it.
+	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, addressdoc.WellKnownPath) {
+		fake.serveDocument(writer)
+		return
+	}
 	if request.Header.Get(discoveryproto.ProtocolHeader) != discoveryproto.ProtocolVersion {
 		http.Error(writer, "say the protocol", http.StatusBadRequest)
 		return
@@ -184,7 +226,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	case "GET /status":
 		fake.answer(writer, discoveryproto.StatusResponse{
 			State: fake.state, Zone: fakeZone, ICEServers: []discoveryproto.ICEServer{{URLs: []string{fakeSTUN}}},
-			ClientOrigin: fake.clientOrigin, LoaderOrigin: fake.loaderOrigin, Realm: fake.realm,
+			Realm:   fake.realm,
 			Account: fake.account, RemovedAt: fake.removedAt,
 		})
 	case "POST /claim":
@@ -280,7 +322,7 @@ func (fake *fakeDiscovery) signedFresh(
 		return false
 	}
 	delete(fake.nonces, nonce)
-	return proof.Verify(publicKey, purpose, fake.baseURL, core, nonce, signature)
+	return proof.Verify(publicKey, purpose, fake.issuer, core, nonce, signature)
 }
 
 func (fake *fakeDiscovery) read(request *http.Request, into any) {

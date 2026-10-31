@@ -378,6 +378,7 @@ askHidden() {
 # key to paste on a System page afterwards. A password goes to the core on standard input alone.
 admin=""
 realm=""
+loader=""
 if [ -n "$setupCode" ] && $hasTerminal; then
 	say "the server is up; choose who administers it"
 	attempts=0
@@ -405,7 +406,10 @@ if [ -n "$setupCode" ] && $hasTerminal; then
 		if [ -n "$key" ]; then
 			if paired=$(printf '%s\n%s\n' "$password" "$key" | (cd "$dir" && docker compose exec -T orpheum-core \
 				orpheum pair --name "$admin" --instance /var/lib/orpheum/core)); then
-				case $paired in "paired: realm "*) realm=${paired#paired: realm } ;; esac
+				# pair says the realm, and on a line of its own the loader its discovery's signed address
+				# document names (D391 §3): the name to sign in at is the discovery's, never this script's.
+				realm=$(printf '%s\n' "$paired" | sed -n 's/^paired: realm //p')
+				loader=$(printf '%s\n' "$paired" | sed -n 's/^loader: //p')
 				say "paired with your account"
 			else
 				say "not paired; enter the key later on the server's System page"
@@ -429,7 +433,7 @@ say "open it:"
 say "  from a phone, laptop or TV at home:  http://$address:${port:-8440}"
 say "  in a browser on this computer:       http://localhost:${thisMachinePort:-8441}"
 if [ -n "$realm" ]; then
-	say "  from away: sign in at app.orpheum-app.com with the realm $realm, as $admin"
+	say "  from away: sign in at ${loader:-your discovery's page} with the realm $realm, as $admin"
 fi
 if [ -n "$setupCode" ]; then
 	say "make the first admin there with this one-time code:"

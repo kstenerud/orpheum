@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	discoveryA = "https://api.orpheum-app.com/core/v1"
-	discoveryB = "https://discovery.example/core/v1"
+	discoveryA = "https://discovery-a.example"
+	discoveryB = "https://discovery-b.example"
 )
 
 // A signature made to enrol does not open a session, nor the reverse, and a key that is not a key
@@ -43,7 +43,7 @@ func TestVerify_ASignatureServesOnlyThePurposeItWasMadeFor(t *testing.T) {
 
 // A signature is bound to the discovery the core called and to the core: one discovery cannot pass
 // another's challenge to the core and use the signature there, nor one core's serve another (C8,
-// X12). A trailing slash on the base URL changes nothing.
+// X12). A trailing slash on the issuer changes nothing.
 func TestVerify_ASignatureServesOnlyTheDiscoveryAndCoreItWasMadeFor(t *testing.T) {
 	t.Parallel()
 	public, private, err := ed25519.GenerateKey(rand.Reader)

@@ -11,21 +11,35 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
-// enrollingDiscovery answers a challenge and an enrolment with a claim code, a session, the core's
-// status, and a claim by the key abcd-efgh-jkmn-pqrs, as a discovery does; internal/core/discovery's
-// tests check the signatures and the rest of the protocol.
+// enrollingDiscovery serves its signed address document at its issuer, its own URL, and answers a
+// challenge and an enrolment with a claim code, a session, the core's status, and a claim by the key
+// abcd-efgh-jkmn-pqrs, as a discovery does; internal/core/discovery's tests check the signatures and
+// the rest of the protocol.
 func enrollingDiscovery(t *testing.T) *httptest.Server {
 	t.Helper()
 	var claimed atomic.Bool
-	fake := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	root := trusttest.NewRoot(t)
+	var fake *httptest.Server
+	fake = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var answer any
 		switch request.URL.Path {
+		case addressdoc.WellKnownPath:
+			answer = addressdoc.Served{
+				Document: root.Signs(t, trust.KindAddressDocument, addressdoc.Document{
+					Issuer: fake.URL, CoreAPI: fake.URL, ClientAPI: fake.URL + "/client",
+					LoaderOrigin: "https://loader.example", ClientOrigins: "https://{core}.client.example", IssuedAt: 1,
+				}),
+				RootSets: []trust.Signed{root.Set},
+			}
 		case discoveryproto.PathChallenge:
 			answer = discoveryproto.ChallengeResponse{Nonce: "a-nonce"}
 		case discoveryproto.PathEnrol:
@@ -63,20 +77,28 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 // fingerprintText is a fingerprint as a person reads it: 13 groups of four safe32 characters.
 var fingerprintText = regexp.MustCompile(`^([0-9a-hjkmnp-tv-z]{4}-){12}[0-9a-hjkmnp-tv-z]{4}$`)
 
-// wantPendingWithItsCode fails the test unless a connected core is pending at baseURL with its
-// claim code and its identity key's fingerprint.
-func wantPendingWithItsCode(t *testing.T, status api.DiscoveryStatusBody, baseURL string) {
+// wantPendingWithItsCode fails the test unless a connected core is pending at the discovery issuer
+// names, with its claim code, its identity key's fingerprint, the loader its document names and the
+// one root key it trusts.
+func wantPendingWithItsCode(t *testing.T, status api.DiscoveryStatusBody, issuer string) {
 	t.Helper()
-	if status.BaseURL != baseURL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" ||
-		!fingerprintText.MatchString(status.Fingerprint) {
+	if status.Issuer != issuer || status.CoreAPI != issuer || status.State != "pending" ||
+		status.ClaimCode != "WXYZ-2345" || !fingerprintText.MatchString(status.Fingerprint) ||
+		status.LoaderOrigin != "https://loader.example" || len(status.RootKeys) != 1 {
 		t.Errorf("connected = %+v; want pending at %s with its claim code and the key's fingerprint, "+
-			"in safe32 groups for a person to read", status, baseURL)
+			"in safe32 groups for a person to read, its loader and its root key", status, issuer)
 	}
 }
 
-// Only an admin connects the core to a discovery; an address that is not a discovery's is refused
-// naming the field, the claim code comes back to show the owner, a second connect is a conflict,
-// and leaving forgets it, but not its people's realm keys (D273, D299).
+// connecting is the body that connects the core to the discovery at issuer, with the owner's password.
+func connecting(issuer string) map[string]any {
+	return map[string]any{"issuer": issuer, "password": "owner-password"}
+}
+
+// Only an admin connects the core to a discovery, with their password; a name that is not an issuer
+// is refused naming the field, as is a wrong password, the claim code comes back to show the owner,
+// a second connect is a conflict, and leaving forgets it, but not its people's realm keys (D273,
+// D299, D391 §3).
 func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -94,11 +116,10 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/system/discovery", partner, nil), http.StatusForbidden,
 		api.CodeForbidden)
-	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{
-		"baseUrl": "http://discovery.example.com/core/v1",
-	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin,
+		connecting("http://discovery.example.com")), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	fake := enrollingDiscovery(t)
-	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL})
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL))
 	var status api.DiscoveryStatusBody
 	if err := json.Unmarshal([]byte(connected.body), &status); err != nil || connected.status != http.StatusOK {
 		t.Fatalf("POST /system/discovery = %d %s", connected.status, connected.body)
@@ -111,13 +132,13 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 		t.Errorf("a pending core's port mapping = %+v; want none asked for, said as an empty list",
 			status.PortMapping)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL}),
+	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL)),
 		http.StatusConflict, api.CodeConflict)
 	if left := harness.do(t, http.MethodDelete, "/system/discovery", admin, nil); left.status != http.StatusNoContent {
 		t.Fatalf("DELETE /system/discovery = %d %s", left.status, left.body)
 	}
 	got := harness.do(t, http.MethodGet, "/system/discovery", admin, nil)
-	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.BaseURL != "" {
+	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.Issuer != "" {
 		t.Errorf("after leaving = %s; want no discovery", got.body)
 	}
 	// Come back under the same master realm, the partner is found with no sign-in at home first.
@@ -130,6 +151,26 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	}
 }
 
+// Connecting asks the admin's password, as a claim does: which discovery a core trusts is as weighty
+// (D391 §3). A wrong one is refused naming the field, and connects nothing.
+func TestDiscovery_ConnectingAsksTheAdminsPassword(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	fake := enrollingDiscovery(t)
+	wrongPassword := harness.do(t, http.MethodPost, "/system/discovery", admin,
+		map[string]any{"issuer": fake.URL, "password": "not-the-password"})
+	wantError(t, wrongPassword, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	if !strings.Contains(wrongPassword.body, "body.password") {
+		t.Errorf("a wrong password = %s; want it refused naming the field", wrongPassword.body)
+	}
+	var status api.DiscoveryStatusBody
+	got := harness.do(t, http.MethodGet, "/system/discovery", admin, nil)
+	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.Issuer != "" {
+		t.Errorf("after a wrong password = %s; want no discovery", got.body)
+	}
+}
+
 // An admin enters the account's key, and the core then says it is claimed and names the account; a
 // wrong key is refused naming the field, and another once claimed is a conflict (D310 §5, §8).
 func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testing.T) {
@@ -137,7 +178,7 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	fake := enrollingDiscovery(t)
-	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL})
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, connecting(fake.URL))
 	if connected.status != http.StatusOK {
 		t.Fatalf("connecting = %d %s", connected.status, connected.body)
 	}

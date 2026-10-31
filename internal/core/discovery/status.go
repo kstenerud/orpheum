@@ -12,7 +12,10 @@ import (
 
 // Status is where the core stands with its discovery, for its admin.
 type Status struct {
-	// BaseURL is the discovery's, empty when the core is enrolled with none.
+	// Issuer is the discovery's, the origin its admin enrolled the core by; BaseURL the core API its
+	// address document names, which the core calls. Both are empty when the core is enrolled with
+	// none.
+	Issuer  string
 	BaseURL string
 	CoreID  string
 	State   discoveryproto.State
@@ -40,12 +43,20 @@ type Status struct {
 	DeprecatedUntil string
 	// ICEServers are the STUN servers the discovery names for the core's WebRTC candidates.
 	ICEServers []discoveryproto.ICEServer
-	// ClientOrigin is where the discovery serves its client, which the core's links lead to; empty
-	// until it says, or when what it said is not an https origin (D293 §4).
-	ClientOrigin string
-	// LoaderOrigin is where the discovery serves the loader that hands a browser on to the client
-	// origin (D308); empty until it says, or when what it said is not an https origin.
-	LoaderOrigin string
+	// ClientOrigin is where the discovery serves the core's own client, which its links lead to, and
+	// LoaderOrigin where it serves the loader that hands a browser on to it (D293 §4, D308): its
+	// address document's, and no other (D391 §3). Homepage says what the discovery is.
+	ClientOrigin, LoaderOrigin, Homepage string
+	// RootKeys are the fingerprints of the root key set the core pinned for its discovery, as
+	// `ssh-keygen -l` shows them, and RootSetVersion its version; DocumentIssuedAt is when the address
+	// document held was made, and DocumentProblem why the last look for a newer one found none that
+	// holds, empty when it did not fail.
+	RootKeys         []string
+	RootSetVersion   int64
+	DocumentIssuedAt time.Time
+	DocumentProblem  string
+	// SuggestedIssuer is the discovery an admin is offered first (Suggested); empty offers none.
+	SuggestedIssuer string
 	// HomeAddresses are the core's addresses at home, "https://<label>.<coreId>.<zone>:<port>", from
 	// the house's addresses it sends, which reach it directly in the house; none until the discovery
 	// publishes it (D292 §6). IsHomeAddressReady is whether the certificate they need is held yet:

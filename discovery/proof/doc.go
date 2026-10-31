@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package proof is what a core's signatures cover, and their checks: Ed25519 over "orpheum-
-// discovery-v1:<purpose>:<discovery base URL>:<core>:<nonce>" to its discovery, so a signature made
+// discovery-v1:<purpose>:<discovery's issuer>:<core>:<nonce>" to its discovery, so a signature made
 // to enrol cannot open a session, nor serve another discovery or core (D273; the protocol's §2.1);
 // over a WebRTC answer's exact SDP, for its client (§2.5); and the identity key's fingerprint every
 // link carries (§3.1); and a realm sign-in's key, which a person's password makes and which proves

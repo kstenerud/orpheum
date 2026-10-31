@@ -122,9 +122,17 @@ export const enSystem = {
     discovery: {
       heading: "Remote access",
       what: "A discovery tells your devices where to find this server, so you reach it from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
-      address: "The discovery's address",
+      issuer: "The discovery's name",
       connect: "Connect",
-      at: "Connected to {{address}}.",
+      wrongPasswordToConnect: "That isn't your password. The server is not connected.",
+      notAnIssuer:
+        "That isn't a discovery's name. Type the name it gave you, as in discovery.example.",
+      suggestedUnknown:
+        "This version of the server doesn't know the keys of {{issuer}} yet, so it can't trust it. Update the server, or connect to another discovery.",
+      at: "Connected to {{issuer}}.",
+      rootKeys: "Trusted by the discovery's keys {{keys}} (set {{version}}).",
+      documentProblem:
+        "The discovery's addresses couldn't be checked for an update; the server keeps the last ones it trusted. Its log says why.",
       realm:
         "People sign in to this server at the discovery's page by the realm {{realm}}, with their name and password.",
       state: {

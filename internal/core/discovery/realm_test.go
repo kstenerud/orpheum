@@ -19,7 +19,7 @@ func TestStatus_NamesTheRealmTheDiscoveryGaveTheCore(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	var told []string

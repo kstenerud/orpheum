@@ -66,7 +66,7 @@ type world struct {
 	files      *memoryFiles
 	key        identity.Key
 	fake       *fakeDiscovery
-	baseURL    string
+	issuer     string
 	clock      *clocktest.Fake
 	candidates []discoveryproto.Candidate
 	// claimedCount is how many times the service said the core was claimed.
@@ -77,6 +77,9 @@ type world struct {
 	hasCertificate atomic.Bool
 	// version is the build's, v0.1.0 unless a test names another before the service is made again.
 	version string
+	// suggested is the discovery the core suggests, none unless a test names one before the service
+	// is made again.
+	suggested Suggestion
 }
 
 func newWorld(t *testing.T) *world {
@@ -87,7 +90,7 @@ func newWorld(t *testing.T) *world {
 	}
 	fake, server := startDiscovery(t)
 	built := &world{
-		files: &memoryFiles{files: map[string][]byte{}}, key: key, fake: fake, baseURL: server.URL,
+		files: &memoryFiles{files: map[string][]byte{}}, key: key, fake: fake, issuer: server.URL,
 		clock:      clocktest.NewFake(time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)),
 		candidates: []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}},
 		version:    "v0.1.0",
@@ -101,7 +104,7 @@ func (built *world) restart(t *testing.T) *Service {
 	t.Helper()
 	service, err := New(Parts{
 		Files: built.files, Key: built.key, HTTP: &http.Client{}, Clock: built.clock,
-		Logger: slog.New(slog.DiscardHandler), Version: built.version, APIMajor: 1,
+		Logger: slog.New(slog.DiscardHandler), Version: built.version, APIMajor: 1, Suggested: built.suggested,
 		Candidates:     func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:      func(context.Context) { built.claimedCount.Add(1) },
 		Random:         unjittered{},
@@ -117,17 +120,19 @@ func (built *world) restart(t *testing.T) *Service {
 func TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
-	status, err := built.service.Connect(t.Context(), built.baseURL)
+	status, err := built.service.Connect(t.Context(), built.issuer)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if status.State != discoveryproto.StatePending || status.ClaimCode != "abcd-efgh" || status.CoreID != fakeCoreID {
 		t.Errorf("after connecting the status is %+v; want pending, with its claim code", status)
 	}
-	if _, err = built.service.Connect(t.Context(), built.baseURL); !errors.Is(err, ErrAlreadyEnrolled) {
+	if _, err = built.service.Connect(t.Context(), built.issuer); !errors.Is(err, ErrAlreadyEnrolled) {
 		t.Errorf("connecting again = %v; want ErrAlreadyEnrolled", err)
 	}
-	if again := built.restart(t).Status(); again.BaseURL != built.baseURL || again.CoreID != fakeCoreID {
+	again := built.restart(t).Status()
+	if again.Issuer != built.issuer || again.BaseURL != built.issuer || again.CoreID != fakeCoreID ||
+		again.ClientOrigin != "http://"+fakeCoreID+".localhost:8443" || again.RootSetVersion != 1 {
 		t.Errorf("after a restart the status is %+v; want the discovery and the core's id kept", again)
 	}
 }
@@ -157,7 +162,7 @@ func TestStep_APendingCoreAsksWhetherItIsClaimedAsOftenAsTheSettingSays(t *testi
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.parts.Settings = durations{every: 1500 * time.Millisecond}
@@ -194,7 +199,7 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	}
 	claimed := newWorld(t)
 	claimed.service.parts.Settings = waits
-	if _, err := claimed.service.Connect(ctx, claimed.baseURL); err != nil {
+	if _, err := claimed.service.Connect(ctx, claimed.issuer); err != nil {
 		t.Fatal(err)
 	}
 	claimed.service.step(ctx)
@@ -206,7 +211,7 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	}
 	copied := newWorld(t)
 	copied.service.parts.Settings = waits
-	if _, err := copied.service.Connect(ctx, copied.baseURL); err != nil {
+	if _, err := copied.service.Connect(ctx, copied.issuer); err != nil {
 		t.Fatal(err)
 	}
 	copied.service.step(ctx)
@@ -220,7 +225,7 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	if wait := built.service.step(ctx); wait != startingPendingEvery || len(built.fake.heartbeats) != 0 {
@@ -260,7 +265,7 @@ func TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -282,7 +287,7 @@ func TestCall_KeepsTheDeprecationTheDiscoveryNames(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	built.fake.deprecated = "2027-04-09"
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	if until := built.service.Status().DeprecatedUntil; until != "2027-04-09" {
@@ -293,7 +298,7 @@ func TestCall_KeepsTheDeprecationTheDiscoveryNames(t *testing.T) {
 func TestLeave_TellsTheDiscoveryAndForgetsIt(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	if err := built.service.Leave(t.Context()); err != nil {
@@ -304,18 +309,6 @@ func TestLeave_TellsTheDiscoveryAndForgetsIt(t *testing.T) {
 	}
 	if _, err := built.files.ReadPersistentFile(StateFileName); !errors.Is(err, instancedir.ErrNotFound) {
 		t.Errorf("%s is still there after leaving: %v", StateFileName, err)
-	}
-}
-
-func TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine(t *testing.T) {
-	t.Parallel()
-	for url, isGood := range map[string]bool{
-		ServiceURL: true, "https://discovery.example.org/core/v1": true, "http://127.0.0.1:8080": true,
-		"http://localhost:9": true, "http://discovery.example.org": false, "ftp://x": false, "": false,
-	} {
-		if err := checkBaseURL(url); (err == nil) != isGood {
-			t.Errorf("checkBaseURL(%q) = %v; want accepted: %t", url, err, isGood)
-		}
 	}
 }
 
@@ -358,7 +351,7 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	answerer := &answering{}
 	built.service.parts.Answerer = answerer
 	built.service.parts.OfferKey = offerKeys
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -421,7 +414,7 @@ func provenOffer(offerID, sdp string) discoveryproto.SignalMessage {
 func claimedWorld(t *testing.T) *world {
 	t.Helper()
 	built := newWorld(t)
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -436,7 +429,7 @@ func TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -546,7 +539,7 @@ func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -570,7 +563,7 @@ func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -587,42 +580,6 @@ func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
 	}
 }
 
-// The core takes the client origin its discovery names only as an https origin, its links leading
-// nowhere else (D293 §4).
-func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *testing.T) {
-	t.Parallel()
-	for named, want := range map[string]string{
-		"https://App.Orpheum-App.com": "https://app.orpheum-app.com",
-		"https://app.example:8443/":   "https://app.example:8443",
-		"http://app.example":          "",
-		// A discovery on this machine, as in the browser tier: plain HTTP crosses no network.
-		"http://127.0.0.1:8080":    "http://127.0.0.1:8080",
-		"http://localhost:8080":    "http://localhost:8080",
-		"http://k7.localhost:8080": "http://k7.localhost:8080",
-		"http://localhost.evil:80": "",
-		"http://10.0.0.1:8080":     "",
-		"https://app.example/path": "",
-		"https://user@app.example": "",
-		"https://app.example?x=1":  "",
-		"javascript:alert(1)":      "",
-		"":                         "",
-	} {
-		built := newWorld(t)
-		built.fake.clientOrigin, built.fake.loaderOrigin = named, named
-		if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
-			t.Fatal(err)
-		}
-		built.service.step(t.Context())
-		if got := built.service.Status().ClientOrigin; got != want {
-			t.Errorf("named %q, the core keeps %q; want %q", named, got, want)
-		}
-		// The loader's origin is checked as the client's is (D308).
-		if got := built.service.Status().LoaderOrigin; got != want {
-			t.Errorf("named the loader at %q, the core keeps %q; want %q", named, got, want)
-		}
-	}
-}
-
 // The core's home addresses are its house addresses under its names, marked or, as a core in a
 // container configures them, not; none until the discovery publishes it, and ready once the
 // certificate they need is held (D292 §6, D297 §6).
@@ -635,7 +592,7 @@ func TestStatus_NamesTheHomeAddressesOnceClaimedAndSaysWhenTheirCertificateIsHel
 		discoveryproto.Candidate{Address: "192.168.1.250", Port: 8443, Source: "configured"},
 		discoveryproto.Candidate{Address: "192.168.1.251", Port: 443, Source: "interface", Scope: lan},
 		discoveryproto.Candidate{Address: "2001:db8:1::5", Port: 8443, Source: "configured"})
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	if pending := built.service.Status(); len(pending.HomeAddresses) != 0 || pending.IsHomeAddressReady {

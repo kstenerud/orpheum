@@ -47,11 +47,11 @@ func (key Key) Public() ed25519.PublicKey {
 	return public
 }
 
-// Sign signs a discovery's nonce for purpose, "enrol" or "session", bound to the discovery's base
-// URL and the core (its id, or proof.KeyLabel of its key before it has one): discovery/proof's
+// Sign signs a discovery's nonce for purpose, "enrol" or "session", bound to the discovery's issuer
+// and the core (its id, or proof.KeyLabel of its key before it has one): discovery/proof's
 // message, which a discovery checks with proof.Verify.
-func (key Key) Sign(purpose, baseURL, core, nonce string) []byte {
-	return ed25519.Sign(key.private, proof.Message(purpose, baseURL, core, nonce))
+func (key Key) Sign(purpose, issuer, core, nonce string) []byte {
+	return ed25519.Sign(key.private, proof.Message(purpose, issuer, core, nonce))
 }
 
 // SignAnswer signs a WebRTC answer, which its client checks with proof.VerifyAnswer.

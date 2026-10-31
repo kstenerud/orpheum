@@ -15,13 +15,14 @@ import (
 	"net/netip"
 	"net/url"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
@@ -31,11 +32,9 @@ import (
 )
 
 // StateFileName is where the core keeps which discovery it is enrolled with, in the persistent
-// directory, so a restart carries on: the discovery's base URL and the core's id there.
+// directory, so a restart carries on: the discovery's issuer, the root key set it pinned, its address
+// document and the core's id there.
 const StateFileName = "discovery.json"
-
-// ServiceURL is the paid discovery's base URL, the one an admin is offered first (D273 §2).
-const ServiceURL = "https://api.orpheum-app.com/core/v1"
 
 // The waits between the loop's looks are discovery-core.md's.
 
@@ -72,6 +71,9 @@ type Parts struct {
 	HTTP   *http.Client
 	Clock  clock.Clock
 	Logger *slog.Logger
+	// Suggested is the discovery an admin is offered first, and the root key set the core pins for it
+	// (Suggested); empty offers none.
+	Suggested Suggestion
 	// Version is this build's, and APIMajor its API's, for the discovery to serve the right client.
 	Version  string
 	APIMajor int
@@ -133,14 +135,16 @@ type Answerer interface {
 	) (rtcapi.Description, error)
 }
 
-// kept is the state file: which discovery, the core's id there, and its zone once claimed, so its
-// certificate is served from the start; and the house networks it learnt, so a restart keeps them
-// (D356 §4).
+// kept is the state file: which discovery, by its issuer, the root key set pinned for it and the
+// address document it last held, the core's id there, and its zone once claimed, so its certificate
+// is served from the start; and the house networks it learnt, so a restart keeps them (D356 §4).
 type kept struct {
-	BaseURL       string             `json:"baseUrl"`
-	CoreID        string             `json:"coreId"`
-	Zone          string             `json:"zone,omitempty"`
-	HouseNetworks []keptHouseNetwork `json:"houseNetworks,omitempty"`
+	Issuer        string              `json:"issuer"`
+	RootSet       trust.Pinned        `json:"rootSet"`
+	Document      addressdoc.Document `json:"document"`
+	CoreID        string              `json:"coreId"`
+	Zone          string              `json:"zone,omitempty"`
+	HouseNetworks []keptHouseNetwork  `json:"houseNetworks,omitempty"`
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -160,10 +164,14 @@ type Service struct {
 
 	mutex sync.Mutex
 	// Guarded by mutex:
-	status         Status
-	token          string
-	tokenExpiresAt time.Time
-	lastSent       []discoveryproto.Candidate
+	status Status
+	// held is the root key set pinned and the address document held; documentCheckedAt when the core
+	// last looked for a newer one (checkDocument).
+	held              held
+	documentCheckedAt time.Time
+	token             string
+	tokenExpiresAt    time.Time
+	lastSent          []discoveryproto.Candidate
 	// failures is how many calls of the step loop failed in a row, which its next wait doubles by.
 	failures int64
 	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
@@ -254,7 +262,14 @@ func New(parts Parts) (*Service, error) {
 	if err = json.Unmarshal(contents, &state); err != nil {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
-	service.status.BaseURL, service.status.CoreID, service.status.Zone = state.BaseURL, state.CoreID, state.Zone
+	if state.Issuer == "" || state.Document.CoreAPI == "" {
+		// A discovery held by no issuer is none: the admin enrols the core again (D391 §1).
+		parts.Logger.Warn("discovery: discovery.json names no issuer; the core is enrolled with none")
+		return service, nil
+	}
+	service.status.Issuer, service.status.BaseURL = state.Issuer, state.Document.CoreAPI
+	service.status.CoreID, service.status.Zone = state.CoreID, state.Zone
+	service.held = held{pinned: state.RootSet, document: state.Document}
 	service.learnt = learntOf(state.HouseNetworks)
 	return service, nil
 }
@@ -281,17 +296,29 @@ func (service *Service) Status() Status {
 	}
 	if status.BaseURL != "" {
 		status.HouseNetworks = service.houseNetworksAt(service.parts.Clock.Now())
+		document := service.held.document
+		if status.CoreID != "" {
+			status.ClientOrigin = document.ClientOrigin(status.CoreID)
+		}
+		status.LoaderOrigin, status.Homepage = document.LoaderOrigin, document.Homepage
+		status.RootKeys, status.RootSetVersion = service.held.pinned.Fingerprints(), service.held.pinned.Version
+		status.DocumentIssuedAt = time.UnixMilli(document.IssuedAt)
 	}
+	status.SuggestedIssuer = service.parts.Suggested.Issuer
 	return status
 }
 
 // ErrAlreadyEnrolled is a connect while the core is enrolled with a discovery: it leaves first.
 var ErrAlreadyEnrolled = errors.New("the core is enrolled with a discovery already; leave it first")
 
-// Connect enrols the core with the discovery at baseURL: it proves it holds its key, and is given
-// the code its owner claims it by, which Status then holds until the discovery says it is claimed.
-func (service *Service) Connect(ctx context.Context, baseURL string) (Status, error) {
-	if err := checkBaseURL(baseURL); err != nil {
+// Connect enrols the core with the discovery whose issuer the admin typed, "discovery.example" or
+// its https origin: it fetches the issuer's address document and opens it, pinning the root key set
+// it is signed by (the suggestion's, for the suggested issuer), then proves to the core API the
+// document names that it holds its key, and is given the code its owner claims it by, which Status
+// then holds until the discovery says it is claimed (D391 §3).
+func (service *Service) Connect(ctx context.Context, typed string) (Status, error) {
+	issuer, err := addressdoc.Issuer(typed)
+	if err != nil {
 		return Status{}, err
 	}
 	service.connecting.Lock()
@@ -299,12 +326,17 @@ func (service *Service) Connect(ctx context.Context, baseURL string) (Status, er
 	if service.Status().BaseURL != "" {
 		return Status{}, ErrAlreadyEnrolled
 	}
-	return service.enrol(ctx, strings.TrimSuffix(baseURL, "/"))
+	opened, err := service.openFirst(ctx, issuer)
+	if err != nil {
+		return Status{}, err
+	}
+	return service.enrol(ctx, issuer, opened)
 }
 
-// enrol proves the core holds its key to the discovery at baseURL and keeps the id and code it is
-// given.
-func (service *Service) enrol(ctx context.Context, baseURL string) (Status, error) {
+// enrol proves the core holds its key to the discovery issuer names, at the core API its document
+// names, and keeps the set, the document, and the id and code it is given.
+func (service *Service) enrol(ctx context.Context, issuer string, opened held) (Status, error) {
+	baseURL := opened.document.CoreAPI
 	nonce, err := service.challenge(ctx, baseURL)
 	if err != nil {
 		return Status{}, err
@@ -315,25 +347,31 @@ func (service *Service) enrol(ctx context.Context, baseURL string) (Status, erro
 		base: baseURL, method: http.MethodPost, path: discoveryproto.PathEnrol,
 		body: discoveryproto.EnrolRequest{
 			PublicKey: public, Nonce: nonce,
-			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, baseURL, proof.KeyLabel(public), nonce),
+			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, issuer, proof.KeyLabel(public), nonce),
 		}, into: &enrolled,
 	})
 	if err != nil {
-		return Status{}, fmt.Errorf("enrol with %s: %w", baseURL, err)
-	}
-	if keepErr := service.keep(kept{BaseURL: baseURL, CoreID: enrolled.CoreID}); keepErr != nil {
-		return Status{}, keepErr
+		return Status{}, fmt.Errorf("enrol with %s: %w", issuer, err)
 	}
 	service.mutex.Lock()
+	was := service.status
 	service.status = Status{
-		BaseURL: baseURL, CoreID: enrolled.CoreID, State: discoveryproto.StatePending,
+		Issuer: issuer, BaseURL: baseURL, CoreID: enrolled.CoreID, State: discoveryproto.StatePending,
 		ClaimCode: enrolled.ClaimCode, ClaimExpiresAt: time.UnixMilli(enrolled.ClaimExpiresAt),
 		DeprecatedUntil: service.status.DeprecatedUntil, // what this connect's calls were told
 	}
+	wasHeld := service.held
+	service.held, service.documentCheckedAt = opened, service.parts.Clock.Now()
 	service.token, service.lastSent, service.sentHouseNetworks = "", nil, nil
 	service.mutex.Unlock()
-	service.parts.Logger.InfoContext(ctx, "discovery: enrolled; waiting to be claimed", "baseUrl", baseURL,
-		"coreId", enrolled.CoreID)
+	if keepErr := service.keep(); keepErr != nil {
+		service.mutex.Lock()
+		service.status, service.held = was, wasHeld
+		service.mutex.Unlock()
+		return Status{}, keepErr
+	}
+	service.parts.Logger.InfoContext(ctx, "discovery: enrolled; waiting to be claimed", "issuer", issuer,
+		"coreApi", baseURL, "coreId", enrolled.CoreID, "rootSetVersion", opened.pinned.Version)
 	service.nudge()
 	return service.Status(), nil
 }
@@ -357,8 +395,9 @@ func (service *Service) Leave(ctx context.Context) error {
 	service.mutex.Lock()
 	service.status, service.token, service.lastSent = Status{}, "", nil
 	service.learnt, service.sentHouseNetworks = nil, nil
+	service.held, service.documentCheckedAt = held{}, time.Time{}
 	service.mutex.Unlock()
-	service.parts.Logger.InfoContext(ctx, "discovery: left", "baseUrl", status.BaseURL)
+	service.parts.Logger.InfoContext(ctx, "discovery: left", "issuer", status.Issuer)
 	return nil
 }
 
@@ -400,10 +439,11 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	var refused *refusal
 	switch {
 	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalEnrolAgain:
-		return service.enrolAgain(ctx, status.BaseURL)
+		return service.enrolAgain(ctx, status.Issuer)
 	case err != nil:
 		return service.failed(ctx, "open a session", err)
 	}
+	service.checkDocument(ctx)
 	service.checkRelease(ctx, status)
 	switch status.State {
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
@@ -441,10 +481,13 @@ func (service *Service) wait(ctx context.Context, key settings.Key) time.Duratio
 
 // enrolAgain enrols the core again with its discovery, which no longer holds it, and returns the wait
 // before the next step: the new code shows on the System page (the protocol's §2.2, C12).
-func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Duration {
+func (service *Service) enrolAgain(ctx context.Context, issuer string) time.Duration {
 	service.parts.Logger.WarnContext(ctx, "discovery: the discovery no longer holds the core; enrolling again",
-		"baseUrl", baseURL)
-	if _, err := service.enrol(ctx, baseURL); err != nil {
+		"issuer", issuer)
+	service.mutex.Lock()
+	opened := service.held
+	service.mutex.Unlock()
+	if _, err := service.enrol(ctx, issuer, opened); err != nil {
 		return service.failed(ctx, "enrol again", err)
 	}
 	return service.wait(ctx, settings.DiscoveryPendingCheckEverySeconds)
@@ -470,8 +513,6 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	service.failures = 0
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers
-	service.status.ClientOrigin = originOf(answered.ClientOrigin)
-	service.status.LoaderOrigin = originOf(answered.LoaderOrigin)
 	if answered.ClaimCode != "" {
 		service.status.ClaimExpiresAt = time.UnixMilli(answered.ClaimExpiresAt)
 	}
@@ -499,7 +540,7 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 		service.parts.OnRealm(answered.Realm)
 	}
 	if answered.Zone != was.Zone {
-		if err := service.keep(kept{BaseURL: was.BaseURL, CoreID: was.CoreID, Zone: answered.Zone}); err != nil {
+		if err := service.keep(); err != nil {
 			service.parts.Logger.WarnContext(ctx, "discovery: could not keep the core's zone", "err", err)
 		}
 	}
@@ -511,12 +552,16 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 	}
 }
 
-// keep writes the state file, with the house networks learnt now.
-func (service *Service) keep(state kept) error {
+// keep writes the state file from what the core holds now: its discovery, its id and zone there, and
+// the house networks learnt.
+func (service *Service) keep() error {
 	service.keeping.Lock()
 	defer service.keeping.Unlock()
 	service.mutex.Lock()
-	state.HouseNetworks = keptHouseNetworksOf(service.learnt)
+	state := kept{
+		Issuer: service.status.Issuer, RootSet: service.held.pinned, Document: service.held.document,
+		CoreID: service.status.CoreID, Zone: service.status.Zone, HouseNetworks: keptHouseNetworksOf(service.learnt),
+	}
 	service.mutex.Unlock()
 	encoded, err := json.Marshal(state)
 	if err != nil {

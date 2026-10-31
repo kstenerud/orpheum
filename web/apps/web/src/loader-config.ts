@@ -8,10 +8,10 @@
 
 import { discoveryClientApiOf, discoveryHasRealms } from "./discovery-start.ts";
 
-/** The meta element a discovery names its client origins by: "https://{core}.orpheum-client.com". */
+/** The meta element a discovery names its client origins by: "https://{core}.client.example". */
 const clientOriginsMetaName = "orpheum-client-origins";
 
-/** The meta element a discovery names the loader's own origin by: "https://app.orpheum-app.com". */
+/** The meta element a discovery names the loader's own origin by: "https://discovery.example". */
 const loaderOriginMetaName = "orpheum-loader-origin";
 
 /** The part of the pattern a core's id takes. */
@@ -24,7 +24,7 @@ const coreIdPattern = /^[a-z0-9]{1,63}$/u;
 export interface LoaderConfig {
   readonly clientApi: string;
   readonly hasRealms: boolean;
-  /** Each core's client origin, its id in place of "{core}": "https://{core}.orpheum-client.com". */
+  /** Each core's client origin, its id in place of "{core}": "https://{core}.client.example". */
   readonly clientOrigins: string;
   /** The loader's own origin, where the household list is (D308 §8). */
   readonly loaderOrigin: string;

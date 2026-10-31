@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -153,7 +154,8 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 }
 
 // A server with no discovery says so, and that it asks its router for nothing: the System page's
-// Discovery section is wired to the discovery and the port mapping (D273 §7).
+// Discovery section is wired to the discovery and the port mapping (D273 §7), and offers the build's
+// suggested discovery, the System page's one source of it (D391 §7).
 func TestServe_TheDiscoverySectionSaysNoDiscoveryAndNoPortMapping(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
@@ -164,8 +166,11 @@ func TestServe_TheDiscoverySectionSaysNoDiscoveryAndNoPortMapping(t *testing.T) 
 	if err := json.Unmarshal([]byte(answered.body), &standing); err != nil || answered.status != http.StatusOK {
 		t.Fatalf("/system/discovery: %d %s", answered.status, answered.body)
 	}
-	if standing.BaseURL != "" || standing.PortMapping.IsWanted || standing.PortMapping.Mappings == nil {
+	if standing.Issuer != "" || standing.PortMapping.IsWanted || standing.PortMapping.Mappings == nil {
 		t.Errorf("/system/discovery = %+v; want no discovery and no port mapping asked for", standing)
+	}
+	if standing.SuggestedIssuer == "" || standing.SuggestedIssuer != discovery.Suggested().Issuer {
+		t.Errorf("/system/discovery suggests %q; want the build's suggestion", standing.SuggestedIssuer)
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)

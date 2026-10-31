@@ -102,7 +102,7 @@ type Queue interface {
 
 // Parts are what the service is built from.
 type Parts struct {
-	// Domain is the name the certificate is for: media.orpheum-app.com (D243 §6), or a wildcard
+	// Domain is the name the certificate is for: media.example.com (D243 §6), or a wildcard
 	// such as *.k7xq2.<zone>, every name one label under it (D273). Contact is the ACME account's
 	// e-mail address, empty for none.
 	Domain, Contact string

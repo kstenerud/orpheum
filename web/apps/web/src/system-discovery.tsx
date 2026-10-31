@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { TFunction } from "i18next";
+import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { HomeAddress } from "./home-address.tsx";
@@ -23,13 +24,11 @@ type PortMapping = components["schemas"]["PortMappingBody"];
 type WebRTCPath = components["schemas"]["WebRTCPathBody"];
 type HouseNetwork = components["schemas"]["HouseNetworkBody"];
 
-/** The paid discovery's address, the one an admin is offered first (D273 §2). */
-export const serviceDiscoveryUrl = "https://api.orpheum-app.com/core/v1";
-
 /**
- * The core's discovery on the System page (D273): connecting to one, the paid service or the
- * owner's own, the code its owner claims it by there, and once claimed where clients can reach it
- * from, as the discovery's probe found; and leaving it.
+ * The core's discovery on the System page (D273): connecting to one by its issuer, the suggested
+ * discovery the core names or the owner's own, with the admin's password (D391 §3), the code its
+ * owner claims it by there, and once claimed where clients can reach it from, as the discovery's
+ * probe found; and leaving it. The suggestion is the core's, never this page's own (D391 §7).
  */
 export function SystemDiscovery(): JSX.Element {
   const { t } = useTranslation();
@@ -39,11 +38,19 @@ export function SystemDiscovery(): JSX.Element {
     async () => dataOrThrow(await api.GET("/system/discovery")),
     useBackgroundChangesPoller(),
   );
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const connect = (baseUrl: string): void => {
+  // What the admin last asked to connect to, which says why it was refused.
+  const askedRef = useRef({ issuer: "", suggested: "" });
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    connectProblem(t, cause, askedRef.current),
+  );
+  const connect = (issuer: string, password: string, suggested: string): void => {
+    askedRef.current = { issuer, suggested };
     runRequest(async (idempotencyKey) => {
       dataOrThrow(
-        await api.POST("/system/discovery", { body: { baseUrl }, ...idempotent(idempotencyKey) }),
+        await api.POST("/system/discovery", {
+          body: { issuer, password },
+          ...idempotent(idempotencyKey),
+        }),
       );
       reload();
     });
@@ -63,8 +70,14 @@ export function SystemDiscovery(): JSX.Element {
       <Loaded
         resource={standing}
         render={(value) =>
-          value.baseUrl === "" ? (
-            <ConnectForm isBusy={isBusy} onConnect={connect} />
+          value.issuer === "" ? (
+            <ConnectForm
+              isBusy={isBusy}
+              suggested={value.suggestedIssuer ?? ""}
+              onConnect={(issuer, password) => {
+                connect(issuer, password, value.suggestedIssuer ?? "");
+              }}
+            />
           ) : (
             <StandingView standing={value} claiming={claiming} onLeave={leave} />
           )
@@ -74,31 +87,77 @@ export function SystemDiscovery(): JSX.Element {
   );
 }
 
-/** The discovery's address, the service's to begin with, and connecting to it. */
+/**
+ * Why connecting failed: the password's and the issuer's own refusals in their words, the suggested
+ * discovery's when this build knows none of its root keys, any other failure as every request's.
+ */
+function connectProblem(
+  t: TFunction,
+  cause: unknown,
+  asked: { readonly issuer: string; readonly suggested: string },
+): string {
+  if (isRefusedAt(cause, "body.password")) {
+    return t("system.discovery.wrongPasswordToConnect");
+  }
+  if (isRefusedAt(cause, "body.issuer")) {
+    return asked.suggested !== "" && typedName(asked.issuer) === typedName(asked.suggested)
+      ? t("system.discovery.suggestedUnknown", { issuer: typedName(asked.suggested) })
+      : t("system.discovery.notAnIssuer");
+  }
+  return problemText(t, cause);
+}
+
+/** An issuer as a person types it: its host, without https:// or a closing slash. */
+function typedName(issuer: string): string {
+  return issuer
+    .trim()
+    .replace(/^https:\/\//iu, "")
+    .replace(/\/$/u, "")
+    .toLowerCase();
+}
+
+/**
+ * The discovery's name, the suggested one to begin with, as a person types it, and the admin's
+ * password, and connecting to it.
+ */
 function ConnectForm(props: {
   readonly isBusy: boolean;
-  readonly onConnect: (baseUrl: string) => void;
+  readonly suggested: string;
+  readonly onConnect: (issuer: string, password: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [baseUrl, setBaseUrl] = useState(serviceDiscoveryUrl);
+  const [issuer, setIssuer] = useState(() => typedName(props.suggested));
+  const [password, setPassword] = useState("");
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        props.onConnect(baseUrl.trim());
+        props.onConnect(issuer.trim(), password);
       }}
     >
       <label>
-        {t("system.discovery.address")}{" "}
+        {t("system.discovery.issuer")}{" "}
         <input
-          type="url"
-          value={baseUrl}
+          autoComplete="off"
+          spellCheck={false}
+          value={issuer}
           onChange={(event) => {
-            setBaseUrl(event.currentTarget.value);
+            setIssuer(event.currentTarget.value);
           }}
         />
       </label>{" "}
-      <button type="submit" disabled={props.isBusy || baseUrl.trim() === ""}>
+      <label>
+        {t("system.discovery.yourPassword")}{" "}
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.currentTarget.value);
+          }}
+        />
+      </label>{" "}
+      <button type="submit" disabled={props.isBusy || issuer.trim() === "" || password === ""}>
         {t("system.discovery.connect")}
       </button>
     </form>
@@ -115,7 +174,8 @@ function StandingView(props: {
   const { standing } = props;
   return (
     <>
-      <p>{t("system.discovery.at", { address: standing.baseUrl })}</p>
+      <p>{t("system.discovery.at", { issuer: standing.issuer })}</p>
+      <Trusted standing={standing} />
       {standing.realm === undefined ? null : (
         <p>{t("system.discovery.realm", { realm: standing.realm })}</p>
       )}
@@ -311,6 +371,30 @@ function HomeAddressOf(props: { readonly standing: Standing }): JSX.Element | nu
     <HomeAddress addresses={addresses} />
   ) : (
     <p>{t("system.discovery.homeAddressWaiting")}</p>
+  );
+}
+
+/**
+ * The discovery's root keys the server trusts, by their fingerprints, for the admin to compare with
+ * the discovery's own (D391 §2), and why no newer address document holds, when none does.
+ */
+function Trusted(props: { readonly standing: Standing }): JSX.Element {
+  const { t } = useTranslation();
+  const { rootKeys, rootSetVersion, documentProblem } = props.standing;
+  return (
+    <>
+      {(rootKeys ?? []).length === 0 ? null : (
+        <p>
+          {t("system.discovery.rootKeys", {
+            keys: (rootKeys ?? []).join(", "),
+            version: rootSetVersion,
+          })}
+        </p>
+      )}
+      {documentProblem === undefined ? null : (
+        <p role="alert">{t("system.discovery.documentProblem")}</p>
+      )}
+    </>
   );
 }
 

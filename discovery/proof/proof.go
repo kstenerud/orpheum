@@ -26,21 +26,24 @@ const (
 )
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
-// discoveryproto's Purpose constants), the discovery's base URL as the core called it, without a
-// trailing slash, the core (its id, or before it has one KeyLabel of its public key), and the
-// discovery's nonce. Bound so, a discovery cannot pass another's challenge to the core and come away
-// with a session there, nor one core's signature serve another (the protocol's §2.1; C8, X12).
-func Message(purpose, baseURL, core, nonce string) []byte {
-	return []byte(prefix + purpose + ":" + strings.TrimSuffix(baseURL, "/") + ":" + core + ":" + nonce)
+// discoveryproto's Purpose constants), the discovery's issuer, the origin its address document is
+// served at and the core enrolled by (discovery/addressdoc), without a trailing slash, the core (its
+// id, or before it has one KeyLabel of its public key), and the discovery's nonce. Bound so, a
+// discovery cannot pass another's challenge to the core and come away with a session there, nor one
+// core's signature serve another (the protocol's §2.1; C8, X12); bound to the issuer, not the URL
+// the core calls, the discovery's API moves by a new document without the core enrolling again
+// (D391 §4).
+func Message(purpose, issuer, core, nonce string) []byte {
+	return []byte(prefix + purpose + ":" + strings.TrimSuffix(issuer, "/") + ":" + core + ":" + nonce)
 }
 
 // Verify is whether signature is publicKey's over Message's fields. A key of the wrong size is no
 // key: it verifies nothing.
-func Verify(publicKey ed25519.PublicKey, purpose, baseURL, core, nonce string, signature []byte) bool {
+func Verify(publicKey ed25519.PublicKey, purpose, issuer, core, nonce string, signature []byte) bool {
 	if len(publicKey) != ed25519.PublicKeySize {
 		return false
 	}
-	return ed25519.Verify(publicKey, Message(purpose, baseURL, core, nonce), signature)
+	return ed25519.Verify(publicKey, Message(purpose, issuer, core, nonce), signature)
 }
 
 // Answer is a WebRTC answer as the core signs it: the core's id, the offer's id, the fingerprint the
@@ -120,7 +123,7 @@ func HandOffOfferKey(code string) []byte {
 // passes on is one the client made, for a DTLS certificate the client holds (A9).
 func Offer(key []byte, fingerprint string) string {
 	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(prefix + offerPurpose + "\n" + fingerprint))
+	_, _ = mac.Write([]byte(prefix + offerPurpose + "\n" + fingerprint)) // a hash's Write never fails
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
