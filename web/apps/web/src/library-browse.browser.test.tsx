@@ -67,6 +67,32 @@ describe("the Libraries page's bar in a real browser", () => {
       expect(button.lastElementChild, button.textContent).toBe(chevron);
     }
   });
+
+  // The owner, 2026-10-30: a listing's sort, search and configure as icons, in a tray as the
+  // banner's ("Icon trays should ideally share the same code").
+  it("lays a listing's tools out as an icon tray: one row, side by side, the sort a borderless icon", async () => {
+    await page.viewport(1440, 1000);
+    walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
+    await expect.poll(() => isDrawn(".listing-tools .route-chooser__button")).toBe(true);
+    const buttons = [...document.querySelectorAll(".listing-tools button")].map((button) =>
+      button.getBoundingClientRect(),
+    );
+    expect(buttons.length).toBeGreaterThan(1);
+    const fingertip = 2.75 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+    for (const [index, box] of buttons.entries()) {
+      expect(box.top, `tool ${String(index)}`).toBeCloseTo(buttons[0]?.top ?? 0, 0);
+      expect(box.width, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
+      expect(box.height, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
+      if (index > 0) {
+        expect(box.left - (buttons[index - 1]?.right ?? 0), `tool ${String(index)}`).toBeCloseTo(
+          0,
+          0,
+        );
+      }
+    }
+    const sort = document.querySelector(".listing-tools .route-chooser__button");
+    expect(sort === null ? "" : getComputedStyle(sort).borderTopStyle).toBe("none");
+  });
 });
 
 /** A server with one films library holding one film, as the Libraries page asks it. */
