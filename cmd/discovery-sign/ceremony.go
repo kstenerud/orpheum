@@ -553,17 +553,31 @@ func (guide *guided) makeGenesis(place *folder, chain trust.ChainKind) error {
 
 // makeAddress writes the address document, signs it with the first everyday discovery key, and keeps it.
 func (guide *guided) makeAddress(place *folder) error {
-	records := place.ledger()
-	newest, err := records.newest(string(trust.ChainDiscovery), kindAddress)
+	newest, err := place.ledger().newest(string(trust.ChainDiscovery), kindAddress)
 	if err != nil || newest.signed.Payload != "" {
 		return err
 	}
+	guide.say.sayf("\nStep: sign the address document.\n" +
+		"An everyday key signs it, so a core can tell it came from you and was not changed on the way.")
+	return guide.signAddress(place, place.state.chainKeys(trust.ChainDiscovery, trust.RoleEveryday)[0])
+}
+
+// signAddress writes the next address document from the folder's answers, under the discovery chain's
+// current version, has signer sign it, and keeps it.
+func (guide *guided) signAddress(place *folder, signer keyEntry) error {
+	records := place.ledger()
 	chain, isHeld, err := records.chain(trust.ChainDiscovery)
 	if err != nil || !isHeld {
 		return errors.Join(err, errors.New("the discovery chain is not kept yet"))
 	}
-	guide.say.sayf("\nStep: sign the address document.\n" +
-		"An everyday key signs it, so a core can tell it came from you and was not changed on the way.")
+	newest, err := records.newest(string(trust.ChainDiscovery), kindAddress)
+	if err != nil {
+		return err
+	}
+	sequence := int64(1)
+	if newest.signed.Payload != "" && newest.rootVersion == chain.Version() {
+		sequence = newest.sequence + 1
+	}
 	answers := place.state.Address
 	arguments := []string{
 		"--ledger", string(records), "--issuer", answers.Issuer, "--location", answers.Issuer,
@@ -581,12 +595,12 @@ func (guide *guided) makeAddress(place *folder) error {
 	if _, err = address(run, withLedger("address"), arguments); err != nil {
 		return err
 	}
-	path := records.path("pending", fmt.Sprintf("address-%d-1", chain.Version()))
-	signers := place.state.chainKeys(trust.ChainDiscovery, trust.RoleEveryday)[:1]
-	signed, err := guide.signWith(place, trust.NamespaceDiscoveryAddress, path, signers, func(one trust.Signed) error {
-		_, openErr := addressdoc.Open(one, chain, answers.Issuer)
-		return openErr
-	})
+	path := records.path("pending", fmt.Sprintf("address-%d-%d", chain.Version(), sequence))
+	signed, err := guide.signWith(place, trust.NamespaceDiscoveryAddress, path, []keyEntry{signer},
+		func(one trust.Signed) error {
+			_, openErr := addressdoc.Open(one, chain, answers.Issuer)
+			return openErr
+		})
 	if err != nil {
 		return err
 	}

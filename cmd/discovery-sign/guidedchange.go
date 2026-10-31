@@ -76,6 +76,9 @@ func (guide *guided) changeKey(change string, arguments []string) error {
 			return stepErr
 		}
 	}
+	if stepErr := guide.refreshSigned(place); stepErr != nil {
+		return stepErr
+	}
 	if stepErr := guide.publishFiles(place); stepErr != nil {
 		return stepErr
 	}
@@ -177,6 +180,46 @@ func (guide *guided) changeChain(place *folder, chain trust.ChainKind, change st
 		return err
 	}
 	return guide.accept(signing{now: guide.now, ledger: records, stdout: io.Discard}, string(chain), kindRoot, signed)
+}
+
+// refreshSigned signs the address document again when its signature no longer counts (its key
+// suspended or removed), and says what to do when the newest release record's no longer does, which
+// only a new record from the release workflow can mend.
+func (guide *guided) refreshSigned(place *folder) error {
+	records := place.ledger()
+	discovery, _, err := records.chain(trust.ChainDiscovery)
+	if err != nil {
+		return err
+	}
+	document, err := records.newest(string(trust.ChainDiscovery), kindAddress)
+	if err != nil {
+		return err
+	}
+	if document.signed.Payload != "" && discovery.Verify(trust.NamespaceDiscoveryAddress, document.signed) != nil {
+		guide.say.sayf("\nThe address document was signed by a key whose signatures no longer count, so cores would\n" +
+			"refuse it. It is signed again now.")
+		signer, chooseErr := guide.chooseSigner(place, discovery, keyEntry{}, false)
+		if chooseErr != nil {
+			return chooseErr
+		}
+		if signErr := guide.signAddress(place, signer); signErr != nil {
+			return signErr
+		}
+	}
+	publisher, _, err := records.chain(trust.ChainPublisher)
+	if err != nil {
+		return err
+	}
+	record, err := records.newest(string(trust.ChainPublisher), kindRelease)
+	if err != nil {
+		return err
+	}
+	if record.signed.Payload != "" && publisher.Verify(trust.NamespaceRelease, record.signed) != nil {
+		guide.say.sayf("\nThe newest release record was signed by a key whose signatures no longer count, so cores\n"+
+			"will refuse it. Make a new unsigned record (release-record --root-version %d) and sign it\n"+
+			"with sign-release.", publisher.Version())
+	}
+	return nil
 }
 
 // standingChange is change made to key, whose public half is the file public.
