@@ -17,47 +17,36 @@ type composeService struct {
 	isMPTCPOff  bool
 }
 
-var (
-	composeServiceLine = regexp.MustCompile(`^  ([a-z0-9_-]+):$`)
-	composeNetworkMode = regexp.MustCompile(`^    network_mode: *(\S+)$`)
-)
+var composeServiceName = regexp.MustCompile(`^([a-z0-9_-]+):$`)
 
 // composeServices reads the services of a compose template, which keeps compose's usual two-space
 // indentation: a service's name at two spaces, its keys at four and a sysctl at six.
-func composeServices(t *testing.T, text string) map[string]*composeService {
-	t.Helper()
+func composeServices(text string) map[string]*composeService {
 	services := map[string]*composeService{}
 	var current *composeService
-	isInServices, isInSysctls := false, false
+	section, key := "", ""
 	for line := range strings.SplitSeq(text, "\n") {
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
-		if !strings.HasPrefix(line, " ") {
-			isInServices = line == "services:"
-			current = nil
-			continue
-		}
-		if !isInServices {
-			continue
-		}
-		if match := composeServiceLine.FindStringSubmatch(line); match != nil {
-			current = &composeService{}
-			services[match[1]] = current
-			isInSysctls = false
-			continue
-		}
-		if current == nil {
-			continue
-		}
-		if strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "     ") {
-			isInSysctls = line == "    sysctls:"
-			if match := composeNetworkMode.FindStringSubmatch(line); match != nil {
-				current.networkMode = strings.Trim(match[1], `"'`)
+		switch indent := len(line) - len(strings.TrimLeft(line, " ")); {
+		case indent == 0:
+			section, current = trimmed, nil
+		case section != "services:":
+		case indent == 2:
+			current, key = nil, ""
+			if match := composeServiceName.FindStringSubmatch(trimmed); match != nil {
+				current = &composeService{}
+				services[match[1]] = current
 			}
-			continue
-		}
-		if isInSysctls && strings.TrimSpace(line) == `net.mptcp.enabled: "0"` {
+		case current == nil:
+		case indent == 4:
+			key = trimmed
+			if mode, isMode := strings.CutPrefix(trimmed, "network_mode:"); isMode {
+				current.networkMode = strings.Trim(strings.TrimSpace(mode), `"'`)
+			}
+		case key == "sysctls:" && trimmed == `net.mptcp.enabled: "0"`:
 			current.isMPTCPOff = true
 		}
 	}
@@ -89,7 +78,7 @@ func TestCompose_EveryServiceWithANetworkOfItsOwnTurnsMPTCPOff(t *testing.T) {
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
-		services := composeServices(t, string(text))
+		services := composeServices(string(text))
 		if len(services) == 0 {
 			t.Errorf("%s: no services read", path.Base(name))
 		}
@@ -119,7 +108,7 @@ func TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff(t *testing.T) {
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
-		services := composeServices(t, string(text))
+		services := composeServices(string(text))
 		for service, said := range services {
 			shared, isService := strings.CutPrefix(said.networkMode, "service:")
 			if !isService {
