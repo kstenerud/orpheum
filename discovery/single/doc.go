@@ -78,7 +78,7 @@
 //
 //   - The operator's published directory, the root chain, the address document and the release
 //     record, is served under /.well-known/ as it is, byte for byte, and nothing outside it (the root
-//     key audit's §3.1). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
+//     key audit's §3.1), through trust.Served. TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
 //
 //   - A core's signatures are bound to the discovery's identity, not a name or URL (the audit's F14).
 //     TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses, whose core enrols by issuer and identity.

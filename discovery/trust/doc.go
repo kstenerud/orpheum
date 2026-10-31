@@ -35,6 +35,9 @@
 //   - The tiers' rules: an everyday key never changes the recovery tier nor skips; two statements of
 //     one version are refused unless one is a recovery key's; a leaving signer has the new set sign
 //     too; removed keys stay named. TestFollow_TheTiersRulesHold.
+//   - A published directory is served under WellKnownPrefix as it is, byte for byte, to GET alone, and
+//     nothing outside it nor a directory: every discovery serves through Served, discovery/single and
+//     the paid service alike. TestServed_ServesThePublishedDirectoryAsItIsAndNothingElse.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing
