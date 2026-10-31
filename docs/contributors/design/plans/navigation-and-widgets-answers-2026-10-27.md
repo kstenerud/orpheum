@@ -833,10 +833,14 @@ The ledger (`token_usage.py --since 15:00`) gave 3.3M weighted tokens over 197 m
 each built with a `Gate-Changed:` trailer:
 
 1. **Code-editing agents run in worktrees, and the lead cherry-picks** (`lead.md` §2 already said so, and it
-   was not followed): `pre_agent.py` refuses an editing agent's launch without `isolation: "worktree"`.
+   was not followed): `pre_agent.py` refuses an editing agent's launch without `isolation: "worktree"`
+   (built: An earlier commit).
 2. **The Stop hook holds back** with one line while a running agent edits the main tree, instead of gating
-   its half-written files.
-3. **`token_usage.py` weights by model price**, so the ledger shows what each session cost.
+   its half-written files. **Not built; the lead proposes dropping it:** with change 1 no agent that can
+   edit shares the main tree, so the only dirt there is the lead's own, which the gate should check. To the
+   owner.
+3. **`token_usage.py` weights by model price**, so the ledger shows what each session cost (built:
+   An earlier commit; dollars at API prices, from the claude-api skill's table).
 4. **The prompt hook reports no context size right after a compaction** (built: An earlier commit).
 5. **`make spot`, which every commit runs, golangci-lints the changed Go packages** (built: b93bb2b8). The
    owner pointed out that "lint the one package first" was a habit, not a check.
