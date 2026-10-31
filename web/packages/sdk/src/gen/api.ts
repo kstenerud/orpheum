@@ -2942,7 +2942,7 @@ export interface components {
              * @description Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not
              */
             removedAt: number;
-            /** @description The discovery's root keys the server trusts, each its role and fingerprint as ssh-keygen -l shows it (D393 §1) */
+            /** @description The discovery root keys whose signatures count (suspended keys left out), each its role and fingerprint as ssh-keygen -l shows it (D393 §1) */
             rootKeys: string[] | null;
             /**
              * Format: int64
