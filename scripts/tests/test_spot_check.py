@@ -58,6 +58,24 @@ class Planning(unittest.TestCase):
                                          r"scripts/go_test_timings.py go-spot$")
         self.assertEqual(commands[1][1:], ["scripts/py_tests.py"], "no web test imports a.tsx here")
 
+    def test_a_go_change_lints_its_own_package_and_not_its_importers(self):
+        # The changed package must exist for lint to run on it: this repository's own.
+        spot = spot_check.plan(["cmd/orpheum/x.go"], MODULE, {f"{MODULE}/cmd/orpheum": {f"{MODULE}/z"}})
+        self.assertEqual(spot.lint_packages, [f"{MODULE}/cmd/orpheum"])
+        previous = os.getcwd()
+        os.chdir(REPO)
+        try:
+            commands = [run.command for run in spot_check.runs(spot, MODULE)]
+        finally:
+            os.chdir(previous)
+        self.assertIn(["golangci-lint", "run", "--allow-serial-runners", "--build-tags", "integration", "./cmd/orpheum"],
+                      commands)
+
+    def test_a_deleted_package_is_not_linted(self):
+        spot = spot_check.plan(["internal/gone/x.go"], MODULE, {})
+        commands = [run.command for run in spot_check.runs(spot, MODULE)]
+        self.assertFalse([c for c in commands if c[0] == "golangci-lint"])
+
 
 
 class Wiring(unittest.TestCase):
