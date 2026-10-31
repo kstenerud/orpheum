@@ -14,7 +14,7 @@ const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as c
 const noDiscovery = [
   200,
   {
-    baseUrl: "",
+    issuer: "",
     published: [],
     probe: [],
     claimExpiresAt: 0,

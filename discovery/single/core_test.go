@@ -5,20 +5,25 @@ package single_test
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/single"
+	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/discovery/trust/trusttest"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
@@ -27,6 +32,22 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
+
+// writeDocument writes document, signed by a root key made for the test, where a discovery serves it
+// from: the operator's signed file.
+func writeDocument(t *testing.T, path string, document addressdoc.Document) {
+	t.Helper()
+	root := trusttest.NewRoot(t)
+	encoded, err := json.Marshal(addressdoc.Served{
+		Document: root.Signs(t, trust.KindAddressDocument, document), RootSets: []trust.Signed{root.Set},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // memoryFiles is the core's persistent directory, in memory.
 type memoryFiles struct {
@@ -67,8 +88,9 @@ func (answering) AnswerRelayed(
 	return rtcapi.Description{Type: "answer", SDP: "answer to " + offer.SDP}, nil
 }
 
-// The core's own discovery client, unchanged, enrols with a single-target discovery, is claimed by
-// the code it shows, sends its addresses, and answers the offer the discovery passes it (W4b.2).
+// The core's own discovery client, unchanged, enrols with a single-target discovery by its issuer,
+// trusting the address document the discovery serves there, is claimed by the code it shows, sends
+// its addresses, and answers the offer the discovery passes it (W4b.2; D391 §3).
 func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	t.Parallel()
 	coreClock := clocktest.NewFake(time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC))
@@ -82,8 +104,13 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 		handler.ServeHTTP(writer, request)
 	}))
 	t.Cleanup(server.Close)
+	documentPath := filepath.Join(t.TempDir(), "address-document.json")
+	writeDocument(t, documentPath, addressdoc.Document{
+		Issuer: server.URL, CoreAPI: server.URL, ClientAPI: server.URL + "/client", LoaderOrigin: server.URL,
+		ClientOrigins: "http://" + addressdoc.CorePlace + ".localhost:8443", IssuedAt: discoveryNow.UnixMilli(),
+	})
 	held, err := single.New(single.Parts{
-		BaseURL: server.URL, Zone: "home.example",
+		Issuer: server.URL, AddressDocument: documentPath, Zone: "home.example",
 		Store: single.FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now:   func() time.Time { return discoveryNow }, Random: rand.Reader,
 		Logger: slog.New(slog.NewTextHandler(logs, nil)),
@@ -91,7 +118,10 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler = held.Handler()
+	mux := http.NewServeMux()
+	mux.Handle(addressdoc.WellKnownPath, held.WellKnownHandler())
+	mux.Handle("/", held.Handler())
+	handler = mux
 	key, err := identity.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)

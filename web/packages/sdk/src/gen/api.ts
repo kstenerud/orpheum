@@ -2736,8 +2736,10 @@ export interface components {
             remedy?: string;
         };
         ConnectDiscoveryInputBody: {
-            /** @description The discovery's address: the service's, or the owner's own */
-            baseUrl: string;
+            /** @description The discovery's issuer, the name typed: "discovery.example" or its https origin */
+            issuer: string;
+            /** @description The admin's own password */
+            password: string;
         };
         CreateAccountInputBody: {
             /** @description Who it is for; only the admin sees it */
@@ -2849,8 +2851,6 @@ export interface components {
         DiscoveryStatusBody: {
             /** @description The address of the account the server is enrolled with, at a discovery with accounts (D310 §5) */
             account?: string;
-            /** @description The discovery's address; empty when the core is enrolled with none */
-            baseUrl: string;
             claimCode?: string;
             /**
              * Format: int64
@@ -2859,6 +2859,8 @@ export interface components {
             claimExpiresAt: number;
             /** @description Where the discovery serves its client, which the server's links lead to */
             clientOrigin?: string;
+            /** @description The core API the discovery's address document names, which the server calls */
+            coreApi?: string;
             coreId?: string;
             /**
              * Format: int64
@@ -2867,18 +2869,31 @@ export interface components {
             deadEndsLastWeek: number;
             /** @description When the discovery stops speaking this core's protocol, when it said so */
             deprecatedUntil?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds the address document held was made; 0 when none is
+             */
+            documentAt: number;
+            /** @description Why the last look for a newer address document found none that holds; empty when it did not fail */
+            documentProblem?: string;
             /** @description The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest */
             fingerprint: string;
             /** @description The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it */
             homeAddresses: string[] | null;
+            /** @description What the discovery is, as its address document names it */
+            homepage?: string;
             houseNetworks: components["schemas"]["HouseNetworkBody"][] | null;
             /** @description Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6) */
             isHomeAddressReady: boolean;
+            /** @description The discovery's issuer, the origin the server was enrolled by; empty when it is enrolled with none (D391 §3) */
+            issuer: string;
             /**
              * Format: int64
              * @description Unix milliseconds; 0 before the first
              */
             lastHeartbeatAt: number;
+            /** @description Where the discovery serves the loader, as its address document names it */
+            loaderOrigin?: string;
             portMapping: components["schemas"]["PortMappingBody"];
             probe: components["schemas"]["DiscoveryProbeBody"][] | null;
             /** @description Why the last call to the discovery failed; empty when it did not */
@@ -2897,11 +2912,20 @@ export interface components {
              * @description Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not
              */
             removedAt: number;
+            /** @description The fingerprints of the discovery's root keys the server trusts, as ssh-keygen -l shows each (D391 §2) */
+            rootKeys: string[] | null;
+            /**
+             * Format: int64
+             * @description The version of that root key set
+             */
+            rootSetVersion: number;
             /**
              * @description Absent before the discovery's first answer
              * @enum {string}
              */
             state?: "pending" | "claimed" | "grace" | "frozen" | "released" | "disabled";
+            /** @description The discovery an admin is offered first; empty when this build suggests none (D391 §7) */
+            suggestedIssuer?: string;
             webrtcPaths: components["schemas"]["WebRTCPathBody"][] | null;
             zone?: string;
         };

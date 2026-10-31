@@ -89,6 +89,6 @@ func VerifyRealmTag(key []byte, coreID string, publicKey ed25519.PublicKey, prov
 // mac is an HMAC-SHA256 under key over the protocol's prefix and text, base64url.
 func mac(key []byte, text string) string {
 	hashed := hmac.New(sha256.New, key)
-	hashed.Write([]byte(prefix + text))
+	_, _ = hashed.Write([]byte(prefix + text)) // a hash's Write never fails
 	return base64.RawURLEncoding.EncodeToString(hashed.Sum(nil))
 }

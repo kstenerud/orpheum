@@ -38,7 +38,7 @@ export const enLab = {
       explain:
         "Press Run to load 32 MB from the server three ways, one after another: as the app's requests go, as a film's pieces go, and from the server's address at home when one is typed below. Each shows its speed; all are sent to the server's log when they end.",
       lanAddress: "The server's address at home (optional)",
-      lanAddressExample: "https://192-168-1-10.….orpheum-app.com:8443",
+      lanAddressExample: "https://192-168-1-10.k7xq2.core.example:8443",
       run: "Run",
       running: "Running…",
       leg: {

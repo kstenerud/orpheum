@@ -66,11 +66,11 @@ func (nonces *Nonces) Issue(random io.Reader, expires time.Time) (string, error)
 }
 
 // SignedNonce is a core's signature over a nonce, and what it must be bound to: its purpose, the
-// discovery's base URL and the core (Verify).
+// discovery's issuer and the core (Verify).
 type SignedNonce struct {
 	PublicKey ed25519.PublicKey
 	Purpose   string
-	BaseURL   string
+	Issuer    string
 	Core      string
 	Nonce     string
 	Signature []byte
@@ -87,7 +87,7 @@ func (nonces *Nonces) Spend(now time.Time, signed SignedNonce) bool {
 	}
 	expires := time.UnixMilli(int64(binary.BigEndian.Uint64(raw))) //nolint:gosec // written from a time above
 	if !now.Before(expires) ||
-		!Verify(signed.PublicKey, signed.Purpose, signed.BaseURL, signed.Core, signed.Nonce, signed.Signature) {
+		!Verify(signed.PublicKey, signed.Purpose, signed.Issuer, signed.Core, signed.Nonce, signed.Signature) {
 		return false
 	}
 	nonces.mutex.Lock()

@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
-import { SystemDiscovery, serviceDiscoveryUrl } from "./system-discovery.tsx";
+import { SystemDiscovery } from "./system-discovery.tsx";
 import {
   buttonWithText,
   click,
@@ -25,8 +25,15 @@ afterEach(() => {
   mounted = undefined;
 });
 
+/** The discovery the core suggests, as its status names it (D391 §7). */
+const suggestedIssuer = "https://discovery.example";
+
 const none = {
-  baseUrl: "",
+  issuer: "",
+  suggestedIssuer,
+  rootKeys: [],
+  rootSetVersion: 0,
+  documentAt: 0,
   fingerprint: "",
   published: [],
   probe: [],
@@ -37,11 +44,14 @@ const none = {
   portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
 };
 
-it("connects to the paid discovery by default and shows the code to claim the server by (D273)", async () => {
+it("connects to the discovery the server suggests, by its name and the admin's password, and shows the code to claim the server by (D273, D391)", async () => {
   const heard: Heard[] = [];
   const pending = {
     ...none,
-    baseUrl: serviceDiscoveryUrl,
+    issuer: suggestedIssuer,
+    coreApi: "https://api.discovery.example/core/v1",
+    rootKeys: ["SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"],
+    rootSetVersion: 1,
     coreId: "k7xq2",
     state: "pending",
     claimCode: "WXYZ-2345",
@@ -59,17 +69,54 @@ it("connects to the paid discovery by default and shows the code to claim the se
   );
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
+  // The suggestion is the server's, offered as a person types it.
+  expect(container.querySelector<HTMLInputElement>("form input")?.value).toBe("discovery.example");
+  await enter(container.querySelector('form input[type="password"]'), "owner-password");
   await click(buttonWithText(container, "Connect"));
   expect(heard.map((each) => each.methodAndPath)).toEqual([
     "GET /system/discovery",
     "POST /system/discovery",
     "GET /system/discovery",
   ]);
-  expect(heard[1]?.body).toEqual({ baseUrl: serviceDiscoveryUrl });
+  expect(heard[1]?.body).toEqual({ issuer: "discovery.example", password: "owner-password" });
   const text = container.textContent;
-  expect(text).toContain(`Connected to ${serviceDiscoveryUrl}.`);
+  expect(text).toContain(`Connected to ${suggestedIssuer}.`);
+  // The keys it trusts the discovery by, for the admin to compare (D391 §2).
+  expect(text).toContain(
+    "Trusted by the discovery's keys SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG (set 1).",
+  );
   expect(text).toContain("Waiting to be claimed.");
   expect(text).toContain("enter the code WXYZ-2345");
+});
+
+it("says the server cannot trust the suggested discovery when this build knows none of its keys (D391 §7)", async () => {
+  const issuerRefused = [
+    422,
+    {
+      error: {
+        code: "invalid_request",
+        message: "a note for developers",
+        detail: { problems: [{ location: "body.issuer", message: "no root keys" }] },
+      },
+    },
+  ] as const;
+  const services = servedBy({
+    "GET /system/discovery": [200, none],
+    "POST /system/discovery": issuerRefused,
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  await enter(container.querySelector('form input[type="password"]'), "owner-password");
+  await click(buttonWithText(container, "Connect"));
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "This version of the server doesn't know the keys of discovery.example yet, so it can't trust it. Update the server, or connect to another discovery.",
+  );
+  // Another name refused there is no discovery's name.
+  await enter(container.querySelector("form input"), "http://elsewhere.example");
+  await click(buttonWithText(container, "Connect"));
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "That isn't a discovery's name. Type the name it gave you, as in discovery.example.",
+  );
 });
 
 it("says where a claimed server is reached from, and warns of the discovery's deprecation", async () => {
@@ -78,14 +125,15 @@ it("says where a claimed server is reached from, and warns of the discovery's de
       200,
       {
         ...none,
-        baseUrl: "https://discovery.example.com/core/v1",
+        issuer: "https://discovery.example.com",
+        documentProblem: "no location served an address document that holds",
         state: "claimed",
         realm: "karlnas.live",
         reachableFrom: "ipv6",
         published: ["k7xq2.orpheum-core.com"],
         deadEndsLastWeek: 3,
         deprecatedUntil: "2027-03-01",
-        clientOrigin: "https://app.orpheum-app.com",
+        clientOrigin: "https://k7xq2.client.example",
         fingerprint: "k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
         webrtcPaths: [
           { path: "direct_ipv6", count: 0 },
@@ -121,7 +169,9 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Giving this machine a public IPv6 address helps the most");
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
   // Where its links open, and the fingerprint they carry (D293 §4; the protocol's §3.1).
-  expect(text).toContain("Links to this server open at https://app.orpheum-app.com.");
+  expect(text).toContain("Links to this server open at https://k7xq2.client.example.");
+  // No newer address document held: the server says it keeps the last it trusted (D391 §3).
+  expect(text).toContain("the server keeps the last ones it trusted");
   expect(text).toContain(
     "fingerprint is k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
   );
@@ -141,7 +191,7 @@ it("lists the house's IPv6 networks the discovery recognises devices at home by 
       200,
       {
         ...none,
-        baseUrl: "https://discovery.example.com/core/v1",
+        issuer: "https://discovery.example.com",
         state: "claimed",
         houseNetworks: [
           {
@@ -168,7 +218,7 @@ it("says nothing of the house's networks while there are none", async () => {
       200,
       {
         ...none,
-        baseUrl: "https://discovery.example.com/core/v1",
+        issuer: "https://discovery.example.com",
         state: "claimed",
         houseNetworks: [],
       },
@@ -180,7 +230,7 @@ it("says nothing of the house's networks while there are none", async () => {
 
 const pendingAtTheService = {
   ...none,
-  baseUrl: serviceDiscoveryUrl,
+  issuer: suggestedIssuer,
   coreId: "k7xq2",
   state: "pending",
   claimCode: "WXYZ-2345",
@@ -301,7 +351,7 @@ it("shows no removal to a server too old to say whether it was removed, which se
 it("shows a claimed server's home address once its certificate is held, and before then that it is coming (D292 §6, D297 §6)", async () => {
   const claimed = {
     ...none,
-    baseUrl: serviceDiscoveryUrl,
+    issuer: suggestedIssuer,
     state: "claimed",
     homeAddresses: ["https://192-168-1-250.k7xq2.orpheum-core.com:8443"],
   };

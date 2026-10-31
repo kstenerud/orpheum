@@ -301,7 +301,7 @@ func coreConfigKeys() []configKey {
 	return append(append(append(serverConfigKeys(), []configKey{
 		{
 			tableHTTPS, "domain", `""`,
-			`the public name served over HTTPS, "media.orpheum-app.com"; empty serves none (D243 §6)`,
+			`the public name served over HTTPS, "media.example.com"; empty serves none (D243 §6)`,
 		},
 		{tableHTTPS, "contact", `""`, "the e-mail address the certificate's CA writes to about it"},
 		{tableHTTPS, keyListen, `":443"`, "the address and port HTTPS is served on"},

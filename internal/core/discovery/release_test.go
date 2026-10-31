@@ -46,7 +46,7 @@ func TestRelease_ACoreAsksAtItsStartAndDailyAboutItsOwnVersion(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.setRelease(aSecurityRelease())
@@ -82,7 +82,7 @@ func TestRelease_ADevelopmentBuildAsksNothing(t *testing.T) {
 	built.service = built.restart(t)
 	built.setRelease(aSecurityRelease())
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -98,7 +98,7 @@ func TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHou
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)

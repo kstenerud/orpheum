@@ -58,7 +58,7 @@ func discoveryParts(
 	return discovery.Parts{
 		Files: opened.directories, Settings: opened.settings, HTTP: opened.outboundClient,
 		Clock:  clock.System{},
-		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
+		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor, Suggested: discovery.Suggested(),
 		Candidates: heartbeatCandidates(config, mapped.Candidates),
 		Answerer:   answerer, OnClaimed: onClaimed,
 		Random: rand.Reader,

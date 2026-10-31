@@ -62,7 +62,7 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 	built := newWorld(t)
 	built.service.parts.Logger = slog.New(slog.NewTextHandler(log, nil))
 	built.service.parts.Answerer, built.service.parts.OfferKey = answerer, offerKeys
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.fake.claim()
@@ -229,7 +229,7 @@ func TestHouseNetworks_SurviveARestartAndGoWithALeave(t *testing.T) {
 	if networks := built.service.Status().HouseNetworks; len(networks) != 0 {
 		t.Errorf("after leaving the house networks are %+v; want none", networks)
 	}
-	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err := built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	if networks := built.restart(t).Status().HouseNetworks; len(networks) != 0 {

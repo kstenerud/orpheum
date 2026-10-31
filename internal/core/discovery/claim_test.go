@@ -19,7 +19,7 @@ func TestClaim_APendingCoreIsClaimedByItsAccountsKeyAndNamesTheAccount(t *testin
 	if _, err := built.service.Claim(ctx, fakeKey); !errors.Is(err, ErrNotPending) {
 		t.Errorf("a key before connecting: %v; want ErrNotPending", err)
 	}
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	built.service.step(ctx)
@@ -40,7 +40,7 @@ func TestStep_APendingCoreLearnsWhenItWasRemovedFromItsAccount(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+	if _, err := built.service.Connect(ctx, built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	removed := time.Date(2026, 10, 19, 8, 0, 0, 0, time.UTC)

@@ -80,6 +80,12 @@
 //
 //   - The record is written whole: a new file renamed over it. TestFileStore_AWriteReplacesTheRecordWithAWholeNewFile.
 //
+//   - The address document is served at its well-known path as the operator signed it, byte for
+//     byte, and with none, none is (D391 §3). TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs.
+//
+//   - A core's signatures are bound to the discovery's issuer, not the URL it calls (D391 §4).
+//     TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses, whose core enrols by the issuer.
+//
 // # Read before changing
 //
 //   - D273 §3, D274 §5, D275 §1: what a single-target discovery is, and why it is public.
@@ -88,6 +94,7 @@
 // # Where to change
 //
 //   - single.go: the protocol's handler, enrolment and claiming; its nonces are discovery/proof's.
+//   - wellknown.go: the signed files it serves as they are.
 //   - session.go: the sessions, bound to the core and its live instance.
 //   - record.go: the one core it holds, kept in a file under a lock.
 //   - signal.go: the core's signalling connection and the offers passed over it, as Signal, the

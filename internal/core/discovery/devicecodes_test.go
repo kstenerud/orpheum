@@ -26,7 +26,7 @@ func claimedWithDevice(t *testing.T) (*world, *ecdh.PrivateKey) {
 	built.fake.deviceCodes["abcd-efgh"] = discoveryproto.DeviceCodeClaimResponse{
 		PublicKey: base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()), Platform: "Tizen",
 	}
-	if _, err = built.service.Connect(t.Context(), built.baseURL); err != nil {
+	if _, err = built.service.Connect(t.Context(), built.issuer); err != nil {
 		t.Fatal(err)
 	}
 	return built, private

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package discoveryproto is the wire between a core and its discovery (D273): the paid service at
-// app.orpheum-app.com, or the owner's own. Types only, as nodeproto is, in a public package the
+// Package discoveryproto is the wire between a core and its discovery (D273): the paid service, or
+// the owner's own. Types only, as nodeproto is, in a public package the
 // closed multi-core service imports beside Orpheum's own discovery (D275 §1).
 //
 // # Invariants

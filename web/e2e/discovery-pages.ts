@@ -125,9 +125,11 @@ export async function connectAndClaim(
   expect(quicker.ok(), `the setting: ${String(quicker.status())} ${await quicker.text()}`).toBe(
     true,
   );
+  // The core is given the discovery's issuer, its own address, and the owner's password, and trusts
+  // the address document it serves there (D391 §3).
   const connected = await api.post(`${serverUrl()}/api/v1/system/discovery`, {
     headers: signedIn(token),
-    data: { baseUrl: `${discovery}/core/v1` },
+    data: { issuer: discovery, password: owner.password },
   });
   expect(connected.ok()).toBe(true);
   const claimed = await api.post(`${discovery}/dev/claim`, {

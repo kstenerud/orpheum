@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -16,13 +17,18 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ssh"
+
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/single"
+	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -66,7 +72,7 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	}
 	handler, err := devDiscoveryHandler(devDiscoverySite{
 		base: base, recordPath: filepath.Join(*state, "single.json"), realm: *realm, clientFiles: clientFiles,
-		releaseRecord: *releaseRecord,
+		releaseRecord: *releaseRecord, documentPath: filepath.Join(*state, "address-document.json"),
 	}, logger)
 	if err != nil {
 		return call.fail(errors.Join(err, listener.Close()))
@@ -85,11 +91,52 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 }
 
 // devDiscoverySite is what the development discovery serves: at base, its record in recordPath, the
-// realm its operator names (none for an owner's own), the client's files, and the release record its
-// cores are told of their versions from (none tells them nothing).
+// realm its operator names (none for an owner's own), the client's files, the release record its
+// cores are told of their versions from (none tells them nothing), and the address document it signs
+// at its start, written to documentPath.
 type devDiscoverySite struct {
-	base, recordPath, realm, releaseRecord string
-	clientFiles                            fs.FS
+	base, recordPath, realm, releaseRecord, documentPath string
+	clientFiles                                          fs.FS
+}
+
+// writeDevDocument writes the development discovery's address document to file, signed by a root
+// key made for this run alone, which a core enrolling by its issuer, base, trusts at first use (D391
+// §3).
+func writeDevDocument(file string, document addressdoc.Document) error {
+	_, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("make the development discovery's root key: %w", err)
+	}
+	signer, err := ssh.NewSignerFromKey(private)
+	if err != nil {
+		return fmt.Errorf("make the development discovery's root key: %w", err)
+	}
+	set, err := json.Marshal(trust.RootSet{
+		Version: 1, IssuedAt: document.IssuedAt, Keys: []string{trust.KeyLine(signer.PublicKey())},
+	})
+	if err != nil {
+		return fmt.Errorf("encode the root key set: %w", err)
+	}
+	signedSet, err := trust.Sign(signer, trust.KindRootSet, set)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(document)
+	if err != nil {
+		return fmt.Errorf("encode the address document: %w", err)
+	}
+	signedDocument, err := trust.Sign(signer, trust.KindAddressDocument, payload)
+	if err != nil {
+		return err
+	}
+	served, err := json.Marshal(addressdoc.Served{Document: signedDocument, RootSets: []trust.Signed{signedSet}})
+	if err != nil {
+		return fmt.Errorf("encode the address document: %w", err)
+	}
+	if err = os.WriteFile(file, served, 0o644); err != nil { //nolint:gosec // public, as served
+		return fmt.Errorf("write the address document: %w", err)
+	}
+	return nil
 }
 
 // devDiscoveryHandler is the development discovery at base, which the core calls: single's two
@@ -101,12 +148,18 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 	base, realm := site.base, site.realm
 	port := base[strings.LastIndex(base, ":")+1:]
 	loaderOrigin := "http://localhost:" + port
-	clientOrigins := "http://" + single.CorePlace + ".localhost:" + port
+	clientOrigins := "http://" + addressdoc.CorePlace + ".localhost:" + port
+	err := writeDevDocument(site.documentPath, addressdoc.Document{
+		Issuer: base, CoreAPI: base + devCoreAPI, ClientAPI: base + devClientAPI, LoaderOrigin: loaderOrigin,
+		ClientOrigins: clientOrigins, IssuedAt: clock.System{}.Now().UnixMilli(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	store := single.FileStore{Path: site.recordPath}
 	discovery, err := single.New(single.Parts{
-		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: clientOrigins,
-		LoaderOrigin: loaderOrigin, Store: store, Now: clock.System{}.Now, Random: rand.Reader, Logger: logger,
-		Realm: realm, ReleaseRecord: site.releaseRecord,
+		Issuer: base, AddressDocument: site.documentPath, Zone: "discovery.test", Store: store,
+		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm, ReleaseRecord: site.releaseRecord,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)
@@ -119,6 +172,7 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 		return nil, err
 	}
 	mux := http.NewServeMux()
+	mux.Handle(addressdoc.WellKnownPath, discovery.WellKnownHandler())
 	mux.Handle(devCoreAPI+"/", http.StripPrefix(devCoreAPI, discovery.Handler()))
 	mux.Handle(devClientAPI+"/", http.StripPrefix(devClientAPI, discovery.ClientHandler()))
 	mux.HandleFunc("POST "+devClaim, func(writer http.ResponseWriter, request *http.Request) {

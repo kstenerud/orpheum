@@ -22,7 +22,7 @@ const MediaCookieName = "orpheum_media"
 
 // hostOnlyPrefix names a byte cookie over TLS. A browser keeps such a cookie only from its own host,
 // Secure, at the path "/", and never for a parent domain, so no other core can set one in its
-// place: every core is the same site, orpheum-core.com being on no public suffix list, and one
+// place: every core is the same site, the core zone being on no public suffix list, and one
 // core's page could otherwise toss its own cookie onto another's names (the D308 audit's F-6).
 const hostOnlyPrefix = "__Host-"
 

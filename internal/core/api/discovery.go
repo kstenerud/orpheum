@@ -10,6 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
@@ -28,11 +29,19 @@ type DiscoveryProbeBody struct {
 // DiscoveryStatusBody is where the core stands with its discovery (D273): none, waiting to be
 // claimed with the code its owner types, or claimed, with what the discovery published and probed.
 type DiscoveryStatusBody struct {
-	BaseURL string `doc:"The discovery's address; empty when the core is enrolled with none" json:"baseUrl"`
-	CoreID  string `json:"coreId,omitempty"`
-	State   string `doc:"Absent before the discovery's first answer" enum:"pending,claimed,grace,frozen,released,disabled" json:"state,omitempty"` //nolint:lll // one struct tag
-	Zone    string `json:"zone,omitempty"`
-	Realm   string `doc:"What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)" json:"realm,omitempty"` //nolint:lll // one struct tag
+	Issuer          string   `doc:"The discovery's issuer, the origin the server was enrolled by; empty when it is enrolled with none (D391 §3)" json:"issuer"`        //nolint:lll // one struct tag
+	SuggestedIssuer string   `doc:"The discovery an admin is offered first; empty when this build suggests none (D391 §7)" json:"suggestedIssuer,omitempty"`           //nolint:lll // one struct tag
+	CoreAPI         string   `doc:"The core API the discovery's address document names, which the server calls" json:"coreApi,omitempty"`                              //nolint:lll // one struct tag
+	LoaderOrigin    string   `doc:"Where the discovery serves the loader, as its address document names it" json:"loaderOrigin,omitempty"`                             //nolint:lll // one struct tag
+	Homepage        string   `doc:"What the discovery is, as its address document names it" json:"homepage,omitempty"`                                                 //nolint:lll // one struct tag
+	RootKeys        []string `doc:"The fingerprints of the discovery's root keys the server trusts, as ssh-keygen -l shows each (D391 §2)" json:"rootKeys"`            //nolint:lll // one struct tag
+	RootSetVersion  int64    `doc:"The version of that root key set" json:"rootSetVersion"`                                                                            //nolint:lll // one struct tag
+	DocumentAt      int64    `doc:"Unix milliseconds the address document held was made; 0 when none is" json:"documentAt"`                                            //nolint:lll // one struct tag
+	DocumentProblem string   `doc:"Why the last look for a newer address document found none that holds; empty when it did not fail" json:"documentProblem,omitempty"` //nolint:lll // one struct tag
+	CoreID          string   `json:"coreId,omitempty"`
+	State           string   `doc:"Absent before the discovery's first answer" enum:"pending,claimed,grace,frozen,released,disabled" json:"state,omitempty"` //nolint:lll // one struct tag
+	Zone            string   `json:"zone,omitempty"`
+	Realm           string   `doc:"What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)" json:"realm,omitempty"` //nolint:lll // one struct tag
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
 	ClaimCode          string               `json:"claimCode,omitempty"`
 	ClaimExpiresAt     int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
@@ -95,11 +104,13 @@ type DiscoveryStatusOutput struct {
 	Body DiscoveryStatusBody
 }
 
-// ConnectDiscoveryInput is an admin connecting the core to a discovery.
+// ConnectDiscoveryInput is an admin connecting the core to a discovery by its issuer, with their
+// password: which discovery a core trusts is as weighty as a claim (D391 §3).
 type ConnectDiscoveryInput struct {
 	AuthorizationHeader
 	Body struct {
-		BaseURL string `doc:"The discovery's address: the service's, or the owner's own" json:"baseUrl" maxLength:"2048" minLength:"1"` //nolint:lll // one struct tag
+		Issuer   string `doc:"The discovery's issuer, the name typed: \"discovery.example\" or its https origin" json:"issuer" maxLength:"2048" minLength:"1"` //nolint:lll // one struct tag
+		Password string `doc:"The admin's own password" json:"password" maxLength:"1024" minLength:"1"`                                                        //nolint:lll // one struct tag
 	}
 }
 
@@ -150,18 +161,27 @@ func (server *Server) getDiscovery(ctx context.Context, input *AuthorizationHead
 	return &DiscoveryStatusOutput{Body: body}, nil
 }
 
-// connectDiscovery enrols the core: an address that is not a discovery's is refused, as is a core
-// already enrolled, and a discovery that does not answer is the failing leg.
+// connectDiscovery enrols the core with the discovery the admin named by its issuer, once their
+// password is checked: a wrong password and a name that is no issuer are refused naming their
+// fields, as is the suggested issuer in a build that knows none of its root keys; a core already
+// enrolled is a conflict, and a discovery that does not answer, or whose document does not hold, is
+// the failing leg.
 func (server *Server) connectDiscovery(
 	ctx context.Context, input *ConnectDiscoveryInput,
 ) (*DiscoveryStatusOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	status, err := dependencies.Discovery.Connect(ctx, input.Body.BaseURL)
-	if errors.Is(err, discovery.ErrNotADiscoveryURL) {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.baseUrl", err.Error())
+	if checkErr := dependencies.Auth.CheckPassword(ctx, principal.UserID, input.Body.Password); checkErr != nil {
+		if errors.Is(checkErr, auth.ErrWrongPassword) {
+			return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.password", "that is not your password")
+		}
+		return nil, fmt.Errorf("check the admin's password: %w", checkErr)
+	}
+	status, err := dependencies.Discovery.Connect(ctx, input.Body.Issuer)
+	if errors.Is(err, addressdoc.ErrNotAnIssuer) || errors.Is(err, discovery.ErrSuggestedHasNoRootKeys) {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.issuer", err.Error())
 	}
 	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrAlreadyEnrolled))
 }
@@ -238,7 +258,10 @@ func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHe
 // discoveryStatusBody is a status as the API sends it.
 func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	body := DiscoveryStatusBody{
-		BaseURL: status.BaseURL, CoreID: status.CoreID, State: string(status.State), Zone: status.Zone,
+		Issuer: status.Issuer, SuggestedIssuer: status.SuggestedIssuer, CoreAPI: status.BaseURL,
+		LoaderOrigin: status.LoaderOrigin, Homepage: status.Homepage, RootKeys: append([]string{}, status.RootKeys...),
+		RootSetVersion: status.RootSetVersion, DocumentProblem: status.DocumentProblem,
+		CoreID: status.CoreID, State: string(status.State), Zone: status.Zone,
 		Realm:     status.Realm,
 		ClaimCode: status.ClaimCode, ReachableFrom: status.ReachableFrom, DeadEndsLastWeek: status.DeadEndsLastWeek,
 		Published: append([]string{}, status.Published...), Probe: []DiscoveryProbeBody{},
@@ -254,6 +277,9 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	}
 	if !status.LastHeartbeatAt.IsZero() {
 		body.LastHeartbeatAt = status.LastHeartbeatAt.UnixMilli()
+	}
+	if !status.DocumentIssuedAt.IsZero() {
+		body.DocumentAt = status.DocumentIssuedAt.UnixMilli()
 	}
 	for _, probe := range status.Probe {
 		body.Probe = append(body.Probe, DiscoveryProbeBody{

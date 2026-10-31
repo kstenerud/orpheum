@@ -9,10 +9,12 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,17 +24,18 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/release"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// testZone is the owner's zone in the tests, and testBaseURL the address cores call the discovery at,
-// which their signatures are bound to.
+// testZone is the owner's zone in the tests, and testIssuer the discovery's issuer, which the cores'
+// signatures are bound to.
 const (
-	testZone    = "home.example"
-	testBaseURL = "https://discovery.home.example/core/v1"
+	testZone   = "home.example"
+	testIssuer = "https://discovery.home.example"
 )
 
 // stage is a discovery behind an HTTP server, on a clock the test moves.
@@ -44,6 +47,8 @@ type stage struct {
 	now       time.Time
 	// waited is each wait the discovery asked for, which passes at once.
 	waited []time.Duration
+	// document is the address document's file, which the test writes.
+	document string
 }
 
 func newStage(t *testing.T) *stage {
@@ -51,22 +56,20 @@ func newStage(t *testing.T) *stage {
 	return newStageWithRealm(t, "")
 }
 
-// The origins the owner serves the client and the loader at (D308).
-const (
-	testClientOrigin = "https://" + CorePlace + ".client.example"
-	testLoaderOrigin = "https://app.example"
-)
-
 // newStageWithRealm is newStage at a discovery whose operator named realm (Parts.Realm).
 func newStageWithRealm(t *testing.T, realm string) *stage {
 	t.Helper()
-	built := &stage{now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{}}
+	built := &stage{
+		now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{},
+		document: filepath.Join(t.TempDir(), "address-document.json"),
+	}
 	held, err := New(Parts{
-		Logger:  slog.New(slog.NewTextHandler(built.logs, nil)),
-		BaseURL: testBaseURL, Zone: testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
-		Now: built.clock, Random: rand.Reader,
-		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
-		Realm:      realm, ClientOrigin: testClientOrigin, LoaderOrigin: testLoaderOrigin,
+		Logger: slog.New(slog.NewTextHandler(built.logs, nil)),
+		Issuer: testIssuer, AddressDocument: built.document, Zone: testZone,
+		Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
+		Now:   built.clock, Random: rand.Reader,
+		ICEServers:    []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
+		Realm:         realm,
 		ReleaseRecord: filepath.Join(t.TempDir(), "release.json"),
 		Wait: func(_ context.Context, wait time.Duration) {
 			built.mutex.Lock()
@@ -133,7 +136,7 @@ type key struct {
 
 // sign signs a nonce for purpose, bound to the test's discovery and the core, as a core does.
 func (signer key) sign(purpose, core, nonce string) []byte {
-	return ed25519.Sign(signer.private, proof.Message(purpose, testBaseURL, core, nonce))
+	return ed25519.Sign(signer.private, proof.Message(purpose, testIssuer, core, nonce))
 }
 
 func newKey(t *testing.T) key {
@@ -286,21 +289,40 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 	}
 }
 
-// The status names where the owner serves the core's own client and the loader, for the core's links
-// and CORS (D293 §4, D308).
-func TestStatus_NamesTheClientsAndTheLoadersOrigins(t *testing.T) {
+// The address document, which names where the owner serves the core's own client and the loader,
+// is served at the well-known path as the operator signed it, byte for byte: its signature is what a
+// core trusts (D391 §3). With no file, there is none.
+func TestWellKnown_ServesTheOperatorsSignedDocumentAsItIs(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
-	signer := newKey(t)
-	_, enrolled := built.enrol(t, signer)
-	token := built.session(t, signer, enrolled.CoreID)
-	var status discoveryproto.StatusResponse
-	built.call(t, http.MethodGet, discoveryproto.PathStatus, token, nil, &status)
-	// The pattern of each core's client origin names this core's own (D308).
-	wantClient := "https://" + enrolled.CoreID + ".client.example"
-	if status.ClientOrigin != wantClient || status.LoaderOrigin != testLoaderOrigin {
-		t.Errorf("the status names the client at %q and the loader at %q; want %q and %q",
-			status.ClientOrigin, status.LoaderOrigin, wantClient, testLoaderOrigin)
+	server := httptest.NewServer(built.discovery.WellKnownHandler())
+	t.Cleanup(server.Close)
+	get := func() (int, string, string) {
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+addressdoc.WellKnownPath,
+			http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Client().Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = response.Body.Close() }() //nolint:errcheck // read below
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response.StatusCode, response.Header.Get("Content-Type"), string(body)
+	}
+	if status, _, _ := get(); status != http.StatusNotFound {
+		t.Fatalf("with no document: %d, want 404", status)
+	}
+	const signed = `{"document":{"payload":"{\"issuer\":\"https://discovery.home.example\"}","signature":"x"}}`
+	if err := os.WriteFile(built.document, []byte(signed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if status, kind, body := get(); status != http.StatusOK || kind != "application/json" || body != signed {
+		t.Fatalf("the document: %d %q %q, want 200, JSON and the file as written", status, kind, body)
 	}
 }
 

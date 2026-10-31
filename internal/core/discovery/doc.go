@@ -1,13 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package discovery is the core's side of the discovery protocol (D273): it enrols with a discovery
-// (the paid service, or the owner's own) when an admin asks, waits to be claimed, keeps a session,
-// sends its addresses as the heartbeat, and answers the WebRTC offers the discovery passes on.
+// (the paid service, or the owner's own) by its issuer when an admin asks, trusting the address
+// document the issuer serves, signed by the discovery's root key set (D391 §3), waits to be claimed,
+// keeps a session, sends its addresses as the heartbeat, and answers the WebRTC offers the discovery
+// passes on. suggested.go is the one place Orpheum names its paid discovery.
 //
 // # Invariants
 //
-//   - Enrolling signs the discovery's nonce with the identity key, and the discovery and the core's
-//     id there survive a restart (discovery.json). TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
+//   - Enrolling signs the discovery's nonce with the identity key, and the discovery, the root key set
+//     pinned, its address document and the core's id there survive a restart (discovery.json).
+//     TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
+//   - An issuer is an https origin, or http only on this machine; anything else asks nothing.
+//     TestConnect_RefusesAnIssuerThatIsNotAnHTTPSOrigin.
+//   - The core API, client origin and loader origin are the issuer's signed document's and no
+//     other's: a document of another issuer, or one its set did not sign, enrols nothing.
+//     TestConnect_TakesItsAddressesFromTheIssuersSignedDocumentAlone.
+//   - The suggested issuer is trusted by the root keys this build names for it, never by the set it
+//     shows; a build naming none refuses it, asking nothing (D391 §7).
+//     TestConnect_TheSuggestedIssuerIsTrustedByItsCompiledKeysAndNoneFilledInFailsLoudly.
+//   - Hourly, a newer document that holds, from the issuer or any location its document names, moves
+//     the core's addresses, its API included, which it then calls under the same issuer; a forged one
+//     or none keeps the last good one and says why.
+//     TestDocument_ANewerSignedDocumentFromAnyLocationMovesTheCoreAndAForgedOneDoesNot.
+//   - No shipped source but suggested.go names the owner's domains, and the suggestion is an issuer
+//     with keys that parse. TestSuggested_IsTheOnlyShippedSourceThatNamesTheOwnersDomains,
+//     TestSuggested_IsAnIssuerAndItsRootKeysAreKeys.
 //   - A pending core asks whether it is claimed; a claimed one sends its addresses when they change
 //     and every five minutes otherwise, each time with a new nonce for the outside probe.
 //     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
@@ -55,16 +73,12 @@
 //     TestRelease_ADevelopmentBuildAsksNothing,
 //     TestRelease_ADiscoveryWithoutTheCallKnowsNothingAndAFailureAsksAgainInAnHour.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.
-//   - A discovery is reached over HTTPS, or plain HTTP only on this machine.
-//     TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
-//   - Every signature to the discovery is bound to its base URL and the core, and every answer is
+//   - Every signature to the discovery is bound to its issuer and the core, and every answer is
 //     signed over its exact SDP, its offer and the offer's fingerprint (the protocol's §2.1, §2.5).
 //     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes (the fake
 //     discovery checks the binding) and TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
-//   - The client origin the discovery names is kept only as an https origin (D293 §4).
-//     TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin.
 //   - An offer the discovery passes on reaches rtcapi only when its proof holds under the key the
 //     core keeps for the hash it came under (A9). TestSignal_AnOfferWhoseProofDoesNotHoldIsRefusedBeforeRTCSeesIt.
 //   - An offer whose connection proves itself from home (rtcapi.ProvenAtHome) teaches the network the
@@ -87,12 +101,13 @@
 // # Read before changing
 //
 //   - D273: why a discovery, the paid service and the owner's own, and the protocol's versioning.
+//   - D391: a discovery is a key set and its names are locations; enrolment by issuer.
 //   - docs/contributors/design/plans/discovery-core.md: the wire and the phases.
 //
 // # Where to change
 //
 //   - discovery.go: connecting and the loop; discovery_call.go: sessions and the signed call they
 //     carry; renewal.go: one session renewal at a time; signal.go: the signalling connection;
-//     urls.go: which discovery addresses and client origins the core takes; house_networks.go: the
-//     house's IPv6 networks (D356).
+//     document.go: the issuer's address document, opened at enrolment and looked for again hourly;
+//     suggested.go: the suggested discovery; house_networks.go: the house's IPv6 networks (D356).
 package discovery

@@ -974,15 +974,22 @@
       "ConnectDiscoveryInputBody": {
         "additionalProperties": false,
         "properties": {
-          "baseUrl": {
-            "description": "The discovery's address: the service's, or the owner's own",
+          "issuer": {
+            "description": "The discovery's issuer, the name typed: \"discovery.example\" or its https origin",
             "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
+            "description": "The admin's own password",
+            "maxLength": 1024,
             "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "baseUrl"
+          "issuer",
+          "password"
         ],
         "type": "object"
       },
@@ -1328,10 +1335,6 @@
             "description": "The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)",
             "type": "string"
           },
-          "baseUrl": {
-            "description": "The discovery's address; empty when the core is enrolled with none",
-            "type": "string"
-          },
           "claimCode": {
             "type": "string"
           },
@@ -1344,6 +1347,10 @@
             "description": "Where the discovery serves its client, which the server's links lead to",
             "type": "string"
           },
+          "coreApi": {
+            "description": "The core API the discovery's address document names, which the server calls",
+            "type": "string"
+          },
           "coreId": {
             "type": "string"
           },
@@ -1354,6 +1361,15 @@
           },
           "deprecatedUntil": {
             "description": "When the discovery stops speaking this core's protocol, when it said so",
+            "type": "string"
+          },
+          "documentAt": {
+            "description": "Unix milliseconds the address document held was made; 0 when none is",
+            "format": "int64",
+            "type": "integer"
+          },
+          "documentProblem": {
+            "description": "Why the last look for a newer address document found none that holds; empty when it did not fail",
             "type": "string"
           },
           "fingerprint": {
@@ -1370,6 +1386,10 @@
               "null"
             ]
           },
+          "homepage": {
+            "description": "What the discovery is, as its address document names it",
+            "type": "string"
+          },
           "houseNetworks": {
             "items": {
               "$ref": "#/components/schemas/HouseNetworkBody"
@@ -1383,10 +1403,18 @@
             "description": "Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)",
             "type": "boolean"
           },
+          "issuer": {
+            "description": "The discovery's issuer, the origin the server was enrolled by; empty when it is enrolled with none (D391 §3)",
+            "type": "string"
+          },
           "lastHeartbeatAt": {
             "description": "Unix milliseconds; 0 before the first",
             "format": "int64",
             "type": "integer"
+          },
+          "loaderOrigin": {
+            "description": "Where the discovery serves the loader, as its address document names it",
+            "type": "string"
           },
           "portMapping": {
             "$ref": "#/components/schemas/PortMappingBody"
@@ -1433,6 +1461,21 @@
             "format": "int64",
             "type": "integer"
           },
+          "rootKeys": {
+            "description": "The fingerprints of the discovery's root keys the server trusts, as ssh-keygen -l shows each (D391 §2)",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "rootSetVersion": {
+            "description": "The version of that root key set",
+            "format": "int64",
+            "type": "integer"
+          },
           "state": {
             "description": "Absent before the discovery's first answer",
             "enum": [
@@ -1443,6 +1486,10 @@
               "released",
               "disabled"
             ],
+            "type": "string"
+          },
+          "suggestedIssuer": {
+            "description": "The discovery an admin is offered first; empty when this build suggests none (D391 §7)",
             "type": "string"
           },
           "webrtcPaths": {
@@ -1459,7 +1506,10 @@
           }
         },
         "required": [
-          "baseUrl",
+          "issuer",
+          "rootKeys",
+          "rootSetVersion",
+          "documentAt",
           "claimExpiresAt",
           "removedAt",
           "published",

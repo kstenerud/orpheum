@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/release"
@@ -60,24 +61,18 @@ type TXTRecords interface {
 	ClearTXT(ctx context.Context, name string) error
 }
 
-// CorePlace is the place a core's id takes in Parts.ClientOrigin's pattern (D308).
-const CorePlace = "{core}"
-
 // Parts is what a single-target discovery is made of.
 type Parts struct {
-	// BaseURL is the address the core calls this discovery at, path included, which its signatures
-	// are bound to (the protocol's §2.1; X12).
-	BaseURL string
+	// Issuer is the discovery's issuer, the origin its address document is served at, which the
+	// core's signatures are bound to (the protocol's §2.1; X12; D391 §4).
+	Issuer string
+	// AddressDocument is the signed address document's file (addressdoc.Served), which the operator
+	// signs (`orpheum discovery sign`) and WellKnownHandler serves: where the core's links lead, its
+	// loader and its client API (D391 §3). Empty, or a file absent, serves none, and no core enrols.
+	AddressDocument string
 	// Zone is the owner's zone: the core's names are under <coreId>.<Zone>.
-	Zone string
-	// ClientOrigin is where the owner serves the client, which the core's links lead to (D293 §4):
-	// with CorePlace in it, the pattern of each core's own client origin, its id put in its place
-	// (D308).
-	ClientOrigin string
-	// LoaderOrigin is where the owner serves the loader that hands a browser on to the client origin
-	// (D308); empty when the client is served whole at ClientOrigin.
-	LoaderOrigin string
-	Store        Store
+	Zone  string
+	Store Store
 	// Now is the time; Random, where its nonces, tokens, ids and codes come from.
 	Now    func() time.Time
 	Random io.Reader
@@ -147,6 +142,17 @@ func New(parts Parts) (*Discovery, error) {
 // Handler answers the core's calls, at paths relative to the discovery's base URL.
 func (discovery *Discovery) Handler() http.Handler {
 	return http.HandlerFunc(discovery.serve)
+}
+
+// WellKnownHandler serves the discovery's address document at addressdoc.WellKnownPath, to be
+// mounted at its issuer's root: the operator's signed file as it is, read afresh at each asking, so
+// a newly signed one is served from the moment it is written. With none, it answers not-found.
+func (discovery *Discovery) WellKnownHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+addressdoc.WellKnownPath, func(writer http.ResponseWriter, request *http.Request) {
+		serveFile(writer, request, discovery.parts.AddressDocument, discovery.parts.Logger)
+	})
+	return mux
 }
 
 func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Request) {
@@ -251,7 +257,7 @@ func (discovery *Discovery) challenge(writer http.ResponseWriter, request *http.
 // and kept until it expires.
 func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, core, nonce string, signature []byte) bool {
 	return discovery.nonces.Spend(discovery.parts.Now(), proof.SignedNonce{
-		PublicKey: publicKey, Purpose: purpose, BaseURL: discovery.parts.BaseURL, Core: core, Nonce: nonce,
+		PublicKey: publicKey, Purpose: purpose, Issuer: discovery.parts.Issuer, Core: core, Nonce: nonce,
 		Signature: signature,
 	})
 }
@@ -338,11 +344,7 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 		discovery.fail(writer, request, err)
 		return
 	}
-	status := discoveryproto.StatusResponse{
-		State: held.State, ICEServers: discovery.parts.ICEServers,
-		ClientOrigin: strings.ReplaceAll(discovery.parts.ClientOrigin, CorePlace, held.ID),
-		LoaderOrigin: discovery.parts.LoaderOrigin,
-	}
+	status := discoveryproto.StatusResponse{State: held.State, ICEServers: discovery.parts.ICEServers}
 	if held.State == discoveryproto.StatePending {
 		status.ClaimCode, status.ClaimExpiresAt = held.ClaimCode, held.ClaimExpiresAt
 	} else {

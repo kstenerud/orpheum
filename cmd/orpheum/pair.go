@@ -24,18 +24,20 @@ import (
 const pairTimeout = 60 * time.Second
 
 // commandPair pairs the running core with its discovery by the key the admin's account there made:
-// it signs in as the admin --name names, connects the core to the discovery (--discovery, the
-// service's by default) unless it is connected to one, enters the key with the password, which makes
-// the admin's realm key, and signs out. It reads the password, then the key, a line each from standard
-// input, never flags, which the machine's process list would show. It asks the core over its own
+// it signs in as the admin --name names, connects the core to the discovery (--discovery, an issuer:
+// the suggested one by default) with the password unless it is connected to one, enters the key with
+// the password, which makes the admin's realm key, and signs out. It says the realm, and on a line of
+// its own where the discovery's loader is, which the install script tells the admin to sign in at. It
+// reads the password, then the key, a line each from standard input, never flags, which the
+// machine's process list would show. It asks the core over its own
 // loopback, which the deployment counts as home: the install script runs it in the core's container
 // (D334 §3).
 func commandPair(ctx context.Context, call invocation) int {
-	var name, discoveryURL string
+	var name, issuer string
 	config, configReport, err := call.loadConfigFromFlags("pair", kindCore, func(flags *flag.FlagSet) {
 		flags.StringVar(&name, "name", "", "the admin to pair as: the account's name")
-		flags.StringVar(&discoveryURL, "discovery", discovery.ServiceURL,
-			"the discovery to connect to, when the core is connected to none")
+		flags.StringVar(&issuer, "discovery", discovery.Suggested().Issuer,
+			"the issuer of the discovery to connect to, when the core is connected to none")
 	})
 	if err != nil {
 		return call.fail(err)
@@ -55,21 +57,22 @@ func commandPair(ctx context.Context, call invocation) int {
 		return call.fail(fmt.Errorf("server.listen %q: %w", config.Server.Listen, err))
 	}
 	paired, err := pair(ctx, &http.Client{Timeout: pairTimeout}, "http://127.0.0.1:"+port+api.Prefix,
-		pairing{name: name, password: password, key: key, discoveryURL: discoveryURL})
+		pairing{name: name, password: password, key: key, issuer: issuer})
 	if err != nil {
 		return call.fail(err)
 	}
 	return write(call.stdout, paired+"\n", exitSuccess)
 }
 
-// pairing is what pair is given: the admin, their password, the account's key and the discovery to
-// connect to when the core is connected to none.
+// pairing is what pair is given: the admin, their password, the account's key and the issuer of the
+// discovery to connect to when the core is connected to none.
 type pairing struct {
-	name, password, key, discoveryURL string
+	name, password, key, issuer string
 }
 
 // pair pairs the core the API at base answers, as commandPair says, and returns the realm it is found
-// by, or its state when the discovery gave none.
+// by, or its state when the discovery gave none, and on a second line the loader its discovery's
+// address document names, when it names one.
 func pair(ctx context.Context, client *http.Client, base string, asked pairing) (string, error) {
 	core := coreClient{client: client, base: base}
 	var session struct {
@@ -85,18 +88,19 @@ func pair(ctx context.Context, client *http.Client, base string, asked pairing) 
 		return core.ask(context.WithoutCancel(ctx), http.MethodDelete, "/session", nil, nil)
 	}
 	var status struct {
-		BaseURL string `json:"baseUrl"`
-		State   string `json:"state"`
-		Realm   string `json:"realm"`
+		Issuer       string `json:"issuer"`
+		State        string `json:"state"`
+		Realm        string `json:"realm"`
+		LoaderOrigin string `json:"loaderOrigin"`
 	}
 	if err := core.ask(ctx, http.MethodGet, "/system/discovery", nil, &status); err != nil {
 		return "", errors.Join(fmt.Errorf("read the core's discovery: %w", err), signOut())
 	}
-	if status.BaseURL == "" {
-		err := core.ask(ctx, http.MethodPost, "/system/discovery", map[string]string{"baseUrl": asked.discoveryURL},
-			&status)
+	if status.Issuer == "" {
+		err := core.ask(ctx, http.MethodPost, "/system/discovery",
+			map[string]string{"issuer": asked.issuer, "password": asked.password}, &status)
 		if err != nil {
-			return "", errors.Join(fmt.Errorf("connect to the discovery at %s: %w", asked.discoveryURL, err), signOut())
+			return "", errors.Join(fmt.Errorf("connect to the discovery %s: %w", asked.issuer, err), signOut())
 		}
 	}
 	err := core.ask(ctx, http.MethodPost, "/system/discovery/claim",
@@ -107,11 +111,19 @@ func pair(ctx context.Context, client *http.Client, base string, asked pairing) 
 	if err = signOut(); err != nil {
 		return "", fmt.Errorf("sign out: %w", err)
 	}
+	paired := "paired: " + status.State
 	if status.Realm != "" {
-		return "paired: realm " + status.Realm, nil
+		paired = "paired: realm " + status.Realm
 	}
-	return "paired: " + status.State, nil
+	if status.LoaderOrigin != "" {
+		paired += "\n" + loaderLine + status.LoaderOrigin
+	}
+	return paired, nil
 }
+
+// loaderLine opens pair's line that says where the discovery's loader is, which the install script
+// reads.
+const loaderLine = "loader: "
 
 // signInBody is a sign-in, as the API takes one.
 type signInBody struct {

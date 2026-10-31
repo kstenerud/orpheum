@@ -171,5 +171,5 @@ func (service *Service) keepHouseNetworks() error {
 	if status.BaseURL == "" {
 		return nil
 	}
-	return service.keep(kept{BaseURL: status.BaseURL, CoreID: status.CoreID, Zone: status.Zone})
+	return service.keep()
 }
