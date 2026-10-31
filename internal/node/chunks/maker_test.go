@@ -262,7 +262,7 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 // lead-in from the film's start, which is dropped, each chunk placed by its listed end; a raw file
 // holding the film from its start to chunk 0's end, as the muxer wrote one when not cut at chunk 0's
 // start, is never made a chunk, and the failure says where the run read from and first cut (A
-// Perfect World, staging, 2026-10-28).
+// Hollow Continent, staging, 2026-10-28).
 func TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{

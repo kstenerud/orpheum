@@ -29,7 +29,7 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Subtitler: fakeSubtitler{},
 		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{},
 	}, func(node *Agent) { node.logger = slog.New(slog.NewTextHandler(logged, nil)) })
-	if err := os.WriteFile(filepath.Join(root.Path(), "Wing.mkv"), []byte("alien"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root.Path(), "Arkon.mkv"), []byte("arkon"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
@@ -38,22 +38,22 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 	listed := testutil.Receive(t, core.scans, "the listing")
 	if listed.JobID != 1 || listed.Listing == nil || !slices.ContainsFunc(listed.Listing.Records,
 		func(record nodeproto.ScanRecord) bool {
-			return record.Listed != nil && record.Listed.Path.Text == "Wing.mkv"
+			return record.Listed != nil && record.Listed.Path.Text == "Arkon.mkv"
 		}) {
-		t.Errorf("job 1's answer = %+v, want a listing naming Wing.mkv", listed)
+		t.Errorf("job 1's answer = %+v, want a listing naming Arkon.mkv", listed)
 	}
 	logged.AwaitLine(t, "a listing started", "jobId=1", "waitedMs=")
 	logged.AwaitLine(t, "a listing ended", "jobId=1", "recordCount=", "tookMs=")
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 2, Work: nodeproto.Work{
 		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{
 			RootPath: root.Path(),
-			Files:    []nodeproto.ExamineFile{{Path: nodeproto.Path{Text: "Wing.mkv"}, Kind: nodeproto.ExamineVideo}},
+			Files:    []nodeproto.ExamineFile{{Path: nodeproto.Path{Text: "Arkon.mkv"}, Kind: nodeproto.ExamineVideo}},
 		},
 	}}
 	examined := testutil.Receive(t, core.scans, "the examining")
 	if examined.JobID != 2 || examined.Examined == nil || len(examined.Examined.Records) != 1 ||
 		examined.Examined.Records[0].Observed == nil {
-		t.Errorf("job 2's answer = %+v, want Wing.mkv observed", examined)
+		t.Errorf("job 2's answer = %+v, want Arkon.mkv observed", examined)
 	}
 }
 
@@ -72,31 +72,31 @@ func TestAgent_ListsAndExaminesALibraryFolderInsideARootReachedWithoutALink(t *t
 	}}
 	listed := testutil.Receive(t, core.scans, "the folder's listing")
 	beganAt, paths := beganAtAndListed(listed.Listing)
-	if listed.Listing.Refusal != "" || beganAt != movies || !slices.Equal(paths, []string{"Wing", "Wing/Wing.mkv"}) {
-		t.Errorf("the folder's listing began at %q with %v (refusal %q); want it begun at %s with Wing's film "+
+	if listed.Listing.Refusal != "" || beganAt != movies || !slices.Equal(paths, []string{"Arkon", "Arkon/Arkon.mkv"}) {
+		t.Errorf("the folder's listing began at %q with %v (refusal %q); want it begun at %s with Arkon's film "+
 			"alone, relative to it", beganAt, paths, listed.Listing.Refusal, movies)
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 2, Work: nodeproto.Work{
 		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{RootPath: movies, Files: []nodeproto.ExamineFile{
-			{Path: nodeproto.Path{Text: "Wing/Wing.mkv"}, Kind: nodeproto.ExamineVideo},
+			{Path: nodeproto.Path{Text: "Arkon/Arkon.mkv"}, Kind: nodeproto.ExamineVideo},
 		}},
 	}}
 	if examined := testutil.Receive(t, core.scans, "the folder's examining"); examined.Examined == nil ||
 		len(examined.Examined.Records) != 1 || examined.Examined.Records[0].Observed == nil {
-		t.Errorf("the folder's examining = %+v, want Wing.mkv observed", examined.Examined)
+		t.Errorf("the folder's examining = %+v, want Arkon.mkv observed", examined.Examined)
 	}
 }
 
-// libraryFolderTree makes video/movies/Wing/Wing.mkv, video/Dark.mkv and a link, films, to
+// libraryFolderTree makes video/movies/Arkon/Arkon.mkv, video/Dark.mkv and a link, films, to
 // video/movies, under root, and returns video/movies' path.
 func libraryFolderTree(t *testing.T, root string) string {
 	t.Helper()
 	movies := filepath.Join(root, "video", "movies")
-	if err := os.MkdirAll(filepath.Join(movies, "Wing"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(movies, "Arkon"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	for path, contents := range map[string]string{
-		filepath.Join(movies, "Wing", "Wing.mkv"): "alien", filepath.Join(root, "video", "Dark.mkv"): "dark",
+		filepath.Join(movies, "Arkon", "Arkon.mkv"): "arkon", filepath.Join(root, "video", "Dark.mkv"): "dark",
 	} {
 		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 			t.Fatal(err)

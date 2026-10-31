@@ -41,7 +41,7 @@ func folders(t *testing.T, handler http.Handler, path string) (int, nodeproto.Fo
 func TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside(t *testing.T) {
 	t.Parallel()
 	directory, outside := t.TempDir(), t.TempDir()
-	for _, folder := range []string{"films/Wing", "films/.cache", "shows"} {
+	for _, folder := range []string{"films/Arkon", "films/.cache", "shows"} {
 		if err := os.MkdirAll(filepath.Join(directory, folder), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -56,8 +56,8 @@ func TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside(t
 		t.Errorf("the root's folders: %d, %+v; want films and shows", code, answer)
 	}
 	if code, answer := folders(t, handler, root.Path()+"/films"); code != http.StatusOK ||
-		!slices.Equal(answer.Folders, []string{"Wing"}) {
-		t.Errorf("films' folders: %d, %+v; want Wing alone: no link, no hidden folder", code, answer)
+		!slices.Equal(answer.Folders, []string{"Arkon"}) {
+		t.Errorf("films' folders: %d, %+v; want Arkon alone: no link, no hidden folder", code, answer)
 	}
 	for _, refused := range []string{"/etc", outside, root.Path() + "/films/../..", root.Path() + "/films/", "films"} {
 		if code, _ := folders(t, handler, refused); code != http.StatusNotFound {
@@ -78,19 +78,19 @@ func TestServeFolders_ListsTheRealFoldersInAFolderInsideARootAndNothingOutside(t
 // (D359 §1, §4).
 func TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt(t *testing.T) {
 	t.Parallel()
-	movie := newFilm(t, "video/movies/Wing (1979)/Wing (1979).mkv")
+	movie := newFilm(t, "video/movies/Arkon (1979)/Arkon (1979).mkv")
 	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)))
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).Handler()
 	folder := movie.root.Path() + "/video/movies"
 	named := func(path string) string {
 		return nodeproto.BytesFile{RootPath: folder, Path: []byte(path), PayloadHash: movie.payloadHash}.Target()
 	}
-	served := request(t, handler, http.MethodGet, named("Wing (1979)/Wing (1979).mkv"), nil)
+	served := request(t, handler, http.MethodGet, named("Arkon (1979)/Arkon (1979).mkv"), nil)
 	if served.Code != http.StatusOK || served.Body.String() != string(movie.contents) {
 		t.Errorf("a file under a library folder: %d with %d bytes, want 200 with the file", served.Code,
 			served.Body.Len())
 	}
-	climbing := named("../movies/Wing (1979)/Wing (1979).mkv")
+	climbing := named("../movies/Arkon (1979)/Arkon (1979).mkv")
 	if got := request(t, handler, http.MethodGet, climbing, nil); got.Code == http.StatusOK {
 		t.Errorf("a path climbing out of the folder: %d, want it refused", got.Code)
 	}
@@ -99,7 +99,7 @@ func TestServeFile_ServesAFileUnderALibraryFolderInsideARootAndNothingOutsideIt(
 		t.Fatal("the root could not be held")
 	}
 	t.Cleanup(release)
-	stalled := request(t, handler, http.MethodGet, named("Wing (1979)/Wing (1979).mkv"), nil)
+	stalled := request(t, handler, http.MethodGet, named("Arkon (1979)/Arkon (1979).mkv"), nil)
 	if stalled.Code != http.StatusGatewayTimeout || stalled.Header().Get(nodeproto.HeaderStalledRoot) != folder {
 		t.Errorf("a file under a folder whose root's share is stuck: %d naming %q; want 504 naming %s",
 			stalled.Code, stalled.Header().Get(nodeproto.HeaderStalledRoot), folder)

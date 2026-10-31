@@ -21,7 +21,7 @@ func valueOf(arguments []string, flag string) string {
 }
 
 // run is a run of chunks 10 to 12, which start at 98.849, 108.859 and 112.613 s and end at
-// 122.581 s, as 12 Marrow Larks's grid has them (slow-links.md §10); a copied picture's seeks to
+// 122.581 s, as 12 Patient Sailors's grid has them (slow-links.md §10); a copied picture's seeks to
 // 103.854 s, midway to the keyframe after its first.
 func run(stream nodeproto.ChunkStream) nodeproto.MakeChunks {
 	command := nodeproto.MakeChunks{
@@ -257,7 +257,7 @@ func TestArguments_CopyASoundAtItsTimesInTheFilmAndCutItAtTheBounds(t *testing.T
 // A sound copied whose film's first chunk starts well after the film does, its picture's first
 // keyframe counted 10.176 s in, is read from the film's start and cut at chunk 0's start too, as the
 // picture is, the lead-in before it named 00000 and dropped: cut only at the bounds after its start,
-// chunk 0 held the whole film before its end (A Woman of Paris, staging, 2026-10-28). A first chunk
+// chunk 0 held the whole film before its end (A Hollow Continent, staging, 2026-10-28). A first chunk
 // within the muxer's listing tolerance of the film's start keeps the sound from it, its priming too.
 func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilmsStart(t *testing.T) {
 	t.Parallel()

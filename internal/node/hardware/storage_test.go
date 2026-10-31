@@ -191,8 +191,8 @@ func TestMountHolding_IsTheLongestMountPointThePathIsUnderTheRootHoldingTheRest(
 		{majorMinor: "8:33", mountPoint: "/media/films"},
 	}
 	for path, want := range map[string]string{
-		"/media/films/Wing (1979)/Wing.mkv": "8:33",
-		"/media/films-old/Wing.mkv":          "8:17",
+		"/media/films/Arkon (1979)/Arkon.mkv": "8:33",
+		"/media/films-old/Arkon.mkv":          "8:17",
 		"/media":                              "8:17",
 		"/srv/shows":                          "8:1",
 	} {
@@ -245,7 +245,7 @@ func TestMountPointOf_IsTheDeepestMountHoldingThePath(t *testing.T) {
 `)
 	table := fakeMountTable(system, nil)
 	for path, want := range map[string]string{
-		"/media/disk1/Wing.mkv": "/media/disk1", "/media/Metropolis.mkv": "/media", "/media/disk10/x": "/media",
+		"/media/disk1/Arkon.mkv": "/media/disk1", "/media/Metropolis.mkv": "/media", "/media/disk10/x": "/media",
 		"/srv/prepared": "/",
 	} {
 		if got, found := table.MountPointOf(path); !found || got != want {
@@ -278,18 +278,18 @@ func TestMountTable_IsReadAgainOnlyWhenTheKernelSaysItChanged(t *testing.T) {
 `)
 	var changed atomic.Bool
 	table := fakeMountTable(system, &changed)
-	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media" {
+	if got, _ := table.MountPointOf("/media/disk1/Arkon.mkv"); got != "/media" {
 		t.Fatalf("before the disk is mounted: %s; want /media", got)
 	}
 	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
 30 20 0:60 / /media rw - nfs nas:/media rw
 31 30 8:32 / /media/disk1 rw - ext4 /dev/sdc rw
 `)
-	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media" {
+	if got, _ := table.MountPointOf("/media/disk1/Arkon.mkv"); got != "/media" {
 		t.Errorf("with no change signalled, the table was read again: %s; want /media, as kept", got)
 	}
 	changed.Store(true)
-	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media/disk1" {
+	if got, _ := table.MountPointOf("/media/disk1/Arkon.mkv"); got != "/media/disk1" {
 		t.Errorf("once the change is signalled: %s; want /media/disk1", got)
 	}
 }

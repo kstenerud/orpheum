@@ -13,12 +13,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 )
 
-// folderTree makes, under a configured root, films/Wing, films/.cache, a file, a link to a folder
+// folderTree makes, under a configured root, films/Arkon, films/.cache, a file, a link to a folder
 // inside the root and one to a folder outside it, and returns the root and the outside folder.
 func folderTree(t *testing.T) (*confine.MediaRoot, string) {
 	t.Helper()
 	directory, outside := t.TempDir(), t.TempDir()
-	for _, folder := range []string{"films/Wing", "films/.cache", "shows/Dark"} {
+	for _, folder := range []string{"films/Arkon", "films/.cache", "shows/Dark"} {
 		if err := os.MkdirAll(filepath.Join(directory, folder), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -39,8 +39,8 @@ func TestMediaRoot_SubfoldersAreTheRealFoldersButTheHiddenOnes(t *testing.T) {
 	t.Parallel()
 	media, _ := folderTree(t)
 	names, err := media.Subfolders("films")
-	if err != nil || !slices.Equal(names, []string{"Wing"}) {
-		t.Errorf("films' subfolders: %v, %v; want only Wing: no file, no link, no hidden folder (D359 §2)",
+	if err != nil || !slices.Equal(names, []string{"Arkon"}) {
+		t.Errorf("films' subfolders: %v, %v; want only Arkon: no file, no link, no hidden folder (D359 §2)",
 			names, err)
 	}
 	names, err = media.Subfolders(".")
@@ -60,12 +60,12 @@ func TestMediaRoot_SubfoldersAreTheRealFoldersButTheHiddenOnes(t *testing.T) {
 func TestMediaRoot_AFolderIsARootOfItsOwnReachedWithoutALink(t *testing.T) {
 	t.Parallel()
 	media, _ := folderTree(t)
-	folder, err := media.Folder("films/Wing")
+	folder, err := media.Folder("films/Arkon")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = folder.Close() }) //nolint:errcheck // read-only
-	if want := filepath.Join(media.Path(), "films", "Wing"); folder.Path() != want ||
+	if want := filepath.Join(media.Path(), "films", "Arkon"); folder.Path() != want ||
 		folder.ConfiguredPath() != media.Path() {
 		t.Errorf("the folder is at %s in %s; want %s in %s", folder.Path(), folder.ConfiguredPath(), want,
 			media.Path())
@@ -89,7 +89,7 @@ func TestHolding_IsTheConfiguredRootAFolderIsAtOrUnderByAPathThatCannotClimbOut(
 		isHeld         bool
 	}{
 		{media.Path(), ".", true},
-		{media.Path() + "/films/Wing", "films/Wing", true},
+		{media.Path() + "/films/Arkon", "films/Arkon", true},
 		{media.Path() + "/films/../../etc", "", false},
 		{media.Path() + "/films/", "", false},
 		{media.Path() + "X", "", false},

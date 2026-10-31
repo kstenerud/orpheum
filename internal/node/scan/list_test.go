@@ -21,8 +21,8 @@ import (
 func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{
-		"Movies/Wing (1979)/Wing (1979).mkv": "alien",
-		"Movies/Wing (1979)/Wing (1979).nfo": "<movie/>",
+		"Movies/Arkon (1979)/Arkon (1979).mkv": "arkon",
+		"Movies/Arkon (1979)/Arkon (1979).nfo": "<movie/>",
 		"Movies/Metropolis (1995)/Sample/clip.mkv":   "debris",
 		"Movies/._Metropolis.mkv":                    "\x00\x05\x16\x07",
 		".trash/old.mkv":                       "old",
@@ -45,9 +45,9 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		"listed .trash/old.mkv",
 		"listed Movies/",
 		"listed Movies/._Metropolis.mkv",
-		"listed Movies/Wing (1979)/",
-		"listed Movies/Wing (1979)/Wing (1979).mkv",
-		"listed Movies/Wing (1979)/Wing (1979).nfo",
+		"listed Movies/Arkon (1979)/",
+		"listed Movies/Arkon (1979)/Arkon (1979).mkv",
+		"listed Movies/Arkon (1979)/Arkon (1979).nfo",
 		"listed Movies/Metropolis (1995)/",
 		"listed Movies/Metropolis (1995)/Sample/",
 		"listed Movies/Metropolis (1995)/Sample/clip.mkv",
@@ -61,18 +61,18 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 	if len(prober.probed) != 0 {
 		t.Errorf("a listing probed %v; it reads no file", prober.probed)
 	}
-	alien := records[6].Listed
-	info, err := os.Stat(filepath.Join(root, "Movies", "Wing (1979)", "Wing (1979).mkv"))
+	arkon := records[6].Listed
+	info, err := os.Stat(filepath.Join(root, "Movies", "Arkon (1979)", "Arkon (1979).mkv"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if alien.SizeBytes != int64(len("alien")) || alien.ModifiedAt != info.ModTime().UnixMilli() ||
-		alien.FilesystemDevice == 0 {
-		t.Errorf("listed %+v, want its size, modified time and device", alien)
+	if arkon.SizeBytes != int64(len("arkon")) || arkon.ModifiedAt != info.ModTime().UnixMilli() ||
+		arkon.FilesystemDevice == 0 {
+		t.Errorf("listed %+v, want its size, modified time and device", arkon)
 	}
 	// Its inode tells it moved on its disk (D304 §5).
-	if inode, _ := confine.InodeOf(info); inode == 0 || alien.Inode != inode {
-		t.Errorf("listed inode %d, want %d", alien.Inode, inode)
+	if inode, _ := confine.InodeOf(info); inode == 0 || arkon.Inode != inode {
+		t.Errorf("listed inode %d, want %d", arkon.Inode, inode)
 	}
 	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.SkippedCount != 1 {
 		t.Errorf("scan_complete = %+v, want 11 listed and 1 skipped", complete)
@@ -85,7 +85,7 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{
-		"Movies/Wing (1979)/Wing (1979).mkv": "alien",
+		"Movies/Arkon (1979)/Arkon (1979).mkv": "arkon",
 		"Movies/loose.mkv":                     "loose",
 		"Shows/Dark/S01E01.mkv":                "dark",
 	})
@@ -98,10 +98,10 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 	}{
 		{".", 1, []string{"scan_begin", "listed Movies/", "listed Shows/", "scan_complete"}},
 		{"Movies", 1, []string{
-			"scan_begin", "listed Movies/Wing (1979)/", "listed Movies/loose.mkv", "scan_complete",
+			"scan_begin", "listed Movies/Arkon (1979)/", "listed Movies/loose.mkv", "scan_complete",
 		}},
 		{"Movies", 0, []string{
-			"scan_begin", "listed Movies/Wing (1979)/", "listed Movies/Wing (1979)/Wing (1979).mkv",
+			"scan_begin", "listed Movies/Arkon (1979)/", "listed Movies/Arkon (1979)/Arkon (1979).mkv",
 			"listed Movies/loose.mkv", "scan_complete",
 		}},
 	} {
@@ -121,10 +121,10 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 	t.Parallel()
 	films := writeTree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
-	shows := writeTree(t, map[string]string{"Shared/Wing.mkv": "alien"})
+	shows := writeTree(t, map[string]string{"Shared/Arkon.mkv": "arkon"})
 	elsewhere := writeTree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
 	links := map[string]string{
-		"into another root.mkv": filepath.Join(shows, "Shared", "Wing.mkv"),
+		"into another root.mkv": filepath.Join(shows, "Shared", "Arkon.mkv"),
 		"a whole directory":     filepath.Join(shows, "Shared"),
 		"out of the roots.mkv":  filepath.Join(elsewhere, "secret.mkv"),
 		"etc shadow.mkv":        filepath.Join(elsewhere, "shadow"),
@@ -144,7 +144,7 @@ func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 		"listed Metropolis (1995)/",
 		"listed Metropolis (1995)/Metropolis.mkv",
 		"listed a whole directory/",
-		"listed a whole directory/Wing.mkv",
+		"listed a whole directory/Arkon.mkv",
 		"error dangling.mkv entry not_found",
 		"skip etc shadow.mkv symlink_outside_roots",
 		"listed into another root.mkv",
@@ -166,20 +166,20 @@ func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 func TestExamine_ReadsEachFileAsItsKindSaysOrSaysWhyNot(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{
-		"Wing/Wing.mkv":    "alien",
-		"Wing/Wing.nfo":    "<movie/>",
-		"Wing/Wing.en.srt": "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
-		"Wing/Broken.mkv":   "broken",
+		"Arkon/Arkon.mkv":    "arkon",
+		"Arkon/Arkon.nfo":    "<movie/>",
+		"Arkon/Arkon.en.srt": "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
+		"Arkon/Broken.mkv":   "broken",
 	})
 	media := nodetest.OpenMediaRoot(t, root)
 	prober := &fakeProber{failing: map[string]error{"Broken.mkv": errors.New("moov atom not found")}}
 	files := []nodeproto.ExamineFile{
-		{Path: nodeproto.Path{Text: "Wing/Wing.mkv"}, Kind: nodeproto.ExamineVideo},
-		{Path: nodeproto.Path{Text: "Wing/Wing.nfo"}, Kind: nodeproto.ExamineNFO},
-		{Path: nodeproto.Path{Text: "Wing/Wing.en.srt"}, Kind: nodeproto.ExamineSubtitle},
-		{Path: nodeproto.Path{Text: "Wing/Broken.mkv"}, Kind: nodeproto.ExamineVideo},
-		{Path: nodeproto.Path{Text: "Wing/Gone.mkv"}, Kind: nodeproto.ExamineVideo},
-		{Path: nodeproto.Path{Text: "Wing"}, Kind: nodeproto.ExamineVideo},
+		{Path: nodeproto.Path{Text: "Arkon/Arkon.mkv"}, Kind: nodeproto.ExamineVideo},
+		{Path: nodeproto.Path{Text: "Arkon/Arkon.nfo"}, Kind: nodeproto.ExamineNFO},
+		{Path: nodeproto.Path{Text: "Arkon/Arkon.en.srt"}, Kind: nodeproto.ExamineSubtitle},
+		{Path: nodeproto.Path{Text: "Arkon/Broken.mkv"}, Kind: nodeproto.ExamineVideo},
+		{Path: nodeproto.Path{Text: "Arkon/Gone.mkv"}, Kind: nodeproto.ExamineVideo},
+		{Path: nodeproto.Path{Text: "Arkon"}, Kind: nodeproto.ExamineVideo},
 	}
 	betweenCount := 0
 	records, err := NewScanner([]*confine.MediaRoot{media}, prober, options).Examine(t.Context(), media, files,
@@ -189,22 +189,22 @@ func TestExamine_ReadsEachFileAsItsKindSaysOrSaysWhyNot(t *testing.T) {
 	}
 	// Two errors of one code in one directory stay two: each file's answer is its own.
 	want := []string{
-		"observed Wing/Wing.mkv",
-		"sidecar Wing/Wing.nfo nfo",
-		"sidecar Wing/Wing.en.srt subtitle",
-		"error Wing/Broken.mkv entry probe_failed",
-		"error Wing/Gone.mkv entry not_found",
-		"error Wing entry io_error",
+		"observed Arkon/Arkon.mkv",
+		"sidecar Arkon/Arkon.nfo nfo",
+		"sidecar Arkon/Arkon.en.srt subtitle",
+		"error Arkon/Broken.mkv entry probe_failed",
+		"error Arkon/Gone.mkv entry not_found",
+		"error Arkon entry io_error",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("examined:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	checkSidecarBodies(t, records)
-	if observed := records[0].Observed; observed.SizeBytes != int64(len("alien")) ||
+	if observed := records[0].Observed; observed.SizeBytes != int64(len("arkon")) ||
 		observed.Identity.PayloadHash == "" {
 		t.Errorf("observed = %+v, want its size and payload hash", observed)
 	}
-	info, err := os.Stat(filepath.Join(root, "Wing", "Wing.mkv"))
+	info, err := os.Stat(filepath.Join(root, "Arkon", "Arkon.mkv"))
 	if err != nil {
 		t.Fatal(err)
 	}
