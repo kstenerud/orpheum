@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
 )
 
@@ -44,12 +45,13 @@ func counting(t *testing.T, folder, name string) []bool {
 }
 
 // The carried key lost, by the guided command (D394 §4): suspending e1 offers the other keys to sign,
-// never e1 itself, and stops its signatures counting in both chains; resuming it offers only the
+// never e1 itself, and stops its signatures counting in both chains; the address document e1 signed is
+// signed again, so cores still take it; resuming it offers only the
 // recovery keys, and its signatures count again.
 func TestGuidedChange_ASuspendedKeyIsResumedOnlyByARecoveryKey(t *testing.T) {
 	t.Parallel()
 	folder, fake := changeFolder(t)
-	status, said := guidedRun(t, fake, "\n\n\n\n", "suspend", "--folder", folder, "--key", "e1")
+	status, said := guidedRun(t, fake, "\n\n\n\n\n", "suspend", "--folder", folder, "--key", "e1")
 	if status != exitSuccess {
 		t.Fatalf("suspend = %d: %s", status, said)
 	}
@@ -59,6 +61,19 @@ func TestGuidedChange_ASuspendedKeyIsResumedOnlyByARecoveryKey(t *testing.T) {
 	}
 	if got := counting(t, folder, "e1"); slices.Contains(got, true) {
 		t.Errorf("e1 counts after its suspension, by chain: %v", got)
+	}
+	discovery, err := trust.Genesis(trust.ChainDiscovery,
+		readPublished(t, filepath.Join(folder, publishDirectory), addressdoc.RootPath(1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if discovery, err = discovery.Accept(readPublished(t, filepath.Join(folder, publishDirectory),
+		addressdoc.RootPath(2))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = addressdoc.Open(readPublished(t, filepath.Join(folder, publishDirectory), addressdoc.DocumentPath),
+		discovery, "https://orpheum.dev"); err != nil {
+		t.Errorf("the published address document, which e1 signed, does not open once e1 is suspended: %v", err)
 	}
 	status, said = guidedRun(t, fake, "\n\n\n\n", "resume", "--folder", folder, "--key", "e1")
 	if status != exitSuccess {
