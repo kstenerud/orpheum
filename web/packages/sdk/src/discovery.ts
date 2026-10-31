@@ -9,7 +9,7 @@
 
 import type { Description, Signaller } from "./rtc-connect.ts";
 import { offerThroughDiscovery } from "./relayed-offer.ts";
-import { RefusedForGood } from "./rtc-reopen.ts";
+import { RefusedForGood, Unreached } from "./rtc-reopen.ts";
 
 /** A core's link's fragment: `<coreId>.<secret>.<fingerprint>`, after `#`. */
 export interface LinkFragment {
@@ -400,6 +400,20 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
   };
 }
 
+/**
+ * The response posting resolves with; a post that reached no server, which fetch fails with a
+ * TypeError ("Failed to fetch", "NetworkError when attempting to fetch resource."), fails as
+ * Unreached, so the transport tries again soon rather than after its growing wait (unreachedRetryMs).
+ * An abort stays an abort.
+ */
+async function reaching(posting: Promise<Response>): Promise<Response> {
+  try {
+    return await posting;
+  } catch (problem: unknown) {
+    throw problem instanceof TypeError ? new Unreached(problem) : problem;
+  }
+}
+
 /** Passes the offer sent to the core through the discovery, proven by proving, and checks its answer. */
 async function offerUnder(
   signalling: DiscoverySignalling,
@@ -411,18 +425,20 @@ async function offerUnder(
   const { held, key } = proving;
   const fingerprint = fingerprintOf(offer.sdp);
   const proof = await offerProof(key, fingerprint);
-  const response = await post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
-    method: "POST",
-    signal: signal ?? null,
-    headers: {
-      "Content-Type": "application/json",
-      "Orpheum-Discovery-Protocol": protocolVersion,
-    },
-    body: JSON.stringify({
-      ...held,
-      offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
+  const response = await reaching(
+    post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
+      method: "POST",
+      signal: signal ?? null,
+      headers: {
+        "Content-Type": "application/json",
+        "Orpheum-Discovery-Protocol": protocolVersion,
+      },
+      body: JSON.stringify({
+        ...held,
+        offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
+      }),
     }),
-  });
+  );
   if (!response.ok) {
     throw new Error(`the discovery answered ${String(response.status)}`);
   }

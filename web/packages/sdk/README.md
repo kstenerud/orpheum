@@ -192,7 +192,10 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   their events and every `peerLookEveryMs` besides (`watchGone`), since Firefox does not move them
   together; a try to replace it is given up after `openTryMostMs`, its signaller's post aborted;
   failures are tried again after a wait that doubles up to `replaceMostMs` (10 s), and at once on
-  the browser's `online` event, which gives up a try under way. The one replacement path is the
+  the browser's `online` event, which gives up a try under way; a try whose offer reached no server
+  (`Unreached`: the signaller's post failed as fetch does with no network) after `unreachedRetryMs`
+  (2 s), its wait started over, since Firefox on the desktop fires no `online` and came back ~45 s
+  after the Wi-Fi did (VQ139's run; VQ197). The one replacement path is the
   transport's own (`gone`). A connection up after a time with none reports how long the page had
   none, why it took the last as gone and how its tries went, and the transport tells `onBack` then
   and on `online`; the session connection, given it as `pathBack`, connects again at once, as when

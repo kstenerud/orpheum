@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { disconnectedGraceMs, peerLookEveryMs, watchGone, type StatesPeer } from "./rtc-peer.ts";
-import { openTryMostMs, RefusedForGood } from "./rtc-reopen.ts";
+import { openTryMostMs, RefusedForGood, Unreached, unreachedRetryMs } from "./rtc-reopen.ts";
 import type { ChannelLike } from "./rtc-request.ts";
 import {
   replaceFirstMs,
@@ -162,6 +162,74 @@ describe("a transport whose network went", () => {
     ]);
     expect(Math.max(...waits)).toBe(replaceMostMs);
     expect(replaceMostMs).toBeLessThanOrEqual(10_000);
+  });
+
+  it("with no online event, as Firefox fires none, is back within unreachedRetryMs of the network, its offers having reached nothing", async () => {
+    // The owner's Mac, Wi-Fi off for about a minute (VQ139's run, staging, 2026-10-29): Firefox came
+    // back ~45 s after the Wi-Fi did, its wait grown to replaceMostMs and no online event to cut it.
+    const first = new LostPeer();
+    const online = onlineEvent(); // never fired
+    const triedAtMs: number[] = [];
+    let isNetworkBack = false;
+    const transport = transportOn(
+      first,
+      () => {
+        triedAtMs.push(Date.now());
+        return isNetworkBack
+          ? Promise.resolve(new LostPeer())
+          : Promise.reject(
+              new Unreached(new TypeError("NetworkError when attempting to fetch resource.")),
+            );
+      },
+      online,
+    );
+    let toldBack = 0;
+    transport.onBack(() => {
+      toldBack += 1;
+    });
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("it stayed disconnected for 5000 ms");
+    await vi.advanceTimersByTimeAsync(60_000);
+    const waits = triedAtMs.slice(1).map((atMs, index) => atMs - (triedAtMs[index] ?? 0));
+    expect(new Set(waits)).toEqual(new Set([unreachedRetryMs])); // never grown
+    isNetworkBack = true;
+    const backAtMs = Date.now();
+    await vi.advanceTimersByTimeAsync(unreachedRetryMs);
+    expect(transport.size).toBe(1);
+    expect((triedAtMs.at(-1) ?? 0) - backAtMs).toBeLessThanOrEqual(unreachedRetryMs);
+    expect(toldBack).toBe(1); // the session connection hears it back without an online event
+    expect(unreachedRetryMs).toBeLessThan(replaceMostMs);
+    transport.close();
+  });
+
+  it("after its offers reached nothing, starts its growing wait over for a try that reached the core", async () => {
+    const first = new LostPeer();
+    const triedAtMs: number[] = [];
+    let tries = 0;
+    transportOn(first, () => {
+      tries += 1;
+      triedAtMs.push(Date.now());
+      // Five tries with a core that does not answer, then five on no network, then the core again.
+      const hasReachedNothing = tries > 5 && tries <= 10;
+      return Promise.reject(
+        hasReachedNothing
+          ? new Unreached(new TypeError("Failed to fetch"))
+          : new Error("the discovery answered 502"),
+      );
+    });
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    first.goes("its ICE failed");
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    const waits = triedAtMs.slice(1).map((atMs, index) => atMs - (triedAtMs[index] ?? 0));
+    expect(waits.slice(4, 10)).toEqual([
+      replaceMostMs, // the core's fifth failure, its wait grown
+      unreachedRetryMs,
+      unreachedRetryMs,
+      unreachedRetryMs,
+      unreachedRetryMs,
+      unreachedRetryMs,
+    ]);
+    expect(waits[10]).toBe(replaceFirstMs); // the core's again: the wait started over
   });
 
   it("tries no more once a try is refused for good, failing the requests waiting and saying so", async () => {

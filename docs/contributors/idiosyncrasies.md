@@ -61,6 +61,7 @@ User-Agent (D263; the User-Agent is logged only).
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
 | As the quality stepped down, a Fire TV kept 2.5 s of sound against 38.6 s of picture and stalled on the new sound's chunks. | [On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec](#on-a-level-in-another-audio-group-hlsjs-throws-all-the-sound-loaded-away-when-the-new-sound-differs-in-channels-or-codec) |
 | After a minute with Wi-Fi off, Firefox's page never made another WebRTC connection to the core; Chrome's did. | [Firefox's peer connection after a network loss: "disconnected" for half a minute, its states not moved together, and an old connection never comes back](#firefoxs-peer-connection-after-a-network-loss-disconnected-for-half-a-minute-its-states-not-moved-together-and-an-old-connection-never-comes-back) |
+| Firefox came back about 45 s after the Mac's Wi-Fi did; Chrome at once. | [Firefox on the desktop fires no `online` event when the network returns](#firefox-on-the-desktop-fires-no-online-event-when-the-network-returns) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
@@ -350,6 +351,37 @@ User-Agent (D263; the User-Agent is logged only).
 - **Firefox on Linux plays the same chunks:** headless Firefox 155 on Linux, through Playwright against
   staging on 2026-10-07/08, played Flow's own picture from mid-film chunks, picture and sound buffered alike:
   the demotion is under `MOZ_APPLEMEDIA`, macOS only.
+
+### Firefox on the desktop fires no `online` event when the network returns
+
+- **Technology:** Firefox on the desktop (157 on macOS seen), `navigator.onLine` and the window's
+  `online`/`offline` events.
+- **Symptom:** with the Mac's Wi-Fi off for about a minute and on again, Firefox's page came back about
+  45 s after the Wi-Fi did, where Chrome's came back at once (the owner's VQ139 run, staging,
+  2026-10-29), the WebRTC transport's at-once retry on `online` (the entry above) having worked for
+  Chrome alone.
+- **Cause:** on the desktop, Firefox's `navigator.onLine` is reported false only when the person
+  chooses "Work Offline" (a change of Firefox 59, by the reports below; not checked in a Firefox
+  here): a network going or coming back moves it in neither direction, so no `online` event comes. The page's transport then had nothing to cut its wait short: its wait between tries had grown
+  to `replaceMostMs` (10 s) through the outage, and a try made on no network could run out its own
+  bounds (gathering and connecting, `connectTimeoutMs` each) before the next began; the timeline adds
+  up to about 45 s. That Firefox fired nothing on the owner's Mac is inferred from the code and the
+  timings, not logged.
+- **What we do:** never rely on `online` to hear the network back. A try whose offer reached no server
+  (its signaller's post failed with fetch's `TypeError`, as with no network) fails as `Unreached`
+  (`web/packages/sdk/src/discovery.ts`, `rtc-reopen.ts`), and the transport tries again after
+  `unreachedRetryMs` (2 s), its wait not grown and started over, so the tries themselves are how the
+  page hears its network back; a connection up after none tells `onBack`, and the session and live
+  sockets connect again at once. `online` still cuts a wait short where it comes.
+  `rtc-network-loss.test.ts`; VQ197.
+- **Not covered:** a page on a core's direct HTTPS name, not WebRTC, hears its way back only by
+  `online` (`kept-path.ts`'s pathBack), so in Firefox its session socket waits out its own reconnect
+  wait (up to `longestReconnectWaitMs`, 30 s) after the network returns.
+- **Evidence:** **[owner]** VQ139's run (Firefox ~45 s, Chrome quicker). **[web]** [Mozilla bug
+  654579](https://bugzilla.mozilla.org/show_bug.cgi?id=654579), "navigator.onLine always returns true
+  for desktop Firefox unless 'work offline' is manually selected"; write-ups of `navigator.onLine`
+  (MDN's page among the results) on the Firefox 59 change, and that macOS gives no event as Wi-Fi is
+  turned off (searched 2026-10-31).
 
 ### Firefox offers no RED (redundant audio) for Opus
 

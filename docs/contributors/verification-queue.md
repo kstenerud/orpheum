@@ -1932,3 +1932,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Built (11-01 batch):** a probe the network answers first asks `registration.update()`; a newer
   worker on its way is no bypass, and the note asks again as it takes over. Check again as above,
   after the deploy that carries it, in a tab left open across the deploy.
+- [ ] **VQ197** — Firefox's page is back soon after the network, with no `online` event to tell it,
+  on staging. On the Mac, Firefox over WebRTC through staging's discovery (the core's log says
+  `over=webrtc` for it), playing a film. Turn the Wi-Fi off for about 20 s, then on. Passes when the
+  page is back within about 5 s of the Wi-Fi returning: its "a WebRTC connection to the core is back
+  after … ms with none" line comes within about 5 s of the Wi-Fi coming back, its tries' last failure
+  naming "the offer reached no server", and the film plays on (its `kind=reconnected` line within a
+  few seconds of it). Before this change Firefox came back about 45 s after the Wi-Fi (VQ139's run,
+  2026-10-29). (`web/packages/sdk/src/rtc-transport.ts`, `rtc-reopen.ts`, `discovery.ts`)
