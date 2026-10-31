@@ -72,15 +72,21 @@ export async function probeWorker(
 /**
  * The line above every screen while developer tools bypass the page's worker, asked again each time
  * the page's art fails to load: posters and films 404 at a client origin with nothing said, and an afternoon went on the worker before the box was found
- * ticked (idiosyncrasies.md, the Bypass entry; agent-failures A51). probe is the page's own unless a
- * test gives one.
+ * ticked (idiosyncrasies.md, the Bypass entry; agent-failures A51). Asked again too as a new worker
+ * takes the page over: the first visit after a deploy loads under the last release's worker, which
+ * does not know the probe and sends it to the network, and the note said the worker was bypassed
+ * while media played (the owner's Mac, Firefox, production, 2026-10-31). probe and workers (the
+ * page's service worker container, whose controllerchange says so) are the page's own unless a test
+ * gives them.
  */
 export function WorkerBypassedNote(props: {
   readonly probe?: () => Promise<boolean>;
+  readonly workers?: EventTarget;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const [isBypassed, setIsBypassed] = useState(false);
   const probe = props.probe ?? isThisPageWorkerBypassed;
+  const workers = props.workers ?? pageWorkers();
   useEffect(() => {
     let isShown = true;
     const ask = (): void => {
@@ -95,14 +101,21 @@ export function WorkerBypassedNote(props: {
     };
     ask();
     const stop = onWorkerSuspected(ask);
+    workers?.addEventListener("controllerchange", ask);
     return () => {
       isShown = false;
       stop();
+      workers?.removeEventListener("controllerchange", ask);
     };
-  }, [probe]);
+  }, [probe, workers]);
   return isBypassed ? (
     <p className="app-shell__note" role="alert">
       {t("discovery.workerBypassed")}
     </p>
   ) : null;
+}
+
+/** The page's service worker container, or undefined where the browser has none. */
+function pageWorkers(): EventTarget | undefined {
+  return "serviceWorker" in navigator ? navigator.serviceWorker : undefined;
 }
