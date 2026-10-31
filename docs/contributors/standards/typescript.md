@@ -38,6 +38,8 @@ both apps. The config files above are gates (`scripts/gate_paths.py`): loosening
 owner's act.
 
 Versions are exact (`save-exact` in `web/.npmrc`) and `web/package-lock.json` is committed.
+No package's install scripts run (`ignore-scripts` there, held by `apps/web/src/npm-config.test.ts`):
+each package is its tarball, and one that needs its script to work is the owner's call (rule 3).
 
 ## Compiler settings
 
