@@ -150,10 +150,12 @@ func SignRoot(tb testing.TB, kind trust.ChainKind, root trust.Root, signers ...K
 	return Sign(tb, kind.RootNamespace(), payload, signers...)
 }
 
-// Change is a root statement's change: keys added in their roles, and keys removed.
+// Change is a root statement's change: keys added in their roles, keys removed, and keys suspended
+// and resumed.
 type Change struct {
 	AddEveryday, AddRecovery []Key
 	Remove                   []Key
+	Suspend, Resume          []Key
 	Thresholds               map[trust.Role]int
 }
 
@@ -164,13 +166,23 @@ func (chain *Chain) Next(tb testing.TB, version int64, change Change, signers ..
 	root := chain.Last
 	root.ID, root.Version, root.Issued = chain.ID(), version, Issued().Add(time.Duration(version)*time.Hour)
 	root.Keys, root.Removed = slices.Clone(root.Keys), slices.Clone(root.Removed)
+	root.Suspended = slices.Clone(root.Suspended)
+	for _, key := range change.Suspend {
+		root.Suspended = append(root.Suspended, trust.Fingerprint(key.PublicKey()))
+	}
+	for _, key := range change.Resume {
+		fingerprint := trust.Fingerprint(key.PublicKey())
+		root.Suspended = slices.DeleteFunc(root.Suspended, func(held string) bool { return held == fingerprint })
+	}
 	if change.Thresholds != nil {
 		root.Thresholds = change.Thresholds
 	}
 	for _, key := range change.Remove {
 		text := key.RootKey("").Text
 		root.Keys = slices.DeleteFunc(root.Keys, func(held trust.RootKey) bool { return held.Text == text })
-		root.Removed = append(root.Removed, trust.Fingerprint(key.PublicKey()))
+		fingerprint := trust.Fingerprint(key.PublicKey())
+		root.Removed = append(root.Removed, fingerprint)
+		root.Suspended = slices.DeleteFunc(root.Suspended, func(held string) bool { return held == fingerprint })
 	}
 	for _, key := range change.AddRecovery {
 		root.Keys = append(root.Keys, key.RootKey(trust.RoleRecovery))
