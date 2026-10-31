@@ -74,9 +74,10 @@ it("shows a waiting invitation's live links again, each with Copy (D267 §5)", a
     ],
   };
   const copied: string[] = [];
-  const clipboard = { writeText: (text: string) => Promise.resolve(void copied.push(text)) };
   vi.stubGlobal("isSecureContext", true);
-  vi.stubGlobal("navigator", { ...globalThis.navigator, clipboard });
+  vi.spyOn(globalThis.navigator.clipboard, "writeText").mockImplementation((text: string) =>
+    Promise.resolve(void copied.push(text)),
+  );
   try {
     mounted = await mount(
       withServices(
@@ -113,6 +114,7 @@ it("shows a waiting invitation's live links again, each with Copy (D267 §5)", a
     expect(usedList?.querySelector(".share__link")).toBeNull();
   } finally {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   }
 });
 
