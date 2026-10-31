@@ -1942,6 +1942,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   no banner shows; the settings page's Updates row names the newer version. Needs the paid
   service's `POST /release` (or Orpheum's own discovery) to serve the record, which the connect
   repository owes. (`web/apps/web/src/security-update-note.tsx`, `internal/core/discovery/release.go`)
+- [ ] **VQ196** — a GPU encodes under the node's read-only root (noexec step 1): deploy the next
+  image to nas.example (Quick Sync) and run `deploy/hwtest/hwtest.sh <image> --expect h264_qsv` on the
+  amd box (`--expect h264_vaapi`). Passes when each run plays all its films with the expected
+  encoder, the node's log has no "read-only file system" line, and `docker compose exec orpheum-node
+  cat /proc/mounts` shows `/` `ro` and `/tmp` `noexec`. The sandbox has no GPU, so only software
+  encoding was tried there. (`internal/deployment/templates/compose*.yaml`)
 - [ ] **VQ197** — Firefox's page is back soon after the network, with no `online` event to tell it,
   on staging. On the Mac, Firefox over WebRTC through staging's discovery (the core's log says
   `over=webrtc` for it), playing a film. Turn the Wi-Fi off for about 20 s, then on. Passes when the

@@ -39,6 +39,9 @@
 //     setting is each network's and the household's kernel is not ours; one sharing another's
 //     network shares one that has it off. TestCompose_EveryServiceWithANetworkOfItsOwnTurnsMPTCPOff,
 //     TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff.
+//   - The node's root is read-only and its /tmp a tmpfs mounted noexec, nosuid and nodev, so what an
+//     exploited FFmpeg writes outside the node's volumes can be neither run nor loaded; the node and
+//     FFmpeg write nothing outside them (noexec step 1). TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //

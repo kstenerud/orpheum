@@ -517,6 +517,17 @@ had leaned on.
   admins' banner); Part C, the opted-in timer, once signing exists.
 - **noexec (the owner, 2026-10-31, yes), next batch:** step 1 (the node's root read-only, `/tmp` a
   noexec tmpfs) first; step 2 (noexec volumes for `./node` and `./run`) once tried on nas.example.
+  **Step 1 built for the 11-01 batch:** both compose templates give the node `read_only: true` and
+  `/tmp` a tmpfs `rw,noexec,nosuid,nodev,size=64m` (TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing).
+  Nothing needed moving: the node writes only its instance (`./node`) and its socket (`./run`), and
+  FFmpeg runs with an empty environment and its working directory `/` (execx), so no HOME, cache
+  (fontconfig's, Mesa's shader cache) or temporary file is asked for; the drivers load from the
+  image. Tried in the sandbox: a deployment written by the new templates, its node in software
+  (x264, Landlock and seccomp in force), played all seven of hwplay.py's generated films (2026-10-31;
+  its encoder check named `libx264` against the node's `x264`, a naming mismatch, and no film failed),
+  the node's log with no read-only error; a write to `/` failed
+  read-only and a file in `/tmp` would not run. A GPU's driver under the read-only root (QSV on
+  nas.example, VAAPI on the amd box) is VQ196.
 - **noexec, as looked into (report §5):** Landlock's EXECUTE right governs
   `execve` alone, never a `dlopen`'s `mmap(PROT_EXEC)`, and confines FFmpeg's runs, not the node. A
   noexec mount blocks both, for every process in the container. Proposed: (1) the node's root
