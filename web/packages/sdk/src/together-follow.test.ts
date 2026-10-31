@@ -128,7 +128,7 @@ describe("a player following its group", () => {
       filmMs: 10_000,
     };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
-    // With why its controller chose it, and the link's samples then (staging, Nosferatu, 2026-10-28).
+    // With why its controller chose it, and the link's samples then (staging, Aegis, 2026-10-28).
     const switched: QualitySwitched = {
       qualityKbps: 800,
       linkEstimateKbps: 2500,
