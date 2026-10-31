@@ -163,7 +163,7 @@ func TestGate_ADiskStuckInsideARootHoldsUpOnlyWhatIsOnIt(t *testing.T) {
 			}
 			return "/", true // the root is on the system's own disk
 		})
-	release, isHeld := gate.Hold("/media", "/media/disk1/Wing.mkv")
+	release, isHeld := gate.Hold("/media", "/media/disk1/Arkon.mkv")
 	if !isHeld {
 		t.Fatal("the disk could not be held")
 	}
@@ -183,7 +183,7 @@ func TestGate_ADiskStuckInsideARootHoldsUpOnlyWhatIsOnIt(t *testing.T) {
 	if _, isStuck := gate.IsStuck("/media", "/media"); isStuck {
 		t.Error("the root itself reads as stuck; want only the disk inside it")
 	}
-	if stuck, isStuck := gate.IsStuck("/media", "/media/disk1"); !isStuck || stuck.Path != "/media/disk1/Wing.mkv" {
-		t.Errorf("the disk: %+v, %t; want it stuck on Wing.mkv", stuck, isStuck)
+	if stuck, isStuck := gate.IsStuck("/media", "/media/disk1"); !isStuck || stuck.Path != "/media/disk1/Arkon.mkv" {
+		t.Errorf("the disk: %+v, %t; want it stuck on Arkon.mkv", stuck, isStuck)
 	}
 }

@@ -109,17 +109,17 @@ func TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce(t *testing.T) 
 			measured.Add(1)
 			return root.FactsOf(relative)
 		}).Handler()
-	release, isHeld := gate.Hold(root.Path(), root.Path()+"/Ditchwater.mkv")
+	release, isHeld := gate.Hold(root.Path(), root.Path()+"/Grimwell.mkv")
 	if !isHeld {
 		t.Fatal("the root could not be held")
 	}
 	t.Cleanup(release)
 	code, answer := probe(t, handler, root.Path())
 	if code != http.StatusOK || answer.State != nodeproto.ProbeNotAnswering ||
-		answer.StuckSinceMs != stuckAt.UnixMilli() || answer.WaitingOnPath != root.Path()+"/Ditchwater.mkv" ||
+		answer.StuckSinceMs != stuckAt.UnixMilli() || answer.WaitingOnPath != root.Path()+"/Grimwell.mkv" ||
 		measured.Load() != 0 {
 		t.Errorf("a root holding a stuck reading: %d, %+v, measured %d times; want not answering since %v, "+
-			"on Ditchwater.mkv, not measured", code, answer, measured.Load(), stuckAt)
+			"on Grimwell.mkv, not measured", code, answer, measured.Load(), stuckAt)
 	}
 }
 

@@ -391,7 +391,7 @@ func TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole(t *testing.
 // filmStartingPastItsFirstKeyframe is a 5.1 AAC film copied from 0.1 s in: the MP4 muxer's edit
 // list puts its first keyframe, and its sound's priming, before the film's start, flagged discarded,
 // so a read-through counts its next keyframe, 1.875 s in, as its first, and its grid starts there,
-// the shape of A Woman of Paris's, whose next is 10.176 s in (staging, 2026-10-28).
+// the shape of A Hollow Continent's, whose next is 10.176 s in (staging, 2026-10-28).
 func filmStartingPastItsFirstKeyframe(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "a film cut past its first keyframe (2020).mp4")
@@ -426,7 +426,7 @@ func countedKeyframes(t *testing.T, runner *execx.Runner, source string) []int64
 // is cut at chunk 0's start as its picture is: two runs' chunks are the film's packets from the
 // first at or after chunk 0's start, bit for bit, each once, at their times; cut only at the bounds
 // after its start, chunk 0 held the film from its start and was refused, and the film could not
-// play (A Woman of Paris, staging, 2026-10-28).
+// play (A Hollow Continent, staging, 2026-10-28).
 func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk(t *testing.T) {
 	t.Parallel()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
