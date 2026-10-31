@@ -159,9 +159,9 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
 		t.Fatal(err)
 	}
-	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1), listedFile("Wing/Wing.nfo", 8, 1))
+	bench.list(listedDirectory("Arkon"), listedFile("Arkon/Arkon.mkv", 5, 1), listedFile("Arkon/Arkon.nfo", 8, 1))
 	job, files := bench.examine()
-	if len(files) != 2 || files[0].Path.Text != "Wing/Wing.mkv" || files[1].Kind != nodeproto.ExamineNFO {
+	if len(files) != 2 || files[0].Path.Text != "Arkon/Arkon.mkv" || files[1].Kind != nodeproto.ExamineNFO {
 		t.Fatalf("the node was asked to read %+v, want the film and its NFO", files)
 	}
 	if _, isLive := bench.liveFilesByPath()[root+"/Gone.mkv"]; !isLive {
@@ -169,8 +169,8 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 	}
 	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
 		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
-			observedRecord("Wing/Wing.mkv", "alien"),
-			sidecarRecord("Wing/Wing.nfo", nodeproto.SidecarNFO, "<movie/>"),
+			observedRecord("Arkon/Arkon.mkv", "arkon"),
+			sidecarRecord("Arkon/Arkon.nfo", nodeproto.SidecarNFO, "<movie/>"),
 		}}})
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 	if _, isLive := live[root+"/Gone.mkv"]; isLive {
 		t.Error("the file the completed scan did not see is still live")
 	}
-	if alien := live[root+"/Wing/Wing.mkv"]; alien.PayloadHash == nil || live[root+"/Wing/Wing.nfo"].Filing !=
+	if arkon := live[root+"/Arkon/Arkon.mkv"]; arkon.PayloadHash == nil || live[root+"/Arkon/Arkon.nfo"].Filing !=
 		FilingAttached {
 		t.Errorf("the files read are %+v, want the film and its attached NFO", live)
 	}
@@ -276,7 +276,7 @@ func TestScans_AScanTheCoreStoppedDuringStartsAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	listed := bench.jobs.last(t, jobs.KindScan)
-	bench.list(listedFile("Wing.mkv", 5, 1))
+	bench.list(listedFile("Arkon.mkv", 5, 1))
 	bench.scans = bench.restart()
 	if err := bench.scans.Resume(ctx); err != nil {
 		t.Fatal(err)
@@ -360,15 +360,15 @@ func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *tes
 func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	ctx := t.Context()
 	queuedBefore := len(bench.jobs.requests)
 	stalledAt := bench.clock.Now()
-	place, since, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, root+"/Wing.mkv")
+	place, since, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, root+"/Arkon.mkv")
 	if err != nil || place != root || !since.Equal(stalledAt) {
 		t.Fatalf("MarkStalled = %s, %v, %v; want the root unavailable since now, %v", place, since, err, stalledAt)
 	}
-	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
+	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Arkon.mkv"))
 	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(stalledAt) {
 		t.Errorf("a file under the stalled root: %+v, %t, %v; want it under the root unavailable since the stall",
 			missing, isMissing, err)
@@ -380,9 +380,9 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 	if _, again, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, ""); err != nil || !again.Equal(stalledAt) {
 		t.Errorf("a second stall = %v, %v; want it unavailable since the first, %v", again, err, stalledAt)
 	}
-	bench.list(listedFile("Wing.mkv", 5, 1))
+	bench.list(listedFile("Arkon.mkv", 5, 1))
 	if _, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID,
-		[]byte(root+"/Wing.mkv")); err != nil || isMissing {
+		[]byte(root+"/Arkon.mkv")); err != nil || isMissing {
 		t.Errorf("after a scan read the root, a file under it is missing: %t, %v; want it back", isMissing, err)
 	}
 }
@@ -417,7 +417,7 @@ func unavailableRootBench(t *testing.T) (bench *scanBench, found *[]string, isUn
 	bench.ingester.SetOnPathsFound(func(_ context.Context, _ int64, paths []string) {
 		*found = append(*found, paths...)
 	})
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	if err := bench.scans.MarkRootNotNamed(t.Context(), bench.nodeID, root); err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +425,7 @@ func unavailableRootBench(t *testing.T) (bench *scanBench, found *[]string, isUn
 	return bench, found, func() bool {
 		t.Helper()
 		_, isMissing, err := UnavailableUnder(t.Context(), bench.database.Read(), bench.nodeID,
-			[]byte(root+"/Wing.mkv"))
+			[]byte(root+"/Arkon.mkv"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -461,12 +461,12 @@ func TestScans_AnUnavailableRootWhoseDiskAnswersAgainAsItWasIsBroughtBackAtOnce(
 func TestScans_ARootAnUnreadableScanLeftIsBroughtBackToo(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	bench.scan([]nodeproto.ScanRecord{errorRecord(".", nodeproto.ScopeRoot)}, true)
 	isUnavailable := func() bool {
 		t.Helper()
 		_, isMissing, err := UnavailableUnder(t.Context(), bench.database.Read(), bench.nodeID,
-			[]byte(root+"/Wing.mkv"))
+			[]byte(root+"/Arkon.mkv"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -536,7 +536,7 @@ func TestScans_AStallOnADiskInsideARootMakesOnlyThatDiskUnavailable(t *testing.T
 	t.Parallel()
 	bench := newScanBench(t)
 	records := append([]nodeproto.ScanRecord{mountRecord("disk1", 21)}, inDirectory("disk1", filmRecords(2))...)
-	bench.scan(append(records, observedRecord("Wing.mkv", "alien")), true)
+	bench.scan(append(records, observedRecord("Arkon.mkv", "arkon")), true)
 	ctx := t.Context()
 	place, _, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, root+"/disk1/Film00.mkv")
 	if err != nil || place != root+"/disk1" {
@@ -553,7 +553,7 @@ func TestScans_AStallOnADiskInsideARootMakesOnlyThatDiskUnavailable(t *testing.T
 	if missing, isMissing := unavailable(root + "/disk1/Film00.mkv"); !isMissing || missing.Path != root+"/disk1" {
 		t.Errorf("a film on the stalled disk: %+v, %t; want it under the disk, unavailable", missing, isMissing)
 	}
-	if missing, isMissing := unavailable(root + "/Wing.mkv"); isMissing {
+	if missing, isMissing := unavailable(root + "/Arkon.mkv"); isMissing {
 		t.Errorf("a film beside the stalled disk is unavailable under %+v; want it readable", missing)
 	}
 }
@@ -563,18 +563,18 @@ func TestScans_AStallOnADiskInsideARootMakesOnlyThatDiskUnavailable(t *testing.T
 func TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
-	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	ctx := t.Context()
 	goneAt := bench.clock.Now()
 	if err := bench.scans.MarkRootNotNamed(ctx, bench.nodeID, root); err != nil {
 		t.Fatal(err)
 	}
-	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
+	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Arkon.mkv"))
 	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(goneAt) {
 		t.Errorf("a file under the root no longer named: %+v, %t, %v; want it under the root unavailable since then",
 			missing, isMissing, err)
 	}
-	if _, isLive := bench.liveFilesByPath()[root+"/Wing.mkv"]; !isLive {
+	if _, isLive := bench.liveFilesByPath()[root+"/Arkon.mkv"]; !isLive {
 		t.Error("a file under a root no longer named was removed; want it kept")
 	}
 }
@@ -609,7 +609,7 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 		t.Errorf("before its listing, the scan shows %+v (%v); want unlisted, with another asked for", scan,
 			isScanning)
 	}
-	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1))
+	bench.list(listedDirectory("Arkon"), listedFile("Arkon/Arkon.mkv", 5, 1))
 	scan, isScanning := bench.inProgressOf()
 	if !isScanning || !scan.IsListed || scan.ListedCount != 1 || scan.ToExamineCount != 1 || scan.ExaminedCount != 0 {
 		t.Errorf("once listed, the scan shows %+v (%v); want its one file listed and to read", scan, isScanning)
@@ -617,7 +617,7 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 	job, _ := bench.examine()
 	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
 		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
-			observedRecord("Wing/Wing.mkv", "alien"),
+			observedRecord("Arkon/Arkon.mkv", "arkon"),
 		}}})
 	if err != nil {
 		t.Fatal(err)
@@ -654,14 +654,14 @@ func TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead(t *testing.T) {
 	if roots, err := bench.scans.RootsOnQuickPass(ctx, bench.nodeID+1); err != nil || len(roots) != 0 {
 		t.Errorf("another node's roots on their quick pass = %v (%v); want none", roots, err)
 	}
-	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1))
+	bench.list(listedDirectory("Arkon"), listedFile("Arkon/Arkon.mkv", 5, 1))
 	if roots := bench.rootsOnQuickPass(); !slices.Equal(roots, []string{root}) {
 		t.Errorf("listed, its file not read, the roots on their quick pass = %v; want %s", roots, root)
 	}
 	job, _ := bench.examine()
 	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
 		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
-			observedRecord("Wing/Wing.mkv", "alien"),
+			observedRecord("Arkon/Arkon.mkv", "arkon"),
 		}}})
 	if err != nil {
 		t.Fatal(err)
@@ -681,7 +681,7 @@ func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
 	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
 		t.Fatal(err)
 	}
-	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1),
+	bench.list(listedDirectory("Arkon"), listedFile("Arkon/Arkon.mkv", 5, 1),
 		listedDirectory("Metropolis"), listedFile("Metropolis/Metropolis.mkv", 5, 1))
 	heat := bench.liveFilesByPath()[root+"/Metropolis/Metropolis.mkv"]
 	if err := bench.scans.ReadNow(ctx, bench.nodeID, heat.ReportedPathRaw); err != nil {

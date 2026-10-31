@@ -142,15 +142,15 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing (1979)/Wing.mkv", "alien"),
-		skipRecord("Wing (1979)/notes.txt", nodeproto.SkipExtension),
+		observedRecord("Arkon (1979)/Arkon.mkv", "arkon"),
+		skipRecord("Arkon (1979)/notes.txt", nodeproto.SkipExtension),
 		errorRecord("Broken.mkv", nodeproto.ScopeEntry),
 	}, true)
 	live := world.liveFilesByPath()
-	alien, notes := live[root+"/Wing (1979)/Wing.mkv"], live[root+"/Wing (1979)/notes.txt"]
+	arkon, notes := live[root+"/Arkon (1979)/Arkon.mkv"], live[root+"/Arkon (1979)/notes.txt"]
 	broken := live[root+"/Broken.mkv"]
-	if alien.Filing != FilingVideo || *alien.FilingReason != notIdentifiedYet || alien.PayloadHash == nil {
-		t.Errorf("the film = %+v, want a video not identified yet, with its payload hash", alien)
+	if arkon.Filing != FilingVideo || *arkon.FilingReason != notIdentifiedYet || arkon.PayloadHash == nil {
+		t.Errorf("the film = %+v, want a video not identified yet, with its payload hash", arkon)
 	}
 	if notes.Filing != FilingSkipped || *notes.FilingReason != "extension" || notes.PayloadHash != nil {
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
@@ -159,7 +159,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 		broken.ErrorDetailJSON == nil || !strings.Contains(*broken.ErrorDetailJSON, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}
-	world.checkStreams(alien.ID)
+	world.checkStreams(arkon.ID)
 }
 
 // checkStreams asserts the streams observed() describes: the video and the audio, which is
@@ -181,20 +181,20 @@ func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing.mkv", "alien"), observedRecord("Metropolis.mkv", "heat"), observedRecord("Gone.mkv", "gone"),
+		observedRecord("Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "heat"), observedRecord("Gone.mkv", "gone"),
 		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
 	before := world.liveFilesByPath()
 
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing.mkv", "alien"),                     // same path, same payload: the same file
+		observedRecord("Arkon.mkv", "arkon"),                     // same path, same payload: the same file
 		observedRecord("Crime/Metropolis (1995).mkv", "heat"),          // a new path, a payload not seen yet: moved
 		observedRecord("Nosferatu.mkv", "ronin, the director's cut"), // same path, a new payload: replaced
 		observedRecord("Zarvo.mkv", "zulu"),                       // new
 	}, true)
 	after := world.liveFilesByPath()
 
-	if after[root+"/Wing.mkv"].ID != before[root+"/Wing.mkv"].ID {
+	if after[root+"/Arkon.mkv"].ID != before[root+"/Arkon.mkv"].ID {
 		t.Error("a file seen again at its path got a new row")
 	}
 	if moved := after[root+"/Crime/Metropolis (1995).mkv"]; moved.ID != before[root+"/Metropolis.mkv"].ID {
@@ -204,7 +204,7 @@ func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 	if replaced := after[root+"/Nosferatu.mkv"]; replaced.ID == before[root+"/Nosferatu.mkv"].ID {
 		t.Error("a different payload at the same path kept the old row; D173 says a new file, the old tombstoned")
 	}
-	want := []string{"Wing.mkv", "Crime/Metropolis (1995).mkv", "Nosferatu.mkv", "Zarvo.mkv"}
+	want := []string{"Arkon.mkv", "Crime/Metropolis (1995).mkv", "Nosferatu.mkv", "Zarvo.mkv"}
 	if got := world.paths(); !slices.Equal(got, want) {
 		t.Errorf("live files %q, want %q: Gone.mkv tombstoned, Metropolis.mkv moved", got, want)
 	}
@@ -213,10 +213,10 @@ func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 func TestIngest_ACopyIsADuplicateAndTheRecordedPathKeepsTheIdentity(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "arkon")}, true)
 	original := world.liveFilesByPath()[root+"/a.mkv"].ID
 	// "a-copy.mkv" sorts before "a.mkv", so the copy arrives while the original is still unseen.
-	world.scan([]nodeproto.ScanRecord{observedRecord("a-copy.mkv", "alien"), observedRecord("a.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a-copy.mkv", "arkon"), observedRecord("a.mkv", "arkon")}, true)
 	live := world.liveFilesByPath()
 	copied := live[root+"/a-copy.mkv"].ID
 	if live[root+"/a.mkv"].ID != original || copied == 0 || copied == original {

@@ -138,7 +138,7 @@ func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
 		observedRecord("1.mkv", "1"), observedRecord("a.mkv", "a"), observedRecord("m.mkv", "m"),
 		observedRecord("m2.mkv", "m2"), observedRecord("o.mkv", "o"), observedRecord("z.mkv", "z"),
 	}, true)
-	world.fileAsFilm("12 Marrow Larks", "1.mkv")
+	world.fileAsFilm("12 Patient Sailors", "1.mkv")
 	world.fileAsFilm("Fièvre", "a.mkv")
 	world.fileAsFilm("M", "m.mkv")
 	world.fileAsFilm("memento", "m2.mkv")

@@ -184,7 +184,7 @@ func TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItTha
 		wantRoots  []string
 		wantScopes []string
 	}{
-		{"video/movies/Wing", []string{"/tank/video/movies"}, []string{"Wing"}},
+		{"video/movies/Arkon", []string{"/tank/video/movies"}, []string{"Arkon"}},
 		{"video/movies", []string{"/tank/video/movies"}, []string{"."}},
 		{"video", []string{"/tank/video/movies", "/tank/video/shows"}, []string{".", "."}},
 		{".", []string{"/tank/video/movies", "/tank/video/shows"}, []string{".", "."}},

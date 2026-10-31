@@ -114,9 +114,9 @@ func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 	world := newHarness(t)
 	taken := world.takeListing([]nodeproto.ScanRecord{
 		listedFile("Metropolis (1995).iso", 3, 1),
-		listedDirectory("Wing (1979)"),
-		listedDirectory("Wing (1979)/VIDEO_TS"),
-		listedFile("Wing (1979)/VIDEO_TS/VTS_01_1.mkv", 3, 1),
+		listedDirectory("Arkon (1979)"),
+		listedDirectory("Arkon (1979)/VIDEO_TS"),
+		listedFile("Arkon (1979)/VIDEO_TS/VTS_01_1.mkv", 3, 1),
 		listedDirectory("Nosferatu (1998)"),
 		listedDirectory("Nosferatu (1998)/BDMV"),
 		listedFile("Nosferatu (1998)/BDMV/00001.mkv", 3, 1),
@@ -129,7 +129,7 @@ func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 		}
 	}
 	const rule = "disc_folder_not_supported_yet"
-	want := map[string]string{"Wing (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
+	want := map[string]string{"Arkon (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
 	if !mapsEqual(skipped, want) {
 		t.Errorf("skipped %v, want %v", skipped, want)
 	}
@@ -146,16 +146,16 @@ func TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain(t *tes
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.ScanRecord{
-		observedAt("Metropolis.mkv", "heat", 41), observedAt("Wing.mkv", "alien", 42),
+		observedAt("Metropolis.mkv", "heat", 41), observedAt("Arkon.mkv", "arkon", 42),
 	}, true)
 	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	taken := world.takeListing([]nodeproto.ScanRecord{
 		listedDirectory("Metropolis (1995)"),
 		listedAt("Metropolis (1995)/Metropolis (1995).mkv", int64(len("heat")), 41),
-		listedAt("Wing (1979).mkv", int64(len("alien"))+1, 42), // rewritten, not moved
+		listedAt("Arkon (1979).mkv", int64(len("arkon"))+1, 42), // rewritten, not moved
 		listedAt("Nosferatu.mkv", 5, 43),
 	}, false)
-	if got, want := examined(taken), []string{"video Wing (1979).mkv", "video Nosferatu.mkv"}; !slices.Equal(got, want) {
+	if got, want := examined(taken), []string{"video Arkon (1979).mkv", "video Nosferatu.mkv"}; !slices.Equal(got, want) {
 		t.Errorf("to read %v, want %v: the moved film needs no read", got, want)
 	}
 	if moved := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"]; moved.ID != heat {
@@ -228,11 +228,11 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 	taken := world.takeListing([]nodeproto.ScanRecord{
 		listedDirectory(".trash"),
 		listedFile(".trash/2026-09-01/old.mkv", 3, 1),
-		listedDirectory("Wing (1979)"),
-		listedFile("Wing (1979)/Wing (1979).en.srt", 2, 1),
-		listedFile("Wing (1979)/Wing (1979).mkv", 5, 1),
-		listedFile("Wing (1979)/Wing (1979).nfo", 8, 1),
-		listedFile("Wing (1979)/sample.mkv", 6, 1),
+		listedDirectory("Arkon (1979)"),
+		listedFile("Arkon (1979)/Arkon (1979).en.srt", 2, 1),
+		listedFile("Arkon (1979)/Arkon (1979).mkv", 5, 1),
+		listedFile("Arkon (1979)/Arkon (1979).nfo", 8, 1),
+		listedFile("Arkon (1979)/sample.mkv", 6, 1),
 		listedDirectory("Metropolis (1995)"),
 		listedFile("Metropolis (1995)/._Metropolis.mkv", 4, 1),
 		listedFile("Metropolis (1995)/Metropolis.mkv", 4, 1),
@@ -247,8 +247,8 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 		}},
 	}, false)
 	want := []string{
-		"subtitle Wing (1979)/Wing (1979).en.srt", "video Wing (1979)/Wing (1979).mkv",
-		"nfo Wing (1979)/Wing (1979).nfo", "video Metropolis (1995)/Metropolis.mkv", "video Shows/.trash/kept.mkv",
+		"subtitle Arkon (1979)/Arkon (1979).en.srt", "video Arkon (1979)/Arkon (1979).mkv",
+		"nfo Arkon (1979)/Arkon (1979).nfo", "video Metropolis (1995)/Metropolis.mkv", "video Shows/.trash/kept.mkv",
 	}
 	if got := examined(taken); !slices.Equal(got, want) {
 		t.Errorf("to read:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -260,7 +260,7 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 		}
 	}
 	wantSkipped := map[string]string{
-		".trash": "trash", "Wing (1979)/sample.mkv": "sample", "Metropolis (1995)/._Metropolis.mkv": "appledouble",
+		".trash": "trash", "Arkon (1979)/sample.mkv": "sample", "Metropolis (1995)/._Metropolis.mkv": "appledouble",
 		"Metropolis (1995)/Sample": "sample", "Metropolis (1995)/metropolis-SAMPLE.mp4": "sample", "Metropolis (1995)/notes.txt": "extension",
 		"pipe.mkv": "not_regular",
 	}
@@ -317,20 +317,20 @@ func TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt(t *testing.T) 
 func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	subtitle := sidecarRecord("Wing/Wing.en.srt", nodeproto.SidecarSubtitle, "1\n")
+	subtitle := sidecarRecord("Arkon/Arkon.en.srt", nodeproto.SidecarSubtitle, "1\n")
 	subtitle.Sidecar.Identity = &nodeproto.Identity{
 		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf("1\n"), PayloadBytes: 2,
 	}
 	world.scan([]nodeproto.ScanRecord{
-		observedRecord("Wing/Wing.mkv", "alien"), observedRecord("Metropolis.mkv", "heat"),
-		sidecarRecord("Wing/Wing.nfo", nodeproto.SidecarNFO, "<movie/>"), subtitle,
+		observedRecord("Arkon/Arkon.mkv", "arkon"), observedRecord("Metropolis.mkv", "heat"),
+		sidecarRecord("Arkon/Arkon.nfo", nodeproto.SidecarNFO, "<movie/>"), subtitle,
 		errorRecord("Broken.mkv", nodeproto.ScopeEntry),
 	}, true)
 	before := world.liveFilesByPath()
 	taken := world.takeListing([]nodeproto.ScanRecord{
-		listedFile("Wing/Wing.en.srt", 2, 1),
-		listedFile("Wing/Wing.mkv", int64(len("alien")), 1),
-		listedFile("Wing/Wing.nfo", int64(len("<movie/>")), 1),
+		listedFile("Arkon/Arkon.en.srt", 2, 1),
+		listedFile("Arkon/Arkon.mkv", int64(len("arkon")), 1),
+		listedFile("Arkon/Arkon.nfo", int64(len("<movie/>")), 1),
 		listedFile("Broken.mkv", 6, 1),
 		listedFile("Metropolis.mkv", int64(len("heat")), 2),
 	}, false)
@@ -338,7 +338,7 @@ func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 		t.Errorf("to read %v, want %v: only what changed, or could not be read", got, want)
 	}
 	after := world.liveFilesByPath()
-	for _, name := range []string{"Wing/Wing.mkv", "Wing/Wing.nfo", "Wing/Wing.en.srt"} {
+	for _, name := range []string{"Arkon/Arkon.mkv", "Arkon/Arkon.nfo", "Arkon/Arkon.en.srt"} {
 		if seen := after[root+"/"+name]; seen.LastSeenAt <= before[root+"/"+name].LastSeenAt ||
 			seen.Filing != before[root+"/"+name].Filing {
 			t.Errorf("%s = %+v, want it seen again as it was", name, seen)
@@ -391,7 +391,7 @@ func TestTakeListing_OfFilesAllAsStoredRunsTheSameStatementsAtTwiceTheirNumber(t
 func TestTakeListing_AListingThatWasStoppedEndsUnreadable(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon.mkv", "arkon")}, true)
 	taken := world.takeListing(nil, true)
 	if !taken.Complete.IsStoppedByErrors || taken.Complete.RootPath != root {
 		t.Errorf("a stopped listing ends %+v, want stopped", taken.Complete)

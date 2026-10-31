@@ -18,9 +18,9 @@ func TestBatchesOf_CutsEachFolderIntoBatchesOfVideosWithTheFilesNamedForThem(t *
 		return nodeproto.ExamineFile{Path: nodeproto.Path{Text: path}, Kind: kind}
 	}
 	files := []nodeproto.ExamineFile{
-		file(nodeproto.ExamineSubtitle, "Films/Wing.en.srt"),
-		file(nodeproto.ExamineVideo, "Films/Wing.mkv"),
-		file(nodeproto.ExamineNFO, "Films/Wing.nfo"),
+		file(nodeproto.ExamineSubtitle, "Films/Arkon.en.srt"),
+		file(nodeproto.ExamineVideo, "Films/Arkon.mkv"),
+		file(nodeproto.ExamineNFO, "Films/Arkon.nfo"),
 		file(nodeproto.ExamineVideo, "Films/Metropolis - 720p.mkv"),
 		file(nodeproto.ExamineSubtitle, "Films/Metropolis - 720p.de.srt"),
 		file(nodeproto.ExamineVideo, "Films/Metropolis.mkv"),
@@ -38,7 +38,7 @@ func TestBatchesOf_CutsEachFolderIntoBatchesOfVideosWithTheFilesNamedForThem(t *
 		got = append(got, strings.Join(paths, ", "))
 	}
 	want := []string{
-		"Films/Wing.mkv, Films/Wing.en.srt, Films/Wing.nfo, Films/Metropolis - 720p.mkv, Films/Metropolis - 720p.de.srt",
+		"Films/Arkon.mkv, Films/Arkon.en.srt, Films/Arkon.nfo, Films/Metropolis - 720p.mkv, Films/Metropolis - 720p.de.srt",
 		"Films/Metropolis.mkv, Films/Nosferatu.mkv",
 		"Films/movie.nfo",
 		"Shows/Dark/S01E01.mkv, Shows/Dark/tvshow.nfo",

@@ -80,7 +80,7 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 	logged := &testutil.Log{}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
 	admin.UseLogger(slog.New(slog.NewTextHandler(logged, nil)))
-	for index, overlapping := range []string{"/media/films", "/media/films/Wing", "/media"} {
+	for index, overlapping := range []string{"/media/films", "/media/films/Arkon", "/media"} {
 		request := showsRequest("local", overlapping)
 		request.Name = fmt.Sprintf("Shows %d", index)
 		if _, err := admin.Create(t.Context(), request); err != nil {
@@ -95,7 +95,7 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 	}
 	logged.AwaitLine(t, "a new library's folder beneath another of its folders adds nothing",
 		"path=/media/video/shows/Dark")
-	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime/Nosferatu"); err != nil {
+	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime/Aegis"); err != nil {
 		t.Fatal(err)
 	}
 	for path, want := range map[string]error{
@@ -115,7 +115,7 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 		paths = append(paths, each.RootPath)
 	}
 	if want := []string{"/media/video/anime", "/media/video/shows"}; err != nil || !slices.Equal(paths, want) {
-		t.Errorf("the library's folders are %v, %v; want %v: the parent took Nosferatu's place", paths, err, want)
+		t.Errorf("the library's folders are %v, %v; want %v: the parent took Aegis's place", paths, err, want)
 	}
 	if err := admin.AddRoot(t.Context(), shows+100, "local", "/media/music"); !errors.Is(err, ErrNoLibrary) {
 		t.Errorf("adding to a library that does not exist: %v, want ErrNoLibrary", err)
