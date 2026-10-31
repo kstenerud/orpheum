@@ -71,8 +71,15 @@ def launch() -> int:
     here.mkdir(parents=True, exist_ok=True)
     with open(here / LOG, "a", encoding="utf-8") as log:
         subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "run"], stdin=subprocess.DEVNULL,  # noqa: S603
-                         stdout=log, stderr=log, start_new_session=True, env={**os.environ, IN_BACKGROUND: "1"})
+                         stdout=log, stderr=log, start_new_session=True, env=run_environment(os.environ))
     return 0
+
+
+def run_environment(hook: dict[str, str] | os._Environ[str]) -> dict[str, str]:
+    """The run's environment: the hook's, but for git's own variables, which a hook runs with
+    (GIT_DIR, GIT_INDEX_FILE): kept, every git command in the probe trees used the commit's index
+    and failed (its first run, 2026-10-31)."""
+    return {**{name: value for name, value in hook.items() if not name.startswith("GIT_")}, IN_BACKGROUND: "1"}
 
 
 def stop(root: Path | None = None) -> None:

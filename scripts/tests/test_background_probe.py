@@ -81,6 +81,13 @@ class BackgroundProbe(unittest.TestCase):
         kill.assert_not_called()
 
 
+class Environment(unittest.TestCase):
+    def test_the_run_takes_none_of_the_hooks_git_variables(self):
+        # Its first run, 2026-10-31: a hook's GIT_INDEX_FILE sent every probe tree's git to the commit's index.
+        hook = {"PATH": "/bin", "GIT_DIR": ".git", "GIT_INDEX_FILE": ".git/index", "GIT_PREFIX": ""}
+        self.assertEqual(bp.run_environment(hook), {"PATH": "/bin", bp.IN_BACKGROUND: "1"})
+
+
 class Wanted(unittest.TestCase):
     def test_not_while_check_pr_runs_nor_in_its_tree(self):
         repo = Repo({"a.go": "package a\n"})
