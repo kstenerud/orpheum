@@ -239,25 +239,20 @@ func seriesFromFolders(folder string) (name string, year int) {
 	isAboveSeason := false
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
 		part = strings.TrimSpace(sitePrefixPattern.ReplaceAllString(part, ""))
-		if part != "" && (isSeasonFolder(part) || seasonPackPattern.MatchString(part)) {
-			isAboveSeason = true
+		if part == "" {
+			continue
 		}
-		if part != "" && !isAboveSeason && isBonusFolder(part) {
+		isAboveSeason = isAboveSeason || isSeasonFolder(part) || seasonPackPattern.MatchString(part)
+		if !isAboveSeason && isBonusFolder(part) {
 			outermostBonus = part
 			continue
 		}
-		if part == "" || isSeasonFolder(part) || episodeOnlyPattern.MatchString(part) {
+		if isSeasonFolder(part) || episodeOnlyPattern.MatchString(part) {
 			continue
 		}
-		if marker, found := findEpisode(part); found {
+		if start, isPack := markerStart(part); isPack {
 			if packPrefix == "" {
-				packPrefix = part[:marker.startIndex]
-			}
-			continue
-		}
-		if marker := seasonPackPattern.FindStringIndex(part); marker != nil {
-			if packPrefix == "" {
-				packPrefix = part[:marker[0]]
+				packPrefix = part[:start]
 			}
 			continue
 		}
@@ -267,6 +262,18 @@ func seriesFromFolders(folder string) (name string, year int) {
 		return cleanTitle(outermostBonus)
 	}
 	return name, year
+}
+
+// markerStart is where a folder of one episode ("Show.S01E01.1080p") or of a season pack
+// ("Show.S02.COMPLETE") has its marker, and whether it is either.
+func markerStart(part string) (int, bool) {
+	if marker, found := findEpisode(part); found {
+		return marker.startIndex, true
+	}
+	if marker := seasonPackPattern.FindStringIndex(part); marker != nil {
+		return marker[0], true
+	}
+	return 0, false
 }
 
 // isBonusFolder is a series' folder of specials or extras: "Specials", "Christmas SPECIALS",
