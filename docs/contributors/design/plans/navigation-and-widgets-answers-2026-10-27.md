@@ -636,3 +636,24 @@ had leaned on.
   **The owner chose (2026-10-30): the discovery's sign-in, except where there is no discovery**; for
   the closed beta one is assumed. Three operating modes are coming: standalone (no discovery: the
   core's own sign-in), a self-deployed discovery server, and our paid discovery server.
+
+## The owner's answers of 2026-10-31 (the 11-01 batch)
+
+- **Seamless audio switching: agreed** (design/plans/audio-switch-and-retiming-2026-11-01.md, Part 1,
+  every recommendation). The owner asked whether a film played as it is (`DirectUnder`) could switch
+  between its own tracks in place too. On the ladder every sound is its own rendition already, the
+  original's copied tracks as much as transcoded ones, so any track to any track switches in place.
+  Off the ladder the browser plays the whole file, and switching its tracks is the element's
+  `audioTracks`, which Safari alone ships (Chrome and Firefox keep it behind a flag): there, Safari
+  switches in place and the others move onto the ladder once, as a track change does today.
+- **Re-timing B-frames: agreed** (Part 2, every recommendation: `dts2pts` per run, encodes too, every
+  H.264/HEVC file checked, the mark in the probe record, a fixed 0.5 s margin).
+- **Easy addresses: agreed, a clean break now** (the owner: "If there's a best time for a clean break,
+  it's now"; sign-ins and passkeys lost are acceptable, two people use production). The owner bought
+  orpheum.cc, orpheum.dev and orpheum.mov. The app moves to `orpheum.cc` itself (not a redirect), the
+  service's other hosts (api., account.) under it; the website to `orpheum.mov`; `orpheum.dev` redirects
+  to the website for now; `orpheum-app.com` redirects to the new homes. `orpheum-core.com` and
+  `orpheum-client.com` stay (no one types them; their separation is the isolation). A TV types
+  `orpheum.cc`. Owed: the owner's Cloudflare zones, tunnel hostnames and HSTS preload; connect's
+  production configuration, the panel's pages and passkeys' relying party; Orpheum's install
+  template's discovery address and nas.example's core configuration.
