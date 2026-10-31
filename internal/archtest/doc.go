@@ -17,7 +17,7 @@
 //   - TestArch_OnlyStoreImportsDatabaseSQL: only internal/store imports database/sql or a SQLite
 //     driver directly.
 //   - TestArch_OnlyExecxImportsOsExec: of the code that ships, only internal/node/execx imports
-//     os/exec directly; internal/testutil and this package's tests may too.
+//     os/exec directly; internal/testutil, this package's tests and the signing tool's keygen.go (D394 §5) may too.
 //   - TestArch_TestSupportIsImportedOnlyByTests: no package that ships imports internal/testutil
 //     or a test-support package (storetest, clocktest, settingstest, authtest, jobstest…).
 //   - TestArch_ReleaseBinaryReadsNoEnvironment: the release build of cmd/orpheum reads no

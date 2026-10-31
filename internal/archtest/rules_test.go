@@ -17,15 +17,16 @@ import (
 
 // The package roots the rules name.
 const (
-	corePath      = modulePath + "/internal/core"
-	nodePath      = modulePath + "/internal/node"
-	nodeprotoPath = modulePath + "/internal/nodeproto"
-	storePath     = modulePath + "/internal/store"
-	execxPath     = modulePath + "/internal/node/execx"
-	platformPath  = modulePath + "/internal/platform"
-	archtestPath  = modulePath + "/internal/archtest"
-	testutilPath  = modulePath + "/internal/testutil"
-	internalPath  = modulePath + "/internal"
+	corePath          = modulePath + "/internal/core"
+	nodePath          = modulePath + "/internal/node"
+	nodeprotoPath     = modulePath + "/internal/nodeproto"
+	storePath         = modulePath + "/internal/store"
+	execxPath         = modulePath + "/internal/node/execx"
+	platformPath      = modulePath + "/internal/platform"
+	archtestPath      = modulePath + "/internal/archtest"
+	testutilPath      = modulePath + "/internal/testutil"
+	discoverySignPath = modulePath + "/cmd/discovery-sign"
+	internalPath      = modulePath + "/internal"
 )
 
 // publicPath is the tree of public packages a module outside Orpheum imports: the discovery's
@@ -363,13 +364,15 @@ func TestArch_OnlyStoreImportsDatabaseSQL(t *testing.T) {
 // TestArch_OnlyExecxImportsOsExec checks that, of the code that ships, only execx starts a
 // process. The test-only package internal/testutil may too, to run the tools the tests need
 // (MKVToolNix, FFmpeg, this binary); that it never ships is TestArch_TestSupportIsImportedOnlyByTests.
+// The owner's signing tool, cmd/discovery-sign, runs ssh-keygen on the owner's machine, never in a
+// server (D394 §5); depguard and forbidigo hold it to its keygen.go.
 func TestArch_OnlyExecxImportsOsExec(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
 	requirePackagesUnder(t, packages, execxPath)
 	reportViolations(t, findDirectImporters(packages, importRule{
 		forbidden:            []string{"os/exec"},
-		allowedImporters:     []string{execxPath, testutilPath},
+		allowedImporters:     []string{execxPath, testutilPath, discoverySignPath},
 		allowedTestImporters: []string{execxPath, archtestPath},
 	}))
 }
