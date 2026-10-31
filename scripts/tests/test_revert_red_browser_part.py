@@ -9,6 +9,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_revert_red as rr  # noqa: E402
+import revert_red_report as report  # noqa: E402
 import revert_red_reruns as reruns  # noqa: E402
 from gitrepo import Repo  # noqa: E402
 
@@ -106,6 +107,16 @@ class OwedRecord(unittest.TestCase):
             reruns.owe_browser("b2", ["w.ts"], ["w.ts"])
             self.assertEqual(reruns.owed_browser("b2"), frozenset({"w.ts"}))
 
+
+
+class OwedReport(unittest.TestCase):
+    # The browser tier's halving adds what its run found after a claimed detail, past its owed list;
+    # the report names the VQ items alone (a check-pr-failed crashed on "201 (a browser run ...)").
+    def test_the_owed_items_are_read_past_what_the_browser_tier_adds(self):
+        detail = (f"Verified-By: VQ201{report.OWED}VQ199, VQ201 (a browser run with it and others reverted "
+                  "turned nothing red)")
+        lines = report.owed_report([rr.Outcome("web/a.css", "CLAIMED", detail)])
+        self.assertEqual(lines[1:], ["  VQ199: web/a.css", "  VQ201: web/a.css"])
 
 if __name__ == "__main__":
     unittest.main()
