@@ -839,6 +839,12 @@ each built with a `Gate-Changed:` trailer:
    its half-written files. **Dropped (the owner, 2026-10-31: "yes, drop change 2"):** with change 1 no
    agent that can edit shares the main tree, so the only uncommitted work there is the lead's own, which the
    gate should check.
+
+   **The 120k warning, reworded (the owner, 2026-10-31, "yes go ahead"):** after a compaction the context
+   restarts near 53k (system prompt, tools, `CLAUDE.md`, the memory index), and re-caching it costs about
+   $0.50 against about $0.02 saved per later call, so a compaction pays back only over about 25 calls. The
+   prompt hook now asks for one at the next phase boundary rather than at once; the 120k line stays. Big
+   reference reads go to a cheap agent that returns only the answer (one 46k read filled half this stretch).
 3. **`token_usage.py` weights by model price**, so the ledger shows what each session cost (built:
    An earlier commit; dollars at API prices, from the claude-api skill's table).
 4. **The prompt hook reports no context size right after a compaction** (built: An earlier commit).

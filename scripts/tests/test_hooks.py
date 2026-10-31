@@ -202,6 +202,7 @@ class StandingOrdersAndDebts(unittest.TestCase):
         event = {"session_id": "s2", "transcript_path": str(transcript)}
         said = run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project))
         self.assertIn("132k tokens", said["hookSpecificOutput"]["additionalContext"])
+        self.assertIn("At the next phase boundary", said["hookSpecificOutput"]["additionalContext"])
         self.assertEqual(run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project),
                                   ORPHEUM_CONTEXT_WARN_TOKENS="200000"), {})
 

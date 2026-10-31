@@ -100,8 +100,9 @@ def orders_and_meter(event: dict[str, object]) -> list[str]:
     limit = int(os.environ.get("ORPHEUM_CONTEXT_WARN_TOKENS") or CONTEXT_WARN_TOKENS)
     if tokens is not None and tokens > limit:
         said.append(f"Context: {tokens // 1000}k tokens, past the hand-off size of {limit // 1000}k. Every model "
-                    "call re-reads it all (docs/contributors/lead.md §1): finish the step at hand, write the "
-                    "handoff memory, and ask the owner to restart the session.")
+                    "call re-reads it all (docs/contributors/lead.md §1). At the next phase boundary, not mid-step and "
+                    "not before a short stretch, write the handoff memory and ask the owner to compact: a compaction "
+                    "costs about $0.50 and pays back over about 25 calls.")
     return said
 
 
