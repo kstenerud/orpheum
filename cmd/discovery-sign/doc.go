@@ -7,8 +7,8 @@
 // uses before the next step), `sign-release` shows an unsigned release record and signs it once the
 // owner types the digest's start, and `test-key` says whether a key's signatures carry the
 // user-verified flag (whether the Mac may be an everyday key, D394 §7). Beneath them the flag commands
-// build a root statement, an address document or a drill from a typed edit (keys added or removed,
-// versions skipped, thresholds and locations changed) and `check` checks a signature by the very code a
+// build a root statement, an address document or a drill from a typed edit (keys added, removed,
+// suspended or resumed, versions skipped, thresholds and locations changed) and `check` checks a signature by the very code a
 // core uses, keeps payload and signature in the owner's ledger, its expected file the watcher's
 // (cmd/discovery-watch), and writes the files every place serves. keygen.go alone starts a process
 // (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch and PIN
@@ -46,10 +46,14 @@
 //   - The install's bootstrap checks the record's signature by the publisher's keys before it pulls
 //     or runs anything, then pulls the latest's image by its digest (the audit's §3.9).
 //     TestBootstrap_VerifiesTheRecordBeforeItRunsAnything.
+//   - A key is suspended and resumed through the tool, the change shown and who signs it said: a
+//     suspension signed by the key alone is refused, and a resume only a recovery key's (D394 §4).
+//     TestRoot_AKeyIsSuspendedAndOnlyARecoveryKeyResumesIt.
+//   - The install's bootstrap trusts no suspended key. TestBootstrap_TrustsNoSuspendedKey.
 //
 // # Read before changing
 //
-//   - D393; docs/contributors/design/research/root-key-audit-2026-10-31.md §3.6, §3.7, §3.9, §4.
+//   - D393; D394 §4; docs/contributors/design/research/root-key-audit-2026-10-31.md §3.6, §3.7, §3.9, §4.
 //
 // # Where to change
 //
