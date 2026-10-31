@@ -970,9 +970,7 @@ the move to `orpheum.dev` (D390 §5), and the owner confirms or corrects those a
 YubiKey, unconfirmed: the Secure Enclave provider's flags, `-O user=`'s spelling, `ssh-keygen -K`
 getting a stub back. **Owed by connect:** see the batch report.
 
-**Left, small (from the agents' notes):** the `RootKeys` comments in
-`internal/core/discovery/status.go` and `internal/core/api/discovery.go` should say "the keys whose
-signatures count"; `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
-port when runs overlap; `test-key` leaves its temporary directory; the first release in a record
+**Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
+port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
 keeps no security note; each signing attempt's copy stays under `ledger/pending/<name>.parts/`. VQ210, VQ211
 (rewritten for D393), VQ220 (the bootstrap), VQ221 (the watcher).

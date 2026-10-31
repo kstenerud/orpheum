@@ -52,11 +52,12 @@ type Status struct {
 	// suggested service (the root key audit's §3.8).
 	Identity, Name string
 	IsSuggested    bool
-	// RootKeys are the current root set's keys, each "<role> SHA256:…" as `ssh-keygen -l` shows its
-	// fingerprint, and RootVersion the set's version; DocumentIssuedAt is when the address document
-	// held was issued, DocumentStaleSince when it expired, zero while it is current (the server cannot
-	// confirm its addresses are current since then), and DocumentProblem what the last look found
-	// wrong: a conflict of root statements, equivocation, a document no longer signed.
+	// RootKeys are the keys whose signatures count in the current root set (suspended keys left out),
+	// each "<role> SHA256:…" as `ssh-keygen -l` shows its fingerprint, and RootVersion the set's version;
+	// DocumentIssuedAt is when the address document held was issued, DocumentStaleSince when it expired,
+	// zero while it is current (the server cannot confirm its addresses are current since then), and
+	// DocumentProblem what the last look found wrong: a conflict of root statements, equivocation, a
+	// document no longer signed.
 	RootKeys           []string
 	RootVersion        int64
 	DocumentIssuedAt   time.Time

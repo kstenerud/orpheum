@@ -493,8 +493,8 @@ function HomeAddressOf(props: { readonly standing: Standing }): JSX.Element | nu
 }
 
 /**
- * The discovery's root keys the server trusts, by their fingerprints, for the admin to compare with
- * the discovery's own (D391 §2), and why no newer address document holds, when none does.
+ * The discovery's root keys whose signatures count, by their fingerprints, for the admin to compare
+ * with the discovery's own (D391 §2), and why no newer address document holds, when none does.
  */
 function Trusted(props: { readonly standing: Standing }): JSX.Element {
   const { t } = useTranslation();
