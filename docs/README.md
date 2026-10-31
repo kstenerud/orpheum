@@ -4,7 +4,7 @@ Docs are organised by **role** — the layer you are operating in. Pick your tie
 
 | Tier | Start here |
 | --- | --- |
-| **Users** — running the server | [`users/setup-problems.md`](users/setup-problems.md): problems seen setting up a server, and their fixes; `GUIDE.md` is not written yet |
+| **Users** — running the server | [`users/setup-problems.md`](users/setup-problems.md): problems seen setting up a server, and their fixes; [`users/discovery-signing.md`](users/discovery-signing.md): a discovery's owner signing with YubiKeys; `GUIDE.md` is not written yet |
 | **Contributors** — building the thing | [`contributors/`](contributors/) |
 
 The project is **pre-implementation**. Nothing has been built. Everything currently in this
