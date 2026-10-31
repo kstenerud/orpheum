@@ -9,6 +9,7 @@ import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PlayView } from "./play.tsx";
+import { seekAskedEvent } from "./seek-ahead.ts";
 import { directDecision } from "./test-fixtures.ts";
 import { stepsOf } from "./steps-of.ts";
 import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
@@ -153,6 +154,14 @@ describe("play state", () => {
       video.currentTime = 30.25;
       video.dispatchEvent(new Event("seeking"));
       await sent();
+      // A step back the media session asked, then a seek nothing on the page asked.
+      video.dispatchEvent(new CustomEvent(seekAskedEvent, { detail: "seekBack-media" }));
+      video.currentTime = 20.25;
+      video.dispatchEvent(new Event("seeking"));
+      await sent();
+      video.currentTime = 50;
+      video.dispatchEvent(new Event("seeking"));
+      await sent();
     });
     const bodies = heard
       .filter((request) => request.methodAndPath === "POST /playback/hiccup/report")
@@ -167,9 +176,12 @@ describe("play state", () => {
     expect(events.find((event) => event.kind === "paused")?.context).toMatchObject({
       readyState: 4,
     });
-    expect(events.find((event) => event.kind === "seeked")?.context).toMatchObject({
-      skippedBy: "hole",
-    });
+    const seeked = events.filter((event) => event.kind === "seeked");
+    expect(seeked[0]?.context).toMatchObject({ skippedBy: "hole" });
+    expect(seeked[0]?.context?.["soughtBy"]).toBeUndefined();
+    // What asked a seek goes with it, and with no other (staging, 2026-10-29, file 5680).
+    expect(seeked[1]?.context).toMatchObject({ soughtBy: "seekBack-media" });
+    expect(seeked[2]?.context?.["soughtBy"]).toBeUndefined();
     expect(bodies.flatMap((body) => body.pathMoves ?? []).map((move) => move.to)).toEqual([
       "WebRTC",
     ]);

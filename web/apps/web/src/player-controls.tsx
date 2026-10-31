@@ -26,7 +26,7 @@ import {
   SeekForwardIcon,
   SoundIcon,
 } from "./player-icons.tsx";
-import { seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
+import { askedByOf, seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
 import { Timeline } from "./timeline.tsx";
 import { VolumeRange } from "./volume-range.tsx";
 
@@ -237,7 +237,7 @@ export function useVideoSource(
     seekTo: (atMs) => {
       const video = videoRef.current;
       if (video !== null) {
-        seekAheadOf(video).aim(atMs, 0);
+        seekAheadOf(video).aim(atMs, 0, askedByOf("timeline", "bar"));
       }
     },
   };

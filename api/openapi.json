@@ -1866,6 +1866,12 @@
             ],
             "type": "string"
           },
+          "soughtBy": {
+            "description": "What on the page asked a seek: its command and where it came from, as seekBack-media",
+            "maxLength": 40,
+            "pattern": "^[A-Za-z]+-[a-z]+$",
+            "type": "string"
+          },
           "startedAfter": {
             "description": "What a start played on from: its play, a wait for data, a seek",
             "enum": [

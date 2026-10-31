@@ -32,6 +32,8 @@ export function eventContextOf(
     readonly isUserActive?: boolean | undefined;
     readonly mediaSessionAction?: MediaSessionAction | undefined;
     readonly skippedBy?: SkippedBy | undefined;
+    /** What on the page asked the seek, as "<command>-<source>" (seekBack-media). */
+    readonly soughtBy?: string | undefined;
   },
 ): PlayEventContext {
   const diagnosis = diagnosisOf(video);
@@ -43,6 +45,7 @@ export function eventContextOf(
       ? {}
       : { mediaSessionAction: known.mediaSessionAction }),
     ...(known.skippedBy === undefined ? {} : { skippedBy: known.skippedBy }),
+    ...(known.soughtBy === undefined ? {} : { soughtBy: known.soughtBy }),
     readyState: video.readyState,
     ...(diagnosis === undefined
       ? {}

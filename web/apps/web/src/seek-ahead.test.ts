@@ -9,9 +9,12 @@ import {
   landedWithinMs,
   landingShownForMs,
   SeekAhead,
+  seekAskedEvent,
   seekRestMs,
   seekStepMs,
+  soughtByOf,
 } from "./seek-ahead.ts";
+import { answerPlayerCommand } from "./player-commands.ts";
 
 /** A SeekAhead on a clock the test moves, its seeks and its changes counted. */
 function aheadOnClock(): {
@@ -139,5 +142,23 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     ahead.step(1, { atMs: 290_000, mostMs: 600_000 }, false);
     ahead.land();
     expect(seeks).toEqual([300_000, 300_000]);
+  });
+
+  it("tells the video what asked each seek, just before it is made: the command and where it came from", () => {
+    // A cast's receiver on a Fire TV stepped back 10 s twice, a step no one meant, and the log
+    // could not say what asked it (staging, 2026-10-29, file 5680).
+    const video = document.createElement("video");
+    Object.defineProperty(video, "duration", { value: 600 });
+    video.currentTime = 100;
+    const asked: { by: string | undefined; atS: number }[] = [];
+    video.addEventListener(seekAskedEvent, (event) => {
+      asked.push({ by: soughtByOf(event), atS: video.currentTime });
+    });
+    answerPlayerCommand(video, "seekBack", "media");
+    expect(asked).toEqual([]); // not before the presses rest
+    vi.advanceTimersByTime(seekRestMs);
+    expect(asked).toEqual([{ by: "seekBack-media", atS: 100 }]);
+    expect(video.currentTime).toBe(90);
+    expect(soughtByOf(new Event(seekAskedEvent))).toBeUndefined();
   });
 });

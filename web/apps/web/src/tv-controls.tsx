@@ -128,7 +128,7 @@ export function TvControls(props: FilmParts): JSX.Element {
       notePress();
       const video = videoRef.current;
       if (answer.seekByMs !== undefined && video !== null) {
-        answerPlayerCommand(video, seekCommandOf(answer.seekByMs), detail.source);
+        answerPlayerCommand(video, seekCommandOf(answer.seekByMs), detail.source, detail.command);
       }
       if (answer.isFocusToPlay === true) {
         requestAnimationFrame(() => playRef.current?.focus());
