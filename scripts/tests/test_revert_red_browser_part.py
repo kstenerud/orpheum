@@ -75,6 +75,25 @@ class ClaimedBrowserRun(unittest.TestCase):
         self.assertEqual(self.outcome().verdict, "BROWSER_OWED")
 
 
+    def test_a_claimed_file_takes_its_cheap_runs_alone_whose_red_still_shows_it_covered(self):
+        # The test-regime audit of 2026-10-31, R1: a claimed file's wide and browser runs, which
+        # decide nothing for it, took 1640 s of one check-pr's probing.
+        self.repo.commit(f"refactor(web): a is two\n\nOne name for it.\n\nRefactor-Only: {CODE} — renamed",
+                         {CODE: "export const a = 2;\n"})
+        wide = rr.Attempt(["sh", "-c", NOTICES], rr.WIDE_LABEL)
+        for browser in (rr.BROWSER_INLINE, rr.BROWSER_DEFERRED):
+            with self.repo.cwd(), mock.patch.object(rr, "attempts_for", return_value=[CHEAP_PASSES, wide, BROWSER_FAILS]):
+                outcome = rr.probe(str(self.repo.root), self.base, "HEAD", rr.Change(CODE, "M"), 60, browser)
+            self.assertEqual(outcome.verdict, "CLAIMED", browser)
+        with self.repo.cwd(), mock.patch.object(rr, "attempts_for", return_value=[CHEAP_FAILS, BROWSER_FAILS]):
+            outcome = rr.probe(str(self.repo.root), self.base, "HEAD", rr.Change(CODE, "M"), 60, rr.BROWSER_INLINE)
+        self.assertEqual(outcome.verdict, "RED_TEST", "a cheap red still shows it covered")
+        with self.repo.cwd(), mock.patch.object(rr, "attempts_for", return_value=[CHEAP_PASSES, wide]), \
+                mock.patch.object(rr, "TRUST_RECORD", False):
+            outcome = rr.probe(str(self.repo.root), self.base, "HEAD", rr.Change(CODE, "M"), 60, rr.BROWSER_INLINE)
+        self.assertEqual(outcome.verdict, "RED_TEST", "the nightly run probes it whole")
+
+
 class OwedRecord(unittest.TestCase):
     def test_a_targeted_code_run_replaces_only_the_rows_it_probed(self):
         repo = Repo({"a": "1\n"})

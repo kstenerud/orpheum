@@ -41,6 +41,20 @@ class ImportingTests(unittest.TestCase):
         self.assertEqual(scope, [*web.PROBE_RUN, "apps/web/src/other.test.tsx"])
 
 
+class ChangedFileOrder(unittest.TestCase):
+    def test_a_changed_web_files_probe_runs_its_direct_tests_then_the_type_check_before_its_related_set(self):
+        # The test-regime audit of 2026-10-31, R3: eight files' related runs, 110-140 s green each,
+        # came before a type check red in 30 s.
+        repo = Repo(FILES)
+        path = f"{SRC}/sign.tsx"
+        with repo.cwd():
+            runs = [attempt.command for attempt in rr.attempts_for(rr.Change(path, "M"), rr.scope_for(path))]
+        direct = web.importing_tests(str(repo.root), path, depth=1)
+        self.assertEqual(runs[:3], [*([[*web.PROBE_RUN, *direct]] if direct else []), rr.TYPECHECK,
+                                    rr.scope_for(path)][:3])
+        self.assertEqual(runs.count(rr.TYPECHECK), 1, "the type check once, early")
+
+
 class AddedFileProbe(unittest.TestCase):
     def test_an_added_web_file_is_probed_first_against_the_tests_importing_it(self):
         repo = Repo({path: text for path, text in FILES.items() if not path.endswith("sign.tsx")})
