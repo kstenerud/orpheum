@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,34 +41,38 @@ def transcripts_of(project: Path) -> Path:
     return Path.home() / ".claude" / "projects" / str(project).replace("/", "-").replace(".", "-")
 
 
-def read(path: Path) -> Session:
+def read(path: Path, since: str = "") -> Session:
+    """The session's cost, from its calls stamped on or after since (an ISO time; "": all). A session's
+    transcript runs for days, so a file written today holds yesterday's calls too: --since counted the
+    lead's whole week and showed agents at 30% where they were 77% (the token audit, 2026-10-31)."""
     session = Session(name=path.stem, is_agent=path.parent.name == "subagents")
     seen: set[str] = set()
-    for line in path.open(encoding="utf-8", errors="replace"):
-        try:
-            entry = json.loads(line)
-        except ValueError:
-            continue
-        message = entry.get("message") if isinstance(entry, dict) else None
-        if not isinstance(message, dict):
-            continue
-        if not session.task and entry.get("type") == "user" and isinstance(message.get("content"), str):
-            session.task = message["content"][:60].replace("\n", " ")
-        if entry.get("type") != "assistant":
-            continue
-        content = message.get("content")
-        if isinstance(content, list):
-            # One reply is written as a line per block, each with the reply's id and usage: tools from every
-            # line, usage from the first alone.
-            session.tools += sum(1 for part in content if isinstance(part, dict) and part.get("type") == "tool_use")
-        usage = message.get("usage")
-        if not isinstance(usage, dict) or message.get("id") in seen:
-            continue
-        seen.add(str(message.get("id")))
-        session.calls += 1
-        session.weighted += sum(weight * float(usage.get(key) or 0) for key, weight in WEIGHTS.items())
-        session.peak_context = max(session.peak_context, sum(int(usage.get(key) or 0) for key in CONTEXT_KEYS))
-        session.models.add(str(message.get("model")))
+    with path.open(encoding="utf-8", errors="replace") as lines:
+        for line in lines:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            message = entry.get("message") if isinstance(entry, dict) else None
+            if not isinstance(message, dict):
+                continue
+            if not session.task and entry.get("type") == "user" and isinstance(message.get("content"), str):
+                session.task = message["content"][:60].replace("\n", " ")
+            if entry.get("type") != "assistant" or str(entry.get("timestamp", "")) < since:
+                continue
+            content = message.get("content")
+            if isinstance(content, list):
+                # One reply is written as a line per block, each with the reply's id and usage: tools from every
+                # line, usage from the first alone.
+                session.tools += sum(1 for part in content if isinstance(part, dict) and part.get("type") == "tool_use")
+            usage = message.get("usage")
+            if not isinstance(usage, dict) or message.get("id") in seen:
+                continue
+            seen.add(str(message.get("id")))
+            session.calls += 1
+            session.weighted += sum(weight * float(usage.get(key) or 0) for key, weight in WEIGHTS.items())
+            session.peak_context = max(session.peak_context, sum(int(usage.get(key) or 0) for key in CONTEXT_KEYS))
+            session.models.add(str(message.get("model")))
     return session
 
 
@@ -87,17 +91,22 @@ def report(sessions: list[Session], top: int) -> str:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--since", help="only transcripts written on or after this day (YYYY-MM-DD)")
+    ap.add_argument("--since", help="only calls made on or after this day or time (YYYY-MM-DD[THH:MM], local time)")
     ap.add_argument("--top", type=int, default=15, help="how many of the costliest sessions to list")
     ap.add_argument("--dir", type=Path, help="the transcripts' directory (default: this project's)")
     args = ap.parse_args(argv)
     directory = args.dir or transcripts_of(ROOT)
-    since = datetime.fromisoformat(args.since).timestamp() if args.since else 0.0
-    paths = [p for p in directory.rglob("*.jsonl") if p.stat().st_mtime >= since]
+    start = datetime.fromisoformat(args.since).astimezone(timezone.utc) if args.since else None
+    since = start.strftime("%Y-%m-%dT%H:%M:%S") if start else ""
+    paths = [p for p in directory.rglob("*.jsonl") if not start or p.stat().st_mtime >= start.timestamp()]
     if not paths:
         print(f"token_usage: no transcripts in {directory}", file=sys.stderr)
         return 1
-    print(report([read(p) for p in sorted(paths)], args.top))
+    sessions = [s for s in (read(p, since) for p in sorted(paths)) if s.calls]
+    if not sessions:
+        print(f"token_usage: no calls in {directory} since {args.since}", file=sys.stderr)
+        return 1
+    print(report(sessions, args.top))
     return 0
 
 

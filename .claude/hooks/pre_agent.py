@@ -8,6 +8,7 @@ was not applied in fifteen launches (2026-10-31), so the launch itself checks.""
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import agents
 import hooklib
@@ -16,22 +17,24 @@ import hooklib
 MOST_AGENTS = 3
 
 
-def refusal(event: dict[str, object], running: list[str]) -> str | None:
+def refusal(event: dict[str, object], root: Path | None = None) -> str | None:
+    """Why the launch is refused, or None, the launch then noted as one more agent running."""
     tool_input = event.get("tool_input")
     launch = tool_input if isinstance(tool_input, dict) else {}
     if launch.get("subagent_type") != "fork" and not launch.get("model"):
         return ("Name the agent's model (docs/contributors/lead.md §2): `sonnet` for mechanical work and briefs "
                 "naming the files, `opus` only for design-heavy or wide-reaching work, `haiku` for lookups.")
     most = int(os.environ.get("ORPHEUM_MOST_AGENTS") or MOST_AGENTS)
-    if len(running) >= most:
-        return (f"{len(running)} agents are running ({', '.join(running)}), the most at once is {most} "
-                "(docs/contributors/lead.md §1). Wait for one to finish, or do the change yourself.")
-    return None
+    busy = agents.launch_if_room(most, root)
+    if busy is None:
+        return None
+    return (f"{len(busy)} agents are running or starting ({', '.join(busy)}), the most at once is {most} "
+            "(docs/contributors/lead.md §1). Wait for one to finish, or do the change yourself. One that died "
+            "unseen: `python3 .claude/hooks/agents.py stopped <agent id>`.")
 
 
 def main() -> None:
-    event = hooklib.read_event()
-    said = refusal(event, agents.running())
+    said = refusal(hooklib.read_event())
     if said:
         hooklib.deny(said)
 

@@ -15,6 +15,9 @@ so one resumed by a message is running again.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
+import functools
 import json
 import os
 import re
@@ -22,6 +25,7 @@ import shlex
 import signal
 import subprocess
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import hooklib
@@ -60,8 +64,15 @@ STATE_DIR_VARIABLE = "ORPHEUM_AGENTS_STATE_DIR"
 def state_dir(root: Path | None = None) -> Path:
     if os.environ.get(STATE_DIR_VARIABLE):
         return Path(os.environ[STATE_DIR_VARIABLE])
+    return _git_agents_dir(str(root or hooklib.ROOT))
+
+
+@functools.lru_cache(maxsize=None)
+def _git_agents_dir(root: str) -> Path:
+    """Asked of git once per process: asked once per record, counting the running agents ran 12,000 git
+    processes over 6,012 records and held every launch for 7 seconds (the token audit, 2026-10-31)."""
     done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                          cwd=root or hooklib.ROOT, capture_output=True, text=True, check=True)
+                          cwd=root, capture_output=True, text=True, check=True)
     return Path(done.stdout.strip()) / "agents"
 
 
@@ -69,8 +80,7 @@ def _state_path(agent_id: str, root: Path | None) -> Path:
     return state_dir(root) / f"{agent_id}.json"
 
 
-def state(agent_id: str, root: Path | None = None) -> dict[str, float]:
-    path = _state_path(agent_id, root)
+def _read(path: Path) -> dict[str, float]:
     try:
         found = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -78,31 +88,78 @@ def state(agent_id: str, root: Path | None = None) -> dict[str, float]:
     return found if isinstance(found, dict) else {}
 
 
+def state(agent_id: str, root: Path | None = None) -> dict[str, float]:
+    return _read(_state_path(agent_id, root))
+
+
+@contextlib.contextmanager
+def _locked(directory: Path) -> Iterator[None]:
+    """Holds the records' lock: one agent's parallel tool calls each read, change and write its record, and
+    unlocked they lost each other's counts (the token audit, 2026-10-31)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / ".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _write(path: Path, recorded: dict[str, float]) -> None:
+    temporary = path.with_name(f".{path.stem}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(recorded), encoding="utf-8")
+    temporary.replace(path)
+
+
 # How long an agent's record is kept after it was last written. Claude Code fires SubagentStop for its
 # own helpers too, about four a minute, and 231 records had gathered in an afternoon (2026-10-27); a
 # worktree's agent stopped long before is judged stopped as one never recorded would not be, so a week
 # keeps every record that can still matter.
 RECORD_KEPT_SECONDS = 7 * 24 * 60 * 60
+# A record of a stop alone, never an action, is one of those helpers: it ran no command and holds no
+# worktree, so nothing reads it after an hour, and 6,012 had gathered by 2026-10-31.
+STOP_ALONE_KEPT_SECONDS = 60 * 60
+FORGET_EVERY_SECONDS = 10 * 60
 
 
 def _record(agent_id: str, key: str, root: Path | None, now: float | None) -> None:
     if not is_agent_id(agent_id):
         return
-    path = _state_path(agent_id, root)
-    path.parent.mkdir(parents=True, exist_ok=True)
     at = time.time() if now is None else now
-    recorded = {**state(agent_id, root), key: at}
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(recorded), encoding="utf-8")
-    temporary.replace(path)
+    path = _state_path(agent_id, root)
+    with _locked(path.parent):
+        recorded = _read(path)
+        if key == "active":
+            recorded = _acting(recorded, path.parent, at)
+        _write(path, {**recorded, key: at})
     _forget_old(path.parent, at)
 
 
+def _acting(recorded: dict[str, float], directory: Path, at: float) -> dict[str, float]:
+    """The record of an agent acting now, before its "active" is set: an agent first seen takes up one of the
+    launches noted for it; one acting after it stopped was resumed by a message and starts its count anew."""
+    if "active" not in recorded:
+        _take_launch(directory, at)
+    elif "stopped" in recorded and recorded["stopped"] >= recorded["active"]:
+        recorded = {key: value for key, value in recorded.items() if key not in ("calls", "reminded")}
+    return recorded
+
+
 def _forget_old(directory: Path, now: float) -> None:
-    """Deletes the records last written more than RECORD_KEPT_SECONDS before now."""
+    """Deletes the records last written more than RECORD_KEPT_SECONDS before now, and a helper's record of a
+    stop alone after STOP_ALONE_KEPT_SECONDS. Looked at once in FORGET_EVERY_SECONDS: every subagent call
+    writes a record, and each look reads every record past an hour old."""
+    marker = directory / ".forgotten"
+    try:
+        if 0 <= now - float(marker.read_text(encoding="utf-8")) < FORGET_EVERY_SECONDS:
+            return
+    except (OSError, ValueError):
+        pass
+    marker.write_text(str(now), encoding="utf-8")
     for record in directory.glob("*.json"):
         try:
-            if now - record.stat().st_mtime > RECORD_KEPT_SECONDS:
+            age = now - record.stat().st_mtime
+            if age > RECORD_KEPT_SECONDS or (age > STOP_ALONE_KEPT_SECONDS and "active" not in _read(record)):
                 record.unlink()
         except OSError:
             continue
@@ -116,37 +173,104 @@ def mark_stopped(agent_id: str, root: Path | None = None, now: float | None = No
     _record(agent_id, "stopped", root, now)
 
 
-def count_call(agent_id: str, root: Path | None = None, now: float | None = None) -> int:
-    """Records one more tool call of the agent, as an action, and returns how many it has made."""
+def count_call(agent_id: str, root: Path | None = None, now: float | None = None) -> tuple[int, int]:
+    """Records one more tool call of the agent, as an action: how many it has made, and at which call it
+    was last reminded of its brief's size (0: never)."""
     if not is_agent_id(agent_id):
-        return 0
-    calls = int(state(agent_id, root).get("calls", 0)) + 1
-    _record(agent_id, "active", root, now)
+        return 0, 0
+    at = time.time() if now is None else now
     path = _state_path(agent_id, root)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({**state(agent_id, root), "calls": calls}), encoding="utf-8")
-    temporary.replace(path)
-    return calls
+    with _locked(path.parent):
+        recorded = _acting(_read(path), path.parent, at)
+        calls = int(recorded.get("calls", 0)) + 1
+        _write(path, {**recorded, "active": at, "calls": calls})
+    return calls, int(recorded.get("reminded", 0))
+
+
+def mark_reminded(agent_id: str, calls: int, root: Path | None = None) -> None:
+    if not is_agent_id(agent_id):
+        return
+    path = _state_path(agent_id, root)
+    with _locked(path.parent):
+        _write(path, {**_read(path), "reminded": calls})
+
+
+# Launches let through whose agents have not yet acted. Agents launched in one message each passed the
+# limit before any had a record, so every one saw none running (the token audit, 2026-10-31); a launch
+# counts until its agent first acts, or LAUNCH_PENDING_SECONDS pass (one refused after the check).
+LAUNCHES = ".launches"
+LAUNCH_PENDING_SECONDS = 2 * 60
+
+
+def _launches(directory: Path, at: float) -> list[float]:
+    try:
+        noted = json.loads((directory / LAUNCHES).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return sorted(t for t in noted if isinstance(t, (int, float)) and at - t <= LAUNCH_PENDING_SECONDS) \
+        if isinstance(noted, list) else []
+
+
+def _take_launch(directory: Path, at: float) -> None:
+    pending = _launches(directory, at)
+    if pending:
+        (directory / LAUNCHES).write_text(json.dumps(pending[1:]), encoding="utf-8")
+
+
+def launch_if_room(most: int, root: Path | None = None, now: float | None = None) -> list[str] | None:
+    """Notes a launch if fewer than most agents run or wait to start, and returns None; else returns them,
+    each with how long since it last acted. Checked and noted under the lock, so launches in one message
+    are counted one after another."""
+    at = time.time() if now is None else now
+    directory = state_dir(root)
+    with _locked(directory):
+        pending = _launches(directory, at)
+        busy = [f"{name} ({int(at - active) // 60} min since it acted)" for name, active in _running(directory, at)]
+        busy += ["one launched, not yet started"] * len(pending)
+        if len(busy) >= most:
+            return busy
+        (directory / LAUNCHES).write_text(json.dumps([*pending, at]), encoding="utf-8")
+    return None
 
 
 # An agent that acted within this long and has not stopped since counts as running. A working agent
-# makes a call every few seconds; one silent for longer waits for something, or was never seen to stop.
-RUNNING_WITHIN_SECONDS = 15 * 60
+# makes a call every few seconds; one silent for longer is waiting on a command, which its tagged
+# processes show, or died unseen, and then blocks a launch only this long (the token audit, 2026-10-31).
+RUNNING_WITHIN_SECONDS = 5 * 60
+# The longest an agent waits on its commands: BACKGROUND_LIMIT_SECONDS ends any of them.
+WAITING_WITHIN_SECONDS = BACKGROUND_LIMIT_SECONDS + 5 * 60
 
 
 def running(root: Path | None = None, now: float | None = None) -> list[str]:
-    """The agents running now, by their records: acted within RUNNING_WITHIN_SECONDS, not stopped since."""
+    """The agents running now, by their records: not stopped since they last acted, and acted within
+    RUNNING_WITHIN_SECONDS, or within WAITING_WITHIN_SECONDS with a process of theirs still running."""
     at = time.time() if now is None else now
     try:
-        records = sorted(state_dir(root).glob("*.json"))
+        return [name for name, _ in _running(state_dir(root), at)]
     except (OSError, subprocess.SubprocessError):
         return []
+
+
+def _running(directory: Path, at: float) -> list[tuple[str, float]]:
     found = []
-    for record in records:
-        recorded = state(record.stem, root)
+    waiting: set[str] | None = None
+    for record in sorted(directory.glob("*.json")):
+        try:
+            if at - record.stat().st_mtime > WAITING_WITHIN_SECONDS:
+                continue
+        except OSError:
+            continue
+        recorded = _read(record)
         active = float(recorded.get("active", 0.0))
-        if at - active <= RUNNING_WITHIN_SECONDS and not has_stopped(record.stem, root):
-            found.append(record.stem)
+        if "stopped" in recorded and recorded["stopped"] >= active:
+            continue
+        if at - active > RUNNING_WITHIN_SECONDS:
+            if at - active > WAITING_WITHIN_SECONDS:
+                continue
+            waiting = set(tagged_processes().values()) if waiting is None else waiting
+            if record.stem not in waiting:
+                continue
+        found.append((record.stem, active))
     return found
 
 
@@ -253,3 +377,14 @@ def old_untagged_shells(proc: Path = Path("/proc"), older_than: float = OLD_SHEL
             command = arguments.split("eval ", 1)[-1][:160]
             found.append(f"pid {entry.name}, {age / 3600:.1f} h: {command}")
     return found
+
+
+if __name__ == "__main__":
+    import sys
+
+    # An agent that died unseen still counts as running for RUNNING_WITHIN_SECONDS; the lead, told so by a
+    # refused launch, marks it stopped: `python3 .claude/hooks/agents.py stopped <agent id>`.
+    if len(sys.argv) == 3 and sys.argv[1] == "stopped" and is_agent_id(sys.argv[2]):
+        mark_stopped(sys.argv[2])
+    else:
+        sys.exit("usage: agents.py stopped <agent id>")

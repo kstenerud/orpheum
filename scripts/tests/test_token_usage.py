@@ -39,6 +39,17 @@ class TokenUsage(unittest.TestCase):
         self.assertIn("2 sessions, 2 model calls", out.getvalue())
         self.assertIn("agents 83%", out.getvalue())  # 50,005 of 60,505
 
+    def test_since_counts_the_calls_made_since_not_every_call_of_a_file_written_since(self):
+        directory = Path(tempfile.mkdtemp())
+        stamped = [json.loads(call(f"m{n}", input_tokens=1000)) | {"timestamp": at}
+                   for n, at in enumerate(["2026-10-30T23:00:00.000Z", "2026-10-31T09:00:00.000Z"])]
+        (directory / "lead.jsonl").write_text("\n".join(json.dumps(e) for e in stamped) + "\n")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(token_usage.main(["--dir", str(directory), "--since", "2026-10-31T00:00+00:00"]), 0)
+        self.assertIn("1 sessions, 1 model calls", out.getvalue())
+        self.assertEqual(token_usage.read(directory / "lead.jsonl").calls, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
