@@ -52,12 +52,19 @@ services:
       start_period: 60s
 
   # The media node (D233 §2): every file read and FFmpeg run, confined (D193 §7). It reaches the
-  # core by the sockets in run/ only, so it has no network.
+  # core by the sockets in run/ only, so it has no network. Its root is read-only and /tmp a tmpfs
+  # nothing runs from (noexec), so a file an exploited FFmpeg writes can be neither run nor loaded as
+  # a library outside its volumes; it writes nothing outside them: FFmpeg runs with no environment
+  # and its working directory /, so no HOME, cache or temporary file is wanted, and its drivers
+  # load from the image (navigation-and-widgets-answers-2026-10-27.md, noexec step 1).
   orpheum-node:
     image: ${ORPHEUM_IMAGE:?}
     user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
     command: ["node", "--instance", "/var/lib/orpheum/node"]
     network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
     sysctls:
       net.mptcp.enabled: "0"
     cap_drop: [ALL]

@@ -7,21 +7,25 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
 
-// composeService is what one service of a compose file says of its network: the network_mode it
-// names, if any, and whether its sysctls turn MPTCP off.
+// composeService is what one service of a compose file says of its network, the network_mode it
+// names, if any, and whether its sysctls turn MPTCP off; and of its filesystem, whether its root is
+// read-only and the tmpfs mounts it names ("/tmp:rw,noexec,...").
 type composeService struct {
 	networkMode string
 	isMPTCPOff  bool
+	isReadOnly  bool
+	tmpfs       []string
 }
 
 var composeServiceName = regexp.MustCompile(`^([a-z0-9_-]+):$`)
 
 // composeServices reads the services of a compose template, which keeps compose's usual two-space
-// indentation: a service's name at two spaces, its keys at four and a sysctl at six.
+// indentation: a service's name at two spaces, its keys at four and a sysctl or a tmpfs at six.
 func composeServices(text string) map[string]*composeService {
 	services := map[string]*composeService{}
 	var current *composeService
@@ -47,8 +51,11 @@ func composeServices(text string) map[string]*composeService {
 			if mode, isMode := strings.CutPrefix(trimmed, "network_mode:"); isMode {
 				current.networkMode = strings.Trim(strings.TrimSpace(mode), `"'`)
 			}
+			current.isReadOnly = current.isReadOnly || trimmed == "read_only: true"
 		case key == "sysctls:" && trimmed == `net.mptcp.enabled: "0"`:
 			current.isMPTCPOff = true
+		case key == "tmpfs:" && strings.HasPrefix(trimmed, "- "):
+			current.tmpfs = append(current.tmpfs, strings.Trim(strings.TrimPrefix(trimmed, "- "), `"'`))
 		}
 	}
 	return services
@@ -175,4 +182,40 @@ func TestWrite_TheComposeFileTurnsMPTCPOffWhereTheKernelHasIt(t *testing.T) {
 			t.Errorf("a kernel lacking MPTCP %v: the compose file names it %v", lacks, names)
 		}
 	}
+}
+
+// The node's root is read-only and its /tmp a tmpfs nothing runs from, in every compose file a
+// deployment is written from, so a file an exploited FFmpeg writes outside the node's volumes can be
+// neither run nor loaded as a library (navigation-and-widgets-answers-2026-10-27.md, noexec step 1).
+func TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing(t *testing.T) {
+	t.Parallel()
+	names, err := fs.Glob(templates, "templates/compose*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		text, readErr := templates.ReadFile(name)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		node, isThere := composeServices(string(text))["orpheum-node"]
+		if !isThere {
+			t.Errorf("%s: no orpheum-node service", path.Base(name))
+			continue
+		}
+		if !node.isReadOnly {
+			t.Errorf("%s: the node's root is not read_only", path.Base(name))
+		}
+		if !slices.ContainsFunc(node.tmpfs, isTmpThatRunsNothing) {
+			t.Errorf("%s: the node's tmpfs %v; want /tmp with noexec, nosuid and nodev", path.Base(name), node.tmpfs)
+		}
+	}
+}
+
+// isTmpThatRunsNothing is whether a tmpfs entry mounts /tmp with noexec, nosuid and nodev.
+func isTmpThatRunsNothing(entry string) bool {
+	target, options, _ := strings.Cut(entry, ":")
+	given := strings.Split(options, ",")
+	return target == "/tmp" && slices.Contains(given, "noexec") && slices.Contains(given, "nosuid") &&
+		slices.Contains(given, "nodev")
 }
