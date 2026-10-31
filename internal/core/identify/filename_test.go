@@ -154,6 +154,14 @@ func TestParsePath_AnEpisodesFolderOrNumberNamesNoSeriesOfItsOwn(t *testing.T) {
 		{"Paired at First Light/www.example.org    -    Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW/" +
 			"Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW.mkv", "Paired at First Light", 13, 1},
 		{"Arkon.Horizon.S01E02.1080p.x265-LANTERN/Arkon.Horizon.S01E02.1080p.x265-LANTERN.mkv", "Arkon Horizon", 1, 2},
+		// A folder holding a season's is the series', though its name says specials (staging's series
+		// 2405, 2026-10-28, named "" and matched nothing); and with no season folder, a name still.
+		{"Some.Fathers.Dont.Arf.Try.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(X-RG)/Series 1/" +
+			"S01E01.mp4", "Some Fathers Dont Arf Try", 1, 1},
+		{
+			"Some.Fathers.Dont.Arf.Try.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(X-RG)/S01E02.mp4",
+			"Some Fathers Dont Arf Try", 1, 2,
+		},
 	}
 	for _, test := range cases {
 		parsed := ParsePath(test.path)
