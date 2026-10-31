@@ -81,6 +81,28 @@ describe("a modal dialog, laid out by a real browser", () => {
     staying.unmount();
   });
 
+  // The owner, 2026-10-30: every dialog has the same Close, a cross at its top-right.
+  it("puts its Close at its top-right corner, its first line kept clear of it", async () => {
+    await page.viewport(960, 600);
+    const mounted = await mount(
+      withServices(
+        <ModalDialog label="Which" onClose={() => undefined}>
+          <p>{"A first line long enough to reach the dialog's far side, ".repeat(4)}</p>
+        </ModalDialog>,
+      ),
+    );
+    const dialog = mounted.container.querySelector("dialog")?.getBoundingClientRect();
+    const close = mounted.container.querySelector(".modal-dialog__close")?.getBoundingClientRect();
+    const line = mounted.container.querySelector("dialog p")?.getBoundingClientRect();
+    if (dialog === undefined || close === undefined || line === undefined) {
+      throw new Error("the dialog, its Close or its line is not drawn");
+    }
+    expect(dialog.right - close.right).toBeLessThanOrEqual(12);
+    expect(close.top - dialog.top).toBeLessThanOrEqual(12);
+    expect(line.right).toBeLessThanOrEqual(close.left);
+    mounted.unmount();
+  });
+
   it("keeps the arrows among its own controls, and closes on a remote's Back", async () => {
     const mounted = await mount(withServices(<PageWithADialog />));
     const names = async (keys: string): Promise<string | null | undefined> => {
