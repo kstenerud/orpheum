@@ -697,3 +697,16 @@ had leaned on.
   (an H.264 keyframe at a boundary needed about 0.65 s), and an encode shifting the re-timed stream
   (`setts`) as well as `dts2pts`. Files already scanned are marked by D392's full rescan. **Next batch:**
   a run's last chunk is accepted though it runs past its boundary, which hid the 0.5 s fault.
+
+## Token use (the owner, 2026-10-31), next batch
+
+"In the next batch I want to look at token use, and how we can optimize it." The 11-01 batch's agents,
+as their reports gave them (tokens, tool calls, minutes): the audio/B-frame design 214k, 94, 11; the
+security updates and noexec 397k, 248, 49; the small UI fixes 429k, 341, 70; Firefox's recovery and
+freezes 230k, 131, 28; the domains audit 183k, 70, 12; the domain-assumptions audit 207k, 78, 10;
+audio switching 365k, 129, 38; B-frame re-timing 271k, 198, 36; "Identified correctly" and invite
+links 266k (the part after a login lapse), 11. Agents' own `make check` runs, rereads of large files,
+VQ-number clashes between parallel agents and cherry-pick conflicts in verification-queue.md were
+visible costs. Look at: brief size and what each agent rereads (AGENTS.md, decisions, plan files),
+gate runs per agent, model choice per task, the lead's own context (standing orders and memory
+injected every prompt), and file layouts that make parallel agents conflict.
