@@ -128,7 +128,8 @@ func (service *Service) cutForRun(ctx context.Context, run storedRun) (cutFilm, 
 // makeChunks is the node's command for a run, but its source: the film's main picture, never a
 // cover; the stream's recipe; its store; and the grid's bounds from the run's first chunk's start to
 // its last's end. A sound past the film's first chunk starts a chunk early, which the node drops
-// with its encoder's priming (slow-links.md §10).
+// with its encoder's priming (slow-links.md §10). A picture, copied or encoded, whose probe says its
+// B-frames carry no display times, is re-timed (nodeproto.ProbeVideo.NeedsRetiming).
 func (service *Service) makeChunks(ctx context.Context, film cutFilm, run storedRun) (nodeproto.MakeChunks, error) {
 	stream, args := run.stream, run.runArgs
 	command := nodeproto.MakeChunks{
@@ -144,6 +145,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 	switch stream.Kind {
 	case nodeproto.StreamQuality:
 		command.Stream.BitRateKbps, command.Stream.Height = stream.Quality.Kbps, stream.Quality.Height
+		command.NeedsPictureRetiming = film.picture.Video.NeedsRetiming
 	case nodeproto.StreamSound:
 		track, err := service.levelledTrack(ctx, film, stream)
 		if err != nil {
@@ -165,6 +167,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
 	case nodeproto.StreamPicture:
+		command.NeedsPictureRetiming = film.picture.Video.NeedsRetiming
 		startMs := film.grid.StartsMs[args.FirstChunk]
 		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, startMs, film.grid.FilmDurationMs)
 		if container, _ := decide.ContainerOf(film.probe.Format); container == decide.MPEGTS {

@@ -120,6 +120,10 @@ var wireShapeByVersion = map[int]string{
 	// 54 has a sound run of a track interleaved in super-blocks, RealMedia's cook among them, say so,
 	// IsSoundInterleaved: a node of 53 would seek it as any sound and lose the super-block it landed in.
 	54: "21f884879f1076300f6d154b67d2f4d87ad53ba855386b799e7338ed68d96c38",
+	// 55 marks a picture whose B-frames carry no display times, ProbeVideo.NeedsRetiming, and has a run
+	// of it say so, NeedsPictureRetiming: a node of 54 would copy it unretimed, and a browser would drop
+	// its reordered frames (design/plans/audio-switch-and-retiming-2026-11-01.md, Part 2).
+	55: "3c518f934671b8ffbae2ae078965117b3314fca2bde68b2b991aad0cc41e76bc",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

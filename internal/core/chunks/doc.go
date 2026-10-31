@@ -49,7 +49,10 @@
 //     TestPictureSeekBeforeMs_IsBeforeTheKeyframeAndAfterTheOneBefore. A sound run of a RealMedia
 //     film's cook, ATRAC3, SIPR or 28.8, interleaved in super-blocks, says so, as FFmpeg loses the
 //     super-block a seek lands in. Enforced by
-//     TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe.
+//     TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe. A run of a picture,
+//     copied or encoded, whose probe says its B-frames carry no display times, says it is to be
+//     re-timed; a sound's never (design/plans/audio-switch-and-retiming-2026-11-01.md, Part 2).
+//     Enforced by TestHandleMakeChunks_APictureWhoseBFramesCarryNoDisplayTimesIsReTimed.
 //
 //   - A film's grid is its main picture's timeline, a cover's never, by its bytes' payload hash;
 //     while there is none it says so without an error, and a film FFmpeg could not read through,

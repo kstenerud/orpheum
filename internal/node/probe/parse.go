@@ -27,15 +27,27 @@ const (
 	maxFormatNames = 16
 )
 
+// videoKind is ffprobe's codec_type of a picture.
+const videoKind = "video"
+
 // ErrTooLarge is returned for a file whose probe exceeds the bounds above.
 var ErrTooLarge = errors.New("the file's probe exceeds the node's bounds")
 
-// rawOutput is the part of ffprobe's JSON (-show_format -show_streams -show_chapters) the node
-// reads. Its keys are ffprobe's.
+// rawOutput is the part of ffprobe's JSON (-show_format -show_streams -show_chapters, and the first
+// packets' times) the node reads. Its keys are ffprobe's.
 type rawOutput struct {
 	Format   rawFormat    `json:"format"`
 	Streams  []rawStream  `json:"streams"`
 	Chapters []rawChapter `json:"chapters"`
+	Packets  []rawPacket  `json:"packets"`
+}
+
+// rawPacket is one of the file's first packets: its stream and its times, each absent when the
+// container gives none.
+type rawPacket struct {
+	StreamIndex int    `json:"stream_index"`
+	Pts         *int64 `json:"pts"`
+	Dts         *int64 `json:"dts"`
 }
 
 type rawFormat struct {
@@ -53,6 +65,7 @@ type rawStream struct {
 	Profile        string            `json:"profile"`
 	Width          int               `json:"width"`
 	Height         int               `json:"height"`
+	HasBFrames     int               `json:"has_b_frames"`
 	PixFmt         string            `json:"pix_fmt"`
 	RFrameRate     string            `json:"r_frame_rate"`
 	ColorTransfer  string            `json:"color_transfer"`
@@ -98,7 +111,9 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 		}
 	}
 	for _, stream := range raw.Streams {
-		record.Streams = append(record.Streams, stream.toProbeStream())
+		probed := stream.toProbeStream()
+		probed.Video.NeedsRetiming = raw.needsRetiming(stream)
+		record.Streams = append(record.Streams, probed)
 	}
 	for _, chapter := range raw.Chapters {
 		record.Chapters = append(record.Chapters, nodeproto.ProbeChapter{
@@ -108,6 +123,35 @@ func (raw rawOutput) toProbe() (nodeproto.Probe, error) {
 		})
 	}
 	return record, nil
+}
+
+// leastPacketsToJudgeRetiming is how many of a picture's packets, among the first packetsRead, must
+// have been read to judge it needs re-timing: a second of a film, so a picture is not judged by its
+// first few frames alone.
+const leastPacketsToJudgeRetiming = 24
+
+// needsRetiming is whether a stream is a picture whose display times must be rebuilt
+// (nodeproto.ProbeVideo.NeedsRetiming): H.264 or HEVC, saying it reorders frames (has_b_frames), yet
+// each of its packets among the first read, at least leastPacketsToJudgeRetiming of them, shown at its
+// decode time. A packet without both times, or shown at another, is not of such a picture. A picture
+// marked wrongly loses nothing: re-timing a picture without B-frames gives it the times it had
+// (design/plans/audio-switch-and-retiming-2026-11-01.md §2.4).
+func (raw rawOutput) needsRetiming(stream rawStream) bool {
+	if stream.CodecType != videoKind || (stream.CodecName != "h264" && stream.CodecName != "hevc") ||
+		stream.HasBFrames <= 0 {
+		return false
+	}
+	packets := 0
+	for _, packet := range raw.Packets[:min(len(raw.Packets), packetsRead)] {
+		if packet.StreamIndex != stream.Index {
+			continue
+		}
+		if packet.Pts == nil || packet.Dts == nil || *packet.Pts != *packet.Dts {
+			return false
+		}
+		packets++
+	}
+	return packets >= leastPacketsToJudgeRetiming
 }
 
 // recordedTags are the tags a file says it was recorded at by, the most telling first: a QuickTime
@@ -123,7 +167,7 @@ func (raw rawOutput) recordedAtMs() int64 {
 		}
 	}
 	for _, stream := range raw.Streams {
-		if stream.CodecType == "video" {
+		if stream.CodecType == videoKind {
 			return recordedTime(tagValue(stream.Tags, "creation_time"))
 		}
 	}
@@ -169,7 +213,7 @@ func (stream rawStream) toProbeStream() nodeproto.ProbeStream {
 		BitRateBps:        parseNonNegativeInt(stream.BitRate),
 	}
 	switch stream.CodecType {
-	case "video":
+	case videoKind:
 		record.Video = nodeproto.ProbeVideo{
 			Width:          stream.Width,
 			Height:         stream.Height,

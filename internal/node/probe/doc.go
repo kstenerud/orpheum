@@ -25,6 +25,13 @@
 //   - The same output always makes the same record, whatever order Go iterates a map in
 //     (scanner.md: deleting the node's cache changes nothing it reports).
 //     TestParse_IsTheSameRecordEveryTime.
+//   - An H.264 or HEVC picture that says it reorders frames (has_b_frames), yet whose every packet
+//     among the file's first 200, at least 24 of its own, is shown at its decode time, is marked to be
+//     re-timed, judged by the one ffprobe call and those packets alone; nothing else is
+//     (design/plans/audio-switch-and-retiming-2026-11-01.md §2.4).
+//     TestParse_APictureWhoseBFramesCarryNoDisplayTimesNeedsRetiming,
+//     TestParse_JudgesRetimingByTheFirstPacketsAlone; with the pinned ffprobe, on clips flattened as
+//     file 5667 is, TestProbe_MarksAPictureWhoseBFramesCarryNoDisplayTimes (integration tier).
 //   - When a file says it was recorded is a QuickTime creationdate, else its container's
 //     creation_time, else its first video track's, and a clock's zero or a time before 1950 is none
 //     (D349 §4). TestParse_TheTimeAFileSaysItWasRecordedAt.

@@ -56,6 +56,7 @@ User-Agent (D263; the User-Agent is logged only).
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
+| A re-timed H.264 run's last chunk held the next chunk's start too; a re-timed encode missed every cut. | [`dts2pts` guesses an H.264 IDR's time until it has read about 16 pictures past it, and times a run's first keyframe late](#dts2pts-guesses-an-h264-idrs-time-until-it-has-read-about-16-pictures-past-it-and-times-a-runs-first-keyframe-late) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | After a jump onto a chunk's very start, the players asked for the chunk before it, which no run made, for good. | [hls.js steps back to the chunk before the one a seek landed on](#hlsjs-steps-back-to-the-chunk-before-the-one-a-seek-landed-on) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
@@ -2471,6 +2472,31 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[web]** [RFC 9559 §22.1](https://www.rfc-editor.org/rfc/rfc9559#section-22.1): "each keyframe SHOULD be
   referenced by a CuePoint", a recommendation, not a requirement, so a conforming file may index fewer. No
   tracker issue found for a specific muxer (searched FFmpeg trac and GitHub, 2026-10-08).
+
+### `dts2pts` guesses an H.264 IDR's time until it has read about 16 pictures past it, and times a run's first keyframe late
+
+- **Symptom:** a re-timed copy of a flattened H.264 clip (B-frames, every pts set to its dts), read
+  half a second past its run's last bound, made a last chunk that held the next chunk's first half
+  second too: the muxer did not cut at the bound. An encode of the same clip, re-timed on its input,
+  missed every cut, its first raw file holding two chunks.
+- **Cause:** two things. At the end of its input, `dts2pts` (FFmpeg 8.1.3, pinned build) has no
+  later picture to take a time from and guesses: each picture is given the one before it plus a
+  frame. For H.264 this reaches back over an IDR read less than about 0.65 s (16 pictures at 24 a
+  second) before the end: the IDR was given its own dts, three pictures early, below the muxer's cut
+  50 ms before the bound. HEVC was right at half a second. And `dts2pts` gives each picture the dts
+  of the packet at its rank in the picture order, so the first keyframe of a run, decoded first, is
+  shown as long after its decode time as the B-frames reorder (two pictures here): a copied chunk
+  is placed by its keyframe's composition offset, so that cancels, but an encode times every frame
+  that much late, and its forced keyframes fall a picture or two after the bounds.
+- **What we do:** a re-timed run reads a second past its last bound, not half a second; an encode's
+  input is filtered by `dts2pts,setts=pts=PTS-STARTPTS+STARTDTS`, which shows its first keyframe at
+  its decode time, the time the grid lists it at (`internal/node/chunks/arguments.go`). The film's
+  own last few pictures keep a guessed time; an encode may drop the last one or two.
+- **Evidence:** **[measured]** with the pinned build, a 12 s x264 clip, three B-frames, an IDR every
+  2 s, flattened by `setts=dts=DTS-STARTDTS:pts=DTS-STARTDTS`, copied from `-ss 1` through `dts2pts`:
+  the IDR at 6 s was timed 4.958 s (from the run's start) with `-to` 6.5 and 6.6, and right, 5.083 s,
+  with `-to` 6.65 and later. `TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked`.
+  **[web]** not searched.
 
 ---
 
