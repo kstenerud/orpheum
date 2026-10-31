@@ -106,13 +106,12 @@ test(
     await soundOn.click();
     expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);
 
-    // Joined, it is spent: another browser opening it is told so.
+    // Joined, it is spent: another browser opening it is told so at once, before any form (VQ172).
     const late = await browser.newContext();
     const latePage = await late.newPage();
     await latePage.goto(link);
-    await latePage.getByLabel("Your name").fill("Someone else");
-    await latePage.getByRole("button", { name: "Join" }).click();
     await expect(latePage.getByRole("alert")).toContainText("This link does not work");
+    await expect(latePage.getByRole("button", { name: "Join" })).toHaveCount(0);
     await late.close();
 
     const secrets = [
