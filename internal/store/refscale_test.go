@@ -475,6 +475,8 @@ func fullScansAllowed() map[string]string {
 			"from them, never from every item (D303)",
 		"ListOtherVideoFileNames": "the key refresh reads every other video's file name with its key, as it reads " +
 			"every name, at start and after a pass (D47, D349)",
+		"ListLiveInvitationLinks": "a household has a handful of invitations; the admin's people page lists the " +
+			"waiting ones' links (D267 section 5)",
 	}
 }
 
