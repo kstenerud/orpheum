@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package trusttest gives other packages' tests a discovery's root key, made afresh in software, and
-// what it signs: its root key set's statement, address documents and release records. It is imported
-// only by tests, the paid service's among them.
+// Package trusttest gives other packages' tests root chains made afresh in software (D393): a discovery's
+// or a publisher's genesis, its everyday and recovery keys, hardware keys with and without their PIN,
+// and what those keys sign, address documents and release records among them. It is imported only by
+// tests, the paid service's among them.
 //
 // # Invariants
 //
-//   - It signs through trust.Sign, the code the paid service's online key signs with, so a test sees
-//     what a core sees. Review.
+//   - It signs through trust.Sign, in the SSH signature format the owner's `ssh-keygen -Y sign` writes,
+//     so a test sees what a core sees. Review.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing

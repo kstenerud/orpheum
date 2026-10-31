@@ -354,5 +354,5 @@ type LocatorsRequest struct {
 	Hashes []string `json:"hashes"`
 }
 
-// The release record is not asked for under a session: it is public, signed by the discovery's root
-// key, and fetched from its well-known path (discovery/release; D391 §6).
+// The release record is not asked for under a session: it is public, signed by a key of Orpheum's
+// publisher chain, and fetched from its well-known path (discovery/release; D393 §2).
