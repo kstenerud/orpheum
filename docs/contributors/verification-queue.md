@@ -2075,6 +2075,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   were missing or damaged" for its file id, and the scan's totals line says `"chunksDroppedCount":1` and
   a `chunksCheckedCount` of every file of its stores. (`internal/node/prepared/records.go`, `internal/node/byteserver/byteserver.go`,
   `internal/core/chunks/files.go`, `internal/core/library/derived.go`)
+- [ ] **VQ231** — the release workflow writes the unsigned release record (D394 §8), at the first
+  release after the owner's ceremony. Set the repository's variables `PUBLISHER_PLACE` (the origin
+  serving the publisher's published files), `PUBLISHER_ID` and `PUBLISHER_ROOT_VERSION`, then push an
+  annotated tag whose message has a line `Security: <a test sentence>`, and approve the run. Passes
+  when the run's "Write the release" step names the tag, the digest and the security line, its
+  artifact `release-record` downloads, its digest matches the one the image push printed, and
+  `discovery-sign sign-release` on the Mac shows the same release and signs it. Without
+  `PUBLISHER_PLACE` the two steps are skipped and the image publishes as before.
+  (`.github/workflows/release-image.yml`)
 - [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer and identity (D391 §3,
   D393 §4). Owed first: staging connect publishes its root chain and a signed address document at
   its issuer's `/.well-known/` paths (connect's change, after VQ211's ceremony for staging's keys). On

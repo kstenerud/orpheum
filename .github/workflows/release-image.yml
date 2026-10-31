@@ -4,6 +4,15 @@
 # pushed to GitHub's registry beside the repository as ghcr.io/<owner>/orpheum:<tag> and :latest.
 # The package is made public once, by the owner, in its settings on GitHub (a private repository's
 # packages start private).
+#
+# It then writes the release into the publisher's unsigned release record (D394 §8) and attaches it
+# to the run as the artifact "release-record", for the owner to download, check and sign on the Mac
+# (`discovery-sign sign-release`). Nothing is signed here: the publisher's keys never leave their
+# devices. The repository's variables say where the record lives: PUBLISHER_PLACE, the origin
+# serving the publisher's published files (unset, until the owner's ceremony made the publisher
+# root: the step does nothing); PUBLISHER_ID and PUBLISHER_ROOT_VERSION, for the first record and
+# after a rotation. A release fixing a security problem says so on a line of its tag's message,
+# `Security: <what it fixes, in a sentence for an admin>`.
 name: release-image
 
 on:
@@ -48,3 +57,47 @@ jobs:
             --tag "$image:$TAG" --tag "$image:latest" .
           docker push "$image:$TAG"
           docker push "$image:latest"
+      - name: Write the release into the unsigned release record
+        if: vars.PUBLISHER_PLACE != ''
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          PLACE: ${{ vars.PUBLISHER_PLACE }}
+          PUBLISHER_ID: ${{ vars.PUBLISHER_ID }}
+          ROOT_VERSION: ${{ vars.PUBLISHER_ROOT_VERSION }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          image="ghcr.io/${REPOSITORY,,}"
+          # The digest of the image this run pushed, not one read back from anywhere else.
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$TAG")"
+          digest="${digest#*@}"
+          case "$digest" in sha256:*) ;; *) echo "no digest for $image:$TAG" >&2; exit 1 ;; esac
+          # The record as published, payload alone; none yet before the first release. A tampered copy
+          # is refused when the owner signs: discovery-sign checks it against the owner's ledger.
+          status="$(curl -sS --proto '=https' -o release -w '%{http_code}' "$PLACE/.well-known/orpheum/release")"
+          case "$status" in
+            200) ;;
+            404) rm -f release ;;
+            *) echo "fetching the release record from $PLACE said $status" >&2; exit 1 ;;
+          esac
+          # The tag's message, through the API: the checkout keeps no annotated tag's message.
+          ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq '.object.type + " " + .object.sha')"
+          message=""
+          if [ "${ref%% *}" = tag ]; then
+            message="$(gh api "repos/$REPOSITORY/git/tags/${ref#* }" --jq .message)"
+          fi
+          security="$(printf '%s\n' "$message" | sed -n 's/^Security:[[:space:]]*//p' | head -n 1)"
+          set -- --record release --version "$TAG" --digest "$digest" --pull "$image"
+          if [ -n "$security" ]; then set -- "$@" --security "$security"; fi
+          if [ -n "$PUBLISHER_ID" ]; then set -- "$@" --id "$PUBLISHER_ID"; fi
+          if [ -n "$ROOT_VERSION" ]; then set -- "$@" --root-version "$ROOT_VERSION"; fi
+          # The runner's Go fetches the toolchain go.mod names, checked against Go's checksum database.
+          GOTOOLCHAIN=auto go run ./cmd/release-record "$@"
+      - name: Attach the unsigned release record for the owner to sign
+        if: vars.PUBLISHER_PLACE != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-record
+          path: release
+          if-no-files-found: error
