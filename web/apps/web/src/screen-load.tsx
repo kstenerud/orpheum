@@ -225,6 +225,26 @@ export async function loadScreenCode<T>(
   }
 }
 
+/** The resets of every module of lazy screens loaded so far, which test-dom's mount() runs. */
+const lazyResets = new Set<() => void>();
+
+/**
+ * Test-only: a module of lazy screens (later-screens.tsx, tray-dialog-code.tsx) gives its reset here
+ * as it loads, so a mount meets its screens cold without test-dom importing it: an import from the
+ * helper made every test related to every screen, half the suite rerun for one changed screen (the
+ * test-regime audit of 2026-10-31, R4). Only a module that loaded has warmed screens to reset.
+ */
+export function resetOnEachTestMount(reset: () => void): void {
+  lazyResets.add(reset);
+}
+
+/** Test-only: runs every reset given to resetOnEachTestMount. Never called by runtime code. */
+export function resetLazyScreensOnMount(): void {
+  for (const reset of lazyResets) {
+    reset();
+  }
+}
+
 /** A screen whose code loads as it is first shown, by loadScreenCode. */
 export function lazyScreen<P extends object>(
   screen: string,

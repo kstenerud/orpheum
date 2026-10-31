@@ -10,7 +10,7 @@ import type { Title as TitleComponent } from "./title.tsx";
 import type { TogetherViewer as TogetherViewerComponent } from "./together-viewer.tsx";
 import type { UiGallery as UiGalleryComponent } from "./ui-gallery.tsx";
 
-import { lazyScreen } from "./screen-load.tsx";
+import { lazyScreen, resetOnEachTestMount } from "./screen-load.tsx";
 
 /** Each screen's own loader, named so resetLazyScreensForTests can give it a fresh lazy() too. */
 const loadTitle = async (): Promise<{ default: typeof TitleComponent }> => ({
@@ -84,3 +84,4 @@ export function resetLazyScreensForTests(): void {
   Settings = lazyScreen("settings", loadSettings);
   UiGallery = lazyScreen("ui-gallery", loadUiGallery);
 }
+resetOnEachTestMount(resetLazyScreensForTests);
