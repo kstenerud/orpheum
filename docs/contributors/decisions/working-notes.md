@@ -25014,6 +25014,14 @@ functionality for convenience."
    offline, which is a pretty hefty threat model for a plex competitor"). The Mac's passkey signs the
    owner in (account and operator panel at `orpheum.cc`); it anchors nothing. An own discovery has its
    operator's own key set, of any size from one.
+   **The set changes by a signed statement** (the owner: "I also need to be able to add/remove keys if
+   they get lost/broken/stolen"): a root-set statement with a version, signed by any key of the set a
+   core pins; a core accepts only a higher version, signed by its current set, catching up through each
+   version in order; a key once removed is never accepted again by that core; two different sets of
+   the same version are both refused and the core's admins told. A lost or broken key is replaced by
+   signing a new set with a remaining one; a stolen key is useless without its PIN (a YubiKey locks
+   after eight wrong ones) and is removed the same way. Not defended, as the owner's threat model
+   accepts: a thief holding a key and its PIN who signs first.
 3. **The address document.** A discovery serves `/.well-known/orpheum-discovery`, signed: its issuer
    (the typed origin), core API, client API, loader origin, client-origin pattern, account origin,
    homepage, support address, and fallback locations where the same signed document is also served.
