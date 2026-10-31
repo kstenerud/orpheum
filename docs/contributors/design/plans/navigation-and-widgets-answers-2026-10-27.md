@@ -487,6 +487,21 @@ had leaned on.
   while media plays. The new worker takes over a moment later (skipWaiting, clients.claim), but the
   page asks again only when a poster fails. Fix: probe again on `controllerchange`.
 
+## check-pr's time (research/test-regime-audit-2026-10-31.md), next batch (the owner agreed 2026-10-31)
+
+- **Done: R4.** test-dom.tsx no longer imports the modules of lazy screens; `vitest related
+  film-player.tsx` ran 141 files, now 27 (7 s). home-imports.test.ts keeps the shared helpers off them.
+- **Gate changes, the owner's yes given:** R1, a file with a valid claim (`Verified-By:`,
+  `Refactor-Only:`) takes only its cheap runs in check-pr, the nightly run probing it whole; R2, a
+  stylesheet first runs its own direct browser-mode tests, in parallel, halving kept for the browser
+  tier alone; R3, a TypeScript file's probe runs its direct importers, then the type check, then the
+  whole related set; R5, the "nothing reverted" run of a browser-mode red reruns only the tests that
+  failed, shared across the probe trees.
+- **R6, the owner's direction:** revert-red probes each commit in the background as it is made, so
+  check-pr mostly reads results kept from the batch's own commits.
+- **No mechanical recurrence (the owner, 2026-10-31):** "We don't need audits to recur mechanically.
+  I'll say when it's needed."
+
 ## From the owner's device round (2026-10-30), next batch
 
 - **Who am I signed in as: folded into the 2026-10-30 batch at the owner's word ("so that it's
