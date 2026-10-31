@@ -503,7 +503,12 @@ had leaned on.
   publish waits for no one.
 - **The owner's, on the machines:** `from="192.168.1.199"` on the nas.example and gpuhost keys'
   `authorized_keys` lines (report §2a).
-- **noexec, for the owner to decide (report §5, looked into):** Landlock's EXECUTE right governs
+- **Security updates (the owner, 2026-10-31, yes to the recommendations), next batch:** Parts A and B
+  of design/plans/security-updates.md (the release record, written by the release workflow, and the
+  admins' banner); Part C, the opted-in timer, once signing exists.
+- **noexec (the owner, 2026-10-31, yes), next batch:** step 1 (the node's root read-only, `/tmp` a
+  noexec tmpfs) first; step 2 (noexec volumes for `./node` and `./run`) once tried on nas.example.
+- **noexec, as looked into (report §5):** Landlock's EXECUTE right governs
   `execve` alone, never a `dlopen`'s `mmap(PROT_EXEC)`, and confines FFmpeg's runs, not the node. A
   noexec mount blocks both, for every process in the container. Proposed: (1) the node's root
   `read_only: true` with `/tmp` a tmpfs `noexec,nosuid,nodev`, which any Docker takes; (2) `./node` and

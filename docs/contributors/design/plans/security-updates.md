@@ -1,7 +1,9 @@
 # Security updates reaching households (draft for the owner, 2026-10-31)
 
-**Status:** a design draft. Nothing here is decided or built. The owner agreed the aim, "design
-first" (research/security-week-2026-10-30.md §7, 2026-10-31); the questions in §5 are the owner's.
+**Status:** agreed by the owner, 2026-10-31 ("1, 2, 3: yes, go ahead", to the lead's recommendations
+on §5's questions): the banner as §3 Part B says; Part C's timer built only once signing exists,
+updates manual with the banner until then; the release record written by the release workflow, not
+by hand; Parts A and B in the next batch. Not built yet.
 
 ## 1. Why
 
