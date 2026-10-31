@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
 import { About } from "./about.tsx";
+import { HowToUpdate } from "./update-page.tsx";
 import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
@@ -371,6 +372,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "system") {
     return <System />;
+  }
+  if (route.screen === "update") {
+    return <HowToUpdate />;
   }
   if (route.screen === "needs-attention") {
     return <NeedsAttention />;

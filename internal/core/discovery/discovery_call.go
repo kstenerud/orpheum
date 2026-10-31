@@ -183,5 +183,18 @@ func failure(response *http.Response, answer []byte) error {
 	if json.Unmarshal(answer, &named) == nil && named.Code != "" {
 		return &refusal{code: named.Code, message: named.Message}
 	}
-	return fmt.Errorf("the discovery answered %s: %s", response.Status, bytes.TrimSpace(answer))
+	return &statusError{
+		code: response.StatusCode, message: fmt.Sprintf("the discovery answered %s: %s", response.Status,
+			bytes.TrimSpace(answer)),
+	}
+}
+
+// statusError is a call the discovery answered with a failing status it names no refusal for.
+type statusError struct {
+	code    int
+	message string
+}
+
+func (answered *statusError) Error() string {
+	return answered.message
 }

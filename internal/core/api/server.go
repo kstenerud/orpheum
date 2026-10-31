@@ -96,6 +96,12 @@ type Dependencies struct {
 	Reachability *reachability.Checker
 	// Discovery keeps the core enrolled with its discovery, which an admin connects and leaves (D273).
 	Discovery *discovery.Service
+	// Releases says what the server knows of releases newer than its own, from its discovery
+	// (security-updates.md); nil knows of none. Version is this build's, and PublishedImage the
+	// repository its releases are published in, which an update's command installs from (D314).
+	Releases       Releases
+	Version        string
+	PublishedImage string
 	// PortMapping says what the home router opened for the discovery's addresses (D273 §7).
 	PortMapping *portmap.Service
 	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).

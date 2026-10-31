@@ -1953,6 +1953,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the server knows of an update: a security fix its version lacks, or a newer release (admin) */
+        get: operations["getSystemUpdate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tiles/interest": {
         parameters: {
             query?: never;
@@ -4516,6 +4533,12 @@ export interface components {
         SecretsOutputBody: {
             secrets: components["schemas"]["SecretBody"][] | null;
         };
+        SecurityFixBody: {
+            /** @description The first release that has it, "v0.3.2" */
+            fixedIn: string;
+            /** @description What the fix fixes, in a sentence for the admin */
+            summary: string;
+        };
         SeekBody: {
             /** Format: int64 */
             fromPositionMs: number;
@@ -5073,6 +5096,22 @@ export interface components {
         };
         UnusedOutputBody: {
             unusedSettings: components["schemas"]["UnusedBody"][] | null;
+        };
+        UpdateBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds the server's discovery last answered; 0 before it has
+             */
+            checkedAt: number;
+            /** @description What installs the update, run on the server's machine as the user who installed it (D314); empty with no update */
+            command?: string;
+            /** @description The newest release's image digest, sha256:..., for the admin to check */
+            digest?: string;
+            /** @description The newest release, when it is newer than this server's; empty when it runs the latest or knows of none */
+            latest?: string;
+            security?: components["schemas"]["SecurityFixBody"];
+            /** @description This server's version: a release's tag, or dev for a build of none, which knows of no update */
+            version: string;
         };
         UpNextBody: {
             episode: components["schemas"]["NextUpBody"];
@@ -9907,6 +9946,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReachabilityOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSystemUpdate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateBody"];
                 };
             };
             /** @description Error */

@@ -18,6 +18,7 @@ import {
 } from "./server-settings.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { UpdateSettings } from "./update-page.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** A key or password, as the server shows it: never its value (D194). */
@@ -270,6 +271,7 @@ export function Settings(): JSX.Element {
         search={search}
         onSearch={setSearch}
       />
+      <UpdateSettings />
       <Secrets search={search} />
       <ServerSettings isAdvanced={isAdvanced} search={search} />
     </section>

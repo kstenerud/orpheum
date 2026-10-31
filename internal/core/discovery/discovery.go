@@ -176,6 +176,11 @@ type Service struct {
 	// first, and sentHouseNetworks the house networks the last heartbeat carried (D356).
 	learnt            []HouseNetwork
 	sentHouseNetworks []discoveryproto.HouseNetwork
+	// release is what the discovery last said of releases newer than this one; releaseAskedAt when
+	// the core last asked, and releaseWait how long after it asks again (checkRelease).
+	release        Release
+	releaseAskedAt time.Time
+	releaseWait    time.Duration
 
 	// keeping is held through each write of the state file, so two never interleave.
 	keeping sync.Mutex
@@ -399,6 +404,7 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	case err != nil:
 		return service.failed(ctx, "open a session", err)
 	}
+	service.checkRelease(ctx, status)
 	switch status.State {
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
 		wait := service.heartbeat(ctx, status)

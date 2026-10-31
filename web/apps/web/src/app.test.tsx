@@ -35,6 +35,8 @@ import { forgetMembership, keepMembership } from "./together-storage.ts";
 const backgroundAnswers: Answers = {
   "GET /libraries": [200, { libraries: [] }],
   "GET /titles/letters": [200, { letters: [] }],
+  // An admin's shell asks what it knows of an update (security-update-note.tsx): none pending.
+  "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
   "GET /client-settings": [
     200,
     {

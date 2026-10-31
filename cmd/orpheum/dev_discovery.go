@@ -48,9 +48,11 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	state := flags.String("state", "", "the directory its record is kept in (required)")
 	realm := flags.String("realm", "",
 		"the realm its core is signed in to by, as a paid discovery's host has one (D297)")
+	releaseRecord := flags.String("release-record", "",
+		"the release record its cores are told of their versions from (security-updates.md Part A)")
 	if err := flags.Parse(call.arguments); err != nil || *state == "" {
-		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir> [--realm <realm>]\n",
-			exitUsageError)
+		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir> [--realm <realm>] "+
+			"[--release-record <file>]\n", exitUsageError)
 	}
 	logger := slog.New(slog.NewTextHandler(call.stderr, nil))
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
@@ -64,6 +66,7 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	}
 	handler, err := devDiscoveryHandler(devDiscoverySite{
 		base: base, recordPath: filepath.Join(*state, "single.json"), realm: *realm, clientFiles: clientFiles,
+		releaseRecord: *releaseRecord,
 	}, logger)
 	if err != nil {
 		return call.fail(errors.Join(err, listener.Close()))
@@ -82,10 +85,11 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 }
 
 // devDiscoverySite is what the development discovery serves: at base, its record in recordPath, the
-// realm its operator names (none for an owner's own), and the client's files.
+// realm its operator names (none for an owner's own), the client's files, and the release record its
+// cores are told of their versions from (none tells them nothing).
 type devDiscoverySite struct {
-	base, recordPath, realm string
-	clientFiles             fs.FS
+	base, recordPath, realm, releaseRecord string
+	clientFiles                            fs.FS
 }
 
 // devDiscoveryHandler is the development discovery at base, which the core calls: single's two
@@ -102,7 +106,7 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 	discovery, err := single.New(single.Parts{
 		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: clientOrigins,
 		LoaderOrigin: loaderOrigin, Store: store, Now: clock.System{}.Now, Random: rand.Reader, Logger: logger,
-		Realm: realm,
+		Realm: realm, ReleaseRecord: site.releaseRecord,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)

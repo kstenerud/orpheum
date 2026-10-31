@@ -74,6 +74,10 @@
 //   - A core is online while it holds its signalling connection, offline since it last closed.
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //
+//   - A core, pending or claimed, asks under its session what the release record (discovery/release)
+//     says of its own version, and is told of that version alone; with no record, nothing
+//     (security-updates.md Part A). TestRelease_ACoreIsToldWhatTheRecordSaysOfItsOwnVersion.
+//
 //   - The record is written whole: a new file renamed over it. TestFileStore_AWriteReplacesTheRecordWithAWholeNewFile.
 //
 // # Read before changing

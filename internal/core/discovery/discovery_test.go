@@ -75,6 +75,8 @@ type world struct {
 	probeNonces atomic.Int32
 	// hasCertificate is whether the certificate for the discovery's names is held.
 	hasCertificate atomic.Bool
+	// version is the build's, v0.1.0 unless a test names another before the service is made again.
+	version string
 }
 
 func newWorld(t *testing.T) *world {
@@ -88,6 +90,7 @@ func newWorld(t *testing.T) *world {
 		files: &memoryFiles{files: map[string][]byte{}}, key: key, fake: fake, baseURL: server.URL,
 		clock:      clocktest.NewFake(time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)),
 		candidates: []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}},
+		version:    "v0.1.0",
 	}
 	built.service = built.restart(t)
 	return built
@@ -98,7 +101,7 @@ func (built *world) restart(t *testing.T) *Service {
 	t.Helper()
 	service, err := New(Parts{
 		Files: built.files, Key: built.key, HTTP: &http.Client{}, Clock: built.clock,
-		Logger: slog.New(slog.DiscardHandler), Version: "v0.1.0", APIMajor: 1,
+		Logger: slog.New(slog.DiscardHandler), Version: built.version, APIMajor: 1,
 		Candidates:     func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:      func(context.Context) { built.claimedCount.Add(1) },
 		Random:         unjittered{},

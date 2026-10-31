@@ -289,6 +289,9 @@ func wireCore(
 	core.Certificates = opened.certificates
 	dependencies := core.API
 	dependencies.Discovery, dependencies.PortMapping = opened.discovery, opened.portMapping
+	// What the discovery's release record says of this version, for the admins (security-updates.md).
+	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
+	dependencies.PublishedImage = publishedImage
 	dependencies.Reachability, dependencies.Relay = opened.reachability, newRelayIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(),

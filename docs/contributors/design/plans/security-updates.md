@@ -3,7 +3,8 @@
 **Status:** agreed by the owner, 2026-10-31 ("1, 2, 3: yes, go ahead", to the lead's recommendations
 on §5's questions): the banner as §3 Part B says; Part C's timer built only once signing exists,
 updates manual with the banner until then; the release record written by the release workflow, not
-by hand; Parts A and B in the next batch. Not built yet.
+by hand; Parts A and B in the next batch. Parts A and B built for the 11-01 batch (§6); the release
+workflow's step and the paid service's call are owed.
 
 ## 1. Why
 
@@ -76,3 +77,53 @@ static site, so they need no service of ours to stay safe. The record is the sam
 3. **The record's home:** the discovery's deployment (beta) and orpheum-app.com (standalone), written
    by you at each release. Is that right, or should a release's workflow write it?
 4. **When to build:** A and B now for the closed beta, C after signing exists. Agreed?
+
+## 6. As built (Parts A and B)
+
+**The record.** One JSON file, `discovery/release`'s `Record`:
+
+```json
+{"latest": "v0.3.2", "digest": "sha256:…",
+ "versions": {"v0.3.1": {"security": true, "summary": "…", "fixedIn": "v0.3.2"},
+              "v0.3.0": {"security": false}}}
+```
+
+`latest` is the newest release and `digest` its image's; `versions` names each older release the
+record has seen, with whether a security fix is pending for it, what the fix fixes (one sentence for
+an admin) and the first release that has it. It lives in the discovery's deployment, at the path the
+discovery is configured with: `single.Parts.ReleaseRecord` for Orpheum's own discovery (`orpheum dev
+discovery --release-record <file>` in development), and the paid service's own setting once it
+calls `release.File`. An absent, unreadable or broken file tells every core nothing, and the
+discovery's log why; it is never an error to the core.
+
+**Writing it.** `go run ./cmd/release-record --record <file> --version <tag> --digest <sha256:…>
+[--security "<summary>"]` writes one release into the record: the release before it is named among
+the older ones, and with `--security`, every older release with no fix pending is marked as needing
+this one (one already pending keeps its first fix, which the latest has too). A release older than
+the latest is refused, and so is a digest that is no image's. It is a program of its own, not an
+`orpheum` subcommand, because no household runs it, and Go, not a script under `scripts/`, so the
+record is written by the very type the discovery reads it with. The release workflow (a gate file)
+is to run it after the image is pushed, with the pushed digest, and copy the file into the
+discovery's deployment; that step is the owner's to add.
+
+**The call.** `POST /release` on the discovery protocol (`discoveryproto.PathRelease`), under the
+core's session, pending or claimed, with `{"orpheumVersion": "v0.3.1"}`; the answer is
+`{latest, digest, security: {summary, fixedIn}}` about that version alone: `latest` and `digest` only
+when the latest is newer, `security` only when that version has a fix pending. The heartbeat
+already tells the discovery the version, so it learns nothing new. A plain call beside the session's
+others, not a message on the signalling WebSocket: that socket carries the discovery's requests to
+the core, and a call the core makes fits the session's calls. The core asks at its start and daily,
+an hour after a failure; a development build (`dev`) asks nothing; a discovery without the call
+(404) knows nothing, and a failure is never the core's standing problem.
+
+**The admin.** `GET /api/v1/system/update` (admin) says the version, the latest when newer, its
+digest, the fix pending and the command, `docker run --rm ghcr.io/kstenerud/orpheum:<latest>
+install-script | sh`, the latest's own install script run again over the deployment (D314), which
+keeps everything. The client's banner (`security-update-note.tsx`) stands above every page for an
+admin while a fix is pending, with the command, Update now (the How to update page, `/update`) and
+Snooze for a day (this browser, that fix). The settings page's Updates row shows the version and a
+newer one, the only place a plain release shows.
+
+**Not yet:** the paid service (orpheum-connect) answers `POST /release` once it routes it to
+`release.File`; until then a core in the beta asks, is answered 404, and knows nothing. The banner's
+command assumes the deployment's default folder; the How to update page says what to add for another.

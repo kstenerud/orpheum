@@ -173,6 +173,7 @@ it("removes a stored secret only when asked again", async () => {
             },
           ],
           "GET /config": [200, { settings: [] }],
+          "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
           "DELETE /secrets/tmdb_api_key": [204, null],
         },
         heard,
