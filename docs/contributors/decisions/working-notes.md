@@ -24956,3 +24956,33 @@ leaves or is removed ends no cast, the session going on. Device check: VQ193 (3)
 
 **Proven by:**
 - 1: internal/core/api/casts_test.go (TestCast_ASessionsEndEndsTheCastsThatTakeAPartInIt), internal/core/together/cast_test.go (TestHub_EveryWayASessionEndsIsToldWithThePartsCastsEndWith), internal/core/live/registry_test.go (TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt), web/apps/web/src/cast-receiver.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in (D389 §1)"), web/apps/web/src/cast-remote.test.tsx ("goes home with no word as its cast ends with the Watch Together session it took a part in, a normal end (D389 §1)"), web/apps/web/src/together-voice.test.tsx ("the host's page as the session it hosts ends (D389 §1)"), web/apps/web/src/watch-together-player.test.tsx ("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)"), web/apps/web/src/status-tray.test.tsx ("closes Watch Together's dialog as the session is ended from it, nothing opening it again, and goes home with no word (D385's Also, D389 §1)"), web/packages/sdk/src/together-voice.test.ts; on devices, VQ193
+
+## D390 — The service's addresses: the app and account on orpheum.cc, the API unmoved, staging on orpheum.dev, the website on orpheum.mov
+
+**Decided** (2026-10-31), by the project owner, on the outside audit
+[domains-audit-2026-10-31.md](../design/research/domains-audit-2026-10-31.md) ("yes that makes sense").
+The owner: the addresses "are difficult to type in (especially things with hyphens. Some UIs hide them
+behind 2 extra buttons ...)"; bought `orpheum.cc`, `orpheum.dev` and `orpheum.mov`; "If there's a best
+time for a clean break, it's now"; "it's no problem to use the longer domains for things users don't
+need to type in"; "all of the TV virtual keyboards I've seen have '.' on the primary plane".
+
+1. **Typed: `orpheum.cc`**, the app (the loader, sign-in), at the apex; `www.orpheum.cc` redirects to
+   it. Typing is a once-per-device act: after it, a bookmark, a QR code or a device code (the
+   lookalike `.com`, `.co`, `.net` and `.app` are others').
+2. **`account.orpheum.cc`**, the account pages; mail from `noreply@orpheum.cc` (DKIM, SPF, DMARC
+   from `p=none` to `reject`), tested at Gmail, Outlook and GMX before invitations rely on it.
+3. **Passkeys' relying party is `orpheum.cc`**, a setting of connectd's, not derived from a host;
+   `orpheum.cc` then stays registered for good.
+4. **The API stays `api.orpheum-app.com`**: no one types it, every core has it compiled in and saved,
+   and off the brand site it widens nothing that shares the app's cookies or relying party.
+5. **Staging moves to `orpheum.dev`** (its app, `account.` and `api.`), a registrable domain of its own,
+   so nothing built in the sandbox can set cookies on production's site in the browser that uses
+   both. It goes first, rehearsing the production move.
+6. **The website moves to `orpheum.mov`**; `orpheum-app.com`'s apex, `app.` and `account.` redirect to
+   the new homes (fragments kept), after the old loader's worker has unregistered itself; the domain
+   stays registered.
+7. **Unchanged:** `orpheum-client.com`, `orpheum-core.com`; both join the Public Suffix List at the
+   public launch. Every domain that sends no mail says so (null MX, SPF `-all`, DMARC `reject`).
+8. **Order:** the audit's §8: the relying-party setting, mail hygiene and the zones' hardening, then
+   staging, then production's app and account, mail, the old loader's retirement, the redirects and
+   the website, HSTS preload.
