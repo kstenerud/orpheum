@@ -543,7 +543,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   whatever the browser sends after (`src/form-ok.ts`, on the loader's pages too, which run no input
   layer; a browser takes Enter on a checkbox for the form's submission, idiosyncrasies.md), each OK in
   a form noted for the core's log at its debug level (`noteForTheLog`; the owner's Fire TV,
-  2026-10-30; `src/form-ok.test.ts`, `src/realm-sign-in.browser.test.tsx`; VQ195). An arrow inside a
+  2026-10-30; `src/form-ok.test.ts`, `src/realm-sign-in.browser.test.tsx`; VQ199). An arrow inside a
   text field's value or a range's is the field's; one with nowhere to go is the browser's. The
   first arrow starts in the main content, not the banner; an arrow into a container or the main
   content goes back to what last had focus there; the focused element is scrolled into view no
