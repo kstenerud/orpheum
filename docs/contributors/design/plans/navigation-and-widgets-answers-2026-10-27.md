@@ -953,7 +953,26 @@ file for the suggestion, the domain-name test, the install's closing line) stand
   `--pull`). The install verifies before it runs anything through the bootstrap `discovery-sign
   bootstrap` writes (§3.9); `orpheum verify-release` and `install.sh --release-record` are gone.
 
-**Owed by the owner:** the day-one ceremony (VQ211) and the genesis statements in `suggested.go`; a
-one-line forbidigo exclusion for `cmd/discovery-sign` if the tool should run `ssh-keygen` itself; the
-release workflow's `release-record` step. **Owed by connect:** see the batch report. VQ210, VQ211
+**D394 built (2026-10-31):** the forbidigo exclusion letting `cmd/discovery-sign/keygen.go` alone run
+`ssh-keygen`, the release workflow's `release-record` step (VQ231), the guided
+`ceremony`, `sign-release` and `test-key`, suspend and resume in the root format,
+the guided `suspend`, `resume`, `add` and `remove`, the address document signed again when
+its signer stops counting, and the owner's guide in plain words. Staging's own
+software chain was made with the tool on 2026-10-31 (issuer `https://orpheum.dev`, identity
+`od1-npmxozq3…`): records in `/yoloai/files/orpheum-security/staging`, keys in
+`/yoloai/files/orpheum-staging-keys`, published into connect's `.staging/published`. Its address
+document names D390's planned staging addresses (`api.orpheum.dev`, `account.orpheum.dev`,
+`{core}.orpheum-client-test.com`), which no DNS serves yet: staging cores enrol with it only after
+the move to `orpheum.dev` (D390 §5), and the owner confirms or corrects those addresses first.
+
+**Owed by the owner:** the day-one ceremony (VQ211) and the genesis statements in `suggested.go`;
+`-published=/published` and its read-only mount in production's compose file. On the Mac and a real
+YubiKey, unconfirmed: the Secure Enclave provider's flags, `-O user=`'s spelling, `ssh-keygen -K`
+getting a stub back. **Owed by connect:** see the batch report.
+
+**Left, small (from the agents' notes):** the `RootKeys` comments in
+`internal/core/discovery/status.go` and `internal/core/api/discovery.go` should say "the keys whose
+signatures count"; `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
+port when runs overlap; `test-key` leaves its temporary directory; the first release in a record
+keeps no security note; each signing attempt's copy stays under `ledger/pending/<name>.parts/`. VQ210, VQ211
 (rewritten for D393), VQ220 (the bootstrap), VQ221 (the watcher).
