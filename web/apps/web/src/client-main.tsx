@@ -35,6 +35,7 @@ import { sendFailuresToCore } from "./failure-reports.ts";
 import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
+import { isFilmPlayingOn, reportPageFreezes } from "./page-freezes.ts";
 import {
   newerClientOver,
   reportReloadForNewerClient,
@@ -57,6 +58,11 @@ if (rootElement === null) {
 keepPageAudio(document);
 const navigation = createNavigation(window);
 const root = createRoot(rootElement);
+// The page's freezes of a second or more go to the core's log, on every screen, saying which.
+reportPageFreezes({
+  screen: () => navigation.route().screen,
+  isFilmPlaying: () => isFilmPlayingOn(document),
+});
 
 /**
  * The tab's debug link (D380): its cap kept in the tab's session storage, a drop timed on the page's

@@ -1940,3 +1940,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   naming "the offer reached no server", and the film plays on (its `kind=reconnected` line within a
   few seconds of it). Before this change Firefox came back about 45 s after the Wi-Fi (VQ139's run,
   2026-10-29). (`web/packages/sdk/src/rtc-transport.ts`, `rtc-reopen.ts`, `discovery.ts`)
+- [ ] **VQ198** — a page's freeze is told to the core's log on any screen, on staging. On the Mac's
+  Chrome, on a series' page with no film playing, open DevTools' console and run
+  `const t = Date.now(); while (Date.now() - t < 2000) {}`. Passes when the core's log has, from
+  that page, `the page froze 2.0 s (long task) on screen=series-page filmPlaying=false hidden=false`
+  (a few tenths more is fine); run it three times within five seconds: one more line comes about five
+  seconds after the first, saying `1 more since`. Then on the Fire TV, the next time its focus seems
+  stuck, the log says whether its page froze and on which screen.
+  (`web/apps/web/src/page-freezes.ts`, `client-main.tsx`; `web/packages/player/src/main-thread.ts`)

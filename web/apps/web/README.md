@@ -45,6 +45,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   home with the dialog open (a guest's `/together` never opens it), and `/casting` to the Play page of the cast's film, else home
   (`src/old-addresses.tsx`). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
+- **Every page's freezes of a second or more are told to the core's log** (`src/page-freezes.ts`,
+  started once in `client-main.tsx`), found the one way the player finds a playback's (the SDK's
+  `watchFreezes`, which loads no player: the browser's long tasks, else a timer's lateness on a shown page), with the
+  screen's route name, whether a film plays and whether the page was hidden, at most one report each
+  `pageFreezeReportEveryMs` (5 s), those within it told together at its end. A Fire TV's focus stuck
+  on a series' season row for many presses and nothing said whether the page had frozen (the owner,
+  staging, 2026-10-30; VQ198). `src/page-freezes.test.ts`.
 - **A debug tool shows only to a person who shows them, and is marked one way** (the owner,
   2026-10-29): a control or readout for testing is wrapped in `DebugTool` (`src/debug-tools.tsx`),
   which renders it only while the signed-in person's own Show debug tools is on, off until they turn

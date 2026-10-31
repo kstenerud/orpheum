@@ -203,7 +203,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   from the browser's long tasks where it reports them (Chromium, Silk), else from a timer's
   lateness while the film plays on a shown page. A Fire TV's page froze about 10 s after a skip
   back, its picture then running fast to catch up, and nothing said so (staging, 2026-10-29;
-  VQ121). `main-thread.test.ts`, `chunked.test.ts`.
+  VQ121). How a freeze is found is the SDK's `watchFreezes`, the one way for the whole page: the
+  web app reports every page's freezes through it too (its `page-freezes.ts`). `main-thread.test.ts`,
+  `chunked.test.ts`.
 - **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
   with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
   `chunked.test.ts`.
