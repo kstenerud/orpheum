@@ -251,8 +251,54 @@ class AgentLimits(unittest.TestCase):
         (records / "a3.json").write_text(json.dumps({"active": time.time() - 5, "stopped": time.time()}))
         self.assertEqual(self.launch(records, model="sonnet"), "")
         (records / "a2.json").write_text(json.dumps({"active": time.time() - 3600}))
-        (records / "a4.json").write_text(json.dumps({"active": time.time()}))
+        self.act(records, "a4")  # the agent just launched, first acting
         self.assertEqual(self.launch(records, model="sonnet"), "", "an agent silent for an hour is not running")
+
+    def act(self, records: Path, agent: str) -> str:
+        said = run_hook("on_tool_done.py", {"agent_id": agent, "tool_name": "Read"}, ORPHEUM_AGENTS_STATE_DIR=str(records))
+        return said.get("hookSpecificOutput", {}).get("additionalContext", "")
+
+    def test_agents_launched_in_one_message_count_before_they_first_act(self):
+        import time
+        records = self.records()
+        for _ in range(3):
+            self.assertEqual(self.launch(records, model="sonnet"), "")
+        self.assertEqual(self.launch(records, model="sonnet"), "deny", "three launched, none acted yet")
+        for agent in ("a1", "a2"):
+            self.act(records, agent)
+        self.assertEqual(self.launch(records, model="sonnet"), "deny", "an agent acting takes up its launch")
+        (records / ".launches").write_text(json.dumps([time.time() - 600]))
+        self.assertEqual(self.launch(records, model="sonnet"), "", "a launch whose agent never started lapses")
+
+    def test_a_silent_agent_counts_while_its_command_runs_and_not_once_it_died(self):
+        import time
+        records = self.records()
+        quiet = time.time() - 6 * 60
+        for agent in ("a1", "a2", "dead"):
+            (records / f"{agent}.json").write_text(json.dumps({"active": quiet}))
+        os.utime(records / "dead.json")
+        self.assertEqual(self.launch(records, model="sonnet"), "", "silent six minutes and no process: died")
+        command = subprocess.Popen(["sleep", "30"], env={**os.environ, "ORPHEUM_AGENT_ID": "a1"})
+        self.addCleanup(lambda: (command.kill(), command.wait()))
+        (records / ".launches").unlink()
+        (records / "a3.json").write_text(json.dumps({"active": time.time()}))
+        self.assertEqual(self.launch(records, model="sonnet"), "", "a1 waits on a command: a1 and a3 running")
+        self.assertEqual(self.launch(records, model="sonnet"), "deny", "and the launch just noted")
+        subprocess.run([sys.executable, str(HOOKS / "agents.py"), "stopped", "a1"], check=True,
+                       env={**os.environ, "ORPHEUM_AGENTS_STATE_DIR": str(records)})
+        self.assertEqual(self.launch(records, model="sonnet"), "", "the lead marked a1 stopped")
+
+    def test_parallel_calls_lose_no_count_and_a_resumed_agent_starts_anew(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        records = self.records()
+        with ThreadPoolExecutor(8) as pool:
+            list(pool.map(lambda _: self.act(records, "a1"), range(16)))
+        self.assertEqual(json.loads((records / "a1.json").read_text())["calls"], 16)
+        (records / "a1.json").write_text(json.dumps({"active": 1.0, "calls": 170, "reminded": 150,
+                                                     "stopped": time.time()}))
+        self.assertEqual(self.act(records, "a1"), "", "resumed by a message: a new brief, a new count")
+        self.assertEqual(json.loads((records / "a1.json").read_text())["calls"], 1)
 
     def test_an_agent_past_its_briefs_size_is_told_to_report_and_stop(self):
         records = self.records()
@@ -269,8 +315,22 @@ class AgentLimits(unittest.TestCase):
                          {}, "the session itself is not counted")
         sys.path.insert(0, str(HOOKS))
         import on_tool_done  # noqa: PLC0415
-        self.assertIsNotNone(on_tool_done.reminder(175))
-        self.assertIsNone(on_tool_done.reminder(176))
+        self.assertIsNotNone(on_tool_done.reminder(175, 150))
+        self.assertIsNone(on_tool_done.reminder(176, 175))
+        self.assertIsNotNone(on_tool_done.reminder(152), "a count that skipped 150 still reminds")
+        self.assertIsNone(on_tool_done.reminder(160, 152))
+
+    def test_the_records_directory_is_asked_of_git_once_not_once_per_record(self):
+        from unittest import mock
+        sys.path.insert(0, str(HOOKS))
+        import agents  # noqa: PLC0415
+        agents._git_agents_dir.cache_clear()
+        real, asked = subprocess.run, []
+        with mock.patch.dict(os.environ, {"ORPHEUM_AGENTS_STATE_DIR": ""}), \
+                mock.patch.object(agents.subprocess, "run", lambda *a, **k: asked.append(a) or real(*a, **k)):
+            for _ in range(5):
+                agents.state("nobody", ROOT)
+        self.assertEqual(len(asked), 1, "6,012 records asked git 12,000 times and held a launch 7 s (2026-10-31)")
 
     def test_the_settings_register_them(self):
         hooks = json.dumps(json.loads((ROOT / ".claude" / "settings.json").read_text())["hooks"])

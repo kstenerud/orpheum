@@ -17,8 +17,10 @@ CALL_LIMIT = 150
 CALL_REMINDER = 25
 
 
-def reminder(calls: int) -> str | None:
-    if calls < CALL_LIMIT or (calls - CALL_LIMIT) % CALL_REMINDER:
+def reminder(calls: int, reminded: int = 0) -> str | None:
+    """The reminder due at this call, given the call last reminded at (0: never). Due from CALL_LIMIT, then
+    CALL_REMINDER calls after the last, so a count that skips a number still reminds."""
+    if calls < CALL_LIMIT or (reminded and calls - reminded < CALL_REMINDER):
         return None
     return (f"This is your tool call {calls}; a brief is sized for about {CALL_LIMIT}. Commit what works, "
             "report what is done and what is left, and stop: the lead splits the rest or finishes it.")
@@ -29,8 +31,10 @@ def main() -> None:
     agent_id = event.get("agent_id")
     if not agent_id:
         return
-    said = reminder(agents.count_call(str(agent_id)))
+    calls, reminded = agents.count_call(str(agent_id))
+    said = reminder(calls, reminded)
     if said:
+        agents.mark_reminded(str(agent_id), calls)
         json.dump({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": said}}, sys.stdout)
 
 
