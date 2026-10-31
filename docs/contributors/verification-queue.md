@@ -2096,3 +2096,39 @@ An item is ticked only by the person who did it, and only with what they saw.
   orpheum-release-record-v1 -f ~/.ssh/orpheum-root-2 release.json` then `discovery-sign seal` gives the
   same record. Then `discovery-sign root-set --remove` of the first key with the third plugged in
   writes set 2. (`cmd/discovery-sign`, `discovery/trust`)
+- [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer and identity (D391 §3,
+  D393 §4). Owed first: staging connect publishes its root chain and a signed address document at
+  its issuer's `/.well-known/` paths (connect's change, after VQ211's ceremony for staging's keys). On
+  staging's System page as admin, Leave the discovery, then type staging's issuer (its name alone) and
+  your password, and Connect. Passes when the page shows the discovery's name and an identity `od1-…`
+  to compare, which matches the one `discovery-sign` printed for staging's genesis; "They are the
+  same: connect" enrols, the page then shows the identity and the root keys' fingerprints, which match
+  `ssh-keygen -lf` of the keys; the account key claims it as before; an invitation's link opens at the
+  client origin the document names; `trust-discovery` in the core's persistent directory holds the
+  chain and the document; and the core's heartbeat names root version 1. Then a wrong password
+  refuses with "That isn't your password", and the suggested name refuses saying the server doesn't
+  know its keys until `suggested.go` holds the genesis. (`internal/core/discovery/document.go`,
+  `internal/core/api/discovery.go`, `web/apps/web/src/system-discovery.tsx`)
+- [ ] **VQ211** — the owner's day-one ceremony with the YubiKeys, on the Mac (D393; the root key
+  audit's §4). Follow docs/users/discovery-signing.md's "Day one" for staging's chains first. Passes
+  when each `ssh-keygen -t ed25519-sk -O resident -O verify-required …` asks for the PIN and a touch;
+  each genesis signed by every key `check`s; a signature made with a key whose credential was made
+  without `-O verify-required` is refused by `check` ("made without the key's PIN"); each key's drill
+  is named by `check --kind drill`; `ssh-keygen -Y verify` on a second machine accepts each genesis;
+  `ssh-keygen -K` on that machine brings each key's stub back. Then a rotation: `root --remove
+  e1.pub --add-everyday e3.pub`, signed by `e2` and `e3`, `check`s, and signed by `e1` alone is
+  refused. (`cmd/discovery-sign`, `discovery/trust`)
+- [ ] **VQ220** — a household installs through the bootstrap, which checks the release before running
+  anything (D393 §8; the audit's §3.9), on the amd box from nothing. After VQ211 and a signed record
+  published with a release: `curl -fsSL <the bootstrap's address> | sh -s -- --media /path/to/films`.
+  Passes when it prints the SHA-256 the release page prints for the script (`sha256sum`), says
+  "installing Orpheum <latest>, <repository>@sha256:…", the server comes up as with the install script
+  alone, and `.env` names the image by that digest; then with the record's `.sig` replaced by another
+  key's, it says "the release record's signature does not hold" and pulls nothing (`docker images`
+  unchanged). (`cmd/discovery-sign/bootstrap.sh`)
+- [ ] **VQ221** — the watcher tells the owner of a signature it did not make (the audit's F4), on
+  nas.example. Run `go run ./cmd/discovery-watch --expected ~/ledger/expected --place <staging's issuer>`
+  after VQ210: it says every signature is the owner's. Then publish, by hand, a root statement or
+  address document signed by a test key outside the ledger at one place. Passes when the next run
+  exits non-zero naming that file, the key's fingerprint and its counter, and its timer's alert reaches
+  the owner's phone. (`cmd/discovery-watch`)

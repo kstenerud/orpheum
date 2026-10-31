@@ -818,3 +818,46 @@ signatures with `proof.Verify`/`Nonces.Spend` bound to the issuer (`proof.Signed
 the API's URL; stop naming `clientOrigin`/`loaderOrigin` in the status (the fields are gone from
 `discoveryproto.StatusResponse`) and drop `POST /release`; its tests take keys from
 `discovery/trust/trusttest`. VQ210 (staging's core by issuer), VQ211 (signing with a YubiKey).
+
+## D393's root key design, built (2026-10-31)
+
+The audit's §3 replaces the root key set, the JSON envelope, the online key's delegation and the
+discovery-signed release record of the section above; the rest of it (enrolment by issuer, one Go
+file for the suggestion, the domain-name test, the install's closing line) stands.
+
+- **Formats** (`discovery/trust`): the strict line format (header `orpheum-signed <type> <format>`,
+  LF lines, keys in order, unknown lines skipped, `!`-critical ones refused, a format number unknown
+  refused), a payload and its detached `.sig` of one or more SSH signatures; namespaces
+  `orpheum-discovery-root-v1`, `orpheum-discovery-address-v1`, `orpheum-publisher-root-v1`,
+  `orpheum-release-v1`, reserved `orpheum-discovery-freshness-v1` and `orpheum-drill-v1`. A root
+  statement: `chain`, `id` (none in the genesis, whose SHA-256 in base32 is the id, `od1-`/`op1-`),
+  `version`, `issued`, `key <role> <uv|-> <type> <base64> <label>`*, `threshold <role> <n>`*,
+  `removed <fingerprint>`* (cumulative), `location`*; a `delegate` line is reserved and ignored (D393
+  §9). The address document and release record are the audit's §3.1 lines.
+- **Verification** (§3.2): the namespace from the type expected, SHA-512 or SHA-256, the key byte for
+  byte one expected, of three types, and for a `uv` key the user-verified flag, checked by Orpheum.
+- **Following a chain** (§3.4): the next version by an everyday key when only the everyday tier
+  changes, else by a recovery key; any later version, skipping, by a recovery key alone; removed keys
+  stay named; a leaving signer has the new set sign too; two statements of one version refused unless
+  one is a recovery key's, a later recovery skip resolving it; a statement differing from one accepted
+  is a conflict said. Every row of §3.6 is a test (`TestRotation_*`).
+- **The core** (§3.3, §3.5, §3.8): `trust-discovery` and `trust-publisher`, statements as received,
+  checked again at each start; enrolment by issuer and identity (`POST /system/discovery/identify`
+  shows it, the admin confirms; the suggested one from the compiled genesis); every place used in the
+  past year asked hourly, floors `(root version, sequence)`, equivocation and changed digests refused
+  and said, expiry warned; `caught-up` per run; the heartbeat's `rootVersion` and `rootHash` (F17);
+  signatures bound to the identity (F14). The publisher root's genesis is compiled in
+  (`suggested.go`, empty until the ceremony: a release build then reads no record, and says so).
+- **Automatic installs wait 24 hours** from first sight (`Release.MayInstallAutomatically`); Part C
+  is not built, and security-updates.md's Part C says it must ask the core.
+- **The tools:** `cmd/discovery-sign` (genesis, root, address, drill, check, publish, bootstrap; it
+  prints the `ssh-keygen -Y sign` command rather than running it, since starting a process is
+  `execx`'s alone, and never uses an agent, F16), `cmd/discovery-watch` (every signature at every
+  place against the ledger), `cmd/release-record` (the line format, `--id`, `--root-version`,
+  `--pull`). The install verifies before it runs anything through the bootstrap `discovery-sign
+  bootstrap` writes (§3.9); `orpheum verify-release` and `install.sh --release-record` are gone.
+
+**Owed by the owner:** the day-one ceremony (VQ211) and the genesis statements in `suggested.go`; a
+one-line forbidigo exclusion for `cmd/discovery-sign` if the tool should run `ssh-keygen` itself; the
+release workflow's `release-record` step. **Owed by connect:** see the batch report. VQ210, VQ211
+(rewritten for D393), VQ220 (the bootstrap), VQ221 (the watcher).
