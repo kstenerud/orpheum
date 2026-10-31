@@ -43,6 +43,9 @@ type Invitation struct {
 	// zero time when none does.
 	LiveLinks int
 	ExpiresAt time.Time
+	// Links are its live links while it waits, oldest first, each to pass on again until it is
+	// used, withdrawn or ends (D267 §5, which the owner chose for invitations, 2026-10-28).
+	Links []IssuedSecret
 	// MadeUserID and MadeName are the account its use made, zero while it waits; MadeAt is when.
 	MadeUserID int64
 	MadeName   string
@@ -145,15 +148,20 @@ func (service *Service) issueInvitationLink(
 // Invitations are every invitation, newest first: those waiting, with their links, and those used,
 // with the account each made.
 func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
-	rows, err := service.database.Read().ListInvitations(ctx, new(service.clock.Now().UnixMilli()))
+	now := new(service.clock.Now().UnixMilli())
+	rows, err := service.database.Read().ListInvitations(ctx, now)
 	if err != nil {
 		return nil, fmt.Errorf("list invitations: %w", err)
+	}
+	links, err := service.liveInvitationLinks(ctx, now)
+	if err != nil {
+		return nil, err
 	}
 	invitations := make([]Invitation, 0, len(rows))
 	for _, row := range rows {
 		invitation := Invitation{
 			ID: row.ID, Role: Role(row.RoleName), AdminNote: row.AdminNote, IssuedAt: time.UnixMilli(row.IssuedAt),
-			LiveLinks: int(row.LiveLinks),
+			LiveLinks: int(row.LiveLinks), Links: links[row.ID],
 		}
 		if row.LiveLinks > 0 {
 			invitation.ExpiresAt = time.UnixMilli(row.LastExpiresAt)
@@ -165,6 +173,27 @@ func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
 		invitations = append(invitations, invitation)
 	}
 	return invitations, nil
+}
+
+// liveInvitationLinks are the live links of the invitations still waiting, by invitation, each
+// opened from its sealed secret; a link that does not open is left out, still live, and another
+// can be sent.
+func (service *Service) liveInvitationLinks(ctx context.Context, now *int64) (map[int64][]IssuedSecret, error) {
+	rows, err := service.database.Read().ListLiveInvitationLinks(ctx, now)
+	if err != nil {
+		return nil, fmt.Errorf("list the invitations' live links: %w", err)
+	}
+	links := map[int64][]IssuedSecret{}
+	for _, row := range rows {
+		secret := service.openLink(row.SecretSha256, row.LinkSealed)
+		if secret == "" || row.ExpiresAt == nil {
+			continue
+		}
+		links[row.InvitationID] = append(links[row.InvitationID], IssuedSecret{
+			Secret: secret, ExpiresAt: time.UnixMilli(*row.ExpiresAt),
+		})
+	}
+	return links, nil
 }
 
 // WithdrawInvitation withdraws an invitation still waiting: every link of it admits no one from now

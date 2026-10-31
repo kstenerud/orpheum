@@ -3,10 +3,18 @@
 
 import "./i18n.ts";
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { People } from "./people.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -38,6 +46,7 @@ const waiting = {
   issuedAt: 1,
   liveLinks: 0,
   expiresAt: 0,
+  links: [],
 };
 const used = {
   id: 6,
@@ -46,8 +55,66 @@ const used = {
   issuedAt: 1,
   liveLinks: 0,
   expiresAt: 0,
+  links: [],
   made: { userId: 4, name: "Gran", at: 1_790_000_000_000 },
 };
+
+it("shows a waiting invitation's live links again, each with Copy (D267 §5)", async () => {
+  const live = {
+    ...waiting,
+    liveLinks: 2,
+    expiresAt: 1_790_000_000_000,
+    links: [
+      { secret: "first-secret", expiresAt: 1_789_000_000_000 },
+      {
+        secret: "second-secret",
+        expiresAt: 1_790_000_000_000,
+        link: "https://discovery.example/register#core.second-secret.print",
+      },
+    ],
+  };
+  const copied: string[] = [];
+  const clipboard = { writeText: (text: string) => Promise.resolve(void copied.push(text)) };
+  vi.stubGlobal("isSecureContext", true);
+  vi.stubGlobal("navigator", { ...globalThis.navigator, clipboard });
+  try {
+    mounted = await mount(
+      withServices(
+        <People />,
+        servedBy({
+          "GET /users": [200, { accounts: [] }],
+          "GET /roles": [200, roles],
+          "GET /libraries": [200, { libraries: [] }],
+          "GET /invitations": [200, { invitations: [live, used] }],
+        }),
+      ),
+    );
+    const waitingList = mounted.container.querySelector(
+      'section[aria-labelledby="people-invitations"]',
+    );
+    const shown = [...(waitingList?.querySelectorAll(".share__link") ?? [])].map(
+      (link) => link.textContent,
+    );
+    expect(shown).toHaveLength(2);
+    expect(shown[0]).toMatch(/\/register#first-secret$/u);
+    expect(shown[1]).toBe("https://discovery.example/register#core.second-secret.print");
+    const copies = [...(waitingList?.querySelectorAll("button") ?? [])].filter(
+      (button) => button.textContent === "Copy",
+    );
+    expect(copies).toHaveLength(2);
+    await click(copies[1] ?? null);
+    await settleUntil(() => copied.length === 1);
+    expect(copied).toEqual(["https://discovery.example/register#core.second-secret.print"]);
+    await settleUntil(() => waitingList?.textContent.includes("Copied.") === true);
+    // A used invitation's link is its person's own now, never shown here.
+    const usedList = mounted.container.querySelector(
+      'section[aria-labelledby="people-used-invitations"]',
+    );
+    expect(usedList?.querySelector(".share__link")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
 
 it("sends a waiting invitation another link, and names the person a used one made (D318, D311 §4)", async () => {
   const heard: Heard[] = [];

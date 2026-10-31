@@ -1981,3 +1981,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes to the discovery's sign-in, with no core sign-in drawn on the way. (2) The same on the Fire TV,
   by remote: the question takes focus, Back cancels it, OK on Sign out signs out to the discovery's
   sign-in. (`web/apps/web/src/app-shell.tsx`, `loader-at-client-origin.tsx`, `app.tsx`)
+- [ ] **VQ201** — an invitation's link is shown again and copied, on staging. On the Mac's Chrome as
+  admin, People: invite someone, reload the page. Passes when the waiting invitation shows its link
+  with when it ends and Copy, Copy says "Copied." and pasting gives the link; Send another link adds a
+  second one below the first. Open one link in Firefox and register: the invitation moves to those
+  used and no link of it shows. Withdraw another invitation: it and its links are gone. Then on the
+  S23's Chrome, Copy on a waiting invitation copies its link too. (`web/apps/web/src/people.tsx`,
+  `share.tsx`; `internal/core/auth/invitations.go`)

@@ -288,6 +288,9 @@ export const en = {
   share: {
     link: "It works once, until {{expires}}.",
     togetherLink: "It works once, for the person you made it for, while the session lasts.",
+    copy: "Copy",
+    copied: "Copied.",
+    copyRefused: "This browser would not copy it; select the link above instead.",
   },
   about: {
     heading: "About",

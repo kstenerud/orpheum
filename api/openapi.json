@@ -2681,6 +2681,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "links": {
+            "description": "Its live links, oldest first, to pass on again; none once used",
+            "items": {
+              "$ref": "#/components/schemas/IssuedSecretBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "liveLinks": {
             "description": "Its links that still work; another link leaves them live",
             "format": "int64",
@@ -2700,7 +2710,8 @@
           "adminNote",
           "issuedAt",
           "liveLinks",
-          "expiresAt"
+          "expiresAt",
+          "links"
         ],
         "type": "object"
       },

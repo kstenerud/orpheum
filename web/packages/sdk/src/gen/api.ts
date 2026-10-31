@@ -3324,6 +3324,8 @@ export interface components {
              * @description Unix milliseconds
              */
             issuedAt: number;
+            /** @description Its live links, oldest first, to pass on again; none once used */
+            links: components["schemas"]["IssuedSecretBody"][] | null;
             /**
              * Format: int64
              * @description Its links that still work; another link leaves them live

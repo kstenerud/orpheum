@@ -381,6 +381,34 @@ func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *test
 		http.StatusNotFound, api.CodeNotFound)
 }
 
+// The admin's list shows each waiting invitation's live links again, to pass on, until one is used
+// (D267 §5, as the owner chose for invitations, 2026-10-28).
+func TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	invitation := harness.invite(t, admin, "user", "the neighbour")
+	listedLinks := func() []api.IssuedSecretBody {
+		var listed api.InvitationsOutput
+		answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+		if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || len(listed.Body.Invitations) != 1 {
+			t.Fatalf("GET /invitations = %d %s", answer.status, answer.body)
+		}
+		return listed.Body.Invitations[0].Links
+	}
+	if links := listedLinks(); len(links) != 1 || links[0].Secret != invitation.Link.Secret ||
+		links[0].ExpiresAt != invitation.Link.ExpiresAt {
+		t.Errorf("the invitation's links = %+v; want its link, %+v, to pass on again", links, invitation.Link)
+	}
+	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": invitation.Link.Secret, "name": "neighbour", "password": "neighbour-password", "device": testDevice,
+	})
+	readSignIn(t, registered)
+	if links := listedLinks(); len(links) != 0 {
+		t.Errorf("the used invitation's links = %+v; want none", links)
+	}
+}
+
 // invite makes an invitation into role, with the admin's note, and returns it and its link.
 func (harness testHarness) invite(t *testing.T, admin, role, note string) InvitationAndLink {
 	t.Helper()
