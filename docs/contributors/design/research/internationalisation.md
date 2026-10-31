@@ -321,8 +321,8 @@ zh-u-co-stroke   王五 | 张三 | 李四 | 陈七 | 赵六                  ←
 ja               あさひ | さくら | サクラ | ざくろ | 亜              ← kana equivalence ✓
 
 mixed library, en:
-  collate:   Wing | Ångström | Éire | Ørsted | über | Zarvo | Броненосец Потёмкин | 十字
-  codepoint: Wing | Zarvo | Ångström | Éire | Ørsted | über | Броненосец Потёмкин | 十字
+  collate:   Arrow | Ångström | Éire | Ørsted | über | Zulu | Матрица | 千と千尋
+  codepoint: Arrow | Zulu | Ångström | Éire | Ørsted | über | Матрица | 千と千尋
 ```
 
 The mixed-library line is the whole argument in one row: naive ordering dumps every accented

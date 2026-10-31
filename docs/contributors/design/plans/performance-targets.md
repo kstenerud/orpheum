@@ -109,7 +109,7 @@ exists. Every one is **p99 at 5 concurrent sessions** unless stated.
 | **Click depth** — home to playing a chosen title ([D138](../../decisions/working-notes.md)) | **unset** | a count, not a latency; the complaint is *"one click instead of 30"* |
 | **Subtitle candidate scoring** ([D147](../../decisions/working-notes.md)) | **< 100 ms** for ten candidates | **Measured**: 3–8 ms each for the full ±60 s × 7-ratio search, given a stored speech map |
 | **Speech-map pass**, per 2-hour film ([D148](../../decisions/working-notes.md)) | **< 2 min** | **Measured**: ~32 s — 2,065× realtime to decode, 233–387× for the detector |
-| **Collection page: Next Up over the largest realistic sequence** ([D160](../../decisions/working-notes.md)) | < 50 ms | **Measured**: **14.8 ms** computed at 976 members (every Star Wren). Flatten alone is 1.2 ms and nesting depth is free |
+| **Collection page: Next Up over the largest realistic sequence** ([D160](../../decisions/working-notes.md)) | < 50 ms | **Measured**: **14.8 ms** computed at 976 members (every entry of a long-running franchise). Flatten alone is 1.2 ms and nesting depth is free |
 | **Continue Watching row for a collection**, on the home page | **< 5 ms** | **Measured**: **0.01 ms** maintained; 14.8 ms computed, which fails [D134](../../decisions/working-notes.md) |
 
 The gap between target and baseline is deliberate and large: these are **regression gates**,

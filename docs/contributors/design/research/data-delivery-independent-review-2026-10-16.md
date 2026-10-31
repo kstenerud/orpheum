@@ -1,6 +1,6 @@
 > **ABOUTME:** An independent review of the data-delivery and caching research of 2026-10-16
 > (DD1–DD13), from a web performance engineer's and API designer's seat, with evidence the first
-> report did not have: the owner's saved Quillwick page (80,270 episodes, 45 s to draw). The
+> report did not have: the owner's saved series page (80,270 episodes, 45 s to draw). The
 > Firefox warning was a quadratic grouping function in the series page fed an unbounded response,
 > not polling or a long grid; the report's ranking of causes is rejected. Verdicts on DD1–DD13;
 > nine missing principles (MD1–MD9), the first being that no response and no render grows without
@@ -92,14 +92,14 @@ Smaller verdicts:
   `orpheum-connect/internal/webclient/webclient.go`, `policyOf`). The owner is on HTTP/2 or on
   WebRTC.
 
-## 2. The new evidence: what the Quillwick page cost
+## 2. The new evidence: what the series page cost
 
 The owner's saved page has **80,270 numbered entries**, ids 607 to 1,244,212 (measured with `grep`
 on the file). 80,246 of them read "not on disk" with no name. That is the filing bug fixed in
 Earlier commits. Below, each stage of drawing the page, sized from the code and measured
 on a synthetic body of the same shape:
 
-| Stage | Where | Cost at 80,270 | Cost at 751 (The Pumbletons, if one "season") |
+| Stage | Where | Cost at 80,270 | Cost at 751 (another series, if one "season") |
 | --- | --- | --- | --- |
 | Server: queries | `library/detail.go:127-160`: 7 statements, two of which pass all 80,270 ids as one JSON array | not measured; constant in count, linear in rows | — |
 | Server: encode | `api/browse.go:315-352` | **9.4 MB JSON in 98 ms; gzip would be 230 KB in 55 ms (measured, Go)** | 88 KB, 0.8 ms |
@@ -140,7 +140,7 @@ this table. What hurt the owner was data a bug produced, and a sound client surv
 
 **DD2, one keyed client cache. *Agree, amend.***
 - **Bound it by bytes as well as entries.** `Remembered`'s count of 50 held about 450 MB of
-  Quillwick at worst.
+  the series at worst.
 - **Have the cache send `If-None-Match` itself.** On the WebRTC path no browser cache sits
   underneath (F5).
 - **Let rule 11's convergence take in `usePages` and `useRequest`**, not only `useResource` and
@@ -328,7 +328,7 @@ shows contention *(later)*.
 - **Where:** `browse.sql:149-163`; `library/detail.go:136-155`; `api/browse.go:315-352`;
   `series.tsx:131-169`, `180-190`; `app.tsx:167-174`.
 - **Cost:**
-  - each poll and each season click moves the whole series: 9.4 MB at Quillwick's count,
+  - each poll and each season click moves the whole series: 9.4 MB at the series' count,
     re-stringified on every answer;
   - two of the seven statements bind every episode id as one JSON array
     (`shownArtSourceSha256s`, `unreadableItems`), about 640 KB of parameter text at 80,270.
@@ -371,7 +371,7 @@ shows contention *(later)*.
 **F6. A series list page reads every live file of every episode of its series.**
 - **Where:** `readable.go:138-176` with `ListLiveFileLocationsOfSeries` (`browse.sql:175-184`),
   called for `kind=series` from `finishPage` (`readable.go:114-136`).
-- **Cost:** the rows grow with episodes, not with the page's 60 series. A page holding The Pumbletons
+- **Cost:** the rows grow with episodes, not with the page's 60 series. A page holding one series
   alone returns at least 751 rows, and the loop needs only the first readable one per series. The
   same applies on every poll and every page re-read (F3). This breaks DL6.
 - **Fix:** one row per series. Either the first readable location, which needs the readability

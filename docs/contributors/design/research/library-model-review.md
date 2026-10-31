@@ -27,10 +27,10 @@ Read as that proposal describes it, the object model is four record types:
 
 | EIDR level | Meaning | Example |
 | --- | --- | --- |
-| **Abstraction** | the work in its most general form | *Glass Runner* |
-| **Edit** | a **creative cut** — theatrical, director's, a censored broadcast version | *Glass Runner: The Final Cut* |
+| **Abstraction** | the work in its most general form | *a film* |
+| **Edit** | a **creative cut** — theatrical, director's, a censored broadcast version | *a film's director's cut* |
 | **Manifestation** | a **technical representation** — an encoding, a resolution, a language version | that cut, 2160p HDR10 |
-| **Collection** | a grouping container — **Series, Season, Compilation** | *Brass Arena*, season 2, a box set |
+| **Collection** | a grouping container — **Series, Season, Compilation** | *a series*, season 2, a box set |
 
 This is FRBR's Work / Expression / Manifestation / Item applied to film, and it is not
 academic: it is the model the industry actually registers against.
@@ -47,7 +47,7 @@ Collection   →  (unstated)
 
 ### Where the collapse breaks, concretely
 
-A user has *Glass Runner: The Final Cut* as **1080p in two parts** (`CD1.avi`, `CD2.avi`) and
+A user has *a film's director's cut* as **1080p in two parts** (`CD1.avi`, `CD2.avi`) and
 also as **a single 4K file**. That is one Title, one Edition, **two manifestations**, three
 files.
 
@@ -112,7 +112,7 @@ Edition is the level at which "the same content" is true.
 you have seen the film. Resume position cannot roll up; a watched *flag* could. Decide in the
 UI, not the schema.)
 
-**Names attach at Title *and* Edition**, because "Glass Runner" and "The Final Cut" are both
+**Names attach at Title *and* Edition**, because a film's own name and its edition's name are both
 names and both need [D45](../../decisions/working-notes.md)'s translation treatment. So the
 displayed title is a **composition** of two translated strings, which affects the sort key
 ([D47](../../decisions/working-notes.md)) and the FTS row

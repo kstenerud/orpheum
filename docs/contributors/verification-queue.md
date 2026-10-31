@@ -115,12 +115,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
   subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
   (`internal/core/providers/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
-- [x] **VQ12** — On the dev loop, on the Mac, in Chrome and then in Safari: play *Wing*
-  (director's cut) from the real films (`/play/42`) and then *Back to the Lantern* (`/play/59`),
+- [x] **VQ12** — On the dev loop, on the Mac, in Chrome and then in Safari: play *file 42*
+  (director's cut) from the real films (`/play/42`) and then *file 59* (`/play/59`),
   once both are measured (the job view lists `measure_loudness` jobs until then). Under the video,
-  **Level loudness** is on and says Wing is raised about 13 dB; with the volume untouched, the
-  two play at about the same level, and Wing's dialogue is clear with the Mac's volume where it
-  is for other films. Turn **Level loudness** off: Wing is quiet again at once, and the note says
+  **Level loudness** is on and says file 42 is raised about 13 dB; with the volume untouched, the
+  two play at about the same level, and file 42's dialogue is clear with the Mac's volume where it
+  is for other films. Turn **Level loudness** off: file 42 is quiet again at once, and the note says
   it plays as it was mixed; reload, and it stays off. Turn it back on. Play a film whose sound is
   prepared (one with 5.1 sound, on built-in speakers): it is levelled too, and switching the dialogue
   boost changes the voices, not the whole film's level (D226).
@@ -400,7 +400,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when the film goes on after a short stall, at most about ten seconds, with no reload: the
   page replaced the connections the move left behind (plans/webrtc-transport.md W2d).
   — done 2026-10-14 by the owner, against staging at an earlier commit with the offer trimming that followed
-  it, on Chrome for Android: Wild Rex 2 played over four punched connections on Wi-Fi; Wi-Fi went off
+  it, on Chrome for Android: a film played over four punched connections on Wi-Fi; Wi-Fi went off
   about 30 seconds in, and four relayed connections replaced them at 20:55:16–22 UTC with no reload.
   The buffer covered the gap, so no stall was seen: *"It's still playing (1:35) and hasn't suffered
   any hiccups or sound glitches"*.
@@ -790,8 +790,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   there instead stays a film's second version, and a file of the same payload with other bytes is
   logged `and other bytes: they stay two files`. (`internal/core/library/copies.go`, `playable.go`)
   Seen 2026-10-27 (the lead, on staging): the copy merged within half a second (`one file at two
-  places from now on`, copy 12304 into file 12168), each library lists Sync Fig as item 5285, the
-  doctor names both paths (and found two real pairs: The Pumbletons S28E14 and S28E15 are one file, and
+  places from now on`, copy 12304 into file 12168), each library lists the sync-test clip as item 5285, the
+  doctor names both paths (and found two real pairs: two episodes of an animated series are one file, and
   two Insex videos); a person whose role reached only the copy's library saw the film, no path, and
   played it, and with the copy renamed away was refused (404) though the original stood: only the
   reached place is read. Not seen: the fall-back to the copy. A file renamed away, or its library
@@ -887,24 +887,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   also sat still at 1231.3 s for 50 s; a second run played on: perhaps the throttling's own); the
   boost at the top switches to the boosted mix. Left for the owner: the Mac's Chrome, loudness and
   blips by ear, the boost kept across steps.
-  **The owner's run 2026-10-29 (Chrome on the Mac, Back to the Lantern, file 5682, over HTTP):** throttled
+  **The owner's run 2026-10-29 (Chrome on the Mac, file 5682, over HTTP):** throttled
   to 3G it stepped down to the lowest quality with no hiccup heard; freed, it climbed one quality a
   minute (11:25:36 to level 1, 11:26:43 to level 2, each shown about 31 s after its step, the forward
   buffer's 30 s below the top), and was paused before reaching the film's own picture: one quality at a
   time after drops, as D352 §3 has it. Faster climbing after a clean recovery is filed with the
-  step-up research for the next batch. Left: a 5.1 film's own sound (Thimbleford, 5712), the boost.
-  **The owner's run 2026-10-29, Thimbleford (5712), Chrome on the Mac over HTTP:** the top played the
+  step-up research for the next batch. Left: a 5.1 film's own sound (file 5712), the boost.
+  **The owner's run 2026-10-29, file 5712, Chrome on the Mac over HTTP:** the top played the
   film's own 5.1 sound (`ladderSound=sound0-own`); throttled, it stepped down to the light stereo
   (`sound0-96k-ownlevel`) with no stall; freed, it climbed one quality a minute (as with 5682 above);
   the boost played the boosted mix and kept it across a step up, but turning it on froze 2.2 s while
   the server made the boosted mix (fixed in the batch: the loaded sound plays on until the boosted
   mix is ready). Levelling is the player's own gain and switches at once. Left: the boost fix seen.
-  **The owner's run 2026-10-29 (Chrome on the Mac, Thimbleford, 5712):** turning the boost on switched
+  **The owner's run 2026-10-29 (Chrome on the Mac, file 5712):** turning the boost on switched
   to `sound0-boost-96k-ownlevel` before the server had made it, and the video froze 2.2 s; the boost
   then played and was kept across a step up. Fixed: also passes when turning the boost on (and off)
   plays on with no freeze, the other mix heard a moment later, and the core's log says `sound <n>
   chosen (boostOn)` then `sound <n> heard (boostOn)` in the playback's link notes.
-  **Passed 2026-10-29 (the owner, Chrome on the Mac):** Thimbleford's own 5.1 sound at the top, the
+  **Passed 2026-10-29 (the owner, Chrome on the Mac):** file 5712's own 5.1 sound at the top, the
   step down to the light stereo and back, and, through the discovery over WebRTC (device 30,
   13:55–13:56), the boost turned on and off five times with no freeze: each `sound n chosen (boostOn|
   boostOff)` then `heard`, no stall reported; levelling switched at once.
@@ -941,7 +941,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   and a series' Next Up does not step back. (`web/apps/web/src/watched-mark.tsx`, `status-cues.tsx`,
   `series.tsx`, `title.tsx`; `internal/core/playback/watched.go`, `internal/core/library/watched.go`)
   **Passed 2026-10-28 (the owner, on staging):** the check on posters in Films, a library and Home,
-  readable on pale art (A Woman of Paris marked by hand), no fading; a series' check and progress; the
+  readable on pale art (a film marked by hand), no fading; a series' check and progress; the
   season's and episodes' rows; Mark as watched / Undo / Mark as unwatched on the Fire TV by the remote;
   the restart and Next Up rules. VoiceOver's "Watched" not tried: the owner, "we'll do a more complete
   voiceover later once the UI is finalized". Seen: the check in a chooser's items looks poor (moot with
@@ -967,12 +967,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   and returns to the session by it. (`web/apps/web/src/status-tray.tsx`, `cast-remote.tsx`,
   `cast-to.tsx`, `cast-ready.tsx`, `cast-receiver.tsx`, `together-plays.tsx`, `live.tsx`,
   `internal/core/live/registry.go`, `internal/core/api/casts.go`)
-  **The owner's finding on the Fire TV, 2026-10-29** (staging, device 68): the TV playing A Christmas
-  Carol (file 5664) as its own, a cast put Back to the Lantern (5682) on it; Stop casting on the Mac
-  returned the TV to The Kid, and the TV's Back then played Back to the Lantern as its own.
+  **The owner's finding on the Fire TV, 2026-10-29** (staging, device 68): the TV playing file 5664
+  as its own, a cast put file 5682 on it; Stop casting on the Mac
+  returned the TV to file 5664, and the TV's Back then played file 5682 as its own.
   Fixed, to check again: after Stop casting (or control taken back on the ready page), the remote's
   Back on the TV goes to the page before the one it returned to, never into a film the cast played.
-  **The owner's finding, 2026-10-29 ~14:00** (staging, Firefox on the Mac casting Back to the Lantern
+  **The owner's finding, 2026-10-29 ~14:00** (staging, Firefox on the Mac casting a film
   to Chrome on the Mac): turning Watch Together on from Firefox while casting made a second session,
   which the phone joined; the receiver stayed in the cast's own, paused, and the casting page's way to
   Watch Together's page led to that second session, with no film and no controls. Fixed, to check
@@ -985,7 +985,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the receiver leading the session with the film played.
 - [ ] **VQ91** — D367, Back and Up, and a library's Configure, on staging. Passes when, on a computer
   or a phone, no page shows a Back of its own and each page below the top shows its trail
-  (`Series › Copper Kettle › S1E1 Pilot`), each part leading up: (1) Continue Watching on Home → play an
+  (`Series › Show › S1E1 Pilot`), each part leading up: (1) Continue Watching on Home → play an
   episode → the browser's (or the gesture's) Back returns Home; played again, the trail's series
   shows the series at that episode's season, and Back from there returns Home, never to the player;
   (2) a series at season 1 → play its last episode and let Up next (or its button) go on into season
@@ -1008,18 +1008,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/navigation.ts`, `upward.ts`, `up-trail.tsx`, `series.tsx`, `play-up.tsx`,
   `tv-controls.tsx`, `library-configure.tsx`, `title.css`, `route-chooser.tsx`)
   **The lead's check 2026-10-28 (headless Chromium, desktop and a 390×844 phone size):** (1), (2)
-  (staging's Copper Kettle has seasons 2–4: S2E12 into S3E1), (3) (one Back still leaves the page, though
+  (staging's test series has seasons 2–4: S2E12 into S3E1), (3) (one Back still leaves the page, though
   the first choice adds a history entry), (5) by click, and (6) on the desktop and the phone size all
   hold. Left for the owner: (4), the remote's OK and Back, the iPhone's swipe, real phones.
   **The owner's findings on the Fire TV (Silk, remote only), 2026-10-29,** fixed and to check again
-  there: (7) "I went to Copper Kettle… navigated back into Copper Kettle. The page started scrolled down
+  there: (7) "I went to [a series]… navigated back into [that series]. The page started scrolled down
   (showing the episode list from ep 9 to 12), so I can't see what button is highlighted": a series
   chosen far down the Series list, and any page a link or OK opens, shows from its top (title,
   backdrop, Next Up's Play, the season picker), the first arrow starting on its first control, even
   after an episode of that series was played from Continue Watching; only Back or Up from one of its
-  episodes shows that episode's season with it focused. (8) "Pressing back from the Copper Kettle page
+  episodes shows that episode's season with it focused. (8) "Pressing back from the [a series] page
   brought me back to the top of the series list. It should bring me back to the point in the list
-  where Copper Kettle is, still highlighted": the remote's Back from a series or film opened far down
+  where [that series] is, still highlighted": the remote's Back from a series or film opened far down
   Series, Films or a library's list (past its first 60 titles too) returns to the list with that
   title focused and in view. (9) "The note about the browser asking for permission is persistently
   showing so I've dismissed it", which came back after each reload: on the Fire TV through the
@@ -1174,7 +1174,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   ~200 ms later by a seek back to where it had gone, its group's change for its own skip taken as
   another device's; fixed, to be seen again.
   **Passed 2026-10-29 (the owner, staging):** five films cast to the Fire TV each started with one play
-  and played on; one quirk filed for the next batch (seeking Thimbleford: a jump back, then 2-3 s fast with no sound).
+  and played on; one quirk filed for the next batch (seeking a 5.1 film: a jump back, then 2-3 s fast with no sound).
 - [ ] **VQ102** — in Watch Together the host's screen leads and a guest catches up to it (D371 §2,
   §6), on staging. Passes when the Mac hosts a session, casting to the Fire TV (Silk), and the
   iPhone joins as a guest on mobile data: (1) as the host plays a film, the TV starts at once and
@@ -1261,8 +1261,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   for a host and for a guest.
 - [x] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
   loaded outlasts its next chunk's load, and its dropped frames reach the log (the owner, 2026-10-28),
-  on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off: (1) The
-  Marrowgate Family, resumed part way where its first chunk ends a second or two past the resume point
+  on staging. Passes when, the Mac casting to the Fire TV (Silk) with Watch Together off: (1) a
+  series, resumed part way where its first chunk ends a second or two past the resume point
   (as at 1798.9 s on 2026-10-28), starts with one play and does not stall in its first 30 s; the
   core's log line "a playback started playing" for it has `loadedAheadMs` above `waitedForAheadMs`,
   and `waitedForAheadMs` about 1.5 times `nextChunkLoadMs`; (2) a 2-minute jump from the remote plays
@@ -1277,7 +1277,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   without `waitedForAheadMs`, even after the film page preloaded 12 s, though each played 160–300 ms
   after the page asked (whether "absent" is the right test is the owner's to say); the 2-minute seek
   holds (`readyAfterMs=307`, ~115 s loaded, no pause told).
-  **Passed 2026-10-29 (the owner, staging):** The Marrowgate Family cast to the Fire TV resumed with one play
+  **Passed 2026-10-29 (the owner, staging):** a series cast to the Fire TV resumed with one play
   (`playingAfterMs=3333 loadedAheadMs=10025 waitedForAheadMs=881`); the jumps played on, the second
   with the fast silent play filed for the next batch (VQ101's quirk).
 - [x] **VQ111** — a cast's receiver waits for enough loaded before its first play, whenever its
@@ -1340,12 +1340,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   average, as before the change: the relay's credit window did not lift it. This fits VQ117's finding
   that Chromium's own WebRTC path is the limit (the Chrome fixes and the LAN-origin tab, next batch).
 - [x] **VQ116** — a Fire TV holds its quality while plenty is loaded, and a change of sound with a
-  change of quality throws no loaded sound away (staging, 2026-10-28: device 60, file 5671 Nosferatu, one
+  change of quality throws no loaded sound away (staging, 2026-10-28: device 60, file 5671, one
   slow sample of five, 376471 B in 1200 ms, lowered the ceiling from the film's own picture to
   q700k432p with 37.3 s loaded, `chose started, ceiling 3 to 1`, and the sound's change from the
   copied `sound0-own` to `sound0-96k-ownlevel` left 2.5 s of sound against 38.6 s of picture and
   stalled the TV 1172 ms, `startedAfter=waiting stoodMs=1172`), on staging. Passes when, the Fire TV
-  (Silk) playing Nosferatu (file 5671) for 2 minutes from where it was: no "chose … ceiling a to b" step
+  (Silk) playing file 5671 for 2 minutes from where it was: no "chose … ceiling a to b" step
   down while 20 s or more is loaded ahead (a held lowering reads `held at`, with what was loaded);
   and, where the quality does change between the top and a lower one (a later step down below 20 s,
   or a step up), the stall and seek reports show the sound's buffer reaching as far as the picture's
@@ -1353,13 +1353,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   gap or blip heard. (`web/packages/player/src/abr.ts`, `link-estimate.ts`, `hls.ts`)
   **The lead's reading 2026-10-28 (staging's log):** as written it holds (no lowering with 20 s or
   more loaded; the sound's buffer reaches the picture's after each change; no `startedAfter=waiting`
-  after 15:24). But at 15:33:05 Nosferatu dropped from 9018 to 696 kb/s 2.3 s into play on an estimate of
+  after 15:24). But at 15:33:05 file 5671 dropped from 9018 to 696 kb/s 2.3 s into play on an estimate of
   69 kb/s while its picture chunks had loaded at 14–18 Mb/s, and stayed there 75 s: most likely a
   chunk given up, counted as a sample of the few bytes that came over the time waited, which a
   harmonic mean cannot outvote for five chunks. A quality switch's note now says why the controller
   chose it and its samples (`why`, `linkSamples`), so the next one says; how a given-up chunk counts
   is the owner's to decide (D352).
-  **Passed 2026-10-29 (the owner, staging):** Nosferatu on the Fire TV held its quality through seeks, and dialogue boost on and off played on with no
+  **Passed 2026-10-29 (the owner, staging):** file 5671 on the Fire TV held its quality through seeks, and dialogue boost on and off played on with no
   hang (on the receiver's own controls, reached after taking control back: the cast's remote has none yet, filed).
 - [x] **VQ117** — the Throughput probe measures where the WebRTC path's ceiling is on the owner's
   devices (webrtc-throughput-2026-10-28.md: in Chrome and Firefox here, one connection carried
@@ -1399,15 +1399,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   sampling changed in the same batch, so the counts compare roughly. (2) only one film went from the
   TV's film page to Play, one that starts on its own picture and never preloads, so it cannot show
   the fix.
-- [x] **VQ119** — A Woman of Paris plays from its start and from a resumed point (staging,
+- [x] **VQ119** — file 5667 plays from its start and from a resumed point (staging,
   2026-10-28: file 5667 on the Mac in Firefox, its own 5.1 sound copied failed chunk 0 twice, "raw
   00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not
   play, `cannot_convert`; its first keyframe is before its start, discarded, so its grid starts
-  10.176 s in), on staging once deployed. Passes when, on the Mac (Firefox or Chrome), A Woman of Paris
-  (file 5667) plays from its start with its sound, the tracks note naming its own 5.1 sound, for a
+  10.176 s in), on staging once deployed. Passes when, on the Mac (Firefox or Chrome), file 5667
+  plays from its start with its sound, the tracks note naming its own 5.1 sound, for a
   minute with no error, and again from a point resumed past the half hour; and the core's log has no
   `runs of chunks failed at the same chunk again` for `5667/chunks-sound0-own`. The same for one
-  other film of the shape (Glass Runner Final Cut, file 5691, or The Gold Rush, file 5697).
+  other film of the shape (file 5691, or file 5697).
   (`internal/node/chunks/arguments.go`, `maker.go`, `listed.go`; `internal/core/chunks/offer.go`)
   **Passed 2026-10-28 (the lead, headless Firefox on Linux against staging, and the owner's Firefox
   on the Mac):** 5667 played a minute from its start and from 2000 s, and 5691 a minute from its
@@ -1420,7 +1420,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ120** — the chunked player's link estimate of 2026-10-29 (D352's revision, P1–P6 of
   research/bandwidth-sampling-2026-10-29.md) holds a Fire TV's quality through a stuck chunk, and a
   start after a deploy rests on the link remembered before it, on staging once deployed. Do: (1) on
-  the Fire TV (Silk) over WebRTC, play a converted film (Nosferatu, file 5671, or another whose top is
+  the Fire TV (Silk) over WebRTC, play a converted film (file 5671, or another whose top is
   its own picture) for ten minutes, Watch Together off; (2) let the core restart (the deploy itself
   will do), then start a film on the Fire TV within the hour. Passes when (1) no `ceiling … to …`
   step lowers the quality on a chunk given up without progress (its note says `stuck`) while its
@@ -1435,7 +1435,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ121** — how far ahead the chunked player loads (research/forward-buffer-2026-10-29.md P1,
   P2 and P6, accepted by the owner 2026-10-29): the Fire TV's real limit for a page's picture, and a
   step up shown within about 40 s, on staging once deployed. Do: (1) the report's T4: on the Fire
-  TV (Silk, the AFTSSS), play a film whose top is its own picture at 9 Mb/s or more (Nosferatu, file
+  TV (Silk, the AFTSSS), play a film whose top is its own picture at 9 Mb/s or more (file
   5671) for three minutes from its start, Watch Together off; then the same on the Chromecast
   receiver (`apps/cast-receiver`); (2) on the Mac in Chrome, play a converted film held below its
   top (DevTools' throttling at about 0.6 Mb/s for a minute), then lift the throttling and play on
@@ -1448,7 +1448,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   after it stays in force; and (2) the Mac's notes have a `loads ahead 30.0 s … by below top` line
   while held low, and a `stepped up to N shown after M ms` line with M at most about 40 000 (the
   30 s loaded below the top and a chunk), against the minutes seen before. Also on the Fire TV, at
-  the top of a film whose own sound is 5.1 (Nosferatu's): the `device memory` line says `sound … MB
+  the top of a film whose own sound is 5.1 (file 5671's): the `device memory` line says `sound … MB
   assumed`, a `loads ahead … by sound bytes` or `by sound floor` line follows the first chunk of
   sound, and a `buffer full on audio` line, if one still comes, gives the sound's own rate, so its
   seconds give the sound buffer's real limit (about 2 MB: Chromium's low-end; about 12.6 MB: the
@@ -1477,7 +1477,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   unticked, open the home page in a tab after staging's connectd was rebuilt since that Chrome's last
   visit, and open a film: its page opens. (`web/apps/web/src/screen-load.tsx`, `sw.ts`)
   **Passed 2026-10-29 (the owner, Chrome on the Mac):** the first load through the discovery after the
-  deploy (13:55, over WebRTC) opened Thimbleford's page and player with no failed screen.
+  deploy (13:55, over WebRTC) opened a film's page and player with no failed screen.
 - [x] **VQ124** — On the owner's Android phone, signed in, join a Watch Together session as a guest
   from a host on another device, and have the host end it. Passes when the phone's page goes to the
   home page (not "This session is over. You can close this page.") with a note at its top, "The host
@@ -1664,8 +1664,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   page could not load."; and the core's log has a "page reported a failure" line saying "the page
   reloaded for a newer client, once", naming the title screen and its file.
   (`web/apps/web/src/newer-client.ts`, `screen-load.tsx`)
-  **Passed 2026-10-29 (the owner, staging, deploy 21:59):** a tab on Home across the deploy opened Back to
-  the Future at once (22:00:11, playing in 298 ms), no error page. The run before (21:14) took ~1 min on
+  **Passed 2026-10-29 (the owner, staging, deploy 21:59):** a tab on Home across the deploy opened a
+  film at once (22:00:11, playing in 298 ms), no error page. The run before (21:14) took ~1 min on
   "Loading..." with nothing in the log to say why; an earlier commit now reports a slow screen or start.
 - [x] **VQ138** — a Watch Together host's Play page left for another site and come back by Back
   attaches its player, on staging. On the Mac, Chrome hosting a session on its Play page, Firefox and
@@ -1700,12 +1700,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   a focused slider's value (the owner, staging, 2026-10-29). (`web/apps/web/src/input-commands.ts`)
   **Passed 2026-10-29 (the owner, staging):** Down from the Fire TV's scrub bar left the film where it was.
 - [x] **VQ141** — a leading player never drops to the group's common quality at its own jump, on
-  staging. Cast Nosferatu (file 5671) from the Mac to the Fire TV and let it reach the film's own picture
+  staging. Cast file 5671 from the Mac to the Fire TV and let it reach the film's own picture
   (the core's log: `qualitySwitched qualityKbps=9018`); seek with the remote a few times. Passes when
   no `qualitySwitched … why="its group's: the common quality after its group jumped"` line comes from
   the receiver (on 2026-10-29 one took it from 9018 to 1896 kb/s on a link of 18451 kb/s).
   (`web/packages/sdk/src/together-player-events.ts`, `together-follow.ts`)
-  **Passed 2026-10-29 (the owner, staging):** Nosferatu cast to the Fire TV held 9018 kb/s through six seeks of the remote; no common-quality step.
+  **Passed 2026-10-29 (the owner, staging):** file 5671 cast to the Fire TV held 9018 kb/s through six seeks of the remote; no common-quality step.
 - [x] **VQ142** — a cast while Watch Together is hosted plays on the TV, and a device receiving a
   cast is no other device's target (D386 §1), on staging. (1) Host a Watch Together session from one
   admin device (the S23's Firefox) with a guest in it; from Chrome on the Mac, with nothing playing,
@@ -1780,8 +1780,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   its own controls then show the same sound choices (corrected after the owner's run, 2026-10-30).
   (`web/apps/web/src/sound-panel.ts`,
   `internal/core/together/hub.go`)
-- [x] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play A View to
-  a Kill, then The Kid, from their start, on the Fire TV alone (no cast). Passes when neither
+- [x] **VQ176** — a film starts on the quality it plays, on the Fire TV (Silk), staging: play a Bond
+  film, then another film, from their start, on the Fire TV alone (no cast). Passes when neither
   shows black frames as it begins, and the core's log has no quality switch within the first seconds
   of either: its first `qualitySwitched` names the rung its first chunk was of (the 12.2 Mb/s rung for
   Bond on a link remembered near 12 Mb/s), why "first by the remembered link". Before D381 both showed
@@ -1797,7 +1797,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   within a few seconds of the end the sockets are back and the film plays on, with nothing reloaded.
   (`web/apps/web/src/link-debug.ts`, `web/packages/player/src/link-shaping.ts`)
 - [x] **VQ180** — a series' seasons as a row of posters (D379), on staging. (1) On the Mac's Chrome,
-  a series of several seasons with specials (Copper Kettle, or any with a season 0): above the episodes a
+  a series of several seasons with specials (or any with a season 0): above the episodes a
   row of season posters, the specials last, the season shown marked; no season choice box. Each
   season shows its still in its poster's place, or the series' poster where it has none. Choosing a
   poster shows that season's episodes below; the browser's Back then leaves the series, not the
@@ -1816,7 +1816,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/app-shell.tsx`, `library-browse.tsx`)
 - [x] **VQ185** — a series' seasons show their real posters (D379 §1), on staging after its deploy,
   which migrates to step 0064. (1) Before deploying, note a TMDB series already matched on staging
-  (Copper Kettle, or any with several seasons and specials), whose season cards show stills. Deploy and
+  (any with several seasons and specials), whose season cards show stills. Deploy and
   wait for the library's next pass (the start's sweep, or Scan library): the core's log shows
   make_artwork_sizes jobs for the series, and no fetch of its TMDB record (the season posters come
   from the record stored). Passes when its page's season cards show each season's own poster, the

@@ -35,7 +35,7 @@ orthogonal container. Ours:
 | **File** | the bytes; a Version may have several (multi-part) | Item |
 | **Collection** | series, season, box set, user collection, smart collection | Collection |
 
-**Why the fourth level is not optional.** *Glass Runner: The Final Cut* held as 1080p in two
+**Why the fourth level is not optional.** *A film's director's cut* held as 1080p in two
 parts **and** as a single 4K file is one Title, one Edition, two Versions, three Files. With
 `Edition → File` there is nowhere to record that the two parts are one viewing and the 4K is
 another — the multi-version and multi-part axes hang off the same parent and cannot be told
@@ -51,7 +51,7 @@ distinction becomes a side-array.
 ([D75](../../decisions/working-notes.md), [D76](../../decisions/working-notes.md)) — which is
 what lets one table serve series, seasons, box sets, hand-made collections and smart
 collections. **An explicit member list is ordered, and the order may be partial**
-([D159](../../decisions/working-notes.md)): the *Machete order* for Metropolis is
+([D159](../../decisions/working-notes.md)): the *Machete order* for a six-film saga is
 **IV, V, II, III, VI** and deliberately **omits Episode I**, so a position is a property of
 membership and not every member need have one. **A predicate's sequence is a sort**, which
 completes the sentence — `franchise = Friday the 13th` ordered by release date picks up part
@@ -74,7 +74,7 @@ sequence rather than over episodes.
   studio ident or a PAL transfer's 4.27% speedup makes two Versions of one cut disagree — and
   it is what the player observed ([principles §13](../../principles/13-state-attaches-to-what-you-observed.md)). Completion
   has no timeline, so it rolls up freely to Version, Edition and Title.
-- **Names attach at Title *and* Edition** — "Glass Runner" and "The Final Cut" are both names
+- **Names attach at Title *and* Edition** — a film's own name and its edition's name are both names
   needing [D45](../../decisions/working-notes.md)'s translation treatment. So the displayed
   title is a **composition of two translated strings**, which the sort key
   ([D47](../../decisions/working-notes.md)) and the FTS row
@@ -238,7 +238,7 @@ each lands here rather than being bolted on — the same argument
   `IgnorePatterns` drops `x.sample.mkv` while `VideoExtraRules` turns `x-sample.mkv` into a
   library item. Eleven types.
 - **The scanner attaches an extra to a Title; only a person attaches one to an Edition.**
-  `Wings (1986)/deleted scenes/` sits above both cuts and the layout cannot say which owns
+  `Movie Name (1986)/deleted scenes/` sits above both cuts and the layout cannot say which owns
   it — the machine groups, the human names ([D158](../../decisions/working-notes.md)). A
   relation the scanner inferred is an index; one a person asserted, or a type they corrected,
   is true about the work and **mirrors to a sidecar**
@@ -300,7 +300,7 @@ regardless — and that gives the trash its first real consumer
 ```
 <library root>/.trash/2026-09-21T143205Z-export/
   manifest.json
-  films/Glass Runner (1982)/Glass Runner (1982).nfo
+  films/Movie Name (1982)/Movie Name (1982).nfo
 ```
 
 **One directory per event, with the library's own structure mirrored inside**, so restoring an
@@ -399,7 +399,7 @@ a delete keyed only on a path can destroy a different file that has since appear
 summary of them.
 
 - **Edition is optional, and that is the schema change.** A Version's parent is an Edition
-  **or the Title**. Most rips carry no edition marker, so *"Glass Runner, cut unknown"* is the
+  **or the Title**. Most rips carry no edition marker, so *"a film, cut unknown"* is the
   ordinary case, not the exotic one — and forcing it through a synthetic *"Unknown Edition"*
   row means that when [identification.md](identification.md) later learns the cut, we must
   **merge a real Edition into a fake one and carry watch state across**. This tree already
@@ -417,7 +417,7 @@ summary of them.
     misleading group rather than somebody's place in a film.
   - **An Edition may be created and named by the user, and a rescan never overwrites it**
     ([D158](../../decisions/working-notes.md)). Someone who hand-deletes the opening scenes of
-    *Wings* has made a cut that matches no release, no runtime and no provider record — it is
+    a film has made a cut that matches no release, no runtime and no provider record — it is
     theirs, and it is user-authored data under the same rule as any other correction
     ([D7](../../decisions/working-notes.md), [D141](../../decisions/working-notes.md)'s lock
     markers). Provider-derived and user-created Editions are the same row with different

@@ -439,7 +439,7 @@ H → L → L/A → L/A/B → P:v. A folder is a level, so each step pushes in e
 
 ### 3.16 The Libraries page's own state (D349 §2: "Back restores it")
 
-H → Ls (Films, sorted by year, search "alien") → F (Wings) → P. History: `H Ls{films,year,alien} F [P]`.
+H → Ls (Films, sorted by year, search "arrival") → F (Arrival) → P. History: `H Ls{films,year,arrival} F [P]`.
 
 | Press | (a), (b), (d) | (c) |
 | --- | --- | --- |

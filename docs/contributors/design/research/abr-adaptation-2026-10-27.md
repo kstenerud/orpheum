@@ -4,7 +4,7 @@
 
 # Adapting to the link: start-up, climbs, swings and flaky networks
 
-- **Date:** 2026-10-27, after the owner's report of 2026-10-26 (The Unknown on its lowest quality
+- **Date:** 2026-10-27, after the owner's report of 2026-10-26 (a film on its lowest quality
   for minutes on staging). **Feeds** [D352](../../decisions/working-notes.md) (proposed).
 - **Builds on:** [abr-controller.md](abr-controller.md) (2026-10-07, the algorithms surveyed for
   D265), [slow-links.md](slow-links.md), [cold-start.md](cold-start.md),
@@ -71,7 +71,7 @@ and then arrived in 200 ms, 8.4 Mb/s, is sampled at 1.3 Mb/s
   hls.js's sample (above). The XHR's `loading.first` is set at its HEADERS_RECEIVED, which on this
   path is when the page has the core's head, so first byte to last byte is the body alone. **[1P]**
 - **A tiny first fragment dominated by latency.** The rule that a chunk under 128 KB measures
-  nothing (`measuresFromBytesAtLeast`, A Woman of Paris on 2026-10-18) already stands; this chunk
+  nothing (`measuresFromBytesAtLeast`, file 5667 on 2026-10-18) already stands; this chunk
   passed it, or it would not have counted. The class is the same, a fixed wait divided into few
   bytes, and Huang et al. found it in commercial players over TCP (§2). **[1P]**
 - **A chunk served as it is made.** Not this one: the store had finished at 19:07:48. And the core

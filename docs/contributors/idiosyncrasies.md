@@ -913,8 +913,8 @@ User-Agent (D263; the User-Agent is logged only).
 - **Note:** on this TV a Web Audio context reported a base latency of 96 ms and an output latency of
   320 to 328 ms, which the element's clock does not count: a sound through Web Audio comes out about
   420 ms later still.
-- **Evidence:** [owner] 2026-10-24, staging, synthetic clips (Sync Apple to Damson every second, Sync
-  Elder every four seconds); the staging log's "a playback's sound". **[web]** Chromium's
+- **Evidence:** [owner] 2026-10-24, staging, synthetic clips (four beeping every second, one
+  beeping every four seconds); the staging log's "a playback's sound". **[web]** Chromium's
   [WebAudio high latency on Android (40103372)](https://issues.chromium.org/issues/40103372) reports a
   total of about 330 ms on some Android devices; no report of a TV's sound lagging its element's
   clock in a WebView was found (searched 2026-10-24).
@@ -1365,7 +1365,7 @@ User-Agent (D263; the User-Agent is logged only).
 ### A browser plays a video as soon as it can show a moment of it, whatever its link
 
 - **Technology:** HTML media elements under MSE (hls.js), all browsers; seen on a Fire TV's Silk.
-- **Symptom:** a cast to a Fire TV (Silk), Watch Together off, resumed The Marrowgate Family at 1798.9 s
+- **Symptom:** a cast to a Fire TV (Silk), Watch Together off, resumed a series at 1798.9 s
   with its first chunk loaded to 1800.47 s; the browser said `canplay` and played, ran dry 1.1 s in
   while the next chunk (10.4 s of film, about 10 MB) took 2.3 s, and stalled 0.3 s at readyState 2.
 - **Cause:** the element's readiness (`HAVE_FUTURE_DATA`, `HAVE_ENOUGH_DATA`) says only that it can
@@ -1620,7 +1620,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 ### iPhone Safari keeps a sliver of a well-formed copied chunk
 
-- **Symptom:** an iPhone in a Watch Together group, playing Copper Kettle S2E2's own picture copied as it
+- **Symptom:** an iPhone in a Watch Together group, playing a series' S2E2's own picture copied as it
   is, buffered 0.08–0.34 s of the first chunk and nothing more of it, the next chunks whole from 10.22 s;
   hls.js stepped over the hole, found the playhead still, and gave the playback up as fatal
   (`bufferSeekOverHole (fatal): Playhead still not moving after seeking over hole`). S2E1 played.
@@ -1705,7 +1705,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 ### On a level in another audio group, hls.js throws all the sound loaded away when the new sound differs in channels or codec
 
-- **Symptom:** a Fire TV playing Nosferatu stepped down from the top of its ladder, its own 5.1 sound
+- **Symptom:** a Fire TV playing a film stepped down from the top of its ladder, its own 5.1 sound
   copied, to a quality with the light stereo track: its sound held 3049.13–3051.62 against the
   picture's 3049.46–3088.04, the light track's chunks from there were still being made (425), and
   it stalled 1172 ms (staging, 2026-10-28, D368's revision).
@@ -1726,7 +1726,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   change by `changeType`, which hls.js does either way). A sound the person chooses, the dialogue
   boost turned on or off, is switched by `nextAudioTrack`, so the sound loaded plays on until the new
   one's chunk at the playhead arrives, and is heard from there: switched by `audioTrack`, the boost
-  turned on at the top of Thimbleford's ladder threw the film's own 5.1 sound away and froze the video
+  turned on at the top of a film's ladder threw the film's own 5.1 sound away and froze the video
   2.2 s while the server made the boosted mix's chunk (staging, 2026-10-29). A group's place set
   while such a choice is on its way is set by `nextAudioTrack` too, which never flushes at once.
 - **Evidence:** **[staging]** the stall above; **[source]** hls.js 1.7.3,
@@ -1832,7 +1832,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   finished loading before the detach left nothing to abort, and the loader restarted.
 - **What we do:** `loadAgainFrom` in `web/packages/player/src/abr.ts` starts loading again from where the video
   stood once the new media source is attached, whatever state hls.js left its loader in.
-- **Evidence:** [owner] 2026-10-18 on staging, A Woman of Paris from 0:00 in Firefox on macOS, the stall's
+- **Evidence:** [owner] 2026-10-18 on staging, file 5667 from 0:00 in Firefox on macOS, the stall's
   steps above. [measured] headless Firefox on Linux, our player on a stream whose first video SourceBuffer
   silently empties every append (`.dev/hlsrepro/ours.cjs`): three of four trials stuck, the loader `IDLE`
   while detached with `nextLoadPosition` 40.08 s; with `loadAgainFrom`, six of six played. [source]
@@ -2134,7 +2134,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start
 
-- **Symptom:** A Woman of Paris (staging, file 5667, 2026-10-28) would not play: its own sound copied
+- **Symptom:** file 5667 (staging, 2026-10-28) would not play: its own sound copied
   failed chunk 0 twice, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to
   12262 ms", and every start was refused.
 - **Cause:** three things together. The film, an x265 MP4, has an edit list that puts its first
@@ -2229,7 +2229,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### An input seek of an Opus track to a keyframe decodes it without its pre-roll
 
-- **Symptom:** watching *Bram the Wanderer* (Opus 5.1 in Matroska) on staging, the sound hiccuped
+- **Symptom:** watching a film (Opus 5.1 in Matroska) on staging, the sound hiccuped
   every five minutes, at each run of chunks' start. Run 1's sound was 86.0 ms later than its
   timestamps, run 2's 135.3 ms: a 49 ms jump, and a 65 ms gap in the timestamps, where they met.
 - **Cause:** a run starts on a keyframe, and `-ss` before `-i` lands at a keyframe there. Opus

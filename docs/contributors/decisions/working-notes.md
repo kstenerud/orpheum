@@ -5503,7 +5503,7 @@ against.
 > and right for a registry, and takes the one thing from it that we were missing: **a Version's
 > parent may be a Title directly when the Edition is unknown.** Our `Title → Edition → MediaFile` collapses Manifestation and Item into one.
 
-The failure is concrete. *Glass Runner: The Final Cut* held as **1080p in two parts** and **a
+The failure is concrete. *A film's director's cut* held as **1080p in two parts** and **a
 single 4K file** is one Title, one Edition, **two manifestations**, three files. With
 `Edition → MediaFile` there is nowhere to say that the two parts are one viewing and the 4K is
 another: the multi-version axis and the multi-part axis hang off the same parent and cannot be
@@ -5553,7 +5553,7 @@ resume position across them is meaningless.
 true. (Whether a watched *flag* rolls up to the Title is a UI question, deliberately not a
 schema one; a resume position cannot roll up regardless.)
 
-**Names: Title and Edition both.** "Glass Runner" and "The Final Cut" are both names and both
+**Names: Title and Edition both.** A film's own name and its edition's name are both names and both
 need [D45](#d45--metadata-is-multi-language-in-the-schema-chosen-per-request)'s translation
 treatment. So the displayed title is a **composition of two translated strings**, which
 [D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale)'s sort key and
@@ -8909,7 +8909,7 @@ restricted user may put in a message to an admin, inheriting
 D133 said the alert counts pending items and not rule-excluded ones. That is necessary and it
 is **not sufficient**: the count must also not become a *list*.
 
-**"28 items are waiting to be rated" must never become "Shrek 2, Wing and 26 others are
+**"28 items are waiting to be rated" must never become "Shrek 2, Jaws and 26 others are
 waiting."**
 
 The obvious argument is that it leaks the library's contents to a child or a grantee. The real
@@ -10259,7 +10259,7 @@ whole argument, and it is why we depart from two working precedents.
 <library root>/.trash/
   2026-09-21T143205Z-export/
     manifest.json
-    films/Glass Runner (1982)/Glass Runner (1982).nfo
+    films/Movie Name (1982)/Movie Name (1982).nfo
     tv/Show/Season 01/Show - S01E01.nfo
     …
 ```
@@ -11387,7 +11387,7 @@ This is the finding worth having. Because EIDR's edges are unconstrained, **`isM
 may point straight at an Abstraction** — a manifestation whose *edit is unknown*.
 
 **Our tree cannot express that.** Every Version hangs off an Edition, so a file identified as
-*Glass Runner* whose cut we cannot determine — **which is the ordinary case**, since most rips
+*a film* whose cut we cannot determine — **which is the ordinary case**, since most rips
 carry no edition marker in the filename — needs a synthetic *"unknown edition"* row. Then
 identification improves ([identification.md](../design/plans/identification.md) is built to be
 replayable for exactly that reason) and we have to **merge** a real Edition into a fake one,
@@ -11466,7 +11466,7 @@ summary of it, since the document itself is no longer served.
 [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal).**
 Found by the project owner's worked example:
 
-> *"if I have Glass Runner San Diego sneak preview, american theatrical release, international
+> *"if I have [a film]'s San Diego sneak preview, american theatrical release, international
 > theatrical release, and director's cut but we didn't manage to figure out which cuts they
 > were at ingestion, then they would all show up in the UI as an unknown cut, and if later the
 > user specifies which as which, it doesn't affect existing view data, right?"*
@@ -11543,7 +11543,7 @@ already requires us to keep.
 **Never a row called "Unknown Edition".** That names a cut that does not exist and implies the
 four are one thing. The absence of a label is shown as an absence — with, per
 [D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains)'s pattern, a
-maintained count for the admin: *"4 versions of Glass Runner have unidentified cuts."*
+maintained count for the admin: *"4 versions of [a film] have unidentified cuts."*
 
 ### Why the obvious heuristic is unsafe, using the example given
 
@@ -11783,7 +11783,7 @@ cases where it misleads are exactly the cases where they are already confused.
   tries ripping with a different app."* The offer now points at a **broken file** as the place
   you left off. The one thing the user is certain about — that file is rubbish — is the one
   thing our hint does not know.
-- **The self-made cut.** *"I have the Wings extended edition but I HATE the early LV-426
+- **The self-made cut.** *"I have [a film]'s extended edition but I HATE the early LV-426
   scenes … so I manually deleted them."* Two files whose timelines differ by an amount **only
   the user knows**, on a cut that exists in no database anywhere. Any correspondence we offer
   is invented.
@@ -11808,7 +11808,7 @@ holds.
 ### Two things the examples say we owe
 
 **1. A user-authored Edition is first-class, and identification never overwrites it.**
-A hand-edited *Wings* is a cut matching no release, no runtime and no provider record. The
+A hand-edited film is a cut matching no release, no runtime and no provider record. The
 user may create an Edition and name it, that name is **their data**, and a rescan or a
 metadata refresh must not correct it. The machinery exists and was written for exactly this
 shape — [D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)'s lock
@@ -11830,7 +11830,7 @@ Worth recording, because the same examples that killed a feature validate three 
 
 - **Subtitle verification survives a cut that exists nowhere.**
   [D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
-  aligns against **the file's own audio**, so the hand-edited *Wings* still gets correct
+  aligns against **the file's own audio**, so the hand-edited film still gets correct
   subtitles from its embedded track — and a *downloaded* one is **correctly refused**, scoring
   low because its timings genuinely do not match a cut the uploader never saw. Both outcomes
   are right, and no filename- or metadata-driven approach can produce either.
@@ -11931,9 +11931,9 @@ one.
 
 - An **ordering** is a coordinate system over **one series' episodes** — aired, DVD, absolute,
   or a person's.
-- A watch order **spanning works** is an **ordered Collection**. The *Machete order* for Star
-  Wars — **IV, V, II, III, VI**, omitting Episode I so that the prequels play as a flashback
-  after the Vader reveal — is six films, not one series' episodes.
+- A watch order **spanning works** is an **ordered Collection**. The *Machete order* for a
+  six-film saga — **IV, V, II, III, VI**, omitting Episode I so that the prequels play as a
+  flashback after a pivotal reveal — is six films, not one series' episodes.
 
 [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
 says *"a Collection is either an explicit member list or a predicate"* and **never says the
@@ -12007,13 +12007,13 @@ pass.
 
 **Decided** (2026-09-22). **Generalises
 [D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary)'s
-ordered Collection from a Metropolis curiosity into the ordinary case.** From the project
+ordered Collection from a six-film-saga curiosity into the ordinary case.** From the project
 owner:
 
 > *"It feels like we should have some kind of 'series'-like ordering for movies as well, and
 > not just for the same movie series (Friday the 13th 1,2,3,4,5…) but also a mix (think wings
 > and unknown franchise) … And even for tv series, someone might want to lump together
-> Three's a Houseful and Three's a Crowd. Or Gruelstone with Lockfast."*
+> Three's a Houseful and Three's a Crowd. Or [a series] with Lockfast."*
 
 Right, and it is wider still: **the distinction between "a series" and "an ordered collection"
 does not survive contact with those examples, and removing it deletes code rather than adding
@@ -12024,9 +12024,9 @@ any.**
 | Example | Members | What it needs |
 | --- | --- | --- |
 | *Friday the 13th* 1–5… | Titles | an ordered sequence of films |
-| *Wing* + *Unknown* + the crossovers | Titles from **several franchises** | a sequence whose membership no provider will supply |
+| *A film* + *another film* + the crossovers | Titles from **several franchises** | a sequence whose membership no provider will supply |
 | *Three's Company* → *Three's a Crowd* | **two series** | a Collection **containing Collections** |
-| *Gruelstone* → *Lockfast* | two series | the same |
+| *A series* → *Lockfast* | two series | the same |
 
 The third and fourth are the load-bearing ones. *"Lump together Three's Company and Three's a
 Crowd"* is not a list of episodes — it is **one thing made of two series**, and it has to stay
@@ -12058,7 +12058,7 @@ Four things make it true, and three of them are already there:
    **And the predicate is the better answer to the owner's first example**: `franchise =
    Friday the 13th` sorted by release date **picks up part 12 the day it is ripped**, where a
    hand-ordered list silently would not. Hand-authoring is for the orders a rule cannot
-   express — Machete, or a contested Wing/Unknown chronology.
+   express — Machete, or a contested cross-franchise chronology.
 4. **Progress is already free.** Completion rolls up
    ([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)),
    so *"3 of 11"* across a composed run is a count, and the run appears in Continue Watching
@@ -12085,8 +12085,8 @@ are needed.
   terms: a provider may supply one, a user may author one, they are the same row with
   different provenance, and **a refresh never overwrites the user's**
   ([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)).
-- **Do not guess a cross-franchise order.** Where *Wing vs. Unknown* sits relative to
-  *Alien³* is contested fan territory and not a fact. **Release date is the default sort
+- **Do not guess a cross-franchise order.** Where a crossover film sits relative to
+  its franchise's next entry is contested fan territory and not a fact. **Release date is the default sort
   because it is an observation**; anything else is authored.
 - **Do not detect a binge.** Watching three *Friday the 13th* films in a row does not earn an
   offer to create a collection. Same shape as
@@ -12109,8 +12109,8 @@ said in September and what everything since has quietly treated as a special cas
 The Next Up generalisation is a deletion in [play-state.md](../design/plans/play-state.md).
 
 > **Measured 2026-09-22**, and **the worry was aimed at the wrong thing.** The largest
-> realistic collection is *every Star Wren in order* — **963 episodes across 52 seasons and 13
-> series, plus 13 films**, so ~976 members and not the "thousands" written above.
+> realistic collection is *every entry of a long-running franchise in order* — **963 episodes
+> across 52 seasons and 13 series, plus 13 films**, so ~976 members and not the "thousands" written above.
 >
 > | at 976 members | computed | maintained |
 > | --- | ---: | ---: |
@@ -12185,7 +12185,7 @@ are constant. That ratio is what makes recompute-on-miss free.
 ### And it makes the collection measurement a non-question
 
 [D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)'s
-Star Wren case measured **14.8 ms computed** at 976 members against **0.01 ms** from a stored
+long-running-franchise case measured **14.8 ms computed** at 976 members against **0.01 ms** from a stored
 row. Under a cache that is not a design decision at all: the first read after a scan pays
 15 ms, every other read is a lookup, and **no code has to know how a scan changes a
 sequence** — only that it might have.
@@ -12233,7 +12233,7 @@ the rule is the narrow one.
    `deleted scenes`, `behind the scenes`, `interviews`, `scenes`, `shorts`, `clips`,
    `backdrops`, `theme-music`, `extras`, `extra`, `other`;
 2. a file whose stem is the title's own name plus a vocabulary suffix —
-   `Glass Runner (1982)-trailer.mkv` — which is the Plex and Kodi convention and has to work.
+   `Movie Name (1982)-trailer.mkv` — which is the Plex and Kodi convention and has to work.
 
 **Nothing at a library root is ever an extra.** A library *of* short films has a `shorts/`
 folder that means the opposite of the vocabulary. Jellyfin needs an explicit carve-out for
@@ -12262,7 +12262,7 @@ twelve.
 ### 3. The scanner may attach an extra to a Title. Only a person may attach one to an Edition
 
 D97 allows the relation to point at either, and said nothing about who may say which. Disk
-layout cannot tell you: `Wings (1986)/deleted scenes/` sits above the theatrical cut and the
+layout cannot tell you: `Movie Name (1986)/deleted scenes/` sits above the theatrical cut and the
 special edition both, and the scenes belong to one of them.
 
 So the inference stops at the Title, and an Edition attachment is a human act — the same
@@ -13133,8 +13133,8 @@ A connected client sitting on a library grid does not re-request for minutes. Te
 
 - **No delivery guarantee, no ordering, no acknowledgement, no retry.** If it is lost, §2
   catches it on the next request. This is why it is cheap.
-- **It carries no detail.** *"Your access changed"* — never *"you may no longer see Wing"*,
-  because naming what was withdrawn **tells a child that Wing exists**, which is precisely the
+- **It carries no detail.** *"Your access changed"* — never *"you may no longer see [that film]"*,
+  because naming what was withdrawn **tells a child the film exists**, which is precisely the
   disclosure [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)
   closed everywhere else.
 - **It is the same event that invalidates the sync cursor** (D166 §4), so it is one signal with
@@ -16946,7 +16946,7 @@ confinement grants each GPU is answered by the confined encoder trial, as §3 no
 
 ## D226 — Loudness is levelled in Cut A: the node measures each sound and its stereo mix, the core sets a gain towards -23 LUFS that no peak exceeds, and the player applies it after its volume
 
-**Decided** (2026-09-28), by the project owner. Playing *Wing* (the director's cut) on the dev
+**Decided** (2026-09-28), by the project owner. Playing a film (the director's cut) on the dev
 loop, the owner found it *"so quiet that even when I put my speakers to maximum, it's hard to
 hear"*. Measured, ten minutes of it were at -35.7 LUFS with a peak of -16.2 dBFS; the owner's
 other films measured whole from -18.8 to -30.0 LUFS. The owner: *"this will be a problem for
@@ -18516,7 +18516,7 @@ going to have trouble and switches over."*
 
 ## D254 — In the browser's own fullscreen, the chosen subtitle track is shown as the browser's captions
 
-**Decided** (2026-10-07), by the project owner, after subtitles on Love, Guaranteed vanished as
+**Decided** (2026-10-07), by the project owner, after subtitles on a film vanished as
 his phone went fullscreen: *"they stop showing when I switch to full screen mode"*. **Revises**
 cut-a §1's "text tracks via JASSUB" for fullscreen alone. JASSUB draws on a layer over the
 video; the fullscreen of a video's own controls, and the iPhone's player, which is always
@@ -18584,7 +18584,7 @@ to end. **Revises**
 
 ## D256 — An encode is made no heavier than its picture needs or its original is
 
-**Decided** (2026-10-07), by the project owner, after *Born Brisk*, a 640×272 DVD rip of 1.6 Mb/s,
+**Decided** (2026-10-07), by the project owner, after a film, a 640×272 DVD rip of 1.6 Mb/s,
 was prepared at the h264-8m profile's fixed 8 Mb/s into a 5.3 GB copy that stalled every two
 seconds on a 3 Mb/s link: *"Ideally we shouldn't be increasing the bit rate higher than the
 original (with sanity checks). The whole point is a lower bit rate stream that it can choose."*
@@ -20357,11 +20357,11 @@ a device at home could reach over WebRTC, so a page at home went out through the
 
 **Decided** (2026-10-15), by the project owner, revising D172 §3's "anything else is not guessed".
 nas.example's "Needs a match" held about 85 titles, many the owner saw as obvious (*"Some are indeed
-ambiguous, but others (like The Thief of Bagdad with an identified year of 1992) should be pretty obvious. I
+ambiguous, but others (like [a film] with an identified year of 1992) should be pretty obvious. I
 think that when something has no date and there are multiple versions available, we should choose
 the oldest one by default, and then offer a 'this is identified incorrectly' button on the details
-page so that the admin can correct it"*), and for two works of one name in one year (Disney's
-*The Thief of Bagdad* and a lesser one, both 1992) the agent's proposal of the vote count (*"Yes that sounds
+page so that the admin can correct it"*), and for two works of one name in one year (a famous
+animated film and a lesser one, both 1992) the agent's proposal of the vote count (*"Yes that sounds
 good"*).
 
 1. **Among the candidates whose names match**, as D172's tiers find them, where more than one
@@ -20578,12 +20578,12 @@ The owner, to the recommendations on disc images, series → season reads and th
 scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
 
 1. **A candidate whose name differs may still be guessed** (D301 §3 said none was). The owner, to
-   "When TMDB returns exactly one series in the folder's year but under a different name (Kaito Kumo
-   (1971) is TMDB's "Kaito the 3rd", 1971), should it be accepted as a guess?": *"Yes. There are
-   some series that had different names depending on the country they were destined for. Kaito Kumo
-   in Japan was released as Kaito the 3rd in America. Many Japanese titles had similar treatment.
-   "Kaze no Mamoribito", also called "Keeper of the Quiet Wind" was later released as
-   "Moribito: Keeper of the Quiet Wind"."* When no candidate's name matches: with a year in the
+   "When TMDB returns exactly one series in the folder's year but under a different name (a series
+   released under a different regional name), should it be accepted as a guess?": *"Yes. There are
+   some series that had different names depending on the country they were destined for. [A series]
+   in Japan was released under a different name in America. Many Japanese titles had similar
+   treatment. One series, known by its Japanese name, was later released internationally under its
+   English name."* When no candidate's name matches: with a year in the
    name, the one candidate of that year is the guess; with none, a search that found one or two
    candidates takes the oldest, as D301 §1 does. A search that found more found the words, not the
    work under another name (staging, 2026-10-16: "Harbor Lights" found eight works with the word in
@@ -20682,7 +20682,7 @@ between a core and its discovery stable but says nothing of the one between a cl
 
 > **§1 amended by [D355](#d355--a-playbacks-picture-and-sound-are-each-wanted-from-a-position-of-their-own-moved-by-their-own-asks-and-together-by-a-seek-a-pause-a-resume-and-the-start)** (2026-10-27): a playback's picture and sound are each wanted from a position of their own, moved by their own asks; its word, a seek, a pause, a resume and its start move both.
 
-**Decided** (2026-10-17), by the project owner, after Wings on nas.example stopped for minutes after a
+**Decided** (2026-10-17), by the project owner, after a film on nas.example stopped for minutes after a
 small seek. The node was making four runs: two of 720p, left from before the player moved to 360p,
 and two of 360p. One 720p run measured just under 1.1x, so the newest run, a 360p one 3.5 s old that
 the player needed, was evicted (D250 §6). Every rule that chose it guessed: a run was in use when a
@@ -21216,7 +21216,7 @@ or an encoding the client can't handle at all, we try converting it directly to 
 at the same size and quality, and then step down as necessary much like today if we hit bandwidth
 problems. If the encoder can't keep up (for example we're software encoding), we step down. The
 quality ladder is different depending on whether hardware acceleration is available."* On Firefox on
-macOS giving up The Big Parade's HEVC picture after a jump and dropping to 540p and 360p, though the
+macOS giving up a long HEVC film's picture after a jump and dropping to 540p and 360p, though the
 film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)
 §2 and [D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone) §6.
 
@@ -22318,7 +22318,7 @@ one-way rules); keeping the harnesses' own wiring beside production's.
 ## D352 — The chunked player trusts its link as far as the evidence goes: its first seconds latch nothing, it climbs as far as consistent samples carry, and it grows steadier when it swings or its link flakes
 
 **Decided** (2026-10-27), by the project owner, agreeing an agent's proposal and answering its
-questions as it recommended (below), made at the owner's direction after The Unknown sat on its
+questions as it recommended (below), made at the owner's direction after a film sat on its
 lowest quality for minutes on staging (2026-10-26): *"We're going to have transient network issues in
 the real world, so we should be more adaptable to the changing environment, and more intelligent
 about how we recover from it (such as jumping multiple rungs when it's obvious that we can). We do,
@@ -22458,7 +22458,7 @@ core (`internal/core/playback/speeds.go`) and the play report. Every value is a 
 be measured on the acceptance's emulated links (D252, D263) and the owner's devices.
 
 **Revised 2026-10-28** by the owner ("yes", agreeing the lead's two fixes for the batch), after a
-Fire TV playing Nosferatu (staging, file 5671, device 60) stepped down on one slow sample: 20 s in, its
+Fire TV playing a film (staging, file 5671, device 60) stepped down on one slow sample: 20 s in, its
 five samples were 191842 B in 159 ms, 895044 in 393, 555018 in 349, **376471 in 1200** and 801491 in
 284; the one slow sample made §2's largest error 460%, the confident estimate 1315 kb/s (mean 7362),
 and starting's end (§1) lowered the ceiling from the film's own picture to q700k432p with 37.3 s
@@ -22492,7 +22492,7 @@ ruled by one slow sample of five: the most extreme error is set aside"); VQ116.
 and "put it in this batch because it will affect some of the VQs we're trying to confirm"), except
 P3's fourth point: a chunk stuck on one WebRTC connection is **not** asked again on another; its
 log says which connection carried it instead (6 below). The research explains the three staging
-failures of 2026-10-28 (Nosferatu's 69 kb/s from a given-up chunk, a start that waited on 753 kb/s ten
+failures of 2026-10-28 (a film's 69 kb/s from a given-up chunk, a start that waited on 753 kb/s ten
 minutes after a 17 Mb/s film, one slow sample of five cutting the ceiling) and proposes the estimator
 below. It replaces §2's harmonic mean and RobustMPC's divisor, and the divisor's trimming of this
 decision's revision of 2026-10-28 (its 2) with it; §2's agreement of samples, the hold, the
@@ -22536,9 +22536,9 @@ spreads, the second of arriving, and z's 1.28/0.84/0 at 0/10/20 s. They are text
 measured on no link of ours; the notes of 6 are to tune them.
 
 *Proven by:*
-- 1: web/packages/player/src/link-estimate.test.ts ("is not ruled by one sample that is not the link's: Nosferatu's four near 15 Mb/s and one at 14 kb/s"; "follows a fall once most of its samples say it")
+- 1: web/packages/player/src/link-estimate.test.ts ("is not ruled by one sample that is not the link's: a film's four near 15 Mb/s and one at 14 kb/s"; "follows a fall once most of its samples say it")
 - 2: web/packages/player/src/link-estimate.test.ts ("outlives one bad early sample: a first chunk at 1 Mb/s reads near 12.6 Mb/s, not 1"; "is dropped when two of the playback's own samples agree against it: a real fall still lowers the estimate"), web/packages/player/src/abr-trust.test.ts ("starts its estimate from the link its device remembers: one bad first sample does not choose the lowest (P2)"), internal/core/playback/speeds_test.go (TestLinkSpeeds_OutliveTheCoreThatHeardThem, TestRememberedLink_CountsAsTwoSamplesFadingWithItsAge), internal/core/api/start_lower_test.go (TestPlayback_AStartsRememberedLinkCarriesItsSpreadAndCountsLessAsItAges); VQ120
-- 3: web/packages/player/src/abr-trust.test.ts ("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (Nosferatu, P3)"), web/packages/player/src/abr-choice.test.ts ("is a sample over its first byte to the give-up while its bytes were arriving"); VQ120
+- 3: web/packages/player/src/abr-trust.test.ts ("a chunk given up stuck is no sample, and lowers the ceiling no further than the estimate carries (a film, P3)"), web/packages/player/src/abr-choice.test.ts ("is a sample over its first byte to the give-up while its bytes were arriving"); VQ120
 - 4: web/packages/player/src/abr-trust.test.ts ("keeps the top at starting's end with 10 s loaded through one slow sample of five (failure 3, P4)"), web/packages/player/src/link-estimate.test.ts ("is read at a bound set by what is loaded ahead: the confident estimate and the next chunk's (P4)"; "is slower than its 90% bound for a tenth of the link's chunks, give or take 3%, with 5% of samples near nothing")
 - 5: web/packages/player/src/abr-trust.test.ts ("keeps a fresh remembered 17 Mb/s through one slow sample of two: the 753 kb/s start (failure 2)"; "still waits on a link that really is slow: two samples at 753 kb/s outvote the remembered link"; "ends once its samples settle the ceiling and 20 s played, the ceiling no higher than the start (P5)"), web/packages/player/src/next-chunk.test.ts; VQ120
 - 6: web/packages/player/src/abr.test.ts ("notes its link for the server's log: its prior, each sample with its expected time and its bound's, each chunk given up or stuck and what carried it (P6)"), web/packages/sdk/src/rtc-transport.test.ts, internal/core/api/stall_report_test.go (TestReport_TheLinksNotesAreLoggedWithWhatCarriedEachStuckChunk)
@@ -22546,7 +22546,7 @@ measured on no link of ours; the notes of 6 are to tune them.
 ## D353 — A player that jumps ahead of a run stops it when waiting for the run would cost more than starting a new one
 
 **Decided** (2026-10-27), by the project owner, replacing the fixed minute the fix for the owner's
-The Unknown (staging, 2026-10-26) gave D309 §2: a run was no longer a player's once the first chunk
+film (staging, 2026-10-26) gave D309 §2: a run was no longer a player's once the first chunk
 the player needed lay more than the look-ahead (`chunk_lookahead_seconds`, 60 s) past what the run
 made next. A minute is a guess: a fast run gets there in seconds, and a slow one makes the player
 wait the whole minute of film. It amends D309 §2 (a place a player sought away from), and follows
@@ -23374,9 +23374,9 @@ question per session); **keeps** D337 §1, §5's remote and split devices, §6 (
 7. **The sending device shows a tray icon on every page** while the session lasts, naming the receiver
    and what it plays. The receiver shows none.
 8. **The remote is a page of its own the person returns to from anywhere** (the owner: *"I cast to my
-   TV, then start Wings playing. I then start browsing to Quillwick … Then I think actually I want to
-   continue with wings. Now I need a way to go back to the remote controls for the already playing
-   Wings on the TV"*). The tray icon, and the top bar's Cast while a session lasts, lead to it: the
+   TV, then start [a film] playing. I then start browsing to [a series] … Then I think actually I want to
+   continue with [that film]. Now I need a way to go back to the remote controls for the already playing
+   [that film] on the TV"*). The tray icon, and the top bar's Cast while a session lasts, lead to it: the
    remote of what plays on the receiver, at its position, with Stop casting; with nothing playing,
    "Ready on ‹Device›", Stop casting and nothing else. Browsing away leaves the video playing on; Back
    from the remote returns to where the person was.
@@ -23497,7 +23497,7 @@ not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's len
    within one class of fit, the candidate of the named year comes before one a year off. With no year,
    all the name's candidates are admitted.
 3. **Within that, the most popular is taken**: the most votes at the source, as D301 §1 has for a year
-   given; with no year in the name, the oldest, as D301 §1 has (Disney's *The Thief of Bagdad* over a later one),
+   given; with no year in the name, the oldest, as D301 §1 has (a famous animated film over a later one),
    the fit coming first.
 4. **The runtimes are fetched once and kept**: a candidate's runtime is read from the source's details
    of it, as the matcher reads the rest, kept with the candidate (cache.db's `match_candidate`), and
@@ -23614,7 +23614,7 @@ down again"; no product the research found makes Back go up instead of back. The
 7. **Up never adds to the history.** If the parent is anywhere behind in the app's history, Up goes back
    to the nearest copy of it; otherwise Up replaces the current entry with the parent. Back after Up never
    returns down the branch.
-8. **Up shows where one is and leads up**: on computers and phones a trail (`Series › Copper Kettle › S1E1
+8. **Up shows where one is and leads up**: on computers and phones a trail (`Series › Show › S1E1
    Pilot`), each part a link, the one before the last the parent; on a TV one "‹ ‹parent's name›", one
    stop for focus. Top pages show none.
 9. **A series is one page with a season picker**; choosing a season, a sort or a search replaces the
@@ -23661,8 +23661,8 @@ play a video, there's no way to go directly back to the info page", then, revisi
 further back. That makes sense, because you go through an info page to get to the playback page in
 all cases, including episodes. ... The only exception is direct-play links, such as continue
 watching", whose Back goes straight back to the list (§1, as built). So a Play page's parent is
-always what plays' own page, an episode's, an extra's, an other video's as a film's: "Series › Ted
-Lasso › S1E1 Pilot › Playing", the television's overlay "‹ S1E1 Pilot", and a Back with nothing
+always what plays' own page, an episode's, an extra's, an other video's as a film's: "Series › Show
+› S1E1 Pilot › Playing", the television's overlay "‹ S1E1 Pilot", and a Back with nothing
 behind goes there too (§5); Up from that page goes on to the series at its season, an extra's film,
 an other video's library. Each chooser
 (`route-chooser.tsx`) shows a down chevron at its button's end and says it opens a dialog
@@ -23793,7 +23793,7 @@ quality. A device that cannot play a track's codec and channels gets the light s
 top too, D336 §2's made sound.
 
 **Revised 2026-10-28** by the owner ("yes", agreeing the lead's fix for the batch): §3's switch
-threw the loaded sound away. A Fire TV playing Nosferatu (staging, file 5671, device 60) stepped down
+threw the loaded sound away. A Fire TV playing a film (staging, file 5671, device 60) stepped down
 from the top (D352's revision of the same day): hls.js moves the sound to the new quality's group
 as it asks for the picture's next chunk, loaded 37 s ahead of where it plays, and, the light
 track's channels differing from the copied sound's, flushes all the sound loaded
@@ -24581,7 +24581,7 @@ until a Play page has mounted in the tab. The last two are filed for later
 ## D381 — The player chooses the quality it starts on, by the rule it plays by
 
 **Decided** (2026-10-30), by the project owner, on the lead's recommendation ("follow your
-recommendations on those"), amending D257 §2. On the Fire TV, A View to a Kill and The Kid
+recommendations on those"), amending D257 §2. On the Fire TV, two films
 showed two or three black frames at their start: the server chose the first quality at 70% of the
 remembered link (2.5 Mb/s), the player's own choice moved at once to 12.2 Mb/s, and a new
 initialisation segment resets Silk's decoder (navigation-and-widgets-answers-2026-10-27.md, "A black

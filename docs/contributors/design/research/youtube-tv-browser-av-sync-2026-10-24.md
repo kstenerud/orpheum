@@ -39,7 +39,7 @@ through Web Audio**: its loudness normalisation lowers `element.volume`, never a
 **Orpheum did route the sound through Web Audio,** and Chromium tells an element routed that way
 that its sound has no output delay (§4.1). The picture is then timed to a sound that actually comes
 out later by the context's base and output latency, which this TV reports as 96 + 320 to 328 ms.
-The one clip that measured the lag without aliasing (Sync Elder, a beep every four seconds) was
+The one clip that measured the lag without aliasing (the clip beeping every four seconds) was
 played through Web Audio. **[I]** That route accounts for about 420 of the roughly 500 ms, and is
 the most likely reason YouTube keeps time and our page did not.
 
@@ -244,7 +244,7 @@ alike; it does not, which is the strongest sign that the element's path on this 
 ## 5. Why YouTube keeps time and our page did not
 
 1. **Most likely (strong):** our sound went through Web Audio and YouTube's never does. The only
-   unaliased measurement, Sync Elder on the ladder, was through Web Audio; the context reported
+   unaliased measurement, the four-second-beep clip on the ladder, was through Web Audio; the context reported
    96 + 320 ms; Chromium does not count it (§4.1). 416 ms of a lag judged by eye at "about 0.5 s"
    leaves little to explain. Levelling and its undoing (before an earlier commit) routed every ladder
    playback, and the 600 ms sound delay routed every playback it touched,
@@ -274,7 +274,7 @@ Judgement, in order:
    offset of 0. A direct play cannot have its sound moved earlier; there, routing for a boost costs
    the latency, and the player could decline the boost on a device whose latency is large (the
    startup report already logs it).
-3. **Settle cause 2 with one test:** Sync Elder or Sync Fig, offset 0, levelling off, in the bare
+3. **Settle cause 2 with one test:** either sync-test clip, offset 0, levelling off, in the bare
    player (no Web Audio) and on the ladder after an earlier commit. In time: the cause is §5.1 and the
    manual offset is a fallback. Still late: the element's own path lags for our files, and the next
    test is the same clip as VP9 + Opus WebM and H.264 + AAC MP4 at 48 kHz, against YouTube on the

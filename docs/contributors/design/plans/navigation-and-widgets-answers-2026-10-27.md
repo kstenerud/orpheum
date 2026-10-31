@@ -35,9 +35,9 @@ decisions they feed are written (the Up decision's revision; the widget set's).
    browser that redeemed it would be able to." (To research.) Then: "Remember the threat model here. The
    stakes aren't very high": the design keeps rejoin simple, its protections proportionate.
 4. **Up is named by the parent's name.** And: "don't some competitors show where you are in the
-   drill-down, for example Series / Copper Kettle / s1e1 blah blah." The lead proposed both, and the owner
-   agreed: on computers and phones a trail (`Series › Copper Kettle › S1E1 Pilot`, each part a link, the one
-   before last the Up); on a TV only "‹ Copper Kettle", one stop for focus.
+   drill-down, for example Series / [a series] / s1e1 blah blah." The lead proposed both, and the owner
+   agreed: on computers and phones a trail (`Series › Show › S1E1 Pilot`, each part a link, the one
+   before last the Up); on a TV only "‹ Show", one stop for focus.
 
 The owner agreed every other answer and recommendation above (2026-10-27).
 
@@ -122,7 +122,7 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   about playback, such as the transcoding and bandwidth choices" (the receiver's decision, quality and
   link, shown on the controlling device).
 - **Next batch (a bug, found 2026-10-28):** a series with no name or year on staging (series 2405,
-  "Some Fathers Do Mind 'Em"): its folder, `Some.Fathers.Do.Mind.Em.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(...)`,
+  a sitcom whose folder read `Show.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(...)`),
   is taken for a specials folder (`identify.isBonusFolder` matches "Christmas Specials" anywhere in the
   name), so `seriesFromFolders` passes over it and names the series "", and TMDB finds no match for an
   empty name. Fix: a bonus folder is one whose whole name is specials or extras, and a series' name
@@ -158,8 +158,8 @@ The owner agreed every other answer and recommendation above (2026-10-27).
     where the browser will ask (or say what to do on a browser that asks nothing).
   - "Adding a device should be a role privilege." (To settle when taken up: which act it means, signing
     a new device in by a code or a link, and the default for each role.)
-  - Translated titles: "We need a way to solve the problem of translated titles. For example Blind and
-    Ugly (tt0567890) and I Just Never Did (tt0678901)." A file named by an English translation of a
+  - Translated titles: "We need a way to solve the problem of translated titles. For example [a film]
+    (tt0567890) and I Just Never Did (tt0678901)." A file named by an English translation of a
     foreign film's title finds no match by its original title: search TMDB's alternative and translated
     titles too, or the English title.
   - "Leaving KT (tt0890123) is an interesting problem because the scan's extracted title puts a space
@@ -186,12 +186,12 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 
 ## A black blip at the start of a film on the Fire TV (the owner, 2026-10-28)
 
-- **Next batch (the owner: "something I can live with, but I'd rather it not be there"):** A View to a
-  Kill and The Kid showed 2–3 black frames near their start on the Fire TV (Silk). Both
+- **Next batch (the owner: "something I can live with, but I'd rather it not be there"):** a Bond
+  film and another film showed 2–3 black frames near their start on the Fire TV (Silk). Both
   switched to their top quality at the moment playback began (12205 kb/s at +0.02 s; 15635 kb/s at
   0 s), from a low first rung the server chose at 70% of the remembered link (startsOnLadderKbps 2489
-  and 2000, rememberedLinkKbps 11923 and 9281: Bond's ladder has nothing between 2.5 and 12.2 Mb/s).
-  Films whose switch came before playback began (Marrowgate −0.75 s, file 5670 −1 s) showed none: a new
+  and 2000, rememberedLinkKbps 11923 and 9281: the Bond film's ladder has nothing between 2.5 and 12.2 Mb/s).
+  Films whose switch came before playback began (file 5908 −0.75 s, file 5670 −1 s) showed none: a new
   init segment resets Silk's decoder. Fix: the player, which now receives `rememberedLinkKbps`,
   chooses its first rung itself before loading anything (D257's start choice moved or matched on the
   page), so the first chunk is of the rung it plays and no switch lands at the start.
@@ -232,7 +232,7 @@ had leaned on.
 
 ## A first film after an update freezing on the Fire TV (the owner, 2026-10-28)
 
-- **Next batch, to investigate:** Nosferatu (file 5671), the first film cast to the Fire TV 22 s after its
+- **Next batch, to investigate:** file 5671, the first film cast to the Fire TV 22 s after its
   page reloaded onto a new staging build (18:23:39), froze twice for seconds while its sound played on:
   135 frames shown in a 10 s report where 240 were due, then 25 of 186 dropped; its first data took
   7.4 s (pieces not yet made). Its picture is ordinary (H.264 High, level 4.0, 4 reference frames,
@@ -242,7 +242,7 @@ had leaned on.
   film. Find what the page and service worker do in the minute after an update and defer it while a
   film starts; a start after a plain reload shows small hiccups at most (3% of frames dropped in its
   first 8 s, file 5670, 18:39).
-- **Looked into (2026-10-29), nothing removed yet.** The run of 08:13 to 08:36 (Nosferatu, device 60, the
+- **Looked into (2026-10-29), nothing removed yet.** The run of 08:13 to 08:36 (file 5671, device 60, the
   discovery's page on WebRTC, the first film after the 02:43 deploy) dropped frames in 11 of its 138
   reports, 3 to 7 of about 240 each, eight of them between 08:19:29 and 08:21:18 and none in the 15
   minutes after; the drops follow neither the loading (08:13:58 to 08:14:48 loaded 5 to 7 MB per 10 s,
@@ -291,7 +291,7 @@ had leaned on.
 
 - **Owner to decide: a given-up chunk's sample (D352).** A chunk given up counts as a sample of the bytes
   that came over the time waited, at least 1 B; one such sample among four at 16 Mb/s makes the harmonic
-  mean about 20 bit/s for the next five chunks. Nosferatu on the Fire TV fell from 9018 to 696 kb/s 2.3 s into
+  mean about 20 bit/s for the next five chunks. File 5671 on the Fire TV fell from 9018 to 696 kb/s 2.3 s into
   play on a 69 kb/s estimate and stayed 75 s (staging, 15:33:05). The switch's note now carries the
   controller's `why` and `linkSamples`, so the next case says which sample did it.
 - **Owner to decide: a film's first seconds before its second keyframe.** In 17 films on staging (14
@@ -299,7 +299,7 @@ had leaned on.
   at the next one, 1–10 s in, so those seconds never play (VQ119's agent, 2026-10-28).
 - **Owner to decide: the series ordering** stays a native select (it saves a preference, with its own
   busy and failure states) or becomes a chooser like the others.
-- **The Mac's Firefox refused A Woman of Paris's own HEVC picture** (`bufferAppendNoProgress`, nothing held)
+- **The Mac's Firefox refused file 5667's own HEVC picture** (`bufferAppendNoProgress`, nothing held)
   where Firefox on Linux plays it; the fallback to 800p worked. Find why, and whether other HEVC films
   do the same there.
 - **The remembered link is lost at each deploy** (`rememberedLinkKbps=0` on the first start after one);
@@ -367,13 +367,13 @@ had leaned on.
   the player's common switch.
 - **Decided (2026-10-29): D373, no one's stall holds a Watch Together group** (a leader stalled past a
   short grace passes the lead; the group waits only to start). This batch (the owner, 2026-10-29).
-- **Next batch (the owner, 2026-10-29, VQ101's run):** seeking Thimbleford (file 5680) cast to the Fire TV,
+- **Next batch (the owner, 2026-10-29, VQ101's run):** seeking file 5680 cast to the Fire TV,
   twice the film jumped back and then played 2-3 s at 2-4x speed with no sound before going on normally.
   Log, staging 22:35:23-27 UTC, the receiver (device 21 / app device 68): a seek to 863.8 s, one to
   875.2 s, then 22:35:27.097 `seeked` back to 866.2 s (`fromPositionMs=876522 toPositionMs=866181`), a
   seek the remote did not send; find who sought back (a stale seek-ahead target? the leader's own
   undo, `GroupLeader.undo`?) and why the picture then raced its sound.
-  Again in VQ110's run, The Marrowgate Family (file 5908): the remote's second jump, 22:38:56 UTC, to 3549.2 s
+  Again in VQ110's run, file 5908: the remote's second jump, 22:38:56 UTC, to 3549.2 s
   (`readyAfterMs=4033 pictureAfterMs=1431 soundAfterMs=150`), then the same fast silent play.
 - **Next batch (the owner, 2026-10-29):** the core and its discovery must find each other again whatever
   order they restart in ("It should be able to figure itself out either way"). Staging, 22:19:56: the

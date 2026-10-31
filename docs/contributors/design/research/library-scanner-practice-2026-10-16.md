@@ -15,7 +15,7 @@ The owner:
 > myriad different ways people name their files and arrange their libraries. We should be prepared
 > for that. Maybe also look at our competitors to get some ideas."*
 
-What prompted it, the same day: in a series library, `Quillwick/Quillwick - 1x4 - Born to be
+What prompted it, the same day: in a series library, `Show/Show - 1x4 - Born to be
 King.avi` was not read as S01E04, because the season-x-episode pattern wanted two episode digits.
 All 24 episodes became unnumbered specials, and a second bug made each pass give each special a
 new title, leaving 80,246 empty "not on disk" specials under one series (both fixed in 0f1a4829
@@ -298,7 +298,7 @@ filed.
   admin's files view ([files.tsx](../../../../web/apps/web/src/files.tsx)) groups files by filing and
   reason. **But a file filed `listed` carries no reason** (titles.go writes `""` for it): an
   episode filed as an unnumbered special, or as S01E05 when the file said season 3, is `listed`
-  and says nothing about why. The Quillwick failure was invisible there.
+  and says nothing about why. That failure was invisible there.
 - **D301:** a guessed match is marked, and "Identified incorrectly" opens the chooser — for a
   film's or series' match, not for an episode's number or a file's kind.
 - **D208 §1, D172:** a person's confirmation wins over every later pass, so a fix sticks.
@@ -339,7 +339,7 @@ filed.
    episode folder; (d) a season folder's number and the file's marker, where both exist, agree or
    the case is flagged.
 6. **Growth and shape guards in the pass**, run as invariants and as warnings at runtime:
-   unnumbered specials in one series exceeding its numbered episodes (Quillwick: 24 of 24); one
+   unnumbered specials in one series exceeding its numbered episodes (one series: 24 of 24); one
    series holding more than *n* times its files' count of titles (80,246 for 24 files); a season
    with episodes numbered far beyond its provider listing; many files in one folder filed as
    distinct films. Each is a cheap query, and each would have flagged today's bugs on the first
@@ -381,7 +381,7 @@ it does not overstate the categories.
 | 95 | **Season and episode as separate words** | `the office s2 ep3 FINAL.mp4` → **S1E3**; `Lockfast (1989) SE7 - EP5 …` → **S1E5**; `Show S03 EP05 Name` → **S1E5**; `Series Title S02 01` → special; `Staffel 2 Folge 5` → special |
 | 94 | **Season and episode packed into digits** | `Show - 203 - Name` in `Season 02` → **S2E203**; `Series.Title.103.720p` → special; `lzbp101.avi` → special |
 | 66 | **Multi-episode beyond `S01E01-E02`** | `S01E01-03` → end 0; `S01E01E02E03` → E1–E2; `1x01-1x02`, `S01E01.S01E02`, `1x01_1x02` → single episode |
-| 65 | **A bare episode number, leading or trailing** | `Season 1/01 Pilot.mkv`, `Season 1/1. Pilot.mkv`, `Season 2/02.avi` → special; `The Pumbletons/The Pumbletons - 02.avi` → special (`dashNumberPattern` wants a dash *after* the number too) |
+| 65 | **A bare episode number, leading or trailing** | `Season 1/01 Pilot.mkv`, `Season 1/1. Pilot.mkv`, `Season 2/02.avi` → special; `Show/Show - 02.avi` → special (`dashNumberPattern` wants a dash *after* the number too) |
 | 64 | **Four-digit seasons** (year-numbered shows) | `Running Man S2017E368`, `Doctor Who S2023E01`, `Season 2009/2009x02` → special |
 | 40 | **`NxN` variants** | `S01x02`, `S01xE02`, `1x01x02`, `02x03x04x15` → special; `Show 1×02` (U+00D7) → special |
 | 42 (37+5) | **Date-based episodes** | `The Nightly Lantern 2024-03-05 Guest.mkv`, `Last.Week.Tonight…2023.10.08` → special; `Lamplight Hour (October 13, 1978).mp4` → special named "Lamplight Hour (October 13" |
@@ -413,7 +413,7 @@ These are bugs in code that exists, each shown by a name a competitor tests:
    (Synology's recycle bin) is a film; in a series library `#recycle` and `.snapshot` become
    series. Jellyfin, Kodi and ASS all skip `@eaDir`, `#recycle`, `@Recycle`, `$RECYCLE.BIN`,
    `.snapshot`, `lost+found`, `System Volume Information`.
-6. **Disc structures are filed file by file**: `Wing (1979)/VIDEO_TS/VTS_01_1.VOB` is a film named
+6. **Disc structures are filed file by file**: `Movie Name (1979)/VIDEO_TS/VTS_01_1.VOB` is a film named
    "VTS 01 1" (the folder fallback looks only at `VIDEO_TS`), and each `.VOB` another;
    `BDMV/STREAM/00001.m2ts` a film named "00001", with a Blu-ray's dozens of clips each a title.
    `vob` and `m2ts` are in the default extensions. `.iso` is not, so an ISO library is all
@@ -443,7 +443,7 @@ film library, and a series library never making a film.
    it all already).
 2. **Number unnumbered episodes by name against every season's listing**, not only season 0's
    (Kodi's fallback). It turns a whole class of parse failures (`01 Pilot`, `Part 3 - Carentan`,
-   Quillwick) into correct placements whenever the file carries the episode's title, and costs
+   a series' bare episode number) into correct placements whenever the file carries the episode's title, and costs
    nothing new: the listings are already fetched (D209). Needs the owner (Q2).
 3. **Never default the season to 1 when the name says a season** (5.3 §4): parse `S03 EP05`,
    `SE7 - EP5`, `s2 ep3`, `Season 2 Episode 5`, `Series 5 - Episode 1` and the foreign words in

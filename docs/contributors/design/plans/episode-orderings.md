@@ -95,21 +95,21 @@ contributor's label rather than a meaning.** From the public "Episode Groups" pa
 
 | Series | Groups (type) — parts, episodes |
 | --- | --- |
-| *Emberwing* (1437) | "Intended Order" (Absolute) 2, 14 — *"The proper and intended order of Emberwing episodes"*; "DVD Order" (DVD) 2, 23 |
-| *Orbitorama* (615) | "DVD Order" (DVD) 13, 170; "Digital Order" (Digital) 14, 168; "Production Order" (Production) 12, 170 |
-| *Metropolis: The Clone Wars* (4194) | "Chronological Order" (Story arc) 1, 133 — *"starwars.com's official chronological ordering"*; "Story Arcs" (Story arc) 50, 134; "Ahsoka Tano Essential Episodes" (Story arc) 1, 16; "Compromise Order" (Story arc) 1, 133 |
+| *Series A* (1437) | "Intended Order" (Absolute) 2, 14 — *"The proper and intended order of the series' episodes"*; "DVD Order" (DVD) 2, 23 |
+| *Series B* (615) | "DVD Order" (DVD) 13, 170; "Digital Order" (Digital) 14, 168; "Production Order" (Production) 12, 170 |
+| *Series C* (4194) | "Chronological Order" (Story arc) 1, 133 — *"the franchise's own official chronological ordering"*; "Story Arcs" (Story arc) 50, 134; "Essential Episodes" (Story arc) 1, 16; "Compromise Order" (Story arc) 1, 133 |
 | *One Piece* (37854) | Original air date ×3 ("TVDB Order" 24, 1218; "Wikipedia Seasons"; "Openings Order"); Absolute ×2 ("Absolute (No Specials)" 1, 1181; "Absolute (With Specials)" 2, 1220); DVD ×1 ("German DVD Release" 36, 1047); Digital ×7 (Funimation, Netflix, Hulu, BBC iPlayer and three Crunchyroll storefronts); Story arc ×3 ("Story Arc" 55, 1219; "Sagas"; "Season, Arc & Saga Combos") |
 
 What follows from it:
 
 - **There is no "the DVD order" to pick by type.** *One Piece* has seven Digital groups and three
-  of Original air date. *Clone Wars*' chronological order is typed Story arc, not a type of its
-  own; *Emberwing*'s intended order is typed Absolute. The list response has no "official" or
+  of Original air date. *Series C*'s chronological order is typed Story arc, not a type of its
+  own; *Series A*'s intended order is typed Absolute. The list response has no "official" or
   "primary" flag (verified against the reference's schema, 2026-10-25). **An ordering is
   therefore one group, named by its id**, and the type only labels it (§7 Q1).
-- **A group may be partial.** "Ahsoka Tano Essential Episodes" holds 16 of 133; "Absolute (No
+- **A group may be partial.** "Essential Episodes" holds 16 of 133; "Absolute (No
   Specials)" omits the specials. D159 §2 already requires an ordering to be partial.
-- **A group may hold more than the aired listing.** *Emberwing*'s DVD group has 23 episodes to the
+- **A group may hold more than the aired listing.** *Series A*'s DVD group has 23 episodes to the
   intended order's 14, which suggests it lists specials or extras as episodes (UNVERIFIED: the
   group's contents were not fetched).
 - **One episode appears at most once in a group.** A contributor's note on *One Piece*'s Hulu
@@ -155,7 +155,7 @@ tables.
   (`VideoInfoTag.cpp:1454`). Our reader drops what follows the root element (`nfo.go:79`), so
   the URL is not read today.
 - **A file name's `S01E05` is in the files' order, which is aired unless an admin says otherwise**
-  (D210 §1–§2). A library ripped from *Emberwing*'s DVDs and numbered by disc order looks exactly
+  (D210 §1–§2). A library ripped from a series' DVDs and numbered by disc order looks exactly
   like an aired library; nothing in the name says which it is, and D210 §2 trusts the numbers
   within the order the admin names. A file named by absolute number (`One Piece - 812.mkv`)
   is the same case with one group.
@@ -278,7 +278,7 @@ each is an appended step (D272 §5, standards sql.md), cut by the owner.
   ordering, listing only the orderings it has: aired first, then each provider ordering by its
   label with its kind and how many of the series' episodes it holds, then the household's own.
   Choosing one not yet fetched fetches it (§3.4) and says so while it does.
-- **A composed collection** (*Gruelstone → Lockfast*) follows each inner series' ordering
+- **A composed collection** (*a series → Lockfast*) follows each inner series' ordering
   for the person (D160 §1). That needs nothing here beyond the resolver being per series.
 
 ## 5. Every place that assumes aired today
@@ -375,9 +375,9 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
    fetched holds none, so it shows TMDB's count of what it *lists* instead.
 4. **TMDB groups.** Append `episode_groups` to the series fetch and parse the list; fetch a
    group's contents when chosen, store it as `episode_group/<id>`, materialise its ordering,
-   positions and group names. *Test:* a stored *Emberwing*-shaped fixture group makes an ordering
-   whose positions match it; an episode it omits has no position; choosing it twice fetches
-   once.
+   positions and group names. *Test:* a stored fixture group, shaped like a real series' group,
+   makes an ordering whose positions match it; an episode it omits has no position; choosing it
+   twice fetches once.
    *Built 2026-10-25:* the series fetch appends `episode_groups`; the list is stored as the part
    `episode_groups`, taken from the record with no request, or, for a series whose stored record
    lacks it, from `/tv/{id}/episode_groups`; each listed group becomes an ordering

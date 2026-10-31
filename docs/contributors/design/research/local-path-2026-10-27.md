@@ -5,8 +5,8 @@
 
 # The local path: why a page at home reached staging through the carrier
 
-- **Date:** 2026-10-27. Asked by the owner after the The Unknown reports of 2026-10-26
-  (`/yoloai/files/bug-the unknown-*.log`), where every playback logged
+- **Date:** 2026-10-27. Asked by the owner after a film's playback reports of 2026-10-26
+  (`/yoloai/files/bug-report-*.log`), where every playback logged
   `over=webrtc clientAddress=11.22.33.144`.
 - **Method:** read-only. The client's path code, the core's WebRTC and discovery configuration,
   staging's rendered config (`.staging/core/persistent/config.toml`, `.staging/values.toml`), the
