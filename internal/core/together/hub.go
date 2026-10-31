@@ -50,13 +50,6 @@ type Person struct {
 	Name   string
 }
 
-// SignedIn is the person a device said hello signed in as, and which of their devices it is (the
-// sign-in's device): a device in its person's session is never a cast target (D384 §3).
-type SignedIn struct {
-	Person
-	DeviceID int64
-}
-
 // Sender takes the messages for one device: its WebSocket's writer, which must never block.
 type Sender func(message Outbound)
 
@@ -500,14 +493,7 @@ func (hub *Hub) Attach(
 	if attachedMember == nil {
 		return Attachment{}, hub.noSessionFor(credential)
 	}
-	var signedInDevice int64
-	if signedIn != nil {
-		signedInDevice = signedIn.DeviceID
-		if attachedMember.person == nil {
-			person := signedIn.Person
-			attachedMember.person = &person
-		}
-	}
+	signedInDevice := attachedMember.takeSignedIn(signedIn)
 	if tuning.SnapSeeksBeyondMs > 0 {
 		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
 	}

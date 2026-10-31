@@ -75,6 +75,26 @@ func (hub *Hub) placesOf(person *Person, held string, except int64) []place {
 	return places
 }
 
+// SignedIn is the person a device said hello signed in as, and which of their devices it is (the
+// sign-in's device): a device in its person's session is never a cast target (D384 §3).
+type SignedIn struct {
+	Person
+	DeviceID int64
+}
+
+// takeSignedIn makes the membership the person's a device said hello signed in as, where it is
+// nobody's yet (D243 §2), and is the person's device it is; 0 for a hello signed in to nothing.
+func (each *member) takeSignedIn(signedIn *SignedIn) int64 {
+	if signedIn == nil {
+		return 0
+	}
+	if each.person == nil {
+		person := signedIn.Person
+		each.person = &person
+	}
+	return signedIn.DeviceID
+}
+
 // SignedInDevicesWith is every signed-in device attached to the Watch Together session userID is in,
 // as host or as a guest signed in, of any member, by the sign-in's device: none is a cast target for
 // them, since a cast to one takes it from the session (D384 §3; the owner's S23, casting to the Mac
