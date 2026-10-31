@@ -41,9 +41,11 @@ def standing_orders() -> str:
     return "The owner's standing orders (.claude/standing-orders.md):\n" + orders
 
 
-def context_tokens(transcript: str) -> int:
-    """The context of the session's last model call, from its transcript's usage; 0 when unknown.
-    Reads only the file's tail: a day's transcript runs to tens of megabytes."""
+def context_tokens(transcript: str) -> int | None:
+    """The context of the session's last model call, from its transcript's usage; 0 when unknown, None
+    when the session was compacted since that call. Right after `/compact` the last usage is the old
+    context's, and the hook told the session it was at 148k with 15k left (the owner's first trial of
+    the meter, 2026-10-31). Reads only the file's tail: a day's transcript runs to tens of megabytes."""
     path = Path(transcript)
     if not transcript or not path.is_file():
         return 0
@@ -55,6 +57,8 @@ def context_tokens(transcript: str) -> int:
             entry = json.loads(line)
         except ValueError:
             continue
+        if isinstance(entry, dict) and entry.get("subtype") == "compact_boundary":
+            return None
         message = entry.get("message") if isinstance(entry, dict) else None
         usage = message.get("usage") if isinstance(message, dict) else None
         if isinstance(usage, dict):
@@ -86,14 +90,15 @@ def orders_and_meter(event: dict[str, object]) -> list[str]:
     tokens = context_tokens(str(event.get("transcript_path") or ""))
     seen = remembered(session) if session else {}
     digest = hashlib.sha256(orders.encode("utf-8")).hexdigest()
-    compacted = tokens and isinstance(seen.get("tokens"), int) and tokens < COMPACTED_SHARE * int(seen["tokens"])
+    compacted = tokens is None or (
+        tokens and isinstance(seen.get("tokens"), int) and tokens < COMPACTED_SHARE * int(seen["tokens"]))
     said = []
     if orders and (not session or seen.get("orders") != digest or compacted):
         said.append(orders)
     if session:
         remember(session, {"orders": digest, "tokens": tokens})
     limit = int(os.environ.get("ORPHEUM_CONTEXT_WARN_TOKENS") or CONTEXT_WARN_TOKENS)
-    if tokens > limit:
+    if tokens is not None and tokens > limit:
         said.append(f"Context: {tokens // 1000}k tokens, past the hand-off size of {limit // 1000}k. Every model "
                     "call re-reads it all (docs/contributors/lead.md §1): finish the step at hand, write the "
                     "handoff memory, and ask the owner to restart the session.")

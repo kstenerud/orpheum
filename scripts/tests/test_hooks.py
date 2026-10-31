@@ -205,6 +205,23 @@ class StandingOrdersAndDebts(unittest.TestCase):
         self.assertEqual(run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project),
                                   ORPHEUM_CONTEXT_WARN_TOKENS="200000"), {})
 
+    def test_right_after_a_compaction_the_old_context_is_not_reported_and_the_orders_come_back(self):
+        """After /compact the transcript's last usage is the old context's: the hook said 148k of a 15k
+        context (2026-10-31)."""
+        project = self.project()
+        (project / ".claude").mkdir()
+        (project / ".claude" / "standing-orders.md").write_text("1. Finish the worktrees.\n")
+        transcript = project / "transcript.jsonl"
+        event = {"session_id": "s3", "transcript_path": str(transcript)}
+        transcript.write_text(json.dumps({"message": {"usage": {"cache_read_input_tokens": 148_000}}}) + "\n")
+        self.assertIn("148k tokens", run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project))
+                      ["hookSpecificOutput"]["additionalContext"])
+        with transcript.open("a") as file:
+            file.write(json.dumps({"type": "system", "subtype": "compact_boundary"}) + "\n")
+        said = run_hook("on_prompt.py", event, CLAUDE_PROJECT_DIR=str(project))["hookSpecificOutput"]["additionalContext"]
+        self.assertNotIn("148k", said)
+        self.assertIn("Finish the worktrees.", said, "a compaction drops the orders shown before it")
+
     def test_an_owed_full_check_pr_is_shown_at_a_sessions_start_until_paid(self):
         project = self.project()
         def debt(*args: str) -> None:
