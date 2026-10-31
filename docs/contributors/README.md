@@ -19,6 +19,7 @@ Docs for building and changing this project.
 | Audit between milestones | [`audit-checklist.md`](audit-checklist.md) |
 | Find why the gates or test tiers got slower | [`test-weight.md`](test-weight.md) |
 | Record an improvement you spotted, or plan a code-fixing batch | [`code-debt.md`](code-debt.md) |
+| Run the project as the lead agent (agents, gates, staging, the owner's rules) | [`lead.md`](lead.md) |
 
 ## The directories
 
