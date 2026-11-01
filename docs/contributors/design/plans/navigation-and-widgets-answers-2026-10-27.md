@@ -1019,6 +1019,15 @@ The owner asked (2026-11-01) that an everyday key can never suspend itself by a 
 guards hold it already and are kept through the change: the guided tool never offers the key being
 suspended as its signer (`chooseSigner`; `guidedchange_test.go`), and a core refuses a statement signed
 only by the key it suspends (`ErrNotHeldByNewSet`; `suspend_test.go`).
+**The ceremony is done (the owner, 2026-11-01):** run on the Mac with three YubiKeys (`e1`, `r1`, `r2`)
+into `~/orpheum-security` and committed there. The sandbox is rebuilt so that `~/orpheum-security` is a
+working directory of its own; the staging chain made on 2026-10-31 (`staging/`, an earlier commit) lived in
+the shared-files copy and is merged into it, while staging's software keys stay outside every repository
+(D394). **Next, in order:** `make check` and one full `make check-pr` on D395 (not yet run);
+the genesis statements from `~/orpheum-security`'s ledger pasted into `suggested.go` (the discovery and
+the publisher); D390's move above, staging first; then the deploy order (the published directory on the
+production host, `-published=/published` in production's compose file, `orpheum.cc` pointed at
+connect, connect, then nas.example).
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
