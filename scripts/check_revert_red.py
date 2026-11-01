@@ -352,7 +352,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
 
         unreached = False
         attempts = attempts_for(change, first or scope, base, head)
-        attempts = [*(a for a in known_red.caught_before(change.path) if a not in attempts), *attempts]
+        attempts = [*(a for a in known_red.caught_before(change.path, tree) if a not in attempts), *attempts]
         if TS_SOURCE.search(change.path) and emits_the_same_between(tree, base, head, change.path):
             # The browser runs the same JavaScript either way, so no browser run can notice it (emitted_js.py).
             attempts = [a for a in attempts if not is_browser_run(a)]
