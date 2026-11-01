@@ -115,8 +115,12 @@ func TestPacer_ASendNeverReadsTheWindow(t *testing.T) {
 	// The window waits for the send to end, as reading SCTP's waits for the association's lock.
 	sent := make(chan struct{})
 	farEnd := netip.MustParseAddrPort("192.0.2.7:50000")
+	ctx := t.Context()
 	paced.follow(farEnd, func() (uint32, time.Duration) {
-		<-sent
+		select {
+		case <-sent:
+		case <-ctx.Done():
+		}
 		return 64 << 10, 20 * time.Millisecond
 	})
 	go func() {
