@@ -71,6 +71,10 @@
 //   - A dead end is counted for the core's week, keeping only when, and told in the heartbeat's
 //     answer. TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer.
 //
+//   - A dead end's reason, as its page judged it, is logged in the protocol's own words and the family
+//     it came over, never the address; a body without it is counted as before (D398 §2).
+//     TestDeadEnd_LogsWhyAsThePageJudgedItAndCountsAnOldBody.
+//
 //   - A core is online while it holds its signalling connection, offline since it last closed.
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //

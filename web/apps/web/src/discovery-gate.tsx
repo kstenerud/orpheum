@@ -8,6 +8,8 @@ import {
   NotFound,
   proofRefusal,
   reportDeadEnd,
+  type DeadEndCause,
+  type DirectOutcome,
   type DiscoveryClient,
   type Held,
   type LinkFragment,
@@ -17,6 +19,7 @@ import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "
 import { useTranslation } from "react-i18next";
 
 import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
+import { deadEndReasonOf, unknownDeadEnd } from "./dead-end-reason.ts";
 
 import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-sign-in.tsx";
 
@@ -105,9 +108,9 @@ export interface GateParts {
   readonly shouldSkipLanNames?: boolean;
   /**
    * Told what happened when the core was found but nothing reached it, for its person to copy and
-   * send (K16); the gate gives its own.
+   * send (K16), and the cause the page names (D398 §3); the gate gives its own.
    */
-  readonly onDeadEnd?: (happened: string) => void;
+  readonly onDeadEnd?: (happened: string, cause: DeadEndCause) => void;
 }
 
 /**
@@ -145,6 +148,14 @@ const realmProblems: Partial<Record<Phase, RealmProblem>> = {
   realmAgain: "again",
   realmKeyRefused: "keyRefused",
 };
+
+/**
+ * What the realm sign-in says in phase: a dead end whose cause the page knows names it (D398 §3).
+ */
+function realmProblemOf(phase: Phase, cause: DeadEndCause): RealmProblem | undefined {
+  const problem = realmProblems[phase];
+  return problem === "unreached" && cause === "noIpv6" ? "unreachedNoIpv6" : problem;
+}
 
 /**
  * The phases that offer what happened to copy and send (K16): the core found but not reached, or
@@ -239,7 +250,8 @@ async function reachFound(
   core: KeptCore,
   found: Target,
 ): Promise<Reaching | "realmTurnedAway" | "realmOffline" | "realmWrong" | "realmUnreached"> {
-  const target = withLatest(parts, core, withoutLanIfSkipped(parts, found));
+  const raced = racedHeard();
+  const target = { ...withLatest(parts, core, withoutLanIfSkipped(parts, found)), ...raced.told };
   try {
     return await reachCore(parts.client, target);
   } catch (problem: unknown) {
@@ -247,8 +259,9 @@ async function reachFound(
     if (heldBack !== undefined) {
       return heldBack;
     }
-    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
-    await reportDeadEnd(parts.client, target.held);
+    const reason = deadEndReasonOf(target, raced.heard());
+    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
+    await reportDeadEnd(parts.client, target.held, reason);
     return "realmUnreached";
   }
 }
@@ -267,7 +280,7 @@ async function findByRealm(
     if (problem instanceof NotFound) {
       return "realmWrong";
     }
-    parts.onDeadEnd?.(deadEndOf(undefined, undefined, problem));
+    parts.onDeadEnd?.(deadEndOf(undefined, undefined, problem), unknownDeadEnd.cause);
     return "realmUnreached";
   }
 }
@@ -332,8 +345,12 @@ async function reach(
   find: () => Promise<Target>,
 ): Promise<Ended | undefined> {
   let target: Target | undefined;
+  const raced = racedHeard();
   try {
-    target = withLatest(parts, core, withoutLanIfSkipped(parts, await find()));
+    target = {
+      ...withLatest(parts, core, withoutLanIfSkipped(parts, await find())),
+      ...raced.told,
+    };
     await parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {
@@ -349,16 +366,36 @@ async function reach(
     if (isCoreOffline(problem)) {
       return "offline";
     }
-    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
+    const reason = target === undefined ? unknownDeadEnd : deadEndReasonOf(target, raced.heard());
+    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     // The core was reached and refused what this device holds: no dead end, its network not to blame.
     if (isKeyRefused(problem)) {
       return "keyRefused";
     }
     if (target !== undefined) {
-      await reportDeadEnd(parts.client, target.held);
+      await reportDeadEnd(parts.client, target.held, reason);
     }
     return "deadEnd";
   }
+}
+
+/**
+ * What came of the first race of a reach's names: the target's part that hears it (told), and what
+ * it heard, undefined until the race was decided.
+ */
+function racedHeard(): {
+  readonly told: Pick<Target, "tellRaced">;
+  readonly heard: () => readonly DirectOutcome[] | undefined;
+} {
+  let raced: readonly DirectOutcome[] | undefined;
+  return {
+    told: {
+      tellRaced: (told) => {
+        raced = told;
+      },
+    },
+    heard: () => raced,
+  };
 }
 
 /** What happened at a dead end, for its person to copy and send (K16). */
@@ -408,9 +445,7 @@ export function DiscoveryGate(props: {
   readonly parts: GateParts;
 }): JSX.Element {
   const { start } = props;
-  // What happened at the last dead end, for its person to copy and send (K16).
-  const [happened, setHappened] = useState<string | undefined>(() => happenedAtStart(start));
-  const parts = useMemo(() => ({ ...props.parts, onDeadEnd: setHappened }), [props.parts]);
+  const { happened, cause, parts } = useDeadEndTold(start, props.parts);
   const [phase, setPhase] = useState<Phase>(() => firstPhase(start, parts));
   // A realm sign-in under way keeps its form, its button saying so (D297 §5).
   const [isRealmSending, setIsRealmSending] = useState(false);
@@ -424,7 +459,7 @@ export function DiscoveryGate(props: {
       <>
         <RealmGate
           parts={parts}
-          problem={realmProblems[phase]}
+          problem={realmProblemOf(phase, cause)}
           reachingRef={reachingRef}
           onSending={setIsRealmSending}
           onEnded={setPhase}
@@ -447,10 +482,41 @@ export function DiscoveryGate(props: {
   }
   return (
     <>
-      <GateMessage phase={start.kind === "none" ? "none" : phase} onRetry={reachAgain} />
+      <GateMessage
+        phase={start.kind === "none" ? "none" : phase}
+        cause={cause}
+        onRetry={reachAgain}
+      />
       <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />
     </>
   );
+}
+
+/**
+ * What the last dead end told, and the parts that hear it: what happened, for its person to copy and
+ * send (K16), and the cause its page names (D398 §3).
+ */
+function useDeadEndTold(
+  start: Start,
+  given: GateParts,
+): {
+  readonly happened: string | undefined;
+  readonly cause: DeadEndCause;
+  readonly parts: GateParts;
+} {
+  const [happened, setHappened] = useState<string | undefined>(() => happenedAtStart(start));
+  const [cause, setCause] = useState<DeadEndCause>("unknown");
+  const parts = useMemo(
+    () => ({
+      ...given,
+      onDeadEnd: (told: string, toldCause: DeadEndCause) => {
+        setHappened(told);
+        setCause(toldCause);
+      },
+    }),
+    [given],
+  );
+  return { happened, cause, parts };
 }
 
 /**
@@ -698,6 +764,7 @@ function Offline(props: { readonly onRetry: () => void }): JSX.Element {
 /** A page of the gate that says how it stands, and, for a device turned away, tries again. */
 function GateMessage(props: {
   readonly phase: Phase | "none";
+  readonly cause: DeadEndCause;
   readonly onRetry: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -716,7 +783,11 @@ function GateMessage(props: {
   }
   return (
     <CredentialsForm heading={t(`discovery.${props.phase}.heading`)} onSubmit={() => undefined}>
-      <output>{t(`discovery.${props.phase}.text`)}</output>
+      <output>
+        {props.phase === "deadEnd" && props.cause === "noIpv6"
+          ? t("discovery.deadEnd.noIpv6")
+          : t(`discovery.${props.phase}.text`)}
+      </output>
     </CredentialsForm>
   );
 }

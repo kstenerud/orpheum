@@ -54,8 +54,10 @@ export { SilentRequestError } from "./rtc-request.ts";
 export {
   directFetch,
   directPathWaitMs,
+  endingOf,
   firstDirectPath,
   notWaitedFor,
+  type DirectEnding,
   type DirectOutcome,
 } from "./direct-path.ts";
 export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";
@@ -117,8 +119,13 @@ export {
   verifyClientManifest,
 } from "./discovery.ts";
 export type {
+  DeadEndCause,
+  DeadEndReason,
   DiscoveryClient,
   DiscoverySignalling,
+  Families,
+  Family,
+  HasIpv6,
   Held,
   Proving,
   LinkFragment,

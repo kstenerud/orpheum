@@ -25262,6 +25262,54 @@ power"), answered with the choice "suspend only", and on the Mac test of the sam
 
 **Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
 
-## D398 — Reserved: A page that cannot reach its core says why
+## D398 — A page that cannot reach its core judges whether its network has IPv6, says so in words when that is why, and tells its discovery the reason with no address
 
-**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
+**Decided** (2026-11-01), by the project owner's order for the 11-02 batch's item 5 (a page that
+cannot reach its core tells the discovery "its network, whether it has IPv6, the ways tried", and its
+person why), amending D293 §7 and D314 §4. The judgement below is the agent's, built to that order;
+the owner's open choices are in §6.
+
+1. **The page judges whether its network has IPv6 from three facts it already holds, and from
+   nothing else.** (a) The family the discovery saw the page's own request come from, read from the
+   `clientPrefix` of its `paths` or locate answer (D293 §8): seen over IPv6, the network has IPv6;
+   seen over IPv4, nothing follows, since a browser racing both families may take IPv4 on a network
+   that has both. (b) How each of the core's IPv6 names in the first race ended (`endingOf` in the
+   SDK): `unreachable`, a failure before the race's wait ran out (the browser could not even start
+   a connection); `noAnswer`, the wait ran out; `refused`, the name answered with an HTTP failure, so
+   it was reached. (c) Whether the discovery offered the core any IPv4 way in. The network has IPv6
+   (`yes`) when seen over IPv6 or when any IPv6 name answered or refused; has none (`no`) when seen
+   over IPv4, at least one IPv6 name was tried, and every one ended `unreachable`; otherwise
+   `unknown`. A failure at once can also come from a router's ICMP refusal or a refused certificate,
+   so the words say "seems". Not used: the page's WebRTC candidates (Chrome hides host addresses
+   behind mDNS, a server-reflexive one depends on which families the STUN servers have, and using them
+   would mean sending addresses) and a probe name served over IPv6 alone (new infrastructure, the
+   owner's choice, §6). A VPN or a travel eSIM cannot be told from the page; the words name them
+   instead.
+2. **The dead-end report carries the reason, and nothing that names the device**
+   (`discoveryproto.DeadEndRequest`; amends D293 §7). Beside what the device holds, three optional
+   fields: `ipv6` (`yes`, `no`, `unknown`), `tried` (each way tried in order, as `{kind, ended}`:
+   the path kinds `lan`, `ipv6`, `ipv4`, `direct` for a name of no known family, and `webrtc` with
+   `failed` when no name answered), and `cause` (`noIpv6` or `unknown`, what the page told its
+   person). No address, name, URL or prefix is sent: the network is the discovery's own view of
+   where the report came from, which it already has. A discovery reads at most `MaxDeadEndTries` (8)
+   ways and logs any word outside the protocol's own as `other`, so a stranger's report puts nothing
+   of its own in a log. A page before this sends none of the fields and is counted as before; a
+   discovery before this ignores them. The owner's own discovery logs each report with its reason and
+   the family it came over, never the address (`discovery/single`); connect is to do the same, and
+   whether it stores the reason is the owner's (§6).
+3. **When the cause is known, the person is told it in words** (amends D314 §4, whose failures were
+   counted but not explained). The cause is `noIpv6` exactly when the network has no IPv6 (§1) and the
+   discovery offered no IPv4 way in; then the dead end's page says:
+   "This network seems to have no IPv6, and your server has no IPv4 way in yet, so it can't be reached
+   from here. Many mobile networks, travel eSIMs and VPNs have no IPv6. Try a Wi-Fi, or turn the VPN
+   off. If it keeps happening, copy what happened and send it to the person who sent you this link."
+   and a realm's sign-in says the same, opening "Your server was found, but" and ending "to whoever
+   runs your server". Every other cause keeps today's words. A server offline keeps its own page
+   (D293 §6), unchanged.
+4. **The person's copy of what happened is unchanged** (K16); the admin's count of dead ends on the
+   System page is unchanged.
+5. **Only a device confirms the words on a real network**: VQ235.
+6. **Left to the owner:** whether the System page's count shows causes; an IPv6-only probe name,
+   which would let a page tell "no IPv6" from "IPv6 answered nothing" on more networks; whether
+   connect stores the reason (a column, so a migration) or only logs it; and the household-VPS proxy
+   that would give a server without IPv4 an IPv4 way in, filed for later.
