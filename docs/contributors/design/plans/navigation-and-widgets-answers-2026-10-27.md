@@ -1062,6 +1062,9 @@ refused.
   2026-11-01): `Uncaught (in promise) AbortError: signal is aborted without reason at MessagePort`
   in transport-choice's bundle, four times, after a film page's warm-up was dropped. A cancelled
   request's promise is left unhandled; find which and catch the abort.
+- **The console calls every line sent to the core's log "a request failed"** (VQ198's run,
+  2026-11-01: "Orpheum: a request failed the page froze 2.0 s"): reportFailure's console prefix fits
+  failures alone; a freeze report wants its own words.
 - **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
 
