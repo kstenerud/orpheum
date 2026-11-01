@@ -84,24 +84,6 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 	return id, issued, nil
 }
 
-// AnotherInvitationLink issues one more link for an invitation still waiting, lasting
-// registration_invitation_life_days from now; its other links stay live until one is used (D318
-// §1). An invitation all of whose links ended is sent again this way.
-func (service *Service) AnotherInvitationLink(ctx context.Context, id int64) (IssuedSecret, error) {
-	return service.issueInvitationLink(ctx, func(queries *sqlcgen.Queries, _ time.Time) (int64, error) {
-		invitation, err := store.OrNotFound(queries.GetInvitation(ctx, id))
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			return 0, ErrNoInvitation
-		case err != nil:
-			return 0, fmt.Errorf("look up invitation %d: %w", id, err)
-		case invitation.MadeUserID != nil:
-			return 0, ErrInvitationUsed
-		}
-		return id, nil
-	})
-}
-
 // issueInvitationLink makes a link for the invitation invitationOf names, in the same write, and
 // returns its secret.
 func (service *Service) issueInvitationLink(

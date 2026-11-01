@@ -123,39 +123,34 @@ func TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne(t *testing.T) {
 	}
 }
 
-// An invitation may have several links: another leaves the first live, using either makes the
-// account and ends the other, and the invitation then names the account it made, with no link to
-// send again or withdraw (D318 §1, §2; D311 §4).
-func TestInvitation_EveryLinkWorksUntilOneIsUsedAndThenItNamesTheAccountItMade(t *testing.T) {
+// An invitation's link makes the account once, and the invitation then names the account it made,
+// with no link to withdraw (D318 §2; D311 §4; D399).
+func TestInvitation_ItsLinkWorksOnceAndThenItNamesTheAccountItMade(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	id, first, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "Uncle Joe"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture.clock.Advance(time.Hour)
-	second, err := fixture.service.AnotherInvitationLink(ctx, id)
+	id, link, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "Uncle Joe"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	listed, err := fixture.service.Invitations(ctx)
-	if err != nil || len(listed) != 1 || listed[0].LiveLinks != 2 || !listed[0].ExpiresAt.Equal(second.ExpiresAt) ||
+	if err != nil || len(listed) != 1 || listed[0].LiveLinks != 1 || !listed[0].ExpiresAt.Equal(link.ExpiresAt) ||
 		listed[0].MadeUserID != 0 {
-		t.Fatalf("the invitations = %+v, %v; want one waiting with two links, ending with the second's", listed, err)
+		t.Fatalf("the invitations = %+v, %v; want one waiting with its link", listed, err)
 	}
-	if _, err = fixture.service.Register(ctx, second.Secret, "Joe", "a good long password", laptop); err != nil {
+	fixture.clock.Advance(time.Hour)
+	if _, err = fixture.service.Register(ctx, link.Secret, "Joe", "a good long password", laptop); err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.service.Register(ctx, first.Secret, "Joe Again", "pw", laptop)
+	_, err = fixture.service.Register(ctx, link.Secret, "Joe Again", "pw", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("the other link after one was used: %v, want ended", err)
+		t.Errorf("the link used a second time: %v, want ended", err)
 	}
 	wantUsedBy(t, fixture.service, fixture.clock.Now(), id, "Joe")
 }
 
 // wantUsedBy fails unless the invitation id names name's account, made now, with no live link, and
-// nothing more to send or withdraw, and name's own link is the one used, still live (D292 §4).
+// nothing more to withdraw, and name's own link is the one used, still live (D292 §4).
 func wantUsedBy(t *testing.T, service *Service, now time.Time, id int64, name string) {
 	t.Helper()
 	ctx := t.Context()
@@ -163,9 +158,6 @@ func wantUsedBy(t *testing.T, service *Service, now time.Time, id int64, name st
 	if err != nil || len(listed) != 1 || listed[0].MadeName != name || listed[0].MadeUserID == 0 ||
 		listed[0].LiveLinks != 0 || !listed[0].MadeAt.Equal(now) {
 		t.Fatalf("the used invitation = %+v, %v; want it naming %s, made now, with no live link", listed, err, name)
-	}
-	if _, err = service.AnotherInvitationLink(ctx, id); !errors.Is(err, ErrInvitationUsed) {
-		t.Errorf("another link for a used invitation: %v, want ErrInvitationUsed", err)
 	}
 	if err = service.WithdrawInvitation(ctx, id); !errors.Is(err, ErrInvitationUsed) {
 		t.Errorf("withdrawing a used invitation: %v, want ErrInvitationUsed", err)
@@ -176,9 +168,9 @@ func wantUsedBy(t *testing.T, service *Service, now time.Time, id int64, name st
 	}
 }
 
-// Withdrawing an invitation ends every link of it (D318 §3), and an invitation all of whose links
-// ended is sent again by another.
-func TestInvitation_WithdrawnEndsEveryLinkAndAnExpiredOneIsSentAgain(t *testing.T) {
+// An invitation whose link ended is still listed, waiting, until withdrawn, and withdrawing ends
+// its link (D318 §3).
+func TestInvitation_AnExpiredOneIsListedUntilWithdrawn(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -191,21 +183,11 @@ func TestInvitation_WithdrawnEndsEveryLinkAndAnExpiredOneIsSentAgain(t *testing.
 		listed[0].LiveLinks != 0 || !listed[0].ExpiresAt.IsZero() {
 		t.Fatalf("an expired invitation = %+v, %v; want it listed, waiting with no live link", listed, listErr)
 	}
-	again, err := fixture.service.AnotherInvitationLink(ctx, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	other, err := fixture.service.AnotherInvitationLink(ctx, id)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err = fixture.service.WithdrawInvitation(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	for name, link := range map[string]IssuedSecret{"expired": first, "sent again": again, "another": other} {
-		if _, err = fixture.service.Register(ctx, link.Secret, "May", "pw", laptop); !errors.Is(err, ErrBadInvitation) {
-			t.Errorf("the %s link of a withdrawn invitation: %v, want ErrBadInvitation", name, err)
-		}
+	if _, err = fixture.service.Register(ctx, first.Secret, "May", "pw", laptop); !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("the link of a withdrawn invitation: %v, want ErrBadInvitation", err)
 	}
 	if listed, listErr := fixture.service.Invitations(ctx); listErr != nil || len(listed) != 0 {
 		t.Errorf("after withdrawing, the invitations = %+v, %v; want none", listed, listErr)
@@ -319,32 +301,26 @@ func inviteFor(t *testing.T, kit fixture, note string) (int64, IssuedSecret) {
 	return id, link
 }
 
-// An invitation's live links are listed to pass on again, opened from their sealed secrets, until
-// one is used, which forgets the others' secrets at once (D267 §5, as the owner chose for
-// invitations, 2026-10-28).
-func TestInvitation_ItsLiveLinksAreShownAgainUntilOneIsUsed(t *testing.T) {
+// An invitation's live link is listed to pass on again, opened from its sealed secret, until it is
+// used, which forgets the secret at once (D267 §5, as the owner chose for invitations, 2026-10-28).
+func TestInvitation_ItsLiveLinkIsShownAgainUntilUsed(t *testing.T) {
 	t.Parallel()
 	kit := sealingFixture(t)
 	ctx := t.Context()
-	id, first := inviteFor(t, kit, "the neighbour")
-	kit.clock.Advance(time.Hour)
-	second, err := kit.service.AnotherInvitationLink(ctx, id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, link := inviteFor(t, kit, "the neighbour")
 	listed, err := kit.service.Invitations(ctx)
 	isSame := func(a, b IssuedSecret) bool { return a.Secret == b.Secret && a.ExpiresAt.Equal(b.ExpiresAt) }
-	if err != nil || len(listed) != 1 || !slices.EqualFunc(listed[0].Links, []IssuedSecret{first, second}, isSame) {
-		t.Fatalf("the invitations = %+v, %v; want both links to pass on again, oldest first", listed, err)
+	if err != nil || len(listed) != 1 || !slices.EqualFunc(listed[0].Links, []IssuedSecret{link}, isSame) {
+		t.Fatalf("the invitations = %+v, %v; want its link to pass on again", listed, err)
 	}
-	if _, err = kit.service.Register(ctx, second.Secret, "Ned", "a good long password", laptop); err != nil {
+	if _, err = kit.service.Register(ctx, link.Secret, "Ned", "a good long password", laptop); err != nil {
 		t.Fatal(err)
 	}
 	if listed, err = kit.service.Invitations(ctx); err != nil || len(listed) != 1 || len(listed[0].Links) != 0 {
 		t.Errorf("the used invitation = %+v, %v; want no link shown", listed, err)
 	}
 	if kept := sealedLinksKept(t, kit); kept != "0" {
-		t.Errorf("%s unused links keep their secret after one was used; want none", kept)
+		t.Errorf("%s links keep their secret after the invitation was used; want none", kept)
 	}
 }
 
