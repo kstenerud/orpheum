@@ -11,6 +11,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,6 +44,13 @@ type Client struct {
 	answerSDP  string
 	// verdicts carries what the core says on the negotiation channel (rtcapi.Verdict).
 	verdicts chan string
+	// tracks counts the media tracks the core sent: none, ever.
+	tracks *atomic.Int32
+}
+
+// Tracks is how many media tracks the core has sent the client.
+func (client *Client) Tracks() int {
+	return int(client.tracks.Load())
 }
 
 // Answerer takes the client's offer to the core and returns its answer: rtcapi.Server.Answer, or the
@@ -89,17 +97,29 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 	for _, option := range options {
 		option(&settings)
 	}
-	connection, err := webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{})
+	media := &webrtc.MediaEngine{}
+	if err := media.RegisterDefaultCodecs(); err != nil {
+		tb.Fatal(err)
+	}
+	connection, err := webrtc.NewAPI(webrtc.WithSettingEngine(settings), webrtc.WithMediaEngine(media)).
+		NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		tb.Fatal(err)
 	}
 	tb.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test is over
 	// An offer needs something to negotiate: a channel the client opens and sends nothing on, on which
-	// the core tells its verdict.
+	// the core tells its verdict; and, as the web client offers (offerWith), a video m-line that only
+	// receives, for Chrome's socket buffer.
 	hello, err := connection.CreateDataChannel(rtcapi.NegotiationLabel, nil)
 	if err != nil {
 		tb.Fatal(err)
 	}
+	if _, err = connection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo,
+		webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly}); err != nil {
+		tb.Fatal(err)
+	}
+	var tracks atomic.Int32
+	connection.OnTrack(func(*webrtc.TrackRemote, *webrtc.RTPReceiver) { tracks.Add(1) })
 	verdicts := make(chan string, 1)
 	hello.OnMessage(func(message webrtc.DataChannelMessage) {
 		select {
@@ -132,7 +152,7 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	client := &Client{tb: tb, connection: connection, answerSDP: answered.SDP, verdicts: verdicts}
+	client := &Client{tb: tb, connection: connection, answerSDP: answered.SDP, verdicts: verdicts, tracks: &tracks}
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
 	select {

@@ -186,6 +186,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   can stop while it stays connected, and every request after them waited in the same silence (the
   owner's Chrome, throttled and unthrottled, staging, 2026-10-29; VQ125).
   `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
+- **A WebRTC connection's offer carries a video m-line that only receives** (`offerWith`), beside
+  its negotiation channel: Chrome grows a connection's socket receive buffer from 64 KiB only for
+  one with video, and with the small one dropped the core's packets above about 80 Mb/s before its
+  data channels read them (idiosyncrasies.md; D397). The core answers it and sends nothing on it.
+  `src/rtc-connect.test.ts`.
 - **A WebRTC transport connects again within a bound once the network is back, in every browser**:
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of

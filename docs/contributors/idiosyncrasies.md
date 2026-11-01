@@ -126,6 +126,8 @@ User-Agent (D263; the User-Agent is logged only).
 | A phone on Wi-Fi cannot connect over WebRTC; the discovery logs "… 11 candidates; at most 10". | [A phone on Wi-Fi gathers more than ten ICE candidates](#a-phone-on-wi-fi-gathers-more-than-ten-ice-candidates) |
 | Every offer refused: "gather the core's candidates: context deadline exceeded". | [pion waits 5 s for each STUN server while gathering, and a family with no way out never answers](#pion-waits-5-s-for-each-stun-server-while-gathering-and-a-family-with-no-way-out-never-answers) |
 | A sign-in through a discovery takes 25 s or more; each WebRTC offer goes 10 s after the last. | [A browser's ICE gathering completes some forty seconds after its useful candidates](#a-browsers-ice-gathering-completes-some-forty-seconds-after-its-useful-candidates) |
+| A WebRTC connection to Chrome carries 50–80 Mb/s on a fast link; Chrome's socket drops packets (`UdpRcvbufErrors`). | [Chrome reads a WebRTC connection through a 64 KiB socket buffer unless it has a video m-line](#chrome-reads-a-webrtc-connection-through-a-64-kib-socket-buffer-unless-it-has-a-video-m-line) |
+| The core's "rtc connection ended" line reads zero for every SCTP figure after a Chromium page closes. | [Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection](#chromium-ends-a-connection-with-dtls-close_notify-and-no-sctp-abort-and-pion-then-closes-the-whole-peer-connection) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
@@ -2033,6 +2035,58 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   Wi-Fi interface holds an IPv4 address and several IPv6 ones (stable and temporary) where mobile
   data holds fewer, and a page granted the microphone gets real host addresses rather than mDNS
   names.
+
+### Chrome reads a WebRTC connection through a 64 KiB socket buffer unless it has a video m-line
+
+- **Symptom:** a data channel from the core to Chrome stalled above about 80 Mb/s: Chrome's socket
+  dropped packets (the kernel's `UdpRcvbufErrors`, about 3.7k per 32 MiB load at 5 ms round trip
+  even with the core paced), SCTP took each drop for congestion and halved its window, and a
+  connection carried 54–75 Mb/s on a link that holds far more.
+- **Cause:** Chromium opens every WebRTC UDP socket with a 64 KiB receive buffer
+  (`kUdpRecvSocketBufferSize`, `services/network/p2p/socket_udp.cc`; the kernel shows it doubled,
+  `rb131072`), about 50 packets. Only a video receive channel raises it, to
+  `kVideoRtpRecvBufferSize` (1 MiB since WebRTC's 2024-02 change, capped by the OS's `rmem_max`),
+  and a data channel alone has none. This is documented behaviour used for a side effect, not a bug.
+- **What we do:** every offer the web client makes carries a video transceiver that only receives
+  (`web/packages/sdk/src/rtc-connect.ts`, `offerWith`); the core answers it sendonly with VP8 alone
+  and never sends a track (`internal/core/rtcapi/video.go`,
+  `TestVideo_AClientsVideoLineIsAnsweredAndNothingSentOnIt`). With the core's pacing, Chrome's
+  drops at 5 ms went from about 3.7k to 0 and a connection from 54–75 to about 200 Mb/s (D397).
+- **Evidence:** **[measured]** headless Chromium against a pion sender over a veth link with netem,
+  2026-10-28 and 2026-11-01 ([webrtc-throughput-review-2026-10-28.md](design/research/webrtc-throughput-review-2026-10-28.md)
+  §2, §4.2, §4.5); Chrome's socket showed `rb425984` with the m-line, the 1 MiB request capped by
+  the sandbox's `rmem_max`. **[source]** Chromium's
+  [`socket_udp.cc`](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/services/network/p2p/socket_udp.cc),
+  WebRTC's [`webrtc_video_engine.cc`](https://webrtc.googlesource.com/src/+/refs/heads/main/media/engine/webrtc_video_engine.cc)
+  ("Set the RTP recv/send buffer to a bigger size"). **[web]** WebRTC commit
+  [2514dd7a](https://webrtc.googlesource.com/src/+/2514dd7a20f187ce230e0d00a24b5fd33d29e0f2)
+  (2024-02-27), "Increase WebRTC default receive buffer size to 1MB", from 256 kB, "to reduce packet
+  loss at very high or bursty receive rates": for media, not data channels. A search for anyone
+  else using a video m-line to grow a data channel's buffer found nobody (2026-11-01); Fire OS's
+  `rmem_max`, which bounds the gain on a TV, is unknown.
+
+### Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection
+
+- **Symptom:** the core's "rtc connection ended" line read zero for every SCTP figure (bytes,
+  window, round trip) when a Chromium page closed its connection.
+- **Cause:** Chromium closing a peer connection sends a DTLS close_notify and no SCTP ABORT. pion
+  closes the whole peer connection on a DTLS close_notify (`peerconnection.go`, "Closing
+  PeerConnection from DTLS CloseNotify"), which drops the SCTP association, and its figures with
+  it, before anything reads them. `SettingEngine.DisableCloseByDTLS(true)` stops it, leaving the
+  end to ICE or to the application.
+- **What we do:** `rtcapi` sets `DisableCloseByDTLS(true)` and closes a connection itself as its SCTP
+  ends, after logging its figures (`internal/core/rtcapi/ended.go`,
+  `TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds`; D397).
+- **Evidence:** **[measured]** headless Chromium against a bench core, 2026-11-01: zeros before, and
+  `bytesSent=37739624 cwndBytes=1191 srttMs=29.3` at 20 ms after. **[source]** pion/webrtc v4.2.23
+  `peerconnection.go` (`internalOnCloseHandler`) and `settingengine.go` ("Setting this to true will
+  keep the connection open when dtls transport is closed and relies on the ice failed state").
+  **[web]** [w3c/webrtc-pc#3053](https://lists.w3.org/Archives/Public/public-webrtc-logs/2025Jun/0036.html)
+  (2025-06), as search summarised it: "You can not move the peer connection to closed as a result of
+  receiving a DTLS close alert", which pion's default does. [ex_webrtc v0.15.0](https://github.com/elixir-webrtc/ex_webrtc/releases/tag/v0.15.0)
+  met the same alert as "immediate DTLS state change to failed" and changed it; [GStreamer
+  webrtcbin #1539](https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/issues/1539) saw
+  Chrome's close arrive only as a DTLS close, with no connection-state change (checked 2026-11-01).
 
 ---
 
