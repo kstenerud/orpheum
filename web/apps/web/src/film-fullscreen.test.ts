@@ -62,6 +62,21 @@ describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)
     }
   });
 
+  it("fills the window when the wait ends after the page's globals are gone, throwing nothing (a test file torn down first, 2026-11-01)", async () => {
+    vi.useFakeTimers();
+    try {
+      const stage = document.createElement("div");
+      stage.requestFullscreen = (): Promise<void> => new Promise(() => undefined);
+      fillTheScreen(stage, document);
+      vi.stubGlobal("Element", undefined);
+      await vi.advanceTimersByTimeAsync(fullscreenAnswerWithinMs);
+      expect(stage.classList.contains(fillsWindowClass)).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
   it("asks nothing of the stage while the page asked for itself full screen, so the page holds it across every video (D364 §5)", async () => {
     let answer: () => void = () => undefined;
     document.documentElement.requestFullscreen = (): Promise<void> =>
