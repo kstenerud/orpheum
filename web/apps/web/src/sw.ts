@@ -363,7 +363,7 @@ async function clientFile(
   if (kept !== undefined) {
     return kept;
   }
-  const { page, fetched } = await fetchedForClient(worker, event);
+  const { page, fetched } = await fetchedForClientAskedTwice(worker, event);
   const bytes = await fetched.arrayBuffer();
   const isSigned = fetched.status === 200 && (await sha256Of(bytes)) === sha256;
   if (!isSigned && page !== undefined) {
@@ -377,6 +377,28 @@ async function clientFile(
     await cache.put(key, answer.clone());
   }
   return answer;
+}
+
+/**
+ * A file of the client's, as fetchedForClient fetches it, asked again once when the fetch failed, or
+ * the page that fetched it was not answered 200: on a first visit every file of the client comes through the page's new
+ * connection to its core, and one dropped there failed its import, and the page stayed black until a
+ * reload (the owner's Firefox, staging, 2026-11-01). Bytes answered 200 that are not the signed ones
+ * are not asked again: those are another file, not a lost one.
+ */
+async function fetchedForClientAskedTwice(
+  worker: WorkerScope,
+  event: FetchEventLike,
+): Promise<{ readonly page: ClientLike | undefined; readonly fetched: Response }> {
+  try {
+    const first = await fetchedForClient(worker, event);
+    if (first.fetched.status === 200 || first.page === undefined) {
+      return first;
+    }
+  } catch {
+    // Asked again below; a second failure is the answer.
+  }
+  return await fetchedForClient(worker, event);
 }
 
 /**
