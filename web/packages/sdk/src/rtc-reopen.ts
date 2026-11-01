@@ -135,6 +135,20 @@ export class Unreached extends Error {
   }
 }
 
+/**
+ * What posting resolves with, a response; a post that reached no server, which fetch fails with a
+ * TypeError ("Failed to fetch", "NetworkError when attempting to fetch resource."), fails as
+ * Unreached, so the transport tries again soon rather than after its growing wait (unreachedRetryMs).
+ * An abort stays an abort.
+ */
+export async function reaching<Posted>(posting: Promise<Posted>): Promise<Posted> {
+  try {
+    return await posting;
+  } catch (problem: unknown) {
+    throw problem instanceof TypeError ? new Unreached(problem) : problem;
+  }
+}
+
 /** Whether problem, or any cause or alternative behind it, is a try whose offer reached no server. */
 export function isUnreached(problem: unknown): boolean {
   return isOrBehind(problem, Unreached);

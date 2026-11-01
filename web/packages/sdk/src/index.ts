@@ -48,6 +48,7 @@ export {
 export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, isTurnedAway, TurnedAway } from "./rtc-connect.ts";
+export { isUnreached, reaching, unreachedRetryMs } from "./rtc-reopen.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { SilentRequestError } from "./rtc-request.ts";
 export {

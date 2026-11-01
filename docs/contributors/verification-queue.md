@@ -2129,3 +2129,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   address document signed by a test key outside the ledger at one place. Passes when the next run
   exits non-zero naming that file, the key's fingerprint and its counter, and its timer's alert reaches
   the owner's phone. (`cmd/discovery-watch`)
+- [ ] **VQ234** — Firefox's page is live again soon after the network on a core's own address, with
+  no `online` event to tell it, on nas.example. On the Mac, Firefox on nas.example's direct HTTPS name, in a
+  Watch Together session, then again with `?transport=webrtc` in direct mode (no discovery). Turn the
+  Wi-Fi off for 20 s, then on. Passes when, each time, the page is live again within about 5 s of the
+  Wi-Fi returning: the session shows connected and a pause by the other device reaches it (its
+  `kind=reconnected` line within about 5 s), and on `?transport=webrtc` its tries' last failure names
+  "the offer reached no server". (`web/apps/web/src/transport-choice.ts`,
+  `web/packages/sdk/src/together-connection.ts`, `live-connection.ts`, `rtc-reopen.ts`)
