@@ -43,7 +43,7 @@ github.com/pion/sctp  # indirect, github.com/pion/webrtc/v4
 github.com/pion/sdp/v3  # indirect, github.com/pion/webrtc/v4
 github.com/pion/srtp/v3  # indirect, github.com/pion/webrtc/v4
 github.com/pion/stun/v4  # indirect, github.com/pion/webrtc/v4 (the relay's stun/v3 until it moves to turn/v5)
-github.com/pion/transport/v5  # indirect, github.com/pion/webrtc/v4
+github.com/pion/transport/v5  # the network the rtcapi pacer wraps, to pace each connection's sends (D397); also indirect, github.com/pion/webrtc/v4
 github.com/pion/turn/v5  # indirect, github.com/pion/webrtc/v4 (the relay's turn/v4 until it moves to it)
 golang.org/x/net  # indirect, github.com/pion/webrtc/v4; the Go team's
 golang.org/x/time  # indirect, github.com/pion/webrtc/v4; the Go team's
