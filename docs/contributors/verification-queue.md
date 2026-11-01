@@ -872,6 +872,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   click enters and leaves full screen (emulated); Tab and the arrows reach every control; Left and
   Right seek 10 s; Space plays and pauses from Mute, Full screen or the timeline without pressing
   them. Left for the owner: phones, the Fire TV, a cast's remote, the tray's feel.
+  **The iPhone's full screen (2026-11-01):** it filled only the window under Safari's bars, as an
+  iPhone has no element full screen; the full-screen button (and a double tap) now opens iOS's own
+  player, with the chosen subtitles shown in it, and Done there returns to the Play page where the
+  film was. The same in Watch Together's viewer. (`film-fullscreen.ts`)
 - [x] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
   E-AC-3) and a stereo one. Passes when each starts at the top on its own sound (the tracks note says
   "E-AC-3 5.1 (original)" or "AAC stereo (original)", and the core's `a playback started` line says

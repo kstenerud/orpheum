@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   askPageFullScreen,
+  enterVideoFullScreen,
   fillsWindowClass,
   fillTheScreen,
   fullscreenAnswerWithinMs,
@@ -84,5 +85,37 @@ describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)
     } finally {
       Reflect.deleteProperty(document.documentElement, "requestFullscreen");
     }
+  });
+});
+
+describe("a film full screen on an iPhone, which has no element full screen (WebKit bug 206854)", () => {
+  /** A stage as an iPhone's Safari has it: no requestFullscreen, its video with its own player. */
+  function iPhoneStage(): { stage: HTMLElement; entered: () => number } {
+    const stage = document.createElement("div");
+    Object.defineProperty(stage, "requestFullscreen", { configurable: true, value: undefined });
+    const video = document.createElement("video");
+    Object.defineProperty(video, "requestFullscreen", { configurable: true, value: undefined });
+    let entered = 0;
+    Object.defineProperty(video, "webkitEnterFullscreen", {
+      configurable: true,
+      value: () => {
+        entered += 1;
+      },
+    });
+    stage.append(video);
+    return { stage, entered: () => entered };
+  }
+
+  it("puts the film in iOS's own player at the full-screen press, not under Safari's bars (the owner, 2026-11-01)", () => {
+    const { stage, entered } = iPhoneStage();
+    toggleFullScreen(stage, document);
+    expect(entered()).toBe(1);
+    expect(stage.classList.contains(fillsWindowClass)).toBe(false);
+  });
+
+  it("puts Watch Together's film in iOS's own player too", () => {
+    const { stage, entered } = iPhoneStage();
+    enterVideoFullScreen(stage.querySelector("video"));
+    expect(entered()).toBe(1);
   });
 });
