@@ -167,11 +167,11 @@ type Followed struct {
 
 // Follow is the chain with the statements among candidates its rules accept, from its current version
 // on, as far as they lead (§3.4): the next version, signed by an everyday key of the set when it changes
-// the everyday tier alone, else by a recovery key; or any later version, skipping, by a recovery key
-// alone. Two valid statements of one version are a conflict: a recovery key's wins over an everyday
-// key's; otherwise both are refused, the chain stays, and a recovery key's statement of a later
-// version resolves it. A statement differing from one already accepted at its version, and valid
-// there, is a conflict too.
+// the set by nothing but suspending an everyday key (D395), else by a recovery key; or any later
+// version, skipping, by a recovery key alone. Two valid statements of one version are a conflict: a
+// recovery key's wins over an everyday key's; otherwise both are refused, the chain stays, and a
+// recovery key's statement of a later version resolves it. A statement differing from one already
+// accepted at its version, and valid there, is a conflict too.
 func (chain Chain) Follow(candidates []Signed) (Chain, Followed) {
 	followed := Followed{Conflicts: chain.equivocations(candidates)}
 	for {
@@ -286,7 +286,7 @@ func judgeAfter(kind ChainKind, id string, current Root, candidate Signed) (Root
 		candidate.Signature, namespace, message, current.usable(RoleEveryday, current.Removed))
 	byRecovery := len(recovery) >= current.Thresholds[RoleRecovery]
 	byEveryday := len(everyday) >= current.Thresholds[RoleEveryday] && next.Version == current.Version+1 &&
-		!current.changesRecoveryTier(next)
+		!current.changesRecoveryTier(next) && current.onlySuspends(next)
 	if !byRecovery && !byEveryday {
 		return Root{}, false, ErrNotAllowed
 	}

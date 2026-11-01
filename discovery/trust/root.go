@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,9 +54,9 @@ func (kind ChainKind) idPrefix() string {
 	return "od1-"
 }
 
-// Role is a root key's tier (D393 §1): everyday keys sign documents, records and changes of the
-// everyday tier; recovery keys sign anything, and alone change the recovery tier, the thresholds and
-// the roles, or skip versions.
+// Role is a root key's tier (D393 §1): everyday keys sign documents and records, and change the set
+// by nothing but suspending an everyday key (D395); recovery keys sign anything, and alone add, remove
+// or re-mark keys, change the thresholds, the roles and the locations, or skip versions.
 type Role string
 
 // The two roles.
@@ -298,6 +299,30 @@ func (root Root) changesRecoveryTier(next Root) bool {
 		}
 	}
 	return false
+}
+
+// onlySuspends is whether next differs from root by nothing but keys it suspends: the one change to the
+// set an everyday key may sign (D395; the owner, 2026-11-01: "I don't want an everyday key to have that
+// power", of adding a key). Adding, removing or re-marking a key, a threshold and where the chain is
+// served all take a recovery key, so a thief holding an everyday key and its PIN can at most suspend
+// the owner's other everyday keys, which a recovery key resumes.
+func (root Root) onlySuspends(next Root) bool {
+	keyLines := func(keys []RootKey) []string {
+		lines := make([]string, 0, len(keys))
+		for _, key := range keys {
+			lines = append(lines, fmt.Sprint(key.Text, " ", key.Role, " ", key.MustVerifyUV))
+		}
+		slices.Sort(lines)
+		return lines
+	}
+	sameSet := func(one, other []string) bool {
+		return slices.Equal(slices.Sorted(slices.Values(one)), slices.Sorted(slices.Values(other)))
+	}
+	keepsSuspended := !slices.ContainsFunc(root.Suspended, func(fingerprint string) bool {
+		return !slices.Contains(next.Suspended, fingerprint)
+	})
+	return slices.Equal(keyLines(root.Keys), keyLines(next.Keys)) && sameSet(root.Removed, next.Removed) &&
+		sameSet(root.Locations, next.Locations) && maps.Equal(root.Thresholds, next.Thresholds) && keepsSuspended
 }
 
 // IdentityOf is the id of the chain whose genesis payload is genesis: od1- or op1-, then the

@@ -114,7 +114,12 @@ func TestSuspend_OnlyARecoveryKeyResumesAndTheTiersRulesHold(t *testing.T) {
 
 	// Removed for good: e1, removed, is not resumed by putting it back in the set, with or without its
 	// removed line.
-	removal, removalRoot := set.chain.Next(t, 4, trusttest.Change{Remove: []trusttest.Key{set.e1}}, set.e2)
+	removing := trusttest.Change{Remove: []trusttest.Key{set.e1}}
+	byEveryday, _ := set.chain.Next(t, 4, removing, set.e2)
+	if _, err := core.Accept(byEveryday); !errors.Is(err, trust.ErrNotAllowed) {
+		t.Errorf("an everyday key removing the key it suspended: %v; want ErrNotAllowed", err)
+	}
+	removal, removalRoot := set.chain.Next(t, 4, removing, set.r2)
 	follows(t, &core, []trust.Signed{removal}, stands{version: 4, gone: []trusttest.Key{set.e1}})
 	set.chain.Take(removal, removalRoot)
 	back := set.chain.Last

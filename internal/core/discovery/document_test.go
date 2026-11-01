@@ -253,9 +253,14 @@ func TestDocument_EquivocationARollbackAndAConflictAreRefusedAndSaid(t *testing.
 		status.LoaderOrigin != fakeLoaderOrigin {
 		t.Errorf("equivocation: %+v", status)
 	}
-	e2, e3 := trusttest.HardwareKey(t, "e2"), trusttest.HardwareKey(t, "e3")
-	one, _ := built.fake.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{e2}}, built.fake.e1)
-	other, _ := built.fake.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{e3}}, built.fake.e1)
+	// The set's one everyday key may change it by nothing but a suspension (D395), and has no other
+	// everyday key to suspend, so its two statements change nothing and differ in when they were issued.
+	restated := func(issued time.Time) trust.Signed {
+		root := built.fake.chain.Last
+		root.ID, root.Version, root.Issued = built.fake.chain.ID(), 2, issued
+		return trusttest.SignRoot(t, trust.ChainDiscovery, root, built.fake.e1)
+	}
+	one, other := restated(trusttest.Issued().Add(time.Hour)), restated(trusttest.Issued().Add(2*time.Hour))
 	built.fake.mutex.Lock()
 	delete(built.fake.files, addressdoc.DocumentPath)
 	built.fake.files[addressdoc.RootPath(2)] = one

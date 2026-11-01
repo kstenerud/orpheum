@@ -122,13 +122,13 @@ func TestParse_TheFormatIsStrictAndAnUnknownCriticalLineRefuses(t *testing.T) {
 // a state kept is taken again only from the genesis of the id pinned (D393 §4; §3.3).
 func TestGenesis_TheIdIsTheGenesisHashAndAStateIsCheckedAgainFromIt(t *testing.T) {
 	t.Parallel()
-	chain, everyday, _ := trusttest.NewDiscovery(t)
+	chain, _, recovery := trusttest.NewDiscovery(t)
 	held := chain.Follower(t)
 	if !strings.HasPrefix(held.ID(), "od1-") || held.ID() != chain.ID() || len(held.ID()) != len("od1-")+52 {
 		t.Errorf("the id %q", held.ID())
 	}
 	next, root := chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "e2")}},
-		everyday)
+		recovery)
 	chain.Take(next, root)
 	loaded, err := trust.Load(trust.ChainDiscovery, chain.ID(), chain.Statements)
 	if err != nil || loaded.Version() != 2 {
