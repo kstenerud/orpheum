@@ -19,13 +19,11 @@ type Suggestion struct {
 
 // Suggested is the paid service's suggestion (D390 §1, D391 §7).
 //
-// Its genesis is not made yet: the owner makes it at the day-one ceremony (the audit's §4) and puts
-// the statement and its signature here, the identity in the commit's message. Until then enrolling
-// with the suggested issuer fails, saying so, rather than trusting whatever chain the issuer shows.
+// Its genesis is the one the owner made at the day-one ceremony (the audit's §4), 2026-11-01: the
+// statement and its signature files, verbatim.
 func Suggested() Suggestion {
 	return Suggestion{
 		Issuer: "https://orpheum.cc",
-		// The discovery chain's genesis statement and its signature file go here, verbatim.
 		//nolint:lll // a signed statement, verbatim: its key lines cannot be wrapped
 		Genesis: trust.Signed{
 			Payload: `orpheum-signed root 1
@@ -72,11 +70,10 @@ type PublisherRoot struct {
 	Locations []string
 }
 
-// Publisher is the publisher root this build trusts. Its genesis is made at the day-one ceremony too;
-// until it is here a release build checks no release record, and says so in its log.
+// Publisher is the publisher root this build trusts. Its genesis was made at the day-one ceremony
+// too, and is the statement and its signature files, verbatim.
 func Publisher() PublisherRoot {
 	return PublisherRoot{
-		// The publisher chain's genesis statement and its signature file go here, verbatim.
 		//nolint:lll // a signed statement, verbatim: its key lines cannot be wrapped
 		Genesis: trust.Signed{
 			Payload: `orpheum-signed root 1
