@@ -32,7 +32,7 @@ export interface IssuedInvitation {
 
 /** The dialog the page has open, if any: one of the three that make something, or an invitation's. */
 type DialogState =
-  | { readonly kind: "role" | "account" | "invite" }
+  | { readonly kind: "role" | "account" | "inviting" }
   | {
       readonly kind: "invitation";
       readonly invitation: Invitation;
@@ -43,7 +43,7 @@ type DialogState =
 const makers = [
   { kind: "role", label: "people.createRole" },
   { kind: "account", label: "people.createAccount" },
-  { kind: "invite", label: "people.inviteSomeone" },
+  { kind: "inviting", label: "people.inviteSomeone" },
 ] as const;
 
 /**
@@ -142,7 +142,7 @@ function OpenDialog(props: {
           }}
         />
       ) : null}
-      {props.open?.kind === "invite" ? (
+      {props.open?.kind === "inviting" ? (
         <InviteDialog
           choices={props.choices}
           onClose={props.onClose}
