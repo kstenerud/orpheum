@@ -247,15 +247,16 @@ func TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart(t *t
 	copied := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
-	copied.FirstChunk, copied.BoundsMs, copied.IsSoundInterleaved = 0, []int64{0, 3_236}, true
+	copied.FirstChunk, copied.BoundsMs, copied.IsSoundInterleaved = 0, []int64{21, 3_236}, true
 	arguments = Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
-	if start := valueOf(arguments, "-ss"); start != "0.000" {
-		t.Errorf("a sound copied seeks to %q; want its run's start, 0.000, as any copy", start)
+	if start := valueOf(arguments, "-ss"); start != "0.021" {
+		t.Errorf("a sound copied seeks to %q; want its run's start, 0.021, as any copy", start)
 	}
 }
 
-// A sound starting less than two seconds into the film decodes from its start, and drops only what
-// comes before its run.
+// A sound starting less than two seconds into the film decodes from its start, read unsought, as a
+// seek to the start loses an AVI's first packets (idiosyncrasies.md), and drops only what comes
+// before its run.
 func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 	t.Parallel()
 	sound := run(nodeproto.ChunkStream{
@@ -264,9 +265,33 @@ func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 	sound.BoundsMs = []int64{1_500, 11_500}
 	sound.FirstChunk = 0
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
-	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "0.000" ||
+	if filter := valueOf(arguments, "-filter:a"); slices.Contains(arguments, "-ss") ||
 		!strings.HasPrefix(filter, "atrim=start=1.500,asetpts=PTS-STARTPTS,") {
-		t.Errorf("the sound decodes from %s filtered by %q; want from 0.000, dropping 1.500 s", start, filter)
+		t.Errorf("the sound decodes from %q filtered by %q; want from the start unsought, dropping 1.500 s",
+			valueOf(arguments, "-ss"), filter)
+	}
+}
+
+// No run seeks to the film's start, which it reads from unsought: FFmpeg moves a seek into a film with
+// B-frames 3/23 s earlier, before the start, and an AVI seeking there lands past its first keyframe
+// and its sound's first half second, which put a sound half a second early (idiosyncrasies.md).
+func TestArguments_NoRunSeeksToTheFilmsStart(t *testing.T) {
+	t.Parallel()
+	for name, stream := range map[string]nodeproto.ChunkStream{
+		"a quality": {Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96},
+		"a sound": {
+			Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
+		},
+		"a sound copied":     {Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 2}},
+		"an MPEG-TS picture": {Kind: nodeproto.StreamPicture},
+	} {
+		command := run(stream)
+		command.FirstChunk, command.BoundsMs = 0, []int64{0, 2_000, 4_000}
+		command.IsPictureSeekBeforeKeyframe, command.PictureSeekMs = stream.Kind == nodeproto.StreamPicture, 0
+		arguments := Arguments(execx.Film{Path: "/a"}, "/r", command, encode.EncoderX264)
+		if slices.Contains(arguments, "-ss") || valueOf(arguments, "-to") != "4.000" {
+			t.Errorf("%s of the film's first chunks reads %q; want from the start unsought, to 4.000", name, arguments)
+		}
 	}
 }
 
@@ -322,8 +347,8 @@ func TestArguments_ACopiedSoundWhoseFilmsFirstChunkStartsLateIsLedInFromTheFilms
 	})
 	copied.FirstChunk, copied.BoundsMs = 0, []int64{10_176, 12_262, 22_522}
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r", copied, encode.EncoderX264)
-	if start := valueOf(arguments, "-ss"); start != "0.000" {
-		t.Errorf("the copy reads from %s, want the film's start, 0.000", start)
+	if slices.Contains(arguments, "-ss") {
+		t.Errorf("the copy reads from %s, want the film's start, unsought", valueOf(arguments, "-ss"))
 	}
 	if cuts := valueOf(arguments, "-segment_times"); cuts != "10.176,12.262,22.522" {
 		t.Errorf("the cuts are %s, want chunk 0's start and each bound after it, 10.176,12.262,22.522", cuts)

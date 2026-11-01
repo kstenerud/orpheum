@@ -2217,3 +2217,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   address: it is not a page any more. (`web/apps/web/src/role-dialog.tsx`, `people.tsx`,
   `invitations-section.tsx`; `internal/store/queries/invitation.sql`)
 
+- [ ] **VQ239** — *Quillwick II*, "Money" plays in step from its very start, on staging (the owner,
+  2026-11-01: its audio was out of sync; measured, the sound half a second early for its first five
+  minutes). After the deploy, play the episode from the start, the sound transcoded: its first run of
+  sound chunks, made before the fix, is stored, so evict it or play it under a new sound ladder. Watch
+  the lips over the first minute, then seek to about 4:50 and play across 5:00, where the first run
+  meets the second. Passes when the speech is on the lips at the start and stays so across 5:00 with
+  no jump or repeat. Do the same for any other XviD AVI from the start. (`internal/node/chunks/arguments.go`)

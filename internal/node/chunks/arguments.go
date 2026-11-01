@@ -82,12 +82,15 @@ func seekMs(command nodeproto.MakeChunks) int64 {
 	return runStartMs(command)
 }
 
-// isSeeking is whether FFmpeg is told to seek at all: always, but for an interleaved sound decoded
-// from the film's start, which is read from it unsought, as a seek to the start loses the first
-// super-block as any seek loses the one it lands in (idiosyncrasies.md). A sound copied is never
-// interleaved RealAudio, which no browser plays (D368), and seeks as it always does whatever it says.
+// isSeeking is whether FFmpeg is told to seek at all: not to the film's start, which a run reads from
+// unsought. FFmpeg moves a seek into a film with B-frames 3/23 s earlier, before the start, and an
+// AVI seeking there lands past its first keyframe, losing the film's first packets: the
+// first 21 frames of a sound interleaved ahead of its picture, which put a sound, timed by its
+// samples, half a second early for all its run (Quillwick, staging, 2026-11-01), and the picture's
+// first keyframe; and RealMedia loses its first super-block, as any seek loses the one it lands in
+// (idiosyncrasies.md).
 func isSeeking(command nodeproto.MakeChunks) bool {
-	return command.Stream.Kind != nodeproto.StreamSound || !command.IsSoundInterleaved || seekMs(command) > 0
+	return seekMs(command) > 0
 }
 
 // soundTrimMs is how much a sound's decode drops before its run's start: what it was decoded early.
