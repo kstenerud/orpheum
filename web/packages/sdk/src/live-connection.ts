@@ -9,7 +9,7 @@
 
 import { ShownCheck } from "./shown-check.ts";
 import { whenPageChanges, type PageOfConnection } from "./shown-page.ts";
-import { deadAfterUnansweredPings, pingEveryMs, reconnectWaitMs } from "./together-connection.ts";
+import { deadAfterUnansweredPings, nextReconnect, pingEveryMs } from "./together-connection.ts";
 import { recordOf, type OpenTogetherSocket, type TogetherSocket } from "./together.ts";
 
 /**
@@ -478,7 +478,7 @@ class PageLiveConnection implements LiveConnection {
     this.#change({ ...this.#snapshot, isConnected: false, isRefused: true });
   }
 
-  #closed(code: number): void {
+  #closed(code: number, wasOpened: boolean): void {
     clearInterval(this.#pinger);
     if (this.#isClosed) {
       return;
@@ -487,19 +487,21 @@ class PageLiveConnection implements LiveConnection {
       this.#refused();
       return;
     }
-    this.#reconnectLater();
+    this.#reconnectLater(!wasOpened);
   }
 
-  #reconnectLater(): void {
+  /** Connects again after a wait (nextReconnect): soon, if the socket never opened. */
+  #reconnectLater(wasUnreached = false): void {
     clearInterval(this.#pinger);
     this.#shownCheck.stop();
     this.#change({ ...this.#snapshot, isConnected: false });
     clearTimeout(this.#reconnectTimer);
+    const next = nextReconnect(this.#attempt, wasUnreached);
+    this.#attempt = next.attempt;
     this.#reconnectTimer = setTimeout(() => {
       this.#reconnectTimer = undefined;
       this.#connect();
-    }, reconnectWaitMs(this.#attempt));
-    this.#attempt += 1;
+    }, next.waitMs);
   }
 
   #connect(): void {
@@ -512,9 +514,11 @@ class PageLiveConnection implements LiveConnection {
     this.#socket?.close();
     const generation = this.#generation;
     const isCurrent = (): boolean => generation === this.#generation;
+    let wasOpened = false;
     this.#socket = this.#options.openSocket({
       onOpen: () => {
         if (isCurrent()) {
+          wasOpened = true;
           this.#send({
             type: "live",
             sessionToken: this.#options.sessionToken,
@@ -532,7 +536,7 @@ class PageLiveConnection implements LiveConnection {
       },
       onClose: (code) => {
         if (isCurrent()) {
-          this.#closed(code);
+          this.#closed(code, wasOpened);
         }
       },
     });

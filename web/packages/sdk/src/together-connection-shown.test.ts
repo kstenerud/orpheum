@@ -138,8 +138,10 @@ describe("a connection whose page is shown again (the owner's VQ105, 2026-10-29)
       page,
     });
     connection.open();
+    sockets.opened[0]!.onOpen(); // reached the server, which dropped it
     sockets.opened[0]!.onClose(1006);
     vi.advanceTimersByTime(reconnectWaitMs(0));
+    sockets.opened[1]!.onOpen(); // reached the server, which dropped it
     sockets.opened[1]!.onClose(1006); // its wait is now reconnectWaitMs(1)
     page.hide();
     page.show();

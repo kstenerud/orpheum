@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { SoundChoice } from "./playback-sound.ts";
+import { unreachedRetryMs } from "./rtc-reopen.ts";
 import { ShownCheck } from "./shown-check.ts";
 import { whenPageChanges } from "./shown-page.ts";
 import { expectedPositionMs } from "./together-drift.ts";
@@ -70,6 +71,22 @@ const policyViolationCode = 1008;
 /** How long to wait before the attempt'th try to connect again (0 is the first). */
 export function reconnectWaitMs(attempt: number): number {
   return Math.min(firstReconnectWaitMs * 2 ** attempt, longestReconnectWaitMs);
+}
+
+/**
+ * The wait before the next try to connect after one failed, and the attempt count the wait after
+ * that grows from. A try whose socket never opened reached no server: the network is away, and the
+ * next try, after unreachedRetryMs, is how the page hears it back where the browser says nothing
+ * (Firefox on the desktop fires no `online` event), the growing wait starting over. Any other failure
+ * grows the wait.
+ */
+export function nextReconnect(
+  attempt: number,
+  wasUnreached: boolean,
+): { readonly waitMs: number; readonly attempt: number } {
+  return wasUnreached
+    ? { waitMs: unreachedRetryMs, attempt: 0 }
+    : { waitMs: reconnectWaitMs(attempt), attempt: attempt + 1 };
 }
 
 export type { PlayerNote, PlayerState, Press, VoiceCallStep } from "./together-notes.ts";
@@ -543,7 +560,7 @@ class SessionConnection
   }
 
   /** The socket closed: the session is gone, or the device connects again after a wait. */
-  #closed(code: number, wasWelcomed: boolean): void {
+  #closed(code: number, wasWelcomed: boolean, wasOpened: boolean): void {
     this.#stopTimers();
     if (this.#snapshot.status === "ended") {
       return;
@@ -552,22 +569,23 @@ class SessionConnection
       this.#change({ ...this.#snapshot, status: "ended", endReason: "gone" });
       return;
     }
-    this.#reconnectLater({ atMs: this.#now(), why: "closed" });
+    this.#reconnectLater({ atMs: this.#now(), why: "closed" }, !wasOpened);
   }
 
   /**
-   * Says it is connecting again, and does after a wait that grows with each failure; lost is how,
-   * kept from the first loss until a welcome.
+   * Says it is connecting again, and does after a wait that grows with each failure (nextReconnect:
+   * not after a socket that never opened); lost is how, kept from the first loss until a welcome.
    */
-  #reconnectLater(lost: Lost): void {
+  #reconnectLater(lost: Lost, wasUnreached = false): void {
     this.#lost ??= lost;
     this.#stopTimers();
     this.#change({ ...this.#snapshot, status: "reconnecting" });
+    const next = nextReconnect(this.#attempt, wasUnreached);
+    this.#attempt = next.attempt;
     this.#reconnectTimer = setTimeout(() => {
       this.#reconnectTimer = undefined;
       this.#connect();
-    }, reconnectWaitMs(this.#attempt));
-    this.#attempt += 1;
+    }, next.waitMs);
   }
 
   /** Opens a socket; what an earlier one, closed since, still says is not heard. */
@@ -577,9 +595,11 @@ class SessionConnection
     const generation = this.#generation;
     const isCurrent = (): boolean => generation === this.#generation;
     let wasWelcomed = false;
+    let wasOpened = false;
     this.#socket = this.#options.openSocket({
       onOpen: () => {
         if (isCurrent()) {
+          wasOpened = true;
           this.#socket?.send(helloText(this.#options));
         }
       },
@@ -591,7 +611,7 @@ class SessionConnection
       },
       onClose: (code) => {
         if (isCurrent()) {
-          this.#closed(code, wasWelcomed);
+          this.#closed(code, wasWelcomed, wasOpened);
         }
       },
     });
