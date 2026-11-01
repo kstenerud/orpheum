@@ -424,6 +424,23 @@ func TestRescan_ASeriesIsMatchedAgainAndItsEpisodesFollow(t *testing.T) {
 	checkOrbitorama(t, lib, "after the rescan")
 }
 
+// A rescan of a library holding an episode its name placed, as a guess, lists its series and queues
+// its match: reading what the library's files say writes nothing, so the read completes, rather
+// than the rescan waiting forever for the library to stop changing (staging's shows, 2026-11-01).
+func TestRescan_ALibraryWithAnEpisodePlacedByItsNameIsMatchedAgain(t *testing.T) {
+	t.Parallel()
+	lib := placedByNameLibrary(t)
+	rescan := lib.rescanning()
+	rescan.library()
+	queued, err := rescan.rescans.Advance(t.Context())
+	if err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if queued != 1 {
+		t.Errorf("the rescan queued %d fetches; want its series' one", queued)
+	}
+}
+
 // D357 §2: a film whose search now settles on none is left as a first match leaves one, its old
 // match forgotten: unidentified, not found, named from its file again.
 func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.T) {

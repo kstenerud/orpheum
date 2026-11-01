@@ -278,12 +278,18 @@ func TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass(t *testing.T) {
 	}
 }
 
-// An episode with no number, in no specials or extras folder, is placed by its name in the one
-// episode of every season its series lists whose name is its own, or nearly, and marked a guess;
-// the series has every season fetched for it. One in an extras folder stays a special (D306 §2,
-// D307 §2).
-func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing.T) {
-	t.Parallel()
+// The files of placedByNameLibrary: a numbered episode, one with no number its name places, and
+// an extra of the same name.
+const (
+	placedByNameNumbered = "Orbitorama/Season 02/Orbitorama - S02E10.mkv"
+	placedByNameUnplaced = "Orbitorama/Orbitorama - Comet Pilott 3000.mkv" // misspelled, as a rip names it
+	placedByNameBonus    = "Orbitorama/Extras/Comet Pilot 3000.mkv"
+)
+
+// placedByNameLibrary is a series library whose series is matched and its passes run, holding an
+// episode with no number that its name places in season 1 as a guess (D307 §2).
+func placedByNameLibrary(t *testing.T) *testLibrary {
+	t.Helper()
 	lib := newTestLibrary(t, "shows", "tmdb")
 	listed := orbitorama
 	listed.SeasonNumbers = []int{0, 1, 2}
@@ -291,15 +297,23 @@ func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing
 	lib.provider.Seasons["615/1"] = []identify.Episode{{ID: "1001", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
 	lib.provider.Seasons["615/2"] = []identify.Episode{{ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own"}}
 	lib.provider.Seasons["615/0"] = []identify.Episode{}
-	numbered := "Orbitorama/Season 02/Orbitorama - S02E10.mkv"
-	unplaced := "Orbitorama/Orbitorama - Comet Pilott 3000.mkv" // misspelled, as a rip names it
-	bonus := "Orbitorama/Extras/Comet Pilot 3000.mkv"
-	lib.scanAll(numbered, unplaced, bonus)
+	lib.scanAll(placedByNameNumbered, placedByNameUnplaced, placedByNameBonus)
 	series := lib.onlySeries()
 	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeMatched {
 		t.Fatalf("Match(series) = %s, %v", outcome, err)
 	}
 	lib.runOwedPasses()
+	return lib
+}
+
+// An episode with no number, in no specials or extras folder, is placed by its name in the one
+// episode of every season its series lists whose name is its own, or nearly, and marked a guess;
+// the series has every season fetched for it. One in an extras folder stays a special (D306 §2,
+// D307 §2).
+func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing.T) {
+	t.Parallel()
+	lib := placedByNameLibrary(t)
+	numbered, unplaced, bonus := placedByNameNumbered, placedByNameUnplaced, placedByNameBonus
 	if !slices.Contains(lib.provider.Calls, "season 615/1") {
 		t.Errorf("calls %v; want season 1 fetched, which no numbered episode is in", lib.provider.Calls)
 	}
