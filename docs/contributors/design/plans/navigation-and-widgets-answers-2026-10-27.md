@@ -1147,3 +1147,25 @@ own proxy on its own VPS, which the discovery then names as a way to its core: t
 carries no one's traffic (D314), but a household behind DS-Lite or CGNAT can give its core an IPv4
 way in. nas.example's edge VPS (orpheum-ops `edge/`) is the test bed when it is designed. nas.example's own
 use of the edge waits until then (the owner: "We'll hold off on nas.example's edge server for now").
+
+## The 11-03 batch (the owner agreed 2026-11-01): playback you feel, small visible things, the beta's setup
+
+The lead's proposal from the next-batch list above (the owner, 2026-11-01: "Go with your
+recommendations"). The owner holds off on the testing plan's sound steps until this batch changes them.
+
+1. **A seek's playback stops again 1 s after it starts** (Nosferatu at 29:04): a step up never flushes what
+   is playing.
+2. **A track switch's second gap, at the old track's seam**, and the boost's switch checked for the same
+   seam. The lead finds the cause and puts the choice (cut at once, or a clean seam) to the owner with it.
+3. **The uncaught AbortError** after a film page's warm-up is dropped.
+4. **Titles sort without their leading article**: a decision refining D47, as agreed above.
+5. **A confirmed episode placement sticks**: a decision amending D307 §2, as agreed above.
+6. **An empty Home tells an admin to add a library.**
+7. **A page's freeze has its own console words**, not "a request failed".
+8. **The Continue Watching poster** ("fix(library): an episode in Continue Watching shows its series' poster", verified on staging by the owner) ships with it.
+9. **Connect's up.sh checks `published/` as the `connect` user** (orpheum-connect).
+10. **A renamed realm's one password sign-in** is said where it is needed, or made unneeded.
+
+End: one check-pr, the owner's go, nas.example. Quick visible fixes go to staging for the owner as they
+land. **Not this batch:** connect's side of D398 (at its next pin), the gate items, the ops and logging
+items above.

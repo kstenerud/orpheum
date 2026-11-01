@@ -15,6 +15,13 @@
    owner checks devices alongside (`/yoloai/files/testing-plan-2026-11-01.md`). End: one check-pr, the
    owner's go, nas.example. **Not this batch:** inventory features; the decoder-limit codec drop; the
    average-bitrate rung; the cosmetic UI items.
+   **The 11-03 batch (owner 2026-11-01, "Go with your recommendations"):** after the 11-02 batch
+   (passed check-pr at "fix(web): an empty Home's notice takes the paragraph's own spacing", deployed to nas.example 2026-11-01): the plan file's "The 11-03 batch":
+   the seek's stop after starting, the track switch's seam, the uncaught AbortError, article-less
+   sorting (refining D47), a confirmed placement sticks (amending D307 §2), the empty Home's admin
+   notice, the freeze's console words, the Continue Watching poster, up.sh's check as `connect`, the
+   renamed realm's sign-in. The owner holds the testing plan's sound steps until it lands. End: one
+   check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
