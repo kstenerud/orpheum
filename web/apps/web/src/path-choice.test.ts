@@ -30,6 +30,11 @@ describe("why a page took its path to the core (local-path-2026-10-27.md §4 ite
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Safari/605.1.15",
       ),
     ).toBe("safari");
+    expect(
+      browserFamily(
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/146.0.0.0 Safari/537.36",
+      ),
+    ).toBe("chrome"); // not safari, as the core logged it (2026-11-01)
     expect(browserFamily("curl/8.0")).toBe("other");
   });
 

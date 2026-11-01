@@ -26,7 +26,8 @@ export function browserFamily(userAgent: string): BrowserFamily {
   if (/\bFirefox\//u.test(userAgent)) {
     return "firefox";
   }
-  if (/\b(?:Chrome|CriOS|Edg)\//u.test(userAgent)) {
+  // Headless Chromium says HeadlessChrome, with no word break before Chrome (the core's log, 2026-11-01).
+  if (/\b(?:HeadlessChrome|Chrome|CriOS|Edg)\//u.test(userAgent)) {
     return "chrome";
   }
   return /\bSafari\//u.test(userAgent) ? "safari" : "other";

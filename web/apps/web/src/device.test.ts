@@ -25,6 +25,11 @@ describe("naming this device", () => {
     expect(named("Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0")).toBe(
       "Firefox on Linux",
     );
+    expect(
+      named(
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/146.0.0.0 Safari/537.36",
+      ),
+    ).toBe("Chrome on Linux");
     expect(named("something else")).toBe("A web browser");
   });
 
