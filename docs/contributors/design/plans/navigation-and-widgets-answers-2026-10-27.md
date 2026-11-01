@@ -1191,5 +1191,10 @@ overnight", with VQ201 passed and these comments. No nas.example release is want
    Monkeys "shows 'Play S0E0'. It should always start at season 1, leaving the specials optional").
    Built in "fix(library): a series nobody has started plays season 1 first, its specials optional": a special is Next Up only while its person is partway through it, and finishing
    one does not move their place.
+4. **Quillwick S2E4's sound is out of sync, on staging and on nas.example** (the owner, 2026-11-01).
+   Folded in as seriously hurting use. The file is `Quillwick/Quillwick - 2x4 - Money.avi`: XviD
+   with packed B-frames (most video packets carry no pts) and CBR MP3 in AVI, both starting at 0 and
+   both lasting 1797 s by their own counts. Not yet known: the offset's size, whether it grows, and
+   whether the source is off in other players.
 
 End: one check-pr. Quick visible fixes go to staging for the owner as they land.
