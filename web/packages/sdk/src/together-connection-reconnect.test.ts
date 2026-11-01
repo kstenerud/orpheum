@@ -148,6 +148,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(connection.snapshot().status).toBe("reconnecting");
     vi.advanceTimersByTime(reconnectWaitMs(0));
     expect(sockets.opened).toHaveLength(2);
+    sockets.opened[1]!.onOpen(); // reached the server, which dropped it
     sockets.opened[1]!.onClose(1006);
     vi.advanceTimersByTime(reconnectWaitMs(0));
     expect(sockets.opened).toHaveLength(2);
