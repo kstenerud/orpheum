@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MPL-2.0
+
+/**
+ * How main.tsx loads its part, the loader or the client, and what it does when the part's code does
+ * not come. Its import was left to fail unseen, and the page stayed black: the owner's Firefox, signing
+ * in at staging's discovery for the first time, the client's "Unable to preload CSS for
+ * …/busy-group-….css" thrown past everything, while a reload showed Home (2026-11-01). Under a
+ * loader each of the client's files comes first through the page's new connection to its core, so
+ * one that fails on a first visit comes on the next. The part is asked again once, after a pause
+ * (screen-load.tsx's screenRetryMs: Vite's preload failing, the module itself was never imported,
+ * and asking again loads it); failing again, the page reloads, once in the tab, leaving a note for
+ * the page that follows to tell the core's log (reload-note.ts). A second time in the tab the
+ * failure is thrown, as before; a part that loads clears the tab's mark, so a later time reloads
+ * again.
+ */
+
+import type { StringStorage } from "./browser-storage.ts";
+import { leaveReloadNote } from "./reload-note.ts";
+
+/** How long the part's code is waited for before it is asked again (screen-load.tsx screenRetryMs). */
+export const partRetryMs = 1000;
+
+/** The tab's key for the reload a page made because its part's code did not load. */
+const reloadedForPartKey = "orpheum.main.reloadedForPart";
+
+/** What loadPart needs of the page. */
+export interface PartLoadParts {
+  /** This tab's storage, which says whether it reloaded for this before. */
+  readonly tab: StringStorage;
+  readonly reload: () => void;
+  /** Waits ms; setTimeout's, but for a test. */
+  readonly wait: (ms: number) => Promise<void>;
+}
+
+/** Waits ms on the page's clock. */
+export async function waitMs(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Loads part, named for the note, by load: asked again once after partRetryMs when it fails, then
+ * reloading the page once in the tab, else throwing why. A page that reloads never settles.
+ */
+export async function loadPart(
+  part: string,
+  load: () => Promise<unknown>,
+  parts: PartLoadParts,
+): Promise<void> {
+  try {
+    await load();
+    parts.tab.removeItem(reloadedForPartKey);
+    return;
+  } catch {
+    await parts.wait(partRetryMs);
+  }
+  try {
+    await load();
+    parts.tab.removeItem(reloadedForPartKey);
+  } catch (cause: unknown) {
+    if (parts.tab.getItem(reloadedForPartKey) !== null) {
+      throw cause;
+    }
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    parts.tab.setItem(reloadedForPartKey, "1");
+    leaveReloadNote(
+      parts.tab,
+      `the page reloaded, once: the code of its ${part} did not load, asked twice (${reason})`,
+    );
+    parts.reload();
+    await new Promise<never>(() => undefined);
+  }
+}

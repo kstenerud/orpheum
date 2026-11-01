@@ -14,6 +14,7 @@ import { reportFailure, type Api } from "@orpheum/sdk";
 import { pageUpdateWatch, type UpdateWatch } from "./app-update.ts";
 import { tabStorage, type StringStorage } from "./browser-storage.ts";
 import { keptClientFiles } from "./client-files.ts";
+import { leaveReloadNote, takeReloadNote } from "./reload-note.ts";
 
 /** What a page knows of the client the server serves, for a screen whose code did not load. */
 export interface NewerClient {
@@ -33,9 +34,6 @@ export interface NewerClient {
 
 /** The tab's key for the build of the client the page last reloaded from for a screen's code. */
 const reloadedFromKey = "orpheum.screenCode.reloadedFrom";
-
-/** The tab's key for what the page reloaded for, told to the core's log by the page that follows. */
-const reloadNoteKey = "orpheum.screenCode.reloadNote";
 
 /** The client this page asks of, set as the app mounts; none in a test that sets none. */
 let pageNewerClient: NewerClient | undefined;
@@ -110,8 +108,8 @@ export async function reloadsForNewerClient(
     return false;
   }
   storage.setItem(reloadedFromKey, ownScript);
-  storage.setItem(
-    reloadNoteKey,
+  leaveReloadNote(
+    storage,
     `the page reloaded for a newer client, once: the code of the ${failed.screen} screen did not load (${failed.reason}); ${why}; the page ran ${ownScript}`,
   );
   client.reload();
@@ -130,12 +128,13 @@ async function newerClientWhy(client: NewerClient, reason: string): Promise<stri
   return undefined;
 }
 
-/** Tells the core's log, once, what the page before this one reloaded for, if it did. */
+/**
+ * Tells the core's log, once, what the page before this one reloaded for, if it did: for a newer
+ * client, or for its part's code that did not load (part-load.ts).
+ */
 export function reportReloadForNewerClient(storage: StringStorage = tabStorage()): void {
-  const note = storage.getItem(reloadNoteKey);
-  if (note === null) {
-    return;
+  const note = takeReloadNote(storage);
+  if (note !== undefined) {
+    reportFailure(note);
   }
-  storage.removeItem(reloadNoteKey);
-  reportFailure(note);
 }
