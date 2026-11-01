@@ -1054,7 +1054,7 @@ refused.
 - **Revert-red takes a stored hint naming a deleted test for a broken environment** (a gate bug, the
   owner's): the stale main.tsx hint in `.git/revert-red/known-red` had to be removed by hand.
 - **`e2e/discovery.spec.ts:92` flaked once**: "route.fulfill: Fetch response has been disposed".
-- **An empty Home tells an admin to add a library** (seen on staging before its libraries were made).
+- **An empty Home tells an admin to add a library** (seen on staging before its libraries were made). **Done already** in the 11-02 batch ("feat(web): an empty Home says how it fills", "an empty Home says how it fills"), found 2026-11-01.
 - **The core logged HeadlessChrome as `browser=safari`.**
 - **nas.example logs warnings for setting rows nothing reads** (`prepare_progress_every_seconds`,
   `scan_*_extensions`, `together_*`, …): remove the rows or the warning.
@@ -1160,11 +1160,11 @@ recommendations"). The owner holds off on the testing plan's sound steps until t
 3. **The uncaught AbortError** after a film page's warm-up is dropped.
 4. **Titles sort without their leading article**: a decision refining D47, as agreed above.
 5. **A confirmed episode placement sticks**: a decision amending D307 §2, as agreed above.
-6. **An empty Home tells an admin to add a library.**
+6. **An empty Home tells an admin to add a library**: done already, in the 11-02 batch ("feat(web): an empty Home says how it fills").
 7. **A page's freeze has its own console words**, not "a request failed".
 8. **The Continue Watching poster** ("fix(library): an episode in Continue Watching shows its series' poster", verified on staging by the owner) ships with it.
-9. **Connect's up.sh checks `published/` as the `connect` user** (orpheum-connect).
-10. **A renamed realm's one password sign-in** is said where it is needed, or made unneeded.
+9. **Connect's up.sh checks `published/` as the `connect` user** (orpheum-connect). **Done already** in connect an earlier commit (found 2026-11-01).
+10. **A renamed realm's one password sign-in** is said where it is needed, or made unneeded. It cannot be made unneeded: the key comes from the password, which the core keeps only as a hash (D297 §3). It is now said in up.sh's `realm` usage and orpheum-ops' README §6a (connect an earlier commit), and in `docs/users/setup-problems.md` for the household.
 
 End: one check-pr, the owner's go, nas.example. Quick visible fixes go to staging for the owner as they
 land. **Not this batch:** connect's side of D398 (at its next pin), the gate items, the ops and logging
