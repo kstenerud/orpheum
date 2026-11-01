@@ -1033,3 +1033,30 @@ connect, connect, then nas.example).
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
 keeps no security note; each signing attempt's copy stays under `ledger/pending/<name>.parts/`. VQ210, VQ211
 (rewritten for D393), VQ220 (the bootstrap), VQ221 (the watcher).
+
+## From the production deploy (2026-11-01), next batch (the owner agreed 2026-11-01)
+
+**Done (2026-11-01):** check-pr passed on "refactor(web): reportReloadForNewerClient is reportReloadNote"; connect re-pinned to it (connect an earlier commit, up.sh's
+tests an earlier commit); production serves `orpheum.cc` and `account.orpheum.cc` with the ceremony's published
+chain; nas.example runs "refactor(web): reportReloadForNewerClient is reportReloadNote"'s tree, re-enrolled with `orpheum.cc`, realm `karls` (`karl` is refused:
+D298 §2 wants 5 to 32 characters). Each household member signs in once with a password on nas.example itself,
+which makes the core's key for the renamed realm; until then the realm's sign-in at `orpheum.cc` is
+refused.
+
+- **Connect's up.sh checks `published/` as the `connect` user.** The first tarball kept uid 1000 and 750
+  directories; up.sh, checking as root, passed it, and connectd crash-looped with "read the discovery
+  chain's genesis: open /published/orpheum/root/1: permission denied", every name answering 502.
+- **A realm renamed needs one password sign-in on the core**, which nothing says: up.sh's `realm`
+  command and the household's docs say so, or the core makes the new realm's key without it (realm keys
+  are per master realm: `RealmKeyOfPerson`, `keepRealmKey`).
+- **check-pr took 352 s** on "refactor(web): reportReloadForNewerClient is reportReloadNote", over its 300 s budget (a warning).
+- **check-pr takes its lock after web-deps**, so the Stop hook's `npm ci` raced it (a gate, the owner's).
+- **Revert-red takes a stored hint naming a deleted test for a broken environment** (a gate bug, the
+  owner's): the stale main.tsx hint in `.git/revert-red/known-red` had to be removed by hand.
+- **`e2e/discovery.spec.ts:92` flaked once**: "route.fulfill: Fetch response has been disposed".
+- **An empty Home tells an admin to add a library** (seen on staging before its libraries were made).
+- **The core logged HeadlessChrome as `browser=safari`.**
+- **nas.example logs warnings for setting rows nothing reads** (`prepare_progress_every_seconds`,
+  `scan_*_extensions`, `together_*`, …): remove the rows or the warning.
+- **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
+  `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
