@@ -126,10 +126,38 @@ func (browser *Browser) withPostersAndFileNames(
 	for index := range rows {
 		rows[index].Entry = posterPage.Entries[index]
 	}
+	if err := browser.withSeriesPosters(ctx, rows); err != nil {
+		return nil, err
+	}
 	if rows == nil {
 		rows = []InProgress{}
 	}
 	return rows, nil
+}
+
+// withSeriesPosters gives each episode's row that has no poster of its own, which an episode never
+// has (its picture is a still), its series' poster: a row of Continue Watching is a poster card, and
+// an episode's showed the mark of a missing poster (the owner, 2026-11-01).
+func (browser *Browser) withSeriesPosters(ctx context.Context, rows []InProgress) error {
+	var seriesIDs []int64
+	for _, row := range rows {
+		if row.PosterSha256 == "" && row.Episode != nil {
+			seriesIDs = append(seriesIDs, row.Episode.CollectionID)
+		}
+	}
+	if len(seriesIDs) == 0 {
+		return nil
+	}
+	posters, err := browser.shownArtSourceSha256s(ctx, ArtPoster, seriesIDs)
+	if err != nil {
+		return err
+	}
+	for index := range rows {
+		if rows[index].PosterSha256 == "" && rows[index].Episode != nil {
+			rows[index].PosterSha256 = posters[rows[index].Episode.CollectionID]
+		}
+	}
+	return nil
 }
 
 // ResumeThresholds are in_progress_after_percent and finished_after_percent: where in a file a position

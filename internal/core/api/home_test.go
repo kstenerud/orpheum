@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
@@ -86,6 +87,21 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	harness.setPositionReadAt(t, 1, 20_000, 310) // 2%: barely started
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("after barely starting it again, Continue Watching = %v, want %v", got, want)
+	}
+}
+
+// An episode has no poster of its own, only a still, so its row shows its series' poster rather
+// than the mark of a missing one (the owner, 2026-11-01).
+func TestContinueWatching_AnEpisodeShowsItsSeriesPoster(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.setPositionReadAt(t, 2, 60_000, 150) // the pilot of Brass Arena, whose poster is cc…
+
+	rows := harness.continueWatching(t, user)
+	if len(rows) != 1 || rows[0].PosterSha256 != strings.Repeat("cc", 32) {
+		t.Errorf("Continue Watching = %+v, want the pilot with Brass Arena's poster", rows)
 	}
 }
 
