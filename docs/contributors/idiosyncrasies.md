@@ -3627,15 +3627,25 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** `discovery-sign test-key` on the owner's Mac (2026-11-01) printed "Key enrollment failed:
   requested feature not supported" from `ssh-keygen -t ecdsa-sk -w /usr/lib/ssh-keychain.dylib -O
   application=…`, exit 255.
-- **What we do:** nothing yet. The Mac is optional in the ceremony (D394 §7), so the ceremony goes ahead
-  with the YubiKeys alone; making the Mac's key the way below is filed for the next batch.
-- **Evidence:** the owner's run, 2026-11-01. **[web]** Community write-ups (no Apple document found) make
-  the Secure Enclave key with Apple's own tool, `sc_auth create-ctk-identity -l ssh -k p-256-ne -t bio`
-  (`-t bio`: Touch ID for each use), and only then fetch its stub with `ssh-keygen -w
-  /usr/lib/ssh-keychain.dylib -K`; OpenSSH asks for a PIN there, and an empty one does
+- **What we do:** the ceremony goes ahead with the YubiKeys alone. The Mac cannot be a key the chains
+  require to carry the user-verified flag (D393 §3, D394 §7), because its signatures never carry it (below);
+  listing it without that requirement is the owner's decision, not made.
+- **Cause:** Apple's provider makes no keys; it only hands OpenSSH keys that already exist in
+  CryptoTokenKit (`man 8 ssh-keychain`). Apple's `/usr/bin/ssh-keygen` and Homebrew's OpenSSH 10.3p1 both
+  fail the same way, so another binary does not help.
+- **Evidence:** the owner's Mac (macOS 26.6.2, OpenSSH 10.3p1), 2026-11-01, run by an agent there. The
+  route that works: `sc_auth create-ctk-identity -l <label> -k p-256-ne -t bio` makes the key (`-t bio`:
+  Touch ID on every use; `-ne`: never exported); `ssh-keygen -w /usr/lib/ssh-keychain.dylib -K -N ""`
+  writes its stub `id_ecdsa_sk_rk` (OpenSSH asks for a PIN, and an empty one does; with no terminal, give it
+  through `SSH_ASKPASS` and `SSH_ASKPASS_REQUIRE=force`); `SSH_SK_PROVIDER=/usr/lib/ssh-keychain.dylib
+  ssh-keygen -Y sign …` signs after Touch ID; `sc_auth delete-ctk-identity -h <hash>` removes it
+  (`sc_auth list-ctk-identities` shows the hash). What a core sees: **the signature's flags byte is 0x21,
+  user presence without user-verified**, although Touch ID was asked for; the application is always
+  `ssh:`, so D393 §2's own application per key cannot be had; the stub carries no comment; and `-K`
+  fetches every CTK identity on the machine (`KEYCHAIN_CERTIFICATES=<hash>` or `~/.ssh/sshkeychain.plist`
+  narrows it). **[web]** The same route in community write-ups
   ([arianvp's gist](https://gist.github.com/arianvp/5f59f1783e3eaf1a2d4cd8e952bb4acf),
-  [Evan Pratten](https://ewpratten.com/blog/ssh-secure-enclave/), read 2026-11-01). That the stub so made
-  signs with the user-verified flag is unconfirmed.
+  [Evan Pratten](https://ewpratten.com/blog/ssh-secure-enclave/), read 2026-11-01).
 
 ---
 

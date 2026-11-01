@@ -972,10 +972,12 @@ getting a stub back. **Owed by connect:** see the batch report.
 
 **Next batch (the owner's Mac, 2026-11-01):** `test-key` failed on the Mac: its `ssh-keygen -t ecdsa-sk -w
 /usr/lib/ssh-keychain.dylib` refuses to enrol a key ("requested feature not supported"; idiosyncrasies,
-"macOS's ssh-keychain.dylib cannot enrol a key"). Write-ups make the Secure Enclave key with `sc_auth
-create-ctk-identity -k p-256-ne -t bio` and then fetch its stub with `ssh-keygen -w … -K`, so the `mac`
-kind in `cmd/discovery-sign/keygen.go` and `test-key` need that route, a design point for the owner
-first. The ceremony goes ahead with the YubiKeys alone; a Mac can be added later with `add`.
+"macOS's ssh-keychain.dylib cannot enrol a key"). An agent on the Mac confirmed the route that works
+(`sc_auth create-ctk-identity -k p-256-ne -t bio`, then `ssh-keygen -w … -K`), and that its signatures
+carry user presence but **not** the user-verified flag (flags 0x21), with the application always `ssh:`.
+So the Mac cannot be a key D393 §3 requires to verify its user: building the `mac` kind on that route
+would mean listing it without the requirement, trusting Touch ID no core can check. That is the
+owner's decision, asked before anything is built. The ceremony goes ahead with the YubiKeys alone.
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
