@@ -978,6 +978,10 @@ carry user presence but **not** the user-verified flag (flags 0x21), with the ap
 So the Mac cannot be a key D393 §3 requires to verify its user: building the `mac` kind on that route
 would mean listing it without the requirement, trusting Touch ID no core can check. That is the
 owner's decision, asked before anything is built. The ceremony goes ahead with the YubiKeys alone.
+The owner, 2026-11-01: no key without a second factor a core can check, so the Mac stays out; a
+YubiKey Bio (its fingerprint sets the hardware-signed user-verified flag) is the way to fingerprint
+signing, unconfirmed on a real one. The owner holds three YubiKeys, so the ceremony makes one everyday
+key (`e1`) and two recovery keys (`r1`, `r2`); a second everyday key is added later with `add`.
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
