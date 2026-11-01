@@ -2008,7 +2008,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   between a copied 5.1 track and a made stereo mix, or AC-3 and AAC, is clean on each device. In a
   Watch Together session, the leader's choice leaves the guests' films playing undisturbed.
   (`web/apps/web/src/play.tsx`, `film-player.tsx`; `web/packages/player/src/hls.ts`)
-- [ ] **VQ205** — a film started on a track other than its main one plays at that track's own
+  **Passed in part 2026-11-01 (the owner, staging), the Mac's Chrome.** Still owed: the Fire TV and
+  the cast's remote.
+- [x] **VQ205** — a film started on a track other than its main one plays at that track's own
   loudness, on staging. A file whose second track is much quieter or louder than its first, measured
   (its levelling note gives a number): choose the second track, then reopen the film so it starts on
   it. Passes when the levelling note under the film names the second track's gain, not the first's
@@ -2016,6 +2018,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   first track in place changes the note, and the loudness, only once the first track is heard.
   (`internal/core/playback/playback.go` `startingLevelling`, `internal/core/chunks/ownsound.go`
   `soundLevelOf`)
+  **Passed 2026-11-01 (the owner, staging).**
 - [ ] **VQ206** — Safari switches a file played as it is between its own tracks in place, on the
   Mac's Safari. A file of two audio tracks Safari plays as it is (the tracks note says "original"),
   chosen to play as the original. Choose the other track. Passes when the picture plays on and the new
@@ -2024,6 +2027,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   is offered plays the track chosen, not the first. On Chrome the same choice moves the film onto its
   ladder once, as before. (`web/packages/player/src/own-tracks.ts`, `web/apps/web/src/play.tsx`
   `DirectUnder`)
+  **Passed in part 2026-11-01 (the owner, staging):** the switch in place works, with a slight gap in
+  the sound at the switch, which the owner accepts. Still owed: the stalled link's lower quality,
+  throttled by macOS's Network Link Conditioner (Safari has no throttle like Chrome's DevTools).
 - [ ] **VQ207** — file 5667 (MP4, HEVC `hev1`, B-frames with every pts equal to its dts) plays at its
   own frame rate at the top of the ladder in Chrome, on staging (design/plans/
   audio-switch-and-retiming-2026-11-01.md, Part 2; the owner's answers of 2026-10-31). Deploy core and
