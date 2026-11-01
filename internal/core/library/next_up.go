@@ -80,21 +80,31 @@ func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, threshold
 // Next Up (D160; D324 §3, the owner, 2026-10-21): the one they are partway through, the latest
 // watched when several are; else the one after the last they finished, the latest finished, the
 // later in the ordering of several finished at once, as a season marked by hand is (D370 §4); else
-// the first. None when the last is finished.
+// the first. None when the last is finished. The specials, group 0, are optional where the ordering
+// has groups besides them (the owner, 2026-11-01: a series "should always start at season 1,
+// leaving the specials optional"): one is Next Up only while its person is partway through it, a
+// finished one does not move their place, and the members ahead pass over them.
 func MembersAhead(members []Member, count int) []Member {
+	isOptional := func(Member) bool { return false }
+	if slices.ContainsFunc(members, func(each Member) bool { return each.Group != 0 }) {
+		isOptional = func(each Member) bool { return each.Group == 0 }
+	}
 	start, partwayAt, finishedAt := 0, int64(-1), int64(-1)
 	for index, each := range members {
 		switch {
 		case each.IsPartway && each.WatchedAt > partwayAt:
 			start, partwayAt = index, each.WatchedAt
-		case partwayAt < 0 && each.IsFinished && each.FinishedAt >= finishedAt:
+		case partwayAt < 0 && each.IsFinished && each.FinishedAt >= finishedAt && !isOptional(each):
 			start, finishedAt = index+1, each.FinishedAt
 		}
 	}
-	if start >= len(members) {
-		return nil // every member up to the last is finished
+	var ahead []Member
+	for index := start; index < len(members) && len(ahead) < count; index++ {
+		if index == start && partwayAt >= 0 || !isOptional(members[index]) {
+			ahead = append(ahead, members[index])
+		}
 	}
-	return members[start:min(len(members), start+count)]
+	return ahead // none when every member up to the last is finished
 }
 
 // MembersOfGroup are the members of one group, a series' season, in their order.
