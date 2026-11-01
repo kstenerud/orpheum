@@ -2179,3 +2179,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   `seenOver=ipv4`, and no address; then the same link on a Wi-Fi with IPv6 reaches the core, or shows
   today's words if it does not. (`web/apps/web/src/dead-end-reason.ts`,
   `web/apps/web/src/discovery-gate.tsx`, `discovery/single/client.go`)
+- [ ] **VQ236** — a timeline seek plays on without a second stop, on staging, on the Mac's Chrome
+  (the owner's Nosferatu at 29:04, 2026-11-01: the film started at 1744.0 s, played 1.2 s and waited
+  2.1 s with 3.7 s loaded ahead). Play a film a minute or more at its top quality, then click the
+  timeline far ahead, three times at different places. Passes when each seek starts and plays on
+  with no second wait (no `kind=started … startedAfter=waiting` line soon after the seek's
+  `startedAfter=play`). If one does wait, send the seek's and the wait's lines whole: their
+  `videoBuffered` and `audioBuffered` (every range, not the first alone) and `steps`, which now say
+  where each flush ends (`video flushed 0.00-957.29`, hls.js's trim behind the playhead) and how long
+  ago each choice was made (`chose 502 s ago ceiling 0 to 1`); the 2026-11-01 report's step up was
+  made 501 s before its seek and its flush was that trim, so neither caused the wait, whose cause is
+  still unknown. (`web/packages/player/src/diagnosis.ts`)

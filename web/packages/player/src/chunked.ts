@@ -518,8 +518,11 @@ function isBrowserOffline(): boolean {
  * seek, and, as "step: ceiling 4 to 0: ...", among its link's notes, which reach the core's log with
  * every play report, so a solo play's every step is there as a Watch Together player's are (D382 §4).
  */
-function stepAndLinkNoter(video: HTMLVideoElement): (step: string) => void {
-  const noteStep = stepNoter(video);
+function stepAndLinkNoter(
+  video: HTMLVideoElement,
+  monotonicMs: () => number,
+): (step: string) => void {
+  const noteStep = stepNoter(video, monotonicMs);
   const noteLink = linkNoter(video);
   return (step) => {
     noteStep(step);
@@ -556,7 +559,7 @@ export function choosingOptionsOf(
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     longTasks: longTasksOf(globalThis),
     onUnplayable: sendUnplayable(video),
-    noteStep: stepAndLinkNoter(video),
+    noteStep: stepAndLinkNoter(video, options.monotonicMs),
     noteSamples: samplesNoter(video),
     noteSteadiness: steadinessNoter(video),
     noteLinkSpread: linkSpreadNoter(video),

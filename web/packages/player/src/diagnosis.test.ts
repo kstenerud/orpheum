@@ -134,7 +134,38 @@ describe("what a stalled video held, for its report (D266)", () => {
     const flushing = { startOffset: 0, endOffset: Number.POSITIVE_INFINITY };
     listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, type: "audio" });
     listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { ...flushing, startOffset: 12.5, type: null });
-    expect(diagnosisOf(video)?.steps).toBe("audio flushed from 0.00; all flushed from 12.50");
+    expect(diagnosisOf(video)?.steps).toBe("audio flushed 0.00-end; all flushed 12.50-end");
+  });
+
+  it("says where a flush ends: a trim behind the playhead is no throwing away of what plays", () => {
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+    } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    // hls.js's back-buffer trim, one for each buffer, as a seek's report carried them (2026-11-01).
+    for (const type of ["video", "audio"]) {
+      listeners.get(Hls.Events.BUFFER_FLUSHING)!("", { startOffset: 0, endOffset: 957.29, type });
+    }
+    expect(diagnosisOf(video)?.steps).toBe("video flushed 0.00-957.29; audio flushed 0.00-957.29");
+  });
+
+  it("says how long ago each choice was made, where its noter has a clock", () => {
+    const hls = { on: () => undefined } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    let nowMs = 1_000;
+    const note = stepNoter(video, () => nowMs);
+    note("ceiling 0 to 1: stepped up");
+    nowMs += 501_444;
+    note("ceiling 1 kept");
+    nowMs += 400;
+    expect(diagnosisOf(video)?.steps).toBe(
+      "chose 502 s ago ceiling 0 to 1: stepped up; chose 0 s ago ceiling 1 kept",
+    );
   });
 
   it("keeps the player's own last three choices after its steps, and none for a video not diagnosed", () => {
