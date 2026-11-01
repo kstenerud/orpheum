@@ -1058,6 +1058,10 @@ refused.
 - **The core logged HeadlessChrome as `browser=safari`.**
 - **nas.example logs warnings for setting rows nothing reads** (`prepare_progress_every_seconds`,
   `scan_*_extensions`, `together_*`, …): remove the rows or the warning.
+- **An AbortError goes uncaught in the page** (the owner's console, nas.example, Chrome on the Mac,
+  2026-11-01): `Uncaught (in promise) AbortError: signal is aborted without reason at MessagePort`
+  in transport-choice's bundle, four times, after a film page's warm-up was dropped. A cancelled
+  request's promise is left unhandled; find which and catch the abort.
 - **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
 

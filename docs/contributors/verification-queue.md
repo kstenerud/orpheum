@@ -1962,7 +1962,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   2026-10-29). (`web/packages/sdk/src/rtc-transport.ts`, `rtc-reopen.ts`, `discovery.ts`)
 - [ ] **VQ198** — a page's freeze is told to the core's log on any screen, on staging. On the Mac's
   Chrome, on a series' page with no film playing, open DevTools' console and run
-  `const t = Date.now(); while (Date.now() - t < 2000) {}`. Passes when the core's log has, from
+  `setTimeout(() => { const t = Date.now(); while (Date.now() - t < 2000) {} }, 0)` (a loop typed
+  straight into the console is no long task to Chrome: idiosyncrasies.md, the owner's run of
+  2026-11-01). Passes when the core's log has, from
   that page, `the page froze 2.0 s (long task) on screen=series-page filmPlaying=false hidden=false`
   (a few tenths more is fine); run it three times within five seconds: one more line comes about five
   seconds after the first, saying `1 more since`. Then on the Fire TV, the next time its focus seems

@@ -58,6 +58,7 @@ User-Agent (D263; the User-Agent is logged only).
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | A re-timed H.264 run's last chunk held the next chunk's start too; a re-timed encode missed every cut. | [`dts2pts` guesses an H.264 IDR's time until it has read about 16 pictures past it, and times a run's first keyframe late](#dts2pts-guesses-an-h264-idrs-time-until-it-has-read-about-16-pictures-past-it-and-times-a-runs-first-keyframe-late) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
+| A 2 s busy loop typed into Chrome's console froze the page, and the page's freeze report said nothing. | [Chrome reports no long task for code run from DevTools' console](#chrome-reports-no-long-task-for-code-run-from-devtools-console) |
 | After a jump onto a chunk's very start, the players asked for the chunk before it, which no run made, for good. | [hls.js steps back to the chunk before the one a seek landed on](#hlsjs-steps-back-to-the-chunk-before-the-one-a-seek-landed-on) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
@@ -810,6 +811,20 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Chrome and Android (getUserMedia and audio)
+
+### Chrome reports no long task for code run from DevTools' console
+
+- **Symptom:** `const t = Date.now(); while (Date.now() - t < 2000) {}` typed into DevTools' console
+  froze the page for 2 s, and the page's freeze report (`page-freezes.ts`, through a
+  `PerformanceObserver` of `longtask`) told the core nothing; the console showed no report either.
+- **Cause:** code DevTools evaluates runs outside the page's event-loop tasks, which are what the
+  Long Tasks API times. The same loop run from a task of the page's own is reported.
+- **What we do:** a test of freeze reporting runs its loop as a task of the page:
+  `setTimeout(() => { const t = Date.now(); while (Date.now() - t < 2000) {} }, 0)` (VQ198).
+- **Evidence:** [owner] 2026-11-01, nas.example, Chrome 156 on the Mac: VQ198's console loop, and nothing
+  logged. [repro] headless Chromium (Playwright), 2026-11-01: `page.evaluate` of a 1.5 s loop (the
+  console's way, `Runtime.evaluate`) gave no entry; the same loop in a `setTimeout` gave one of
+  1500 ms.
 
 ### Fire TV keeps a game controller's D-pad and sticks from a page in Silk
 
