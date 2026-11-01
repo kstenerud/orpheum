@@ -981,7 +981,20 @@ owner's decision, asked before anything is built. The ceremony goes ahead with t
 The owner, 2026-11-01: no key without a second factor a core can check, so the Mac stays out; a
 YubiKey Bio (its fingerprint sets the hardware-signed user-verified flag) is the way to fingerprint
 signing, unconfirmed on a real one. The owner holds three YubiKeys, so the ceremony makes one everyday
-key (`e1`) and two recovery keys (`r1`, `r2`); a second everyday key is added later with `add`.
+key (`e1`) and two recovery keys (`r1`, `r2`); a second everyday key is added later with `add`, signed by a
+recovery key (below).
+
+**This batch (the owner, 2026-11-01, "I don't want an everyday key to have that power"; "Suspend only"):**
+as built, an everyday key could sign a root statement adding, suspending or removing an everyday key. Now
+the only change to the set an everyday key may sign is suspending another everyday key; adding, removing,
+re-marking, thresholds and locations take a recovery key. It amends D393 §3/D394 §4 by a new decision. The
+rule lives in the code cores run (`discovery/trust`, `judgeAfter` and a `Root.onlySuspends`), not in the
+statements, so the ceremony need not wait; no deployed core holds D393's code, so it must land before the
+deploy. To do: the rule (a stash holds a first cut); the tests that rotate with an everyday key
+(`rotation_test.go`, `suspend_test.go`, `trust_test.go`'s genesis test, `cmd/discovery-sign`'s `main_test.go`
+and `guidedchange_test.go`, `internal/core/discovery`'s `document_test.go`) re-signed by a recovery key, with
+new tests that an everyday key adding or removing one is refused; the guided `add`/`remove` offering only
+recovery keys; `docs/users/discovery-signing.md`'s table and the root key audit's scenarios.
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
