@@ -25337,8 +25337,8 @@ changes only the client's side of D318 (the server still lets an invitation have
    marked used and by whom. A waiting invitation's row opens a dialog with its details, its QR code
    and link (with Copy) and, at the bottom, *Withdraw*, red and asked again. A used invitation's
    dialog has the details and the person it made, and no QR code, link or Withdraw. **"Send another
-   link" is gone from the client.** `POST /invitations/{id}/links` stays on the server: nothing in
-   the repository but its own Go tests calls it.
+   link" is gone from the client.** `POST /invitations/{id}/links` was kept on the server at first,
+   nothing calling it; the owner then ordered it deleted (2026-11-01), and it is gone.
 3. **Accounts:** a row each, of name, admin note and role, leading to that person's page (D218's
    `PersonPage`), where they are viewed and changed. Whether a person has set a password shows on their
    page alone.

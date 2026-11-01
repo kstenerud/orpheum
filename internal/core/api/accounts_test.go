@@ -341,27 +341,19 @@ func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 		"too many failed sign-ins; wait and try again")
 }
 
-// The admin sends an invitation another link, which leaves the first live; using one makes the
-// account, ends the other, and the list then names the account it made, with nothing to send again
-// or withdraw (D318; D311 §4).
-func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *testing.T) {
+// Using an invitation's link makes the account and ends the link, and the list then names the
+// account it made, with nothing to withdraw (D311 §4).
+func TestInvitations_TheListNamesTheAccountTheUsedOneMade(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	invitation := harness.invite(t, admin, "user", "the cousin")
-	path := fmt.Sprintf("/invitations/%d/links", invitation.Invitation.ID)
-	another := harness.do(t, http.MethodPost, path, admin, nil)
-	var link api.IssuedSecretBody
-	if err := json.Unmarshal([]byte(another.body), &link); err != nil || another.status != http.StatusCreated ||
-		link.Secret == "" || link.Secret == invitation.Link.Secret {
-		t.Fatalf("POST %s = %d %s; want another link", path, another.status, another.body)
-	}
 	listed := harness.do(t, http.MethodGet, "/invitations", admin, nil)
-	if !strings.Contains(listed.body, `"liveLinks":2`) {
-		t.Errorf("GET /invitations = %s; want two live links", listed.body)
+	if !strings.Contains(listed.body, `"liveLinks":1`) {
+		t.Errorf("GET /invitations = %s; want one live link", listed.body)
 	}
 	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": link.Secret, "name": "cousin", "password": "cousin-password", "device": testDevice,
+		"secret": invitation.Link.Secret, "name": "cousin", "password": "cousin-password", "device": testDevice,
 	})
 	readSignIn(t, registered)
 	wantError(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
@@ -374,11 +366,8 @@ func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *test
 		after.Body.Invitations[0].LiveLinks != 0 {
 		t.Errorf("GET /invitations = %s; want the used invitation naming cousin, with no live link", answer.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, path, admin, nil), http.StatusConflict, api.CodeConflict)
 	withdraw := fmt.Sprintf("/invitations/%d", invitation.Invitation.ID)
 	wantError(t, harness.do(t, http.MethodDelete, withdraw, admin, nil), http.StatusConflict, api.CodeConflict)
-	wantError(t, harness.do(t, http.MethodPost, "/invitations/999/links", admin, nil),
-		http.StatusNotFound, api.CodeNotFound)
 }
 
 // The admin's list shows each waiting invitation's live links again, to pass on, until one is used

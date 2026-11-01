@@ -2812,7 +2812,7 @@
             ]
           },
           "liveLinks": {
-            "description": "Its links that still work; another link leaves them live",
+            "description": "Its links that still work",
             "format": "int64",
             "type": "integer"
           },
@@ -11393,58 +11393,6 @@
           }
         },
         "summary": "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
-        "tags": [
-          "Accounts"
-        ]
-      }
-    },
-    "/invitations/{id}/links": {
-      "post": {
-        "operationId": "createInvitationLink",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IssuedSecretBody"
-                }
-              }
-            },
-            "description": "Created"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Another link for an invitation still waiting; its other links stay live until one is used (admin; D318)",
         "tags": [
           "Accounts"
         ]
