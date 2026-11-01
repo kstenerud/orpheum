@@ -1073,6 +1073,7 @@ refused.
   probe name so the page can tell "no IPv6" from "IPv6 got no answer" on more networks.
 - **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
+- **`sw.browser.test.ts` hangs under load** (make check, 2026-11-01): "carries the load of a page of the release before" timed out at its 5 s `hungAfterMs` with the machine's load average at about 24 (two agents building). Alone it passes in 0.7 s. Look at why a loaded machine stretches one relayed load past 5 s before widening anything (rule 5).
 
 ## The 11-02 batch (the owner agreed 2026-11-01): networking, and the beta made solid
 
