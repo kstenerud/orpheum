@@ -804,7 +804,7 @@ func (q *Queries) ListLibraryNFOBodies(ctx context.Context, libraryID int64) ([]
 
 const listLibraryOriginalTexts = `-- name: ListLibraryOriginalTexts :many
 SELECT item_text.item_id, item_text.language, item_text.name, item_text.overview, item_text.tagline,
-  item_text.search_alternates, sort_key.listing, sort_key.collation_key
+  item_text.search_alternates, item_text.sort_title, sort_key.listing, sort_key.collation_key
 FROM item
 CROSS JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 LEFT JOIN sort_key ON sort_key.item_id = item.id AND sort_key.locale = ?1
@@ -823,6 +823,7 @@ type ListLibraryOriginalTextsRow struct {
 	Overview         *string
 	Tagline          *string
 	SearchAlternates *string
+	SortTitle        *string
 	Listing          *string
 	CollationKey     []byte
 }
@@ -844,6 +845,7 @@ func (q *Queries) ListLibraryOriginalTexts(ctx context.Context, arg ListLibraryO
 			&i.Overview,
 			&i.Tagline,
 			&i.SearchAlternates,
+			&i.SortTitle,
 			&i.Listing,
 			&i.CollationKey,
 		); err != nil {
@@ -1488,7 +1490,7 @@ func (q *Queries) ListLiveLibraryIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listNamesWithSortAndSearchKeys = `-- name: ListNamesWithSortAndSearchKeys :many
-SELECT item_text.item_id, item_text.name, item_text.search_alternates, title.kind AS title_kind,
+SELECT item_text.item_id, item_text.name, item_text.search_alternates, item_text.sort_title, title.kind AS title_kind,
   collection.kind AS collection_kind, sort_key.listing AS keyed_listing, sort_key.collation_key
 FROM item_text
 JOIN item ON item.id = item_text.item_id
@@ -1503,6 +1505,7 @@ type ListNamesWithSortAndSearchKeysRow struct {
 	ItemID           int64
 	Name             string
 	SearchAlternates *string
+	SortTitle        *string
 	TitleKind        *string
 	CollectionKind   *string
 	KeyedListing     *string
@@ -1525,6 +1528,7 @@ func (q *Queries) ListNamesWithSortAndSearchKeys(ctx context.Context, locale str
 			&i.ItemID,
 			&i.Name,
 			&i.SearchAlternates,
+			&i.SortTitle,
 			&i.TitleKind,
 			&i.CollectionKind,
 			&i.KeyedListing,
@@ -2191,15 +2195,15 @@ func (q *Queries) UpsertCollectionMember(ctx context.Context, arg UpsertCollecti
 }
 
 const upsertOriginalText = `-- name: UpsertOriginalText :exec
-INSERT INTO item_text (item_id, language, is_original, name, overview, tagline, search_alternates)
+INSERT INTO item_text (item_id, language, is_original, name, overview, tagline, search_alternates, sort_title)
 VALUES (?1, ?2, 1, ?3, ?4, ?5,
-  ?6)
+  ?6, ?7)
 ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
-  search_alternates = excluded.search_alternates
+  search_alternates = excluded.search_alternates, sort_title = excluded.sort_title
 WHERE item_text.is_original IS NOT 1 OR item_text.name IS NOT excluded.name
   OR item_text.overview IS NOT excluded.overview OR item_text.tagline IS NOT excluded.tagline
-  OR item_text.search_alternates IS NOT excluded.search_alternates
+  OR item_text.search_alternates IS NOT excluded.search_alternates OR item_text.sort_title IS NOT excluded.sort_title
 `
 
 type UpsertOriginalTextParams struct {
@@ -2209,9 +2213,11 @@ type UpsertOriginalTextParams struct {
 	Overview         *string
 	Tagline          *string
 	SearchAlternates *string
+	SortTitle        *string
 }
 
 // search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
+// sort_title is the NFO's own sort name, which wins over the name's key (D402).
 // A text already as derived is left alone (D303, DL9): nothing is written, and no index rewritten.
 func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalTextParams) error {
 	_, err := q.db.ExecContext(ctx, upsertOriginalText,
@@ -2221,6 +2227,7 @@ func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalText
 		arg.Overview,
 		arg.Tagline,
 		arg.SearchAlternates,
+		arg.SortTitle,
 	)
 	return err
 }

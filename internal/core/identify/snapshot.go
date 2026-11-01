@@ -415,7 +415,8 @@ func (filer *libraryFiler) isTextHeld(
 	held, isHeld := filer.snap.texts[itemID]
 	return isHeld && held.Language == text.Language && held.Name == text.Name &&
 		ptr.Equal(held.Overview, text.Overview) && ptr.Equal(held.Tagline, text.Tagline) &&
-		ptr.Equal(held.SearchAlternates, text.SearchAlternates) && ptr.Equal(held.Listing, &sortKey.Listing) &&
+		ptr.Equal(held.SearchAlternates, text.SearchAlternates) && ptr.Equal(held.SortTitle, text.SortTitle) &&
+		ptr.Equal(held.Listing, &sortKey.Listing) &&
 		bytes.Equal(held.CollationKey, sortKey.CollationKey)
 }
 
@@ -429,7 +430,8 @@ func (filer *libraryFiler) noteText(
 	listing := sortKey.Listing
 	filer.snap.texts[itemID] = sqlcgen.ListLibraryOriginalTextsRow{
 		ItemID: itemID, Language: text.Language, Name: text.Name, Overview: text.Overview, Tagline: text.Tagline,
-		SearchAlternates: text.SearchAlternates, Listing: &listing, CollationKey: sortKey.CollationKey,
+		SearchAlternates: text.SearchAlternates, SortTitle: text.SortTitle,
+		Listing: &listing, CollationKey: sortKey.CollationKey,
 	}
 }
 

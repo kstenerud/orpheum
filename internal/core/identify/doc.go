@@ -243,6 +243,11 @@
 //   - Every name the pass writes is folded for search and given a sort key in the sort_locale,
 //     through writeText alone (D47, D48). TestPass_NamesAreSortedAndFoundInEveryScript.
 //
+//   - A sort key is the name's without its leading article, or the NFO's sort title as written,
+//     made by sortKeyOf alone, so a scan and a rekey cannot differ (D402).
+//     TestPass_AFilmSortsWithoutItsLeadingArticleAndAnNFOSortTitleWins,
+//     TestRefreshSortAndSearchKeys_AKeyMadeWithTheArticleIsMadeAgainWithout.
+//
 //   - An NFO, every provider's answer and a person's override are cleaned where they enter,
 //     so every name the pass writes is clean (principles §22, D211 §2). TestPass_ANameIsStoredClean,
 //     TestMatch_AProvidersTextIsCleanWhereItEnters, TestChooser_AnOverrideIsCleanWhereItEnters.

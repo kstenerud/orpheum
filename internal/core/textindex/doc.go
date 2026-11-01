@@ -21,6 +21,8 @@
 //     the bidi marks and the joiners survive. TestClean_NothingShownCanLieOrSpill.
 //   - Sort keys follow the locale, and numbers sort as numbers (D47).
 //     TestSorter_FollowsTheLocaleAndNumbers.
+//   - A name's sort key leaves out its leading article, from a list per locale language; a name
+//     that is only an article stays whole (D402). TestSorter_FilesANameUnderItsWordsNotItsLeadingArticle.
 //   - A search goes to the index that can answer it: a folded substring under three characters, the word index
 //     for Latin, the trigram index for any other script; a person's text is never an FTS5
 //     operator (D48). TestPlanQuery_RoutesByLengthAndScript.

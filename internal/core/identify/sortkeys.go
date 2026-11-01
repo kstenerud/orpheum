@@ -66,6 +66,7 @@ type storedNameKey struct {
 	itemID           int64
 	name             string
 	searchAlternates string
+	sortTitle        string
 	listing          string
 	sortKeys         []storedSortKey
 }
@@ -83,7 +84,8 @@ func storedNameKeys(rows []sqlcgen.ListNamesWithSortAndSearchKeysRow) []storedNa
 		if len(items) == 0 || items[len(items)-1].itemID != row.ItemID {
 			items = append(items, storedNameKey{
 				itemID: row.ItemID, name: row.Name, searchAlternates: ptr.ValueOrZero(row.SearchAlternates),
-				listing: sortListingOf(row.TitleKind, row.CollectionKind),
+				sortTitle: ptr.ValueOrZero(row.SortTitle),
+				listing:   sortListingOf(row.TitleKind, row.CollectionKind),
 			})
 		}
 		if row.KeyedListing != nil {
@@ -107,6 +109,26 @@ func sortListingOf(titleKind, collectionKind *string) string {
 	return ""
 }
 
+// sortKeyOf is the key an item sorts by (D402, refining D47): its NFO's sort title as written when
+// it has one, else its name without its leading article. The name shown is never changed. Every
+// key is made here, by a scan and by a rekey alike, so the two cannot differ.
+func sortKeyOf(sorter *textindex.Sorter, name, sortTitle string) []byte {
+	if sortTitle != "" {
+		return sorter.KeyExact(sortTitle)
+	}
+	return sorter.Key(name)
+}
+
+// sortTitleFor is the sort title an item keeps: its NFO's, unless the name it is shown by is no
+// longer the NFO's (a person's override, a provider's name), which the sort title was not written
+// for (D402).
+func sortTitleFor(sortTitle, nfoName, shownName string) string {
+	if nfoName != shownName {
+		return ""
+	}
+	return sortTitle
+}
+
 // rekeyName rewrites an item's fold and sort key where they are not what its name derives now,
 // and says whether it rewrote either.
 func rekeyName(
@@ -125,7 +147,7 @@ func rekeyName(
 	if item.listing == "" {
 		return rewrote, nil
 	}
-	key := sorter.Key(item.name)
+	key := sortKeyOf(sorter, item.name, item.sortTitle)
 	if len(item.sortKeys) == 1 && item.sortKeys[0].listing == item.listing &&
 		bytes.Equal(item.sortKeys[0].collationKey, key) {
 		return rewrote, nil
@@ -148,7 +170,7 @@ func rekeyOtherFileNames(ctx context.Context, queries *sqlcgen.Queries, sorter *
 	}
 	rewritten := 0
 	for _, row := range rows {
-		key := sorter.Key(row.FileName)
+		key := sorter.KeyExact(row.FileName)
 		if bytes.Equal(key, row.FileNameKey) {
 			continue
 		}

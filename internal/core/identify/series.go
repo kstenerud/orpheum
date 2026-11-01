@@ -26,6 +26,7 @@ type seriesSpec struct {
 	ids          map[string]string
 	lockedFields []string
 	hasNFO       bool
+	sortTitle    string // its tvshow.nfo's sort title, which names how it sorts (D402)
 }
 
 // fromNFO takes a tvshow.nfo as the series' own source (D183).
@@ -33,6 +34,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 	if nfo.Title != "" {
 		spec.name = nfo.Title
 	}
+	spec.sortTitle = nfo.SortTitle
 	if nfo.Year > 0 {
 		spec.year = nfo.Year
 	}
@@ -316,6 +318,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	}
 	err = filer.writeText(ctx, seriesID, itemText{
 		sortListing: KindSeries, name: values[fieldName], overview: values[fieldOverview],
+		sortTitle: sortTitleFor(spec.sortTitle, spec.name, values[fieldName]),
 	})
 	if err != nil {
 		return err

@@ -32,11 +32,7 @@ func beginsByWords(name, prefix string) bool {
 // "The Show" is TMDB's "Show" (the owner's staging, 2026-10-21). English only:
 // the provider is searched in English.
 func isArticle(word string) bool {
-	switch textindex.SameWork(word) {
-	case "the", "a", "an":
-		return true
-	}
-	return false
+	return textindex.IsArticle("en", word)
 }
 
 // withoutArticle is a name's words less a leading article, when a word follows it: "The" alone, or

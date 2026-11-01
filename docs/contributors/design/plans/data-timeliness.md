@@ -455,7 +455,7 @@ they arrive.
   the alphabet.
 - **The index belongs to the view.** A filter or a search changes it (B8).
 - **The locale is the viewer's**, and the letters index the title as shown to them, the localized
-  one. Leading articles are skipped ("The", "Der", "Les"), as Plex and Jellyfin do.
+  one. Leading articles are skipped ("The", "Der", "Les"), as Plex and Jellyfin do (D402).
 - **The bar shows only when the view is sorted by title.**
 - **On touch and on the web, letters with no film are dimmed**, not removed, so the strip keeps its
   layout under a finger. On a TV they are hidden, which saves presses.
