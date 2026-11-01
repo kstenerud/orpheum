@@ -1065,6 +1065,12 @@ refused.
 - **The console calls every line sent to the core's log "a request failed"** (VQ198's run,
   2026-11-01: "Orpheum: a request failed the page froze 2.0 s"): reportFailure's console prefix fits
   failures alone; a freeze report wants its own words.
+- **Connect's side of D398** (from the 11-02 batch's item 5, 00393430): at connect's next Orpheum pin,
+  `deadEnd` in `internal/clients/offers.go` must pass `asked.PathsRequest` (it does not compile
+  otherwise) and log the reason with the source's family taken from CF-Connecting-IP, never the
+  address. VQ235 passes on a connect discovery only after that. For the owner: whether connect also
+  stores the reason (a migration), whether the System page's count shows causes, and an IPv6-only
+  probe name so the page can tell "no IPv6" from "IPv6 got no answer" on more networks.
 - **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
 
