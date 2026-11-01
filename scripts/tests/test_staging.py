@@ -196,3 +196,64 @@ class WhereReached(unittest.TestCase):
                                      "172.17.0.2")
         self.assertIn("https://media.example.org", said)
         self.assertIn("http://127.0.0.1:18440", said)
+
+
+class Remote(unittest.TestCase):
+    # Staging moved to the staging host so the gate has the sandbox's processors (the owner, 2026-11-01:
+    # "Yes teach to deploy to stagehost"); .staging/remote.toml names it.
+    stagehost = staging.Target(Path("/home/orpheum/orpheum-staging"), "orpheum@192.168.1.16", "~/.ssh/stagehost")
+
+    def test_no_remote_file_is_this_machine_and_one_names_the_host_its_key_and_its_directory(self):
+        self.assertEqual(staging.load_target(None), staging.LOCAL)
+        self.assertEqual(staging.load_target('host = "orpheum@192.168.1.16"\nidentity = "~/.ssh/stagehost"\n'
+                                             'directory = "/home/orpheum/orpheum-staging"\n'), self.stagehost)
+
+    def test_a_remote_without_a_host_or_an_absolute_directory_is_refused(self):
+        for text in ('directory = "/srv/staging"\n', 'host = "h"\ndirectory = "~/staging"\n'):
+            with self.assertRaises(SystemExit):
+                staging.load_target(text)
+
+    def test_a_command_runs_there_as_one_ssh_line_that_never_asks_for_a_password(self):
+        ssh = self.stagehost.command(["test", "-d", "/tank/media/my films"])
+        self.assertEqual(ssh[:3], ["ssh", "-o", "BatchMode=yes"])
+        self.assertEqual(ssh[ssh.index("-i") + 1], str(Path("~/.ssh/stagehost").expanduser()))
+        self.assertEqual(ssh[-2], "orpheum@192.168.1.16")
+        self.assertEqual(ssh[-1], "test -d '/tank/media/my films'")
+        self.assertEqual(staging.LOCAL.command(["docker", "ps"]), ["docker", "ps"])
+
+    def test_compose_and_write_deployment_name_the_remote_directory(self):
+        self.assertIn("--project-directory /home/orpheum/orpheum-staging ps", self.stagehost.compose("ps")[-1])
+        command = staging.write_deployment_command("sha256:x", 1001, 1001, "stagehost", True, self.stagehost.directory)
+        volumes = [command[i + 1] for i, part in enumerate(command) if part == "--volume"]
+        self.assertEqual(volumes[:2], [f"/home/orpheum/orpheum-staging:{staging.MOUNT}",
+                                       f"/home/orpheum/orpheum-staging/run:{staging.RUN_MOUNT}"])
+
+    def test_the_remote_machine_s_user_name_and_gpu_are_read_from_one_answer(self):
+        for said, gpu in (("1001 1001 stagehost gpu\n", True), ("1001 1002 stagehost\n", False)):
+            answered = subprocess.CompletedProcess([], 0, stdout=said)
+            with mock.patch.object(staging.subprocess, "run", return_value=answered) as run:
+                machine = staging.remote_machine(self.stagehost)
+            self.assertEqual(run.call_args.args[0][0], "ssh")
+            self.assertEqual((machine.uid, machine.host_name, machine.has_gpu), (1001, "stagehost", gpu))
+        self.assertEqual(machine.gid, 1002)
+
+    def test_a_media_root_missing_on_the_remote_is_named_as_the_remote_says(self):
+        text = '[media]\nroots = ["/tank/media/video/movies", "/tank/media/video/gone"]\n'
+        self.assertEqual(staging.missing_media(text, lambda root: root.endswith("movies")),
+                         ["/tank/media/video/gone"])
+
+    def test_the_image_is_piped_from_docker_save_here_into_docker_load_there(self):
+        saver = mock.Mock(stdout=mock.Mock(), **{"wait.return_value": 0})
+        with mock.patch.object(staging.subprocess, "Popen", return_value=saver) as popen, \
+                mock.patch.object(staging.subprocess, "run",
+                                  return_value=subprocess.CompletedProcess([], 0)) as run, \
+                mock.patch("sys.stdout"):
+            staging.send_image("sha256:x", self.stagehost)
+        self.assertEqual(popen.call_args.args[0], ["docker", "save", staging.IMAGE])
+        self.assertEqual(run.call_args.args[0][-1], "docker load --quiet")
+        self.assertIs(run.call_args.kwargs["stdin"], saver.stdout)
+        saver.wait.return_value = 1
+        with mock.patch.object(staging.subprocess, "Popen", return_value=saver), \
+                mock.patch.object(staging.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), \
+                mock.patch("sys.stdout"), self.assertRaises(subprocess.CalledProcessError):
+            staging.send_image("sha256:x", self.stagehost)
