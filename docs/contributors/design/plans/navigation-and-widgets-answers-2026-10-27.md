@@ -1079,7 +1079,8 @@ The owner's device checks run alongside, in the order of `/yoloai/files/testing-
    `together-viewer.tsx` already does, the two sharing one function; Apple's controls show there
    (the owner: "OK to use iOS's own player").
 2. **The LAN origin, a decision first:** the lead writes the D-proposal (the plan's "Reaching the core
-   at home" item 1); built once the owner decides.
+   at home" item 1); built once the owner decides. **Proposed (2026-11-01):**
+   [lan-origin-2026-11-01.md](lan-origin-2026-11-01.md), waiting on the owner.
 3. **WebRTC for Chromium:** that section's items 3–5.
 4. **Recovery:** the core and its discovery find each other again in either restart order; a Play
    page gives up its sockets on `pagehide` and reconnects on `pageshow`; Firefox's leftovers (a page
