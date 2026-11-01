@@ -85,23 +85,30 @@ func isUnshippedDirectory(root, path string) bool {
 		filepath.Clean(path) == filepath.Join(root, "web", "e2e")
 }
 
-// The suggestion is an issuer, and each genesis this build holds, once the owner has put it there, is
-// a chain's first statement of the right kind, signed by one of its own keys: an owner's mistake
-// fails here, not at a household's enrolment or update.
+// The suggestion is an issuer, and each genesis this build holds is a chain's first statement of the
+// right kind, signed by one of its own keys, whose identity is the one the day-one ceremony made
+// (2026-11-01, the ledger in the owner's security records): an owner's mistake fails here, not at a
+// household's enrolment or update, and a new genesis, which is a new identity, is seen in review.
 func TestSuggested_IsAnIssuerAndItsRootKeysAreKeys(t *testing.T) {
 	t.Parallel()
 	suggested := Suggested()
 	if issuer, err := addressdoc.Issuer(suggested.Issuer); err != nil || issuer != suggested.Issuer {
 		t.Errorf("the suggested issuer %q is not an issuer as typed: %q, %v", suggested.Issuer, issuer, err)
 	}
-	for kind, genesis := range map[trust.ChainKind]trust.Signed{
-		trust.ChainDiscovery: suggested.Genesis, trust.ChainPublisher: Publisher().Genesis,
+	for kind, compiled := range map[trust.ChainKind]struct {
+		genesis  trust.Signed
+		identity string
+	}{
+		trust.ChainDiscovery: {suggested.Genesis, "od1-ojqpqokixideeupioljfsqbfls3xnnvyktigmfreogljbdcng2wa"},
+		trust.ChainPublisher: {Publisher().Genesis, "op1-omdklrmb2exvylgki3r3newxmjcq2a2p46bhonezobw2zjemd23a"},
 	} {
-		if genesis.Payload == "" {
+		chain, err := trust.Genesis(kind, compiled.genesis)
+		if err != nil {
+			t.Errorf("the compiled %s genesis: %v", kind, err)
 			continue
 		}
-		if _, err := trust.Genesis(kind, genesis); err != nil {
-			t.Errorf("the compiled %s genesis: %v", kind, err)
+		if chain.ID() != compiled.identity {
+			t.Errorf("the compiled %s genesis is %s, not the ceremony's %s", kind, chain.ID(), compiled.identity)
 		}
 	}
 	for _, location := range Publisher().Locations {
