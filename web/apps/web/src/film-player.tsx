@@ -84,8 +84,9 @@ export interface FilmParts {
         readonly heardLevel: SoundLevel | undefined;
         /**
          * Plays another of the ladder's sounds, for cause, the boost turned on or off or another
-         * track chosen, as the next of its playbacks starts with: the sound loaded plays on until the
-         * other's chunk at the playhead has loaded (keepAudioRendition, @orpheum/player). Returns
+         * track chosen, as the next of its playbacks starts with: for the boost the sound loaded plays
+         * on until the other's chunk at the playhead has loaded, and another track cuts in at once
+         * (keepAudioRendition, @orpheum/player; D400). Returns
          * whether it switches in place: not where the ladder names no such sound, or its player is
          * the element's own HLS, which chooses its own tracks; the page then asks again.
          */

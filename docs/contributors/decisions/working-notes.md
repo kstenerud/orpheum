@@ -25391,3 +25391,22 @@ changes only the client's side of D318 (the server still lets an invitation have
    never for a built-in one; pressed, it asks again (D278 §4). It was a disabled button on the page
    of all roles.
 5. **Status:** Decided 2026-11-01. Device check: VQ201.
+
+## D400 — A chosen audio track cuts in at the choice, accepting a brief wait there; the boost still loads at the playhead
+
+**Decided** (2026-11-01), by the project owner, testing VQ204 in Chrome on staging: after another
+audio track was chosen, the old language played on 1 to 3 s and then the new one cut in with a gap in
+the sound. The owner accepts a gap or a wait at the moment of the choice, but not one later. It
+amends [D368](#d368--on-a-films-ladder-the-top-quality-plays-the-films-own-sound-copied-the-lower-qualities-keep-the-light-stereo-track)'s
+revision of 2026-10-28 (a sound the person chooses goes by `nextAudioTrack`, the sound loaded playing
+on) and audio-switch-and-retiming-2026-11-01.md §1.2 and §1.4 for another audio track.
+
+1. **Another audio track chosen cuts in at once.** The player switches it with hls.js's
+   `audioTrack`, which throws the sound loaded away; the picture waits at the choice for the new
+   track's chunk at the playhead, and the new language is heard from there with no seam later. A
+   group's place set while the choice is on its way goes the same way (`keepAudioRendition`,
+   `web/packages/player/src/hls.ts`).
+2. **The boost is unchanged.** Turned on or off, it still loads its chunk at the playhead while the
+   sound loaded plays on (`nextAudioTrack`): cut in at once, it froze the picture 2.2 s (staging,
+   2026-10-29). Whether its seam has the same gap is open, for the owner.
+3. **Status:** Decided 2026-11-01. Device check: VQ237.

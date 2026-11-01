@@ -1802,6 +1802,10 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   turned on at the top of a film's ladder threw the film's own 5.1 sound away and froze the video
   2.2 s while the server made the boosted mix's chunk (staging, 2026-10-29). A group's place set
   while such a choice is on its way is set by `nextAudioTrack` too, which never flushes at once.
+  Another audio track chosen is switched by `audioTrack` instead, and cuts in at the choice: by
+  `nextAudioTrack` the old language played on 1 to 3 s and the new one cut in with a gap at the
+  seam (Chrome on staging, 2026-11-01), which the owner does not accept, while a wait at the choice
+  is fine (D400); a group's place set while it is on its way is set by `audioTrack` too.
 - **Evidence:** **[staging]** the stall above; **[source]** hls.js 1.7.3,
   `src/controller/audio-track-controller.ts` (`switchLevel`, `setAudioTrack`),
   `src/controller/audio-stream-controller.ts` (`onAudioTrackSwitching`, `flushAudioIfNeeded`,

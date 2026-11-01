@@ -2012,8 +2012,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   staging, on the Mac's Chrome and on the Fire TV. A film of two or more audio tracks on its ladder
   (the tracks note says "transcoded" or names the top's own sound), playing a minute in. Choose the
   other track in the audio menu, then the first again; on the Fire TV, choose it from its cast's
-  remote as well. Passes when the picture never stops or goes black, the old language plays on for
-  about one to three seconds and the new one cuts in, the URL and the position stay as they were (no
+  remote as well. Passes when the picture never goes black, any wait comes at the choice itself
+  and the new language is heard from there with no gap or old language after it (D400, VQ237), the URL and the position stay as they were (no
   reload: the core's log has no second `POST /playback` with cause `audioChosen`), and the player's
   notes say `sound N chosen (trackChosen)` then `sound N heard (trackChosen)`. Note whether the cut
   between a copied 5.1 track and a made stereo mix, or AC-3 and AAC, is clean on each device. In a
@@ -2190,3 +2190,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   ago each choice was made (`chose 502 s ago ceiling 0 to 1`); the 2026-11-01 report's step up was
   made 501 s before its seek and its flush was that trim, so neither caused the wait, whose cause is
   still unknown. (`web/packages/player/src/diagnosis.ts`)
+- [ ] **VQ237** — another audio track chosen cuts in at the choice, with no gap after it, on staging,
+  on the Mac's Chrome (the owner, 2026-11-01: the old language played on 1 to 3 s, then the new one
+  cut in with a gap). A film of two or more audio tracks on its ladder, playing a minute in. Choose
+  the other track in the audio menu, then the first again, then turn the dialogue boost on and off.
+  Passes when each track choice stops the old language at once, the picture waits there for at most
+  about the 1 to 3 s the old language used to play, and the new language plays on from there with no
+  gap or stop later; the notes say `sound N chosen (trackChosen), cut in at the playhead over sound
+  M` then `sound N heard (trackChosen)`. Note whether the boost's switch, which still plays the sound
+  loaded on until the boosted mix arrives (D400 §2), has a gap at its seam too: that is the owner's
+  next call. (`web/packages/player/src/hls.ts`)
