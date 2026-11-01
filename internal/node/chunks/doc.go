@@ -73,6 +73,11 @@
 //     super-block a seek lands in (idiosyncrasies.md). Enforced by
 //     TestArguments_AnInterleavedSoundSeeksTenSecondsEarlyAndNeverToTheStart and, with the pinned
 //     FFmpeg, TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun.
+//   - No run seeks to the film's start; one reading from it reads unsought: FFmpeg moves a seek into a
+//     film with B-frames 3/23 s earlier, before the start, and an AVI seeking there loses its first
+//     keyframe and the sound interleaved ahead of its picture, which put a sound half a second early
+//     (idiosyncrasies.md). Enforced by TestArguments_NoRunSeeksToTheFilmsStart and, with the pinned
+//     FFmpeg, TestMake_AnAVIsSoundInterleavedAheadOfItsPictureIsAtItsTimesFromTheFilmsStart.
 //   - A run of a picture marked to be re-timed, its B-frames carrying no display times, rebuilds them
 //     with FFmpeg's dts2pts, a copy on its output and an encode on its picture's input, moved back so
 //     its first keyframe is shown at its bound, and reads a second past its end, an encode keyframed

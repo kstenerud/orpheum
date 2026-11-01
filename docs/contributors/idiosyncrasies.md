@@ -134,6 +134,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
 | An MPEG-TS film's copied picture failed its first chunk, "no init or no fragments", or a run's raw file held the chunk after its own. | [An input seek into MPEG-TS lands on a frame, not a keyframe](#an-input-seek-into-mpeg-ts-lands-on-a-frame-not-a-keyframe) |
 | A RealMedia film's sound run failed, its raw file holding less than its chunk, or its sound came early. | [A seek into RealMedia loses the interleaved sound's super-block it lands in](#a-seek-into-realmedia-loses-the-interleaved-sounds-super-block-it-lands-in) |
+| An AVI's sound played half a second ahead of its picture for its first five minutes, then in step. | [An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second](#an-input-seek-to-the-start-of-an-avi-with-b-frames-lands-past-its-first-keyframe-and-its-sounds-first-half-second) |
 | A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | A film's own sound copied failed its chunk 0, "raw 00000.mp4 holds 0 to 12267 ms of the run, not its chunk's 10176 to 12262 ms", and the film could not play. | [An MP4 whose first keyframe is before its start, discarded, has its grid start at the next, and a sound copied sought there reads from the film's start](#an-mp4-whose-first-keyframe-is-before-its-start-discarded-has-its-grid-start-at-the-next-and-a-sound-copied-sought-there-reads-from-the-films-start) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
@@ -2231,6 +2232,35 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   **[source]** `libavformat/rmdec.c`, `rm_read_seek`, `ff_rm_parse_packet`. **[web]** an audio
   player built on FFmpeg met cook seeking alike and decodes from before the time, counting samples
   ([FFmpegAudioKit#2](https://github.com/enefry/FFmpegAudioKit/pull/2), 2026-10-27).
+
+### An input seek to the start of an AVI with B-frames lands past its first keyframe and its sound's first half second
+
+- **Symptom:** *Quillwick II*, "Money" (XviD with B-frames, MP3 at 48 kHz, AVI) played its sound
+  out of sync, on staging and production (the owner, 2026-11-01): measured, half a second ahead of
+  its picture for its first run of chunks, up to five minutes, and in step after. Its first sound
+  run had 9.5 s of sound for its 10 s.
+- **Cause:** `fftools/ffmpeg_demux.c` moves an input `-ss` 3/23 s (131 ms) earlier when a stream has
+  B-frame delay and the format lacks `AVFMT_SEEK_TO_PTS` (see the Matroska entry above), so `-ss 0`
+  seeks to −0.13 s. The AVI demuxer, seeking before its first keyframe, lands at the second: the
+  copied picture began at its keyframe of 1.32 s, decoding gave 11 grey frames, and the sound,
+  interleaved half a second ahead of the picture as VirtualDub wrote it, began at its 21st MP3
+  frame (0.504 s). A sound run from the film's start trims to its start and times by samples
+  (`asetpts=PTS-STARTPTS`), so it moved what was left to 0: 0.504 s early, for the whole run (up to
+  `ChunkRunSpanSeconds`, 300 s). Seeks of 0.13 s and later land correctly; ffprobe's
+  `-read_intervals` does not show it.
+- **What we do:** no run seeks to the film's start; one starting there reads it without `-ss`
+  (`isSeeking` in `internal/node/chunks/arguments.go`), as an interleaved RealMedia sound already
+  did.
+- **Evidence:** **[measured]** pinned FFmpeg 8.1.3 (fdproxy) on the episode (read in the sandbox,
+  never committed): `-ss 0 -c copy` gave audio from packet 21 and video from dts 33; `-ss 0.13`,
+  `0.2` and `1.0` gave packet 0. Through the node's Maker, the first run's sound cross-correlated
+  with the film's at +0.504 s (0.999) at 10 s and 15 s; runs at 600 s and 1500 s at −0.008 s; with
+  the fix, +0.000 s and 469 AAC frames. A twelve-second AVI the test writes, MPEG-4 with `-bf 2` and
+  MP3 interleaved half a second ahead, loses the same 21 frames:
+  `TestMake_AnAVIsSoundInterleavedAheadOfItsPictureIsAtItsTimesFromTheFilmsStart` (integration
+  tier) puts its tone at 2.519 s against the film's 3.023 s without the fix. **[web]** no report of
+  `-ss 0` itself found (2026-11-01); [trac #10602](https://trac.ffmpeg.org/ticket/10602) is an AVI
+  whose input seek skips the first packet, its palette, and blacks its picture.
 
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
